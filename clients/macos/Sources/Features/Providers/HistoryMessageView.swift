@@ -67,7 +67,7 @@ struct HistoryMessageView: View {
                 Text(isLarge ? String(entry.content.prefix(4000)) : entry.content)
                     .appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
                     .padding(10).frame(maxWidth: .infinity, alignment: .leading).well(Radius.md)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(AnyTransition.unfold)
             }
         }
         .padding(.leading, 34)

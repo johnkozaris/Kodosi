@@ -30,10 +30,9 @@ AbstractButton {
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
-    SequentialAnimation {
+    Squash {
         id: squash
-        NumberAnimation { target: glyphSlot; property: "scale"; to: 0.78; duration: 80; easing.type: Easing.OutQuad }
-        NumberAnimation { target: glyphSlot; property: "scale"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
+        shape: glyphShape
     }
 
     background: Bezel {
@@ -57,6 +56,7 @@ AbstractButton {
                 anchors.verticalCenter: parent.verticalCenter
                 width: childrenRect.width
                 height: childrenRect.height
+                transform: Scale { id: glyphShape; origin.x: glyphSlot.width / 2; origin.y: glyphSlot.height / 2 }
             }
             ShimmerText {
                 anchors.verticalCenter: parent.verticalCenter

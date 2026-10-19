@@ -86,7 +86,7 @@ struct EffortMeter: View {
                 }
                 .contentShape(Capsule())
         }
-        .buttonStyle(PressScaleStyle(scale: 0.92))
+        .buttonStyle(PressScaleStyle())
         .onHover { inside in
             if inside {
                 hovered = effort ?? LauncherMenu.standard

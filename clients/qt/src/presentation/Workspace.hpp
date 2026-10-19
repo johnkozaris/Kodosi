@@ -3,6 +3,7 @@
 #include "app/DeepLinkRouter.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/DevicesModel.hpp"
+#include "presentation/DosiModel.hpp"
 #include "presentation/MissionsModel.hpp"
 #include "presentation/PeopleModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
@@ -33,6 +34,7 @@ public:
     PeopleModel& people() { return m_people; }
     DevicesModel& devices() { return m_devices; }
     MissionsModel& missions() { return m_missions; }
+    DosiModel& dosi() { return m_dosi; }
     SessionActionsModel& sessionActions() { return m_sessionActions; }
 
     Q_INVOKABLE void clearError();
@@ -49,6 +51,7 @@ signals:
 private:
     friend class AccountModel;
     friend class DevicesModel;
+    friend class DosiModel;
     friend class MissionsModel;
     friend class PeopleModel;
     friend class SessionActionsModel;
@@ -74,7 +77,9 @@ private:
     DevicesModel m_devices;
     MissionsModel m_missions;
     SessionActionsModel m_sessionActions;
+    DosiModel m_dosi;
 
+    QString sendRequest(QString type, QJsonObject values = {});
     bool sendUntracked(QString type, QJsonObject values = {});
     bool sendTracked(PendingDomain domain, QString type, QJsonObject values = {},
         QString sessionId = {}, QString missionId = {});

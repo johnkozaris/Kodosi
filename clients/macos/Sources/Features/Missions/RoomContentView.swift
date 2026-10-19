@@ -28,7 +28,10 @@ struct RoomContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .id(state.canvas)
-        .transition(.opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)))
+        .transition(.asymmetric(
+            insertion: state.canvas == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
+            removal: .identity
+        ))
     }
 }
 
@@ -70,6 +73,7 @@ private struct RoomTerminals: View {
                     .environment(\.terminalStageVisible, deps.workbench.section == .missions)
                     .environment(\.terminalInteractionEnabled, interactive)
                     .id(current.id)
+                    .transition(.identity)
                     .terminalScope()
                     .padding([.horizontal, .bottom], 6)
             } else if sessions.isEmpty {

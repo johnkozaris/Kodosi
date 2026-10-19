@@ -92,7 +92,7 @@ struct RoomComposer: View {
                             if canSend {
                                 BezelBackground(shape: Circle(), fill: theme.colors.accent)
                             } else {
-                                Circle().fill(theme.colors.ink.opacity(0.08))
+                                Circle().fill(theme.colors.lifted.mix(with: theme.colors.ink, by: 0.08))
                             }
                         }
                         .overlay {
@@ -101,7 +101,7 @@ struct RoomComposer: View {
                             }
                         }
                 }
-                .buttonStyle(PressScaleStyle(scale: 0.9)).disabled(!canSend)
+                .buttonStyle(PressScaleStyle()).disabled(!canSend)
                 .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send")
             }
             .padding(5)
@@ -111,9 +111,9 @@ struct RoomComposer: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(theme.colors.accent.opacity(focused ? 0.5 : 0), lineWidth: 1.5)
+                    .strokeBorder(theme.colors.accent.mix(with: theme.colors.lifted, by: 0.5), lineWidth: 1.5)
+                    .opacity(focused ? 1 : 0)
             }
-            .shadow(color: theme.colors.accent.opacity(focused ? 0.16 : 0), radius: 10)
         }
         .padding(.horizontal, 10).padding(.bottom, 10).padding(.top, 4)
         .animation(theme.motion.snappy, value: suggestions)

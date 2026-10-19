@@ -120,7 +120,7 @@ struct RoomTasksView: View {
                     }
                 }
                 .padding(.horizontal, 14).padding(.bottom, 12)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(AnyTransition.unfold)
             }
         }
         .raised(Radius.xl, fill: theme.colors.raised, elevation: adding ? .lifted : .resting)
@@ -179,7 +179,7 @@ private struct RoomTaskCard: View {
                         .foregroundStyle(task.closed ? theme.colors.ready : hovered ? theme.colors.accent : theme.colors.inkFaint)
                         .contentTransition(.symbolEffect(.replace))
                 }
-                .buttonStyle(PressScaleStyle(scale: 0.85)).disabled(state.busy)
+                .buttonStyle(PressScaleStyle()).disabled(state.busy)
                 .help(task.closed ? "Reopen" : "Complete")
                 .accessibilityLabel(task.closed ? Text("Reopen \(task.title)") : Text("Complete \(task.title)"))
                 .accessibilityIdentifier("room.task.\(AccessibilityIdentifier.token(task.id)).complete")
@@ -201,7 +201,7 @@ private struct RoomTaskCard: View {
             .padding(.horizontal, 14).padding(.vertical, 12)
             if expanded {
                 detail.padding(.leading, 45).padding(.trailing, 14).padding(.bottom, 14)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(AnyTransition.unfold)
             }
         }
         .wash(trigger: task.version)

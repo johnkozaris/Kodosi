@@ -5,6 +5,7 @@ import SwiftUI
 struct SidebarRail: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
+    @Environment(\.sidebarFrames) private var frames
     let selection: SidebarSelection
     let pill: Namespace.ID
 
@@ -20,7 +21,8 @@ struct SidebarRail: View {
                     .background { BezelBackground(shape: Circle(), fill: theme.colors.accent) }
             }
             .buttonStyle(PressScaleStyle())
-            .help("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
+            .fold(FoldPart.newTerminal)
+            .tip("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
             ScrollView {
                 VStack(spacing: 6) {
                     ForEach(deps.missions) { mission in
@@ -30,16 +32,19 @@ struct SidebarRail: View {
                             deps.workbench.section = .missions; deps.openMission(mission)
                         } content: {
                             RoomSigil(key: mission.id, size: 26)
+                                .fold(.room(mission.id), at: .rail)
                                 .overlay(alignment: .topTrailing) {
                                     if mission.unread {
                                         Circle().fill(theme.colors.accent).frame(width: 8, height: 8)
                                             .overlay { Circle().stroke(theme.colors.ground, lineWidth: 1.5) }.offset(x: 3, y: -3)
+                                            .transition(AnyTransition.pop)
                                     }
                                 }
+                                .animation(theme.motion.snappy, value: mission.unread)
                         }
                     }
                     if !deps.missions.isEmpty, !deps.sessions.isEmpty {
-                        Capsule().fill(theme.colors.hairline.opacity(0.7)).frame(width: 18, height: 1).padding(.vertical, 4)
+                        Capsule().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.3)).frame(width: 18, height: 1).padding(.vertical, 4)
                     }
                     ForEach(deps.sessions) { session in
                         railItem(selected: selection == .terminal(session.id), help: session.name,
@@ -48,30 +53,32 @@ struct SidebarRail: View {
                             deps.activateSession(session.id)
                         } content: {
                             AgentMark(session: session, size: 26, activity: deps.activity(of: session))
+                                .fold(.terminal(session.id), at: .rail)
                                 .overlay(alignment: .topTrailing) {
                                     if let sign = deps.sign(of: session) {
                                         StatusSign(form: sign, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
                                             .transition(AnyTransition.pop)
                                     }
                                 }
+                                .animation(theme.motion.snappy, value: deps.sign(of: session))
                         }
                     }
                 }
                 .padding(.vertical, 6)
             }
             .scrollIndicators(.never)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(FoldFrames.space)) } action: { frames?.views[.rail] = $0 }
+            if deps.workbench.dosiOn {
+                RailDosiIsland()
+            }
             VStack(spacing: 6) {
-                IconButton(title: "People", symbol: "person.2", identifier: "header.people", size: 32, active: selection == .people) {
-                    deps.workbench.section = .people
-                }
                 IconButton(title: "Resume", symbol: "clock.arrow.circlepath", identifier: "sidebar.resume", size: 32) {
                     deps.workbench.showsHistory = true
                 }
-                IconButton(title: "Settings", symbol: "gearshape", identifier: "header.settings", size: 32, active: selection == .settings) {
-                    deps.workbench.section = .settings
-                }
+                SidebarMenu(selected: selection == .people || selection == .settings, size: 34, alignment: .leading)
             }
             .padding(.bottom, 12)
+            .arrive(delay: 0.25, rise: 0)
         }
         .frame(maxWidth: .infinity)
     }
@@ -90,7 +97,7 @@ struct SidebarRail: View {
                 .hoverRow(radius: Radius.lg, selected: selected)
         }
         .buttonStyle(PressScaleStyle())
-        .help(help).accessibilityLabel(help).accessibilityIdentifier(identifier)
+        .tip(verbatim: help).accessibilityLabel(help).accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

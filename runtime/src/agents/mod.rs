@@ -208,6 +208,43 @@ pub async fn executable(shell: &Path, program: &str) -> Option<std::path::PathBu
 }
 
 #[cfg(feature = "host")]
+pub(crate) struct Runner {
+    pub program: std::path::PathBuf,
+    pub path: Option<std::ffi::OsString>,
+    pub variables: Vec<(String, String)>,
+}
+
+#[cfg(feature = "host")]
+pub(crate) async fn runner(
+    shell: &Path,
+    home: &Path,
+    agent: Agent,
+    account: &AgentAccount,
+) -> Option<Runner> {
+    let facts = shell::facts(shell, false).await;
+    let program = facts.executable(agent.program())?;
+    let variables = match (agent.home(), account.folder.as_deref()) {
+        (Some((_, variable)), Some(folder)) if account.command.starts_with("env ") => {
+            let folder = folder.strip_prefix('~').map_or_else(
+                || folder.into(),
+                |rest| home.join(rest.trim_start_matches(['/', '\\'])),
+            );
+            vec![(variable.to_owned(), folder.to_string_lossy().into_owned())]
+        }
+        (Some((_, variable)), _) => facts
+            .variable(variable)
+            .map(|value| vec![(variable.to_owned(), value.to_owned())])
+            .unwrap_or_default(),
+        (None, _) => Vec::new(),
+    };
+    Some(Runner {
+        program,
+        path: facts.path,
+        variables,
+    })
+}
+
+#[cfg(feature = "host")]
 async fn add_account(
     home: &Path,
     agent: Agent,

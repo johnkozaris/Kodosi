@@ -13,6 +13,7 @@ struct SettingsView: View {
                     SegmentedPill(selection: $workbench.settingsSection, options: [
                         SegmentOption(value: .terminal, title: String(localized: "Terminal"), symbol: "apple.terminal"),
                         SegmentOption(value: .providers, title: String(localized: "Agents"), symbol: "sparkles"),
+                        SegmentOption(value: .dosi, title: String(localized: "Dosi"), symbol: "eyes"),
                         SegmentOption(value: .devices, title: String(localized: "Account"), symbol: "person.crop.circle"),
                         SegmentOption(value: .general, title: String(localized: "General"), symbol: "gearshape"),
                     ], identifier: "settings")
@@ -20,13 +21,14 @@ struct SettingsView: View {
                 Group {
                     switch workbench.settingsSection {
                     case .providers: ProviderSettingsView()
+                    case .dosi: DosiSettingsView()
                     case .devices: DeviceSettingsView()
                     case .terminal: TerminalSettingsView()
                     case .general: GeneralSettingsView()
                     }
                 }
                 .id(workbench.settingsSection)
-                .transition(.opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)))
+                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)), removal: .identity))
             }
             .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 90)
             .frame(maxWidth: 760, alignment: .leading).frame(maxWidth: .infinity)

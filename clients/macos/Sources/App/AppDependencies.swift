@@ -16,6 +16,7 @@ final class AppDependencies {
     let launcher: LauncherState
     let account: AccountStore
     let people: PeopleStore
+    let dosi: DosiStore
     var sessions: [RuntimeSession] = []
     var inviteRequested: Date?
     var inviteCopies = 0
@@ -31,6 +32,8 @@ final class AppDependencies {
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []
+    var dosiTouches: [String: DosiTouch] = [:]
+    var dosiTouched: Set<String> = []
     var signInPresented = false
     var openExternalURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     var bringToFront: () -> Void = { NSApp.activate() }
@@ -73,6 +76,7 @@ final class AppDependencies {
         commandSink = commands
         account = AccountStore(commands: commands, browser: "system")
         people = PeopleStore(commands: commands)
+        dosi = DosiStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox

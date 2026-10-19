@@ -23,21 +23,23 @@ public struct SessionActivityText: View {
 
     public var body: some View {
         HStack(spacing: 5) {
-            if let place {
-                SessionPlace(place: place).id(place.name).transition(.blurReplace)
-            } else if let words {
+            if place != nil || words != nil {
                 ZStack(alignment: .leading) {
-                    Text(words).lineLimit(1)
-                        .id(words).transition(.blurReplace)
+                    if let place {
+                        SessionPlace(place: place).id(place.name).transition(AnyTransition.roll)
+                    } else if let words {
+                        Text(words).lineLimit(1).id(words).transition(AnyTransition.roll)
+                    }
                 }
+                .clipped()
             }
             if let progress = session.progress {
                 Text(Double(progress) / 100, format: .percent).monospacedDigit().lineLimit(1)
                     .contentTransition(.numericText(value: Double(progress))).layoutPriority(1)
             }
         }
-        .animation(theme.motion.soft, value: words)
-        .animation(theme.motion.soft, value: place?.name)
+        .animation(theme.motion.snappy, value: words)
+        .animation(theme.motion.snappy, value: place?.name)
         .animation(theme.motion.snappy, value: session.progress)
     }
 }

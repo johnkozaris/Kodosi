@@ -122,7 +122,7 @@ struct SessionSharingPopover: View {
         }
         if room == nil, current.missionId == nil {
             VStack(alignment: .leading, spacing: 8) {
-                Text("People").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                Text("Friends").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 if deps.people.friends.isEmpty {
                     Button { dismiss(); deps.workbench.section = .people } label: { Label("Add a friend", systemImage: "person.badge.plus") }
                         .buttonStyle(.kodosi(.tinted))
@@ -171,7 +171,7 @@ struct SessionSharingPopover: View {
             .frame(width: 60).padding(.top, 4).opacity(blocked ? 0.45 : 1)
         }
         .buttonStyle(PressScaleStyle()).disabled(saving || blocked)
-        .help(blocked ? String(localized: "Their identity changed. Trust them in People first.") : name)
+        .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : name)
         .accessibilityLabel(name).accessibilityAddTraits(selected ? .isSelected : [])
     }
 

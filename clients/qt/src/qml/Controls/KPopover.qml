@@ -37,10 +37,10 @@ Popup {
         elevation: root.elevation
     }
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
         NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
     }
     exit: Transition {
-        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: KodosiTheme.motionHover }
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
 }

@@ -10,6 +10,7 @@ Item {
     id: root
 
     readonly property bool collapsed: !Models.DesktopState.sidebarOpen
+    readonly property bool dosi: Models.DesktopState.dosiOpen && !collapsed
     readonly property var groups: Models.Sessions.folderGroups
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
@@ -44,6 +45,9 @@ Item {
     signal resumeRequested
     signal paletteRequested
     signal newRoomRequested
+    signal dosiSettingsRequested
+    signal accountSettingsRequested
+    signal aboutRequested
 
     function signIn() {
         Models.DesktopState.activeView = Models.DesktopState.Settings
@@ -84,8 +88,9 @@ Item {
     Accessible.id: objectName
     Accessible.name: qsTr("Rooms and terminals")
     Accessible.role: Accessible.Pane
-    implicitWidth: collapsed ? KodosiTheme.railWidth : KodosiTheme.sidebarWidth
+    implicitWidth: Models.DesktopState.sidebarWidth
 
+    Component.onCompleted: Fold.stage = root
     onPillTargetChanged: Qt.callLater(syncPill)
     onGroupsChanged: Qt.callLater(syncPill)
     onRoomsChanged: Qt.callLater(syncPill)
@@ -138,65 +143,8 @@ Item {
             Accessible.name: header.addName
             ToolTip.visible: hovered
             ToolTip.text: header.addName
-            ToolTip.delay: 600
+            ToolTip.delay: Tip.delay
             onClicked: header.addClicked()
-        }
-    }
-
-    component NavRow: AbstractButton {
-        id: nav
-
-        property string title: ""
-        property string iconName: ""
-        property int badge: 0
-        property bool selected: false
-
-        width: parent ? parent.width : 0
-        height: 34
-        hoverEnabled: true
-        activeFocusOnTab: true
-        Accessible.name: title
-        Accessible.id: objectName
-        Accessible.selected: selected
-
-        contentItem: RowLayout {
-            spacing: 9
-
-            Item {
-                Layout.preferredWidth: 22
-                Layout.preferredHeight: 22
-                Layout.leftMargin: 8
-                KIcon {
-                    anchors.centerIn: parent
-                    width: 15
-                    height: 15
-                    name: nav.iconName
-                    color: nav.selected ? KodosiTheme.accentStrong : nav.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                }
-            }
-            PlainLabel {
-                Layout.fillWidth: true
-                text: nav.title
-                color: nav.selected || nav.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                font.weight: nav.selected ? Font.DemiBold : Font.Medium
-                elide: Text.ElideRight
-            }
-            CountBadge {
-                Layout.rightMargin: 10
-                count: nav.badge
-            }
-        }
-        background: Item {
-            Raised {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusMd
-                visible: nav.selected
-            }
-            Rectangle {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusMd
-                color: KodosiTheme.alpha(KodosiTheme.ink, !nav.selected && (nav.hovered || nav.visualFocus) ? 0.06 : 0)
-            }
         }
     }
 
@@ -209,11 +157,11 @@ Item {
         width: 40
         height: 40
         hoverEnabled: true
-        scale: pressed ? 0.94 : 1
+        scale: pressed ? 0.95 : 1
         Accessible.selected: selected
         ToolTip.visible: hovered
         ToolTip.text: Accessible.name
-        ToolTip.delay: 600
+        ToolTip.delay: Tip.delay
 
         background: Item {
             Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; visible: item.selected }
@@ -250,25 +198,36 @@ Item {
                 width: 34
                 height: 34
                 hoverEnabled: true
-                scale: pressed ? 0.94 : 1
+                scale: pressed ? 0.95 : 1
                 objectName: "rail.newTerminal"
                 Accessible.id: objectName
                 Accessible.name: qsTr("New terminal")
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
-                ToolTip.delay: 600
+                ToolTip.delay: Tip.delay
                 background: Bezel {
                     radius: 17
                     fill: railNew.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
                     pressed: railNew.pressed
+                    opacity: railNewSpot.hidden ? 0 : 1
+
+                    FoldSpot {
+                        id: railNewSpot
+                        anchors.fill: parent
+                        key: "new"
+                        place: "rail"
+                        fill: KodosiTheme.accent
+                        radius: 17
+                    }
                 }
                 contentItem: Item {
-                    KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
+                    KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6; opacity: railNewSpot.hidden ? 0 : 1 }
                 }
                 onClicked: root.newTerminalRequested("")
             }
         }
         Flickable {
+            id: railFlick
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentHeight: railColumn.implicitHeight + 12
@@ -298,6 +257,16 @@ Item {
                                 anchors.centerIn: parent
                                 key: railRoom.entry.id || ""
                                 size: 26
+                                opacity: railRoomSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: railRoomSpot
+                                    anchors.fill: parent
+                                    key: "room:" + (railRoom.entry.id || "")
+                                    place: "rail"
+                                    sigil: railRoom.entry.id || ""
+                                    view: railFlick
+                                }
                             }
                             NewDot {
                                 x: railSigil.x + railSigil.width - width / 2 - 1
@@ -336,6 +305,17 @@ Item {
                                 size: 26
                                 asleep: !mark.connected || Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
                                 session: mark.session
+                                opacity: railMarkSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: railMarkSpot
+                                    anchors.fill: parent
+                                    key: "terminal:" + (mark.session.id || "")
+                                    place: "rail"
+                                    session: mark.session
+                                    asleep: !mark.connected || Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
+                                    view: railFlick
+                                }
                             }
                             StatusSign {
                                 anchors.right: parent.right
@@ -351,30 +331,33 @@ Item {
                 }
             }
         }
+        DosiIsland {
+            Layout.alignment: Qt.AlignHCenter
+            visible: Models.DesktopState.dosiOn
+        }
         Column {
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 12
             spacing: 6
+            opacity: railFoot.progress
+            transform: Arrive { id: railFoot; delay: 250; rise: 0 }
+            onVisibleChanged: {
+                if (visible)
+                    railFoot.play()
+            }
 
             KIconButton {
-                glyph: "people"
-                size: 32
-                active: root.selection === "people"
-                Accessible.name: qsTr("People")
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.People
-            }
-            KIconButton {
+                anchors.horizontalCenter: parent.horizontalCenter
                 glyph: "history"
                 size: 32
                 Accessible.name: qsTr("Resume")
                 onClicked: root.resumeRequested()
             }
-            KIconButton {
-                glyph: "settings"
-                size: 32
-                active: root.selection === "settings"
-                Accessible.name: qsTr("Settings")
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
+            SidebarMenu {
+                anchors.horizontalCenter: parent.horizontalCenter
+                opensRight: true
+                selected: root.selection === "people" || root.selection === "settings"
+                onAboutRequested: root.aboutRequested()
             }
         }
     }
@@ -387,15 +370,58 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: root.titleBar ? KodosiTheme.titleBarHeight : -1
-            Layout.leftMargin: 16
+            Layout.leftMargin: root.dosi ? 10 : 16
             Layout.rightMargin: 8
             Layout.topMargin: root.titleBar ? 3 : 14
             spacing: 2
 
+            AbstractButton {
+                id: back
+
+                Layout.preferredWidth: 26
+                Layout.preferredHeight: 26
+                Layout.rightMargin: 6
+                visible: root.dosi
+                hoverEnabled: true
+                activeFocusOnTab: true
+                scale: pressed ? 0.95 : 1
+                objectName: "dosi.close"
+                Accessible.id: objectName
+                Accessible.name: qsTr("Back to terminals and rooms")
+                ToolTip.visible: hovered
+                ToolTip.text: Accessible.name
+                ToolTip.delay: Tip.delay
+                onClicked: Models.DesktopState.dosiOpen = false
+
+                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
+                background: Bezel {
+                    radius: KodosiTheme.radiusSm
+                    quiet: true
+                    pressed: back.pressed
+                    fill: KodosiTheme.buttonFace(back.hovered)
+                }
+                contentItem: Item {
+                    KIcon {
+                        anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: -0.5
+                        width: 13
+                        height: 13
+                        name: "chevron-left"
+                        color: back.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                        strokeWidth: 2.4
+                    }
+                }
+
+                KFocusIndicator { active: back.visualFocus }
+            }
             Wordmark {
                 size: 16
             }
             Item { Layout.fillWidth: true }
+            DosiNewChat {
+                visible: root.dosi && !Models.Dosi.empty
+            }
             KIconButton {
                 glyph: "search"
                 objectName: "sidebar.palette"
@@ -403,7 +429,7 @@ Item {
                 Accessible.name: qsTr("Go to…")
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Go to… (Ctrl+Shift+K)")
-                ToolTip.delay: 600
+                ToolTip.delay: Tip.delay
                 onClicked: root.paletteRequested()
             }
             KIconButton {
@@ -421,11 +447,22 @@ Item {
             Layout.topMargin: root.titleBar ? 10 : 14
             Layout.bottomMargin: 10
             implicitHeight: 34
+            visible: !root.dosi
 
             Bezel {
                 anchors.fill: parent
                 fill: newTerminal.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
                 pressed: newTerminal.pressed
+                opacity: newSpot.hidden ? 0 : 1
+
+                FoldSpot {
+                    id: newSpot
+                    anchors.fill: parent
+                    key: "new"
+                    place: "row"
+                    fill: KodosiTheme.accent
+                    radius: KodosiTheme.radiusMd
+                }
             }
             AbstractButton {
                 id: newTerminal
@@ -438,12 +475,21 @@ Item {
                 scale: pressed ? 0.98 : 1
                 contentItem: RowLayout {
                     spacing: 8
+                    opacity: newSpot.hidden ? 0 : 1
                     KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
                     PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
                     PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
                 onClicked: root.newTerminalRequested("")
             }
+        }
+        DosiPanel {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.dosi
+            onNewTerminalRequested: root.newTerminalRequested("")
+            onNewRoomRequested: root.accountReady ? root.newRoomRequested() : root.signIn()
+            onSettingsRequested: root.dosiSettingsRequested()
         }
         Flickable {
             id: flick
@@ -453,13 +499,20 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: KScrollBar {}
+            visible: !root.dosi
+            opacity: listArrive.progress
+            transform: Arrive { id: listArrive; delay: 220; rise: 0 }
+            onVisibleChanged: {
+                if (visible)
+                    listArrive.play()
+            }
 
             Raised {
                 id: pill
                 visible: false
                 radius: KodosiTheme.radiusMd
 
-                Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: 0.9 } }
+                Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                 Behavior on height { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
                 Rectangle {
@@ -630,6 +683,16 @@ Item {
                                 Layout.leftMargin: 8
                                 key: room.entry.id || ""
                                 size: 22
+                                opacity: roomSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: roomSpot
+                                    anchors.fill: parent
+                                    key: "room:" + (room.entry.id || "")
+                                    place: "row"
+                                    sigil: room.entry.id || ""
+                                    view: flick
+                                }
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
@@ -752,7 +815,7 @@ Item {
                                     Accessible.name: qsTr("New terminal on a new branch in %1").arg(folder.group.name)
                                     ToolTip.visible: hovered && !branchPopover.visible
                                     ToolTip.text: qsTr("New terminal on a new branch")
-                                    ToolTip.delay: 600
+                                    ToolTip.delay: Tip.delay
                                     onClicked: branchPopover.openAt(branchButton, folder.group.directory)
                                 }
                                 KIconButton {
@@ -816,6 +879,17 @@ Item {
                                         size: 22
                                         asleep: !row.staged || !row.connected
                                         session: row.session
+                                        opacity: rowSpot.hidden ? 0 : 1
+
+                                        FoldSpot {
+                                            id: rowSpot
+                                            anchors.fill: parent
+                                            key: "terminal:" + row.sessionId
+                                            place: "row"
+                                            session: row.session
+                                            asleep: !row.staged || !row.connected
+                                            view: flick
+                                        }
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
@@ -990,6 +1064,13 @@ Item {
                 }
             }
         }
+        DosiRow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.topMargin: 6
+            visible: !root.dosi && Models.DesktopState.dosiOn
+        }
         Column {
             Layout.fillWidth: true
             Layout.leftMargin: 8
@@ -997,152 +1078,142 @@ Item {
             Layout.topMargin: 8
             Layout.bottomMargin: 10
             spacing: 2
-
-            NavRow {
-                title: qsTr("People")
-                iconName: "people"
-                badge: Models.People.incoming.length
-                selected: root.selection === "people"
-                objectName: "sidebar.people"
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.People
+            visible: !root.dosi
+            opacity: footArrive.progress
+            transform: Arrive { id: footArrive; delay: 280; rise: 0 }
+            onVisibleChanged: {
+                if (visible)
+                    footArrive.play()
             }
-            Item { width: 1; height: 4 }
+
             RowLayout {
                 width: parent.width
                 spacing: 6
 
-                Item {
-                    id: signInSplit
+                AbstractButton {
+                    id: signInButton
 
                     readonly property bool approving: Models.Account.signedIn
 
                     Layout.fillWidth: true
                     implicitHeight: 34
                     visible: !root.accountReady
+                    activeFocusOnTab: true
+                    hoverEnabled: true
+                    scale: pressed ? 0.97 : 1
+                    objectName: "sidebar.signIn"
+                    Accessible.id: objectName
+                    Accessible.name: signInLabel.text
 
-                    Bezel {
-                        anchors.fill: parent
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
+                    background: Bezel {
                         quiet: true
-                        pressed: signInButton.pressed || settingsButton.pressed
-                        fill: signInSplit.approving
-                            ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, splitHover.hovered ? 0.14 : 0)
-                            : KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, (KodosiTheme.isDark ? 0.07 : 0) + (splitHover.hovered ? 0.03 : 0))
+                        pressed: signInButton.pressed
+                        fill: signInButton.approving
+                            ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, signInButton.hovered ? 0.14 : 0)
+                            : KodosiTheme.buttonFace(signInButton.hovered)
                     }
-                    HoverHandler { id: splitHover }
-                    RowLayout {
-                        anchors.fill: parent
-                        spacing: 0
+                    contentItem: RowLayout {
+                        spacing: 9
 
-                        AbstractButton {
-                            id: signInButton
+                        SlotMark {
+                            Layout.leftMargin: 8
+                            visible: !signInButton.approving
+                            glyph: "person"
+                            tint: KodosiTheme.inkMuted
+                            size: 20
+                        }
+                        KIcon {
+                            Layout.leftMargin: 10
+                            Layout.preferredWidth: 16
+                            Layout.preferredHeight: 16
+                            visible: signInButton.approving
+                            name: "lock"
+                            color: KodosiTheme.accentStrong
+                            strokeWidth: 2
+                        }
+                        ShimmerText {
+                            id: signInLabel
 
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            activeFocusOnTab: true
-                            hoverEnabled: true
-                            scale: pressed ? 0.98 : 1
-                            objectName: "sidebar.signIn"
-                            Accessible.id: objectName
-                            Accessible.name: signInLabel.text
-                            contentItem: RowLayout {
-                                spacing: 9
-
-                                SlotMark {
-                                    Layout.leftMargin: 8
-                                    visible: !signInSplit.approving
-                                    glyph: "person"
-                                    tint: KodosiTheme.inkMuted
-                                    size: 20
-                                }
-                                KIcon {
-                                    Layout.leftMargin: 10
-                                    Layout.preferredWidth: 16
-                                    Layout.preferredHeight: 16
-                                    visible: signInSplit.approving
-                                    name: "lock"
-                                    color: KodosiTheme.accentStrong
-                                    strokeWidth: 2
-                                }
-                                ShimmerText {
-                                    id: signInLabel
-
-                                    Layout.fillWidth: true
-                                    text: signInSplit.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
-                                    active: Models.Account.signingIn
-                                    color: signInSplit.approving ? KodosiTheme.accentStrong : KodosiTheme.ink
-                                    font.pixelSize: KodosiTheme.fontBody
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
-                                }
-                            }
-                            onClicked: root.signIn()
-
-                            KFocusIndicator { active: signInButton.visualFocus }
-                        }
-                        Rectangle {
-                            Layout.preferredWidth: 1
-                            Layout.preferredHeight: 18
-                            color: KodosiTheme.alpha(KodosiTheme.ink, 0.12)
-                        }
-                        AbstractButton {
-                            id: settingsButton
-
-                            Layout.preferredWidth: 38
-                            Layout.fillHeight: true
-                            activeFocusOnTab: true
-                            hoverEnabled: true
-                            scale: pressed ? 0.94 : 1
-                            objectName: "sidebar.settings.icon"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("Settings")
-                            Accessible.selected: root.selection === "settings"
-                            contentItem: Item {
-                                KIcon {
-                                    anchors.centerIn: parent
-                                    width: 15
-                                    height: 15
-                                    name: "settings"
-                                    color: root.selection === "settings" ? KodosiTheme.accentStrong
-                                        : settingsButton.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                    strokeWidth: 1.9
-                                }
-                            }
-                            onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
-
-                            KFocusIndicator { active: settingsButton.visualFocus }
+                            text: signInButton.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
+                            active: Models.Account.signingIn
+                            color: signInButton.approving ? KodosiTheme.accentStrong : KodosiTheme.ink
+                            font.pixelSize: KodosiTheme.fontBody
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
                         }
                     }
+                    onClicked: root.signIn()
+
+                    KFocusIndicator { active: signInButton.visualFocus }
                 }
                 AbstractButton {
                     id: account
+
                     Layout.fillWidth: true
-                    implicitHeight: 38
+                    implicitHeight: 34
                     visible: root.accountReady
                     hoverEnabled: true
                     activeFocusOnTab: true
-                    objectName: "sidebar.settings"
+                    scale: pressed ? 0.97 : 1
+                    objectName: "sidebar.account"
                     Accessible.id: objectName
-                    Accessible.name: qsTr("Settings")
+                    Accessible.name: qsTr("Account")
+                    ToolTip.visible: hovered
+                    ToolTip.text: Accessible.name
+                    ToolTip.delay: Tip.delay
+
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
                     contentItem: RowLayout {
                         spacing: 9
-                        PersonAvatar { Layout.leftMargin: 8; name: Identity.selfName; size: 24; isSelf: true }
+                        PersonAvatar { Layout.leftMargin: 8; name: Identity.selfName; size: 20; isSelf: true }
                         PlainLabel { Layout.fillWidth: true; text: Identity.selfName; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                        KIcon { Layout.rightMargin: 10; Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "settings"; color: KodosiTheme.inkFaint }
                     }
-                    background: Item {
-                        Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; visible: root.selection === "settings" }
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: KodosiTheme.radiusLg
-                            color: KodosiTheme.alpha(KodosiTheme.ink, root.selection !== "settings" && account.hovered ? 0.06 : 0)
-                        }
+                    background: Bezel {
+                        quiet: true
+                        pressed: account.pressed
+                        fill: KodosiTheme.buttonFace(account.hovered)
                     }
-                    onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
+                    onClicked: root.accountSettingsRequested()
+
+                    KFocusIndicator { active: account.visualFocus }
+                }
+                SidebarMenu {
+                    selected: root.selection === "people" || root.selection === "settings"
+                    onAboutRequested: root.aboutRequested()
                 }
             }
         }
     }
 
+    HoverHandler {
+        onHoveredChanged: Fold.pointing = hovered
+        onPointChanged: Fold.pointer = point.position
+    }
+    MouseArea {
+        id: resizer
+
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.rightMargin: -4
+        width: 8
+        visible: !root.collapsed
+        cursorShape: Qt.SizeHorCursor
+        preventStealing: true
+        Accessible.ignored: true
+        onPositionChanged: mouse => {
+            if (pressed)
+                Models.DesktopState.resizeSidebar(mapToItem(root, mouse.x, 0).x)
+        }
+    }
+    DosiFold {
+        anchors.fill: parent
+        z: 10
+    }
     KMenu {
         id: menu
 
@@ -1153,7 +1224,7 @@ Item {
         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: menu.session.isOwner === true; onTriggered: root.renamingId = menu.sessionId }
         KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: menu.session.kind === "local" && menu.session.isOwner === true; onTriggered: root.shareRequested(menu.sessionId) }
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
-        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) } }
+        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
         KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
         KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canControl === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
     }
@@ -1177,6 +1248,7 @@ Item {
 
         objectName: "sidebar.branch"
         width: 280
+        transformOrigin: Popup.TopLeft
         padding: 16
         focus: true
         onOpened: {

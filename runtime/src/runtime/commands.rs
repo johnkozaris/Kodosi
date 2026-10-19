@@ -35,6 +35,8 @@ use crate::{
 use std::sync::Arc;
 
 const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
+#[cfg(not(feature = "host"))]
+const NO_DOSI: &str = "Dosi runs on the computer that hosts your terminals.";
 const SHARE_ON_HOST: &str = "Change sharing on the computer hosting this session.";
 
 impl Runtime {
@@ -97,6 +99,7 @@ impl Runtime {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
     pub(super) fn apply(&mut self, command: &Command) -> Result<()> {
         match command {
             Command::ListSessions { .. } => {
@@ -124,6 +127,14 @@ impl Runtime {
                 self.emit(json!({"type":"session.show", "sessionId":session_id}));
                 self.result(command);
             }
+            Command::ShowMission { mission_id, .. } => {
+                self.emit(json!({"type":"mission.show", "missionId":mission_id}));
+                self.result(command);
+            }
+            #[cfg(feature = "host")]
+            command if command.is_dosi() => self.dosi_command(command)?,
+            #[cfg(not(feature = "host"))]
+            command if command.is_dosi() => return Err(Error::Invalid(NO_DOSI.to_owned())),
             Command::SeeMission {
                 mission_id,
                 sequence,
@@ -706,6 +717,7 @@ impl Runtime {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "one dispatch for every finished job")]
     pub(super) fn complete(&mut self, job: Job) {
         if self.synchronize_account().is_err() {
             return;
@@ -720,16 +732,34 @@ impl Runtime {
             Completion::Initialized(result) => {
                 self.initializing = false;
                 self.emit(self.auth_event());
-                if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.emit(json!({"type":"system.error", "message":error.to_string()})); }
+                if job.scope.network_generation == self.network.generation()
+                    && let Err(error) = result
+                    && !matches!(error, Error::Stale)
+                {
+                    self.emit(json!({"type":"system.error", "message":error.to_string()}));
+                }
                 #[cfg(feature = "host")]
                 self.publish_locals();
             }
             #[cfg(feature = "host")]
             Completion::Created { id, result } => self.created(id, result, current),
-            Completion::BackendClient { command, requested, generation, result } => self.network_completed(&job.scope, &command, requested, generation, result),
-            Completion::Connected { id, attempt, result } => self.connected(id, attempt, result, current),
+            Completion::BackendClient {
+                command,
+                requested,
+                generation,
+                result,
+            } => self.network_completed(&job.scope, &command, requested, generation, result),
+            Completion::Connected {
+                id,
+                attempt,
+                result,
+            } => self.connected(id, attempt, result, current),
             #[cfg(feature = "host")]
-            Completion::Published { id, incarnation, result } => self.published(id, incarnation, result, current),
+            Completion::Published {
+                id,
+                incarnation,
+                result,
+            } => self.published(id, incarnation, result, current),
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {
@@ -745,28 +775,49 @@ impl Runtime {
                     Ok(()) => self.result(&command),
                     Err(error) => self.error(&command, &error),
                 }
-                if matches!(command, Command::CloseSession { .. } | Command::InterruptSession { .. })
-                    && let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok())
-                    && !self.hosts(&id) && !self.views.contains_key(&id)
+                if matches!(
+                    command,
+                    Command::CloseSession { .. } | Command::InterruptSession { .. }
+                ) && let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok())
+                    && !self.hosts(&id)
+                    && !self.views.contains_key(&id)
                 {
                     self.disconnect_remote(id);
                 }
-            },
+            }
             #[cfg(feature = "host")]
             Completion::Provider { command, result } if current => match result {
-                Ok(value) => self.emit(json!({"type":"provider.result", "requestId":command.request_id(), "operation":command.operation(), "result":value})),
+                Ok(value) => {
+                    self.learn_agents(&command, &value);
+                    self.emit(json!({"type":"provider.result", "requestId":command.request_id(), "operation":command.operation(), "result":value}));
+                }
                 Err(error) => self.error(&command, &error),
             },
-            Completion::Checkpoint { reply, result } => { drop(reply.send(if current { result } else { Err(Error::Stale) })); }
-            Completion::HeadlessControl { reply, result } => { drop(reply.send(if current { result } else { Err(Error::Stale) })); }
-            Completion::Subscribed { target, reply, result } => match result {
+            Completion::Checkpoint { reply, result } => {
+                drop(reply.send(if current { result } else { Err(Error::Stale) }));
+            }
+            Completion::HeadlessControl { reply, result } => {
+                drop(reply.send(if current { result } else { Err(Error::Stale) }));
+            }
+            Completion::Subscribed {
+                target,
+                reply,
+                result,
+            } => match result {
                 Ok(subscription) if current => {
-                    if let Err(Ok(subscription)) = reply.send(Ok(subscription)) { target.unsubscribe(subscription.connection_id); }
+                    if let Err(Ok(subscription)) = reply.send(Ok(subscription)) {
+                        target.unsubscribe(subscription.connection_id);
+                    }
                 }
-                Ok(subscription) => { target.unsubscribe(subscription.connection_id); drop(reply.send(Err(Error::Stale))); }
-                Err(error) => { drop(reply.send(Err(error))); }
+                Ok(subscription) => {
+                    target.unsubscribe(subscription.connection_id);
+                    drop(reply.send(Err(Error::Stale)));
+                }
+                Err(error) => {
+                    drop(reply.send(Err(error)));
+                }
             },
-            Completion::Unpublished { .. } => {},
+            Completion::Unpublished { .. } => {}
             Completion::Terminal { command, .. } => self.error(&command, &Error::Stale),
             Completion::Read { command, result } if current => match result {
                 Ok(text) => {

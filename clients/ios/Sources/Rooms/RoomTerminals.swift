@@ -121,10 +121,13 @@ private struct RoomTerminalRow: View {
                     .lineLimit(1)
                 HStack(spacing: 5) {
                     DeviceGlyph(label: session.hostLabel).font(.system(size: 10, weight: .medium))
-                    Text(session.activity ?? place)
-                        .lineLimit(1)
-                        .id(session.activity ?? place)
-                        .transition(.blurReplace)
+                    ZStack(alignment: .leading) {
+                        Text(session.activity ?? place)
+                            .lineLimit(1)
+                            .id(session.activity ?? place)
+                            .transition(AnyTransition.roll)
+                    }
+                    .clipped()
                     if let progress = session.progress {
                         Text(Double(progress) / 100, format: .percent)
                             .monospacedDigit()

@@ -1954,6 +1954,42 @@
               }
             ]
           },
+          "missionId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "mission.show"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "missionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -2854,6 +2890,488 @@
           "type",
           "requestId",
           "change"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "room": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "terminal": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.send"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "text"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.stop"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queuedId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.unqueue"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "queuedId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "itemId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.answer"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "itemId",
+          "choices"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "question": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "terminal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "token": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.ask"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "token",
+          "question",
+          "options"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.new"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "setup": {
+            "additionalProperties": false,
+            "properties": {
+              "account": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "agent": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "const": "claude"
+                      },
+                      {
+                        "const": "codex"
+                      },
+                      {
+                        "const": "copilot"
+                      },
+                      {
+                        "const": "cursor"
+                      },
+                      {
+                        "const": "gemini"
+                      },
+                      {
+                        "const": "opencode"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "effort": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "type": {
+            "const": "dosi.setup"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "setup"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.instructions.read"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "dosi.instructions.write"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "before": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.history"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "before"
         ],
         "type": "object"
       },
@@ -6524,6 +7042,1530 @@
               }
             ]
           },
+          "missionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "mission.show"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "missionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dosi": {
+            "additionalProperties": false,
+            "properties": {
+              "agents": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "agent": {
+                      "oneOf": [
+                        {
+                          "const": "claude"
+                        },
+                        {
+                          "const": "codex"
+                        },
+                        {
+                          "const": "copilot"
+                        },
+                        {
+                          "const": "cursor"
+                        },
+                        {
+                          "const": "gemini"
+                        },
+                        {
+                          "const": "opencode"
+                        }
+                      ]
+                    },
+                    "installed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "agent",
+                    "installed"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "conversation": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "startedAt": {
+                        "format": "i64",
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "startedAt"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "earlier": {
+                "type": "boolean"
+              },
+              "folder": {
+                "type": "string"
+              },
+              "instructionsEdited": {
+                "type": "boolean"
+              },
+              "items": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "format": "i64",
+                      "type": "integer"
+                    },
+                    "body": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "person"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "text"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "text"
+                            },
+                            "live": {
+                              "type": "boolean"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "text",
+                            "live"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "reasoning"
+                            },
+                            "live": {
+                              "type": "boolean"
+                            },
+                            "seconds": {
+                              "anyOf": [
+                                {
+                                  "format": "u32",
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "text",
+                            "live",
+                            "seconds"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "oneOf": [
+                                {
+                                  "const": "look"
+                                },
+                                {
+                                  "const": "read"
+                                },
+                                {
+                                  "const": "type"
+                                },
+                                {
+                                  "const": "press"
+                                },
+                                {
+                                  "const": "start"
+                                },
+                                {
+                                  "const": "interrupt"
+                                },
+                                {
+                                  "const": "close"
+                                },
+                                {
+                                  "const": "show"
+                                },
+                                {
+                                  "const": "wait"
+                                },
+                                {
+                                  "const": "post"
+                                },
+                                {
+                                  "const": "run"
+                                },
+                                {
+                                  "const": "write"
+                                },
+                                {
+                                  "const": "edit"
+                                },
+                                {
+                                  "const": "search"
+                                },
+                                {
+                                  "const": "fetch"
+                                },
+                                {
+                                  "const": "plan"
+                                },
+                                {
+                                  "const": "delegate"
+                                },
+                                {
+                                  "const": "other"
+                                }
+                              ]
+                            },
+                            "kind": {
+                              "const": "tool"
+                            },
+                            "output": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "oneOf": [
+                                {
+                                  "const": "running"
+                                },
+                                {
+                                  "const": "done"
+                                },
+                                {
+                                  "const": "failed"
+                                }
+                              ]
+                            },
+                            "target": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "oneOf": [
+                                        {
+                                          "const": "terminal"
+                                        },
+                                        {
+                                          "const": "terminals"
+                                        },
+                                        {
+                                          "const": "room"
+                                        },
+                                        {
+                                          "const": "rooms"
+                                        },
+                                        {
+                                          "const": "agent"
+                                        },
+                                        {
+                                          "const": "file"
+                                        },
+                                        {
+                                          "const": "url"
+                                        },
+                                        {
+                                          "const": "query"
+                                        },
+                                        {
+                                          "const": "command"
+                                        },
+                                        {
+                                          "const": "tool"
+                                        }
+                                      ]
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "text": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "action",
+                            "target",
+                            "text",
+                            "status",
+                            "output"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "answer": {
+                              "anyOf": [
+                                {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "kind": {
+                              "const": "question"
+                            },
+                            "multiple": {
+                              "type": "boolean"
+                            },
+                            "options": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "question": {
+                              "type": "string"
+                            },
+                            "terminal": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "question",
+                            "options",
+                            "multiple",
+                            "terminal",
+                            "answer"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "note"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "text"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "notice"
+                            },
+                            "text": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tone": {
+                              "oneOf": [
+                                {
+                                  "const": "stopped"
+                                },
+                                {
+                                  "const": "failed"
+                                },
+                                {
+                                  "const": "signIn"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "tone",
+                            "text"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "turn": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "turn",
+                    "at",
+                    "body"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "queued": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "remote": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "computer": {
+                        "type": "string"
+                      },
+                      "since": {
+                        "format": "i64",
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "computer",
+                      "since"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "setup": {
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "claude"
+                          },
+                          {
+                            "const": "codex"
+                          },
+                          {
+                            "const": "copilot"
+                          },
+                          {
+                            "const": "cursor"
+                          },
+                          {
+                            "const": "gemini"
+                          },
+                          {
+                            "const": "opencode"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "effort": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "agent",
+                  "account",
+                  "model",
+                  "effort"
+                ],
+                "type": "object"
+              },
+              "shared": {
+                "type": "boolean"
+              },
+              "state": {
+                "oneOf": [
+                  {
+                    "const": "idle"
+                  },
+                  {
+                    "const": "working"
+                  },
+                  {
+                    "const": "stopping"
+                  },
+                  {
+                    "const": "connecting"
+                  },
+                  {
+                    "const": "unavailable"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "setup",
+              "agents",
+              "instructionsEdited",
+              "folder",
+              "shared",
+              "remote",
+              "conversation",
+              "items",
+              "earlier",
+              "queued"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "dosi.snapshot"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "dosi"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "item": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "format": "i64",
+                "type": "integer"
+              },
+              "body": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "person"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "text"
+                      },
+                      "live": {
+                        "type": "boolean"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text",
+                      "live"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "reasoning"
+                      },
+                      "live": {
+                        "type": "boolean"
+                      },
+                      "seconds": {
+                        "anyOf": [
+                          {
+                            "format": "u32",
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text",
+                      "live",
+                      "seconds"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action": {
+                        "oneOf": [
+                          {
+                            "const": "look"
+                          },
+                          {
+                            "const": "read"
+                          },
+                          {
+                            "const": "type"
+                          },
+                          {
+                            "const": "press"
+                          },
+                          {
+                            "const": "start"
+                          },
+                          {
+                            "const": "interrupt"
+                          },
+                          {
+                            "const": "close"
+                          },
+                          {
+                            "const": "show"
+                          },
+                          {
+                            "const": "wait"
+                          },
+                          {
+                            "const": "post"
+                          },
+                          {
+                            "const": "run"
+                          },
+                          {
+                            "const": "write"
+                          },
+                          {
+                            "const": "edit"
+                          },
+                          {
+                            "const": "search"
+                          },
+                          {
+                            "const": "fetch"
+                          },
+                          {
+                            "const": "plan"
+                          },
+                          {
+                            "const": "delegate"
+                          },
+                          {
+                            "const": "other"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "tool"
+                      },
+                      "output": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "running"
+                          },
+                          {
+                            "const": "done"
+                          },
+                          {
+                            "const": "failed"
+                          }
+                        ]
+                      },
+                      "target": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "oneOf": [
+                                  {
+                                    "const": "terminal"
+                                  },
+                                  {
+                                    "const": "terminals"
+                                  },
+                                  {
+                                    "const": "room"
+                                  },
+                                  {
+                                    "const": "rooms"
+                                  },
+                                  {
+                                    "const": "agent"
+                                  },
+                                  {
+                                    "const": "file"
+                                  },
+                                  {
+                                    "const": "url"
+                                  },
+                                  {
+                                    "const": "query"
+                                  },
+                                  {
+                                    "const": "command"
+                                  },
+                                  {
+                                    "const": "tool"
+                                  }
+                                ]
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "action",
+                      "target",
+                      "text",
+                      "status",
+                      "output"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "answer": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "question"
+                      },
+                      "multiple": {
+                        "type": "boolean"
+                      },
+                      "options": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "question": {
+                        "type": "string"
+                      },
+                      "terminal": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "question",
+                      "options",
+                      "multiple",
+                      "terminal",
+                      "answer"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "note"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "notice"
+                      },
+                      "text": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tone": {
+                        "oneOf": [
+                          {
+                            "const": "stopped"
+                          },
+                          {
+                            "const": "failed"
+                          },
+                          {
+                            "const": "signIn"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "tone",
+                      "text"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "turn": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "turn",
+              "at",
+              "body"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "dosi.item"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "item"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text",
+                  "edited"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "earlier": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "at": {
+                          "format": "i64",
+                          "type": "integer"
+                        },
+                        "body": {
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "person"
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "text"
+                                },
+                                "live": {
+                                  "type": "boolean"
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text",
+                                "live"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "reasoning"
+                                },
+                                "live": {
+                                  "type": "boolean"
+                                },
+                                "seconds": {
+                                  "anyOf": [
+                                    {
+                                      "format": "u32",
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text",
+                                "live",
+                                "seconds"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "action": {
+                                  "oneOf": [
+                                    {
+                                      "const": "look"
+                                    },
+                                    {
+                                      "const": "read"
+                                    },
+                                    {
+                                      "const": "type"
+                                    },
+                                    {
+                                      "const": "press"
+                                    },
+                                    {
+                                      "const": "start"
+                                    },
+                                    {
+                                      "const": "interrupt"
+                                    },
+                                    {
+                                      "const": "close"
+                                    },
+                                    {
+                                      "const": "show"
+                                    },
+                                    {
+                                      "const": "wait"
+                                    },
+                                    {
+                                      "const": "post"
+                                    },
+                                    {
+                                      "const": "run"
+                                    },
+                                    {
+                                      "const": "write"
+                                    },
+                                    {
+                                      "const": "edit"
+                                    },
+                                    {
+                                      "const": "search"
+                                    },
+                                    {
+                                      "const": "fetch"
+                                    },
+                                    {
+                                      "const": "plan"
+                                    },
+                                    {
+                                      "const": "delegate"
+                                    },
+                                    {
+                                      "const": "other"
+                                    }
+                                  ]
+                                },
+                                "kind": {
+                                  "const": "tool"
+                                },
+                                "output": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "status": {
+                                  "oneOf": [
+                                    {
+                                      "const": "running"
+                                    },
+                                    {
+                                      "const": "done"
+                                    },
+                                    {
+                                      "const": "failed"
+                                    }
+                                  ]
+                                },
+                                "target": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "kind": {
+                                          "oneOf": [
+                                            {
+                                              "const": "terminal"
+                                            },
+                                            {
+                                              "const": "terminals"
+                                            },
+                                            {
+                                              "const": "room"
+                                            },
+                                            {
+                                              "const": "rooms"
+                                            },
+                                            {
+                                              "const": "agent"
+                                            },
+                                            {
+                                              "const": "file"
+                                            },
+                                            {
+                                              "const": "url"
+                                            },
+                                            {
+                                              "const": "query"
+                                            },
+                                            {
+                                              "const": "command"
+                                            },
+                                            {
+                                              "const": "tool"
+                                            }
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "action",
+                                "target",
+                                "text",
+                                "status",
+                                "output"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "answer": {
+                                  "anyOf": [
+                                    {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "kind": {
+                                  "const": "question"
+                                },
+                                "multiple": {
+                                  "type": "boolean"
+                                },
+                                "options": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "question": {
+                                  "type": "string"
+                                },
+                                "terminal": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "question",
+                                "options",
+                                "multiple",
+                                "terminal",
+                                "answer"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "note"
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "notice"
+                                },
+                                "text": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "tone": {
+                                  "oneOf": [
+                                    {
+                                      "const": "stopped"
+                                    },
+                                    {
+                                      "const": "failed"
+                                    },
+                                    {
+                                      "const": "signIn"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "tone",
+                                "text"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "turn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "turn",
+                        "at",
+                        "body"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "items",
+                  "earlier"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sessionId": {
             "type": "string"
           },
@@ -6654,7 +8696,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 64,
+  "protocolVersion": 65,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

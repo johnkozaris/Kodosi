@@ -60,19 +60,12 @@ struct SessionTileView: View {
                 .scaleEffect(born ? 1 : 0.03, anchor: UnitPoint(x: 0.04, y: 0.16))
                 .allowsHitTesting(false)
         }
+        .dosiTouch(deps.dosiTouches[session.id] ?? DosiTouch(), radius: Self.radius)
         .overlay(alignment: .topTrailing) {
             if let joined {
                 JoinCard(person: joined)
-                    .keyframeAnimator(initialValue: 0.0, trigger: joinCount) { content, value in
-                        content.opacity(value).offset(y: (1 - value) * -8).scaleEffect(0.96 + 0.04 * value, anchor: .topTrailing)
-                    } keyframes: { _ in
-                        KeyframeTrack {
-                            SpringKeyframe(1.0, duration: 0.35, spring: .snappy)
-                            LinearKeyframe(1.0, duration: 3.2)
-                            CubicKeyframe(0.0, duration: 0.5)
-                        }
-                    }
                     .padding(.top, 44).padding(.trailing, 12)
+                    .transition(.opacity.combined(with: .offset(y: -8)).combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
                     .allowsHitTesting(false)
             }
         }
@@ -83,16 +76,22 @@ struct SessionTileView: View {
             guard deps.freshTerminals.remove(session.id) != nil, !theme.motion.reduced else { return }
             born = false
             veil = 0.85
-            withAnimation(.interpolatingSpring(stiffness: 210, damping: 28)) { born = true }
-            withAnimation(.easeOut(duration: 0.42).delay(0.08)) { veil = 0 }
+            withAnimation(theme.motion.soft) { born = true }
+            withAnimation(theme.motion.soft?.delay(0.08)) { veil = 0 }
         }
         .onChange(of: tileVisible && stageVisible, initial: true) { _, _ in
             deps.reportVisible()
         }
         .onChange(of: viewers.map(\.id)) { old, new in
             guard let added = new.first(where: { !old.contains($0) }), let person = viewers.first(where: { $0.id == added }) else { return }
-            joined = person
+            withAnimation(theme.motion.spring) { joined = person }
             joinCount += 1
+        }
+        .task(id: joinCount) {
+            guard joinCount > 0 else { return }
+            try? await Task.sleep(for: .seconds(3.6))
+            guard !Task.isCancelled else { return }
+            withAnimation(theme.motion.soft) { joined = nil }
         }
         .onDisappear {
             deps.terminalFocus.release(surfaceId: surfaceId)

@@ -33,8 +33,15 @@ use crate::{
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod commands;
+#[cfg(feature = "host")]
+mod dosi;
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "host")]
+type DosiMessage = crate::dosi::Message;
+#[cfg(not(feature = "host"))]
+type DosiMessage = std::convert::Infallible;
 
 #[cfg(feature = "host")]
 pub(crate) const NOT_PUBLISHED: &str =
@@ -706,6 +713,8 @@ struct Runtime {
     config: Config,
     #[cfg(feature = "host")]
     launcher: Arc<crate::agents::Launcher>,
+    #[cfg(feature = "host")]
+    dosi: crate::dosi::Engine,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -739,6 +748,26 @@ struct Runtime {
     answers: std::sync::Mutex<HashMap<String, Answer>>,
 }
 
+#[cfg(feature = "host")]
+fn dosi_engine(
+    config: &Config,
+    launcher: &Arc<crate::agents::Launcher>,
+) -> (crate::dosi::Engine, mpsc::Receiver<DosiMessage>) {
+    crate::dosi::Engine::load(
+        &config.data_root,
+        &config.home,
+        Arc::new(crate::dosi::Installed {
+            launcher: Arc::clone(launcher),
+            shell: commands::shell(config),
+            home: config.home.clone(),
+        }),
+    )
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "makes every part of the runtime before its loop starts"
+)]
 pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
@@ -791,12 +820,18 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         &config.home,
         &commands::shell(&config),
     ));
+    #[cfg(feature = "host")]
+    let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
+    #[cfg(not(feature = "host"))]
+    let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
         #[cfg(feature = "host")]
         config,
         #[cfg(feature = "host")]
         launcher,
+        #[cfg(feature = "host")]
+        dosi,
         network,
         events,
         scope,
@@ -830,7 +865,9 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         answers: std::sync::Mutex::new(HashMap::new()),
     };
     tokio::spawn(async move {
-        runtime.run(receiver, change_rx, network_events).await;
+        runtime
+            .run(receiver, change_rx, network_events, dosi_messages)
+            .await;
         #[cfg(feature = "host")]
         server.shutdown().await;
         let _ = stopped.send(true);
@@ -989,6 +1026,8 @@ impl Runtime {
             self.auth_event(),
             json!({"type":"sessions.snapshot", "sessions":self.entries()}),
         ];
+        #[cfg(feature = "host")]
+        values.push(self.dosi.snapshot());
         values.extend(self.cached_events.values().cloned());
         values.into_iter().map(|value| self.event(value)).collect()
     }
@@ -1037,7 +1076,9 @@ impl Runtime {
         mut requests: mpsc::Receiver<Request>,
         mut changes: mpsc::Receiver<SessionChange>,
         mut network_events: broadcast::Receiver<BackendEvent>,
+        mut dosi_messages: mpsc::Receiver<DosiMessage>,
     ) {
+        let mut dosi_open = cfg!(feature = "host");
         self.emit(self.ready_event());
         let network = self.network.clone();
         self.spawn(async move {
@@ -1072,6 +1113,12 @@ impl Runtime {
                 }
                 change = changes.recv() => {
                     if let Some(change) = change { self.change(change); }
+                }
+                message = dosi_messages.recv(), if dosi_open => {
+                    match message {
+                        Some(message) => self.dosi_message(message),
+                        None => dosi_open = false,
+                    }
                 }
                 event = network_events.recv() => {
                     match event {
@@ -1125,8 +1172,23 @@ impl Runtime {
         }
         self.connections.clear();
         #[cfg(feature = "host")]
+        self.dosi.shutdown();
+        #[cfg(feature = "host")]
         self.stop_locals().await;
         self.network.shutdown().await;
+    }
+
+    #[cfg(feature = "host")]
+    fn dosi_message(&mut self, message: DosiMessage) {
+        let mut out = crate::dosi::Output::default();
+        self.dosi.handle(message, &mut out);
+        self.dosi_output(out);
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(clippy::unused_self, reason = "a viewer runs no Dosi")]
+    const fn dosi_message(&self, message: DosiMessage) {
+        match message {}
     }
 
     #[cfg(feature = "host")]
@@ -1384,10 +1446,14 @@ impl Runtime {
         }
         self.emit(self.auth_event());
         self.publish_catalog();
+        #[cfg(feature = "host")]
+        self.dosi_account();
         Ok(())
     }
 
     fn network_event(&mut self, event: BackendEvent) {
+        #[cfg(feature = "host")]
+        self.dosi_account();
         if event.event.get("requestId").is_some() {
             let ends_sign_in = matches!(
                 event.event.get("type").and_then(Value::as_str),
@@ -1417,6 +1483,9 @@ impl Runtime {
         if kind == "network.sharing" {
             #[cfg(feature = "host")]
             self.sharing_changed(&event.event);
+        } else if kind == "network.dosi" {
+            #[cfg(feature = "host")]
+            self.dosi_nudge(&event.event);
         } else if kind == "network.terminal" {
             self.terminal_changed(&event.event);
         } else if kind == "network.sessions" {

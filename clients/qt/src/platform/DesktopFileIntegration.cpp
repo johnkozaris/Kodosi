@@ -1,8 +1,10 @@
 #include "platform/DesktopFileIntegration.hpp"
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QWindow>
 
 namespace kodosi {
@@ -103,6 +105,11 @@ bool DesktopFileIntegration::openPath(const QString& path)
     clearError();
     return true;
 }
+void DesktopFileIntegration::copyText(const QString& text)
+{
+    QGuiApplication::clipboard()->setText(text);
+}
+
 bool DesktopFileIntegration::openWebUrl(const QString& value)
 {
     const QUrl url(value, QUrl::StrictMode);

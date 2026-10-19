@@ -14,9 +14,11 @@ final class WorkbenchState {
         case sessions, missions, people, settings
     }
 
-    enum SettingsSection: String { case terminal, providers, devices, general }
+    enum SettingsSection: String { case terminal, providers, dosi, devices, general }
 
     static let maximumStagedSessions = 6
+    static let sidebarWidths: ClosedRange<CGFloat> = 220 ... 380
+    static let dosiWidths: ClosedRange<CGFloat> = 340 ... 640
     var section: Section = .sessions
     var settingsSection: SettingsSection = .terminal
     var selectedSessionId: String?
@@ -32,16 +34,98 @@ final class WorkbenchState {
     var launcherFocus = 0
     var selectedMissionId: String?
     var sidebarCollapsed = false {
-        didSet { defaults.set(sidebarCollapsed, forKey: "sidebar.collapsed") }
+        didSet {
+            defaults.set(sidebarCollapsed, forKey: "sidebar.collapsed")
+            if sidebarCollapsed != oldValue {
+                fold()
+            }
+        }
     }
+
+    var dosiOpen = false {
+        didSet {
+            defaults.set(dosiOpen, forKey: "dosi.open")
+            if dosiOpen != oldValue {
+                fold()
+            }
+        }
+    }
+
+    var dosiOn = true {
+        didSet {
+            defaults.set(dosiOn, forKey: "dosi.on")
+            if !dosiOn {
+                dosiOpen = false
+            }
+        }
+    }
+
+    private(set) var sidebarWidth: CGFloat = Metrics.sidebarWidth
+    private(set) var dosiWidth: CGFloat = Metrics.dosiWidth
+    private(set) var folding = false
 
     private let defaults: UserDefaults
     private var accountKey: String?
     private var restoredIds: [String] = []
+    @ObservationIgnored private var unfolding: Task<Void, Never>?
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
         sidebarCollapsed = defaults.bool(forKey: "sidebar.collapsed")
+        dosiOn = defaults.object(forKey: "dosi.on") as? Bool ?? true
+        dosiOpen = dosiOn && defaults.bool(forKey: "dosi.open")
+        if let width = defaults.object(forKey: "sidebar.width") as? Double {
+            sidebarWidth = CGFloat(width).clamped(to: Self.sidebarWidths)
+        }
+        if let width = defaults.object(forKey: "dosi.width") as? Double {
+            dosiWidth = CGFloat(width).clamped(to: Self.dosiWidths)
+        }
+    }
+
+    var shownSidebarWidth: CGFloat {
+        sidebarCollapsed ? Metrics.sidebarRailWidth : dosiOpen ? dosiWidth : sidebarWidth
+    }
+
+    var foldPlace: FoldPlace {
+        sidebarCollapsed ? .rail : dosiOpen ? .slot : .row
+    }
+
+    func resizeSidebar(to width: CGFloat) {
+        if dosiOpen {
+            dosiWidth = width.clamped(to: Self.dosiWidths)
+            defaults.set(Double(dosiWidth), forKey: "dosi.width")
+        } else {
+            sidebarWidth = width.clamped(to: Self.sidebarWidths)
+            defaults.set(Double(sidebarWidth), forKey: "sidebar.width")
+        }
+    }
+
+    func openDosi() {
+        guard dosiOn else { return }
+        sidebarCollapsed = false
+        dosiOpen = true
+    }
+
+    func closeDosi() {
+        dosiOpen = false
+    }
+
+    func toggleDosi() {
+        if dosiOpen, !sidebarCollapsed {
+            dosiOpen = false
+        } else {
+            openDosi()
+        }
+    }
+
+    private func fold() {
+        folding = true
+        unfolding?.cancel()
+        unfolding = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(760))
+            guard !Task.isCancelled else { return }
+            self?.folding = false
+        }
     }
 
     func selectSession(_ id: String) {

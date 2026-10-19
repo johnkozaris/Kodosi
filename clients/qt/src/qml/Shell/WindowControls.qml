@@ -17,7 +17,7 @@ Row {
         Accessible.name: label
         ToolTip.visible: hovered
         ToolTip.text: label
-        ToolTip.delay: 600
+        ToolTip.delay: Tip.delay
     }
 
     spacing: 4

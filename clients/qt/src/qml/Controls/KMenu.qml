@@ -16,7 +16,7 @@ Menu {
         elevation: 2
     }
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
         NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic }
     }
 }

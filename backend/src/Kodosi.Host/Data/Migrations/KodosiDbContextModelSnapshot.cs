@@ -231,6 +231,9 @@ namespace Kodosi.Data.Migrations
                     b.Property<long>("ContentSequence")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("Dosi")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("HistoryTrimmed")
                         .HasColumnType("boolean");
 
@@ -248,6 +251,10 @@ namespace Kodosi.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("Dosi", "OwnerUserId")
+                        .IsUnique()
+                        .HasFilter("\"Dosi\"");
 
                     b.ToTable("missions", (string)null);
                 });

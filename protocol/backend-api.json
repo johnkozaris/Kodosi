@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 27,
+  "apiContractVersion": 28,
   "oldestApiContractVersion": 27,
   "authContractVersion": 1,
   "compatibility": {
@@ -162,6 +162,12 @@
     ]
   },
   "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
+  "dosi": {
+    "room": "POST /api/missions with dosi: true makes the person's one Dosi room; another Dosi room of the same person answers 409",
+    "list": "GET /api/missions leaves the Dosi room out of missions and gives its ID as dosi, or null",
+    "rules": "its owner is its only person: invitations, renames and terminals are refused, and it does not count toward the rooms that a person owns or sees",
+    "content": "its keys and content work like those of any room; each message holds one encrypted Dosi record, the task whose ID is the room ID holds Dosi's instructions, and past 4194304 bytes, or a smaller RoomBytes, the room drops its oldest messages"
+  },
   "roomContent": {
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",

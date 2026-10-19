@@ -72,7 +72,11 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended, ct) >= Limits.MaxSessionsPerUser)
             throw ApiException.Conflict("Too many published sessions.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
+        if (body.MissionId is { } missionId)
+        {
+            await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
+            await missions.RequireSharedRoomAsync(missionId, ct);
+        }
         var now = clock.GetUtcNow();
         var session = new Session
         {
@@ -101,7 +105,11 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> AttachAsync(Guid id, Guid userId, AttachSession body, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
+        if (body.MissionId is { } missionId)
+        {
+            await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
+            await missions.RequireSharedRoomAsync(missionId, ct);
+        }
         var session = await OwnerAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
         if (session.MissionId == body.MissionId) return await DescribeAsync(session, ct);
         var before = await TerminalAccess.PeopleAsync(db, id, ct);

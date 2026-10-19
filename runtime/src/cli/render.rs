@@ -82,6 +82,12 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
+        ("dosi.result", "dosi.stop") => "Dosi stops.".to_owned(),
+        ("dosi.result", "dosi.ask") => {
+            "The person sees the question. End your turn; the answer comes as the next message."
+                .to_owned()
+        }
+        ("mission.result", "mission.show") => "The room is open in Kodosi.".to_owned(),
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
 }

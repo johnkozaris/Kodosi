@@ -80,7 +80,7 @@ struct RoomCreateSheet: View {
         let friends = model.people.friends
         Section {
             if friends.isEmpty {
-                Text("Add friends in People to invite them.")
+                Text("Add friends in the Friends tab to invite them.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
                     .listRowBackground(theme.colors.raised)
@@ -111,7 +111,7 @@ struct RoomCreateSheet: View {
                         .foregroundStyle(theme.colors.ink)
                         .lineLimit(1)
                     if friend.identityChanged {
-                        Text("Their identity changed. Trust them in People first.")
+                        Text("Their identity changed. Trust them in Friends first.")
                             .appTextStyle(.caption)
                             .foregroundStyle(theme.colors.caution)
                     } else {

@@ -12,7 +12,13 @@ struct AppShell: View {
             GroundBackdrop()
             HStack(spacing: 0) {
                 SidebarView()
-                    .frame(width: workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+                    .frame(width: workbench.shownSidebarWidth)
+                    .overlay(alignment: .trailing) {
+                        if !workbench.sidebarCollapsed {
+                            SidebarResizeHandle().offset(x: 4)
+                        }
+                    }
+                    .zIndex(1)
                 destination
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background {
@@ -27,19 +33,20 @@ struct AppShell: View {
             .overlay(alignment: .top) { notice }
             .disabled(sheet != nil)
             if workbench.showsPalette {
-                CommandPalette().transition(.opacity)
+                CommandPalette()
             }
-            if let sheet {
-                sheetLayer(sheet).transition(.opacity).zIndex(1)
+            ZStack {
+                if let sheet {
+                    sheetLayer(sheet).transition(.opacity)
+                }
             }
+            .animation(theme.motion.fade, value: sheet)
+            .zIndex(1)
         }
         .ignoresSafeArea()
         .kodosiPopoverLayer()
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
-        .animation(theme.motion.spring, value: deps.errorMessage)
-        .animation(theme.motion.fade, value: workbench.showsPalette)
-        .animation(theme.motion.fade, value: sheet)
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.selectedSessionId) { _, _ in deps.reportVisible() }
@@ -117,17 +124,21 @@ struct AppShell: View {
     }
 
     private var notice: some View {
-        Group {
+        ZStack {
             if deps.updateRequired {
                 NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
                            identifier: "shell.update", retry: deps.updater.configured ? { deps.updater.check() } : nil,
                            actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
+                    .padding(.top, Metrics.frameInset + 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             } else if let error = deps.errorMessage {
                 NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
+                    .padding(.top, Metrics.frameInset + 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.top, Metrics.frameInset + 10)
-        .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .padding(.leading, deps.workbench.shownSidebarWidth)
+        .animation(theme.motion.spring, value: deps.errorMessage)
+        .animation(theme.motion.spring, value: deps.updateRequired)
     }
 }

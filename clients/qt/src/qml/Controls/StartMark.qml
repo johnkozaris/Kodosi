@@ -13,9 +13,10 @@ AbstractButton {
     implicitWidth: size + 10
     implicitHeight: size + 10
     hoverEnabled: true
-    scale: pressed ? 0.9 : 1
+    scale: pressed ? 0.95 : 1
     Accessible.name: qsTr("Start %1").arg(Models.DesktopSettings.agentLabel(agent))
     ToolTip.visible: hovered && enabled
+    ToolTip.delay: Tip.delay
     ToolTip.text: Accessible.name
 
     background: Rectangle {

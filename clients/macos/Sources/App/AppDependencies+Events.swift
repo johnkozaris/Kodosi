@@ -23,6 +23,7 @@ extension AppDependencies {
             terminalNotifications.reconcile(sessions: [], accountEpoch: event.accountEpoch)
             account.reset(userId: event.accountUserId)
             people.reset(userId: event.accountUserId); inviteRequested = nil
+            dosi.reset()
             missions.removeAll(); invitations.removeAll()
             missionListTruncated = false
             missionDetail = nil
@@ -52,7 +53,7 @@ extension AppDependencies {
         case "sessions": try receiveSessions(event)
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
-        case "mission", "missions", "room": try receiveCollaboration(event)
+        case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
         case "term", "session": receiveTerminal(event)
         default: break
         }
@@ -61,6 +62,11 @@ extension AppDependencies {
     private func receiveCollaboration(_ event: RuntimeEvent) throws {
         if event.type.hasPrefix("room.") {
             try receiveRoom(event)
+        } else if event.type.hasPrefix("dosi.") {
+            try dosi.receive(event)
+            if event.type == "dosi.item" {
+                try touch(by: event.value("item"))
+            }
         } else {
             try receiveMission(event)
         }
@@ -198,6 +204,11 @@ extension AppDependencies {
 
     private func receiveMission(_ event: RuntimeEvent) throws {
         switch event.type {
+        case "mission.show":
+            guard let id = event.string("missionId") else { return }
+            bringToFront()
+            workbench.section = .missions
+            openMission(id: id)
         case "missions.snapshot":
             missions = try event.value("missions"); invitations = try event.value("invitations")
             let missionsTruncated = event.payload["missionsTruncated"] == .bool(true)

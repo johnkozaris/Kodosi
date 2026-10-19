@@ -15,13 +15,13 @@ Item {
     implicitWidth: (words.length > 0 ? line.implicitWidth : 0) + gap + (percent.length > 0 ? number.implicitWidth : 0)
     implicitHeight: Math.max(line.implicitHeight, number.implicitHeight)
 
-    ShimmerText {
+    RollingText {
         id: line
         width: Math.min(implicitWidth, Math.max(0, root.width - root.gap - (root.percent.length > 0 ? number.implicitWidth : 0)))
         height: root.height
+        clip: true
         visible: root.words.length > 0
         text: root.words
-        blurs: true
         color: root.color
         font.pixelSize: root.pixelSize
         elide: Text.ElideRight

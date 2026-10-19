@@ -39,6 +39,8 @@ enum RoomAction {
     Skill,
     /// Show the room, its members and its terminals.
     Context,
+    /// Open the room in the Kodosi app.
+    Show,
     /// Read the conversation.
     Read {
         #[arg(long)]
@@ -155,6 +157,7 @@ pub(super) async fn run(
             return share_terminal(client, context, Some(&room), chosen.clone(), json_output).await;
         }
         RoomAction::Rename { name } => Some(json!({"type":"mission.rename","name":name})),
+        RoomAction::Show => Some(json!({"type":"mission.show"})),
         RoomAction::Delete => Some(json!({"type":"mission.delete"})),
         RoomAction::Leave => Some(json!({"type":"mission.leave"})),
         RoomAction::Invite { friend } => {

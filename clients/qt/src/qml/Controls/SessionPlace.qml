@@ -18,7 +18,7 @@ Item {
     Accessible.name: session.placeLabel || ""
     ToolTip.visible: hover.hovered
     ToolTip.text: session.placeLabel || ""
-    ToolTip.delay: 600
+    ToolTip.delay: Tip.delay
 
     HoverHandler { id: hover }
     KIcon {

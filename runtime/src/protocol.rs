@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::{
     Error, Result,
     agents::{Agent, AgentChoiceChange, AgentStart},
+    dosi::{DosiContext, DosiSetup},
     identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
 };
@@ -22,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 64;
+pub const VERSION: u32 = 65;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -336,6 +337,13 @@ pub enum Command {
         room_id: String,
         action: crate::rooms::Action,
     },
+    #[serde(rename = "mission.show")]
+    ShowMission {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "missionId")]
+        mission_id: String,
+    },
     #[serde(rename = "mission.list")]
     ListMissions {
         #[serde(rename = "requestId")]
@@ -477,6 +485,75 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
         change: AgentChoiceChange,
+    },
+    #[serde(rename = "dosi.send")]
+    DosiSend {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+        #[serde(default)]
+        context: Option<DosiContext>,
+    },
+    #[serde(rename = "dosi.stop")]
+    DosiStop {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "dosi.unqueue")]
+    DosiUnqueue {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "queuedId")]
+        queued_id: String,
+    },
+    #[serde(rename = "dosi.answer")]
+    DosiAnswer {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "itemId")]
+        item_id: String,
+        choices: Vec<String>,
+    },
+    #[serde(rename = "dosi.ask")]
+    DosiAsk {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        token: String,
+        question: String,
+        options: Vec<String>,
+        #[serde(default)]
+        multiple: bool,
+        #[serde(default)]
+        terminal: Option<String>,
+    },
+    #[serde(rename = "dosi.new")]
+    DosiNew {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "dosi.setup")]
+    DosiConfigure {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        setup: DosiSetup,
+    },
+    #[serde(rename = "dosi.instructions.read")]
+    DosiReadInstructions {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "dosi.instructions.write")]
+    DosiWriteInstructions {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(default)]
+        text: Option<String>,
+    },
+    #[serde(rename = "dosi.history")]
+    DosiHistory {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        before: String,
     },
     #[serde(rename = "session.resize")]
     Resize {
@@ -794,6 +871,27 @@ pub enum EventBody {
         operation: String,
         message: String,
     },
+    #[serde(rename = "mission.show")]
+    MissionShow { mission_id: String },
+    #[serde(rename = "dosi.snapshot")]
+    DosiSnapshot { dosi: crate::dosi::DosiSnapshot },
+    #[serde(rename = "dosi.item")]
+    DosiItem { item: crate::dosi::DosiItem },
+    #[serde(rename = "dosi.result")]
+    DosiResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        instructions: Option<crate::dosi::DosiInstructions>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        page: Option<crate::dosi::DosiPage>,
+    },
+    #[serde(rename = "dosi.error")]
+    DosiError {
+        request_id: String,
+        operation: String,
+        message: String,
+    },
     #[serde(rename = "term.bell")]
     TerminalBell { session_id: String },
     #[serde(rename = "term.attention")]
@@ -1016,7 +1114,9 @@ impl EventBody {
             | Self::MissionResult { request_id, .. }
             | Self::MissionError { request_id, .. }
             | Self::ProviderResult { request_id, .. }
-            | Self::ProviderError { request_id, .. } => Some(request_id),
+            | Self::ProviderError { request_id, .. }
+            | Self::DosiResult { request_id, .. }
+            | Self::DosiError { request_id, .. } => Some(request_id),
             _ => None,
         }
     }
@@ -1059,6 +1159,11 @@ impl EventBody {
             Self::MissionError { .. } => "mission.error",
             Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
+            Self::MissionShow { .. } => "mission.show",
+            Self::DosiSnapshot { .. } => "dosi.snapshot",
+            Self::DosiItem { .. } => "dosi.item",
+            Self::DosiResult { .. } => "dosi.result",
+            Self::DosiError { .. } => "dosi.error",
             Self::TerminalBell { .. } => "term.bell",
             Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
@@ -1143,6 +1248,7 @@ impl Command {
             Self::LeaveSession { .. } => "session.leave",
             Self::AttachSession { .. } => "session.attachMission",
             Self::Room { .. } => "room.command",
+            Self::ShowMission { .. } => "mission.show",
             Self::ListMissions { .. } => "mission.list",
             Self::CreateMission { .. } => "mission.create",
             Self::RenameMission { .. } => "mission.rename",
@@ -1161,11 +1267,37 @@ impl Command {
             Self::InspectAgentModels { .. } => "provider.agentModels",
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
+            Self::DosiSend { .. } => "dosi.send",
+            Self::DosiStop { .. } => "dosi.stop",
+            Self::DosiUnqueue { .. } => "dosi.unqueue",
+            Self::DosiAnswer { .. } => "dosi.answer",
+            Self::DosiAsk { .. } => "dosi.ask",
+            Self::DosiNew { .. } => "dosi.new",
+            Self::DosiConfigure { .. } => "dosi.setup",
+            Self::DosiReadInstructions { .. } => "dosi.instructions.read",
+            Self::DosiWriteInstructions { .. } => "dosi.instructions.write",
+            Self::DosiHistory { .. } => "dosi.history",
             Self::Resize { .. } => "session.resize",
             Self::Focus { .. } => "session.focus",
             Self::Blur { .. } => "session.blur",
         }
     }
+    pub const fn is_dosi(&self) -> bool {
+        matches!(
+            self,
+            Self::DosiSend { .. }
+                | Self::DosiStop { .. }
+                | Self::DosiUnqueue { .. }
+                | Self::DosiAnswer { .. }
+                | Self::DosiAsk { .. }
+                | Self::DosiNew { .. }
+                | Self::DosiConfigure { .. }
+                | Self::DosiReadInstructions { .. }
+                | Self::DosiWriteInstructions { .. }
+                | Self::DosiHistory { .. }
+        )
+    }
+
     pub fn request_id(&self) -> &str {
         match self {
             Self::Resize { identity, .. } => &identity.request_id,
@@ -1210,6 +1342,7 @@ impl Command {
             | Self::AttachSession { request_id, .. }
             | Self::Room { request_id, .. }
             | Self::ListMissions { request_id }
+            | Self::ShowMission { request_id, .. }
             | Self::CreateMission { request_id, .. }
             | Self::RenameMission { request_id, .. }
             | Self::DeleteMission { request_id, .. }
@@ -1227,6 +1360,16 @@ impl Command {
             | Self::InspectAgentModels { request_id, .. }
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
+            | Self::DosiSend { request_id, .. }
+            | Self::DosiStop { request_id }
+            | Self::DosiUnqueue { request_id, .. }
+            | Self::DosiAnswer { request_id, .. }
+            | Self::DosiAsk { request_id, .. }
+            | Self::DosiNew { request_id }
+            | Self::DosiConfigure { request_id, .. }
+            | Self::DosiReadInstructions { request_id }
+            | Self::DosiWriteInstructions { request_id, .. }
+            | Self::DosiHistory { request_id, .. }
             | Self::Focus { request_id, .. }
             | Self::Blur { request_id, .. } => request_id,
         }
@@ -1309,6 +1452,7 @@ impl Command {
             | Self::RenameMission { mission_id, .. }
             | Self::DeleteMission { mission_id, .. }
             | Self::OpenMission { mission_id, .. }
+            | Self::ShowMission { mission_id, .. }
             | Self::SeeMission { mission_id, .. }
             | Self::LeaveMission { mission_id, .. } => {
                 parse_id(mission_id)?;
@@ -1369,6 +1513,78 @@ impl Command {
                 working_directory: Some(directory),
                 ..
             } => directory_input(directory)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn validate_dosi(&self) -> Result<()> {
+        use crate::dosi::{
+            MAX_INSTRUCTIONS_BYTES, MAX_MESSAGE_BYTES, MAX_OPTION_BYTES, MAX_OPTIONS,
+            MAX_QUESTION_BYTES,
+        };
+        match self {
+            Self::DosiSend { text, context, .. } => {
+                writing(text, "message", MAX_MESSAGE_BYTES)?;
+                if let Some(context) = context {
+                    for id in [&context.terminal, &context.room].into_iter().flatten() {
+                        parse_id(id)?;
+                    }
+                }
+            }
+            Self::DosiUnqueue { queued_id: id, .. } | Self::DosiHistory { before: id, .. } => {
+                parse_id(id)?;
+            }
+            Self::DosiAnswer {
+                item_id, choices, ..
+            } => {
+                parse_id(item_id)?;
+                if choices.is_empty() || choices.len() > MAX_OPTIONS {
+                    return Err(Error::Invalid("Choose one to eight answers.".to_owned()));
+                }
+                for choice in choices {
+                    text(choice, "answer", MAX_OPTION_BYTES)?;
+                }
+            }
+            Self::DosiAsk {
+                token,
+                question,
+                options,
+                terminal,
+                ..
+            } => {
+                parse_id(token)?;
+                text(question, "question", MAX_QUESTION_BYTES)?;
+                if options.is_empty() || options.len() > MAX_OPTIONS {
+                    return Err(Error::Invalid("Give one to eight choices.".to_owned()));
+                }
+                let mut seen = std::collections::BTreeSet::new();
+                for option in options {
+                    text(option, "choice", MAX_OPTION_BYTES)?;
+                    if !seen.insert(option) {
+                        return Err(Error::Invalid("Each choice must be different.".to_owned()));
+                    }
+                }
+                if let Some(terminal) = terminal {
+                    text(terminal, "terminal", 128)?;
+                }
+            }
+            Self::DosiConfigure { setup, .. } => {
+                for value in [&setup.account, &setup.model, &setup.effort]
+                    .into_iter()
+                    .flatten()
+                {
+                    text(value, "choice", 128)?;
+                }
+            }
+            Self::DosiWriteInstructions {
+                text: Some(instructions),
+                ..
+            } if instructions.trim().is_empty() => {}
+            Self::DosiWriteInstructions {
+                text: Some(instructions),
+                ..
+            } => writing(instructions, "instructions", MAX_INSTRUCTIONS_BYTES)?,
             _ => {}
         }
         Ok(())
@@ -1440,6 +1656,7 @@ impl Command {
         }
         self.validate_resource_ids()?;
         self.validate_provider()?;
+        self.validate_dosi()?;
         match self {
             Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
@@ -1604,6 +1821,20 @@ fn text(value: &str, label: &str, maximum: usize) -> Result<()> {
     Ok(())
 }
 
+fn writing(value: &str, label: &str, maximum: usize) -> Result<()> {
+    if value.trim().is_empty()
+        || value.len() > maximum
+        || value
+            .chars()
+            .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err(Error::Invalid(format!(
+            "{label} must contain 1 to {maximum} bytes of text"
+        )));
+    }
+    Ok(())
+}
+
 fn agent_start(start: &AgentStart) -> Result<()> {
     if let Some(account) = &start.account {
         text(account, "account", 128)?;
@@ -1733,6 +1964,17 @@ mod tests {
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             resize(),
+            json!({"type":"mission.show","requestId":ID,"missionId":ID}),
+            json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"room":null}}),
+            json!({"type":"dosi.stop","requestId":ID}),
+            json!({"type":"dosi.unqueue","requestId":ID,"queuedId":ID}),
+            json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":["work"]}),
+            json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Which account?","options":["work","personal"],"multiple":false,"terminal":null}),
+            json!({"type":"dosi.new","requestId":ID}),
+            json!({"type":"dosi.setup","requestId":ID,"setup":{"agent":"claude","account":"default","model":"opus","effort":"high"}}),
+            json!({"type":"dosi.instructions.read","requestId":ID}),
+            json!({"type":"dosi.instructions.write","requestId":ID,"text":"# Dosi\n\nBe brief."}),
+            json!({"type":"dosi.history","requestId":ID,"before":ID}),
             json!({"type":"session.focus","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
             json!({"type":"session.blur","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
         ]);
@@ -1793,7 +2035,34 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 50);
+        assert_eq!(kinds.len(), 61);
+    }
+
+    #[test]
+    fn dosi_questions_and_messages_stay_within_their_bounds() {
+        let ask = |options: Value| {
+            serde_json::from_value::<CommandEnvelope>(envelope(
+                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Which?","options":options}),
+            ))
+        };
+        assert!(ask(json!(["a", "b"])).is_ok());
+        assert!(ask(json!([])).is_err());
+        assert!(ask(json!(["a", "a"])).is_err());
+        assert!(ask(json!((0..9).map(|n| n.to_string()).collect::<Vec<_>>())).is_err());
+        assert!(ask(json!(["new\nline"])).is_err());
+        for text in [
+            "",
+            "  \n ",
+            "bell\u{7}",
+            &"x".repeat(crate::dosi::MAX_MESSAGE_BYTES + 1),
+        ] {
+            assert!(
+                serde_json::from_value::<CommandEnvelope>(envelope(
+                    json!({"type":"dosi.send","requestId":ID,"text":text})
+                ))
+                .is_err()
+            );
+        }
     }
 
     #[test]

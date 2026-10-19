@@ -87,9 +87,13 @@ progress where work happens and give each failure a clear recovery action.
 - Each app contains the `kodosi` CLI, which uses the apps' words. `kodosi terminal`
   starts, opens and shares terminals and starts agents in them, and reads, types into,
   waits for and shows a terminal; `kodosi room` and its bundled skill let existing agents
-  take part through the running host. `kodosi dosi skill` lets an agent act as Dosi, the
-  person's agent for their other agents: it reads all terminals and rooms, says what
-  needs the person and asks before each action that changes something.
+  take part through the running host.
+- Dosi is the person's agent for their other agents. It sees every terminal, agent and
+  room of the person, acts on them with the `kodosi` command, shows them in the app and
+  asks with choices. It runs on the computer where the person writes, with the agent,
+  account and model chosen in Settings, and works in its own folder. One encrypted
+  conversation follows the person to all their computers. `kodosi dosi say`, `show` and
+  `stop` reach it from a shell, and `kodosi dosi skill` lets another agent act as Dosi.
 - Apps update themselves in the background and never restart without asking, because a
   restart ends the host's terminals. An app too old for the backend asks for an update.
 - Terminals show the state their programs report: working, waiting for a person, done

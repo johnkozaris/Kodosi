@@ -134,24 +134,31 @@ public extension AppTheme {
             self.reduced = reduced
         }
 
+        public static let springShape = Spring(mass: 0.9, stiffness: 420, damping: 34)
+        public static let softShape = Spring(stiffness: 260, damping: 30)
+        public static let snappyShape = Spring(stiffness: 620, damping: 40)
+
         public var spring: Animation? {
-            reduced ? nil : .interpolatingSpring(mass: 0.9, stiffness: 420, damping: 34)
+            reduced ? nil : .interpolatingSpring(Self.springShape)
         }
 
         public var soft: Animation? {
-            reduced ? nil : .interpolatingSpring(stiffness: 260, damping: 30)
+            reduced ? nil : .interpolatingSpring(Self.softShape)
         }
 
         public var snappy: Animation? {
-            reduced ? nil : .interpolatingSpring(stiffness: 620, damping: 40)
+            reduced ? nil : .interpolatingSpring(Self.snappyShape)
         }
 
+        public static let outCurve: [Float] = [0.23, 1, 0.32, 1]
+        public static let outUnit = UnitCurve.bezier(startControlPoint: UnitPoint(x: 0.23, y: 1), endControlPoint: UnitPoint(x: 0.32, y: 1))
+
         public var fade: Animation? {
-            reduced ? nil : .easeOut(duration: 0.2)
+            reduced ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.2)
         }
 
         public var hover: Animation? {
-            reduced ? nil : .easeOut(duration: 0.12)
+            reduced ? nil : .timingCurve(0.25, 0.1, 0.25, 1, duration: 0.12)
         }
     }
 }

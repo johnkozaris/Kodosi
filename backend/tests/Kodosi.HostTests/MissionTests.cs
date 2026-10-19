@@ -42,6 +42,34 @@ public sealed class MissionTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task DosiHasOneHiddenRoomThatOnlyItsOwnerUses()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner");
+        var friend = await store.UserAsync("friend");
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct);
+        await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var dosi = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(owner.User.Id, new(dosi, "Dosi", Dosi: true), ct);
+        await store.Missions.CreateAsync(owner.User.Id, new(dosi, "Dosi", Dosi: true), ct);
+        await Assert.ThrowsAsync<ApiException>(() => store.Missions.CreateAsync(owner.User.Id, new(Guid.CreateVersion7(), "Dosi", Dosi: true), ct));
+        var listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(owner.User.Id, ct), TestJson.Options);
+        Assert.Empty(listed.GetProperty("missions").EnumerateArray());
+        Assert.Equal(dosi, listed.GetProperty("dosi").GetGuid());
+        var other = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(friend.User.Id, ct), TestJson.Options);
+        Assert.Equal(JsonValueKind.Null, other.GetProperty("dosi").ValueKind);
+        await Assert.ThrowsAsync<ApiException>(() => store.Missions.InviteAsync(dosi, owner.User.Id, new(Guid.CreateVersion7(), friend.User.Id), ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Missions.RenameAsync(dosi, owner.User.Id, "Mine", ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.CreateAsync(owner.User.Id, owner.Approved,
+            new(Guid.CreateVersion7(), Guid.CreateVersion7(), "Terminal", owner.Device.Id, "Host", dosi), ct));
+        var room = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(owner.User.Id, new(room, "Launch week"), ct);
+        listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(owner.User.Id, ct), TestJson.Options);
+        Assert.Equal(room, listed.GetProperty("missions").EnumerateArray().Single().GetProperty("id").GetGuid());
+    }
+
+    [Fact]
     public async Task MissionCapacityIsEnforcedBeforeAdmissionAndOverflowIsExplicit()
     {
         await using var store = await TestStore.CreateAsync(postgres);

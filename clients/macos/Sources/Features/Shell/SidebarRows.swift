@@ -86,7 +86,7 @@ struct SidebarRoomRow: View {
     var body: some View {
         Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
             HStack(spacing: 9) {
-                RoomSigil(key: mission.id, size: 22)
+                RoomSigil(key: mission.id, size: 22).fold(.room(mission.id), at: .row)
                 Text(mission.name).appTextStyle(.body).fontWeight(selected || mission.unread ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
@@ -138,8 +138,12 @@ struct SidebarInvitationRow: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.colors.accentSoft.opacity(0.55), in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.45), lineWidth: 1) }
+        .background(theme.colors.accentSoft.mix(with: theme.colors.ground, by: 0.45),
+                    in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(theme.colors.accent.mix(with: theme.colors.ground, by: 0.55), lineWidth: 1)
+        }
         .padding(.vertical, 2)
     }
 }
@@ -258,7 +262,7 @@ struct SidebarTerminalRow: View {
 
     private var label: some View {
         HStack(spacing: 9) {
-            AgentMark(session: session, size: 22, activity: deps.activity(of: session))
+            AgentMark(session: session, size: 22, activity: deps.activity(of: session)).fold(.terminal(session.id), at: .row)
             VStack(alignment: .leading, spacing: 1) {
                 if renaming {
                     TextField("Name", text: $draft)

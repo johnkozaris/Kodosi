@@ -24,7 +24,7 @@ struct PeopleHome: View {
             }
         }
         .groupedListChrome()
-        .navigationTitle("People")
+        .navigationTitle("Friends")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 InviteShareButton(identifier: "people.shareInvite") {

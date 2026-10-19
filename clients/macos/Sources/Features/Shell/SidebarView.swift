@@ -15,6 +15,9 @@ struct SidebarView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @Namespace private var pill
+    @Namespace private var fold
+    @State private var frames = FoldFrames()
+    @State private var pointer = SidebarPointer()
     @State private var collapsedFolders: Set<String> = []
 
     private var selection: SidebarSelection {
@@ -28,37 +31,88 @@ struct SidebarView: View {
     }
 
     var body: some View {
-        Group {
-            if deps.workbench.sidebarCollapsed {
-                SidebarRail(selection: selection, pill: pill)
+        let workbench = deps.workbench
+        ZStack(alignment: .topLeading) {
+            if workbench.sidebarCollapsed {
+                SidebarRail(selection: selection, pill: pill).frame(width: Metrics.sidebarRailWidth).leaving(theme)
             } else {
-                expanded
+                VStack(spacing: 0) {
+                    HStack {
+                        Spacer()
+                        IconButton(title: "Hide sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
+                            workbench.sidebarCollapsed.toggle()
+                        }
+                    }
+                    .frame(height: Metrics.titleBarHeight).padding(.trailing, 8)
+                    header
+                    if workbench.dosiOpen {
+                        DosiPanel().frame(width: workbench.dosiWidth).leaving(theme)
+                    } else {
+                        expanded.frame(width: workbench.sidebarWidth).leaving(theme)
+                    }
+                }
+                .frame(width: workbench.dosiOpen ? workbench.dosiWidth : workbench.sidebarWidth, alignment: .leading)
+                .leaving(theme)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipped()
+        .overlay(alignment: .topLeading) {
+            if !theme.motion.reduced {
+                FoldFlights(place: workbench.foldPlace)
+            }
+        }
+        .coordinateSpace(.named(FoldFrames.space))
+        .onContinuousHover(coordinateSpace: .named(FoldFrames.space)) { phase in
+            switch phase {
+            case let .active(location): pointer.location = location
+            case .ended: pointer.location = nil
+            }
+        }
+        .environment(\.sidebarFold, fold)
+        .environment(\.sidebarFrames, frames)
+        .environment(\.sidebarPointer, pointer)
+        .environment(\.sidebarFolding, workbench.folding && !theme.motion.reduced)
+        .animation(theme.motion.soft, value: workbench.dosiOpen)
+        .animation(theme.motion.soft, value: workbench.sidebarCollapsed)
         .animation(theme.motion.snappy, value: selection)
         .animation(theme.motion.spring, value: deps.sessions.map(\.id))
         .animation(theme.motion.spring, value: deps.missions.map(\.id))
         .animation(theme.motion.spring, value: deps.sessions.map(\.attention))
     }
 
-    private var expanded: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                IconButton(title: "Hide sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
-                    deps.workbench.sidebarCollapsed.toggle()
-                }
+    private var header: some View {
+        HStack(spacing: 8) {
+            if deps.workbench.dosiOpen {
+                DosiBackButton().transition(Self.back(theme))
             }
-            .frame(height: Metrics.titleBarHeight).padding(.trailing, 8)
-            HStack(spacing: 8) {
-                KodosiWordmark(size: 16, blinks: false)
-                Spacer()
+            KodosiWordmark(size: 16, blinks: false)
+            Spacer(minLength: 8)
+            HStack(spacing: 2) {
+                if deps.workbench.dosiOpen, !deps.dosi.items.isEmpty {
+                    DosiNewChatButton().transition(Self.back(theme))
+                }
                 IconButton(title: "Go to…", symbol: "magnifyingglass", identifier: "sidebar.palette") {
                     deps.workbench.showsPalette = true
                 }
             }
-            .padding(.leading, 16).padding(.trailing, 8).padding(.top, 6)
-            NewTerminalButton().padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 10)
+        }
+        .frame(height: 30)
+        .padding(.leading, deps.workbench.dosiOpen ? 10 : 16).padding(.trailing, 8).padding(.top, 4)
+        .arrive(delay: 0.15, rise: 0)
+    }
+
+    private static func back(_ theme: AppTheme) -> AnyTransition {
+        guard !theme.motion.reduced else { return .identity }
+        return .asymmetric(
+            insertion: AnyTransition.pop.animation(theme.motion.snappy?.delay(0.12)),
+            removal: AnyTransition.pop.animation(theme.motion.fade)
+        )
+    }
+
+    private var expanded: some View {
+        VStack(spacing: 0) {
+            NewTerminalButton().padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 6)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     rooms
@@ -67,7 +121,12 @@ struct SidebarView: View {
                 .padding(.horizontal, 8).padding(.vertical, 8)
             }
             .scrollIndicators(.never)
-            footer
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(FoldFrames.space)) } action: { frames.views[.row] = $0 }
+            .arrive(delay: 0.22, rise: 0)
+            if deps.workbench.dosiOn {
+                SidebarDosiRow().padding(.horizontal, 8).padding(.top, 6)
+            }
+            footer.arrive(delay: 0.28, rise: 0)
         }
     }
 
@@ -129,6 +188,16 @@ struct SidebarView: View {
                         }
                     }
                 }
+                .background(alignment: .leading) {
+                    if collapsed {
+                        ZStack {
+                            ForEach(group.sessions) { session in
+                                Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
+                            }
+                        }
+                        .padding(.leading, 4)
+                    }
+                }
                 if !collapsed {
                     ForEach(group.sessions) { session in
                         SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill)
@@ -141,11 +210,6 @@ struct SidebarView: View {
 
     private var footer: some View {
         VStack(spacing: 2) {
-            SidebarNavRow(title: "People", symbol: "person.2", identifier: "header.people",
-                          badge: deps.people.incoming.count, selected: selection == .people, pill: pill)
-            {
-                deps.workbench.section = .people
-            }
             if deps.updater.waiting {
                 SidebarNavRow(title: "Restart to Update", symbol: "arrow.down.circle", identifier: "sidebar.update",
                               badge: 0, selected: false, pill: pill,
@@ -154,9 +218,13 @@ struct SidebarView: View {
                     deps.updater.restart()
                 }
             }
-            AccountCapsule(selected: selection == .settings, pill: pill).padding(.top, 6)
+            HStack(spacing: 6) {
+                AccountCapsule()
+                SidebarMenu(selected: selection == .people || selection == .settings)
+            }
+            .padding(.top, 6)
         }
-        .padding(.horizontal, 8).padding(.top, 8).padding(.bottom, 10)
+        .padding(.horizontal, 8).padding(.top, 2).padding(.bottom, 10)
     }
 }
 
@@ -188,6 +256,7 @@ struct NewTerminalButton: View {
             .frame(height: 34).contentShape(Rectangle())
         }
         .buttonStyle(.kodosi(.primary))
+        .fold(FoldPart.newTerminal)
         .accessibilityIdentifier("sidebar.newSession")
     }
 }
@@ -195,39 +264,10 @@ struct NewTerminalButton: View {
 struct AccountCapsule: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let selected: Bool
-    let pill: Namespace.ID
 
     var body: some View {
-        HStack(spacing: 6) {
-            if let prompt = deps.signInPrompt {
-                signIn(prompt)
-            } else {
-                Button { deps.workbench.section = .settings } label: {
-                    HStack(spacing: 9) {
-                        PersonAvatar(name: deps.account.selfName, size: 24, isSelf: true)
-                        Text(deps.account.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                        Spacer(minLength: 0)
-                        Image(systemName: "gearshape").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
-                    }
-                    .padding(.horizontal, 8).frame(height: 38)
-                    .background {
-                        if selected {
-                            SelectionPill(namespace: pill, radius: Radius.lg)
-                        }
-                    }
-                    .hoverRow(radius: Radius.lg, selected: selected)
-                }
-                .buttonStyle(.plain).help("Settings").accessibilityLabel(Text("Settings"))
-                .accessibilityIdentifier("header.settings")
-            }
-        }
-    }
-
-    private func signIn(_ prompt: String) -> some View {
-        let approving = deps.account.userId != nil
-        return HStack(spacing: 0) {
+        if let prompt = deps.signInPrompt {
+            let approving = deps.account.userId != nil
             Button { deps.beginSignIn() } label: {
                 HStack(spacing: 9) {
                     Image(systemName: approving ? "checkmark.shield" : "person.fill")
@@ -237,55 +277,28 @@ struct AccountCapsule: View {
                             Circle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: approving ? [] : [2.4, 2]))
                                 .opacity(approving ? 0 : 0.55)
                         }
-                    Text(prompt).appTextStyle(.subhead)
+                    Text(prompt)
                     Spacer(minLength: 0)
                 }
-                .padding(.leading, 8).padding(.trailing, 6).frame(height: 34).contentShape(Rectangle())
+                .padding(.horizontal, -6).frame(height: 34)
             }
+            .buttonStyle(.kodosi(approving ? .tinted : .secondary))
             .accessibilityIdentifier("header.signIn")
-            Rectangle().fill(theme.colors.ink.opacity(0.12)).frame(width: 1, height: 18)
-            Button { deps.workbench.section = .settings } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
-                    .frame(width: 38, height: 34).contentShape(Rectangle())
+        } else {
+            Button {
+                deps.workbench.settingsSection = .devices
+                deps.workbench.section = .settings
+            } label: {
+                HStack(spacing: 9) {
+                    PersonAvatar(name: deps.account.selfName, size: 20, isSelf: true)
+                    Text(deps.account.selfName)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, -6).frame(height: 34)
             }
-            .help("Settings").accessibilityLabel(Text("Settings"))
-            .accessibilityAddTraits(selected ? .isSelected : [])
-            .accessibilityIdentifier("header.settings")
+            .buttonStyle(.kodosi(.secondary))
+            .tip("Account").accessibilityLabel(Text("Account"))
+            .accessibilityIdentifier("sidebar.account")
         }
-        .buttonStyle(SplitPartStyle())
-        .foregroundStyle(approving ? theme.colors.accentStrong : theme.colors.ink)
-        .backgroundPreferenceValue(SplitPressed.self) { pressed in
-            BezelBackground(
-                shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
-                fill: approving ? theme.colors.accentSoft.mix(with: theme.colors.accent, by: hovered ? 0.14 : 0)
-                    : theme.colors.lifted.mix(with: theme.colors.ink, by: (theme.isDark ? 0.07 : 0) + (hovered ? 0.03 : 0)),
-                bezel: .quiet
-            )
-            .environment(\.bezelPressed, pressed)
-            .animation(theme.motion.snappy, value: pressed)
-        }
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-    }
-}
-
-private struct SplitPressed: PreferenceKey {
-    static let defaultValue = false
-
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = value || nextValue()
-    }
-}
-
-private struct SplitPartStyle: ButtonStyle {
-    @Environment(\.theme) private var theme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .preference(key: SplitPressed.self, value: configuration.isPressed)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(theme.motion.snappy, value: configuration.isPressed)
     }
 }

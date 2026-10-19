@@ -84,6 +84,21 @@ pub(super) fn with_default_signals(command: &mut std::process::Command) {
     }
 }
 
+pub(super) fn end_group(leader: u32, force: bool) {
+    let Some(leader) = i32::try_from(leader)
+        .ok()
+        .and_then(rustix::process::Pid::from_raw)
+    else {
+        return;
+    };
+    let signal = if force {
+        rustix::process::Signal::KILL
+    } else {
+        rustix::process::Signal::TERM
+    };
+    let _ = rustix::process::kill_process_group(leader, signal);
+}
+
 pub(super) fn is_running(pid: u32) -> bool {
     let Some(pid) = i32::try_from(pid)
         .ok()

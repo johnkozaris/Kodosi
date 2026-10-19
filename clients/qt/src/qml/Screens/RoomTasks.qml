@@ -157,13 +157,13 @@ Item {
                     implicitHeight: 22
                     hoverEnabled: true
                     enabled: !Models.Missions.busy
-                    scale: pressed ? 0.85 : 1
+                    scale: pressed ? 0.95 : 1
                     Accessible.name: card.modelData.closed ? qsTr("Reopen %1").arg(card.modelData.title) : qsTr("Complete %1").arg(card.modelData.title)
                     ToolTip.visible: hovered
                     ToolTip.text: card.modelData.closed ? qsTr("Reopen") : qsTr("Complete")
-                    ToolTip.delay: 600
+                    ToolTip.delay: Tip.delay
 
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
                     contentItem: Item {
                         Rectangle {
@@ -386,7 +386,7 @@ Item {
                             Accessible.name: qsTr("Show tasks for one repository")
                             ToolTip.visible: hovered
                             ToolTip.text: Accessible.name
-                            ToolTip.delay: 600
+                            ToolTip.delay: Tip.delay
                             onClicked: filterMenu.popup(filterButton, 0, filterButton.height + 4)
 
                             KMenu {
@@ -464,7 +464,7 @@ Item {
 
                                     implicitWidth: tag.implicitWidth
                                     implicitHeight: tag.implicitHeight
-                                    scale: pressed ? 0.94 : 1
+                                    scale: pressed ? 0.95 : 1
                                     Accessible.name: modelData.name
                                     Accessible.checkable: true
                                     Accessible.checked: on

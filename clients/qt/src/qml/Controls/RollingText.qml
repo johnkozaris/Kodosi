@@ -7,6 +7,7 @@ Item {
     property string text: ""
     property alias font: current.font
     property color color: KodosiTheme.ink
+    property int elide: Text.ElideNone
     property string shown: ""
     property string previous: ""
     property bool rising: true
@@ -15,6 +16,7 @@ Item {
 
     implicitWidth: current.implicitWidth
     implicitHeight: current.implicitHeight
+    clip: true
     Accessible.role: Accessible.StaticText
     Accessible.name: text
 
@@ -42,24 +44,26 @@ Item {
         id: current
         width: root.width
         height: root.height
-        y: (1 - root.progress) * root.implicitHeight * (root.rising ? 0.6 : -0.6)
+        y: (1 - root.progress) * root.implicitHeight * (root.rising ? 1 : -1)
         opacity: root.progress
         text: root.shown
         textFormat: Text.PlainText
         color: root.color
+        elide: root.elide
         verticalAlignment: Text.AlignVCenter
         font.features: { "tnum": 1 }
     }
     Text {
         width: root.width
         height: root.height
-        y: root.progress * root.implicitHeight * (root.rising ? -0.6 : 0.6)
+        y: root.progress * root.implicitHeight * (root.rising ? -1 : 1)
         visible: root.progress < 1
         opacity: 1 - root.progress
         text: root.previous
         textFormat: Text.PlainText
         color: root.color
         font: current.font
+        elide: root.elide
         verticalAlignment: Text.AlignVCenter
     }
     NumberAnimation {
@@ -68,7 +72,8 @@ Item {
         property: "progress"
         from: 0
         to: 1
-        duration: KodosiTheme.motionSoft
-        easing.type: Easing.OutCubic
+        duration: KodosiTheme.motionSnappy
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: KodosiTheme.outCurve
     }
 }

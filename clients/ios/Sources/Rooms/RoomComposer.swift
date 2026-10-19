@@ -62,7 +62,6 @@ struct RoomComposer: View {
                 RoundedRectangle(cornerRadius: 23, style: .continuous)
                     .strokeBorder(theme.colors.accent.opacity(focused ? 0.5 : 0), lineWidth: 1.5)
             }
-            .shadow(color: theme.colors.accent.opacity(focused ? 0.16 : 0), radius: 10)
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
@@ -96,7 +95,7 @@ struct RoomComposer: View {
                 }
                 .contentShape(Circle())
         }
-        .buttonStyle(PressScaleStyle(scale: 0.88))
+        .buttonStyle(PressScaleStyle())
         .disabled(!canSend)
         .accessibilityLabel(Text("Send message"))
         .accessibilityIdentifier("rooms.composer.send")

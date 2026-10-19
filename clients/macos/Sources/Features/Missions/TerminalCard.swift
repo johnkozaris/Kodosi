@@ -28,6 +28,6 @@ struct TerminalCard<Detail: View, Accessory: View>: View {
         }
         .buttonStyle(PressScaleStyle(scale: 0.98))
         .onHover { hovered = $0 }
-        .animation(theme.motion.spring, value: hovered)
+        .animation(theme.motion.hover, value: hovered)
     }
 }

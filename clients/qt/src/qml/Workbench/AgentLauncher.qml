@@ -328,7 +328,6 @@ ColumnLayout {
                         required property var modelData
                         readonly property bool selected: modelData.id === root.agentId
                         readonly property string title: modelData.kind === "shell" ? qsTr("Terminal") : Models.DesktopSettings.agentLabel(modelData.kind)
-                        property real bounce: 1
 
                         objectName: "launcher.agent." + (modelData.id || "shell")
                         Accessible.id: objectName
@@ -336,6 +335,7 @@ ColumnLayout {
                         Accessible.role: Accessible.PageTab
                         Accessible.selected: selected
                         ToolTip.visible: hovered && !selected
+                        ToolTip.delay: Tip.delay
                         ToolTip.text: modelData.installed ? title : qsTr("%1 is not on this computer").arg(title)
                         activeFocusOnTab: true
                         hoverEnabled: true
@@ -349,10 +349,9 @@ ColumnLayout {
                             if (selected && !KodosiTheme.reduceMotion)
                                 squash.restart()
                         }
-                        SequentialAnimation {
+                        Squash {
                             id: squash
-                            NumberAnimation { target: mark; property: "bounce"; to: 0.8; duration: 90; easing.type: Easing.OutQuad }
-                            NumberAnimation { target: mark; property: "bounce"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+                            shape: markShape
                         }
 
                         contentItem: Item {
@@ -368,7 +367,7 @@ ColumnLayout {
                                     program: mark.modelData.kind === "shell" ? "" : mark.modelData.kind
                                     asleep: !mark.modelData.installed
                                     size: 18
-                                    scale: mark.bounce
+                                    transform: Scale { id: markShape; origin.x: 9; origin.y: 9 }
                                 }
                                 PlainLabel {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -408,6 +407,7 @@ ColumnLayout {
                     Accessible.id: objectName
                     Accessible.name: qsTr("More agents")
                     ToolTip.visible: hovered
+                    ToolTip.delay: Tip.delay
                     ToolTip.text: root.showsAll ? qsTr("Hide agents that are not on this computer") : qsTr("Show %1 more agents").arg(tabsRow.hidden)
                     activeFocusOnTab: true
                     hoverEnabled: true
@@ -425,7 +425,7 @@ ColumnLayout {
                             color: more.hovered ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
                             rotation: root.showsAll ? 45 : 0
 
-                            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+                            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                         }
                     }
                     background: Rectangle {
@@ -529,7 +529,7 @@ ColumnLayout {
                         Accessible.name: qsTr("Folder")
                         ToolTip.visible: hovered && !open
                         ToolTip.text: root.tilde(root.directory)
-                        ToolTip.delay: 600
+                        ToolTip.delay: Tip.delay
                         glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
                         onClicked: root.toggleMenu("folder")
                     }
@@ -560,7 +560,7 @@ ColumnLayout {
                         Accessible.name: qsTr("Account")
                         ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
                         ToolTip.text: root.account ? root.account.identity || "" : ""
-                        ToolTip.delay: 600
+                        ToolTip.delay: Tip.delay
                         glyph: AccountMark {
                             size: 16
                             initial: accountKey.title.charAt(0)

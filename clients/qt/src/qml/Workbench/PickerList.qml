@@ -10,6 +10,7 @@ FocusScope {
     property real listWidth: 300
     property string filter: ""
     property string highlighted: ""
+    property bool hovering: false
     property int shown: 0
     readonly property int visibleRows: 7
     readonly property real rowHeight: rows.some(row => !!row.subtitle) ? 44 : 32
@@ -27,6 +28,7 @@ FocusScope {
 
     function reset() {
         filter = ""
+        hovering = false
         const current = rows.find(row => row.current) || rows.find(row => row.kind !== "note")
         highlighted = current ? current.id : ""
         if (KodosiTheme.reduceMotion) {
@@ -44,6 +46,7 @@ FocusScope {
         let index = choices.findIndex(row => row.id === highlighted)
         if (index < 0)
             index = step > 0 ? -1 : 0
+        hovering = false
         highlighted = choices[(index + step + choices.length) % choices.length].id
     }
     function sync() {
@@ -60,6 +63,7 @@ FocusScope {
 
     onFilterChanged: {
         const first = matches.find(row => row.kind !== "note")
+        hovering = false
         highlighted = first ? first.id : ""
     }
     onHighlightedChanged: sync()
@@ -146,7 +150,7 @@ FocusScope {
         model: root.matches
         currentIndex: -1
         highlightFollowsCurrentItem: true
-        highlightMoveDuration: KodosiTheme.motionSnappy
+        highlightMoveDuration: root.hovering ? KodosiTheme.motionSnappy : 0
         highlightResizeDuration: 0
         highlight: Raised {
             radius: KodosiTheme.radiusSm
@@ -278,7 +282,10 @@ FocusScope {
                 enabled: !row.note
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onEntered: root.highlighted = row.modelData.id
+                onEntered: {
+                    root.hovering = true
+                    root.highlighted = row.modelData.id
+                }
                 onClicked: root.picked(row.modelData.id)
             }
         }

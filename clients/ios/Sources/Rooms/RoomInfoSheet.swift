@@ -139,7 +139,7 @@ struct RoomInfoSheet: View {
         let candidates = model.people.friends.filter { !members.contains($0.userId) }
         Section {
             if candidates.isEmpty {
-                Text(model.people.friends.isEmpty ? "Add friends in People to invite them." : "All your friends are here.")
+                Text(model.people.friends.isEmpty ? "Add friends in the Friends tab to invite them." : "All your friends are here.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
             }
@@ -163,7 +163,7 @@ struct RoomInfoSheet: View {
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(1)
                 if friend.identityChanged {
-                    Text("Their identity changed. Trust them in People first.")
+                    Text("Their identity changed. Trust them in Friends first.")
                         .appTextStyle(.caption)
                         .foregroundStyle(theme.colors.caution)
                 } else {

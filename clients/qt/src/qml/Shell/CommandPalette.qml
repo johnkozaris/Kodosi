@@ -32,7 +32,7 @@ KPopover {
     }
     function people() {
         return Models.People.friends.map(friend => ({
-            id: "person." + friend.userId, group: qsTr("People"), title: friend.displayName || friend.handle,
+            id: "person." + friend.userId, group: qsTr("Friends"), title: friend.displayName || friend.handle,
             detail: "@" + friend.handle, kind: "person", key: friend.userId
         }))
     }
@@ -44,7 +44,7 @@ KPopover {
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
             list.push({ id: "action.room", group: group, title: qsTr("New room"), kind: "action", icon: "grid", tint: "#8c7bd1" })
-        list.push({ id: "action.people", group: group, title: qsTr("People"), kind: "action", icon: "people", tint: "#5b82c9" })
+        list.push({ id: "action.people", group: group, title: qsTr("Friends"), kind: "action", icon: "people", tint: "#5b82c9" })
         list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "settings", tint: "#6b6560" })
         return list
     }
@@ -88,6 +88,12 @@ KPopover {
     radius: KodosiTheme.radiusSheet
     elevation: 3
     fill: KodosiTheme.surface
+    enter: null
+    exit: null
+
+    Overlay.modal: Rectangle {
+        color: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.55 : 0.22)
+    }
 
     onOpened: {
         query.clear()

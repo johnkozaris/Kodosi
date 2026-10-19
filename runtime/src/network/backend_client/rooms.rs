@@ -20,6 +20,7 @@ pub(crate) struct RoomCache {
     rooms: BTreeMap<Uuid, CachedRoom>,
     contents: BTreeMap<Uuid, Content>,
     registered: Option<String>,
+    dosi: Option<Uuid>,
 }
 #[derive(Clone, Default)]
 struct CachedRoom {
@@ -249,6 +250,7 @@ impl Content {
                 repository.id = item.id.to_string();
                 self.repositories.insert(repository.id.clone(), repository);
             }
+            Payload::Dosi { .. } | Payload::DosiInstructions { .. } => {}
             _ => return Err(invalid("Room content has a different type.")),
         }
         Ok(())
@@ -302,6 +304,8 @@ impl Content {
     }
 }
 
+#[cfg(feature = "host")]
+mod dosi;
 #[cfg(test)]
 #[path = "rooms_tests.rs"]
 mod tests;
@@ -1195,6 +1199,43 @@ impl BackendClient {
         let mut cache = self.inner.rooms.lock().await;
         cache.rooms.remove(&room);
         cache.contents.remove(&room);
+        if cache.dosi == Some(room) {
+            cache.dosi = None;
+        }
+    }
+
+    pub(super) async fn learn_dosi(&self, credentials: &Credentials, catalog: &mut Value) {
+        let room = catalog
+            .as_object_mut()
+            .and_then(|fields| fields.remove("dosi"))
+            .and_then(|room| room.as_str().and_then(|room| Uuid::parse_str(room).ok()));
+        let mut cache = self.inner.rooms.lock().await;
+        if cache.generation == credentials.generation && room.is_some() {
+            cache.dosi = room;
+        }
+    }
+
+    async fn refresh_dosi(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        wanted: Option<u64>,
+        force: bool,
+        lookups: &mut Lookups,
+    ) -> Result<Option<Value>> {
+        match self
+            .refresh_room_keys(credentials, room, force, lookups)
+            .await
+        {
+            Ok(()) => Ok(Some(json!({"type":"network.dosi","sequence":wanted}))),
+            Err(Error::Backend {
+                status: 403 | 404, ..
+            }) => {
+                self.forget_room(room).await;
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub(super) async fn refresh_room(
@@ -1205,6 +1246,11 @@ impl BackendClient {
         force: bool,
         lookups: &mut Lookups,
     ) -> Result<Option<Value>> {
+        if self.inner.rooms.lock().await.dosi == Some(room) {
+            return self
+                .refresh_dosi(credentials, room, wanted, force, lookups)
+                .await;
+        }
         let refreshed = async {
             self.refresh_room_keys(credentials, room, force, lookups)
                 .await?;

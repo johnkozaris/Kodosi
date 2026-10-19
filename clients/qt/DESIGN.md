@@ -42,7 +42,7 @@ typography:
   footnote: {fontFamily: "system-ui", fontSize: "12px"}
   caption: {fontFamily: "system-ui", fontSize: "11px", fontWeight: 500}
 rounded: {xs: "6px", sm: "8px", md: "10px", lg: "14px", xl: "18px", sheet: "22px", tile: "12px"}
-spacing: {sidebar: "252px", rail: "78px", frame-inset: "8px", header: "54px", page: "36px"}
+spacing: {sidebar: "252px", dosi: "420px", rail: "78px", frame-inset: "8px", header: "54px", page: "36px"}
 motion:
   hover: "120ms ease-out"
   fade: "200ms ease-out"
@@ -60,7 +60,7 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/DESIGN.md): its overview, colors, typography, layout, shapes, components and rules apply here. A program in a terminal gets every plain Ctrl key, so each shortcut is Ctrl+Shift with the Mac's key: ⌘K and ⇧⌘[ become Ctrl+Shift+K and Ctrl+Shift+[. Resume a conversation (⇧⌘N) is Ctrl+Shift+R, because Ctrl+Shift+N opens a new terminal. Ctrl+K and Ctrl+, also work when no terminal has focus. On Linux the desktop draws the window frame; on Windows Kodosi draws a 36 px title zone with its own window buttons.
+The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/DESIGN.md): its overview, colors, typography, layout, shapes, components and rules apply here. A program in a terminal gets every plain Ctrl key, so each shortcut is Ctrl+Shift with the Mac's key: ⌘K and ⇧⌘[ become Ctrl+Shift+K and Ctrl+Shift+[. Resume a conversation (⇧⌘N) is Ctrl+Shift+R, because Ctrl+Shift+N opens a new terminal. Ctrl+K and Ctrl+, also work when no terminal has focus. On Linux the desktop draws the window frame; on Windows Kodosi draws a 36 px title zone with its own window buttons. The ⋯ menu beside the account has no Check for Updates: the package manager and App Installer update the app.
 
 ## Colors
 Use `KodosiTheme` roles, not literals. Terminals use the `terminal*` roles in both themes.

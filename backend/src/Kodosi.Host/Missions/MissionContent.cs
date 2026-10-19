@@ -14,6 +14,7 @@ public sealed partial class MissionService
     private const int KeyHistoryPageBytes = 4 * 1024 * 1024;
     private const int KeyHistoryPageStates = 256;
 
+    public const long DosiRoomBytes = 4 * 1024 * 1024;
     public const int RoomPublicKeyLength = 1184 + 32;
 
     internal const int MaxRoomRecipients = (Limits.MaxDevicesPerUser + 1) * (Limits.MaxMissionMembers + 1);
@@ -194,7 +195,8 @@ public sealed partial class MissionService
         if (existing is null && kind != "message" && await db.MissionItems.CountAsync(x => x.MissionId == id && x.Kind == kind, ct) >= 4096)
             throw ApiException.Conflict("The room has reached its item limit.");
         room.ContentBytes += (long)body.Length + signature.Length - (existing is null ? 0 : (long)existing.Body.Length + existing.Signature.Length);
-        if ((await plans.LimitsAsync(db, room.OwnerUserId, ct)).RoomBytes is { } most && room.ContentBytes > most)
+        var planned = (await plans.LimitsAsync(db, room.OwnerUserId, ct)).RoomBytes;
+        if ((room.Dosi ? Math.Min(planned ?? DosiRoomBytes, DosiRoomBytes) : planned) is { } most && room.ContentBytes > most)
             await TrimHistoryAsync(room, most, ct);
         var item = existing ?? new MissionItem { MissionId = id, Id = itemId, CreatedAt = clock.GetUtcNow() };
         item.Kind = kind; item.Version = version; item.KeyVersion = keyVersion;
