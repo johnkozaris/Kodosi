@@ -4,7 +4,6 @@
 
 #include <QJsonObject>
 #include <QObject>
-#include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -59,7 +58,6 @@ private:
     enum class Navigation { Latest, Older, Newer };
 
     CommandDispatcher& m_commands;
-    QTimer m_timeout;
     QString m_provider = QStringLiteral("claude");
     QString m_directory;
     QString m_requestId;

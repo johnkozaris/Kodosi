@@ -308,7 +308,7 @@ fn invalid(message: impl Into<String>) -> Error {
 fn rendered() -> Result<String> {
     let value = json!({
         "protocolVersion":protocol::VERSION,
-        "ffiAbiVersion":9,
+        "ffiAbiVersion":10,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
         "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"imageStorageMaxBytes":kodosi_runtime::terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
@@ -467,14 +467,15 @@ mod tests {
         check(&protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
-            command: protocol::Command::ListSessions { request_id: None },
+            command: protocol::Command::ListSessions {
+                request_id: ID.to_owned(),
+            },
         });
         check(&protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
             command: protocol::Command::Resize {
                 session_id: ID.to_owned(),
-                claim: true,
                 identity: protocol::ResizeIdentity {
                     request_id: ID.to_owned(),
                     expected_runtime_incarnation_id: ID.to_owned(),
@@ -509,7 +510,9 @@ mod tests {
         let mut malformed = serde_json::to_value(protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
-            command: protocol::Command::ListSessions { request_id: None },
+            command: protocol::Command::ListSessions {
+                request_id: ID.to_owned(),
+            },
         })
         .unwrap();
         malformed["unexpected"] = json!(true);

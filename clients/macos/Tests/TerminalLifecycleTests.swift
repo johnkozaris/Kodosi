@@ -35,19 +35,19 @@ import Testing
     let request = try #require(requestId)
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"), "name": .string("Test"),
-        "isOwner": .bool(true), "status": .string("running"), "connectionState": .string("local"),
-        "sharedWith": .array([]), "createRequestId": .string(request),
+        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"),
+        "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([entry])]))
+    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(request), "sessionId": .string(id), "operation": .string("session.create"),
+    ]))
+    try await creating.value
     let managed = try #require(renderer)
     #expect(managed.runtimeIncarnationId == incarnation)
     #expect(managed.token.isActive)
     #expect(managed.resizeAuthority.isAllowed)
     #expect(app.terminalManager.session(for: id) === managed)
-    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
-        "requestId": .string(request), "sessionId": .string(id), "operation": .string("session.create"),
-    ]))
-    try await creating.value
 }
 
 @Test @MainActor func aNewFrameOfATitleSpinnerChangesNothingOnScreen() throws {
@@ -61,7 +61,7 @@ import Testing
         try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object([
             "id": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
             "kind": .string("local"), "name": .string("Amber Wren"), "title": .string(title), "isOwner": .bool(true),
-            "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
+            "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
         ])])]))
     }
     try snapshot(title: "\u{280B} Draft the release notes")

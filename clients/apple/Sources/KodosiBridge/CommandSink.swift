@@ -6,16 +6,13 @@ public final class CommandSink {
     public typealias DispatchCompletion = @MainActor (Int32?) -> Void
     public typealias Transport = @MainActor (Data) -> Int32?
 
-    /// Who an event answers. An event that names no request answers the app.
     public enum Delivery: Equatable, Sendable {
         case caller
         case app
-        case otherClient
     }
 
     private struct Pending {
         let operation: String
-        let replyType: String
         let continuation: CheckedContinuation<RuntimeEvent, any Error>
     }
 
@@ -23,8 +20,6 @@ public final class CommandSink {
     private(set) var accountUserId: String?
     private(set) var accountEpoch: UInt64 = 0
     private var pending: [String: Pending] = [:]
-    private var timeouts: [String: Task<Void, Never>] = [:]
-    private var unawaited: [String] = []
     public var onFailure: ((String) -> Void)?
 
     public init(transport: Transport? = nil) {
@@ -40,7 +35,11 @@ public final class CommandSink {
 
     @discardableResult
     public func send(_ type: String, _ fields: [String: JSONValue] = [:]) -> Int32? {
-        send(RuntimeCommand(type: type, fields: fields))
+        var fields = fields
+        if fields["requestId"] == nil {
+            fields["requestId"] = .string(UUIDv7.generate())
+        }
+        return send(RuntimeCommand(type: type, fields: fields))
     }
 
     @discardableResult
@@ -59,9 +58,6 @@ public final class CommandSink {
     }
 
     public func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
-        if let requestId = fields["requestId"]?.stringValue {
-            remember(requestId)
-        }
         let result = send(type, fields)
         if !Self.didAcceptSynchronously(result) {
             onFailure?(result.map { RuntimeError.rejected($0).localizedDescription }
@@ -77,30 +73,17 @@ public final class CommandSink {
         }
         var fields = fields
         fields["requestId"] = .string(requestId)
-        let replyType = if type == "mission.open" {
-            "mission.snapshot"
-        } else if type.hasPrefix("provider.") {
-            "provider.reply"
-        } else {
-            String(type.prefix(while: { $0 != "." })) + ".result"
-        }
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 guard !Task.isCancelled else {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                pending[requestId] = Pending(operation: type, replyType: replyType, continuation: continuation)
+                pending[requestId] = Pending(operation: type, continuation: continuation)
                 let result = send(type, fields)
                 guard Self.didAcceptSynchronously(result) else {
                     finish(requestId, result: .failure(result.map(RuntimeError.rejected) ?? RuntimeError.unavailable))
                     return
-                }
-                guard pending[requestId] != nil else { return }
-                timeouts[requestId] = Task { @MainActor [weak self] in
-                    try? await Task.sleep(for: .seconds(type == "room.command" ? 60 : 20))
-                    guard !Task.isCancelled else { return }
-                    self?.finish(requestId, result: .failure(RuntimeError.timedOut))
                 }
             }
         } onCancel: {
@@ -122,42 +105,30 @@ public final class CommandSink {
 
     @discardableResult
     public func receive(_ event: RuntimeEvent) -> Delivery {
-        guard let requestId = event.string("requestId") else { return .app }
-        guard let pending = pending[requestId] else {
-            return unawaited.contains(requestId) ? .app : .otherClient
-        }
-        let errorType = String(pending.operation.prefix(while: { $0 != "." })) + ".error"
-        let isError = event.type == errorType
-        guard event.accountEpoch == accountEpoch, event.accountUserId == accountUserId,
-              event.type == pending.replyType || isError,
-              event.type == "mission.snapshot" || event.string("operation") == pending.operation else { return .app }
-        if isError {
-            finish(requestId, result: .failure(RuntimeError.operation(event.string("message") ?? String(localized: "That did not work.", bundle: .module))))
-        } else {
+        guard let requestId = event.string("requestId"), let pending = pending[requestId],
+              event.string("operation") == pending.operation else { return .app }
+        let area = pending.operation.prefix(while: { $0 != "." })
+        if event.type == area + ".error" {
+            finish(requestId, result: .failure(RuntimeError.operation(
+                event.string("message") ?? String(localized: "That did not work.", bundle: .module)
+            )))
+        } else if event.type == area + ".result" {
             finish(requestId, result: .success(event))
+        } else {
+            return .app
         }
         return .caller
-    }
-
-    private func remember(_ requestId: String) {
-        if unawaited.count == 64 {
-            unawaited.removeFirst()
-        }
-        unawaited.append(requestId)
     }
 
     public func cancelPending(_ error: any Error = RuntimeError.unavailable) {
         let callbacks = Array(pending.values)
         pending.removeAll()
-        timeouts.values.forEach { $0.cancel() }
-        timeouts.removeAll()
         for callback in callbacks {
             callback.continuation.resume(throwing: error)
         }
     }
 
     private func finish(_ requestId: String, result: Result<RuntimeEvent, any Error>) {
-        timeouts.removeValue(forKey: requestId)?.cancel()
         pending.removeValue(forKey: requestId)?.continuation.resume(with: result)
     }
 
@@ -168,24 +139,22 @@ public final class CommandSink {
     public func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
                                   expectedRuntimeIncarnationId: String) -> Int32?
     {
-        remember(requestId)
-        return send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
-                                          requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
+        send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
+                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
     }
 
     public func sendTerminalBlur(sessionId: String, clientId: String, subscriptionGeneration: UInt64,
                                  expectedRuntimeIncarnationId: String) -> Int32?
     {
         send(TerminalCommand.blur(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
-                                  expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
+                                  requestId: UUIDv7.generate(), expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
     }
 
     @discardableResult
     public func sendTerminalResize(sessionId: String, identity: TerminalResizeIdentity,
-                                   claim: Bool = false, completion: DispatchCompletion? = nil) -> Int32?
+                                   completion: DispatchCompletion? = nil) -> Int32?
     {
-        remember(identity.requestId)
-        let result = send(TerminalCommand.resize(sessionId: sessionId, identity: identity, claim: claim))
+        let result = send(TerminalCommand.resize(sessionId: sessionId, identity: identity))
         completion?(result)
         return result
     }

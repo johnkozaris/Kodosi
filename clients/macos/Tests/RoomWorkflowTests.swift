@@ -61,3 +61,36 @@ import Testing
     ]))
     #expect(app.roomView("room-1").unread == 2)
 }
+
+@Test @MainActor func aShownRoomIsSeenWhenTheAppComesToTheFront() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "RoomSeen"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var seen: [String: JSONValue]?
+    app.commandSink.transport = { data in
+        let command = try? JSONDecoder().decode([String: JSONValue].self, from: data)
+        if command?["type"]?.stringValue == "mission.seen" {
+            seen = command
+        }
+        return 0
+    }
+    var front = false
+    app.isFront = { front }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: "user-1", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    app.workbench.section = .missions
+    app.workbench.selectedMissionId = "room-1"
+    try app.receive(runtimeEvent("room.snapshot", epoch: 0, userId: "user-1", fields: ["room": .object([
+        "roomId": .string("room-1"), "tasks": .array([]), "repositories": .array([]),
+        "messages": .array([.object([
+            "id": .string("m4"), "sequence": .uint(4), "authorId": .string("user-2"), "authorName": .string("Leo"),
+            "agent": .null, "terminalId": .null, "text": .string("Hello"), "createdAt": .string("2026-10-15T10:00:00Z"),
+        ])]),
+        "sequence": .uint(4), "hasOlder": .bool(false), "historyTrimmed": .bool(false),
+    ])]))
+    #expect(seen == nil)
+    front = true
+    app.seeShownRoom()
+    #expect(seen?["missionId"]?.stringValue == "room-1")
+    #expect(seen?["sequence"] == .int(4))
+}

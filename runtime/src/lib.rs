@@ -48,12 +48,18 @@ pub enum Error {
     Stopped,
     #[error("The session is not available.")]
     NotFound,
-    #[error("The request belongs to an earlier session or connection.")]
+    #[error("The terminal or the account changed. Try again.")]
     Stale,
     #[error("{0}")]
     Invalid(String),
     #[error("{0}")]
     HostBusy(String),
+    #[error("Kodosi was updated, but its host still runs the earlier version.")]
+    HostOutdated {
+        kind: HostKind,
+        pid: u32,
+        terminals: usize,
+    },
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]

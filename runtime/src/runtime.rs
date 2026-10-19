@@ -45,6 +45,7 @@ const MAX_JOBS: usize = 64;
 const MAX_PUBLICATIONS_IN_FLIGHT: usize = 8;
 const COMMAND_CAPACITY: usize = 128;
 const MAX_QUEUED_INPUT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ANSWERS: usize = 256;
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
 
@@ -87,6 +88,7 @@ enum Request {
     TerminalCommand {
         envelope: CommandEnvelope,
         connection: Uuid,
+        reply: oneshot::Sender<Result<()>>,
     },
     Snapshot(oneshot::Sender<Result<Vec<Event>>>),
     Observe(oneshot::Sender<Result<Observation>>),
@@ -147,8 +149,11 @@ impl RuntimeHandle {
         }
     }
 
-    pub fn try_send_terminal(&self, envelope: CommandEnvelope, connection: Uuid) -> Result<()> {
-        envelope.command.validate()?;
+    pub async fn terminal_control(
+        &self,
+        envelope: CommandEnvelope,
+        connection: Uuid,
+    ) -> Result<Option<Value>> {
         if !matches!(
             envelope.command,
             Command::Resize { .. } | Command::Focus { .. } | Command::Blur { .. }
@@ -158,10 +163,23 @@ impl RuntimeHandle {
                 "expected a subscribed terminal control".to_owned(),
             ));
         }
-        self.send(Request::TerminalCommand {
-            envelope,
-            connection,
-        })
+        let command = envelope.command.clone();
+        let result = async {
+            envelope.command.validate()?;
+            let (reply, response) = oneshot::channel();
+            self.send(Request::TerminalCommand {
+                envelope,
+                connection,
+                reply,
+            })?;
+            response.await.map_err(|_| Error::Stopped)?
+        }
+        .await;
+        Ok(crate::protocol::control_answer(&command, result))
+    }
+
+    pub fn consumer(&self) -> Uuid {
+        self.consumer.id
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<Event> {
@@ -404,6 +422,38 @@ struct Opening {
     commands: Vec<Command>,
 }
 
+struct Answer {
+    consumer: Uuid,
+    lifetime: CancellationToken,
+}
+
+fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value {
+    let operation = command.operation();
+    let area = operation.split('.').next().unwrap_or(operation);
+    let mut value = match outcome {
+        Ok(()) => {
+            json!({"type":format!("{area}.result"), "requestId":command.request_id(), "operation":operation})
+        }
+        Err(error) => {
+            json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.to_string()})
+        }
+    };
+    if let Some(session) = command.session_id() {
+        value["sessionId"] = json!(session);
+    }
+    match command {
+        Command::Room { room_id, .. } if outcome.is_ok() => value["roomId"] = json!(room_id),
+        Command::RenameMission { mission_id, .. }
+        | Command::DeleteMission { mission_id, .. }
+        | Command::OpenMission { mission_id, .. }
+        | Command::InviteMission { mission_id, .. }
+        | Command::RemoveMissionMember { mission_id, .. }
+        | Command::LeaveMission { mission_id, .. } => value["missionId"] = json!(mission_id),
+        _ => {}
+    }
+    value
+}
+
 struct Job {
     scope: Scope,
     completion: Completion,
@@ -443,6 +493,10 @@ enum Completion {
     Terminal {
         command: Command,
         result: Result<()>,
+    },
+    Read {
+        command: Command,
+        result: Result<String>,
     },
     #[cfg(feature = "host")]
     Provider {
@@ -514,6 +568,22 @@ impl TerminalTarget {
         }
     }
 
+    fn read(&self, history: bool) -> Pin<Box<dyn Future<Output = Result<String>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => Box::pin(terminal.read(history)),
+            Self::Remote(terminal) => Box::pin(terminal.read(history)),
+        }
+    }
+
+    fn send_input(&self, bytes: Bytes) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => Box::pin(terminal.send_input(bytes)),
+            Self::Remote(terminal) => Box::pin(terminal.send_input(bytes)),
+        }
+    }
+
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
@@ -565,6 +635,49 @@ impl TerminalTarget {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Activity {
+    working: bool,
+    wait: Option<crate::terminal::ProgramState>,
+}
+
+impl Activity {
+    fn of(entry: &SessionEntry) -> Self {
+        use crate::terminal::ProgramState;
+        let closing = entry.status == SessionStatus::Closing;
+        let state = entry.program_status.as_ref().map(|status| status.state);
+        let spinning = || {
+            entry
+                .title
+                .as_deref()
+                .and_then(|title| title.chars().next())
+                .is_some_and(|first| ('\u{2800}'..='\u{28ff}').contains(&first))
+        };
+        let working = !closing
+            && state.map_or_else(
+                || Self::connected(entry) && spinning(),
+                |state| state == ProgramState::Working,
+            );
+        let wait = state.filter(|state| match state {
+            ProgramState::Done | ProgramState::Error => true,
+            ProgramState::Blocked => !closing,
+            ProgramState::Idle | ProgramState::Working => false,
+        });
+        Self { working, wait }
+    }
+
+    fn connected(entry: &SessionEntry) -> bool {
+        matches!(
+            entry.connection_state,
+            ConnectionState::Local | ConnectionState::Connected
+        )
+    }
+
+    fn calls(entry: &SessionEntry) -> bool {
+        entry.is_owner || Self::connected(entry)
+    }
+}
+
 struct Reconnect {
     incarnation: Uuid,
     failures: u32,
@@ -588,8 +701,11 @@ struct TerminalNotice {
 }
 
 struct Runtime {
+    host: Option<crate::HostKind>,
     #[cfg(feature = "host")]
     config: Config,
+    #[cfg(feature = "host")]
+    launcher: Arc<crate::agents::Launcher>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -602,6 +718,11 @@ struct Runtime {
     connections: HashMap<Uuid, RemoteTerminal>,
     opening: HashMap<Uuid, Opening>,
     views: HashMap<Uuid, HashMap<Uuid, CancellationToken>>,
+    visible: HashMap<Uuid, (CancellationToken, BTreeSet<String>)>,
+    attention: BTreeSet<String>,
+    activity: HashMap<String, Activity>,
+    room_latest: HashMap<String, u64>,
+    room_seen: Option<(String, BTreeMap<String, u64>)>,
     reconnect: HashMap<Uuid, Reconnect>,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
@@ -615,6 +736,7 @@ struct Runtime {
     auth_pending: bool,
     latest_auth: Option<Value>,
     cached_events: BTreeMap<String, Value>,
+    answers: std::sync::Mutex<HashMap<String, Answer>>,
 }
 
 pub async fn start(config: Config) -> Result<RuntimeHandle> {
@@ -630,7 +752,11 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let network_events = network.events();
     let scope = Scope {
         user: None,
-        epoch: 0,
+        epoch: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| {
+                u64::try_from(since.as_millis()).unwrap_or_default()
+            }),
         network_generation: network.generation(),
     };
     let (commands, receiver) = mpsc::channel(COMMAND_CAPACITY);
@@ -659,9 +785,18 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     .await?;
     #[cfg(not(feature = "host"))]
     drop(client_count);
+    #[cfg(feature = "host")]
+    let launcher = Arc::new(crate::agents::Launcher::load(
+        &config.data_root,
+        &config.home,
+        &commands::shell(&config),
+    ));
     let runtime = Runtime {
+        host: cfg!(feature = "host").then_some(config.host),
         #[cfg(feature = "host")]
         config,
+        #[cfg(feature = "host")]
+        launcher,
         network,
         events,
         scope,
@@ -674,6 +809,11 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         connections: HashMap::new(),
         opening: HashMap::new(),
         views: HashMap::new(),
+        visible: HashMap::new(),
+        attention: BTreeSet::new(),
+        activity: HashMap::new(),
+        room_latest: HashMap::new(),
+        room_seen: None,
         reconnect: HashMap::new(),
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
@@ -687,6 +827,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         auth_pending: false,
         latest_auth: None,
         cached_events: BTreeMap::new(),
+        answers: std::sync::Mutex::new(HashMap::new()),
     };
     tokio::spawn(async move {
         runtime.run(receiver, change_rx, network_events).await;
@@ -704,11 +845,87 @@ impl Runtime {
 
     fn emit(&self, value: Value) {
         match self.event(value) {
-            Ok(event) => {
+            Ok(mut event) => {
+                if let Some(request) = event.event.request_id() {
+                    let mut answers = self.answers();
+                    let Some(answer) = answers.get(request) else {
+                        tracing::debug!(
+                            kind = event.event.kind(),
+                            "an answer for a client that left was dropped"
+                        );
+                        return;
+                    };
+                    event.recipient = Some(answer.consumer);
+                    if event.event.is_answer() {
+                        answers.remove(request);
+                    }
+                }
                 drop(self.events.send(event));
             }
             Err(error) => tracing::error!(%error, "invalid runtime event"),
         }
+    }
+
+    fn answers(&self) -> std::sync::MutexGuard<'_, HashMap<String, Answer>> {
+        self.answers
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn command(&mut self, envelope: &CommandEnvelope, consumer: Uuid, lifetime: CancellationToken) {
+        let command = &envelope.command;
+        if let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
+            self.refuse(command, consumer, &error);
+        } else if envelope.account_epoch != self.scope.epoch
+            || envelope.account_user_id != self.scope.user
+        {
+            self.error(command, &Error::Stale);
+        } else if let Err(error) = self.apply_for_consumer(command, consumer, lifetime) {
+            self.error(command, &error);
+        }
+    }
+
+    fn expect_answer(
+        &self,
+        command: &Command,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+    ) -> Result<()> {
+        let request = command.request_id();
+        let mut answers = self.answers();
+        if answers.contains_key(request) {
+            return Err(Error::Invalid(
+                "That request is already in progress.".to_owned(),
+            ));
+        }
+        if answers
+            .values()
+            .filter(|answer| answer.consumer == consumer)
+            .count()
+            >= MAX_ANSWERS
+        {
+            return Err(Error::Busy);
+        }
+        answers.insert(request.to_owned(), Answer { consumer, lifetime });
+        drop(answers);
+        Ok(())
+    }
+
+    fn refuse(&self, command: &Command, consumer: Uuid, error: &Error) {
+        match self.event(answer(command, Err(error))) {
+            Ok(mut event) => {
+                event.recipient = Some(consumer);
+                drop(self.events.send(event));
+            }
+            Err(error) => tracing::error!(%error, "invalid runtime event"),
+        }
+    }
+
+    fn prune_answers(&mut self) {
+        self.answers()
+            .retain(|_, answer| !answer.lifetime.is_cancelled());
+        self.visible
+            .retain(|_, (lifetime, _)| !lifetime.is_cancelled());
     }
 
     fn entries(&self) -> Vec<SessionEntry> {
@@ -716,16 +933,59 @@ impl Runtime {
         #[cfg(feature = "host")]
         entries.extend(self.local.values().map(|local| local.entry.clone()));
         entries.sort_by(|left, right| left.id.cmp(&right.id));
+        for entry in &mut entries {
+            entry.attention = self.attention.contains(&entry.id);
+        }
         entries
     }
 
-    fn publish_catalog(&self) {
+    fn publish_catalog(&mut self) {
+        let entries = self.entries();
+        let mut activity = HashMap::with_capacity(entries.len());
+        for entry in &entries {
+            let now = Activity::of(entry);
+            let before = self.activity.get(&entry.id);
+            let stopped = before.is_some_and(|before| before.working) && !now.working;
+            let waits = now.wait.is_some() && before.map(|before| before.wait) != Some(now.wait);
+            if (stopped || waits) && Activity::calls(entry) {
+                self.notice(&entry.id);
+            }
+            activity.insert(entry.id.clone(), now);
+        }
+        self.activity = activity;
+        self.attention.retain(|id| self.activity.contains_key(id));
         self.emit(json!({"type":"sessions.snapshot", "sessions":self.entries()}));
+    }
+
+    fn watched(&self, id: &str) -> bool {
+        self.visible
+            .values()
+            .any(|(lifetime, ids)| !lifetime.is_cancelled() && ids.contains(id))
+    }
+
+    fn notice(&mut self, id: &str) {
+        if self.watched(id) {
+            return;
+        }
+        self.attention.insert(id.to_owned());
+        self.emit(json!({"type":"term.attention", "sessionId":id}));
+    }
+
+    fn see(&mut self, consumer: Uuid, lifetime: CancellationToken, ids: BTreeSet<String>) {
+        let seen = ids.iter().filter(|id| self.attention.remove(*id)).count();
+        self.visible.insert(consumer, (lifetime, ids));
+        if seen > 0 {
+            self.publish_catalog();
+        }
+    }
+
+    fn ready_event(&self) -> Value {
+        json!({"type":"system.ready", "protocolVersion":crate::protocol::VERSION, "host":self.host})
     }
 
     fn snapshot_events(&self) -> Result<Vec<Event>> {
         let mut values = vec![
-            json!({"type":"system.ready", "protocolVersion":crate::protocol::VERSION}),
+            self.ready_event(),
             self.auth_event(),
             json!({"type":"sessions.snapshot", "sessions":self.entries()}),
         ];
@@ -778,7 +1038,7 @@ impl Runtime {
         mut changes: mpsc::Receiver<SessionChange>,
         mut network_events: broadcast::Receiver<BackendEvent>,
     ) {
-        self.emit(json!({"type":"system.ready", "protocolVersion":crate::protocol::VERSION}));
+        self.emit(self.ready_event());
         let network = self.network.clone();
         self.spawn(async move {
             Completion::Initialized(network.initialize().await.map_err(Error::from))
@@ -796,17 +1056,15 @@ impl Runtime {
                     match request {
                         None | Some(Request::Shutdown) => break,
                         Some(Request::Command { envelope, consumer, lifetime }) => {
-                            if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user || lifetime.is_cancelled() {
-                                self.error(&envelope.command, &Error::Stale);
-                            } else if let Err(error) = self.apply_for_consumer(&envelope.command, consumer, lifetime) {
-                                self.error(&envelope.command, &error);
+                            if !lifetime.is_cancelled() {
+                                self.command(&envelope, consumer, lifetime);
                             }
                         }
-                        Some(Request::TerminalCommand { envelope, connection }) => {
+                        Some(Request::TerminalCommand { envelope, connection, reply }) => {
                             if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user {
-                                self.terminal_result(&envelope.command, Err(Error::Stale));
-                            } else if let Err(error) = self.terminal_command(envelope.command.clone(), connection) {
-                                self.terminal_result(&envelope.command, Err(error));
+                                drop(reply.send(Err(Error::Stale)));
+                            } else {
+                                self.terminal_command(&envelope.command, connection, reply);
                             }
                         }
                         Some(request) => self.request(request),
@@ -819,7 +1077,8 @@ impl Runtime {
                     match event {
                         Ok(event) => self.network_event(event),
                         Err(broadcast::error::RecvError::Lagged(_)) => {
-                            for command in [Command::RefreshAuth { request_id: None }, Command::RefreshDevices { request_id: None }, Command::RefreshFriends { request_id: None }, Command::ListMissions { request_id: None }, Command::ListSessions { request_id: None }] {
+                            let internal = || Uuid::now_v7().to_string();
+                            for command in [Command::RefreshAuth { request_id: internal() }, Command::RefreshDevices { request_id: internal() }, Command::RefreshFriends { request_id: internal() }, Command::ListMissions { request_id: internal() }, Command::ListSessions { request_id: internal() }] {
                                 self.refresh(command);
                             }
                         },
@@ -836,7 +1095,7 @@ impl Runtime {
                         None => {},
                     }
                 }
-                _ = demand.tick() => { self.prune_views(); self.reconnect_views(); }
+                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
                 _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); } self.reconnect_views(); }
             }
         }
@@ -1064,47 +1323,19 @@ impl Runtime {
     }
 
     fn error(&self, command: &Command, error: &Error) {
-        if matches!(error, Error::Stale | Error::Stopped) {
-            return;
+        if !matches!(error, Error::Stopped) {
+            self.emit(answer(command, Err(error)));
         }
-        let operation = command.operation();
-        let kind = match operation.split('.').next() {
-            Some("session") => "session.error",
-            Some("provider") => "provider.error",
-            Some("mission") => "mission.error",
-            Some("room") => "room.error",
-            Some("friends") => "friends.error",
-            Some("devices") => "devices.error",
-            Some("auth") => "auth.error",
-            _ => "system.error",
-        };
-        if kind == "system.error" {
-            self.emit(json!({"type":kind, "message":error.to_string()}));
-            return;
-        }
-        let mut value = json!({"type":kind, "operation":operation, "message":error.to_string()});
-        if let Some(request) = command.request_id() {
-            value["requestId"] = json!(request);
-        }
-        if kind == "session.error"
-            && let Some(session) = command.session_id()
-        {
-            value["sessionId"] = json!(session);
-        }
-        if kind == "mission.error"
-            && let Ok(args) = serde_json::to_value(command)
-            && let Some(mission) = args.get("missionId")
-        {
-            value["missionId"] = mission.clone();
-        }
-        self.emit(value);
     }
 
     fn result(&self, command: &Command) {
-        self.emit(
-            json!({"type":"session.result", "operation":command.operation(),
-            "requestId":command.request_id(), "sessionId":command.session_id()}),
-        );
+        self.emit(answer(command, Ok(())));
+    }
+
+    fn finish(&self, command: &Command) {
+        if self.answers().contains_key(command.request_id()) {
+            self.result(command);
+        }
     }
 
     fn synchronize_account(&mut self) -> Result<()> {
@@ -1121,16 +1352,20 @@ impl Runtime {
         for connection in self.connections.values() {
             connection.disconnect();
         }
-        for opening in self.opening.values() {
-            opening.cancellation.cancel();
-        }
         self.connections.clear();
-        self.opening.clear();
+        for opening in std::mem::take(&mut self.opening).into_values() {
+            opening.cancellation.cancel();
+            for command in opening.commands {
+                self.error(&command, &Error::Stale);
+            }
+        }
         self.views.clear();
         self.reconnect.clear();
         self.listed.clear();
         self.remotes.clear();
         self.cached_events.clear();
+        self.room_latest.clear();
+        self.room_seen = None;
         self.latest_auth = None;
         self.administering.clear();
         #[cfg(feature = "host")]
@@ -1153,6 +1388,17 @@ impl Runtime {
     }
 
     fn network_event(&mut self, event: BackendEvent) {
+        if event.event.get("requestId").is_some() {
+            let ends_sign_in = matches!(
+                event.event.get("type").and_then(Value::as_str),
+                Some("auth.result" | "auth.error")
+            ) && self.latest_auth.take().is_some();
+            self.emit(event.event);
+            if ends_sign_in {
+                self.emit(self.auth_event());
+            }
+            return;
+        }
         if event.generation != self.network.generation()
             || event.user_id != self.network.identity().map(|identity| identity.user_id)
         {
@@ -1165,7 +1411,9 @@ impl Runtime {
             .event
             .get("type")
             .and_then(Value::as_str)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .to_owned();
+        let kind = kind.as_str();
         if kind == "network.sharing" {
             #[cfg(feature = "host")]
             self.sharing_changed(&event.event);
@@ -1185,12 +1433,17 @@ impl Runtime {
             }
         } else {
             match kind {
-                "auth.device_code" | "auth.finalizing" => {
+                "auth.finalizing" => {
                     self.latest_auth = Some(event.event.clone());
                 }
                 "auth.ready" | "auth.required" | "auth.error" => self.latest_auth = None,
                 _ => {}
             }
+            let event = if kind == "missions.snapshot" {
+                self.with_unread(event.event)
+            } else {
+                event.event
+            };
             if matches!(
                 kind,
                 "friends.snapshot"
@@ -1199,11 +1452,106 @@ impl Runtime {
                     | "missions.snapshot"
                     | "system.updateRequired"
             ) {
-                self.cached_events
-                    .insert(kind.to_owned(), event.event.clone());
+                self.cached_events.insert(kind.to_owned(), event.clone());
             }
-            self.emit(event.event);
+            let room = (kind == "room.snapshot").then(|| event["room"].clone());
+            self.emit(event);
+            if let Some(room) = room {
+                self.room_changed(&room);
+            }
         }
+    }
+
+    fn seen_rooms(&mut self) -> Option<&mut BTreeMap<String, u64>> {
+        let user = self.scope.user.clone()?;
+        if self
+            .room_seen
+            .as_ref()
+            .is_none_or(|(owner, _)| *owner != user)
+        {
+            let seen = self.network.rooms_seen(&user);
+            self.room_seen = Some((user, seen));
+        }
+        self.room_seen.as_mut().map(|(_, seen)| seen)
+    }
+
+    fn remember_seen(&self) {
+        if let Some((user, seen)) = &self.room_seen
+            && let Err(error) = self.network.remember_seen(user, seen)
+        {
+            tracing::warn!(%error, "could not save which room messages were seen");
+        }
+    }
+
+    fn with_unread(&mut self, mut snapshot: Value) -> Value {
+        let latest = self.room_latest.clone();
+        let seen = self.seen_rooms().cloned().unwrap_or_default();
+        for mission in snapshot
+            .get_mut("missions")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            let id = mission["id"].as_str().unwrap_or_default();
+            let unread = latest
+                .get(id)
+                .is_some_and(|latest| *latest > seen.get(id).copied().unwrap_or_default());
+            mission["unread"] = json!(unread);
+        }
+        snapshot
+    }
+
+    fn publish_rooms(&mut self) {
+        if let Some(snapshot) = self.cached_events.get("missions.snapshot").cloned() {
+            let snapshot = self.with_unread(snapshot);
+            self.cached_events
+                .insert("missions.snapshot".to_owned(), snapshot.clone());
+            self.emit(snapshot);
+        }
+    }
+
+    fn room_changed(&mut self, room: &Value) {
+        let Some(id) = room["roomId"].as_str().map(str::to_owned) else {
+            return;
+        };
+        let user = self.scope.user.clone();
+        let Some(latest) = room["messages"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|message| {
+                message["agent"].is_string() || message["authorId"].as_str() != user.as_deref()
+            })
+            .filter_map(|message| message["sequence"].as_u64())
+            .max()
+        else {
+            return;
+        };
+        let known = self.room_latest.get(&id).copied().unwrap_or_default();
+        if latest <= known {
+            return;
+        }
+        self.room_latest.insert(id.clone(), latest);
+        if let Some(seen) = self.seen_rooms()
+            && !seen.contains_key(&id)
+        {
+            seen.insert(id, latest);
+            self.remember_seen();
+        }
+        self.publish_rooms();
+    }
+
+    fn see_room(&mut self, room: &str, sequence: u64) -> Result<()> {
+        let seen = self
+            .seen_rooms()
+            .ok_or_else(|| Error::Invalid("Sign in to use rooms.".to_owned()))?;
+        if seen.get(room).is_some_and(|seen| *seen >= sequence) {
+            return Ok(());
+        }
+        seen.insert(room.to_owned(), sequence);
+        self.remember_seen();
+        self.publish_rooms();
+        Ok(())
     }
 
     #[cfg(feature = "host")]
@@ -1431,6 +1779,7 @@ impl Runtime {
         let live = connection_state == ConnectionState::Connected;
         let shared = remote.status.as_ref().filter(|_| remote.online);
         SessionEntry {
+            attention: false,
             connected_users: if live {
                 previous.map_or_else(Vec::new, |entry| entry.connected_users.clone())
             } else {
@@ -1477,7 +1826,6 @@ impl Runtime {
             mission_id: remote.mission_id.map(|id| id.to_string()),
             mission_name: remote.mission_name,
             shared_with: remote.shared_with,
-            create_request_id: None,
         }
     }
 
@@ -1573,7 +1921,18 @@ impl Runtime {
                 self.emit(json!({"type":"term.title", "sessionId":id, "title":title}));
             }
             #[cfg(feature = "host")]
-            SessionChange::Bell { id } => self.emit(json!({"type":"term.bell", "sessionId":id})),
+            SessionChange::Bell { id } => {
+                self.emit(json!({"type":"term.bell", "sessionId":id}));
+                let calls = self
+                    .local
+                    .get(&id)
+                    .is_some_and(|local| Activity::calls(&local.entry));
+                let id = id.to_string();
+                if calls && !self.attention.contains(&id) {
+                    self.notice(&id);
+                    self.publish_catalog();
+                }
+            }
             #[cfg(feature = "host")]
             SessionChange::Status { id, status } => {
                 if let Some(local) = self.local.get_mut(&id) {
@@ -1716,12 +2075,6 @@ impl Runtime {
             {
                 opening.commands.clear();
             }
-        }
-    }
-
-    fn refresh_catalog(&mut self, command: &Command) {
-        if self.scope.user.is_some() && self.job_capacity().is_ok() {
-            self.network_command(command.clone());
         }
     }
 

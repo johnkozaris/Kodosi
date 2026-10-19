@@ -6,6 +6,7 @@ pub(super) const CONTROL: u8 = 3;
 pub(super) const INPUT: u8 = 4;
 pub(super) const RESIZE: u8 = 5;
 pub(super) const INPUT_ACK: u8 = 6;
+pub(super) const REFRESH: u8 = 7;
 
 #[derive(Debug)]
 pub enum TerminalFrame {
@@ -32,6 +33,7 @@ pub enum TerminalFrame {
         reason: String,
         final_sequence: u64,
     },
+    Answer(Value),
 }
 pub(super) const TERMINAL_FRAME_MAX: usize = terminal::TERMINAL_SNAPSHOT_MAX_BYTES + 10;
 
@@ -118,6 +120,7 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                         .to_owned(),
                     final_sequence: number(&value, "finalSequence")?,
                 }),
+                Some(kind) if kind.starts_with("term.") => Ok(TerminalFrame::Answer(value)),
                 _ => Err(Error::Invalid("unsupported terminal control".into())),
             }
         }
@@ -138,6 +141,12 @@ pub async fn write_input<W: AsyncWrite + Unpin>(writer: &mut W, bytes: &[u8]) ->
     let mut frame = vec![INPUT];
     frame.extend(bytes);
     write_frame(writer, &frame).await
+}
+pub async fn write_control<W: AsyncWrite + Unpin>(writer: &mut W, command: &Value) -> Result<()> {
+    write_frame(writer, &control_frame(command)?).await
+}
+pub async fn write_refresh<W: AsyncWrite + Unpin>(writer: &mut W) -> Result<()> {
+    write_frame(writer, &[REFRESH]).await
 }
 pub async fn write_resize<W: AsyncWrite + Unpin>(
     writer: &mut W,

@@ -45,7 +45,7 @@ struct RoomStoreTests {
         #expect(model.rooms.departed.isEmpty)
     }
 
-    @Test func laterSnapshotsMergeMessagesAndCountUnreadFromOthers() throws {
+    @Test func laterSnapshotsMergeMessagesAndCountUnreadFromOthers() async throws {
         try deliver("room.snapshot", ["room": room("room-1", messages: [message("m1", 1, author: "user-2"), message("m2", 2, author: "user-1")])])
         try deliver("room.snapshot", ["room": room("room-1", messages: [
             message("m2", 2, author: "user-1"), message("m3", 3, author: "user-2"),
@@ -55,6 +55,9 @@ struct RoomStoreTests {
         #expect(model.rooms.unread["room-1"] == 2)
         model.rooms.markRead("room-1")
         #expect(model.rooms.unread["room-1"] == nil)
+        let seen = try await log.next("mission.seen")
+        #expect(seen["missionId"] as? String == "room-1")
+        #expect((seen["sequence"] as? NSNumber)?.uint64Value == 5)
     }
 
     @Test func olderPagesAreNotNew() throws {
@@ -93,8 +96,8 @@ struct RoomStoreTests {
     }
 
     @Test func issuesAreKeptByRepository() throws {
-        try deliver("room.issues", [
-            "requestId": "request-1", "roomId": "room-1", "repositoryId": "repo-1",
+        try deliver("room.result", [
+            "requestId": "request-1", "operation": "room.command", "roomId": "room-1", "repositoryId": "repo-1",
             "issues": [[
                 "repositoryId": "repo-1", "number": 12, "title": "Fix login", "body": "", "url": "https://github.com/team/app/issues/12",
                 "closed": false, "assignees": ["ana"],
@@ -122,7 +125,8 @@ struct RoomStoreTests {
         let read = try await log.next("room.command")
         #expect(read["roomId"] as? String == "room-1")
         #expect(try action(read) as NSDictionary == ["type": "read"])
-        try reply(to: open, "mission.snapshot", [
+        try reply(to: open, "mission.result", [
+            "operation": "mission.open",
             "mission": mission("room-1", owner: "user-2"),
             "members": [
                 ["userId": "user-1", "handle": "me", "displayName": "Me", "isOwner": false],
@@ -343,7 +347,7 @@ struct RoomStoreTests {
     }
 
     private func mission(_ id: String, owner: String) -> [String: Any] {
-        ["id": id, "name": "Room \(id)", "ownerUserId": owner]
+        ["id": id, "name": "Room \(id)", "ownerUserId": owner, "unread": false]
     }
 
     private func invitation(_ id: String, room: String) -> [String: Any] {

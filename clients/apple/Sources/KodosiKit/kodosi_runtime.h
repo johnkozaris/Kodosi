@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 9
+#define KODOSI_FFI_ABI_VERSION 10
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
@@ -42,7 +42,7 @@
 
 #define KODOSI_START_ALREADY_ACTIVE 2
 
-#define KODOSI_START_HOST_BUSY 3
+#define KODOSI_START_HOST_OUTDATED 3
 
 #define KODOSI_START_REJECTED 4
 
@@ -52,11 +52,9 @@
 
 #define KODOSI_HOST_KIND_UNKNOWN 0
 
-#define KODOSI_HOST_KIND_APP 1
+#define KODOSI_HOST_KIND_FOREGROUND 1
 
-#define KODOSI_HOST_KIND_FOREGROUND 2
-
-#define KODOSI_HOST_KIND_BACKGROUND 3
+#define KODOSI_HOST_KIND_BACKGROUND 2
 
 #define KODOSI_HOST_STOP_ACCEPTED 0
 
@@ -90,7 +88,7 @@ typedef struct kodosi_start_failure_t {
   int32_t code;
   int32_t host_kind;
   uint32_t host_pid;
-  uint32_t host_local_sessions;
+  uint32_t host_terminals;
   char message[KODOSI_START_FAILURE_MESSAGE_BYTES];
 } kodosi_start_failure_t;
 

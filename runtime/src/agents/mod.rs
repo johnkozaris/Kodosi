@@ -1,9 +1,14 @@
 #[cfg(feature = "host")]
 mod accounts;
 #[cfg(feature = "host")]
+mod launch;
+#[cfg(feature = "host")]
 mod models;
 #[cfg(feature = "host")]
 mod shell;
+
+#[cfg(feature = "host")]
+pub use launch::Launcher;
 
 #[cfg(feature = "host")]
 use std::path::Path;
@@ -53,8 +58,19 @@ impl Agent {
         }
     }
 
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Claude => "Claude Code",
+            Self::Codex => "Codex",
+            Self::Copilot => "Copilot CLI",
+            Self::Cursor => "Cursor",
+            Self::Gemini => "Gemini CLI",
+            Self::Opencode => "OpenCode",
+        }
+    }
+
     #[cfg(feature = "host")]
-    const fn prompt_flag(self) -> Option<&'static str> {
+    pub(crate) const fn prompt_flag(self) -> Option<&'static str> {
         match self {
             Self::Copilot | Self::Gemini => Some("-i"),
             Self::Opencode => Some("--prompt"),
@@ -82,6 +98,7 @@ pub(crate) fn is_agent_name(name: &str) -> bool {
 pub struct AgentCatalog {
     pub agents: Vec<AgentInfo>,
     pub kodosi: Option<String>,
+    pub choice: AgentChoice,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -93,7 +110,6 @@ pub struct AgentInfo {
     pub accounts: Vec<AgentAccount>,
     pub install: String,
     pub adds_accounts: bool,
-    pub prompt_flag: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -128,6 +144,49 @@ pub struct AgentOption {
     pub argument: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentModelsReply {
+    pub models: Vec<AgentModel>,
+    pub efforts: Vec<AgentOption>,
+    pub choice: AgentChoice,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentChoice {
+    pub agent: Option<Agent>,
+    pub picks: Vec<AgentPick>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentPick {
+    pub agent: Agent,
+    pub account: Option<String>,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentStart {
+    pub agent: Agent,
+    #[serde(default)]
+    pub account: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub effort: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum AgentChoiceChange {
+    Tab { agent: Option<Agent> },
+    Pick(AgentPick),
+}
+
 #[cfg(feature = "host")]
 pub async fn catalog(home: &Path, shell: &Path) -> Result<AgentCatalog, String> {
     let facts = shell::facts(shell, true).await;
@@ -149,10 +208,15 @@ pub async fn executable(shell: &Path, program: &str) -> Option<std::path::PathBu
 }
 
 #[cfg(feature = "host")]
-pub async fn add_account(home: &Path, agent: Agent, name: &str) -> Result<AgentAccount, String> {
+async fn add_account(
+    home: &Path,
+    agent: Agent,
+    name: &str,
+    taken: Vec<String>,
+) -> Result<AgentAccount, String> {
     let home = home.to_owned();
     let name = name.to_owned();
-    tokio::task::spawn_blocking(move || accounts::add(&home, agent, &name))
+    tokio::task::spawn_blocking(move || accounts::add(&home, agent, &name, &taken))
         .await
         .map_err(|error| format!("The account was not made: {error}"))?
 }

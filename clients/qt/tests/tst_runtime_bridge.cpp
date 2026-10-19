@@ -145,6 +145,36 @@ private slots:
         QCoreApplication::processEvents();
         QCOMPARE(events.size(), 1);
     }
+    void anOutdatedHostRefusesTheStartWithItsFacts()
+    {
+        runtime_fixture::allowStart = false;
+        kodosi_start_failure_t failure { .code = KODOSI_START_HOST_OUTDATED, .host_kind = KODOSI_HOST_KIND_BACKGROUND,
+            .host_pid = 42, .host_terminals = 3, .message = "Kodosi was updated." };
+        runtime_fixture::startFailure = failure;
+        kodosi::RuntimeBridge bridge;
+        std::optional<kodosi::RuntimeBridge::Result> result;
+        bridge.startAsync([&](auto value) { result = std::move(value); });
+        QTRY_VERIFY(result);
+        QVERIFY(!*result);
+        QCOMPARE(result->error().message, QStringLiteral("Kodosi was updated."));
+        QVERIFY(result->error().outdatedHost);
+        QVERIFY(!result->error().outdatedHost->foreground);
+        QCOMPARE(result->error().outdatedHost->terminals, 3u);
+    }
+    void quitStopsABackgroundHostButNotAForegroundOne()
+    {
+        for (const auto& [host, stops] : { std::pair { "background", 1 }, std::pair { "foreground", 0 } }) {
+            runtime_fixture::hostStops = 0;
+            kodosi::RuntimeBridge bridge;
+            QVERIFY(started(bridge));
+            runtime_fixture::sendEvent(QByteArrayLiteral("{\"type\":\"system.ready\",\"host\":\"") + host
+                + QByteArrayLiteral("\",\"accountEpoch\":0,\"accountUserId\":null}"));
+            QTRY_COMPARE(bridge.hostForeground(), stops == 0);
+            bridge.quit();
+            QVERIFY(!bridge.isRunning());
+            QCOMPARE(runtime_fixture::hostStops, stops);
+        }
+    }
     void admissionErrorsAreNotCompletion()
     {
         kodosi::RuntimeBridge bridge;

@@ -40,8 +40,13 @@ and conversations stay with the provider. Kodosi supplies the shared space.
 ## Terminal behavior
 
 Minimize hides a view and keeps its terminal running. Close ends the terminal and its
-programs. Closing a window leaves the host running. Quit ends the terminals that app
-hosts, not terminals on other computers.
+programs. Closing a window leaves the host running. Quit stops the computer's host and
+its terminals, but not a host that runs in a terminal with `kodosi host`, and not
+terminals on other computers.
+
+The apps and the `kodosi` command are equal clients of the computer's host: what one
+does, the others show. A person's typing comes first: input from the command stops with
+a message while a person types in that terminal.
 
 Reconnecting restores the current state without disturbing other viewers or repeating
 input whose delivery is uncertain. A stale connection never controls a replacement
@@ -75,13 +80,14 @@ progress where work happens and give each failure a clear recovery action.
 
 - The runtime and backend implement room terminal sharing, encrypted conversation and
   task history, repository links, and GitHub and Gitea issue actions.
-- The Mac app and the Qt app host terminals and take part in rooms. The Qt app runs on
-  Linux and Windows 11; it is not yet validated on Windows hardware. The iPhone and iPad
-  app follows, answers and controls the terminals of the person's computers and friends,
-  takes part in rooms, and starts no terminals.
+- The Mac app and the Qt app start terminals on the computer's host and take part in
+  rooms. The Qt app runs on Linux and Windows 11; it is not yet validated on Windows
+  hardware. The iPhone and iPad app follows, answers and controls the terminals of the
+  person's computers and friends, takes part in rooms, and starts no terminals.
 - Each app contains the `kodosi` CLI, which uses the apps' words. `kodosi terminal`
-  starts, opens and shares terminals; `kodosi room` and its bundled skill let existing
-  agents take part through the running host.
+  starts, opens and shares terminals and starts agents in them, and reads, types into,
+  waits for and shows a terminal; `kodosi room` and its bundled skill let existing agents
+  take part through the running host.
 - Apps update themselves in the background and never restart without asking, because a
   restart ends the host's terminals. An app too old for the backend asks for an update.
 - Terminals show the state their programs report: working, waiting for a person, done
@@ -91,7 +97,8 @@ progress where work happens and give each failure a clear recovery action.
 - New terminal opens the launcher. The host finds the installed agents (Claude Code,
   Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), their accounts, models and
   efforts. The person picks them and may type a first prompt; the new terminal's shell
-  types the command. A missing agent offers its install command.
+  types the command. A missing agent offers its install command. The host keeps the last
+  choice, so the apps and `kodosi terminal start --agent` start the same way.
 - A terminal at its prompt offers a mark for each installed agent, which starts it with
   the person's last choice. Kodosi types the command into the shell and does no more.
 - Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard

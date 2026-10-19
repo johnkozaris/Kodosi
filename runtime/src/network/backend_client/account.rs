@@ -4,6 +4,12 @@ const ENROLLMENT_CHECK_MS: u64 = 5 * 60 * 1000;
 const DELETION_POLL: Duration = Duration::from_secs(3);
 pub(crate) const DELETION_LIFE: Duration = Duration::from_mins(15);
 
+enum Deletion {
+    Waiting,
+    Done,
+    GaveUp,
+}
+
 impl BackendClient {
     pub(super) async fn restore_saved(&self, generation: u64) -> Result<()> {
         terminal_connections::check_generation(self, generation)?;
@@ -353,29 +359,46 @@ impl BackendClient {
         Ok(page.to_owned())
     }
 
-    pub(super) async fn watch_deletion(&self, credentials: Credentials) {
+    pub(super) async fn watch_deletion(&self, credentials: Credentials, request: String) {
         let started = tokio::time::Instant::now();
         self.inner.state.lock().await.deletion = Some(started);
         let this = self.clone();
         tokio::spawn(async move {
-            loop {
+            let outcome = loop {
                 tokio::select! {
-                    () = this.inner.shutdown.cancelled() => break,
-                    () = credentials.cancel.cancelled() => break,
+                    () = this.inner.shutdown.cancelled() => return,
+                    () = credentials.cancel.cancelled() => break Err("The account changed before the deletion was confirmed."),
                     () = tokio::time::sleep(DELETION_POLL) => {}
                 }
                 let _operation = this.inner.operations.lock().await;
                 if this.inner.state.lock().await.deletion != Some(started) {
-                    break;
+                    break Err("The account deletion was cancelled.");
                 }
-                match this.read_deletion(&credentials, started).await {
-                    Ok(false) => {}
+                match this.read_deletion(started).await {
+                    Ok(Deletion::Waiting) => {}
+                    Ok(Deletion::Done) => break Ok(()),
+                    Ok(Deletion::GaveUp) => {
+                        break Err("Kodosi stopped waiting for the confirmation.");
+                    }
                     Err(error) if error.user_facing() => {
                         tracing::warn!(%error, "the account deletion was not read; it will be tried again");
                     }
-                    Ok(true) | Err(_) => break,
+                    Err(_) => break Err("The account deletion could not be confirmed."),
                 }
-            }
+            };
+            let answer = match outcome {
+                Ok(()) => {
+                    json!({"type":"auth.result","requestId":request,"operation":"auth.deleteAccount"})
+                }
+                Err(message) => {
+                    json!({"type":"auth.error","requestId":request,"operation":"auth.deleteAccount","message":message})
+                }
+            };
+            this.emit_for(
+                this.generation(),
+                this.identity().map(|identity| identity.user_id),
+                answer,
+            );
         });
     }
 
@@ -395,19 +418,10 @@ impl BackendClient {
         )
     }
 
-    async fn read_deletion(
-        &self,
-        credentials: &Credentials,
-        started: tokio::time::Instant,
-    ) -> Result<bool> {
+    async fn read_deletion(&self, started: tokio::time::Instant) -> Result<Deletion> {
         if started.elapsed() >= DELETION_LIFE {
             self.inner.state.lock().await.deletion = None;
-            self.emit_for(
-                credentials.generation,
-                Some(credentials.user_id.clone()),
-                json!({"type":"auth.error","operation":"auth.deleteAccount","message":"Kodosi stopped waiting for the confirmation."}),
-            );
-            return Ok(true);
+            return Ok(Deletion::GaveUp);
         }
         let current = self.credentials()?;
         match self
@@ -416,10 +430,10 @@ impl BackendClient {
             .bearer::<Value>(Method::GET, "api/me", &current.token, None)
             .await
         {
-            Ok(_) => Ok(false),
+            Ok(_) => Ok(Deletion::Waiting),
             Err(Error::AccountDeleted) => {
                 self.sign_in_kept(Err(Error::AccountDeleted)).await?;
-                Ok(true)
+                Ok(Deletion::Done)
             }
             Err(error) => Err(error),
         }

@@ -45,19 +45,18 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func backgroundStopsWatchingSoBellsBecomeAttention() throws {
+    @Test func backgroundStopsWatchingAndTellsTheHost() throws {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
         try deliver("term.bell", ["sessionId": "s1"])
-        #expect(model.terminals.attention.isEmpty)
         #expect(controller.bells == 1)
         controller.setActive(false)
         #expect(model.terminals.watchingSessionId == nil)
+        #expect(log.fields(of: "session.visible").last?["sessionIds"] as? [String] == [])
         try deliver("term.bell", ["sessionId": "s1"])
-        #expect(model.terminals.attention == ["s1"])
+        #expect(controller.bells == 1)
         controller.setActive(true)
-        #expect(model.terminals.watchingSessionId == "s1")
-        #expect(model.terminals.attention.isEmpty)
+        #expect(log.fields(of: "session.visible").last?["sessionIds"] as? [String] == ["s1"])
         controller.disappear()
     }
 
@@ -80,17 +79,7 @@ struct TerminalControllerTests {
         #expect(blurred["clientId"] as? String == token.subscriptionId)
         #expect((blurred["subscriptionGeneration"] as? NSNumber)?.uint64Value == token.subscriptionGeneration)
         #expect(blurred["expectedRuntimeIncarnationId"] as? String == "s1-1")
-        #expect(blurred["requestId"] == nil)
-    }
-
-    @Test func thePhoneClaimsTheSizeOnlyWhileItHoldsFocus() {
-        let live = model.terminals.live
-        #expect(!live.claimsSize(for: "s1"))
-        live.setClaimsSize(true, for: "s1")
-        #expect(live.claimsSize(for: "s1"))
-        #expect(!live.claimsSize(for: "s2"))
-        live.setClaimsSize(false, for: "s1")
-        #expect(!live.claimsSize(for: "s1"))
+        #expect((blurred["requestId"] as? String)?.isEmpty == false)
     }
 
     @Test func onlyAVisibleActiveRenderedControllableViewTakesFocus() {
@@ -168,7 +157,7 @@ func terminalEntry(
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
         "programStatus": ["state": state], "name": id, "isOwner": owner, "status": "running",
-        "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
+        "attention": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
         "ownerName": owner ? "Me" : "Maria",
     ]
     if let room {

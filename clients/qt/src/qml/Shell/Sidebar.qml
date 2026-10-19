@@ -59,7 +59,6 @@ Item {
         Models.Missions.open(id)
     }
     function openTerminal(id) {
-        Models.Sessions.clearAttention(id)
         Models.SessionActions.activate(id)
     }
     function syncPill() {

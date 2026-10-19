@@ -152,17 +152,12 @@ final class TerminalController {
             subscriptionGeneration: surface.token.subscriptionGeneration,
             surfaceId: surfaceId
         )
-        guard !holdsFocus else { return }
         holdsFocus = true
-        store.live.setClaimsSize(true, for: sessionId)
     }
 
     func focusTerminal() {
         focusDeclined = false
         refresh()
-        if holdsFocus {
-            store.live.setClaimsSize(true, for: sessionId)
-        }
     }
 
     func open() {
@@ -185,7 +180,6 @@ final class TerminalController {
         store.focus.releaseSession(sessionId: sessionId)
         holdsFocus = false
         focusDeclined = false
-        store.live.setClaimsSize(false, for: sessionId)
         store.live.retryTerminal(sessionId: sessionId)
         refresh()
     }
@@ -247,12 +241,10 @@ final class TerminalController {
         guard holdsFocus else { return }
         holdsFocus = false
         store.focus.release(surfaceId: surfaceId)
-        store.live.setClaimsSize(false, for: sessionId)
     }
 
     private func focusRevoked() {
         holdsFocus = false
         focusDeclined = true
-        store.live.setClaimsSize(false, for: sessionId)
     }
 }

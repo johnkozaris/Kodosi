@@ -98,6 +98,7 @@ struct RoomConversationView: View {
                 state.followsLatest = latest
                 if latest {
                     state.unread = 0
+                    deps.seeRoom(roomId)
                 }
             }
             .overlay {

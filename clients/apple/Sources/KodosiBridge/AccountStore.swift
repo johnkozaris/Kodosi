@@ -131,7 +131,7 @@ public final class AccountStore {
             }
         case "devices.link.snapshot":
             deviceRequests = try event.value("requests")
-        case "devices.link.selfPending":
+        case "devices.result" where event.string("operation") == "devices.link.startSelf":
             stage = .trustingDevice(.pendingApproval(code: event.string("code") ?? ""))
         case "devices.link.selfResolved":
             if case .trustingDevice = stage, event.string("outcome") != "approved" {
@@ -143,7 +143,7 @@ public final class AccountStore {
                 approval = .approved(event.string("deviceLabel") ?? "")
             }
             commands.perform("devices.refresh")
-        case "devices.recovery.created":
+        case "devices.result" where event.string("operation") == "devices.recovery.create":
             newRecoveryKey = event.string("key")
             creatingRecoveryKey = false
         default:

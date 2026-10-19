@@ -80,13 +80,12 @@ private struct RoomCard: View {
     }
 
     var body: some View {
-        let unread = deps.roomViews[mission.id]?.unread ?? 0
         Button { deps.openMission(mission) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
                     RoomSigil(key: mission.id, size: 44)
                     Spacer()
-                    if unread > 0 {
+                    if mission.unread {
                         NewDot().padding(4)
                     } else if mission.ownerUserId == deps.account.userId {
                         Tag(text: String(localized: "Yours"))
@@ -116,7 +115,7 @@ private struct RoomCard: View {
         .buttonStyle(PressScaleStyle(scale: 0.98))
         .onHover { hovered = $0 }
         .animation(theme.motion.spring, value: hovered)
-        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
+        .accessibilityValue(mission.unread ? Text("New messages") : Text(verbatim: ""))
         .accessibilityIdentifier("missions.card.\(AccessibilityIdentifier.token(mission.id))")
     }
 }

@@ -6,7 +6,7 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::Value;
 
-use super::{Agent, AgentAccount, AgentCatalog, AgentInfo, shell::Facts, shell_word};
+use super::{Agent, AgentAccount, AgentCatalog, AgentChoice, AgentInfo, shell::Facts, shell_word};
 
 const MAX_ACCOUNT_FILE: u64 = 8 * 1024 * 1024;
 const MAX_HOME_ENTRIES: usize = 8_192;
@@ -30,10 +30,10 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     },
                     install: install(agent).to_owned(),
                     adds_accounts: cfg!(unix) && agent.home().is_some(),
-                    prompt_flag: agent.prompt_flag().map(str::to_owned),
                 }
             })
             .collect(),
+        choice: AgentChoice::default(),
     }
 }
 
@@ -60,20 +60,34 @@ fn accounts(home: &Path, facts: &Facts, agent: Agent) -> Vec<AgentAccount> {
             .filter(|path| path.is_dir())
             .map(|path| (folder_name(&path, usual, program), path)),
     );
+    others.sort();
     let mut folders = vec![chosen.clone()];
+    let mut names = vec!["default".to_owned()];
     let mut accounts = Vec::new();
     for (name, path) in others {
         if folders.contains(&path) {
             continue;
         }
         if let Some(command) = home_command(variable, &path, program) {
+            let name = unique(&names, &name);
             accounts.push(account(agent, home, &name, &command, &path));
+            names.push(name);
             folders.push(path);
         }
     }
     accounts.sort_by(|left, right| left.name.cmp(&right.name));
     accounts.insert(0, account(agent, home, "default", program, &chosen));
     accounts
+}
+
+fn unique(taken: &[String], name: &str) -> String {
+    let mut candidate = name.to_owned();
+    let mut number = 1;
+    while taken.contains(&candidate) {
+        number += 1;
+        candidate = format!("{name}-{number}");
+    }
+    candidate
 }
 
 fn account(agent: Agent, home: &Path, name: &str, command: &str, folder: &Path) -> AgentAccount {
@@ -289,7 +303,12 @@ const fn install(agent: Agent) -> &'static str {
     }
 }
 
-pub(super) fn add(home: &Path, agent: Agent, name: &str) -> Result<AgentAccount, String> {
+pub(super) fn add(
+    home: &Path,
+    agent: Agent,
+    name: &str,
+    taken: &[String],
+) -> Result<AgentAccount, String> {
     let (folder, variable) = agent
         .home()
         .filter(|_| cfg!(unix))
@@ -308,6 +327,9 @@ pub(super) fn add(home: &Path, agent: Agent, name: &str) -> Result<AgentAccount,
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
     {
         return Err("Name the account with letters, digits and hyphens.".to_owned());
+    }
+    if taken.contains(&name) {
+        return Err(format!("There is already an account named {name}."));
     }
     let path = home.join(format!("{folder}-{name}"));
     create_folder(&path).map_err(|error| {

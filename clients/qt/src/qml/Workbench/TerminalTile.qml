@@ -14,7 +14,9 @@ Item {
     readonly property bool active: Models.DesktopState.selectedSessionId === sessionId
     readonly property bool ringed: active && !roomEmbedded
     property bool componentReady: false
-    property bool focusedSizeAuthority: false
+    readonly property bool watched: componentReady && visible && !accessibilitySuppressed && Window.active
+    property string watchedId: ""
+    property bool zoomed: false
     required property string sessionId
     property var session: ({})
     readonly property string sessionName: session.name || qsTr("Terminal")
@@ -48,13 +50,18 @@ Item {
             join.restart();
         }
     }
-    function seen() {
-        if (visible && !accessibilitySuppressed && Window.active)
-            Models.Sessions.clearAttention(sessionId);
+    function reportWatched() {
+        const id = watched ? sessionId : "";
+        if (id === watchedId)
+            return;
+        if (watchedId !== "")
+            Models.Sessions.setVisible(watchedId, false);
+        watchedId = id;
+        if (id !== "")
+            Models.Sessions.setVisible(id, true);
     }
     function select() {
         Models.DesktopState.selectSession(sessionId);
-        Models.Sessions.clearAttention(sessionId);
     }
 
     Accessible.id: objectName
@@ -67,26 +74,27 @@ Item {
         refreshSession();
         componentReady = true;
         bindTerminal();
-        seen();
         if (Models.SessionActions.takeCreated(sessionId) && !KodosiTheme.reduceMotion)
             birth.start();
     }
-    Component.onDestruction: Models.TerminalSurfaces.detach(terminal)
+    Component.onDestruction: {
+        if (watchedId !== "")
+            Models.Sessions.setVisible(watchedId, false);
+        Models.TerminalSurfaces.detach(terminal);
+    }
     onSessionIdChanged: {
         if (componentReady) {
             Models.TerminalSurfaces.detach(terminal);
             refreshSession();
             bindTerminal();
         }
+        reportWatched();
     }
-    onVisibleChanged: seen()
+    onWatchedChanged: reportWatched()
 
     Connections {
         function onModelReset() {
             root.refreshSession();
-        }
-        function onAttentionChanged() {
-            root.seen();
         }
 
         target: Models.Sessions
@@ -197,7 +205,7 @@ Item {
                             onTerminal: true
                             objectName: root.objectName + ".start." + modelData.agent
                             Accessible.id: objectName
-                            onClicked: Models.SessionActions.run(root.sessionId, (Models.Launcher.plans[modelData.agent] || {}).line || "")
+                            onClicked: Models.SessionActions.startAgent(root.sessionId, modelData.agent)
                         }
                     }
                     KIconButton {
@@ -240,11 +248,11 @@ Item {
                     }
                     KIconButton {
                         Accessible.id: objectName
-                        Accessible.name: root.focusedSizeAuthority ? qsTr("Return to tiles") : qsTr("Zoom")
+                        Accessible.name: root.zoomed ? qsTr("Return to tiles") : qsTr("Zoom")
                         glyph: "focus"
                         size: 26
                         onTerminal: true
-                        active: root.focusedSizeAuthority
+                        active: root.zoomed
                         objectName: root.objectName + ".focus"
                         visible: !root.roomEmbedded
 
@@ -283,7 +291,6 @@ Item {
                 asksBeforeClipboardRead: root.session.isOwner !== true
                 cursorBlink: Models.DesktopSettings.cursorBlink
                 cursorStyle: Models.DesktopSettings.cursorStyle
-                focusedSizeAuthority: root.focusedSizeAuthority
                 fontFamily: Models.DesktopSettings.fontFamily
                 fontPixelSize: Models.DesktopSettings.fontSize
                 lineHeight: Models.DesktopSettings.lineHeight

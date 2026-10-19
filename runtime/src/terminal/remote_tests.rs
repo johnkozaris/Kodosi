@@ -318,6 +318,91 @@ async fn a_control_before_the_first_snapshot_waits_for_it() {
 }
 
 #[tokio::test]
+async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() {
+    let (terminal, view, mut requests, _updates, _changes) = start().await;
+    let sent = terminal.send_input(Bytes::from_static(b"ls\r"));
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Input { bytes },
+            reply,
+        } => {
+            assert_eq!(bytes, b"ls\r");
+            reply.send(Ok(Value::Null)).expect("input result");
+        }
+        _ => panic!("command input expected"),
+    }
+    sent.await.expect("command input");
+    terminal
+        .input(view.connection_id, Bytes::from_static(b"x"))
+        .expect("a person types");
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control { reply, .. } => {
+            reply.send(Ok(Value::Null)).expect("input result");
+        }
+        TestRemoteRequest::Checkpoint => panic!("view input expected"),
+    }
+    let refused = terminal.send_input(Bytes::from_static(b"y")).await;
+    assert_eq!(
+        refused.expect_err("typing").to_string(),
+        crate::terminal::SOMEONE_TYPING
+    );
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn focus_brings_the_size_the_view_asked_for() {
+    let (terminal, view, mut requests, _updates, _changes) = start().await;
+    let resize = TerminalControl::Resize {
+        rows: 10,
+        cols: 40,
+        width_pixels: 0,
+        height_pixels: 0,
+        cell_width_pixels: 0,
+        cell_height_pixels: 0,
+        claim: false,
+    };
+    let refused = terminal.control(Some(view.connection_id), resize);
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Resize { claim: false, .. },
+            reply,
+        } => reply
+            .send(Err(crate::network::Error::Invalid {
+                reason: "Another device controls the size.".to_owned(),
+            }))
+            .expect("refusal"),
+        _ => panic!("resize expected"),
+    }
+    assert!(refused.await.is_err());
+    let focused = terminal.control(
+        Some(view.connection_id),
+        TerminalControl::Focus { focused: true },
+    );
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Focus { focused: true },
+            reply,
+        } => reply.send(Ok(Value::Null)).expect("focus result"),
+        _ => panic!("focus expected"),
+    }
+    focused.await.expect("focus");
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control:
+                TerminalControl::Resize {
+                    rows: 10,
+                    cols: 40,
+                    claim: true,
+                    ..
+                },
+            reply,
+        } => reply.send(Ok(Value::Null)).expect("resize result"),
+        _ => panic!("the asked size expected"),
+    }
+    terminal.disconnect();
+}
+
+#[tokio::test]
 async fn input_that_waits_for_the_host_goes_out_as_one_ordered_control() {
     let (terminal, subscriber, mut requests, _updates, _changes) = start().await;
     terminal

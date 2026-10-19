@@ -1,4 +1,7 @@
-use super::{Arc, CString, CancellationToken, HashMap, HashSet, Mutex, Uuid, callbacks::Gate};
+use super::{
+    Arc, CString, CancellationToken, HashMap, HashSet, Mutex, Uuid, callbacks::Gate,
+    link::Connected,
+};
 
 pub(super) struct SubscriptionState {
     pub(super) session: CString,
@@ -7,7 +10,7 @@ pub(super) struct SubscriptionState {
     pub(super) cancel: CancellationToken,
     pub(super) refresh: tokio::sync::Notify,
     pub(super) gate: Gate,
-    pub(super) connected: Mutex<Option<(Uuid, Uuid)>>,
+    pub(super) connected: Mutex<Option<Connected>>,
 }
 impl SubscriptionState {
     pub(super) fn matches(&self, id: &str, generation: u64) -> bool {

@@ -27,9 +27,9 @@ enum LauncherMenu: String, Equatable {
         case .folder:
             Self.folders(recents, current: directory)
         case .account:
-            plan.info.map { Self.accounts($0, current: plan.account?.command ?? "") } ?? []
+            plan.info.map { Self.accounts($0, current: plan.account?.name ?? "") } ?? []
         case .model:
-            Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelArgument)
+            Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelId)
         }
     }
 
@@ -37,10 +37,10 @@ enum LauncherMenu: String, Equatable {
         var rows = info.accounts.map { account in
             let title = account.title(program: info.program)
             return PickerRow(
-                id: account.command, title: title,
+                id: account.name, title: title,
                 subtitle: account.identity ?? String(localized: "Signs in when it starts"),
                 icon: .account(initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil),
-                current: account.command == current
+                current: account.name == current
             )
         }
         if info.addsAccounts {
@@ -62,9 +62,9 @@ enum LauncherMenu: String, Equatable {
         }
         rows += (models ?? []).map { model in
             PickerRow(
-                id: model.argument, title: model.label,
+                id: model.id, title: model.label,
                 detail: model.label.caseInsensitiveCompare(model.id) == .orderedSame ? nil : model.id,
-                current: model.argument == current
+                current: model.id == current
             )
         }
         return rows

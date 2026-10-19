@@ -9,7 +9,13 @@ mod subscribers;
 mod types;
 mod validation;
 
+use std::time::Duration;
+
 use uuid::Uuid;
+
+pub(crate) const TYPING: Duration = Duration::from_secs(3);
+pub(crate) const SOMEONE_TYPING: &str =
+    "Someone is typing in this terminal. Try again in a moment.";
 
 pub use context::{ContextPlace, PlaceKind, TerminalContext};
 pub(crate) use remote::RemoteTerminal;

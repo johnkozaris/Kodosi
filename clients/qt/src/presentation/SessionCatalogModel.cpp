@@ -64,18 +64,38 @@ QVariantList SessionCatalogModel::sessions() const
     return result;
 }
 
-void SessionCatalogModel::clearAttention(const QString& id)
+QStringList SessionCatalogModel::visible() const
 {
-    if (m_attention.removeAll(id) > 0)
-        emit attentionChanged();
+    auto ids = m_views.keys();
+    ids.sort();
+    return ids;
 }
 
-void SessionCatalogModel::noteAttention(const QString& id)
+void SessionCatalogModel::setVisible(const QString& id, bool visible)
 {
-    if (!containsSession(id) || m_attention.contains(id))
+    const auto views = m_views.value(id) + (visible ? 1 : -1);
+    if (views > 0)
+        m_views.insert(id, views);
+    else
+        m_views.remove(id);
+    if (views == (visible ? 1 : 0))
+        emit visibleChanged();
+}
+
+bool SessionCatalogModel::waiting(const QString& id) const
+{
+    const auto found = session(id);
+    return found && !waitState(*found).isEmpty();
+}
+
+void SessionCatalogModel::alert(const QString& id)
+{
+    const auto found = session(id);
+    if (!found)
         return;
-    m_attention.append(id);
-    emit attentionChanged();
+    const bool calls = found->isOwner || presentation(*found).canControl;
+    const auto words = report(*found);
+    emit alertChanged(id, !calls || waitState(*found).isEmpty() ? QString {} : words.isEmpty() ? signLabel(*found) : words);
 }
 
 namespace {
@@ -279,6 +299,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     }
     if (o.value(QStringLiteral("sharedWith")).toArray().size()>256) return std::nullopt;
     s.isOwner = o.value(QStringLiteral("isOwner")).toBool();
+    s.attention = o.value(QStringLiteral("attention")).toBool();
     s.workingDirectory = text("workingDir");
     s.title = text("title");
     s.program = text("program");
@@ -371,25 +392,15 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         ids.insert(s->id);
         result.append(*s);
     }
-    auto attention = m_attention;
-    QVector<std::pair<QString, QString>> alerts;
+    QStringList attention;
     for (const auto& next : result) {
-        const auto before = this->session(next.id);
-        const bool stopped = before && isWorking(*before) && !isWorking(next);
-        const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
-        const bool calls = next.isOwner || presentation(next).canControl;
-        if (calls && (stopped || waits) && !attention.contains(next.id))
+        if (next.attention)
             attention.append(next.id);
-        if (before && waitState(*before) != waitState(next)) {
-            const auto words = report(next);
-            alerts.append({ next.id, !calls || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
-        }
     }
-    attention.removeIf([&](const QString& id) { return !ids.contains(id); });
     const bool attentionMoved = attention != m_attention;
     // A program that animates its title sends a snapshot for each frame. When nothing
     // that Kodosi shows changed, keep the views as they are.
-    if (m_state == Loaded && !attentionMoved && alerts.isEmpty() && samePresentation(m_sessions, result)) {
+    if (m_state == Loaded && !attentionMoved && samePresentation(m_sessions, result)) {
         m_sessions = std::move(result);
         emit authoritativeSnapshotApplied();
         return;
@@ -407,8 +418,6 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         emit countChanged();
     emit authorityStateChanged();
     emit authoritativeSnapshotApplied();
-    for (const auto& [id, text] : std::as_const(alerts))
-        emit alertChanged(id, text);
 }
 bool SessionCatalogModel::samePresentation(const QVector<Session>& before, const QVector<Session>& after) const
 {

@@ -3,13 +3,11 @@ use super::{
     HANDLES, HashMap, JoinSet, KODOSI_FFI_BUSY, KODOSI_FFI_DESER_FAILED, KODOSI_FFI_PANIC,
     KODOSI_FFI_PAYLOAD_TOO_LARGE, KODOSI_FFI_RUNTIME_STOPPED, KODOSI_FFI_SESSION_NOT_FOUND,
     KODOSI_FFI_STALE_SUBSCRIPTION, KODOSI_MAX_FRAME_BYTES, KODOSI_START_ALREADY_ACTIVE,
-    KODOSI_START_FAILED, KODOSI_START_HOST_BUSY, KODOSI_START_INVALID_CALLBACKS,
-    KODOSI_START_REJECTED, KodosiCallbacks, KodosiStartFailure, Mutex, NEXT_HANDLE, Ordering,
-    RuntimeHandle, STOP_BUDGET, State, Subscriptions, UserData, c_char, c_void, lock,
-    record_start_failure, start_failure,
+    KODOSI_START_FAILED, KODOSI_START_INVALID_CALLBACKS, KodosiCallbacks, KodosiStartFailure,
+    Mutex, NEXT_HANDLE, Ordering, STOP_BUDGET, State, Subscriptions, UserData, c_char, c_void,
+    link::{self, Link, Runner},
+    lock, record_start_failure, start_failure,
 };
-#[cfg(feature = "host")]
-use super::{host_busy, local_host};
 
 struct ActiveRuntime;
 impl ActiveRuntime {
@@ -47,7 +45,7 @@ impl Completion {
     }
 }
 pub(super) struct Instance {
-    pub(super) runtime: RuntimeHandle,
+    pub(super) link: Link,
     pub(super) state: Arc<State>,
     pub(super) executor: tokio::runtime::Handle,
     pub(super) tasks: Mutex<Option<JoinSet<()>>>,
@@ -159,18 +157,13 @@ pub unsafe extern "C" fn kodosi_start(
                 .name("kodosi-runtime".into())
                 .spawn(move || run_executor(key, callbacks, userdata, ready, active))
                 .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string()))?;
-            let (instance, initial, events) = receive.recv().map_err(|_| {
+            let (instance, runner) = receive.recv().map_err(|_| {
                 start_failure(
                     KODOSI_START_FAILED,
                     "The runtime thread ended before reporting.",
                 )
             })??;
-            instance.spawn(pump_events(
-                instance.runtime.clone(),
-                Arc::clone(&instance.state),
-                initial,
-                events,
-            ));
+            runner.spawn(&instance);
             Ok(key as *mut c_void)
         },
     ));
@@ -193,17 +186,8 @@ pub unsafe extern "C" fn kodosi_start(
     }
 }
 
-type Started = (
-    Arc<Instance>,
-    Vec<kodosi_runtime::Event>,
-    tokio::sync::broadcast::Receiver<kodosi_runtime::Event>,
-);
-type Setup = (
-    Executor,
-    Arc<Instance>,
-    Vec<kodosi_runtime::Event>,
-    tokio::sync::broadcast::Receiver<kodosi_runtime::Event>,
-);
+type Started = (Arc<Instance>, Runner);
+type Setup = (Executor, Arc<Instance>, Runner);
 
 fn run_executor(
     key: usize,
@@ -217,26 +201,13 @@ fn run_executor(
             let executor = Executor::new()
                 .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string()))?;
             let config = crate::app::start_config()?;
-            let root = config.data_root.clone();
-            kodosi_runtime::diagnostics::install(&root, kodosi_runtime::diagnostics::Role::App);
-            let runtime = executor
-                .block_on(kodosi_runtime::start(config))
-                .map_err(|error| {
-                    tracing::error!(%error, "could not start embedded runtime");
-                    let code = match &error {
-                        Error::HostBusy(_) => KODOSI_START_HOST_BUSY,
-                        Error::Invalid(_) => KODOSI_START_REJECTED,
-                        _ => KODOSI_START_FAILED,
-                    };
-                    #[cfg(feature = "host")]
-                    if code == KODOSI_START_HOST_BUSY {
-                        let status = executor.block_on(local_host::host_status(&root)).ok();
-                        return host_busy(&error.to_string(), status);
-                    }
-                    start_failure(code, &error.to_string())
-                })?;
+            kodosi_runtime::diagnostics::install(
+                &config.data_root,
+                kodosi_runtime::diagnostics::Role::App,
+            );
+            let (link, runner) = executor.block_on(Link::open(&config))?;
             let instance = Arc::new(Instance {
-                runtime,
+                link,
                 state: Arc::new(State {
                     callbacks,
                     userdata,
@@ -249,17 +220,10 @@ fn run_executor(
                 tasks: Mutex::new(Some(JoinSet::new())),
                 stopped: Completion::default(),
             });
-            let (initial, events) =
-                executor
-                    .block_on(instance.runtime.observe())
-                    .map_err(|error| {
-                        tracing::error!(%error, "could not observe embedded runtime");
-                        start_failure(KODOSI_START_FAILED, &error.to_string())
-                    })?;
-            Ok((executor, instance, initial, events))
+            Ok((executor, instance, runner))
         },
     ));
-    let (executor, instance, initial, events) = match setup {
+    let (executor, instance, runner) = match setup {
         Ok(Ok(started)) => started,
         Ok(Err(failure)) => {
             drop(active);
@@ -276,10 +240,7 @@ fn run_executor(
         }
     };
     lock(handles()).insert(key, Arc::clone(&instance));
-    if ready
-        .send(Ok((Arc::clone(&instance), initial, events)))
-        .is_err()
-    {
+    if ready.send(Ok((Arc::clone(&instance), runner))).is_err() {
         instance.state.close();
     }
     drop(ready);
@@ -287,12 +248,12 @@ fn run_executor(
         executor.block_on(async {
             tokio::select! {
                 () = instance.state.cancel.cancelled() => {},
-                () = instance.runtime.stopped() => {},
+                () = link::stopped(&instance.link) => {},
             }
         });
         instance.state.close();
         executor.block_on(async {
-            let _ = tokio::time::timeout(STOP_BUDGET, instance.runtime.shutdown()).await;
+            let _ = tokio::time::timeout(STOP_BUDGET, link::shutdown(&instance.link)).await;
         });
         instance.state.gate.wait();
         executor.block_on(async {
@@ -309,34 +270,4 @@ fn run_executor(
     lock(handles()).remove(&key);
     drop(active);
     instance.stopped.finish();
-}
-
-async fn pump_events(
-    runtime: RuntimeHandle,
-    state: Arc<State>,
-    initial: Vec<kodosi_runtime::Event>,
-    mut events: tokio::sync::broadcast::Receiver<kodosi_runtime::Event>,
-) {
-    for event in initial {
-        state.event(&event);
-    }
-    loop {
-        tokio::select! {
-            biased;
-            () = state.cancel.cancelled() => break,
-            event = events.recv() => match event {
-                Ok(event) => state.event(&event),
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
-                    match runtime.observe().await {
-                        Ok((snapshot, receiver)) => {
-                            events = receiver;
-                            for event in snapshot { state.event(&event); }
-                        }
-                        Err(_) => break,
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-            }
-        }
-    }
 }

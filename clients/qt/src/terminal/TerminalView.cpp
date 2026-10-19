@@ -364,11 +364,6 @@ void TerminalView::pasteFromClipboard()
     pasteClipboard();
 }
 
-bool TerminalView::focusedSizeAuthority() const noexcept
-{
-    return m_focusedSizeAuthority;
-}
-
 bool TerminalView::asksBeforeClipboardRead() const noexcept
 {
     return m_asksBeforeClipboardRead;
@@ -552,10 +547,8 @@ void TerminalView::setTerminalInteraction(
     if (!m_canResize) {
         m_resizeRetryQueued = false;
         m_pendingResize.reset();
-        m_resizeClaimPending = false;
         m_lastResizeKey.clear();
     } else if (gainedResize) {
-        m_resizeClaimPending = m_focusedSizeAuthority;
         scheduleResize();
     }
     if (wasReadOnly != readOnly()) {
@@ -575,20 +568,6 @@ void TerminalView::setTerminalInteraction(
         }
     }
     update();
-}
-
-void TerminalView::setFocusedSizeAuthority(const bool focused)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (m_focusedSizeAuthority == focused) {
-        return;
-    }
-    m_focusedSizeAuthority = focused;
-    m_resizeClaimPending = focused && m_canResize;
-    emit focusedSizeAuthorityChanged();
-    if (m_resizeClaimPending) {
-        scheduleResize();
-    }
 }
 
 TerminalSurfaceIdentity TerminalView::surfaceIdentity() const
@@ -670,8 +649,6 @@ bool TerminalView::attach(
         emit terminalError(message);
         return false;
     }
-    m_resizeClaimPending =
-        m_focusedSizeAuthority && m_canResize;
     scheduleResize();
     return true;
 }
@@ -726,7 +703,6 @@ void TerminalView::detach()
     m_focusRetryQueued = false;
     m_focusRetryOperation = FocusOperation::None;
     m_resizeRetryQueued = false;
-    m_resizeClaimPending = false;
     m_desiredFocus = false;
     clearPendingInput();
     m_preedit.clear();
@@ -1040,12 +1016,12 @@ void TerminalView::dispatchFocus(const FocusOperation operation)
     command += jsonStringBytes(m_subscription.subscriptionId);
     command += QByteArrayLiteral(",\"subscriptionGeneration\":");
     command += QByteArray::number(m_subscription.generation);
+    const auto requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     if (focused) {
-        m_pendingFocusRequestId =
-            QUuid::createUuidV7().toString(QUuid::WithoutBraces);
-        command += QByteArrayLiteral(",\"requestId\":");
-        command += jsonStringBytes(m_pendingFocusRequestId);
+        m_pendingFocusRequestId = requestId;
     }
+    command += QByteArrayLiteral(",\"requestId\":");
+    command += jsonStringBytes(requestId);
     command += QByteArrayLiteral(",\"expectedRuntimeIncarnationId\":");
     command += jsonStringBytes(m_expectedRuntimeIncarnationId);
     command += '}';
@@ -1145,22 +1121,8 @@ void TerminalView::handleResizeOutcome(TerminalResizeOutcome outcome)
         || outcome.cellHeightPixels != m_pendingResize->cellHeightPixels) {
         return;
     }
-    const auto completedClaim = m_pendingResize->claim;
-    if (outcome.applied) {
-        m_lastResizeKey = m_pendingResize->key;
-        if (completedClaim) {
-            m_resizeClaimPending = false;
-        }
-    } else {
-        emit operationError(
-            outcome.reason.isEmpty()
-                ? QStringLiteral("The runtime rejected terminal resize.")
-                : std::move(outcome.reason));
-    }
+    m_lastResizeKey = m_pendingResize->key;
     m_pendingResize.reset();
-    if (!completedClaim && m_resizeClaimPending) {
-        scheduleResize();
-    }
 }
 
 void TerminalView::scheduleResize()
@@ -1217,7 +1179,7 @@ void TerminalView::dispatchResize()
     auto resizeKey = QByteArray::number(columns) + 'x' + QByteArray::number(rows)
         + ':' + QByteArray::number(widthPixels) + 'x' + QByteArray::number(heightPixels)
         + ':' + QByteArray::number(cellWidthPixels) + 'x' + QByteArray::number(cellHeightPixels);
-    if ((!m_resizeClaimPending && resizeKey == m_lastResizeKey)
+    if (resizeKey == m_lastResizeKey
         || (m_pendingResize && resizeKey == m_pendingResize->key)) {
         return;
     }
@@ -1230,7 +1192,6 @@ void TerminalView::dispatchResize()
         .heightPixels = heightPixels,
         .cellWidthPixels = cellWidthPixels,
         .cellHeightPixels = cellHeightPixels,
-        .claim = m_resizeClaimPending,
     };
 
     auto command = QByteArrayLiteral("{\"type\":\"session.resize\",\"sessionId\":");
@@ -1257,9 +1218,7 @@ void TerminalView::dispatchResize()
     command += QByteArray::number(cellWidthPixels);
     command += QByteArrayLiteral(",\"cellHeightPixels\":");
     command += QByteArray::number(cellHeightPixels);
-    command += pending.claim
-        ? QByteArrayLiteral(",\"claim\":true}")
-        : QByteArrayLiteral(",\"claim\":false}");
+    command += '}';
     m_pendingResize = std::move(pending);
     if (auto result = m_runtime->send(command); !result) {
         m_pendingResize.reset();

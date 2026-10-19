@@ -148,60 +148,92 @@ async fn serve_connection(
         tokio::time::timeout(HELLO_TIMEOUT, read_json(&mut FrameReader::new(&mut stream)))
             .await
             .map_err(|_| Error::Invalid("local handshake timed out".into()))??;
-    if hello.version != VERSION || hello.root != root {
-        write_json(
-            &mut stream,
-            &Welcome {
-                version: VERSION,
-                error: Some("local runtime protocol or data-root mismatch".into()),
-                events: vec![],
-                host: None,
-            },
+    if hello.root != root {
+        let refusal = Welcome {
+            version: VERSION,
+            error: Some("local runtime data-root mismatch".into()),
+            ..Welcome::default()
+        };
+        return write_json(&mut stream, &refusal).await;
+    }
+    if hello.version != VERSION {
+        let refusal = Welcome {
+            version: VERSION,
+            error: Some("local runtime protocol mismatch".into()),
+            host: Some(host),
+            terminals: local_sessions(&runtime.snapshot().await?),
+            ..Welcome::default()
+        };
+        write_json(&mut stream, &refusal).await?;
+        let request = tokio::time::timeout(
+            HELLO_TIMEOUT,
+            read_json::<_, ClientRequest>(&mut FrameReader::new(&mut stream)),
         )
-        .await?;
+        .await;
+        if let Ok(Ok(ClientRequest::Stop { force })) = request {
+            stop(&mut stream, &runtime, host, force).await?;
+        }
         return Ok(());
     }
-    if let Some(session) = hello.session_id {
-        let subscription = tokio::select! {
-            biased;
-            ()=cancel.cancelled()=>return Ok(()),
-            result=runtime.subscribe_terminal(session)=>result,
+    let Some(session) = hello.session_id else {
+        return serve_commands(stream, runtime.command_client(), cancel, host).await;
+    };
+    let subscription = tokio::select! {
+        biased;
+        () = cancel.cancelled() => return Ok(()),
+        result = runtime.subscribe_terminal(session) => result,
+    };
+    let subscription = match subscription {
+        Ok(value) => value,
+        Err(error) => {
+            let refusal = Welcome {
+                version: VERSION,
+                error: Some(error.to_string()),
+                refusal: Refusal::of(&error),
+                ..Welcome::default()
+            };
+            return write_json(&mut stream, &refusal).await;
+        }
+    };
+    let connection = subscription.connection_id;
+    let result = async {
+        let welcome = Welcome {
+            version: VERSION,
+            terminal: Some(TerminalWelcome {
+                incarnation_id: subscription.incarnation_id,
+            }),
+            ..Welcome::default()
         };
-        let subscription = match subscription {
-            Ok(value) => value,
-            Err(error) => {
-                write_json(
-                    &mut stream,
-                    &Welcome {
-                        version: VERSION,
-                        error: Some(error.to_string()),
-                        events: vec![],
-                        host: None,
-                    },
-                )
-                .await?;
-                return Ok(());
-            }
-        };
-        let connection = subscription.connection_id;
-        let result = async {
+        write_json(&mut stream, &welcome).await?;
+        serve_terminal(stream, runtime.clone(), session, subscription, cancel).await
+    }
+    .await;
+    runtime.unsubscribe_terminal(session, connection).await;
+    result
+}
+
+async fn stop<W: AsyncWrite + Unpin + Send>(
+    writer: &mut W,
+    runtime: &RuntimeHandle,
+    host: HostDescription,
+    force: bool,
+) -> Result<bool> {
+    let open = local_sessions(&runtime.snapshot().await?);
+    match stop_permission(host.kind, force, open) {
+        Ok(()) => {
+            write_json(writer, &json!({"kind":"stopping"})).await?;
+            let stopping = runtime.clone();
+            tokio::spawn(async move { stopping.shutdown().await });
+            Ok(true)
+        }
+        Err(message) => {
             write_json(
-                &mut stream,
-                &Welcome {
-                    version: VERSION,
-                    error: None,
-                    events: vec![],
-                    host: None,
-                },
+                writer,
+                &json!({"kind":"rejected","operation":"host.stop","message":message}),
             )
             .await?;
-            serve_terminal(stream, runtime.clone(), session, subscription, cancel).await
+            Ok(false)
         }
-        .await;
-        runtime.unsubscribe_terminal(session, connection).await;
-        result
-    } else {
-        serve_commands(stream, runtime.command_client(), cancel, host).await
     }
 }
 
@@ -216,16 +248,14 @@ async fn serve_commands(
         .iter()
         .map(serde_json::to_value)
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    write_json(
-        &mut stream,
-        &Welcome {
-            version: VERSION,
-            error: None,
-            events: initial,
-            host: Some(host),
-        },
-    )
-    .await?;
+    let welcome = Welcome {
+        version: VERSION,
+        terminals: local_sessions(&snapshot),
+        events: initial,
+        host: Some(host),
+        ..Welcome::default()
+    };
+    write_json(&mut stream, &welcome).await?;
     let (reader, mut writer) = stream.into_split();
     let mut reader = FrameReader::new(reader);
     reader.maximum = crate::protocol::MAX_COMMAND_BYTES;
@@ -237,28 +267,22 @@ async fn serve_commands(
                 match request? {
                     ClientRequest::Command{command}=>{
                         let command:CommandEnvelope=serde_json::from_value(command)?;
-                        let request_id=command.command.request_id().map(str::to_owned);
+                        let request_id=command.command.request_id().to_owned();
                         let operation=command.command.operation();
                         if let Err(error)=runtime.try_send(command) {
                             write_json(&mut writer,&json!({"kind":"rejected","requestId":request_id,"operation":operation,"message":error.to_string()})).await?;
                         }
                     }
                     ClientRequest::Stop{force}=>{
-                        let open = local_sessions(&runtime.snapshot().await?);
-                        match stop_permission(host.kind, force, open) {
-                            Ok(())=>{
-                                write_json(&mut writer,&json!({"kind":"stopping"})).await?;
-                                let stopping = runtime.clone();
-                                tokio::spawn(async move { stopping.shutdown().await; });
-                                return Ok(());
-                            }
-                            Err(message)=>write_json(&mut writer,&json!({"kind":"rejected","operation":"host.stop","message":message})).await?,
+                        if stop(&mut writer,&runtime,host,force).await? {
+                            return Ok(());
                         }
                     }
                 }
             }
             event=events.recv()=>match event {
-                Ok(event)=>write_event(&mut writer,&event).await?,
+                Ok(event) if event.reaches(runtime.consumer())=>write_event(&mut writer,&event).await?,
+                Ok(_)=>{}
                 Err(broadcast::error::RecvError::Lagged(_))=>{
                     write_json(&mut writer,&json!({"kind":"resync"})).await?;
                     let (snapshot, receiver) = runtime.observe().await?;
@@ -274,6 +298,8 @@ async fn write_event<W: AsyncWrite + Unpin + Send>(writer: &mut W, event: &Event
     write_json(writer, &json!({"kind":"event","event":event})).await
 }
 
+type Pending<T> = futures_util::stream::FuturesOrdered<futures_util::future::BoxFuture<'static, T>>;
+
 async fn serve_terminal(
     stream: kodosi_os::ipc::Stream,
     runtime: RuntimeHandle,
@@ -281,6 +307,7 @@ async fn serve_terminal(
     mut subscription: terminal::Subscription,
     cancel: CancellationToken,
 ) -> Result<()> {
+    const PENDING: usize = 32;
     let (reader, mut writer) = stream.into_split();
     let mut reader = FrameReader::new(reader);
     write_frame(
@@ -288,10 +315,23 @@ async fn serve_terminal(
         &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence),
     )
     .await?;
-    let mut admissions = futures_util::stream::FuturesOrdered::<
-        futures_util::future::BoxFuture<'static, Result<()>>,
-    >::new();
+    let incarnation = subscription.incarnation_id;
+    let connection = subscription.connection_id;
+    let mut admissions = Pending::<Result<()>>::new();
+    let mut controls = Pending::<Result<Option<Value>>>::new();
+    let mut refreshing: Option<
+        futures_util::future::BoxFuture<'static, Result<crate::network::CheckpointCut>>,
+    > = None;
+    let mut refresh_wanted = false;
+    let mut retry: Option<tokio::time::Instant> = None;
     loop {
+        if refresh_wanted && refreshing.is_none() && retry.is_none() && subscription.can_refresh() {
+            refresh_wanted = false;
+            let handle = runtime.clone();
+            refreshing = Some(Box::pin(async move {
+                handle.terminal_checkpoint(session, connection).await
+            }));
+        }
         tokio::select! {
             biased;
             ()=cancel.cancelled()=>return Ok(()),
@@ -302,19 +342,40 @@ async fn serve_terminal(
                     write_frame(&mut writer,&ack).await?;
                 }
             }
-            frame=read_frame(&mut reader),if admissions.len()<32=>{
+            answer=controls.next(),if !controls.is_empty()=>{
+                if let Some(answer)=answer.transpose()?.flatten() {
+                    write_frame(&mut writer,&control_frame(&answer)?).await?;
+                }
+            }
+            cut=async { match refreshing.as_mut() { Some(refresh)=>refresh.await, None=>std::future::pending().await } },if refreshing.is_some()=>{
+                refreshing=None;
+                match cut {
+                    Ok(cut)=>subscription.refresh(cut),
+                    Err(error)=>{
+                        tracing::warn!(%session,%error,"terminal view refresh failed; it will be tried again");
+                        refresh_wanted=true;
+                        retry=Some(tokio::time::Instant::now()+REFRESH_RETRY);
+                    }
+                }
+            }
+            ()=async { tokio::time::sleep_until(retry.unwrap_or_else(tokio::time::Instant::now)).await },if retry.is_some()=>retry=None,
+            frame=read_frame(&mut reader),if admissions.len()<PENDING && controls.len()<PENDING=>{
                 let bytes=frame?;
                 match bytes.first() {
                     Some(&INPUT)=>{
                         let handle=runtime.clone();
-                        let incarnation=subscription.incarnation_id;
-                        let connection=subscription.connection_id;
                         let input=Bytes::copy_from_slice(&bytes[1..]);
                         admissions.push_back(Box::pin(async move {handle.write_input(session,incarnation,connection,input).await}));
-                    },
+                    }
+                    Some(&CONTROL)=>{
+                        let command:CommandEnvelope=serde_json::from_slice(&bytes[1..])?;
+                        let handle=runtime.clone();
+                        controls.push_back(Box::pin(async move {handle.terminal_control(command,connection).await}));
+                    }
+                    Some(&REFRESH) if bytes.len()==1=>refresh_wanted=true,
                     Some(&RESIZE) if bytes.len()==5=>{
                         let cols=u16::from_be_bytes([bytes[1],bytes[2]]);let rows=u16::from_be_bytes([bytes[3],bytes[4]]);
-                        if let Err(error)=runtime.resize(session,subscription.incarnation_id,subscription.connection_id,cols,rows).await {
+                        if let Err(error)=runtime.resize(session,incarnation,connection,cols,rows).await {
                             tracing::warn!(%session,%error,"terminal view resize was not applied");
                         }
                     }
@@ -330,6 +391,8 @@ async fn serve_terminal(
                     write_frame(&mut writer,&resize_frame(rows,cols,cell,at_sequence)?).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot{checkpoint,next_sequence}))=>{
+                    retry=None;
+                    refresh_wanted=false;
                     write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Closed{reason,final_sequence}))=>{

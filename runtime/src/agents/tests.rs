@@ -1,7 +1,8 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::Arc};
 
 use super::{
     accounts::{self, referenced_home},
+    launch::plan,
     models::{self, codex, copilot, cursor, listed_values, opencode},
     shell::Facts,
     *,
@@ -225,6 +226,8 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
         &claude_sign_in("team@example.com"),
     );
     fs::create_dir_all(home.join(".claude-work")).unwrap();
+    fs::create_dir_all(home.join(".claude_work")).unwrap();
+    fs::create_dir_all(home.join(".claude-default")).unwrap();
     fs::create_dir_all(home.join(".claude-squad/cache")).unwrap();
     put(
         home,
@@ -251,10 +254,12 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
         [
             "default ada@example.com ~/.claude",
             "alt sim@example.com ~/.claude-alt",
+            "default-2 ~/.claude-default",
             "personal me@example.com ~/.claude_personal",
             "started ~/.claude-started",
             "team team@example.com ~/team/.claude",
             "work ~/.claude-work",
+            "work-2 ~/.claude_work",
             "x x@example.com ~/.profiles/x",
         ]
     );
@@ -265,7 +270,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
     let claude = &catalog.agents[0].accounts;
     assert_eq!(claude[0].command, "claude");
     assert_eq!(
-        claude[5].command,
+        claude[6].command,
         format!(
             "env CLAUDE_CONFIG_DIR={}/.claude-work claude",
             home.display()
@@ -335,7 +340,7 @@ fn a_new_account_gets_a_private_empty_folder() {
 
     let root = tempfile::tempdir().unwrap();
     let home = root.path();
-    let account = accounts::add(home, Agent::Codex, " Night Shift ").expect("added");
+    let account = accounts::add(home, Agent::Codex, " Night Shift ", &[]).expect("added");
     assert_eq!(account.name, "night-shift");
     assert_eq!(
         account.command,
@@ -346,9 +351,19 @@ fn a_new_account_gets_a_private_empty_folder() {
         .permissions()
         .mode();
     assert_eq!(mode & 0o777, 0o700);
-    assert!(accounts::add(home, Agent::Codex, "night shift").is_err());
-    assert!(accounts::add(home, Agent::Codex, "../x").is_err());
-    assert!(accounts::add(home, Agent::Gemini, "work").is_err());
+    assert!(accounts::add(home, Agent::Codex, "night shift", &[]).is_err());
+    assert!(accounts::add(home, Agent::Codex, "../x", &[]).is_err());
+    assert!(accounts::add(home, Agent::Gemini, "work", &[]).is_err());
+    assert_eq!(
+        accounts::add(
+            home,
+            Agent::Codex,
+            "Work",
+            &["default".to_owned(), "work".to_owned()]
+        )
+        .unwrap_err(),
+        "There is already an account named work."
+    );
 }
 
 #[cfg(windows)]
@@ -373,7 +388,7 @@ fn windows_lists_the_usual_account_and_adds_none() {
         ["default ada@example.com ~/.claude"]
     );
     assert!(!catalog.agents[0].adds_accounts);
-    assert!(accounts::add(home, Agent::Claude, "night").is_err());
+    assert!(accounts::add(home, Agent::Claude, "night", &[]).is_err());
     assert!(!home.join(".claude-night").exists());
 }
 
@@ -511,4 +526,154 @@ fn quoted_prompts_reach_the_program_as_one_word() {
         r#""say \"hi\" \\""#
     );
     assert_eq!(quote(Path::new("nu"), "a'#b"), "r##'a'#b'##");
+}
+
+fn claude_with_accounts() -> AgentInfo {
+    AgentInfo {
+        agent: Agent::Claude,
+        program: "claude".to_owned(),
+        installed: true,
+        accounts: ["default", "work"]
+            .into_iter()
+            .map(|name| AgentAccount {
+                name: name.to_owned(),
+                command: if name == "default" {
+                    "claude".to_owned()
+                } else {
+                    format!("CLAUDE_CONFIG_DIR=~/.claude-{name} claude")
+                },
+                identity: None,
+                folder: None,
+            })
+            .collect(),
+        install: String::new(),
+        adds_accounts: true,
+    }
+}
+
+fn claude_models() -> AgentModels {
+    let option = |id: &str| AgentOption {
+        id: id.to_owned(),
+        argument: format!("--effort {id}"),
+    };
+    AgentModels {
+        models: vec![
+            AgentModel {
+                id: "opus".to_owned(),
+                label: "Opus".to_owned(),
+                argument: "--model opus".to_owned(),
+                efforts: Vec::new(),
+            },
+            AgentModel {
+                id: "haiku".to_owned(),
+                label: "Haiku".to_owned(),
+                argument: "--model haiku".to_owned(),
+                efforts: vec!["low".to_owned()],
+            },
+        ],
+        efforts: vec![option("low"), option("high")],
+    }
+}
+
+#[test]
+fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
+    let info = claude_with_accounts();
+    let models = claude_models();
+    let saved = AgentPick {
+        agent: Agent::Claude,
+        account: Some("work".to_owned()),
+        model: Some("opus".to_owned()),
+        effort: Some("high".to_owned()),
+    };
+    let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
+        agent: Agent::Claude,
+        account: account.map(str::to_owned),
+        model: model.map(str::to_owned),
+        effort: effort.map(str::to_owned),
+    };
+    let (line, pick) = plan(&info, Some(&models), &saved, &start(None, None, None)).unwrap();
+    assert_eq!(
+        line,
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high"
+    );
+    assert_eq!(pick, saved);
+
+    let (line, _) = plan(
+        &info,
+        Some(&models),
+        &saved,
+        &start(Some("default"), Some(""), None),
+    )
+    .unwrap();
+    assert_eq!(line, "claude --effort high");
+
+    let (line, pick) = plan(
+        &info,
+        Some(&models),
+        &saved,
+        &start(None, Some("haiku"), None),
+    )
+    .unwrap();
+    assert_eq!(
+        line,
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku"
+    );
+    assert_eq!(pick.effort, None);
+
+    let stale = AgentPick {
+        account: Some("gone".to_owned()),
+        model: Some("retired".to_owned()),
+        ..saved.clone()
+    };
+    let (line, _) = plan(&info, Some(&models), &stale, &start(None, None, None)).unwrap();
+    assert_eq!(line, "claude --effort high");
+
+    assert_eq!(
+        plan(
+            &info,
+            Some(&models),
+            &saved,
+            &start(None, Some("fable"), None)
+        )
+        .unwrap_err(),
+        "Claude Code has no model fable. Models: opus, haiku."
+    );
+    assert_eq!(
+        plan(
+            &info,
+            Some(&models),
+            &saved,
+            &start(None, Some("haiku"), Some("high"))
+        )
+        .unwrap_err(),
+        "Claude Code has no effort high here. Efforts: low."
+    );
+    assert_eq!(
+        plan(&info, None, &saved, &start(Some("home"), None, None)).unwrap_err(),
+        "Claude Code has no account named home. Accounts: default, work."
+    );
+}
+
+#[tokio::test]
+async fn the_launch_choice_survives_a_restart() {
+    let root = tempfile::tempdir().unwrap();
+    let pick = AgentPick {
+        agent: Agent::Codex,
+        account: Some("default".to_owned()),
+        model: Some("gpt-6".to_owned()),
+        effort: None,
+    };
+    let launcher = Arc::new(Launcher::load(
+        root.path(),
+        root.path(),
+        Path::new("/bin/sh"),
+    ));
+    launcher.choose(&AgentChoiceChange::Pick(pick.clone()));
+    launcher.choose(&AgentChoiceChange::Tab {
+        agent: Some(Agent::Codex),
+    });
+    launcher.save().await;
+    let choice = Launcher::load(root.path(), root.path(), Path::new("/bin/sh")).choice();
+    assert_eq!(choice.agent, Some(Agent::Codex));
+    assert_eq!(choice.pick(Agent::Codex), pick);
 }

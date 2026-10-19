@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test @MainActor func commandReplyMatchesRequestOperationAndAccount() async throws {
+@Test @MainActor func commandReplyMatchesRequestAndOperation() async throws {
     var sent: [Data] = []
     let commands = CommandSink { data in sent.append(data); return 0 }
     commands.setAccount(userId: "owner", epoch: 4)
@@ -16,10 +16,9 @@ import Testing
     await settle { sent.isEmpty }
     #expect(sent.count == 1)
     for event in try [
-        runtimeEvent("session.result", epoch: 3, fields: ["requestId": .string("request"), "operation": .string("session.close")]),
-        runtimeEvent("session.result", epoch: 4, userId: "someone-else", fields: ["requestId": .string("request"), "operation": .string("session.close")]),
+        runtimeEvent("session.result", epoch: 4, fields: ["requestId": .string("other"), "operation": .string("session.close")]),
         runtimeEvent("session.result", epoch: 4, fields: ["requestId": .string("request"), "operation": .string("session.rename")]),
-        runtimeEvent("provider.reply", epoch: 4, fields: ["requestId": .string("request"), "operation": .string("session.close")]),
+        runtimeEvent("provider.result", epoch: 4, fields: ["requestId": .string("request"), "operation": .string("session.close")]),
     ] {
         commands.receive(event)
     }
@@ -96,11 +95,6 @@ import Testing
     } catch { #expect(error.localizedDescription == "Use another name.") }
     #expect(app.errorMessage == nil)
 
-    try app.receive(runtimeEvent("session.error", fields: [
-        "requestId": .string("command-line"), "operation": .string("session.close"), "message": .string("Not found."),
-    ]))
-    #expect(app.errorMessage == nil)
-
     try app.receive(runtimeEvent("friends.error", fields: ["operation": .string("friends.remove"), "message": .string("Try again.")]))
     #expect(app.errorMessage == "Try again.")
 }
@@ -149,7 +143,7 @@ import Testing
         "provider": .string("claude"), "nativeConversationId": .string("native-conversation"),
         "workingDirectory": .string("/project"), "title": .string("Saved work"),
     ])
-    try commands.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+    try commands.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
         "requestId": #require(discovery["requestId"]), "operation": .string("provider.discoverConversations"),
         "result": .object(["items": .array([conversation]), "hasMore": .bool(false)]),
     ]))
@@ -160,7 +154,7 @@ import Testing
     #expect(read["type"] == .string("provider.readConversation"))
     #expect(read["nativeConversationId"] == .string("native-conversation"))
     #expect(read["workingDirectory"] == .string("/project"))
-    try commands.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+    try commands.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
         "requestId": #require(read["requestId"]), "operation": .string("provider.readConversation"),
         "result": .object([
             "entries": .array([.object(["role": .string("user"), "content": .string("Earlier task")])]),
@@ -175,7 +169,7 @@ import Testing
     #expect(requests.last?["beforeLine"] == nil)
     #expect(!requests.contains { $0["type"] == .string("session.create") })
     let earlier = try #require(requests.last)
-    try commands.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+    try commands.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
         "requestId": #require(earlier["requestId"]), "operation": .string("provider.readConversation"),
         "result": .object([
             "entries": .array([.object(["role": .string("assistant"), "content": .string("Older page")])]),

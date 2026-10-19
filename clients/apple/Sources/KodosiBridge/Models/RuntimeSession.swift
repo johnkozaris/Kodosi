@@ -72,7 +72,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let missionName: String?
     public let connectedUsers: [String]?
     public let sharedWith: [String]
-    public let createRequestId: String?
+    public let attention: Bool
 
     public var activity: String? {
         if let caption = programStatus?.caption {

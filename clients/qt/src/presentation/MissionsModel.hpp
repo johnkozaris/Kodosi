@@ -7,6 +7,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <functional>
+
 namespace kodosi {
 class SessionCatalogModel;
 class Workspace;
@@ -25,11 +27,13 @@ class MissionsModel final : public QObject {
     Q_PROPERTY(QVariantList members READ members NOTIFY selectionChanged)
     Q_PROPERTY(QStringList sessionIds READ sessionIds NOTIFY selectionChanged)
     Q_PROPERTY(QString selectedMissionId READ selectedMissionId NOTIFY selectionChanged)
-    Q_PROPERTY(QStringList unreadRooms READ unreadRooms NOTIFY unreadChanged)
+    Q_PROPERTY(QStringList unreadRooms READ unreadRooms NOTIFY catalogChanged)
 
 public:
     MissionsModel(Workspace& workspace, SessionCatalogModel& sessions);
 
+    std::function<bool()> isFront;
+    void readWatched();
     bool busy() const;
     QVariantMap room() const { return m_room; }
     QVariantMap presentation() const { return m_presentations.value(m_selectedId); }
@@ -45,7 +49,7 @@ public:
     QVariantList members() const { return m_members; }
     QStringList sessionIds() const;
     QString selectedMissionId() const { return m_selectedId; }
-    QStringList unreadRooms() const { return m_unread; }
+    QStringList unreadRooms() const;
 
     Q_INVOKABLE void create(const QString& name);
     Q_INVOKABLE void open(const QString& id);
@@ -64,7 +68,6 @@ signals:
     void created(const QString& roomId);
     void catalogChanged();
     void selectionChanged();
-    void unreadChanged();
 
 private:
     friend class Workspace;
@@ -81,11 +84,11 @@ private:
     QString m_issueRepository;
     QHash<QString, QVariantMap> m_presentations;
     QHash<QString, QVariantMap> m_rooms;
-    QStringList m_unread;
+    QHash<QString, quint64> m_seen;
     void completeAction(const QString& room, const QString& action, const QVariantMap& submitted);
     void applyRoom(const QJsonObject& room);
     bool watching(const QString& roomId) const;
-    void readWatched();
+    void see(const QString& roomId);
     void seeCanvas();
     bool m_catalogTruncated = false;
 

@@ -17,7 +17,10 @@ ApplicationLifecycleModel::ApplicationLifecycleModel(
           [&runtime](Completion completion) {
               runtime.startAsync(std::move(completion));
           },
-          [&runtime] { runtime.stop(); },
+          [&runtime] { runtime.quit(); },
+          [&runtime](std::function<void(HostStop)> completion) {
+              runtime.stopHostAsync(std::move(completion));
+          },
           parent)
 {
 }
@@ -26,11 +29,13 @@ ApplicationLifecycleModel::ApplicationLifecycleModel(
     RuntimeBridge& runtime,
     StartOperation startOperation,
     StopOperation stopOperation,
+    StopHostOperation stopHostOperation,
     QObject* parent)
     : QObject(parent)
     , m_runtime(runtime)
     , m_startOperation(std::move(startOperation))
     , m_stopOperation(std::move(stopOperation))
+    , m_stopHostOperation(std::move(stopHostOperation))
 {
     Q_ASSERT(m_startOperation);
     Q_ASSERT(m_stopOperation);
@@ -39,6 +44,7 @@ ApplicationLifecycleModel::ApplicationLifecycleModel(
         &RuntimeBridge::runningChanged,
         this,
         &ApplicationLifecycleModel::handleRuntimeRunningChanged);
+    connect(&m_runtime, &RuntimeBridge::hostForegroundChanged, this, &ApplicationLifecycleModel::hostForegroundChanged);
 }
 
 ApplicationLifecycleModel::State
@@ -50,6 +56,16 @@ ApplicationLifecycleModel::state() const noexcept
 QString ApplicationLifecycleModel::errorText() const
 {
     return m_errorText;
+}
+
+bool ApplicationLifecycleModel::hostForeground() const noexcept
+{
+    return m_outdatedHost ? m_outdatedHost->foreground : m_runtime.hostForeground();
+}
+
+int ApplicationLifecycleModel::hostTerminals() const noexcept
+{
+    return m_outdatedHost ? static_cast<int>(m_outdatedHost->terminals) : 0;
 }
 
 void ApplicationLifecycleModel::scheduleInitialStart()
@@ -81,6 +97,41 @@ void ApplicationLifecycleModel::retry()
         return;
     }
     beginAttempt();
+}
+
+void ApplicationLifecycleModel::restartHost()
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    if (m_state != State::Failed || !m_outdatedHost || m_outdatedHost->foreground || m_attemptInFlight
+        || m_stopping || !m_stopHostOperation) {
+        return;
+    }
+    ++m_attemptToken;
+    const auto token = m_attemptToken;
+    m_attemptInFlight = true;
+    m_state = State::Starting;
+    m_errorText.clear();
+    emit stateChanged();
+    QPointer<ApplicationLifecycleModel> guard(this);
+    m_stopHostOperation([guard, token](HostStop result) {
+        if (guard != nullptr)
+            guard->completeHostStop(token, result);
+    });
+}
+
+void ApplicationLifecycleModel::completeHostStop(const std::uint64_t token, const HostStop result)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    if (m_stopping || !m_attemptInFlight || token != m_attemptToken) {
+        return;
+    }
+    if (result == HostStop::Stopped) {
+        executeAttempt(token);
+        return;
+    }
+    m_attemptInFlight = false;
+    fail(result == HostStop::Refused ? tr("The earlier Kodosi did not stop.")
+                                     : tr("Kodosi could not reach the earlier Kodosi."));
 }
 
 void ApplicationLifecycleModel::beginAttempt()
@@ -136,15 +187,15 @@ void ApplicationLifecycleModel::completeAttempt(
         return;
     }
     m_attemptInFlight = false;
+    setOutdatedHost(result ? std::nullopt : result.error().outdatedHost);
     if (!result) {
-        fail(result.error().message);
+        fail(m_outdatedHost ? describe(*m_outdatedHost) : result.error().message);
         return;
     }
 
     m_state = State::Ready;
     m_errorText.clear();
     emit stateChanged();
-    emit runtimeReady();
 }
 
 void ApplicationLifecycleModel::handleRuntimeRunningChanged(
@@ -157,6 +208,26 @@ void ApplicationLifecycleModel::handleRuntimeRunningChanged(
     m_attemptInFlight = false;
     fail(QStringLiteral(
         "The Kodosi runtime stopped unexpectedly. Try again."));
+}
+
+void ApplicationLifecycleModel::setOutdatedHost(std::optional<OutdatedHost> host)
+{
+    const bool foreground = hostForeground();
+    m_outdatedHost = host;
+    if (hostForeground() != foreground)
+        emit hostForegroundChanged();
+}
+
+QString ApplicationLifecycleModel::describe(const OutdatedHost& host)
+{
+    if (host.foreground) {
+        return tr("The `kodosi host` command (process %1) runs the earlier version. "
+                  "Stop it in its terminal and start it again.")
+            .arg(host.pid);
+    }
+    return tr("The earlier version of Kodosi still runs %n terminals in the background. "
+              "Restart it to use the update. Its terminals end.",
+        nullptr, static_cast<int>(host.terminals));
 }
 
 void ApplicationLifecycleModel::fail(QString message)

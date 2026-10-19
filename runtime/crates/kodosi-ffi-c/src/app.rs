@@ -421,7 +421,7 @@ mod tests {
             oidc_scopes: vec!["openid".to_owned()],
             secret_service: "kodosi.isolated".to_owned(),
             isolated: true,
-            host: kodosi_runtime::HostKind::App,
+            host: kodosi_runtime::HostKind::Background,
         };
         kodosi_os::fs::create_private_dir(&config.data_root).unwrap();
         let root = config.data_root.clone();

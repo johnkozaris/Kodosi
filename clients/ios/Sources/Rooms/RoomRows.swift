@@ -10,7 +10,7 @@ struct RoomRow: View {
     var body: some View {
         let rooms = model.rooms
         let last = rooms.snapshots[mission.id]?.messages.last
-        let unread = rooms.unread[mission.id] ?? 0
+        let unread = mission.unread
         HStack(alignment: .top, spacing: 12) {
             RoomSigil(key: mission.id, size: 46)
             VStack(alignment: .leading, spacing: 4) {
@@ -23,7 +23,7 @@ struct RoomRow: View {
                     if let date = last.flatMap({ RoomDates.parse($0.createdAt) }) {
                         Text(RoomDates.short(date))
                             .appTextStyle(.caption)
-                            .foregroundStyle(unread > 0 ? theme.colors.accentStrong : theme.colors.inkFaint)
+                            .foregroundStyle(unread ? theme.colors.accentStrong : theme.colors.inkFaint)
                     }
                 }
                 HStack(alignment: .top, spacing: 8) {
@@ -31,7 +31,7 @@ struct RoomRow: View {
                         .appTextStyle(.footnote)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    if unread > 0 {
+                    if unread {
                         NewDot().padding(.top, 4).transition(AnyTransition.pop)
                     }
                 }
@@ -39,9 +39,9 @@ struct RoomRow: View {
             }
         }
         .padding(.vertical, 6)
-        .animation(theme.motion.snappy, value: unread > 0)
+        .animation(theme.motion.snappy, value: unread)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
+        .accessibilityValue(unread ? Text("New messages") : Text(verbatim: ""))
     }
 
     @ViewBuilder

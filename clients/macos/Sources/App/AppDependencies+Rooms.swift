@@ -61,10 +61,38 @@ extension AppDependencies {
                 }
             }
             rooms[next.roomId] = next
-        case "room.issues":
-            guard let repository = event.string("repositoryId") else { return }
-            roomIssues[repository] = try event.value("issues")
+            if workbench.selectedMissionId == next.roomId {
+                seeShownRoom()
+            }
+        case "room.result":
+            try receiveRoomResult(event)
         default: break
         }
+    }
+
+    private func receiveRoomResult(_ event: RuntimeEvent) throws {
+        if let repository = event.string("repositoryId") {
+            roomIssues[repository] = try event.value("issues")
+        }
+        if event.payload["room"] != nil {
+            var page: RoomSnapshot = try event.value("room")
+            if let previous = rooms[page.roomId] {
+                page.merge(previous)
+            }
+            rooms[page.roomId] = page
+        }
+    }
+
+    func seeShownRoom() {
+        guard workbench.section == .missions, let roomId = workbench.selectedMissionId,
+              roomView(roomId).followsLatest, roomView(roomId).conversationVisible else { return }
+        seeRoom(roomId)
+    }
+
+    func seeRoom(_ roomId: String) {
+        guard isFront(), let sequence = rooms[roomId]?.messages.map(\.sequence).max(),
+              sequence > roomSeen[roomId] ?? 0 else { return }
+        roomSeen[roomId] = sequence
+        commandSink.perform("mission.seen", ["missionId": .string(roomId), "sequence": .uint(sequence)])
     }
 }

@@ -106,6 +106,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                     if next!=final_sequence{return Err(Error::Other(format!("terminal ended before final output: {reason}")));}
                     if dirty{render(&mut mirror)?;}return Ok(());
                 }
+                TerminalFrame::Answer(_)=>{}
             },
             size=resizes.changed()=>{if let Ok((cols,rows))=size{local_host::write_resize(&mut client.writer,cols,rows).await?;}},
             _=paint.tick(),if dirty=>{render(&mut mirror)?;dirty=false;}

@@ -38,7 +38,7 @@ struct SidebarView: View {
         .animation(theme.motion.snappy, value: selection)
         .animation(theme.motion.spring, value: deps.sessions.map(\.id))
         .animation(theme.motion.spring, value: deps.missions.map(\.id))
-        .animation(theme.motion.spring, value: deps.attention)
+        .animation(theme.motion.spring, value: deps.sessions.map(\.attention))
     }
 
     private var expanded: some View {

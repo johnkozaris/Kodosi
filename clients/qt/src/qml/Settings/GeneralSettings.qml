@@ -138,7 +138,9 @@ ColumnLayout {
             iconName: "minus"
             tint: "#54433a"
             title: qsTr("Quit Kodosi")
-            subtitle: qsTr("Closing the window keeps your terminals running. Quit stops them.")
+            subtitle: Models.ApplicationLifecycle.hostForeground
+                ? qsTr("Your terminals keep running in the kodosi host command.")
+                : qsTr("Closing the window keeps your terminals running. Quit stops them.")
 
             KButton {
                 Accessible.id: objectName
@@ -192,7 +194,7 @@ ColumnLayout {
     KDialog {
         id: quitConfirmation
 
-        destructive: true
+        destructive: !Models.ApplicationLifecycle.hostForeground
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Quit Kodosi?")
         onOpened: standardButton(Dialog.Ok).text = qsTr("Quit")
@@ -202,7 +204,9 @@ ColumnLayout {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("The terminals on this computer stop.")
+            text: Models.ApplicationLifecycle.hostForeground
+                ? qsTr("The terminals on this computer keep running in the kodosi host command.")
+                : qsTr("The terminals on this computer stop.")
             wrapMode: Text.WordWrap
         }
     }
