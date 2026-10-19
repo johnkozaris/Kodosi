@@ -435,6 +435,14 @@ const SCENES: Record<string, Scene> = {
     page: "login-idp-link-email.ftl",
     with: { idpAlias: "github", brokerContext: { username: maya.email } },
   },
+  "link-replace": {
+    page: "login-idp-link-confirm-override.ftl",
+    with: {
+      idpDisplayName: "GitHub",
+      brokerContext: { username: "maya-chen" },
+      message: { type: "error", summary: "Your account signs in with maya-old now." },
+    },
+  },
   other: { page: "login-x509-info.ftl" },
   account: { page: "info.ftl", account: "full" },
   "account-new": { page: "info.ftl", account: "new" },

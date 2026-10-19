@@ -13,6 +13,7 @@ type KcContextExtensionPerPage = {
     isRegistrationFlow?: boolean;
   };
   "turnstile-registration-form.ftl": { turnstileSiteKey: string };
+  "login-idp-link-confirm-override.ftl": { brokerContext?: { username: string } };
 };
 
 export type KcContext = ExtendKcContext<KcContextExtension, KcContextExtensionPerPage>;
