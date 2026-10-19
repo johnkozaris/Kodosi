@@ -58,7 +58,7 @@ struct DosiQuestionView: View {
                     Text(answered(answer)).font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                 }
                 .padding(.leading, 8).padding(.trailing, 10).frame(height: 22)
-                .background(theme.colors.ink.opacity(theme.isDark ? 0.045 : 0.05), in: Capsule())
+                .background(theme.colors.surface, in: Capsule())
                 .help(question.question)
                 .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
             } else {
@@ -149,7 +149,7 @@ struct DosiKeyStyle: ButtonStyle {
                                 bezel: .quiet)
                     .environment(\.bezelPressed, configuration.isPressed)
             }
-            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
             .animation(theme.motion.snappy, value: configuration.isPressed)
     }
 }
@@ -163,7 +163,7 @@ struct DosiNoticeView: View {
         switch notice.tone {
         case .stopped:
             Text("Stopped").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
-                .padding(.horizontal, 8).frame(height: 18).background(theme.colors.ink.opacity(0.06), in: Capsule())
+                .padding(.horizontal, 8).frame(height: 18).background(theme.colors.surface, in: Capsule())
         case .failed, .signIn:
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
@@ -198,7 +198,7 @@ struct DosiAway: View {
     var body: some View {
         HStack(spacing: 7) {
             DeviceGlyph(label: computer).font(.system(size: 10, weight: .medium))
-            Text("Working on \(computer)").shimmer()
+            Text("Working on \(computer)")
         }
         .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
         .padding(.leading, 28)

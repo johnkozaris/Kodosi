@@ -37,13 +37,7 @@ struct PickerKey<Glyph: View, Accessory: View>: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 7) {
-                glyph()
-                    .keyframeAnimator(initialValue: 1.0, trigger: title) { glyph, scale in
-                        glyph.scaleEffect(theme.motion.reduced ? 1 : scale)
-                    } keyframes: { _ in
-                        SpringKeyframe(0.78, duration: 0.08, spring: .snappy)
-                        SpringKeyframe(1.0, duration: 0.42, spring: .bouncy)
-                    }
+                glyph().squash(trigger: title)
                 Text(verbatim: title)
                     .fontWeight(.medium)
                     .foregroundStyle(quiet ? theme.colors.inkMuted : theme.colors.ink)
@@ -146,7 +140,6 @@ struct PickerList: View {
             }
         }
         .frame(width: width)
-        .animation(theme.motion.snappy, value: highlighted)
         .focusable()
         .focused($focused)
         .focusEffectDisabled()
@@ -243,8 +236,8 @@ struct PickerList: View {
         }
         .contentShape(Rectangle())
         .onHover { inside in
-            if inside, row.kind != .note {
-                highlighted = row.id
+            if inside, row.kind != .note, highlighted != row.id {
+                withAnimation(theme.motion.snappy) { highlighted = row.id }
             }
         }
         .onTapGesture {
@@ -278,7 +271,7 @@ struct PickerList: View {
         }
         shown = 0
         for index in 1 ... max(rows.count, 1) {
-            withAnimation(.easeOut(duration: 0.18)) { shown = index }
+            withAnimation(theme.motion.fade) { shown = index }
             try? await Task.sleep(for: .milliseconds(18))
             guard !Task.isCancelled else { return }
         }

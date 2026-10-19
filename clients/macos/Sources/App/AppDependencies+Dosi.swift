@@ -28,29 +28,21 @@ extension AppDependencies {
         }
     }
 
-    var dosiAgentLabel: String? {
-        dosi.snapshot?.setup.agent.map { AgentKind(program: $0).label }
-    }
-
-    var dosiStatus: String {
+    var dosiLine: String {
         switch dosi.state {
-        case .unavailable: return String(localized: "Choose its agent in Settings")
-        case .connecting: return String(localized: "Connecting")
-        case .stopping: return String(localized: "Stopping")
-        case .idle: return dosiAgentLabel ?? String(localized: "Ready")
+        case .unavailable: return String(localized: "choose dosi's agent in settings")
+        case .stopping: return String(localized: "dosi is stopping")
         case .working:
             if let remote = dosi.snapshot?.remote {
-                return String(localized: "Working on \(remote.computer)")
+                return String(localized: "dosi is working on \(remote.computer)")
             }
-            return dosi.mood().label
+            return String(localized: "dosi is working")
+        case .idle, .connecting:
+            if !dosi.openQuestions.isEmpty {
+                return String(localized: "dosi has a question")
+            }
+            return dosi.unseen ? String(localized: "dosi answered") : String(localized: "ask dosi")
         }
-    }
-
-    var dosiDeed: String? {
-        if dosi.state == .working, let remote = dosi.snapshot?.remote {
-            return String(localized: "on \(remote.computer)")
-        }
-        return dosi.latestDeed.map(DosiWords.doing)
     }
 
     func sendToDosi(_ text: String? = nil) {

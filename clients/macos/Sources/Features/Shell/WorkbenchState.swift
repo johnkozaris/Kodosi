@@ -51,6 +51,15 @@ final class WorkbenchState {
         }
     }
 
+    var dosiOn = true {
+        didSet {
+            defaults.set(dosiOn, forKey: "dosi.on")
+            if !dosiOn {
+                dosiOpen = false
+            }
+        }
+    }
+
     private(set) var sidebarWidth: CGFloat = Metrics.sidebarWidth
     private(set) var dosiWidth: CGFloat = Metrics.dosiWidth
     private(set) var folding = false
@@ -63,7 +72,8 @@ final class WorkbenchState {
     init(defaults: UserDefaults) {
         self.defaults = defaults
         sidebarCollapsed = defaults.bool(forKey: "sidebar.collapsed")
-        dosiOpen = defaults.bool(forKey: "dosi.open")
+        dosiOn = defaults.object(forKey: "dosi.on") as? Bool ?? true
+        dosiOpen = dosiOn && defaults.bool(forKey: "dosi.open")
         if let width = defaults.object(forKey: "sidebar.width") as? Double {
             sidebarWidth = CGFloat(width).clamped(to: Self.sidebarWidths)
         }
@@ -91,6 +101,7 @@ final class WorkbenchState {
     }
 
     func openDosi() {
+        guard dosiOn else { return }
         sidebarCollapsed = false
         dosiOpen = true
     }
@@ -111,7 +122,7 @@ final class WorkbenchState {
         folding = true
         unfolding?.cancel()
         unfolding = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(900))
+            try? await Task.sleep(for: .milliseconds(760))
             guard !Task.isCancelled else { return }
             self?.folding = false
         }

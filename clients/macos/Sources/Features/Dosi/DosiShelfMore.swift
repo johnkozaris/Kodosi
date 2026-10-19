@@ -32,14 +32,13 @@ private struct DosiMoreChip<List: View>: View {
             }
             .contentShape(shape)
             .glint(trigger: glints, delay: glintDelay, radius: Radius.sm)
-            .offset(y: hovered ? -1 : 0)
         }
         .buttonStyle(PressScaleStyle(scale: 0.95))
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.snappy, value: open)
         .animation(theme.motion.snappy, value: count)
-        .help(label)
+        .tip(label)
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
         .kodosiPopover(isPresented: $open, arrowEdge: .bottom, alignment: .leading) { list() }
@@ -131,7 +130,7 @@ struct DosiMoreTerminals: View {
         .background {
             ZStack {
                 ForEach(sessions) { session in
-                    Color.clear.frame(width: 20, height: 20).fold(.terminal(session.id), at: .slot)
+                    Color.clear.frame(width: 20, height: 20).fold(.terminal(session.id), at: .slot, tucked: true)
                 }
             }
         }
@@ -139,7 +138,7 @@ struct DosiMoreTerminals: View {
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
             case .terminals:
-                glintDelay = Double(min(order, 10)) * 0.12
+                glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
             case .terminal where sessions.contains(where: { $0.id == deps.terminal(named: target.value)?.id }):
                 glintDelay = 0
@@ -187,7 +186,7 @@ struct DosiMoreRooms: View {
         .background {
             ZStack {
                 ForEach(missions) { mission in
-                    Color.clear.frame(width: 20, height: 20).fold(.room(mission.id), at: .slot)
+                    Color.clear.frame(width: 20, height: 20).fold(.room(mission.id), at: .slot, tucked: true)
                 }
             }
         }
@@ -195,7 +194,7 @@ struct DosiMoreRooms: View {
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
             case .rooms:
-                glintDelay = Double(min(order, 10)) * 0.12
+                glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
             case .room where missions.contains(where: { $0.id == deps.room(named: target.value)?.id }):
                 glintDelay = 0

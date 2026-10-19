@@ -26,14 +26,17 @@ task. Drafts and reading position survive switching rooms.
 
 ## Dosi
 
-Dosi opens from its row at the top of the sidebar or with ⌘J, and the sidebar widens for
-it. Terminal and room rows fold into named chips above the conversation, terminals on
-one line and rooms on the next; when a line is full, a chip with the count of the rest
-lists them. The Dosi row becomes the field, with New chat in it. The list button or Esc
-returns to the list, and ⌘. stops Dosi. While Dosi works, its row says what it does, and
-a terminal that Dosi types in shows what it typed. A collapsed sidebar keeps Dosi as an
-island above New terminal. Settings › Dosi chooses its agent, account, model and effort,
-edits its instructions and shows its folder.
+Dosi opens from its line at the bottom of the sidebar or with ⌘J, and the sidebar
+widens for it. Terminal and room rows fold into named chips above the conversation,
+terminals on one line and rooms on the next; when a line is full, a chip with the count
+of the rest lists them. The line becomes the composer; New chat sits in the header and
+asks first. The back button or Esc returns to the list, and ⌘. stops Dosi. While Dosi
+works, its line shows the marks of what it touches, and a terminal that Dosi types in
+shows what it typed. A question waits in the conversation, and the line says that Dosi
+has a question. A collapsed sidebar keeps Dosi at the bottom of the rail.
+Settings › Dosi chooses its agent, account, model and effort, edits its instructions and
+shows its folder. Turned off there, Dosi leaves the sidebar, the rail and the terminal
+tiles of this computer, and ⌘J does nothing.
 
 ## Providers
 

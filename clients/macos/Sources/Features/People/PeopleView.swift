@@ -22,7 +22,7 @@ struct PeopleView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    PageHeader(title: "People", facts: facts) {
+                    PageHeader(title: "Friends", facts: facts) {
                         Button { deps.copyInvite() } label: {
                             Label(copied ? String(localized: "Invite copied") : String(localized: "Copy my invite"),
                                   systemImage: copied ? "checkmark" : "link")
@@ -228,7 +228,7 @@ private struct FriendCard: View {
                     .buttonStyle(.kodosi(.primary, size: .small))
                     .disabled(invite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(AnyTransition.unfold)
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)

@@ -39,6 +39,7 @@ struct KodosiCommands: Commands {
         CommandGroup(after: .sidebar) {
             Button("Show or Hide Sidebar") { dependencies.workbench.sidebarCollapsed.toggle() }.keyboardShortcut("b")
             Button("Dosi") { dependencies.workbench.toggleDosi() }.keyboardShortcut("j")
+                .disabled(!dependencies.workbench.dosiOn)
             Button("Stop Dosi") { dependencies.dosi.stop() }.keyboardShortcut(".")
                 .disabled(!dependencies.dosi.busy || !dependencies.workbench.dosiOpen)
         }

@@ -48,12 +48,6 @@ enum DosiWords {
         }
     }
 
-    static func doing(_ tool: DosiTool) -> String {
-        let verb = deed(tool.action).doing
-        guard let target = tool.target.map(target), !target.isEmpty else { return verb }
-        return "\(verb) \(target)"
-    }
-
     static func receipt(_ tool: DosiTool) -> String {
         let deed = deed(tool.action)
         let place = tool.target.map(target).flatMap { $0.isEmpty ? nil : $0 }

@@ -17,7 +17,6 @@ struct DosiThought: View {
                         .rotationEffect(.degrees(open ? 90 : 0))
                     Text(live ? String(localized: "thinking") : seconds.map { String(localized: "thought for \($0)s") }
                         ?? String(localized: "thought"))
-                        .shimmer(live)
                 }
                 .font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
                 .frame(height: 18).contentShape(Rectangle())
@@ -28,7 +27,7 @@ struct DosiThought: View {
                     .padding(.leading, 12)
                     .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
                     .padding(.leading, 4)
-                    .transition(.opacity.combined(with: .offset(y: -4)))
+                    .transition(AnyTransition.unfold)
             }
         }
         .animation(theme.motion.snappy, value: open)
@@ -51,7 +50,7 @@ struct DosiToolStatus: View {
                     .foregroundStyle(theme.colors.caution)
             }
         }
-        .transition(.scale(scale: 0.4).combined(with: .opacity))
+        .transition(AnyTransition.pop)
     }
 }
 
@@ -132,11 +131,11 @@ struct DosiReceipt: View {
                         DosiMini(target: tool.target, action: tool.action)
                         Text(DosiWords.receipt(tool)).font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(running ? theme.colors.ink : theme.colors.inkMuted)
-                            .lineLimit(1).truncationMode(.middle).shimmer(running)
+                            .lineLimit(1).truncationMode(.middle)
                         DosiToolStatus(status: tool.status)
                     }
                     .padding(.leading, 5).padding(.trailing, 9).frame(height: 22)
-                    .background(theme.colors.ink.opacity(theme.isDark ? 0.045 : 0.05), in: Capsule())
+                    .background(theme.colors.surface, in: Capsule())
                     .contentShape(Capsule())
                 }
                 .buttonStyle(PressScaleStyle(scale: 0.97))
@@ -153,7 +152,7 @@ struct DosiReceipt: View {
             if open, let output = tool.output {
                 Text(output).appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
                     .lineLimit(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8).well(Radius.md).transition(.opacity.combined(with: .offset(y: -4)))
+                    .padding(8).well(Radius.md).transition(AnyTransition.unfold)
             }
         }
         .animation(theme.motion.snappy, value: open)
@@ -191,7 +190,7 @@ struct DosiToolGroup: View {
                         }
                     }
                     Text(DosiWords.summary(tools)).font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(running ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1).shimmer(running)
+                        .foregroundStyle(running ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                     DosiToolStatus(status: running ? .running : failed ? .failed : .done)
                     Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
                         .rotationEffect(.degrees(shown ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
@@ -204,7 +203,7 @@ struct DosiToolGroup: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(items) { item in
                         if case let .tool(tool) = item.body {
-                            DosiToolLine(tool: tool).transition(.opacity.combined(with: .offset(y: -3)))
+                            DosiToolLine(tool: tool).transition(AnyTransition.unfold)
                         }
                     }
                 }

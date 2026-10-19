@@ -404,7 +404,7 @@ private struct Arrive: ViewModifier {
             .onAppear {
                 guard !shown else { return }
                 guard !theme.motion.reduced else { shown = true; return }
-                withAnimation(.interpolatingSpring(stiffness: 260, damping: 30).delay(delay)) { shown = true }
+                withAnimation(theme.motion.soft?.delay(delay)) { shown = true }
             }
     }
 }
@@ -437,5 +437,9 @@ public extension AnyTransition {
 
     static var pop: AnyTransition {
         .scale(scale: 0.9).combined(with: .opacity)
+    }
+
+    static var roll: AnyTransition {
+        .asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity))
     }
 }

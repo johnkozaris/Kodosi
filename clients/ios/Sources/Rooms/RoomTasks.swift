@@ -232,7 +232,7 @@ struct RoomTaskRow: View {
                     .frame(width: 30, height: 30)
                     .contentShape(Circle())
             }
-            .buttonStyle(PressScaleStyle(scale: 0.85))
+            .buttonStyle(PressScaleStyle())
             .disabled(pending != nil)
             .accessibilityLabel(task.closed ? Text("Reopen \(task.title)") : Text("Complete \(task.title)"))
             .accessibilityIdentifier("rooms.task.\(token).complete")

@@ -63,7 +63,6 @@ struct CommandPalette: View {
             .frame(width: 560)
             .raised(Radius.sheet, fill: theme.colors.surface, elevation: .floating)
             .padding(.top, 96)
-            .transition(.scale(scale: 0.97, anchor: .top).combined(with: .opacity))
         }
         .onAppear { focused = true }
         .onChange(of: query) { _, _ in index = 0 }
@@ -115,7 +114,7 @@ struct CommandPalette: View {
             }
             Spacer(minLength: 8)
             if highlighted {
-                Keycap(symbol: "return").transition(.opacity.combined(with: .offset(x: -4)))
+                Keycap(symbol: "return")
             }
         }
         .padding(.horizontal, 8).frame(height: 36)
@@ -125,7 +124,6 @@ struct CommandPalette: View {
             }
         }
         .contentShape(Rectangle())
-        .animation(theme.motion.snappy, value: highlighted)
     }
 
     private func move(_ offset: Int, in results: [Item]) {
@@ -167,7 +165,7 @@ struct CommandPalette: View {
     private var peopleItems: [Item] {
         deps.people.friends.map { friend in
             let name = friend.personName
-            return Item(id: "person.\(friend.userId)", group: String(localized: "People"), title: name, detail: "@\(friend.handle)",
+            return Item(id: "person.\(friend.userId)", group: String(localized: "Friends"), title: name, detail: "@\(friend.handle)",
                         icon: .person(name: name, key: friend.userId))
             {
                 deps.workbench.section = .people
@@ -193,7 +191,7 @@ struct CommandPalette: View {
                 deps.workbench.showsNewRoom = true
             })
         }
-        actions.append(Item(id: "action.people", group: group, title: String(localized: "People"), icon: .symbol("person.2.fill", TileTint.blue)) {
+        actions.append(Item(id: "action.people", group: group, title: String(localized: "Friends"), icon: .symbol("person.2.fill", TileTint.blue)) {
             deps.workbench.section = .people
         })
         actions.append(Item(id: "action.settings", group: group, title: String(localized: "Settings"), icon: .symbol("gearshape.fill", TileTint.graphite)) {

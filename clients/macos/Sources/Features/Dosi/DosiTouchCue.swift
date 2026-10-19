@@ -24,18 +24,15 @@ private struct DosiTouchCue: ViewModifier {
         content
             .overlay {
                 if !theme.motion.reduced {
-                    ZStack {
-                        shape.fill(theme.colors.glowAmber.opacity(0.05))
-                        shape.strokeBorder(theme.colors.glowAmber, lineWidth: 1.5)
-                    }
-                    .keyframeAnimator(initialValue: 0.0, trigger: touch.count) { view, value in
-                        view.opacity(value)
-                    } keyframes: { _ in
-                        LinearKeyframe(1, duration: 0.12)
-                        LinearKeyframe(1, duration: 0.3)
-                        CubicKeyframe(0, duration: 0.9)
-                    }
-                    .allowsHitTesting(false)
+                    shape.strokeBorder(theme.colors.glowAmber, lineWidth: 1.5)
+                        .keyframeAnimator(initialValue: 0.0, trigger: touch.count) { view, value in
+                            view.opacity(value)
+                        } keyframes: { _ in
+                            CubicKeyframe(1, duration: 0.12)
+                            LinearKeyframe(1, duration: 0.3)
+                            CubicKeyframe(0, duration: 0.9)
+                        }
+                        .allowsHitTesting(false)
                 }
             }
             .overlay(alignment: .topTrailing) {

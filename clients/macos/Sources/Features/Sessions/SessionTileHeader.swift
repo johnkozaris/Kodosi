@@ -46,7 +46,7 @@ struct SessionTileHeader: View {
                 }
             }
             Spacer(minLength: 4)
-            if let (item, question) = deps.dosi.question(forTerminal: session) {
+            if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
                 DosiKeys(item: item, question: question).transition(AnyTransition.pop)
             }
             status

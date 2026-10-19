@@ -105,7 +105,7 @@ struct RoomScreen: View {
             }
         }
         .id(section)
-        .transition(.opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)))
+        .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)), removal: .identity))
         .animation(theme.motion.snappy, value: section)
     }
 

@@ -53,7 +53,7 @@ struct DosiShelf: View {
         let terminals = terminals
         let rooms = rooms
         VStack(spacing: 4) {
-            DosiShelfRow(items: terminals, widths: terminals.map { chipWidth(of: $0) }) { session, order, width in
+            DosiShelfRow(items: terminals, widths: terminals.map { chipWidth(of: $0) }, estimate: estimate) { session, order, width in
                 DosiTerminalChip(session: session, order: order, width: width).transition(Self.chip)
             } more: { hidden, order in
                 DosiMoreTerminals(sessions: hidden, order: order, needs: hidden.contains { need($0) <= 1 }).transition(Self.chip)
@@ -62,26 +62,31 @@ struct DosiShelf: View {
                     .fold(FoldPart.newTerminal)
             }
             if !rooms.isEmpty {
-                DosiShelfRow(items: rooms, widths: rooms.map { chipWidth(of: $0) }) { mission, order, width in
+                DosiShelfRow(items: rooms, widths: rooms.map { chipWidth(of: $0) }, estimate: estimate) { mission, order, width in
                     DosiRoomChip(mission: mission, order: order, width: width).transition(Self.chip)
                 } more: { hidden, order in
                     DosiMoreRooms(missions: hidden, order: order).transition(Self.chip)
                 } trailing: {
                     DosiAddMark(title: "New room", identifier: "dosi.marks.room.new") { deps.workbench.showsNewRoom = true }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(AnyTransition.unfold)
             }
         }
         .padding(5)
         .background {
-            WellBackground(shape: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).arrive(delay: 0.3, rise: 0)
+            RaisedBackground(shape: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous), fill: theme.colors.surface, elevation: .resting)
+                .arrive(delay: 0.08, rise: 0)
         }
         .animation(theme.motion.spring, value: terminals.map(\.id))
         .animation(theme.motion.spring, value: rooms.map(\.id))
     }
 
+    private var estimate: CGFloat {
+        deps.workbench.dosiWidth - 68
+    }
+
     private static var chip: AnyTransition {
-        .scale(scale: 0.6).combined(with: .opacity)
+        AnyTransition.pop
     }
 
     private func chipWidth(of session: RuntimeSession) -> CGFloat {
@@ -105,13 +110,14 @@ struct DosiShelf: View {
 private struct DosiShelfRow<Item: Identifiable, Chip: View, More: View, Trailing: View>: View {
     let items: [Item]
     let widths: [CGFloat]
+    let estimate: CGFloat
     @ViewBuilder let chip: (Item, Int, CGFloat) -> Chip
     @ViewBuilder let more: ([Item], Int) -> More
     @ViewBuilder let trailing: () -> Trailing
     @State private var room: CGFloat = 0
 
     var body: some View {
-        let shown = DosiShelfFit.shown(widths, in: room)
+        let shown = DosiShelfFit.shown(widths, in: room > 0 ? room : estimate)
         HStack(spacing: 4) {
             HStack(spacing: DosiShelfFit.spacing) {
                 ForEach(Array(items.prefix(shown).enumerated()), id: \.element.id) { order, item in
@@ -158,7 +164,6 @@ private struct DosiChip<Mark: View>: View {
                             bezel: .quiet)
         }
         .contentShape(shape)
-        .offset(y: hovered ? -1 : 0)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.snappy, value: selected)
@@ -194,7 +199,7 @@ private struct DosiTerminalChip: View {
             .ring(trigger: rings, radius: Radius.sm)
         }
         .buttonStyle(PressScaleStyle(scale: 0.95))
-        .help(session.kind == .remote ? "\(session.name) · \(session.hostLabel)" : session.name)
+        .tip(verbatim: session.kind == .remote ? "\(session.name) · \(session.hostLabel)" : session.name)
         .accessibilityLabel(session.name)
         .accessibilityIdentifier("dosi.marks.terminal.\(AccessibilityIdentifier.token(session.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -202,7 +207,7 @@ private struct DosiTerminalChip: View {
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
             case .terminals:
-                glintDelay = Double(min(order, 10)) * 0.12
+                glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
             case .terminal where deps.terminal(named: target.value)?.id == session.id:
                 glintDelay = 0
@@ -245,7 +250,7 @@ private struct DosiRoomChip: View {
             .ring(trigger: rings, color: theme.colors.accent, radius: Radius.sm)
         }
         .buttonStyle(PressScaleStyle(scale: 0.95))
-        .help(mission.name)
+        .tip(verbatim: mission.name)
         .accessibilityLabel(mission.name)
         .accessibilityIdentifier("dosi.marks.room.\(AccessibilityIdentifier.token(mission.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -253,7 +258,7 @@ private struct DosiRoomChip: View {
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
             case .rooms:
-                glintDelay = Double(min(order, 10)) * 0.12
+                glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
             case .room where deps.room(named: target.value)?.id == mission.id:
                 glintDelay = 0
@@ -290,10 +295,10 @@ private struct DosiAddMark: View {
                 }
                 .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle(scale: 0.9))
+        .buttonStyle(PressScaleStyle())
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .help(title).accessibilityLabel(Text(title))
+        .tip(title).accessibilityLabel(Text(title))
         .accessibilityIdentifier(identifier)
     }
 }

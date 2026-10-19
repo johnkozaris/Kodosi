@@ -113,10 +113,7 @@ public struct KodosiButtonStyle: ButtonStyle {
         case .primary:
             BezelBackground(shape: shape, fill: lit ? colors.accentHover : colors.accent)
         case .secondary:
-            BezelBackground(
-                shape: shape, fill: colors.lifted.mix(with: colors.ink, by: (theme.isDark ? 0.07 : 0) + (lit ? 0.03 : 0)),
-                bezel: .quiet
-            )
+            BezelBackground(shape: shape, fill: theme.buttonFace(lit: lit), bezel: .quiet)
         case .ghost:
             shape.fill(colors.ink.opacity(pressed ? 0.13 : lit ? 0.08 : 0))
         case .tinted:
@@ -130,6 +127,12 @@ public struct KodosiButtonStyle: ButtonStyle {
 public extension ButtonStyle where Self == KodosiButtonStyle {
     static func kodosi(_ kind: KodosiButtonStyle.Kind, size: KodosiButtonStyle.Size = .regular) -> KodosiButtonStyle {
         KodosiButtonStyle(kind: kind, size: size)
+    }
+}
+
+public extension AppTheme {
+    func buttonFace(lit: Bool = false) -> Color {
+        colors.lifted.mix(with: colors.ink, by: (isDark ? 0.07 : 0) + (lit ? 0.03 : 0))
     }
 }
 
@@ -164,48 +167,57 @@ public struct IconButton: View {
     }
 
     public var body: some View {
+        let shape = RoundedRectangle(cornerRadius: min(Radius.md, size * 0.32), style: .continuous)
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.43, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
                 .foregroundStyle(foreground)
                 .frame(width: size, height: size)
-                .background { Circle().fill(fill) }
-                .contentShape(Circle())
+                .background {
+                    if let face {
+                        BezelBackground(shape: shape, fill: face, bezel: .quiet).transition(.opacity)
+                    }
+                }
+                .contentShape(shape)
         }
         .buttonStyle(PressScaleStyle())
         .opacity(isEnabled ? 1 : 0.35)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .help(title).accessibilityLabel(Text(title)).accessibilityIdentifier(identifier)
+        .tip(title).accessibilityLabel(Text(title)).accessibilityIdentifier(identifier)
+    }
+
+    private var lit: Bool {
+        hovered && isEnabled
     }
 
     private var foreground: Color {
-        if hovered, destructive {
+        if lit, destructive {
             return theme.colors.danger
         }
         if active {
             return theme.colors.accentStrong
         }
-        return hovered ? theme.colors.ink : theme.colors.inkMuted
+        return lit ? theme.colors.ink : theme.colors.inkMuted
     }
 
-    private var fill: Color {
-        if hovered, destructive {
-            return theme.colors.danger.opacity(0.14)
+    private var face: Color? {
+        if lit, destructive {
+            return theme.colors.dangerSoft
         }
         if active {
             return theme.colors.accentSoft
         }
-        return theme.colors.ink.opacity(hovered ? 0.09 : 0)
+        return lit ? theme.buttonFace(lit: true) : nil
     }
 }
 
 public struct PressScaleStyle: ButtonStyle {
     @Environment(\.theme) private var theme
-    public var scale: CGFloat = 0.94
+    public var scale: CGFloat = 0.95
 
-    public init(scale: CGFloat = 0.94) {
+    public init(scale: CGFloat = 0.95) {
         self.scale = scale
     }
 

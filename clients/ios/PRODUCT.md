@@ -14,6 +14,6 @@ changing sharing and reading provider conversations stay on the computer.
 - In a terminal, the phone sets the size only while it has focus. A key row adds the
   keys a phone lacks; 1, 2 and 3 answer agent menus. The composer sends text as one
   paste and Return only when you tap send. A hardware keyboard types directly.
-- Rooms show the conversation, tasks and terminals, side by side on a wide iPad. People
+- Rooms show the conversation, tasks and terminals, side by side on a wide iPad. Friends
   lists requests first, then friends and their terminals. Settings holds the account,
   devices, recovery key, appearance, licenses and account deletion.

@@ -12,6 +12,7 @@ public final class DosiStore {
     public var draft = ""
 
     @ObservationIgnored private let commands: CommandSink
+    @ObservationIgnored private var primed = false
 
     public init(commands: CommandSink) {
         self.commands = commands
@@ -39,14 +40,6 @@ public final class DosiStore {
         }
     }
 
-    public var latestDeed: DosiTool? {
-        guard busy, let last = items.last(where: { $0.turn == currentTurn }) else { return nil }
-        if case let .tool(tool) = last.body {
-            return tool
-        }
-        return nil
-    }
-
     public var unseen: Bool {
         guard !busy, let last = items.last, last.turn != seenTurn else { return false }
         if case .person = last.body {
@@ -55,16 +48,13 @@ public final class DosiStore {
         return true
     }
 
-    private var currentTurn: String? {
-        items.last?.turn
-    }
-
     public func reset() {
         snapshot = nil
         items = []
         earlier = false
         loadingEarlier = false
         seenTurn = nil
+        primed = false
         draft = ""
     }
 
@@ -95,12 +85,18 @@ public final class DosiStore {
     private func apply(_ next: DosiSnapshot) {
         let replaced = next.conversation?.id != snapshot?.conversation?.id
         snapshot = next
-        guard !replaced, let first = next.items.first, let start = items.firstIndex(where: { $0.id == first.id }) else {
+        if !replaced, let first = next.items.first, let start = items.firstIndex(where: { $0.id == first.id }) {
+            items = Array(items[..<start]) + next.items
+        } else {
             items = next.items
             earlier = next.earlier
-            return
         }
-        items = Array(items[..<start]) + next.items
+        if !primed, next.conversation != nil {
+            primed = true
+            if !busy {
+                seenTurn = items.last?.turn
+            }
+        }
     }
 
     private func upsert(_ item: DosiItem) {

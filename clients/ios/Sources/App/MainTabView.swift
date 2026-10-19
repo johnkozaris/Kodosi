@@ -18,7 +18,7 @@ struct MainTabView: View {
             .badge(model.rooms.invitations.count + model.rooms.missions.count(where: \.unread))
             .accessibilityIdentifier("tab.rooms")
 
-            Tab("People", systemImage: "person.2") {
+            Tab("Friends", systemImage: "person.2") {
                 NavigationStack { PeopleHome() }
             }
             .badge(model.people.incoming.count)

@@ -213,13 +213,13 @@ public struct StatusSign: View {
             if let backing {
                 Circle().fill(backing)
             }
-            glyph.id(form).transition(.blurReplace)
+            glyph.id(form).transition(.asymmetric(insertion: .scale(scale: 0.6).combined(with: .opacity), removal: .opacity))
         }
         .frame(width: size + 5, height: size + 5)
         .animation(theme.motion.snappy, value: form)
         .accessibilityElement()
         .accessibilityLabel(Text(form.label))
-        .help(form.label)
+        .tip(verbatim: form.label)
     }
 
     @ViewBuilder
@@ -255,7 +255,7 @@ private struct DrawnCheck: View {
         CheckStroke().trim(from: 0, to: drawn ? 1 : 0)
             .stroke(theme.colors.ready, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
             .onAppear {
-                withAnimation(theme.motion.reduced ? nil : .easeOut(duration: 0.3).delay(0.1)) { drawn = true }
+                withAnimation(theme.motion.fade?.delay(0.1)) { drawn = true }
             }
     }
 }

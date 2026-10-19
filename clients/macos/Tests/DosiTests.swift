@@ -85,11 +85,23 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(state: "working", items: [person("a", "Watch it"), reading])))
     #expect(dosi.question(forTerminal: terminal) == nil)
     #expect(dosi.mood() == .reading)
-    #expect(dosi.latestDeed.map(DosiWords.doing) == "reading api")
     try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(state: "working", items: [person("a", "Watch it")],
                                                                     remote: .object(["computer": .string("Mac Studio"), "since": .int(1)]))))
     #expect(dosi.mood() == .thinking)
     #expect(DosiTool.Action.allCases.allSatisfy { DosiWords.deeds[$0] != nil })
+}
+
+@Test @MainActor func aReplyFromBeforeTheStartIsReadAndANewOneIsNot() throws {
+    let dosi = DosiStore(commands: CommandSink())
+    try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(items: [person("a", "Hi"), text("b", "Hello.")])))
+    #expect(!dosi.unseen)
+    try dosi.receive(runtimeEvent("dosi.item", fields: ["item": item("c", turn: "two", ["kind": .string("person"), "text": .string("And?")])]))
+    #expect(!dosi.unseen)
+    try dosi.receive(runtimeEvent("dosi.item", fields: ["item": item("d", turn: "two", ["kind": .string("text"), "text": .string("Done."),
+                                                                                        "live": .bool(false)])]))
+    #expect(dosi.unseen)
+    dosi.see()
+    #expect(!dosi.unseen)
 }
 
 @Test @MainActor func aMessageToDosiNamesTheTerminalThatThePersonLooksAt() async throws {
@@ -133,6 +145,18 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(!workbench.sidebarCollapsed && workbench.dosiOpen)
     let restored = WorkbenchState(defaults: defaults)
     #expect(restored.dosiOpen && restored.shownSidebarWidth == 500)
+}
+
+@Test @MainActor func turningDosiOffClosesItAndKeepsItClosed() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "DosiOff"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.openDosi()
+    workbench.dosiOn = false
+    #expect(!workbench.dosiOpen)
+    workbench.toggleDosi()
+    #expect(!workbench.dosiOpen && workbench.shownSidebarWidth == Metrics.sidebarWidth)
+    let restored = WorkbenchState(defaults: defaults)
+    #expect(!restored.dosiOn && !restored.dosiOpen)
 }
 
 @Test func theThreadGroupsStepsOfATurnAndMarksLongGaps() throws {

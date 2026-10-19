@@ -28,7 +28,7 @@ struct SettingsView: View {
                     }
                 }
                 .id(workbench.settingsSection)
-                .transition(.opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)))
+                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)), removal: .identity))
             }
             .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 90)
             .frame(maxWidth: 760, alignment: .leading).frame(maxWidth: .infinity)

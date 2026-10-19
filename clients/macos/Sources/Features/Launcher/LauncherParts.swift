@@ -150,12 +150,7 @@ struct AgentTabs: View {
         } label: {
             HStack(spacing: 7) {
                 AgentMark(kind: item.kind, size: 18, activity: item.installed ? .awake : .asleep)
-                    .keyframeAnimator(initialValue: 1.0, trigger: selected) { mark, scale in
-                        mark.scaleEffect(selected && !theme.motion.reduced ? scale : 1)
-                    } keyframes: { _ in
-                        SpringKeyframe(0.8, duration: 0.09, spring: .snappy)
-                        SpringKeyframe(1.0, duration: 0.45, spring: .bouncy)
-                    }
+                    .squash(trigger: selected, when: selected)
                 if selected {
                     Text(item.title).appTextStyle(.subhead).fixedSize()
                         .foregroundStyle(item.installed ? theme.colors.ink : theme.colors.inkMuted)

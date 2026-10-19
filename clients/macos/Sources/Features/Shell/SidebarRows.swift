@@ -138,8 +138,12 @@ struct SidebarInvitationRow: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.colors.accentSoft.opacity(0.55), in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.45), lineWidth: 1) }
+        .background(theme.colors.accentSoft.mix(with: theme.colors.ground, by: 0.45),
+                    in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(theme.colors.accent.mix(with: theme.colors.ground, by: 0.55), lineWidth: 1)
+        }
         .padding(.vertical, 2)
     }
 }

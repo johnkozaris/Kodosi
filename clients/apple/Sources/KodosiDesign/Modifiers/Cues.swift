@@ -15,8 +15,8 @@ private struct Glint<Value: Equatable>: ViewModifier {
                         view.opacity(value)
                     } keyframes: { _ in
                         LinearKeyframe(0, duration: delay)
-                        LinearKeyframe(0.6, duration: 0.16)
-                        LinearKeyframe(0, duration: 0.4)
+                        LinearKeyframe(0.4, duration: 0.14, timingCurve: AppTheme.Motion.outUnit)
+                        LinearKeyframe(0, duration: 0.5, timingCurve: AppTheme.Motion.outUnit)
                     }
                     .allowsHitTesting(false)
             }
@@ -44,15 +44,47 @@ private struct Ring<Value: Equatable>: ViewModifier {
                         view.scaleEffect(frame.scale).opacity(frame.opacity)
                     } keyframes: { _ in
                         KeyframeTrack(\.scale) {
-                            LinearKeyframe(0.5, duration: 0.01)
-                            CubicKeyframe(1.7, duration: 0.9)
+                            LinearKeyframe(1, duration: 0.01)
+                            LinearKeyframe(1.5, duration: 0.6, timingCurve: AppTheme.Motion.outUnit)
                         }
                         KeyframeTrack(\.opacity) {
-                            LinearKeyframe(1, duration: 0.01)
-                            CubicKeyframe(0, duration: 0.9)
+                            LinearKeyframe(0.9, duration: 0.01)
+                            LinearKeyframe(0, duration: 0.6, timingCurve: AppTheme.Motion.outUnit)
                         }
                     }
                     .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+private struct SquashFrame {
+    var width: CGFloat = 1
+    var height: CGFloat = 1
+}
+
+private struct Squash: ViewModifier {
+    @Environment(\.theme) private var theme
+    let trigger: AnyHashable
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if theme.motion.reduced {
+            content
+        } else {
+            content.keyframeAnimator(initialValue: SquashFrame(), trigger: trigger) { view, frame in
+                view.scaleEffect(x: active ? frame.width : 1, y: active ? frame.height : 1)
+            } keyframes: { _ in
+                KeyframeTrack(\.width) {
+                    CubicKeyframe(1.08, duration: 0.08)
+                    CubicKeyframe(0.97, duration: 0.1)
+                    SpringKeyframe(1, duration: 0.3, spring: AppTheme.Motion.springShape)
+                }
+                KeyframeTrack(\.height) {
+                    CubicKeyframe(0.9, duration: 0.08)
+                    CubicKeyframe(1.04, duration: 0.1)
+                    SpringKeyframe(1, duration: 0.3, spring: AppTheme.Motion.springShape)
+                }
             }
         }
     }
@@ -89,13 +121,21 @@ public extension View {
     func ring(trigger: some Equatable, color: Color? = nil, radius: CGFloat = Radius.sm) -> some View {
         modifier(Ring(trigger: trigger, color: color, radius: radius))
     }
+
+    func squash(trigger: some Hashable, when active: Bool = true) -> some View {
+        modifier(Squash(trigger: AnyHashable(trigger), active: active))
+    }
 }
 
 public extension AnyTransition {
     static var grow: AnyTransition {
         .asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.94, anchor: .topLeading)),
-            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
+            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading))
         )
+    }
+
+    static var unfold: AnyTransition {
+        .opacity.combined(with: .offset(y: -6))
     }
 }

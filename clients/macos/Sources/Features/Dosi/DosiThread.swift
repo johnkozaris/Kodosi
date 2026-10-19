@@ -138,12 +138,6 @@ struct DosiThread: View {
             .onChange(of: deps.dosi.snapshot?.conversation?.id) { _, _ in
                 following = true
             }
-            .mask {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.black.opacity(0), .black], startPoint: .top, endPoint: .bottom).frame(height: 24)
-                    Rectangle()
-                }
-            }
             .overlay {
                 if items.isEmpty {
                     DosiWelcome(listening: listening)
@@ -197,7 +191,7 @@ struct DosiTurnRow<Content: View>: View {
         HStack(alignment: .top, spacing: 8) {
             ZStack {
                 if starts {
-                    DosiFace(mood: live == turn ? deps.dosi.mood() : .resting, size: 20, still: live != turn)
+                    DosiFace(mood: live == turn ? deps.dosi.mood() : .resting, size: 20, still: true)
                 }
             }
             .frame(width: 20)
@@ -237,10 +231,10 @@ struct DosiDivider: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Rectangle().fill(theme.colors.hairline.opacity(0.45)).frame(height: 1)
+            Rectangle().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.55)).frame(height: 1)
             Text(label).font(.system(size: 10, design: .monospaced)).tracking(0.4).foregroundStyle(theme.colors.inkFaint)
                 .fixedSize()
-            Rectangle().fill(theme.colors.hairline.opacity(0.45)).frame(height: 1)
+            Rectangle().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.55)).frame(height: 1)
         }
         .frame(height: 16)
         .accessibilityElement(children: .combine)

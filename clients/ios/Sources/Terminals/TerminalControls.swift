@@ -42,12 +42,15 @@ private struct TerminalAsk: View {
         let sign = session.sign(unseen: false) ?? .hand
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             StatusSign(form: sign, size: 13)
-            Text(session.programStatus?.caption ?? sign.label)
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.ink)
-                .lineLimit(2)
-                .id(session.programStatus?.caption)
-                .transition(.blurReplace)
+            ZStack(alignment: .leading) {
+                Text(session.programStatus?.caption ?? sign.label)
+                    .appTextStyle(.footnote)
+                    .foregroundStyle(theme.colors.ink)
+                    .lineLimit(2)
+                    .id(session.programStatus?.caption)
+                    .transition(AnyTransition.roll)
+            }
+            .clipped()
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
@@ -133,7 +136,7 @@ private struct TerminalKeyCap: View {
                 }
                 .contentShape(shape)
         }
-        .buttonStyle(PressScaleStyle(scale: 0.9))
+        .buttonStyle(PressScaleStyle())
         .animation(theme.motion.spring, value: highlighted)
         .accessibilityLabel(Text(key.title))
         .accessibilityIdentifier("terminal.key.\(key.id)")
@@ -199,7 +202,7 @@ struct TerminalComposer: View {
                     }
                     .contentShape(Circle())
             }
-            .buttonStyle(PressScaleStyle(scale: 0.88))
+            .buttonStyle(PressScaleStyle())
             .disabled(!canSend)
             .keyboardShortcut(.return, modifiers: .command)
             .padding(5)
@@ -211,8 +214,7 @@ struct TerminalComposer: View {
             shape.strokeBorder(theme.colors.accent.opacity(focused ? 0.65 : 0), lineWidth: 1.5)
                 .allowsHitTesting(false)
         }
-        .shadow(color: theme.colors.accent.opacity(focused ? 0.28 : 0), radius: 12)
-        .animation(theme.motion.snappy, value: focused)
+        .animation(theme.motion.hover, value: focused)
         .animation(theme.motion.snappy, value: canSend)
     }
 }

@@ -245,7 +245,7 @@ struct RoomPeoplePopover: View {
                     Text("Invite").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).padding(.leading, 8)
                     if candidates.isEmpty {
                         Button { state.peopleVisible = false; deps.workbench.section = .people } label: {
-                            MenuRow(title: String(localized: "Add friends in People"), symbol: "person.badge.plus")
+                            MenuRow(title: String(localized: "Add friends"), symbol: "person.badge.plus")
                         }.buttonStyle(.plain)
                     }
                     ForEach(candidates) { friend in

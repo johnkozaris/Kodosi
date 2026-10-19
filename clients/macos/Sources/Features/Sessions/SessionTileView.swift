@@ -76,8 +76,8 @@ struct SessionTileView: View {
             guard deps.freshTerminals.remove(session.id) != nil, !theme.motion.reduced else { return }
             born = false
             veil = 0.85
-            withAnimation(.interpolatingSpring(stiffness: 210, damping: 28)) { born = true }
-            withAnimation(.easeOut(duration: 0.42).delay(0.08)) { veil = 0 }
+            withAnimation(theme.motion.soft) { born = true }
+            withAnimation(theme.motion.soft?.delay(0.08)) { veil = 0 }
         }
         .onChange(of: tileVisible && stageVisible, initial: true) { _, _ in
             deps.reportVisible()
