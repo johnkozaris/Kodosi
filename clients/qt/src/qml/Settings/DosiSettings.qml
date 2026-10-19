@@ -14,12 +14,22 @@ ColumnLayout {
     readonly property string agent: setup.agent || installed[0] || ""
     readonly property var info: Models.Launcher.agents.find(entry => entry.agent === agent) || null
     readonly property var modelSet: agent.length > 0 ? Models.Launcher.models[agent] : undefined
-    readonly property var model: modelSet ? (modelSet.models || []).find(entry => entry.id === setup.model) || null : null
-    readonly property var efforts: !modelSet ? [] : model ? (modelSet.efforts || []).filter(entry => (model.efforts || []).indexOf(entry.id) >= 0) : modelSet.efforts || []
+    readonly property var efforts: effortsFor(setup.model)
     readonly property var instructions: Models.Dosi.instructions
     property string draft: ""
     property bool editing: false
     readonly property bool changed: instructions.loaded === true && draft !== instructions.text
+
+    function effortsFor(id) {
+        if (!modelSet)
+            return []
+        const allowed = ((modelSet.models || []).find(entry => entry.id === id) || {}).efforts || []
+        return (modelSet.efforts || []).filter(entry => allowed.length === 0 || allowed.indexOf(entry.id) >= 0)
+    }
+    function chooseModel(id) {
+        const kept = effortsFor(id).some(entry => entry.id === setup.effort)
+        choose({ model: id, effort: (kept || !modelSet) ? setup.effort || "" : "" })
+    }
 
     function choose(next) {
         Models.Dosi.configure(Object.assign({ agent: agent, account: setup.account || "", model: setup.model || "", effort: setup.effort || "" }, next))
@@ -134,7 +144,7 @@ ColumnLayout {
                 values: [{ value: "", label: qsTr("The agent's choice") }].concat((root.modelSet ? root.modelSet.models : [])
                     .map(entry => ({ value: entry.id, label: entry.label })))
                 current: root.setup.model || ""
-                onPicked: value => root.choose({ model: value, effort: "" })
+                onPicked: value => root.chooseModel(value)
             }
         }
         ListRow {

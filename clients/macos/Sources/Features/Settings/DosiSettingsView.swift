@@ -130,8 +130,7 @@ struct DosiSettingsView: View {
     private func picks(_ agent: String) -> some View {
         let info = deps.launcher.agent(agent)
         let models = deps.launcher.models[agent]
-        let model = models?.models.first { $0.id == setup.model }
-        let efforts = model.map { chosen in models?.efforts.filter { chosen.efforts.contains($0.id) } ?? [] } ?? models?.efforts ?? []
+        let efforts = models?.efforts(for: setup.model) ?? []
         return ListGroup(footer: "Dosi works in its own folder with the account that you choose here.") {
             ListRow(title: info?.kind.label ?? AgentKind(program: agent).label, subtitle: String(localized: "Account")) {
                 AgentMark(kind: AgentKind(program: agent), size: 28, activity: .awake)
@@ -234,7 +233,11 @@ struct DosiSettingsView: View {
         }
         if let model {
             next.model = model
-            next.effort = nil
+            if let efforts = agent.flatMap({ deps.launcher.models[$0]?.efforts(for: model) }),
+               !efforts.contains(where: { $0.id == next.effort })
+            {
+                next.effort = nil
+            }
         }
         if let effort {
             next.effort = effort

@@ -51,6 +51,11 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
 struct AgentModels: Decodable, Equatable {
     var models: [AgentModel]
     var efforts: [AgentOption]
+
+    func efforts(for model: String?) -> [AgentOption] {
+        guard let allowed = models.first(where: { $0.id == model })?.efforts, !allowed.isEmpty else { return efforts }
+        return efforts.filter { allowed.contains($0.id) }
+    }
 }
 
 struct AgentModel: Decodable, Equatable, Identifiable {
@@ -160,9 +165,7 @@ struct LaunchPlan {
     }
 
     var efforts: [AgentOption] {
-        let all = models?.efforts ?? []
-        guard let model, !model.efforts.isEmpty else { return all }
-        return all.filter { model.efforts.contains($0.id) }
+        models?.efforts(for: modelId) ?? []
     }
 
     var effortId: String? {
