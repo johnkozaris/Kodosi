@@ -1,6 +1,6 @@
 {
   "apiContractVersion": 28,
-  "oldestApiContractVersion": 27,
+  "oldestApiContractVersion": 28,
   "authContractVersion": 1,
   "compatibility": {
     "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
