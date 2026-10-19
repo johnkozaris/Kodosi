@@ -12,7 +12,8 @@ DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObjec
     , m_settings(std::move(settings))
 {
     m_sidebarOpen = m_settings->value(QStringLiteral("window/sidebar"), true).toBool();
-    m_dosiOpen = m_settings->value(QStringLiteral("window/dosi"), false).toBool();
+    m_dosiOn = m_settings->value(QStringLiteral("dosi/on"), true).toBool();
+    m_dosiOpen = m_dosiOn && m_settings->value(QStringLiteral("window/dosi"), false).toBool();
     m_listWidth = std::clamp(m_settings->value(QStringLiteral("window/sidebarWidth"), 252.0).toDouble(), 220.0, 380.0);
     m_dosiWidth = std::clamp(m_settings->value(QStringLiteral("window/dosiWidth"), 420.0).toDouble(), 340.0, 640.0);
 }
@@ -45,8 +46,20 @@ void DesktopStateModel::setDosiOpen(bool value)
     emit dosiOpenChanged();
     emit sidebarWidthChanged();
 }
+void DesktopStateModel::setDosiOn(bool value)
+{
+    if (m_dosiOn == value)
+        return;
+    m_dosiOn = value;
+    m_settings->setValue(QStringLiteral("dosi/on"), value);
+    if (!value)
+        setDosiOpen(false);
+    emit dosiOnChanged();
+}
 void DesktopStateModel::openDosi()
 {
+    if (!m_dosiOn)
+        return;
     setSidebarOpen(true);
     setDosiOpen(true);
 }

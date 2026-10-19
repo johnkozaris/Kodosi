@@ -1,5 +1,4 @@
 #include "presentation/DosiModel.hpp"
-#include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/DosiWords.hpp"
 #include "presentation/MissionsModel.hpp"
@@ -103,30 +102,20 @@ QString DosiModel::mood() const
     return QStringLiteral("thinking");
 }
 
-QString DosiModel::status() const
+QString DosiModel::line() const
 {
     const auto value = state();
     if (value == QStringLiteral("unavailable"))
-        return tr("Choose its agent in Settings");
-    if (value == QStringLiteral("connecting"))
-        return tr("Connecting");
+        return tr("choose dosi's agent in settings");
     if (value == QStringLiteral("stopping"))
-        return tr("Stopping");
-    const auto computer = m_snapshot.value(QStringLiteral("remote")).toObject().value(QStringLiteral("computer")).toString();
-    if (value == QStringLiteral("working"))
-        return computer.isEmpty() ? DosiWords::mood(mood()) : tr("Working on %1").arg(computer);
-    const auto agent = m_snapshot.value(QStringLiteral("setup")).toObject().value(QStringLiteral("agent")).toString();
-    return agent.isEmpty() ? tr("Ready") : DesktopSettings::agentLabel(agent);
-}
-
-QString DosiModel::deed() const
-{
-    const auto computer = m_snapshot.value(QStringLiteral("remote")).toObject().value(QStringLiteral("computer")).toString();
-    if (state() == QStringLiteral("working") && !computer.isEmpty())
-        return tr("on %1").arg(computer);
-    if (!busy() || m_items.isEmpty() || kindOf(m_items.last()) != QStringLiteral("tool"))
-        return {};
-    return DosiWords::doing(bodyOf(m_items.last()));
+        return tr("dosi is stopping");
+    if (value == QStringLiteral("working")) {
+        const auto computer = m_snapshot.value(QStringLiteral("remote")).toObject().value(QStringLiteral("computer")).toString();
+        return computer.isEmpty() ? tr("dosi is working") : tr("dosi is working on %1").arg(computer);
+    }
+    if (asking())
+        return tr("dosi has a question");
+    return unseen() ? tr("dosi answered") : tr("ask dosi");
 }
 
 bool DosiModel::unseen() const
@@ -138,6 +127,31 @@ bool DosiModel::unseen() const
 bool DosiModel::asking() const
 {
     return std::any_of(m_items.cbegin(), m_items.cend(), [](const QVariant& item) { return openQuestion(bodyOf(item)); });
+}
+
+QVariantList DosiModel::touched() const
+{
+    QVariantList result;
+    if (!busy() || m_items.isEmpty())
+        return result;
+    const auto turn = turnOf(m_items.last());
+    QStringList keys;
+    for (auto item = m_items.crbegin(); item != m_items.crend() && result.size() < 3; ++item) {
+        if (turnOf(*item) != turn || kindOf(*item) != QStringLiteral("tool"))
+            continue;
+        const auto target = bodyOf(*item).value(QStringLiteral("target")).toMap();
+        const auto kind = target.value(QStringLiteral("kind")).toString();
+        const auto value = target.value(QStringLiteral("value")).toString();
+        const auto key = kind + QLatin1Char(':') + value;
+        if ((kind != QStringLiteral("terminal") && kind != QStringLiteral("room")) || keys.contains(key))
+            continue;
+        const auto id = kind == QStringLiteral("terminal") ? terminalId(value) : roomId(value);
+        if (id.isEmpty())
+            continue;
+        keys.append(key);
+        result.prepend(QVariantMap { { QStringLiteral("kind"), kind }, { QStringLiteral("id"), id }, { QStringLiteral("key"), key } });
+    }
+    return result;
 }
 
 QString DosiModel::liveTurn() const
@@ -392,6 +406,11 @@ void DosiModel::applySnapshot(const QJsonObject& dosi)
         m_earlier = dosi.value(QStringLiteral("earlier")).toBool();
     } else {
         m_items = m_items.mid(0, start) + items;
+    }
+    if (!m_primed && !conversation(dosi).isEmpty()) {
+        m_primed = true;
+        if (!busy() && !m_items.isEmpty())
+            m_seenTurn = turnOf(m_items.last());
     }
     rebuild();
 }
@@ -674,6 +693,7 @@ void DosiModel::reset()
     m_instructions.clear();
     m_pending.clear();
     m_seenTurn.clear();
+    m_primed = false;
     m_earlier = false;
     m_loadingEarlier = false;
     setDraft({});

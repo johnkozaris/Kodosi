@@ -18,6 +18,7 @@ ColumnLayout {
     readonly property var efforts: !modelSet ? [] : model ? (modelSet.efforts || []).filter(entry => (model.efforts || []).indexOf(entry.id) >= 0) : modelSet.efforts || []
     readonly property var instructions: Models.Dosi.instructions
     property string draft: ""
+    property bool editing: false
     readonly property bool changed: instructions.loaded === true && draft !== instructions.text
 
     function choose(next) {
@@ -53,7 +54,7 @@ ColumnLayout {
 
         DosiFace {
             size: 52
-            mood: Models.Dosi.mood
+            mood: Models.DesktopState.dosiOn ? Models.Dosi.mood : "off"
         }
         ColumnLayout {
             Layout.fillWidth: true
@@ -71,7 +72,7 @@ ColumnLayout {
             }
         }
         SegmentedPill {
-            visible: root.installed.length > 1
+            visible: Models.DesktopState.dosiOn && root.installed.length > 1
             compact: true
             identifier: "settings.dosi.agent"
             options: root.installed.map(entry => ({ value: entry, label: Models.DesktopSettings.agentLabel(entry) }))
@@ -81,7 +82,32 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
-        visible: root.agent.length > 0
+
+        ListRow {
+            iconName: "eye"
+            tint: "#d97757"
+            title: qsTr("Use Dosi")
+            subtitle: qsTr("Off removes Dosi from this computer.")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Use Dosi")
+                checked: Models.DesktopState.dosiOn
+                objectName: "settings.dosi.on"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.DesktopState.dosiOn);
+                    if (!wanted && Models.Dosi.busy)
+                        Models.Dosi.stop();
+                    Models.DesktopState.dosiOn = wanted;
+                }
+            }
+        }
+    }
+    ListGroup {
+        Layout.fillWidth: true
+        visible: Models.DesktopState.dosiOn && root.agent.length > 0
         footer: qsTr("Dosi works in its own folder with the account that you choose here.")
 
         ListRow {
@@ -128,7 +154,7 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
-        visible: root.agent.length === 0
+        visible: Models.DesktopState.dosiOn && root.agent.length === 0
         footer: qsTr("Dosi runs on Claude Code or Codex. Install one, then come back.")
 
         Repeater {
@@ -151,82 +177,92 @@ ColumnLayout {
             }
         }
     }
-    ColumnLayout {
+    ListGroup {
         Layout.fillWidth: true
-        spacing: 8
+        visible: Models.DesktopState.dosiOn
+        footer: root.editing ? qsTr("Dosi reads these at the start of each conversation, on all your computers.") : ""
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
+        ListRow {
+            title: qsTr("Instructions")
+            subtitle: root.instructions.edited === true ? qsTr("Yours") : qsTr("Standard")
+            iconName: "document"
+            tint: "#4f9bb0"
 
-            PlainLabel {
-                Layout.fillWidth: true
-                Layout.leftMargin: 4
-                text: qsTr("Instructions")
-                color: KodosiTheme.inkMuted
-                font.weight: Font.Medium
-            }
-            KButton {
-                visible: root.instructions.edited === true
-                compact: true
-                variant: KButton.Ghost
-                text: qsTr("Use the standard ones")
-                enabled: root.instructions.saving !== true
-                objectName: "settings.dosi.instructions.reset"
-                Accessible.id: objectName
-                onClicked: Models.Dosi.resetInstructions()
-            }
-            KButton {
-                compact: true
-                variant: KButton.Primary
-                text: qsTr("Save")
-                enabled: root.changed && root.instructions.saving !== true
-                objectName: "settings.dosi.instructions.save"
-                Accessible.id: objectName
-                onClicked: Models.Dosi.saveInstructions(root.draft)
-            }
-        }
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(420, Math.max(240, editor.contentHeight + 22))
+            RowLayout {
+                spacing: 6
 
-            Well {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusLg
-            }
-            ScrollView {
-                id: editor
-                anchors.fill: parent
-                anchors.margins: 10
-
-                TextArea {
-                    text: root.draft
-                    enabled: root.instructions.loaded === true
-                    color: KodosiTheme.ink
-                    selectionColor: KodosiTheme.accent
-                    selectedTextColor: KodosiTheme.accentInk
-                    font.family: "monospace"
-                    font.pixelSize: KodosiTheme.fontFootnote
-                    wrapMode: TextEdit.Wrap
-                    background: null
-                    objectName: "settings.dosi.instructions"
+                KButton {
+                    visible: root.editing && root.instructions.edited === true
+                    compact: true
+                    variant: KButton.Ghost
+                    text: qsTr("Use the standard ones")
+                    enabled: root.instructions.saving !== true
+                    objectName: "settings.dosi.instructions.reset"
                     Accessible.id: objectName
-                    Accessible.name: qsTr("Instructions")
-                    onTextChanged: root.draft = text
+                    onClicked: Models.Dosi.resetInstructions()
+                }
+                KButton {
+                    visible: root.editing && root.changed
+                    compact: true
+                    variant: KButton.Primary
+                    text: qsTr("Save")
+                    enabled: root.instructions.saving !== true
+                    objectName: "settings.dosi.instructions.save"
+                    Accessible.id: objectName
+                    onClicked: Models.Dosi.saveInstructions(root.draft)
+                }
+                KButton {
+                    visible: !(root.editing && root.changed)
+                    compact: true
+                    text: root.editing ? qsTr("Done") : qsTr("Edit")
+                    enabled: root.instructions.loaded === true
+                    objectName: "settings.dosi.instructions.edit"
+                    Accessible.id: objectName
+                    onClicked: root.editing = !root.editing
                 }
             }
         }
-        PlainLabel {
-            Layout.fillWidth: true
-            Layout.leftMargin: 4
-            text: qsTr("Dosi reads these at the start of each conversation, on all your computers.")
-            color: KodosiTheme.inkFaint
-            font.pixelSize: KodosiTheme.fontCaption
-            wrapMode: Text.WordWrap
+    }
+    Item {
+        Layout.fillWidth: true
+        Layout.preferredHeight: Math.min(420, Math.max(240, editor.contentHeight + 22))
+        visible: Models.DesktopState.dosiOn && root.editing
+        opacity: unfold.progress
+        transform: Arrive { id: unfold; rise: 6 }
+        onVisibleChanged: {
+            if (visible)
+                unfold.play()
+        }
+
+        Well {
+            anchors.fill: parent
+            radius: KodosiTheme.radiusLg
+        }
+        ScrollView {
+            id: editor
+            anchors.fill: parent
+            anchors.margins: 10
+
+            TextArea {
+                text: root.draft
+                enabled: root.instructions.loaded === true
+                color: KodosiTheme.ink
+                selectionColor: KodosiTheme.accent
+                selectedTextColor: KodosiTheme.accentInk
+                font.family: "monospace"
+                font.pixelSize: KodosiTheme.fontFootnote
+                wrapMode: TextEdit.Wrap
+                background: null
+                objectName: "settings.dosi.instructions"
+                Accessible.id: objectName
+                Accessible.name: qsTr("Instructions")
+                onTextChanged: root.draft = text
+            }
         }
     }
     ListGroup {
         Layout.fillWidth: true
+        visible: Models.DesktopState.dosiOn
 
         ListRow {
             title: qsTr("Dosi's folder")
@@ -244,7 +280,7 @@ ColumnLayout {
             }
         }
         ListRow {
-            title: qsTr("Conversation")
+            title: qsTr("Chat")
             subtitle: root.details.conversation || ""
             iconName: "chat"
             tint: "#d97757"
@@ -252,7 +288,7 @@ ColumnLayout {
             KButton {
                 id: renew
                 compact: true
-                text: qsTr("Start a new one")
+                text: qsTr("New chat")
                 enabled: !Models.Dosi.empty
                 objectName: "settings.dosi.renew"
                 Accessible.id: objectName
@@ -263,20 +299,21 @@ ColumnLayout {
 
                     x: renew.width - width
                     y: renew.height + 8
-                    width: 264
+                    transformOrigin: Popup.TopRight
+                    width: 280
                     padding: 14
 
                     contentItem: ColumnLayout {
                         spacing: 10
 
                         PlainLabel {
-                            text: qsTr("Start a new conversation?")
+                            text: qsTr("Start a new chat?")
                             font.pixelSize: KodosiTheme.fontHeadline
                             font.weight: Font.DemiBold
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            text: qsTr("Dosi starts again with no history, here and on your other computers.")
+                            text: qsTr("Dosi forgets this chat, here and on your other computers.")
                             color: KodosiTheme.inkMuted
                             font.pixelSize: KodosiTheme.fontFootnote
                             wrapMode: Text.WordWrap
@@ -285,11 +322,11 @@ ColumnLayout {
                             spacing: 6
 
                             Item { Layout.fillWidth: true }
-                            KButton { compact: true; variant: KButton.Ghost; text: qsTr("Cancel"); onClicked: confirm.close() }
+                            KButton { compact: true; text: qsTr("Cancel"); onClicked: confirm.close() }
                             KButton {
                                 compact: true
-                                variant: KButton.Primary
-                                text: qsTr("Start")
+                                variant: KButton.Danger
+                                text: qsTr("Start new chat")
                                 onClicked: {
                                     confirm.close()
                                     Models.Dosi.renew()
@@ -309,7 +346,7 @@ ColumnLayout {
     }
     PlainLabel {
         Layout.fillWidth: true
-        visible: text.length > 0
+        visible: Models.DesktopState.dosiOn && text.length > 0
         text: root.instructions.message || ""
         color: KodosiTheme.danger
         wrapMode: Text.WordWrap

@@ -181,9 +181,9 @@ Item {
                         Accessible.name: modelData.name
                         Accessible.description: unread ? qsTr("New messages") : ""
                         scale: pressed ? 0.98 : 1
-                        transform: Translate { y: card.hovered ? -2 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } } }
+                        transform: Translate { y: card.hovered ? -2 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } } }
 
-                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
                         background: Raised {
                             radius: KodosiTheme.radiusXl

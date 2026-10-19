@@ -97,6 +97,11 @@ ApplicationWindow {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
                     settings.section = 4
                 }
+                onAccountSettingsRequested: {
+                    Models.DesktopState.activeView = Models.DesktopState.Settings
+                    settings.section = 2
+                }
+                onAboutRequested: about.open()
             }
             Item {
                 Layout.fillHeight: true
@@ -206,6 +211,29 @@ ApplicationWindow {
         id: tipContent
         PlainLabel { font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
     }
+    Component {
+        id: tipEnter
+        Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Tip.warm ? 0 : KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Tip.warm ? 0 : KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        }
+    }
+    Timer {
+        id: tipCool
+        interval: 600
+        onTriggered: Tip.warm = false
+    }
+    Connections {
+        function onOpened() {
+            tipCool.stop();
+            Tip.warm = true;
+        }
+        function onClosed() {
+            tipCool.restart();
+        }
+
+        target: glow.ToolTip.toolTip
+    }
     Component.onCompleted: {
         const tip = glow.ToolTip.toolTip;
         tip.padding = 7;
@@ -216,6 +244,8 @@ ApplicationWindow {
         label.text = Qt.binding(() => tip.text);
         tip.background = surface;
         tip.contentItem = label;
+        tip.enter = tipEnter.createObject(glow);
+        tip.exit = null;
     }
     Connections {
         function onSignInPageReady(page) {
@@ -258,6 +288,9 @@ ApplicationWindow {
         onNewTerminalRequested: folder => window.openLauncher(folder)
         onNewRoomRequested: window.openNewRoom()
         onResumeRequested: history.openModal()
+    }
+    AboutDialog {
+        id: about
     }
     StartupOverlay {}
     Shortcut {
@@ -304,7 +337,7 @@ ApplicationWindow {
         onActivated: window.openAdjacentTerminal(1)
     }
     Shortcut {
-        enabled: !window.modalOpen
+        enabled: !window.modalOpen && Models.DesktopState.dosiOn
         sequence: "Ctrl+Shift+J"
 
         onActivated: Models.DesktopState.toggleDosi()

@@ -40,12 +40,12 @@ Item {
     SequentialAnimation {
         id: glow
         PauseAnimation { duration: root.delay }
-        OpacityAnimator { target: glint; from: 0; to: 0.6; duration: 160 }
-        OpacityAnimator { target: glint; from: 0.6; to: 0; duration: 400 }
+        OpacityAnimator { target: glint; from: 0; to: 0.4; duration: 140; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        OpacityAnimator { target: glint; from: 0.4; to: 0; duration: 500; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
     ParallelAnimation {
         id: pulse
-        ScaleAnimator { target: ring; from: 0.5; to: 1.7; duration: 900; easing.type: Easing.OutCubic }
-        OpacityAnimator { target: ring; from: 1; to: 0; duration: 900; easing.type: Easing.OutCubic }
+        ScaleAnimator { target: ring; from: 1; to: 1.5; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        OpacityAnimator { target: ring; from: 0.9; to: 0; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
 }

@@ -20,10 +20,10 @@ class DosiModel final : public QObject {
     Q_PROPERTY(QString state READ state NOTIFY changed)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
     Q_PROPERTY(QString mood READ mood NOTIFY changed)
-    Q_PROPERTY(QString status READ status NOTIFY changed)
-    Q_PROPERTY(QString deed READ deed NOTIFY changed)
+    Q_PROPERTY(QString line READ line NOTIFY changed)
     Q_PROPERTY(bool unseen READ unseen NOTIFY changed)
     Q_PROPERTY(bool asking READ asking NOTIFY changed)
+    Q_PROPERTY(QVariantList touched READ touched NOTIFY changed)
     Q_PROPERTY(bool empty READ empty NOTIFY changed)
     Q_PROPERTY(QString liveTurn READ liveTurn NOTIFY changed)
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
@@ -40,10 +40,10 @@ public:
     QString state() const;
     bool busy() const;
     QString mood() const;
-    QString status() const;
-    QString deed() const;
+    QString line() const;
     bool unseen() const;
     bool asking() const;
+    QVariantList touched() const;
     bool empty() const { return m_items.isEmpty(); }
     QString liveTurn() const;
     QVariantList rows() const { return m_rows; }
@@ -97,6 +97,7 @@ private:
     QHash<QString, Pending> m_pending;
     QString m_seenTurn;
     QString m_draft;
+    bool m_primed = false;
     bool m_earlier = false;
     bool m_loadingEarlier = false;
 

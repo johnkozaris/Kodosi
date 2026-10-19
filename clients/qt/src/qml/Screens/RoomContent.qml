@@ -165,6 +165,7 @@ Item {
                         focus: true
                         x: peopleButton.width - width
                         y: peopleButton.height + 8
+                        transformOrigin: Popup.TopRight
                         width: 300
                         padding: 14
                         contentItem: ColumnLayout {
@@ -227,7 +228,7 @@ Item {
                                 visible: root.owner
                                 variant: KButton.Ghost
                                 iconName: "share"
-                                text: qsTr("Add friends in People")
+                                text: qsTr("Add friends")
                                 onClicked: { people.close(); Models.DesktopState.activeView = Models.DesktopState.People; }
                             }
                         }
@@ -263,7 +264,7 @@ Item {
                         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: root.owner; onTriggered: root.renaming = true }
                         KMenuItem { text: qsTr("Copy agent instructions"); iconName: "agent"; onTriggered: Models.Missions.copyAgentInstructions() }
                         KMenuItem { text: qsTr("Refresh"); iconName: "refresh"; onTriggered: Models.Missions.roomAction({ type: "read" }) }
-                        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) } }
+                        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
                         KMenuItem { text: root.owner ? qsTr("Delete room…") : qsTr("Leave room…"); iconName: "close"; destructive: true; onTriggered: remove.open() }
                     }
                 }
@@ -606,6 +607,7 @@ Item {
         id: failure
         x: Math.max(0, root.width - width - 18)
         y: 52
+        transformOrigin: Popup.TopRight
         width: 320
         padding: 16
         contentItem: ColumnLayout {

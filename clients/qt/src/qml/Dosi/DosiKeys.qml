@@ -9,7 +9,7 @@ Row {
     id: root
 
     required property string sessionId
-    readonly property var question: Models.Dosi.terminalQuestions[sessionId] || null
+    readonly property var question: Models.DesktopState.dosiOn ? Models.Dosi.terminalQuestions[sessionId] || null : null
 
     spacing: 4
     visible: opacity > 0
@@ -19,7 +19,7 @@ Row {
     Accessible.name: question ? question.question : ""
 
     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
 
     DosiFace {
         anchors.verticalCenter: parent.verticalCenter
@@ -29,7 +29,7 @@ Row {
         HoverHandler { id: faceHover }
         ToolTip.visible: faceHover.hovered
         ToolTip.text: root.question ? root.question.question : ""
-        ToolTip.delay: 300
+        ToolTip.delay: Tip.delay
     }
     KButton {
         anchors.verticalCenter: parent.verticalCenter

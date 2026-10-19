@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -17,7 +18,7 @@ Item {
         field.forceActiveFocus()
     }
 
-    implicitHeight: column.implicitHeight + 20
+    implicitHeight: column.implicitHeight + 16
     objectName: "dosi.composer"
 
     Connections {
@@ -31,14 +32,14 @@ Item {
 
     Column {
         id: column
-        x: 12
-        y: 8
-        width: parent.width - 24
+        x: 10
+        y: 6
+        width: parent.width - 20
         spacing: 6
 
         add: Transition {
             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
-            NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack }
+            NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
         }
         move: Transition {
             NumberAnimation { property: "y"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
@@ -55,10 +56,11 @@ Item {
                 width: column.width
                 height: 26
 
-                Rectangle {
+                Bezel {
                     anchors.fill: parent
                     radius: height / 2
-                    color: KodosiTheme.alpha(KodosiTheme.ink, 0.05)
+                    quiet: true
+                    fill: KodosiTheme.raised
                 }
                 KIcon {
                     id: clock
@@ -98,14 +100,15 @@ Item {
             id: well
 
             width: column.width
-            height: Math.max(40, Math.min(input.contentHeight, 150) + 14)
+            height: Math.min(150, Math.max(40, field.implicitHeight + 10))
 
             Behavior on height { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
-            Well {
-                id: box
+            Raised {
                 anchors.fill: parent
                 radius: 20
+                fill: KodosiTheme.lifted
+                elevation: root.focused ? 2 : 1
                 opacity: boxSpot.hidden ? 0 : 1
 
                 FoldSpot {
@@ -113,7 +116,7 @@ Item {
                     anchors.fill: parent
                     key: "box"
                     place: "slot"
-                    fill: KodosiTheme.well
+                    fill: KodosiTheme.lifted
                     radius: 20
                 }
             }
@@ -121,184 +124,179 @@ Item {
                 anchors.fill: parent
                 radius: 20
                 color: "transparent"
-                border.width: 1
-                border.color: KodosiTheme.alpha(KodosiTheme.accent, root.focused ? 0.4 : 0)
+                border.width: 1.5
+                border.color: KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.lifted, 0.5)
+                opacity: root.focused ? 1 : 0
 
-                Behavior on border.color { ColorAnimation { duration: KodosiTheme.motionHover } }
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
             }
             TapHandler {
                 onTapped: field.forceActiveFocus()
             }
-            DosiFace {
-                x: 8
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 8
-                size: 24
-                mood: Models.Dosi.mood === "resting" && root.focused ? "listening" : Models.Dosi.mood
-                opacity: faceSpot.hidden ? 0 : 1
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 5
+                spacing: 4
 
-                FoldSpot {
-                    id: faceSpot
-                    anchors.fill: parent
-                    key: "face"
-                    place: "slot"
-                }
-            }
-            ScrollView {
-                id: input
+                Item {
+                    Layout.alignment: Qt.AlignBottom
+                    implicitWidth: 30
+                    implicitHeight: 30
 
-                x: 40
-                y: 7
-                width: parent.width - 40 - 42 - (renew.visible ? 32 : 0)
-                height: parent.height - 14
-                opacity: arrive.progress
-                transform: Arrive { id: arrive; delay: 350; rise: 0 }
-                onVisibleChanged: {
-                    if (visible)
-                        arrive.play()
-                }
+                    DosiFace {
+                        id: face
 
-                TextArea {
-                    id: field
+                        readonly property point look: Fold.look(face, !Models.Dosi.busy && !root.focused)
 
-                    placeholderText: qsTr("Ask Dosi")
-                    placeholderTextColor: KodosiTheme.inkFaint
-                    color: KodosiTheme.ink
-                    selectionColor: KodosiTheme.accent
-                    selectedTextColor: KodosiTheme.accentInk
-                    font.pixelSize: KodosiTheme.fontCallout
-                    wrapMode: TextEdit.Wrap
-                    topPadding: 4
-                    bottomPadding: 4
-                    leftPadding: 0
-                    rightPadding: 0
-                    background: null
-                    enabled: Models.Dosi.state !== "unavailable"
-                    objectName: "dosi.input"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Ask Dosi")
-                    Component.onCompleted: text = Models.Dosi.draft
-                    onTextChanged: Models.Dosi.draft = text
-                    Keys.onReturnPressed: event => {
-                        if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
-                            event.accepted = false
-                            return
-                        }
-                        Models.Dosi.send()
-                    }
-                    Keys.onEnterPressed: event => {
-                        if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
-                            event.accepted = false
-                            return
-                        }
-                        Models.Dosi.send()
-                    }
-                    Keys.onEscapePressed: Models.DesktopState.dosiOpen = false
-                }
-            }
-            DosiNewChat {
-                id: renew
-                anchors.right: parent.right
-                anchors.rightMargin: 38
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 6
-                visible: opacity > 0
-                opacity: Models.Dosi.empty ? 0 : 1
-
-                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-            }
-            Item {
-                anchors.right: parent.right
-                anchors.rightMargin: 6
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 6
-                width: 28
-                height: 28
-
-                AbstractButton {
-                    id: stop
-
-                    anchors.fill: parent
-                    visible: opacity > 0
-                    opacity: root.stops ? 1 : 0
-                    scale: root.stops ? (pressed ? 0.88 : 1) : 0.6
-                    hoverEnabled: true
-                    objectName: "dosi.stop"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Stop")
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Stop (Ctrl+Shift+.)")
-                    ToolTip.delay: 600
-                    onClicked: Models.Dosi.stop()
-
-                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
-
-                    background: Bezel {
-                        radius: 14
-                        quiet: true
-                        pressed: stop.pressed
-                        fill: KodosiTheme.lifted
-                    }
-                    contentItem: Item {
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 9
-                            height: 9
-                            radius: 2
-                            color: KodosiTheme.ink
-                        }
-                    }
-                }
-                AbstractButton {
-                    id: send
-
-                    anchors.fill: parent
-                    visible: opacity > 0
-                    opacity: root.typed ? 1 : 0
-                    scale: root.typed ? (pressed ? 0.88 : 1) : 0.4
-                    hoverEnabled: true
-                    objectName: "dosi.send"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Send")
-                    onClicked: Models.Dosi.send()
-
-                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
-
-                    background: Bezel {
-                        radius: 14
-                        pressed: send.pressed
-                        fill: send.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
-                    }
-                    contentItem: Item {
-                        KIcon {
-                            anchors.centerIn: parent
-                            width: 14
-                            height: 14
-                            name: "send"
-                            strokeWidth: 2.6
-                            color: KodosiTheme.accentInk
-                        }
-                    }
-                }
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 14
-                    color: KodosiTheme.alpha(KodosiTheme.ink, 0.06)
-                    opacity: !root.stops && !root.typed ? 1 : 0
-                    visible: opacity > 0
-                    Accessible.ignored: true
-
-                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
-
-                    KIcon {
                         anchors.centerIn: parent
-                        width: 13
-                        height: 13
-                        name: "send"
-                        strokeWidth: 2.4
-                        color: KodosiTheme.alpha(KodosiTheme.inkFaint, 0.7)
+                        size: 20
+                        mood: Models.Dosi.mood === "resting" && root.focused ? "listening" : Models.Dosi.mood
+                        lookX: look.x
+                        lookY: look.y
+                        opacity: faceSpot.hidden ? 0 : 1
+
+                        FoldSpot {
+                            id: faceSpot
+                            anchors.fill: parent
+                            key: "face"
+                            place: "slot"
+                        }
+                    }
+                }
+                ScrollView {
+                    id: input
+
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    opacity: arrive.progress
+                    transform: Arrive { id: arrive; delay: 120; rise: 0 }
+                    onVisibleChanged: {
+                        if (visible)
+                            arrive.play()
+                    }
+
+                    TextArea {
+                        id: field
+
+                        placeholderText: qsTr("Ask Dosi")
+                        placeholderTextColor: KodosiTheme.inkFaint
+                        color: KodosiTheme.ink
+                        selectionColor: KodosiTheme.accent
+                        selectedTextColor: KodosiTheme.accentInk
+                        font.pixelSize: KodosiTheme.fontCallout
+                        wrapMode: TextEdit.Wrap
+                        topPadding: 6
+                        bottomPadding: 6
+                        leftPadding: 2
+                        rightPadding: 0
+                        background: null
+                        enabled: Models.Dosi.state !== "unavailable"
+                        objectName: "dosi.input"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Ask Dosi")
+                        Component.onCompleted: text = Models.Dosi.draft
+                        onTextChanged: Models.Dosi.draft = text
+                        Keys.onReturnPressed: event => {
+                            if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
+                                event.accepted = false
+                                return
+                            }
+                            Models.Dosi.send()
+                        }
+                        Keys.onEnterPressed: event => {
+                            if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
+                                event.accepted = false
+                                return
+                            }
+                            Models.Dosi.send()
+                        }
+                        Keys.onEscapePressed: Models.DesktopState.dosiOpen = false
+                    }
+                }
+                Item {
+                    Layout.alignment: Qt.AlignBottom
+                    implicitWidth: 30
+                    implicitHeight: 30
+
+                    AbstractButton {
+                        id: stop
+
+                        anchors.fill: parent
+                        visible: opacity > 0
+                        opacity: root.stops ? 1 : 0
+                        scale: root.stops ? (pressed ? 0.95 : 1) : 0.9
+                        hoverEnabled: true
+                        objectName: "dosi.stop"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Stop")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Stop (Ctrl+Shift+.)")
+                        ToolTip.delay: Tip.delay
+                        onClicked: Models.Dosi.stop()
+
+                        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
+                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+
+                        background: Bezel {
+                            radius: 15
+                            quiet: true
+                            pressed: stop.pressed
+                            fill: KodosiTheme.buttonFace(stop.hovered)
+                        }
+                        contentItem: Item {
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 9
+                                height: 9
+                                radius: 2
+                                color: KodosiTheme.ink
+                            }
+                        }
+                    }
+                    AbstractButton {
+                        id: send
+
+                        anchors.fill: parent
+                        visible: !root.stops
+                        enabled: root.typed
+                        scale: pressed ? 0.95 : 1
+                        hoverEnabled: true
+                        objectName: "dosi.send"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Send")
+                        ToolTip.visible: hovered && root.typed
+                        ToolTip.text: qsTr("Send")
+                        ToolTip.delay: Tip.delay
+                        onClicked: Models.Dosi.send()
+
+                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
+                        background: Item {
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 15
+                                color: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, 0.08)
+                            }
+                            Bezel {
+                                anchors.fill: parent
+                                radius: 15
+                                pressed: send.pressed
+                                fill: send.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
+                                opacity: root.typed ? 1 : 0
+
+                                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
+                            }
+                        }
+                        contentItem: Item {
+                            KIcon {
+                                anchors.centerIn: parent
+                                width: 14
+                                height: 14
+                                name: "send"
+                                strokeWidth: 2.6
+                                color: root.typed ? KodosiTheme.accentInk : KodosiTheme.inkFaint
+                            }
+                        }
                     }
                 }
             }

@@ -16,10 +16,22 @@ Item {
         for (const spot of Fold.spots) {
             if (spot.place !== where || spot.width <= 0)
                 continue
-            const rect = spot.mapToItem(root, 0, 0, spot.width, spot.height)
+            let rect = spot.mapToItem(root, 0, 0, spot.width, spot.height)
+            let shown = true
+            if (spot.tucked) {
+                rect = Qt.rect(rect.x + rect.width * 0.3, rect.y + rect.height * 0.3, rect.width * 0.4, rect.height * 0.4)
+                shown = false
+            } else if (spot.view) {
+                const view = spot.view.mapToItem(root, 0, 0, spot.view.width, spot.view.height)
+                const middle = rect.y + rect.height / 2
+                if (middle < view.y || middle > view.y + view.height) {
+                    rect = Qt.rect(rect.x, Math.min(Math.max(rect.y, view.y), view.y + view.height - rect.height), rect.width, rect.height)
+                    shown = false
+                }
+            }
             if (rect.y + rect.height <= 0 || rect.y >= height)
                 continue
-            found[spot.key] = { rect: rect, session: spot.session, room: spot.sigil, fill: spot.fill, radius: spot.radius }
+            found[spot.key] = { rect: rect, shown: shown, asleep: spot.asleep, session: spot.session, room: spot.sigil, fill: spot.fill, radius: spot.radius }
         }
         return found
     }
@@ -41,12 +53,10 @@ Item {
         for (const key of keys) {
             const plane = planes[key]
             if (arrivals[key] === undefined) {
-                Fold.land(key + "@" + plane.where)
-                plane.destroy()
-                delete planes[key]
+                plane.vanish()
                 continue
             }
-            plane.go(arrivals[key], Math.max(0, marks.indexOf(key)))
+            plane.go(arrivals[key], Math.min(6, Math.max(0, marks.indexOf(key))))
         }
     }
 
@@ -84,11 +94,20 @@ Item {
             property int delay: 0
             property color fill: from.fill
             property real corner: from.radius
+            property real fade: from.shown ? 1 : 0
 
             function go(target, order) {
                 to = target
-                delay = order * 40
+                delay = order * 35
                 motion.start()
+            }
+            function vanish() {
+                ending.start()
+            }
+            function finish() {
+                Fold.land(plane.key + "@" + plane.where)
+                delete root.planes[plane.key]
+                plane.destroy()
             }
 
             x: from.rect.x
@@ -96,6 +115,7 @@ Item {
             width: from.rect.width
             height: from.rect.height
             z: key === "box" ? 0 : 1
+            opacity: fade
 
             Loader {
                 anchors.fill: parent
@@ -109,6 +129,7 @@ Item {
                     size: plane.width
                     program: plane.from.session ? plane.from.session.program || "" : ""
                     session: plane.from.session
+                    asleep: plane.to.asleep
                 }
             }
             Component {
@@ -128,18 +149,28 @@ Item {
             }
             Component {
                 id: shape
-                Rectangle {
-                    radius: plane.corner
-                    color: plane.fill
+                Item {
+                    Raised {
+                        anchors.fill: parent
+                        visible: plane.key === "box"
+                        radius: plane.corner
+                        fill: plane.fill
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: plane.key !== "box"
+                        radius: plane.corner
+                        color: plane.fill
 
-                    KIcon {
-                        anchors.centerIn: parent
-                        width: 13
-                        height: 13
-                        visible: plane.key === "new"
-                        name: "plus"
-                        color: KodosiTheme.accentInk
-                        strokeWidth: 2.6
+                        KIcon {
+                            anchors.centerIn: parent
+                            width: 13
+                            height: 13
+                            visible: plane.key === "new"
+                            name: "plus"
+                            color: KodosiTheme.accentInk
+                            strokeWidth: 2.6
+                        }
                     }
                 }
             }
@@ -147,20 +178,20 @@ Item {
                 id: motion
                 PauseAnimation { duration: plane.delay }
                 ParallelAnimation {
-                    NumberAnimation { target: plane; property: "x"; to: plane.to.rect.x; duration: 480; easing.type: Easing.OutBack; easing.overshoot: 0.7 }
-                    NumberAnimation { target: plane; property: "y"; to: plane.to.rect.y; duration: 480; easing.type: Easing.OutBack; easing.overshoot: 0.7 }
-                    NumberAnimation { target: plane; property: "width"; to: plane.to.rect.width; duration: 480; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: plane; property: "height"; to: plane.to.rect.height; duration: 480; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: plane; property: "corner"; to: plane.to.radius; duration: 480; easing.type: Easing.OutCubic }
-                    ColorAnimation { target: plane; property: "fill"; to: plane.to.fill; duration: 480 }
+                    NumberAnimation { target: plane; property: "x"; to: plane.to.rect.x; duration: KodosiTheme.motionSoft; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: plane; property: "y"; to: plane.to.rect.y; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: plane; property: "width"; to: plane.to.rect.width; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: plane; property: "height"; to: plane.to.rect.height; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: plane; property: "fade"; to: plane.to.shown ? 1 : 0; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: plane; property: "corner"; to: plane.to.radius; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                    ColorAnimation { target: plane; property: "fill"; to: plane.to.fill; duration: KodosiTheme.motionSpring }
                 }
-                ScriptAction {
-                    script: {
-                        Fold.land(plane.key + "@" + plane.where)
-                        delete root.planes[plane.key]
-                        plane.destroy()
-                    }
-                }
+                ScriptAction { script: plane.finish() }
+            }
+            SequentialAnimation {
+                id: ending
+                NumberAnimation { target: plane; property: "fade"; to: 0; duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic }
+                ScriptAction { script: plane.finish() }
             }
         }
     }

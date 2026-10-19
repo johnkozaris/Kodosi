@@ -183,7 +183,7 @@ KPopover {
             visible: root.accountReady && root.room.length === 0 && root.currentRoom.length === 0
             spacing: 8
 
-            PlainLabel { text: qsTr("People"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
+            PlainLabel { text: qsTr("Friends"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
             KButton {
                 visible: Models.People.friends.length === 0
                 variant: KButton.Tinted
@@ -216,8 +216,8 @@ KPopover {
                         Accessible.name: fullName
                         Accessible.selected: selected
                         ToolTip.visible: hovered
-                        ToolTip.text: blocked ? qsTr("Their identity changed. Trust them in People first.") : fullName
-                        ToolTip.delay: 500
+                        ToolTip.text: blocked ? qsTr("Their identity changed. Trust them in Friends first.") : fullName
+                        ToolTip.delay: Tip.delay
                         hoverEnabled: true
                         contentItem: Item {
                             Rectangle {

@@ -38,7 +38,7 @@ Column {
         Accessible.name: root.row.summary || ""
         ToolTip.visible: hovered
         ToolTip.text: root.shown ? qsTr("Hide the steps") : qsTr("Show the steps")
-        ToolTip.delay: 600
+        ToolTip.delay: Tip.delay
         onClicked: root.open = !root.open
 
         contentItem: Row {
@@ -81,7 +81,6 @@ Column {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, root.width - 80)
                 text: root.row.summary || ""
-                active: root.running
                 color: root.running ? KodosiTheme.ink : KodosiTheme.inkMuted
                 font.family: "monospace"
                 font.pixelSize: KodosiTheme.fontCaption
@@ -189,7 +188,7 @@ Column {
         Accessible.name: tool.receipt || ""
         ToolTip.visible: hovered && !!tool.targetValue
         ToolTip.text: tool.targetValue || ""
-        ToolTip.delay: 600
+        ToolTip.delay: Tip.delay
         onClicked: {
             if (tool.openable)
                 line.reveal()
@@ -244,7 +243,7 @@ Column {
                 Accessible.name: receipt.tool.receipt || ""
                 ToolTip.visible: hovered && !!receipt.tool.targetValue
                 ToolTip.text: receipt.tool.targetValue || ""
-                ToolTip.delay: 600
+                ToolTip.delay: Tip.delay
                 scale: pressed ? 0.97 : 1
                 onClicked: {
                     if (receipt.tool.openable)
@@ -274,7 +273,6 @@ Column {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(implicitWidth, pill.width - 46)
                             text: receipt.tool.receipt || ""
-                            active: receipt.tool.running === true
                             color: receipt.tool.running ? KodosiTheme.ink : KodosiTheme.inkMuted
                             font.family: "monospace"
                             font.pixelSize: KodosiTheme.fontCaption
@@ -295,7 +293,7 @@ Column {
                 Accessible.name: receipt.output ? qsTr("Hide the output") : qsTr("Show the output")
                 ToolTip.visible: hovered
                 ToolTip.text: Accessible.name
-                ToolTip.delay: 600
+                ToolTip.delay: Tip.delay
                 onClicked: receipt.output = !receipt.output
 
                 contentItem: Item {

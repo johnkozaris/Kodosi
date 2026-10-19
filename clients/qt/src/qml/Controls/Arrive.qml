@@ -9,7 +9,7 @@ Translate {
     property real progress: 1
     property SequentialAnimation motion: SequentialAnimation {
         PauseAnimation { duration: root.delay }
-        NumberAnimation { target: root; property: "progress"; to: 1; duration: 420; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "progress"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
 
     function play() {

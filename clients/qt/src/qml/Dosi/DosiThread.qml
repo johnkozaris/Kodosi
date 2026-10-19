@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -64,13 +63,6 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         model: Models.KeyedList { values: Models.Dosi.rows }
         ScrollBar.vertical: KScrollBar {}
-        layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-        layer.effect: MultiEffect {
-            maskEnabled: true
-            maskSource: fade
-            maskThresholdMin: 0
-            maskSpreadAtMin: 1
-        }
 
         onContentHeightChanged: Qt.callLater(root.toEnd)
         onHeightChanged: Qt.callLater(root.toEnd)
@@ -137,7 +129,6 @@ Item {
                 ShimmerText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: qsTr("Working on %1").arg(root.details.remote || "")
-                    active: true
                     color: KodosiTheme.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
                 }
@@ -248,7 +239,7 @@ Item {
                         visible: entry.row.starts === true
                         size: 20
                         mood: entry.row.turn === Models.Dosi.liveTurn ? Models.Dosi.mood : "resting"
-                        still: entry.row.turn !== Models.Dosi.liveTurn
+                        still: true
                     }
                     Loader {
                         id: content
@@ -329,7 +320,6 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: entry.row.live ? qsTr("thinking")
                                     : entry.row.seconds >= 0 ? qsTr("thought for %1s").arg(entry.row.seconds) : qsTr("thought")
-                                active: entry.row.live === true
                                 color: KodosiTheme.inkFaint
                                 font.family: "monospace"
                                 font.pixelSize: KodosiTheme.fontCaption
@@ -457,21 +447,6 @@ Item {
             }
         }
     }
-    Item {
-        id: fade
-        anchors.fill: list
-        visible: false
-        layer.enabled: true
-
-        Rectangle {
-            anchors.fill: parent
-            gradient: Gradient {
-                GradientStop { position: 0; color: "transparent" }
-                GradientStop { position: Math.min(0.5, 24 / Math.max(fade.height, 1)); color: "black" }
-                GradientStop { position: 1; color: "black" }
-            }
-        }
-    }
     Column {
         anchors.centerIn: parent
         width: Math.min(parent.width - 48, 300)
@@ -537,7 +512,7 @@ Item {
         Accessible.id: objectName
         onClicked: root.showLatest()
 
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
         Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
     }
 }

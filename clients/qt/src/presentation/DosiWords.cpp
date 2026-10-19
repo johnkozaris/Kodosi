@@ -73,13 +73,6 @@ QString DosiWords::target(const QVariantMap& where)
     return where.value(QStringLiteral("value")).toString();
 }
 
-QString DosiWords::doing(const QVariantMap& tool)
-{
-    const auto verb = deed(tool.value(QStringLiteral("action")).toString()).doing;
-    const auto where = targetOf(tool);
-    return where.isEmpty() ? verb : verb + QLatin1Char(' ') + where;
-}
-
 QString DosiWords::receipt(const QVariantMap& tool)
 {
     const auto action = deed(tool.value(QStringLiteral("action")).toString());

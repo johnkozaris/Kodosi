@@ -76,11 +76,12 @@ Item {
         id: metrics
         font: probe.font
     }
-    Well {
+    Raised {
         anchors.fill: parent
         radius: KodosiTheme.radiusLg
+        fill: KodosiTheme.surface
         opacity: well.progress
-        transform: Arrive { id: well; delay: 300; rise: 0 }
+        transform: Arrive { id: well; delay: 80; rise: 0 }
         onVisibleChanged: {
             if (visible)
                 well.play()
@@ -161,18 +162,18 @@ Item {
             model: Models.KeyedList { values: shelf.chips }
             delegate: shelf.chip
             add: Transition {
-                NumberAnimation { property: "scale"; from: 0.6; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack }
-                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
+                NumberAnimation { property: "scale"; from: 0.9; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
+                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
             }
             remove: Transition {
-                NumberAnimation { property: "scale"; to: 0.6; duration: KodosiTheme.motionFade }
-                NumberAnimation { property: "opacity"; to: 0; duration: KodosiTheme.motionFade }
+                NumberAnimation { property: "scale"; to: 0.9; duration: KodosiTheme.motionFade; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+                NumberAnimation { property: "opacity"; to: 0; duration: KodosiTheme.motionFade; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
             }
             displaced: Transition {
-                NumberAnimation { property: "x"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+                NumberAnimation { property: "x"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
             }
             move: Transition {
-                NumberAnimation { property: "x"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+                NumberAnimation { property: "x"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
             }
         }
         MoreChip {
@@ -201,8 +202,8 @@ Item {
             Accessible.name: shelf.addName
             ToolTip.visible: hovered
             ToolTip.text: shelf.addName
-            ToolTip.delay: 600
-            scale: pressed ? 0.9 : 1
+            ToolTip.delay: Tip.delay
+            scale: pressed ? 0.95 : 1
             onClicked: shelf.add()
 
             Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
@@ -261,9 +262,8 @@ Item {
         Accessible.name: rooms ? qsTr("%n more rooms", "", values.length) : qsTr("%n more terminals", "", values.length)
         ToolTip.visible: hovered && !open
         ToolTip.text: Accessible.name
-        ToolTip.delay: 600
+        ToolTip.delay: Tip.delay
         scale: pressed ? 0.95 : 1
-        transform: Translate { y: moreButton.hovered ? -1 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionHover } } }
         onClicked: morePopover.opened ? morePopover.close() : morePopover.open()
         onValuesChanged: {
             if (values.length === 0)
@@ -272,7 +272,7 @@ Item {
         onReadingItemChanged: {
             const reading = Models.Dosi.reading
             if (reading.kind === (rooms ? "rooms" : "terminals")) {
-                glintDelay = Math.min(order, 10) * 120
+                glintDelay = Math.min(order, 10) * 70
                 glints += 1
             } else if (!rooms && reading.kind === "terminal" && values.some(value => value.id === reading.sessionId)) {
                 glintDelay = 0
@@ -318,6 +318,7 @@ Item {
                     place: "slot"
                     session: moreButton.rooms ? null : modelData
                     sigil: moreButton.rooms ? modelData.id || "" : ""
+                    tucked: true
                 }
             }
         }
@@ -535,7 +536,6 @@ Item {
         Accessible.name: name
         Accessible.selected: selected
         scale: pressed ? 0.95 : 1
-        transform: Translate { y: chip.hovered ? -1 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionHover } } }
 
         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
@@ -608,12 +608,12 @@ Item {
         Accessible.id: objectName
         ToolTip.visible: hovered
         ToolTip.text: session.kind === "remote" && session.hostName ? session.name + " · " + session.hostName : session.name || ""
-        ToolTip.delay: 500
+        ToolTip.delay: Tip.delay
         onClicked: Models.SessionActions.activate(session.id)
         onReadingItemChanged: {
             const reading = Models.Dosi.reading
             if (reading.kind === "terminals") {
-                glintDelay = Math.min(index, 10) * 120
+                glintDelay = Math.min(index, 10) * 70
                 glints += 1
             } else if (reading.kind === "terminal" && reading.sessionId === session.id) {
                 glintDelay = 0
@@ -638,6 +638,7 @@ Item {
                 key: "terminal:" + (terminal.session.id || "")
                 place: "slot"
                 session: terminal.session
+                asleep: !terminal.shown
             }
         }
         sign: StatusSign {
@@ -665,7 +666,7 @@ Item {
         Accessible.id: objectName
         ToolTip.visible: hovered
         ToolTip.text: entry.name || ""
-        ToolTip.delay: 500
+        ToolTip.delay: Tip.delay
         onClicked: {
             Models.DesktopState.activeView = Models.DesktopState.Missions
             Models.Missions.open(entry.id)
@@ -673,7 +674,7 @@ Item {
         onReadingItemChanged: {
             const reading = Models.Dosi.reading
             if (reading.kind === "rooms") {
-                glintDelay = Math.min(index, 10) * 120
+                glintDelay = Math.min(index, 10) * 70
                 glints += 1
             } else if (reading.kind === "room" && reading.roomId === entry.id) {
                 glintDelay = 0

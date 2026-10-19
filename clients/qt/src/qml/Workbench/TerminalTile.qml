@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
@@ -407,10 +408,10 @@ Item {
 
         ParallelAnimation {
             id: birth
-            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: 380; easing.type: Easing.OutCubic }
+            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
             SequentialAnimation {
-                NumberAnimation { target: veil; property: "opacity"; from: 0.85; to: 0.85; duration: 90 }
-                NumberAnimation { target: veil; property: "opacity"; to: 0; duration: 420; easing.type: Easing.OutCubic }
+                NumberAnimation { target: veil; property: "opacity"; from: 0.85; to: 0.85; duration: 80 }
+                NumberAnimation { target: veil; property: "opacity"; to: 0; duration: KodosiTheme.motionSoft; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
             }
         }
     }
@@ -455,6 +456,7 @@ Item {
         id: operationFailure
         x: Math.max(0, root.width - width - 8)
         y: 40
+        transformOrigin: Popup.TopRight
         width: Math.min(360, root.width - 16)
         padding: 16
         contentItem: ColumnLayout {

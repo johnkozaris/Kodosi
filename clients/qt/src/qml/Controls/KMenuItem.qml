@@ -7,6 +7,8 @@ MenuItem {
     id: root
 
     property string iconName: ""
+    property string hint: ""
+    property int badge: 0
     property bool destructive: false
     readonly property color tone: !enabled ? KodosiTheme.inkFaint : destructive ? KodosiTheme.danger : KodosiTheme.ink
 
@@ -31,6 +33,15 @@ MenuItem {
             color: root.tone
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
+        PlainLabel {
+            visible: root.hint.length > 0
+            text: root.hint
+            color: KodosiTheme.inkFaint
+            font.pixelSize: KodosiTheme.fontCaption
+        }
+        CountBadge {
+            count: root.badge
         }
         KIcon {
             visible: root.checkable && root.checked

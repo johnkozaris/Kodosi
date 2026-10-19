@@ -39,13 +39,14 @@ done,failed` waits for a state, and `kodosi terminal show <terminal>` shows the 
 in the app. To keep terminals running after you quit the app, run `kodosi host` in a
 terminal of its own; `kodosi host stop` stops a host that runs in the background.
 
-Dosi looks after your other agents. Select Dosi at the top of the sidebar (⌘J on the
-Mac, Ctrl+Shift+J on Linux and Windows) and choose its agent in Settings › Dosi. Dosi
+Dosi looks after your other agents. Select its face at the bottom of the sidebar (⌘J on
+the Mac, Ctrl+Shift+J on Linux and Windows) and choose its agent in Settings › Dosi. Dosi
 reads your terminals and rooms, tells you what needs you, and types, starts and closes
 things for you; when it needs a choice, it asks with buttons. Your conversation with Dosi
 is the same on all your computers. From a shell, `kodosi dosi say "What needs me?"` asks
 Dosi, `kodosi dosi show` prints the conversation and `kodosi dosi stop` stops it. To let
-another agent act as Dosi, give it the skill that `kodosi dosi skill` prints.
+another agent act as Dosi, give it the skill that `kodosi dosi skill` prints. To remove
+Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
 To give an agent its own copy of a repository, hover the repository folder in the
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new
@@ -80,10 +81,10 @@ Remove a lost device from another device, and make a new recovery key if it was 
 
 ## Friends and sharing
 
-In People, send your invite, or paste a friend's invite or username. An invite lets
-Kodosi verify the friend.
+Open Friends from the ⋯ menu beside your account. There, send your invite, or paste a
+friend's invite or username. An invite lets Kodosi verify the friend.
 
-<p align="center"><img src="media/people.webp" width="655" alt="People with two verified friends."></p>
+<p align="center"><img src="media/people.webp" width="655" alt="The Friends page with two verified friends."></p>
 
 The share button in a terminal's header shares it with friends or rooms. Everyone you
 share with gets full control, with your privileges on that computer. Your other
@@ -109,4 +110,4 @@ helper; Gitea uses the credential helper, or `KODOSI_GITEA_TOKEN` for the server
 
 Check that the host is online with Kodosi running and that the terminal is still shared.
 A new device may need approval, and a friend with a changed identity may need
-verification in People.
+verification in Friends.

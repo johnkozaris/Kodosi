@@ -79,7 +79,7 @@ Item {
                 clip: true
                 ToolTip.text: modelData.label
                 ToolTip.visible: root.dock && hovered && !selected
-                ToolTip.delay: 600
+                ToolTip.delay: Tip.delay
 
                 Behavior on width { enabled: root.dock; NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 

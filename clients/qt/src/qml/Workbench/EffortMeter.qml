@@ -95,7 +95,7 @@ Item {
                     height: parent.height
                     hoverEnabled: true
                     activeFocusOnTab: true
-                    scale: pressed ? 0.92 : 1
+                    scale: pressed ? 0.95 : 1
                     objectName: "launcher.effort." + (auto ? "default" : modelData.id)
                     Accessible.id: objectName
                     Accessible.name: modelData.label
@@ -103,9 +103,9 @@ Item {
                     Accessible.checked: selected
                     ToolTip.visible: hovered && !auto
                     ToolTip.text: modelData.label
-                    ToolTip.delay: 600
+                    ToolTip.delay: Tip.delay
 
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
                     onHoveredChanged: {
                         if (hovered)

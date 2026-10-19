@@ -37,11 +37,6 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: root.radius
-            color: KodosiTheme.alpha(KodosiTheme.glowAmber, 0.05)
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: root.radius
             color: "transparent"
             border.width: 1.5
             border.color: KodosiTheme.glowAmber
@@ -67,11 +62,11 @@ Item {
         transform: Translate {
             y: root.shown ? 0 : -8
 
-            Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+            Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
         }
 
         Behavior on opacity { NumberAnimation { duration: root.shown ? KodosiTheme.motionFade : KodosiTheme.motionSoft } }
-        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
 
         Raised {
             anchors.fill: parent

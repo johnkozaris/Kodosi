@@ -78,7 +78,8 @@ QtObject {
     readonly property int motionSnappy: reduceMotion ? 0 : 240
     readonly property int motionSpring: reduceMotion ? 0 : 360
     readonly property int motionSoft: reduceMotion ? 0 : 480
-    readonly property real overshoot: 1.15
+    readonly property real overshoot: 0.6
+    readonly property var outCurve: [0.23, 1, 0.32, 1, 1, 1]
 
     function mix(base: color, tint: color, amount: real): color {
         return Qt.rgba(
@@ -90,6 +91,10 @@ QtObject {
 
     function alpha(base: color, amount: real): color {
         return Qt.rgba(base.r, base.g, base.b, amount)
+    }
+
+    function buttonFace(lit: bool): color {
+        return mix(lifted, ink, (isDark ? 0.07 : 0) + (lit ? 0.03 : 0))
     }
 
     // The outline of a rounded rectangle with Apple's continuous corners, as SVG path data.

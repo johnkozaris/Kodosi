@@ -10,88 +10,93 @@ AbstractButton {
 
     readonly property bool unseen: Models.Dosi.unseen
     readonly property bool asking: Models.Dosi.asking
+    property bool cuedUnseen: false
+    property bool cuedAsking: false
+    property int reacts: 0
 
-    implicitWidth: Math.max(40, marks.implicitWidth + 16)
+    function cueUp() {
+        if (asking && !cuedAsking)
+            faceCue.rings += 1
+        else if (unseen && !cuedUnseen && !asking)
+            reacts += 1
+        cuedAsking = asking
+        cuedUnseen = unseen
+    }
+
+    implicitWidth: 40
     implicitHeight: 40
     hoverEnabled: true
     activeFocusOnTab: true
     objectName: "sidebar.dosi"
     Accessible.id: objectName
     Accessible.name: "Dosi"
-    Accessible.description: Models.Dosi.status
+    Accessible.description: Models.Dosi.line
     ToolTip.visible: hovered
-    ToolTip.text: Models.Dosi.status
-    ToolTip.delay: 600
-    scale: pressed ? 0.94 : 1
+    ToolTip.text: Models.Dosi.line
+    ToolTip.delay: Tip.delay
+    scale: pressed ? 0.95 : 1
 
-    onUnseenChanged: {
-        if (unseen)
-            cue.glints += 1
+    Component.onCompleted: {
+        cuedAsking = asking
+        cuedUnseen = unseen
     }
-    onAskingChanged: {
-        if (asking)
-            faceCue.rings += 1
-    }
+    onUnseenChanged: Qt.callLater(cueUp)
+    onAskingChanged: Qt.callLater(cueUp)
     onClicked: Models.DesktopState.openDosi()
 
-    Behavior on implicitWidth { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutBack } }
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
-    background: Item {
-        Raised {
-            anchors.fill: parent
-            radius: 12
-            fill: KodosiTheme.raised
-            opacity: boxSpot.hidden ? 0 : 1
+    background: Rectangle {
+        radius: KodosiTheme.radiusLg
+        color: KodosiTheme.alpha(KodosiTheme.ink, root.hovered || root.visualFocus ? 0.06 : 0)
+        opacity: boxSpot.hidden ? 0 : 1
 
-            FoldSpot {
-                id: boxSpot
-                anchors.fill: parent
-                key: "box"
-                place: "rail"
-                fill: KodosiTheme.raised
-                radius: 12
-            }
-        }
-        Cue {
-            id: cue
+        FoldSpot {
+            id: boxSpot
             anchors.fill: parent
-            radius: 12
+            key: "box"
+            place: "rail"
+            fill: KodosiTheme.ground
+            radius: KodosiTheme.radiusLg
         }
     }
     contentItem: Item {
-        Row {
-            id: marks
+        DosiFace {
+            id: face
+
+            readonly property point look: Fold.look(face, !Models.Dosi.busy)
+
             anchors.centerIn: parent
-            spacing: 6
+            size: 20
+            mood: Models.Dosi.mood
+            lookX: look.x
+            lookY: look.y
+            reacts: root.reacts
+            opacity: faceSpot.hidden ? 0 : 1
 
-            DosiFace {
-                size: 24
-                mood: Models.Dosi.mood
-                opacity: faceSpot.hidden ? 0 : 1
-
-                FoldSpot {
-                    id: faceSpot
-                    anchors.fill: parent
-                    key: "face"
-                    place: "rail"
-                }
-                Cue {
-                    id: faceCue
-                    anchors.fill: parent
-                    radius: 7.2
-                    ringColor: KodosiTheme.accent
-                }
+            FoldSpot {
+                id: faceSpot
+                anchors.fill: parent
+                key: "face"
+                place: "rail"
+            }
+            Cue {
+                id: faceCue
+                anchors.fill: parent
+                radius: 6
+                ringColor: KodosiTheme.accent
             }
             StatusSign {
-                anchors.verticalCenter: parent.verticalCenter
-                visible: Models.Dosi.asking
-                size: 10
-                session: ({ sign: "question", asks: true, signLabel: qsTr("Dosi asks you") })
+                x: parent.width - width / 2 + 2
+                y: -height / 2 - 2
+                visible: root.asking
+                size: 9
+                session: ({ sign: "question", asks: true, signLabel: qsTr("Dosi has a question") })
             }
             NewDot {
-                anchors.verticalCenter: parent.verticalCenter
-                visible: !Models.Dosi.asking && Models.Dosi.unseen
+                x: parent.width - width / 2 + 1
+                y: -height / 2 - 1
+                visible: !root.asking && root.unseen
             }
         }
     }

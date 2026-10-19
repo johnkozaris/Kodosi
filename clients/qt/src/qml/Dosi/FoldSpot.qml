@@ -10,6 +10,9 @@ Item {
     property string sigil: ""
     property color fill: "transparent"
     property real radius: 0
+    property bool asleep: false
+    property bool tucked: false
+    property Item view: null
     readonly property bool hidden: Fold.hides(key, place)
 
     Accessible.ignored: true

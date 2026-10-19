@@ -21,7 +21,6 @@ public:
 
     [[nodiscard]] static Deed deed(const QString& action);
     [[nodiscard]] static QString target(const QVariantMap& where);
-    [[nodiscard]] static QString doing(const QVariantMap& tool);
     [[nodiscard]] static QString receipt(const QVariantMap& tool);
     [[nodiscard]] static QString said(const QVariantMap& tool);
     [[nodiscard]] static QString summary(const QVariantList& tools);

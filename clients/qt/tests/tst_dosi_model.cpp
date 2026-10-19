@@ -207,6 +207,32 @@ private slots:
         f.item(entry(QStringLiteral("c"), words(QStringLiteral("text"), QStringLiteral("More")), QStringLiteral("t2")));
         QVERIFY(f.dosi.unseen());
     }
+
+    void aReplyFromBeforeTheStartIsReadAndANewOneIsNot()
+    {
+        Fixture f;
+        f.snapshot({ entry(QStringLiteral("a"), words(QStringLiteral("person"), QStringLiteral("Hi"))),
+            entry(QStringLiteral("b"), words(QStringLiteral("text"), QStringLiteral("Hello."))) });
+        QVERIFY(!f.dosi.unseen());
+        QCOMPARE(f.dosi.line(), QStringLiteral("ask dosi"));
+        f.item(entry(QStringLiteral("c"), words(QStringLiteral("person"), QStringLiteral("And?")), QStringLiteral("t2")));
+        QVERIFY(!f.dosi.unseen());
+        f.item(entry(QStringLiteral("d"), words(QStringLiteral("text"), QStringLiteral("Done.")), QStringLiteral("t2")));
+        QVERIFY(f.dosi.unseen());
+        QCOMPARE(f.dosi.line(), QStringLiteral("dosi answered"));
+    }
+
+    void turningDosiOffClosesItAndKeepsItClosed()
+    {
+        Fixture f;
+        f.desktop.openDosi();
+        f.desktop.setDosiOn(false);
+        QVERIFY(!f.desktop.dosiOpen());
+        f.desktop.toggleDosi();
+        QVERIFY(!f.desktop.dosiOpen());
+        kodosi::DesktopStateModel restored { std::make_unique<QSettings>(f.dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat) };
+        QVERIFY(!restored.dosiOn() && !restored.dosiOpen());
+    }
 };
 
 QTEST_GUILESS_MAIN(DosiModelTest)

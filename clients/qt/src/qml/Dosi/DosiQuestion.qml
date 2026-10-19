@@ -44,12 +44,12 @@ Item {
         transformOrigin: Item.Left
 
         Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
+        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
 
         Rectangle {
             anchors.fill: parent
             radius: height / 2
-            color: KodosiTheme.alpha(KodosiTheme.ink, KodosiTheme.isDark ? 0.045 : 0.05)
+            color: KodosiTheme.surface
         }
         Row {
             id: pillRow
@@ -78,7 +78,7 @@ Item {
         HoverHandler { id: pillHover }
         ToolTip.visible: pillHover.hovered
         ToolTip.text: root.row.question || ""
-        ToolTip.delay: 500
+        ToolTip.delay: Tip.delay
     }
     Item {
         id: card
@@ -147,7 +147,7 @@ Item {
                         objectName: "dosi.answer." + modelData
                         Accessible.id: objectName
                         Accessible.name: modelData
-                        scale: pressed ? 0.92 : 1
+                        scale: pressed ? 0.95 : 1
                         onClicked: root.choose(modelData)
 
                         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }

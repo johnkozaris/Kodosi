@@ -80,7 +80,7 @@ Item {
                 Accessible.id: objectName
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Copy the instructions. Paste them into your agent.")
-                ToolTip.delay: 500
+                ToolTip.delay: Tip.delay
                 onClicked: { Models.Missions.copyAgentInstructions(); root.copied = true; copiedTimer.restart(); }
             }
         }
@@ -457,21 +457,15 @@ Item {
             Layout.topMargin: 4
             implicitHeight: Math.min(150, Math.max(40, editor.implicitHeight + 10))
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: -3
-                radius: 23
-                color: KodosiTheme.alpha(KodosiTheme.accent, editor.activeFocus ? 0.16 : 0)
-                Behavior on color { ColorAnimation { duration: KodosiTheme.motionFade } }
-            }
             Raised { anchors.fill: parent; radius: 20; fill: KodosiTheme.lifted; elevation: editor.activeFocus ? 2 : 1 }
             Rectangle {
                 anchors.fill: parent
                 radius: 20
                 color: "transparent"
                 border.width: 1.5
-                border.color: KodosiTheme.alpha(KodosiTheme.accent, editor.activeFocus ? 0.55 : 0)
-                Behavior on border.color { ColorAnimation { duration: KodosiTheme.motionFade } }
+                border.color: KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.lifted, 0.5)
+                opacity: editor.activeFocus ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
             }
             RowLayout {
                 anchors.fill: parent
@@ -547,14 +541,14 @@ Item {
                     implicitWidth: 30
                     implicitHeight: 30
                     enabled: root.canSend
-                    scale: pressed ? 0.9 : 1
+                    scale: pressed ? 0.95 : 1
                     Accessible.name: qsTr("Send message")
                     objectName: "room.message.send"
                     Accessible.id: objectName
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
                     background: Item {
                         Bezel { anchors.fill: parent; radius: 15; fill: KodosiTheme.accent; visible: root.canSend; pressed: sendButton.pressed }
-                        Rectangle { anchors.fill: parent; radius: 15; color: KodosiTheme.alpha(KodosiTheme.ink, 0.08); visible: !root.canSend }
+                        Rectangle { anchors.fill: parent; radius: 15; color: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, 0.08); visible: !root.canSend }
                         Loader {
                             anchors.fill: parent
                             anchors.margins: -4

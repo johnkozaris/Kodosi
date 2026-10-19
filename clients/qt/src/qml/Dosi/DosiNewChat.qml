@@ -10,27 +10,29 @@ KIconButton {
     id: root
 
     glyph: "pencil"
-    active: confirm.opened
+    active: confirm.visible
     enabled: Models.Dosi.state !== "unavailable"
     objectName: "dosi.new"
     Accessible.id: objectName
     Accessible.name: qsTr("New chat")
-    ToolTip.visible: hovered && !confirm.opened
     onClicked: confirm.open()
 
     KPopover {
         id: confirm
 
         x: root.width - width
-        y: -height - 8
-        width: 264
+        y: root.height + 8
+        width: 280
         padding: 14
         focus: true
-        transformOrigin: Popup.BottomRight
+        transformOrigin: Popup.TopRight
         objectName: "dosi.new.confirm"
+        onOpened: cancel.forceActiveFocus(Qt.PopupFocusReason)
 
         contentItem: ColumnLayout {
             spacing: 10
+            Keys.onReturnPressed: confirm.close()
+            Keys.onEnterPressed: confirm.close()
 
             PlainLabel {
                 text: qsTr("Start a new chat?")
@@ -40,7 +42,7 @@ KIconButton {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: qsTr("Dosi starts again with no history, here and on your other computers.")
+                text: qsTr("Dosi forgets this chat, here and on your other computers.")
                 color: KodosiTheme.inkMuted
                 font.pixelSize: KodosiTheme.fontFootnote
                 wrapMode: Text.WordWrap
@@ -50,15 +52,17 @@ KIconButton {
 
                 Item { Layout.fillWidth: true }
                 KButton {
+                    id: cancel
                     compact: true
-                    variant: KButton.Ghost
                     text: qsTr("Cancel")
+                    objectName: "dosi.new.cancel"
+                    Accessible.id: objectName
                     onClicked: confirm.close()
                 }
                 KButton {
                     compact: true
-                    variant: KButton.Primary
-                    text: qsTr("Start")
+                    variant: KButton.Danger
+                    text: qsTr("Start new chat")
                     objectName: "dosi.new.start"
                     Accessible.id: objectName
                     onClicked: {

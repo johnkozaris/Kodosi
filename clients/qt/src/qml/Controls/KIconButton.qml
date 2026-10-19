@@ -18,10 +18,10 @@ AbstractButton {
     implicitWidth: size
     implicitHeight: size
     opacity: enabled ? 1 : 0.35
-    scale: pressed && enabled ? 0.9 : 1
+    scale: pressed && enabled ? 0.95 : 1
     ToolTip.text: Accessible.name
     ToolTip.visible: hovered && ToolTip.text.length > 0
-    ToolTip.delay: 600
+    ToolTip.delay: Tip.delay
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
@@ -38,14 +38,27 @@ AbstractButton {
                 : root.glyphColor
         }
     }
-    background: Rectangle {
-        radius: Math.min(width, height) / 2
-        color: root.hovered && root.enabled && root.destructive ? KodosiTheme.alpha(KodosiTheme.danger, 0.14)
-            : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentSoft : KodosiTheme.accentSoft)
-            : KodosiTheme.alpha(root.ink, root.hovered && root.enabled ? 0.09 : 0)
-        border.width: root.visualFocus ? 1.5 : 0
-        border.color: KodosiTheme.accentStrong
+    background: Item {
+        readonly property bool lit: root.hovered && root.enabled
 
-        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+        Bezel {
+            anchors.fill: parent
+            radius: Math.min(KodosiTheme.radiusMd, root.size * 0.32)
+            quiet: true
+            pressed: root.pressed
+            fill: parent.lit && root.destructive ? KodosiTheme.dangerSoft
+                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentSoft : KodosiTheme.accentSoft)
+                : root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : KodosiTheme.buttonFace(true)
+            opacity: parent.lit || root.active ? 1 : 0
+
+            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: Math.min(KodosiTheme.radiusMd, root.size * 0.32)
+            color: "transparent"
+            border.width: root.visualFocus ? 1.5 : 0
+            border.color: KodosiTheme.accentStrong
+        }
     }
 }

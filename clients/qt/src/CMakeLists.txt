@@ -3,6 +3,7 @@ set_source_files_properties(
     qml/Theme/Identity.qml
     qml/Theme/Mentions.qml
     qml/Dosi/Fold.qml
+    qml/Controls/Tip.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 set_source_files_properties(
@@ -272,6 +273,8 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/KDialog.qml
         qml/Controls/KIcon.qml
         qml/Controls/KIconButton.qml
+        qml/Controls/Squash.qml
+        qml/Controls/Tip.qml
         qml/Controls/KMenu.qml
         qml/Controls/KMenuItem.qml
         qml/Controls/KPopover.qml
@@ -301,8 +304,10 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/Tag.qml
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml
+        qml/Shell/AboutDialog.qml
         qml/Shell/CommandPalette.qml
         qml/Shell/Sidebar.qml
+        qml/Shell/SidebarMenu.qml
         qml/Shell/StartupOverlay.qml
         qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml

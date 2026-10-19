@@ -39,7 +39,7 @@ Item {
             Layout.fillHeight: true
             listening: composer.focused
             opacity: arrive.progress
-            transform: Arrive { id: arrive; delay: 300; rise: 16 }
+            transform: Arrive { id: arrive; delay: 120; rise: 8 }
             onSettingsRequested: root.settingsRequested()
         }
         DosiComposer {
