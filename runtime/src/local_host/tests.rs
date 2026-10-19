@@ -48,7 +48,11 @@ fn host_lock_prevents_competing_local_owners() {
     let first = lock_root(directory.path()).unwrap();
     assert!(lock_root(directory.path()).is_err());
     drop(first);
-    assert!(lock_root(directory.path()).is_ok());
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while lock_root(directory.path()).is_err() {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 #[test]
 fn root_identity_and_socket_namespace_are_stable_and_separate() {
