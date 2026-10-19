@@ -25,6 +25,13 @@ pub(super) fn prepare(folder: &Path, instructions: &str) -> std::io::Result<()> 
         kodosi_os::fs::create_private_dir(parent)?;
     }
     kodosi_os::fs::create_private_dir(folder)?;
+    for place in ["notes", "skills", "tools"] {
+        kodosi_os::fs::create_private_dir(&folder.join(place))?;
+    }
+    let watching = folder.join("watching.md");
+    if !watching.exists() {
+        kodosi_os::fs::write_private(&watching, b"")?;
+    }
     write_if_changed(&folder.join("AGENTS.md"), &agents_file(instructions))?;
     write_if_changed(&folder.join("CLAUDE.md"), "@AGENTS.md\n")
 }

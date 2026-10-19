@@ -314,7 +314,13 @@ async fn a_reply_streams_into_one_item_and_survives_a_restart() {
     assert!(matches!(&items[0].body, DosiBody::Person { text } if text == "What needs me?"));
     assert_eq!(texts(&items), vec![("Two need you.".to_owned(), false)]);
     assert!(rig.file("arguments").contains("--session-id"));
-    assert!(rig.base.join("home/.kodosi/dosi/AGENTS.md").exists());
+    let folder = rig.base.join("home/.kodosi/dosi");
+    assert!(folder.join("AGENTS.md").exists() && folder.join("watching.md").exists());
+    assert!(
+        ["notes", "skills", "tools"]
+            .iter()
+            .all(|place| folder.join(place).is_dir())
+    );
     rig.engine.shutdown();
     let (engine, _) = Rig::engine(&rig.base);
     let restored: Vec<DosiItem> =
