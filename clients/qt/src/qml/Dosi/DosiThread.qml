@@ -10,10 +10,24 @@ Item {
 
     property bool listening: false
     property bool following: true
+    property bool thinking: false
     readonly property var details: Models.Dosi.details
+    readonly property var rows: Models.Dosi.rows
+    readonly property bool thinkingStarts: rows.length === 0 || rows[rows.length - 1].kind === "person"
 
     signal settingsRequested
 
+    function think() {
+        if (!Models.Dosi.pending) {
+            thinkingDelay.stop()
+            thinking = false
+        } else if (!thinking && !thinkingDelay.running) {
+            if (thinkingStarts)
+                thinking = true
+            else
+                thinkingDelay.restart()
+        }
+    }
     function prose(text) {
         let html = Mentions.escaped(text)
         html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>")
@@ -43,13 +57,20 @@ Item {
     Accessible.name: qsTr("Conversation with Dosi")
 
     Connections {
-        function onEmptyChanged() {
+        function onChanged() {
             if (Models.Dosi.empty)
                 root.following = true
+            root.think()
         }
 
         target: Models.Dosi
     }
+    Timer {
+        id: thinkingDelay
+        interval: 600
+        onTriggered: root.thinking = Models.Dosi.pending
+    }
+    Component.onCompleted: think()
 
     ListView {
         id: list
@@ -108,29 +129,65 @@ Item {
                 }
             }
         }
-        footer: Item {
+        footer: Column {
             width: ListView.view.width - 28
-            height: away.visible ? 28 : 0
 
-            Row {
-                id: away
-                x: 28
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 7
-                visible: (root.details.remote || "").length > 0 && Models.Dosi.state === "working"
+            Item {
+                readonly property real gap: root.thinkingStarts ? 12 : 6
 
-                KIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 11
-                    height: 11
-                    name: "laptop"
-                    color: KodosiTheme.inkFaint
+                width: parent.width
+                height: visible ? gap + 18 : 0
+                visible: root.thinking && Models.Dosi.pending
+                opacity: thinkingArrive.progress
+                transform: Arrive { id: thinkingArrive; rise: 8 }
+                onVisibleChanged: {
+                    if (visible)
+                        thinkingArrive.play()
                 }
-                ShimmerText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: qsTr("Working on %1").arg(root.details.remote || "")
+
+                DosiFace {
+                    y: parent.gap
+                    visible: root.thinkingStarts
+                    size: 20
+                    mood: Models.Dosi.mood
+                    still: true
+                }
+                PlainLabel {
+                    x: 42
+                    y: parent.gap
+                    height: 18
+                    verticalAlignment: Text.AlignVCenter
+                    text: qsTr("thinking")
                     color: KodosiTheme.inkFaint
+                    font.family: "monospace"
                     font.pixelSize: KodosiTheme.fontCaption
+                    objectName: "dosi.thinking"
+                }
+            }
+            Item {
+                width: parent.width
+                height: away.visible ? 28 : 0
+
+                Row {
+                    id: away
+                    x: 28
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 7
+                    visible: (root.details.remote || "").length > 0 && Models.Dosi.state === "working"
+
+                    KIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 11
+                        height: 11
+                        name: "laptop"
+                        color: KodosiTheme.inkFaint
+                    }
+                    ShimmerText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: qsTr("Working on %1").arg(root.details.remote || "")
+                        color: KodosiTheme.inkFaint
+                        font.pixelSize: KodosiTheme.fontCaption
+                    }
                 }
             }
         }

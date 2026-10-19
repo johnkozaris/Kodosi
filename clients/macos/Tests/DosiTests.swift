@@ -130,6 +130,26 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(send["context"] == .object(["terminal": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "room": .null]))
 }
 
+@Test @MainActor func dosiThinksInTheThreadUntilItsTurnShowsSomething() throws {
+    let dosi = DosiStore(commands: CommandSink())
+    try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(state: "working", items: [person("a", "What needs me?")])))
+    #expect(dosi.pending)
+    try dosi.receive(runtimeEvent("dosi.item", fields: ["item": text("b", "Two", live: true)]))
+    #expect(!dosi.pending)
+    try dosi.receive(runtimeEvent("dosi.item", fields: ["item": text("b", "Two need you.")]))
+    #expect(dosi.pending)
+    try dosi.receive(runtimeEvent("dosi.item", fields: ["item": item("q", [
+        "kind": .string("question"), "question": .string("Continue?"), "options": .array([.string("y"), .string("n")]),
+        "multiple": .bool(false), "terminal": .null, "answer": .null,
+    ])]))
+    #expect(!dosi.pending)
+    try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(state: "working", items: [person("a", "Watch it")],
+                                                                    remote: .object(["computer": .string("Mac Studio"), "since": .int(1)]))))
+    #expect(!dosi.pending)
+    try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(items: [person("a", "What needs me?")])))
+    #expect(!dosi.pending)
+}
+
 @Test @MainActor func theSidebarKeepsAWidthForTheListAndOneForDosi() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "DosiWidth"))
     let workbench = WorkbenchState(defaults: defaults)

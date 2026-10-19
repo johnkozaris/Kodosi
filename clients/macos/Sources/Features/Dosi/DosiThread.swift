@@ -80,6 +80,7 @@ struct DosiThread: View {
     @State private var viewport: CGFloat = 0
     @State private var phase = ScrollPhase.idle
     @State private var position = ScrollPosition(edge: .bottom)
+    @State private var thinking = false
 
     private static let row = AnyTransition.asymmetric(
         insertion: .opacity.combined(with: .offset(y: 8)).combined(with: .scale(scale: 0.97, anchor: .bottom)),
@@ -90,6 +91,12 @@ struct DosiThread: View {
         let items = deps.dosi.items
         let rows = DosiRow.rows(items)
         let live = deps.dosi.busy ? items.last?.turn : nil
+        let starts = items.last.map { last in
+            if case .person = last.body {
+                return true
+            }
+            return false
+        } ?? true
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -108,6 +115,10 @@ struct DosiThread: View {
                         ForEach(rows) { row in
                             DosiRowView(row: row, live: live).id(row.id).transition(Self.row)
                         }
+                        if thinking, deps.dosi.pending {
+                            DosiTurnRow(turn: "", starts: starts, live: "") { DosiThinking() }
+                                .transition(.asymmetric(insertion: Self.row, removal: .opacity))
+                        }
                         if let remote = deps.dosi.snapshot?.remote, deps.dosi.state == .working {
                             DosiAway(computer: remote.computer).padding(.top, 12).transition(AnyTransition.rise)
                         }
@@ -115,6 +126,7 @@ struct DosiThread: View {
                     .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
                     .frame(minHeight: max(viewport - 1, 0), alignment: .bottom)
                     .animation(theme.motion.spring, value: rows.map(\.id))
+                    .animation(theme.motion.spring, value: deps.dosi.pending)
                     Color.clear.frame(height: 1).id("latest")
                 }
             }
@@ -135,6 +147,18 @@ struct DosiThread: View {
                 }
             }
             .onScrollPhaseChange { _, new in phase = new }
+            .task(id: deps.dosi.pending) {
+                guard deps.dosi.pending else {
+                    thinking = false
+                    return
+                }
+                if !starts {
+                    try? await Task.sleep(for: .milliseconds(600))
+                }
+                if !Task.isCancelled {
+                    withAnimation(theme.motion.spring) { thinking = true }
+                }
+            }
             .onChange(of: deps.dosi.snapshot?.conversation?.id) { _, _ in
                 following = true
             }

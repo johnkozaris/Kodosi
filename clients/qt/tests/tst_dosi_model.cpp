@@ -193,6 +193,28 @@ private slots:
         QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("answered")).toString(), QStringLiteral("y · Terminal"));
     }
 
+    void dosiThinksInTheThreadUntilItsTurnShowsSomething()
+    {
+        Fixture f;
+        const auto asked = entry(QStringLiteral("a"), words(QStringLiteral("person"), QStringLiteral("What needs me?")));
+        f.snapshot({ asked }, QStringLiteral("c1"), false, QStringLiteral("working"));
+        QVERIFY(f.dosi.pending());
+        auto reply = words(QStringLiteral("text"), QStringLiteral("Two"));
+        reply.insert(QStringLiteral("live"), true);
+        f.item(entry(QStringLiteral("b"), reply));
+        QVERIFY(!f.dosi.pending());
+        f.item(entry(QStringLiteral("b"), words(QStringLiteral("text"), QStringLiteral("Two need you."))));
+        QVERIFY(f.dosi.pending());
+        f.item(entry(QStringLiteral("c"), tool(QStringLiteral("read"), QStringLiteral("terminal"), QStringLiteral("api"), QStringLiteral("running"))));
+        QVERIFY(!f.dosi.pending());
+        f.item(entry(QStringLiteral("q"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("question") },
+                                              { QStringLiteral("question"), QStringLiteral("Ship it?") },
+                                              { QStringLiteral("options"), QJsonArray { QStringLiteral("y"), QStringLiteral("n") } } }));
+        QVERIFY(!f.dosi.pending());
+        f.snapshot({ asked });
+        QVERIFY(!f.dosi.pending());
+    }
+
     void anAnswerIsNewUntilDosiIsOpen()
     {
         Fixture f;

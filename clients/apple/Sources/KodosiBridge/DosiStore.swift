@@ -48,6 +48,15 @@ public final class DosiStore {
         return true
     }
 
+    public var pending: Bool {
+        guard state == .working, snapshot?.remote == nil else { return false }
+        switch items.last?.body {
+        case let .question(question)?: return !question.open
+        case let body?: return !body.live
+        case nil: return true
+        }
+    }
+
     public func reset() {
         snapshot = nil
         items = []

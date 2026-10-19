@@ -159,6 +159,21 @@ QString DosiModel::liveTurn() const
     return busy() && !m_items.isEmpty() ? turnOf(m_items.last()) : QString {};
 }
 
+bool DosiModel::pending() const
+{
+    if (state() != QStringLiteral("working") || !m_snapshot.value(QStringLiteral("remote")).toObject().isEmpty())
+        return false;
+    if (m_items.isEmpty())
+        return true;
+    const auto content = bodyOf(m_items.last());
+    const auto kind = content.value(QStringLiteral("kind")).toString();
+    if (kind == QStringLiteral("question"))
+        return !openQuestion(content);
+    if (kind == QStringLiteral("tool"))
+        return content.value(QStringLiteral("status")).toString() != QStringLiteral("running");
+    return !content.value(QStringLiteral("live")).toBool();
+}
+
 QVariantMap DosiModel::reading() const
 {
     if (!busy() || m_items.isEmpty())

@@ -26,6 +26,7 @@ class DosiModel final : public QObject {
     Q_PROPERTY(QVariantList touched READ touched NOTIFY changed)
     Q_PROPERTY(bool empty READ empty NOTIFY changed)
     Q_PROPERTY(QString liveTurn READ liveTurn NOTIFY changed)
+    Q_PROPERTY(bool pending READ pending NOTIFY changed)
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
     Q_PROPERTY(QVariantMap reading READ reading NOTIFY changed)
     Q_PROPERTY(QVariantMap terminalQuestions READ terminalQuestions NOTIFY changed)
@@ -46,6 +47,7 @@ public:
     QVariantList touched() const;
     bool empty() const { return m_items.isEmpty(); }
     QString liveTurn() const;
+    bool pending() const;
     QVariantList rows() const { return m_rows; }
     QVariantMap reading() const;
     QVariantMap terminalQuestions() const { return m_terminalQuestions; }
