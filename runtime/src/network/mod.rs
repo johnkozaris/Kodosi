@@ -19,6 +19,8 @@ mod tests;
 pub use backend_client::BackendClient;
 #[cfg(target_os = "ios")]
 pub(crate) use backend_client::device_label;
+#[cfg(feature = "host")]
+pub(crate) use backend_client::host_label;
 pub(crate) use backend_client::{DELETION_LIFE, SIGN_IN_LIFE};
 
 #[derive(Debug, thiserror::Error)]

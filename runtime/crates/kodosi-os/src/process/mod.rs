@@ -46,6 +46,11 @@ pub fn with_default_signals(command: &mut std::process::Command) {
     imp::with_default_signals(command);
 }
 
+#[cfg(unix)]
+pub fn end_group(leader: u32, force: bool) {
+    imp::end_group(leader, force);
+}
+
 pub fn is_running(pid: u32) -> bool {
     pid != 0 && imp::is_running(pid)
 }

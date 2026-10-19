@@ -618,14 +618,27 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     };
     let (events, _) = broadcast::channel(256);
     let (changes, _) = mpsc::channel(128);
+    #[cfg(feature = "host")]
+    let launcher = Arc::new(crate::agents::Launcher::load(
+        &config.data_root,
+        &config.home,
+        &commands::shell(&config),
+    ));
     (
         Runtime {
             #[cfg(feature = "host")]
-            launcher: Arc::new(crate::agents::Launcher::load(
+            dosi: crate::dosi::Engine::load(
                 &config.data_root,
                 &config.home,
-                &commands::shell(&config),
-            )),
+                Arc::new(crate::dosi::Installed {
+                    launcher: Arc::clone(&launcher),
+                    shell: commands::shell(&config),
+                    home: config.home.clone(),
+                }),
+            )
+            .0,
+            #[cfg(feature = "host")]
+            launcher,
             #[cfg(feature = "host")]
             config,
             network,

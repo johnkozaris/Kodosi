@@ -48,8 +48,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
     public async Task<object> ListAsync(Guid userId, CancellationToken ct)
     {
         var rooms = RoomMembership.RoomsOf(db, userId);
-        var missions = await db.Missions.AsNoTracking().Where(x => rooms.Contains(x.Id))
+        var missions = await db.Missions.AsNoTracking().Where(x => rooms.Contains(x.Id) && !x.Dosi)
             .OrderBy(x => x.Name).ThenBy(x => x.Id).Take(Limits.MaxVisibleMissions + 1).Select(x => new { x.Id, x.Name, x.OwnerUserId }).ToListAsync(ct);
+        var dosi = await db.Missions.AsNoTracking().Where(x => x.OwnerUserId == userId && x.Dosi).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct);
         var invitations = await (from i in db.MissionInvitations.AsNoTracking()
                                  join r in db.Missions on i.MissionId equals r.Id
                                  join u in db.Users on i.InviterUserId equals u.Id
@@ -61,7 +62,8 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
             missions = missions.Take(Limits.MaxVisibleMissions).ToArray(),
             invitations = invitations.Take(Limits.MaxPendingMissionInvitations).ToArray(),
             missionsTruncated = missions.Count > Limits.MaxVisibleMissions,
-            invitationsTruncated = invitations.Count > Limits.MaxPendingMissionInvitations
+            invitationsTruncated = invitations.Count > Limits.MaxPendingMissionInvitations,
+            dosi
         };
     }
 
@@ -81,21 +83,35 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         var existing = await db.Missions.SingleOrDefaultAsync(x => x.Id == body.Id, ct);
         if (existing is not null)
         {
-            if (existing.OwnerUserId != userId || existing.Name != name) throw ApiException.Conflict("Mission ID was reused.");
+            if (existing.OwnerUserId != userId || existing.Name != name || existing.Dosi != body.Dosi) throw ApiException.Conflict("Mission ID was reused.");
             return;
         }
-        var owned = await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct);
-        if (owned >= (await plans.LimitsAsync(db, userId, ct)).OwnedRooms)
-            throw ApiException.Forbidden($"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
-        await RequireMissionCapacityAsync(userId, ct);
-        db.Missions.Add(new Mission { Id = body.Id, Name = name, OwnerUserId = userId });
+        if (body.Dosi)
+        {
+            if (await db.Missions.AnyAsync(x => x.OwnerUserId == userId && x.Dosi, ct))
+                throw ApiException.Conflict("Dosi already has a conversation.");
+        }
+        else
+        {
+            var owned = await db.Missions.CountAsync(x => x.OwnerUserId == userId && !x.Dosi, ct);
+            if (owned >= (await plans.LimitsAsync(db, userId, ct)).OwnedRooms)
+                throw ApiException.Forbidden($"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
+            await RequireMissionCapacityAsync(userId, ct);
+        }
+        db.Missions.Add(new Mission { Id = body.Id, Name = name, OwnerUserId = userId, Dosi = body.Dosi });
         await db.SaveChangesAsync(ct); connections.Notify([userId], "missions", body.Id);
+    }
+
+    private static void RequireRoom(Mission mission)
+    {
+        if (mission.Dosi) throw ApiException.Forbidden("Dosi's conversation belongs to you alone.");
     }
 
     public async Task RenameAsync(Guid id, Guid userId, string name, CancellationToken ct)
     {
         var mission = await RequireMemberAsync(id, userId, ct);
         if (mission.OwnerUserId != userId) throw ApiException.Forbidden();
+        RequireRoom(mission);
         mission.Name = Limits.Text(name, "Mission name", 128);
         await db.SaveChangesAsync(ct);
         await NotifyAsync(id, ct);
@@ -128,6 +144,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var mission = await RequireMemberForUpdateAsync(id, userId, ct);
         if (mission.OwnerUserId != userId) throw ApiException.Forbidden();
+        RequireRoom(mission);
         if (!await friends.AreFriendsAsync(userId, body.UserId, ct)) throw ApiException.Forbidden("Invite an accepted friend.");
         if (await db.MissionMembers.AnyAsync(x => x.MissionId == id && x.UserId == body.UserId, ct)) return;
         if (await db.MissionInvitations.AnyAsync(x => x.MissionId == id && x.UserId == body.UserId, ct)) return;
@@ -194,15 +211,22 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         connections.Notify(viewers.Append(userId), "sessions");
     }
 
+    internal async Task RequireSharedRoomAsync(Guid id, CancellationToken ct)
+    {
+        if (await db.Missions.AnyAsync(x => x.Id == id && x.Dosi, ct))
+            throw ApiException.Invalid("Terminals do not go into Dosi's conversation.");
+    }
+
     private async Task RequireMissionCapacityAsync(Guid userId, CancellationToken ct)
     {
-        if (await RoomMembership.RoomsOf(db, userId).Distinct().CountAsync(ct) >= Limits.MaxVisibleMissions)
+        var rooms = RoomMembership.RoomsOf(db, userId);
+        if (await db.Missions.CountAsync(x => rooms.Contains(x.Id) && !x.Dosi, ct) >= Limits.MaxVisibleMissions)
             throw ApiException.Conflict("Leave a Mission before joining or creating another.");
     }
 
     private async Task NotifyAsync(Guid id, CancellationToken ct) => connections.Notify(await MemberIdsAsync(id, ct), "missions", id);
 
-    public sealed record CreateMission(Guid Id, string Name);
+    public sealed record CreateMission(Guid Id, string Name, bool Dosi = false);
     public sealed record RenameMission(string Name);
     public sealed record Invite(Guid Id, Guid UserId, RoomKeyWrite? Keys = null);
 }

@@ -401,8 +401,8 @@ struct FakeRoom {
 impl FakeRoom {
     fn add(&self, id: Uuid, version: u64, payload: &Payload) -> u64 {
         let kind = match payload {
-            Payload::Message { .. } => "message",
-            Payload::Task { .. } => "task",
+            Payload::Message { .. } | Payload::Dosi { .. } => "message",
+            Payload::Task { .. } | Payload::DosiInstructions { .. } => "task",
             Payload::Repository { .. } => "repository",
         };
         let mut content = room_crypto::Content {
@@ -769,4 +769,48 @@ fn a_snapshot_has_the_newest_hundred_messages_and_every_message_not_shown_yet() 
     assert_eq!(range(&content.show(room)), (Some(276), 1025, true));
     add(&mut content, 1301..=1301);
     assert_eq!(content.messages.len(), KEPT_MESSAGES);
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn dosi_keeps_its_records_and_instructions_in_its_own_room() {
+    use crate::dosi::{DosiRecord, SharedInstructions};
+    let (_root, network, credentials, fake) = fake_room().await;
+    let room = fake.room;
+    {
+        let mut cache = network.inner.rooms.lock().await;
+        cache.dosi = Some(room);
+        if let Some(cached) = cache.rooms.get_mut(&room) {
+            cached.members_checked = Some(tokio::time::Instant::now());
+        }
+    }
+    *network.inner.credentials.write().unwrap() = Some(credentials);
+    let begin = DosiRecord::Begin {
+        conversation: Uuid::now_v7().to_string(),
+    };
+    assert_eq!(network.dosi_write(&begin).await.unwrap(), 1);
+    fake.add(Uuid::now_v7(), 1, &message("not for Dosi"));
+    let brief = SharedInstructions {
+        text: Some("Be brief.".into()),
+    };
+    network.dosi_save(brief.clone()).await.unwrap();
+    let log = network.dosi_read(0).await.unwrap();
+    assert_eq!(
+        log.entries
+            .iter()
+            .map(|entry| (entry.sequence, entry.mine, &entry.record))
+            .collect::<Vec<_>>(),
+        [(1, true, &begin)]
+    );
+    assert_eq!(log.instructions, Some(brief));
+    assert_eq!(log.sequence, 3);
+
+    let standard = SharedInstructions { text: None };
+    network.dosi_save(standard.clone()).await.unwrap();
+    let later = network.dosi_read(3).await.unwrap();
+    assert_eq!(later.entries, Vec::new());
+    assert_eq!((later.instructions, later.sequence), (Some(standard), 4));
+
+    fake.items.lock().unwrap().truncate(1);
+    assert!(network.dosi_read(4).await.unwrap().reset);
 }

@@ -832,6 +832,7 @@ impl BackendClient {
             .http
             .device(Method::GET, "api/missions", &credentials, None)
             .await?;
+        self.learn_dosi(&credentials, &mut missions).await;
         missions["type"] = json!("missions.snapshot");
         Ok(missions)
     }

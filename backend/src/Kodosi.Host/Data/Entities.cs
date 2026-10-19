@@ -100,6 +100,7 @@ public sealed class Mission
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public Guid OwnerUserId { get; set; }
+    public bool Dosi { get; set; }
     public long KeyVersion { get; set; }
     public long ContentSequence { get; set; }
     public long ContentBytes { get; set; }

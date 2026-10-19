@@ -145,6 +145,12 @@ pub(crate) enum Payload {
     Repository {
         repository: Repository,
     },
+    Dosi {
+        record: crate::dosi::DosiRecord,
+    },
+    DosiInstructions {
+        text: Option<String>,
+    },
 }
 
 impl Action {

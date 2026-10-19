@@ -10,6 +10,7 @@ use std::{
 };
 use uuid::Uuid;
 
+mod dosi;
 mod render;
 mod rooms;
 mod terminal;
@@ -58,8 +59,32 @@ enum Action {
 }
 #[derive(Subcommand)]
 enum DosiAction {
-    /// Print the skill that lets an agent act as Dosi: it watches your terminals and acts on them with your consent.
+    /// Print the skill that lets an agent act as Dosi: it sees your terminals and rooms and acts on them.
     Skill,
+    /// Tell Dosi something and print what it says and does until it answers.
+    Say {
+        text: String,
+        /// Stop waiting after this many seconds; Dosi goes on in Kodosi.
+        #[arg(long, default_value_t = 600)]
+        timeout: u64,
+    },
+    /// Show Dosi's conversation, which all your computers share.
+    Show,
+    /// Stop what Dosi does now, on this computer or on another one.
+    Stop,
+    /// Ask the person a question with choices in Dosi's conversation. Only Dosi in the Kodosi app asks this way.
+    Ask {
+        question: String,
+        /// One choice; repeat it for each choice.
+        #[arg(long = "option", required = true)]
+        options: Vec<String>,
+        /// Let the person pick more than one choice.
+        #[arg(long)]
+        multiple: bool,
+        /// Type the chosen option and Enter into this terminal.
+        #[arg(long)]
+        terminal: Option<String>,
+    },
 }
 #[derive(Subcommand)]
 enum HostAction {
@@ -341,8 +366,9 @@ async fn dispatch(args: Arguments) -> Result<()> {
         return stop_host(&config, force, args.json).await;
     }
     if matches!(args.command, Action::Dosi(DosiAction::Skill)) {
-        return print_text(include_str!("../../skills/kodosi-dosi/SKILL.md"));
+        return print_text(dosi::SKILL);
     }
+    refuse_for_dosi(&args.command)?;
     let mut client = local_host::connect_or_start(&config.data_root).await?;
     let mut context = Context::from_events(&client.initial_events);
     list_terminals(&args.command, &mut client, &mut context).await;
@@ -415,6 +441,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
         Action::Devices(DeviceAction::Link) => {
             link_device(&mut client, &mut context, json_output).await
         }
+        Action::Dosi(action) => dosi::run(action, &mut client, &mut context, json_output).await,
         action => {
             let command = command(action, &mut client, &mut context).await?;
             let event = request(&mut client, &mut context, command, json_output).await?;
@@ -425,6 +452,44 @@ async fn dispatch(args: Arguments) -> Result<()> {
             }
         }
     }
+}
+
+fn refuse_for_dosi(action: &Action) -> Result<()> {
+    if std::env::var_os(crate::dosi::TOKEN_VARIABLE).is_none() {
+        return Ok(());
+    }
+    if matches!(
+        action,
+        Action::Dosi(DosiAction::Say { .. } | DosiAction::Stop)
+    ) {
+        return Err(Error::Invalid(
+            "Dosi answers in its own conversation; it does not send itself messages or stop itself."
+                .to_owned(),
+        ));
+    }
+    if guarded(action) {
+        return Err(Error::Invalid(
+            "Dosi does not sign in or out, change devices, use recovery keys or trust friends. Ask the person to do it in Kodosi.".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+const fn guarded(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Auth(AuthAction::Login | AuthAction::Logout | AuthAction::DeleteAccount)
+            | Action::Devices(
+                DeviceAction::Link
+                    | DeviceAction::CancelLink
+                    | DeviceAction::Approve { .. }
+                    | DeviceAction::Revoke { .. }
+                    | DeviceAction::Reset
+                    | DeviceAction::RecoveryKey
+                    | DeviceAction::Recover
+            )
+            | Action::Friends(FriendAction::Trust { .. } | FriendAction::Verify { .. })
+    )
 }
 
 async fn command(
@@ -1379,6 +1444,7 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         for skill in [
+            include_str!("../../skills/kodosi-dosi/INSTRUCTIONS.md"),
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
             include_str!("../../skills/kodosi-room/SKILL.md"),
         ] {

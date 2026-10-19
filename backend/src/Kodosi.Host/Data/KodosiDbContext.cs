@@ -102,6 +102,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("missions"); e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(128);
+            e.HasIndex(x => new { x.Dosi, x.OwnerUserId }).IsUnique().HasFilter("\"Dosi\"");
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<MissionMember>(e =>

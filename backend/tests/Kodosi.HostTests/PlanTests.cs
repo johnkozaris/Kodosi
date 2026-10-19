@@ -36,11 +36,11 @@ public sealed class PlanTests(PostgresFixture postgres)
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private static async Task<Guid> KeyedRoomAsync(TestStore store, TestUser owner)
+    private static async Task<Guid> KeyedRoomAsync(TestStore store, TestUser owner, bool dosi = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var room = Guid.CreateVersion7();
-        await store.Missions.CreateAsync(owner.User.Id, new(room, "Workspace"), ct);
+        await store.Missions.CreateAsync(owner.User.Id, new(room, "Workspace", dosi), ct);
         var state = JsonSerializer.SerializeToUtf8Bytes(new {
             roomId = room, ownerUserId = owner.User.Id, authorId = owner.User.Id, deviceId = owner.Device.Id,
             version = 1, epoch = 1, createdAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), previousHash = "",
@@ -151,6 +151,24 @@ public sealed class PlanTests(PostgresFixture postgres)
 
         owner.Device.Revoked = true; await store.Db.SaveChangesAsync(ct);
         await store.Devices.StartLinkAsync(owner.User.Id, Init(new DeviceFixture(owner.User.Id, "third-device")), ct);
+    }
+
+    [Fact]
+    public async Task DosisRoomStaysWithinItsOwnSpaceOnAPlanWithoutALimit()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var alice = await store.UserAsync("alice");
+        var room = await KeyedRoomAsync(store, alice, dosi: true);
+        var records = Enumerable.Range(0, 80).Select(_ => Guid.CreateVersion7()).ToArray();
+        foreach (var id in records) await store.Missions.PutContentAsync(room, id, alice.User.Id, Item(alice, room, id, "message"), ct);
+        store.Db.ChangeTracker.Clear();
+        var stored = await store.Db.Missions.SingleAsync(x => x.Id == room, ct);
+        Assert.True(stored.HistoryTrimmed);
+        Assert.InRange(stored.ContentBytes, 1, MissionService.DosiRoomBytes);
+        var kept = await store.Db.MissionItems.Where(x => x.MissionId == room).Select(x => x.Id).ToListAsync(ct);
+        Assert.DoesNotContain(records[0], kept);
+        Assert.Contains(records[^1], kept);
     }
 
     [Fact]

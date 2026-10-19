@@ -23,6 +23,7 @@ pub mod agents;
 pub mod cli;
 mod config;
 pub mod diagnostics;
+pub mod dosi;
 pub mod identity;
 #[cfg(feature = "host")]
 pub mod local_host;
