@@ -147,7 +147,7 @@ pub(super) async fn run(
     let catalog = missions(client, context).await?;
     let command = match &args.action {
         RoomAction::List => {
-            return output(&catalog, json_output, &render::result(&catalog, context));
+            return output(&catalog, json_output, &render::missions(&catalog));
         }
         RoomAction::Unshare { terminal: chosen } => {
             return share_terminal(client, context, None, chosen.clone(), json_output).await;
