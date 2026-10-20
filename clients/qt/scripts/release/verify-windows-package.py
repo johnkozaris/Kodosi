@@ -183,8 +183,10 @@ def verify_payload(files: dict[str, zipfile.ZipInfo], read: Reader, logos: list[
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
     for name in ("kodosi-qt.exe", "kodosi.exe"):
-        if home in read(name):
-            fail(f"{name} names the home folder of the build, {Path.home()}")
+        data = read(name)
+        if (start := data.find(home)) >= 0:
+            path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
+            fail(f"{name} names the home folder of the build: {path}")
 
 
 def same(files: dict[str, zipfile.ZipInfo], read: Reader, name: str, source: Path) -> None:

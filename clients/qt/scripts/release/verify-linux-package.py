@@ -496,8 +496,10 @@ def check_links(root: Path) -> None:
 def check_home(root: Path) -> None:
     home = str(Path.home()).encode("utf-8")
     for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
-        if home in (root / name).read_bytes():
-            fail(f"{name} names the home folder of the build, {Path.home()}")
+        data = (root / name).read_bytes()
+        if (start := data.find(home)) >= 0:
+            path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
+            fail(f"{name} names the home folder of the build: {path}")
 
 
 def check_desktop(root: Path) -> None:

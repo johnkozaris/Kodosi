@@ -72,9 +72,14 @@ set(KODOSI_CARGO_ENVIRONMENT
     "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
 )
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    # A release names ~ in place of the home folder of the person who builds it.
+    # A release names ~ in place of the home folder of the person who builds it. On Windows,
+    # cl.exe compiles the C code of the Rust crates and trims the home folder from __FILE__.
     if(WIN32)
         set(KODOSI_BUILD_HOME "$ENV{USERPROFILE}")
+        list(APPEND KODOSI_CARGO_ENVIRONMENT
+            "CFLAGS=/d1trimfile:${KODOSI_BUILD_HOME}"
+            "CXXFLAGS=/d1trimfile:${KODOSI_BUILD_HOME}"
+        )
     else()
         set(KODOSI_BUILD_HOME "$ENV{HOME}")
     endif()
