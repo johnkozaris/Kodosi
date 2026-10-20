@@ -79,14 +79,18 @@ public struct DockItem: Identifiable, Sendable {
     public var count = 0
     public var progress: Double?
     public var fresh = false
+    public var key: String?
 
-    public init(id: Int, title: String, symbol: String, count: Int = 0, progress: Double? = nil, fresh: Bool = false) {
+    public init(
+        id: Int, title: String, symbol: String, count: Int = 0, progress: Double? = nil, fresh: Bool = false, key: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.symbol = symbol
         self.count = count
         self.progress = progress
         self.fresh = fresh
+        self.key = key
     }
 }
 
@@ -147,7 +151,7 @@ public struct SectionDock: View {
                 .accessibilityLabel(Text(item.title))
                 .accessibilityValue(item.count > 0 ? Text(item.count, format: .number) : Text(verbatim: ""))
                 .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("\(identifier).\(item.id)")
+                .accessibilityIdentifier("\(identifier).\(item.key ?? String(item.id))")
             }
         }
         .padding(3)

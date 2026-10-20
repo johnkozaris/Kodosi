@@ -8,7 +8,6 @@ Item {
     property color fill: KodosiTheme.accent
     property bool quiet: false
     property bool pressed: false
-    property bool lifted: true
     property color face: pressed ? KodosiTheme.mix(fill, "#000000", 0.08) : fill
 
     property bool dark: KodosiTheme.isDark
@@ -26,7 +25,7 @@ Item {
         height: root.height
         radius: root.radius + 0.5
         color: KodosiTheme.shadow
-        opacity: !root.lifted ? 0 : root.dark ? (root.quiet ? 0.1 : 0.17) : (root.quiet ? 0.05 : 0.12)
+        opacity: root.dark ? (root.quiet ? 0.1 : 0.17) : (root.quiet ? 0.05 : 0.12)
     }
     Rectangle {
         y: 1
@@ -34,7 +33,7 @@ Item {
         height: root.height
         radius: root.radius
         color: KodosiTheme.shadow
-        opacity: !root.lifted ? 0 : root.dark ? (root.quiet ? 0.21 : 0.35) : (root.quiet ? 0.12 : 0.3)
+        opacity: root.dark ? (root.quiet ? 0.21 : 0.35) : (root.quiet ? 0.12 : 0.3)
     }
     Rectangle {
         x: root.quiet ? -root.hair : 0

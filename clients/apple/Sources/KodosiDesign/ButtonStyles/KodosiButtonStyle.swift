@@ -80,16 +80,16 @@ public struct KodosiButtonStyle: ButtonStyle {
             .appTextStyle(size.style)
             .fontWeight(.semibold)
             .lineLimit(1)
-            .foregroundStyle(foreground(pressed: pressed))
+            .foregroundStyle(isEnabled ? foreground(pressed: pressed) : theme.colors.inkFaint)
             .padding(.horizontal, size.padding)
             .frame(minHeight: size.height)
             .background { background(shape, pressed: pressed).environment(\.bezelPressed, pressed) }
             .contentShape(shape)
             .scaleEffect(pressed ? 0.97 : 1)
-            .opacity(isEnabled ? 1 : 0.45)
             .onHover { hovered = $0 }
             .animation(theme.motion.hover, value: hovered)
             .animation(theme.motion.snappy, value: pressed)
+            .animation(theme.motion.snappy, value: isEnabled)
     }
 
     private var lit: Bool {
@@ -110,12 +110,14 @@ public struct KodosiButtonStyle: ButtonStyle {
     private func background(_ shape: RoundedRectangle, pressed: Bool) -> some View {
         let colors = theme.colors
         switch kind {
+        case .ghost:
+            shape.fill(colors.ink.opacity(pressed ? 0.13 : lit ? 0.08 : 0))
+        case _ where !isEnabled:
+            BezelBackground(shape: shape, fill: theme.buttonFace(), bezel: .quiet)
         case .primary:
             BezelBackground(shape: shape, fill: lit ? colors.accentHover : colors.accent)
         case .secondary:
             BezelBackground(shape: shape, fill: theme.buttonFace(lit: lit), bezel: .quiet)
-        case .ghost:
-            shape.fill(colors.ink.opacity(pressed ? 0.13 : lit ? 0.08 : 0))
         case .tinted:
             BezelBackground(shape: shape, fill: colors.accentSoft.mix(with: colors.accent, by: lit ? 0.14 : 0), bezel: .quiet)
         case .danger:
@@ -132,7 +134,7 @@ public extension ButtonStyle where Self == KodosiButtonStyle {
 
 public extension AppTheme {
     func buttonFace(lit: Bool = false) -> Color {
-        colors.lifted.mix(with: colors.ink, by: (isDark ? 0.07 : 0) + (lit ? 0.03 : 0))
+        colors.lifted.mix(with: colors.ink, by: lit ? (isDark ? 0.05 : 0.03) : 0)
     }
 }
 
@@ -146,6 +148,7 @@ public struct IconButton: View {
     public var size: CGFloat = 28
     public var destructive = false
     public var active = false
+    public var open = false
     public let action: () -> Void
 
     public init(
@@ -155,6 +158,7 @@ public struct IconButton: View {
         size: CGFloat = 28,
         destructive: Bool = false,
         active: Bool = false,
+        open: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -163,6 +167,7 @@ public struct IconButton: View {
         self.size = size
         self.destructive = destructive
         self.active = active
+        self.open = open
         self.action = action
     }
 
@@ -175,17 +180,20 @@ public struct IconButton: View {
                 .foregroundStyle(foreground)
                 .frame(width: size, height: size)
                 .background {
-                    if let face {
+                    if active || open {
+                        RaisedBackground(shape: shape, fill: theme.colors.raised, elevation: .resting).transition(.opacity)
+                    } else if let face {
                         BezelBackground(shape: shape, fill: face, bezel: .quiet).transition(.opacity)
                     }
                 }
                 .contentShape(shape)
         }
         .buttonStyle(PressScaleStyle())
-        .opacity(isEnabled ? 1 : 0.35)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
+        .animation(theme.motion.snappy, value: active || open)
         .tip(title).accessibilityLabel(Text(title)).accessibilityIdentifier(identifier)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 
     private var lit: Bool {
@@ -193,21 +201,21 @@ public struct IconButton: View {
     }
 
     private var foreground: Color {
+        if !isEnabled {
+            return theme.colors.inkFaint.mix(with: theme.colors.surface, by: 0.35)
+        }
         if lit, destructive {
             return theme.colors.danger
         }
         if active {
             return theme.colors.accentStrong
         }
-        return lit ? theme.colors.ink : theme.colors.inkMuted
+        return lit || open ? theme.colors.ink : theme.colors.inkMuted
     }
 
     private var face: Color? {
         if lit, destructive {
             return theme.colors.dangerSoft
-        }
-        if active {
-            return theme.colors.accentSoft
         }
         return lit ? theme.buttonFace(lit: true) : nil
     }

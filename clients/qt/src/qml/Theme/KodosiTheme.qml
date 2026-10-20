@@ -92,7 +92,7 @@ QtObject {
     }
 
     function buttonFace(lit: bool): color {
-        return mix(lifted, ink, (isDark ? 0.07 : 0) + (lit ? 0.03 : 0))
+        return mix(lifted, ink, lit ? (isDark ? 0.05 : 0.03) : 0)
     }
 
     // The outline of a rounded rectangle with Apple's continuous corners, as SVG path data.

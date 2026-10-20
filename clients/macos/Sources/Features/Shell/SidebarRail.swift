@@ -18,7 +18,7 @@ struct SidebarRail: View {
             Button { deps.openLauncher() } label: {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(theme.colors.onAccent)
                     .frame(width: 34, height: 34)
-                    .background { BezelBackground(shape: Circle(), fill: theme.colors.accent) }
+                    .background { BezelBackground(shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous), fill: theme.colors.accent) }
             }
             .buttonStyle(PressScaleStyle())
             .fold(FoldPart.newTerminal)
@@ -72,9 +72,7 @@ struct SidebarRail: View {
                 RailDosiIsland()
             }
             VStack(spacing: 6) {
-                IconButton(title: "Resume", symbol: "clock.arrow.circlepath", identifier: "sidebar.resume", size: 32) {
-                    deps.workbench.showsHistory = true
-                }
+                RailAccount()
                 SidebarMenu(selected: selection == .people || selection == .settings, size: 34, alignment: .leading)
             }
             .padding(.bottom, 12)
@@ -99,5 +97,39 @@ struct SidebarRail: View {
         .buttonStyle(PressScaleStyle())
         .tip(verbatim: help).accessibilityLabel(help).accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+private struct RailAccount: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        if let prompt = deps.signInPrompt {
+            Button { deps.beginSignIn() } label: {
+                Image(systemName: deps.account.userId != nil ? "checkmark.shield" : "person.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .frame(width: 26, height: 26)
+                    .overlay { Circle().strokeBorder(theme.colors.inkFaint, style: StrokeStyle(lineWidth: 1, dash: [2.4, 2])) }
+                    .frame(width: 40, height: 40)
+                    .hoverRow(radius: Radius.lg)
+            }
+            .buttonStyle(PressScaleStyle())
+            .tip(verbatim: prompt).accessibilityLabel(Text(verbatim: prompt))
+            .accessibilityIdentifier("header.signIn")
+        } else {
+            Button {
+                deps.workbench.settingsSection = .devices
+                deps.workbench.section = .settings
+            } label: {
+                PersonAvatar(name: deps.account.selfName, size: 26, isSelf: true)
+                    .frame(width: 40, height: 40)
+                    .hoverRow(radius: Radius.lg)
+            }
+            .buttonStyle(PressScaleStyle())
+            .tip(verbatim: deps.account.selfName).accessibilityLabel(Text("Account"))
+            .accessibilityIdentifier("sidebar.account")
+        }
     }
 }

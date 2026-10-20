@@ -171,7 +171,7 @@ struct DosiNewChatButton: View {
     @State private var asking = false
 
     var body: some View {
-        IconButton(title: "New chat", symbol: "square.and.pencil", identifier: "dosi.new", active: asking) { asking = true }
+        IconButton(title: "New chat", symbol: "square.and.pencil", identifier: "dosi.new", open: asking) { asking = true }
             .disabled(deps.dosi.state == .unavailable)
             .kodosiPopover(isPresented: $asking, arrowEdge: .bottom, alignment: .trailing) {
                 VStack(alignment: .leading, spacing: 10) {

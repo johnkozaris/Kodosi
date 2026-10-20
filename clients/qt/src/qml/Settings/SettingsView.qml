@@ -50,6 +50,7 @@ Item {
                     text: qsTr("Settings")
                 }
                 SegmentedPill {
+                    dock: true
                     identifier: "panel.settings"
                     options: [
                         { value: 0, label: qsTr("Terminal"), icon: "terminal" },

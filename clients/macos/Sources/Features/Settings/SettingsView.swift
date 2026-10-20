@@ -6,17 +6,18 @@ struct SettingsView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        @Bindable var workbench = deps.workbench
+        let workbench = deps.workbench
+        let sections = WorkbenchState.SettingsSection.allCases
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 PageHeader(title: "Settings") {
-                    SegmentedPill(selection: $workbench.settingsSection, options: [
-                        SegmentOption(value: .terminal, title: String(localized: "Terminal"), symbol: "apple.terminal"),
-                        SegmentOption(value: .providers, title: String(localized: "Agents"), symbol: "sparkles"),
-                        SegmentOption(value: .dosi, title: String(localized: "Dosi"), symbol: "eyes"),
-                        SegmentOption(value: .devices, title: String(localized: "Account"), symbol: "person.crop.circle"),
-                        SegmentOption(value: .general, title: String(localized: "General"), symbol: "gearshape"),
-                    ], identifier: "settings")
+                    SectionDock(
+                        items: sections.enumerated().map { index, section in
+                            DockItem(id: index, title: section.title, symbol: section.symbol, key: section.rawValue)
+                        },
+                        selection: sections.firstIndex(of: workbench.settingsSection) ?? 0,
+                        identifier: "settings"
+                    ) { workbench.settingsSection = sections[$0] }
                 }
                 Group {
                     switch workbench.settingsSection {
@@ -32,6 +33,28 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 90)
             .frame(maxWidth: 760, alignment: .leading).frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private extension WorkbenchState.SettingsSection {
+    var title: String {
+        switch self {
+        case .terminal: String(localized: "Terminal")
+        case .providers: String(localized: "Agents")
+        case .dosi: String(localized: "Dosi")
+        case .devices: String(localized: "Account")
+        case .general: String(localized: "General")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .terminal: "apple.terminal"
+        case .providers: "sparkles"
+        case .dosi: "eyes"
+        case .devices: "person.crop.circle"
+        case .general: "gearshape"
         }
     }
 }

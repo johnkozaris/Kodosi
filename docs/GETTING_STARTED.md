@@ -85,7 +85,7 @@ lost device from another device. If a device was stolen, also make a new recover
 
 ## 6. Work with friends
 
-Open Friends from the ⋯ menu beside your account. Send your invite, or paste the invite or
+Open Friends from the menu beside your account. Send your invite, or paste the invite or
 username of a friend. An invite lets Kodosi verify your friend.
 
 <p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>

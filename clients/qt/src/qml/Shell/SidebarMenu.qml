@@ -11,8 +11,10 @@ AbstractButton {
     property bool selected: false
     property int size: 34
     property bool opensRight: false
+    readonly property bool lit: hovered || menu.visible || selected
 
     signal aboutRequested
+    signal resumeRequested(string provider)
 
     implicitWidth: size
     implicitHeight: size
@@ -29,7 +31,7 @@ AbstractButton {
         if (menu.visible)
             menu.close()
         else
-            menu.popup(root, root.opensRight ? 0 : root.width - menu.width, -menu.implicitHeight - 6)
+            menu.open()
     }
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
@@ -38,16 +40,16 @@ AbstractButton {
         radius: KodosiTheme.radiusMd
         quiet: true
         pressed: root.pressed
-        fill: root.selected || menu.visible ? KodosiTheme.accentSoft : KodosiTheme.buttonFace(root.hovered)
+        fill: KodosiTheme.buttonFace(root.lit)
     }
     contentItem: Item {
         KIcon {
             anchors.centerIn: parent
             width: 16
             height: 16
-            name: "more"
-            strokeWidth: 2.2
-            color: root.selected || menu.visible ? KodosiTheme.accentStrong : root.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+            name: "sliders"
+            strokeWidth: 2
+            color: root.lit ? KodosiTheme.ink : KodosiTheme.inkMuted
         }
     }
 
@@ -61,12 +63,15 @@ AbstractButton {
     KMenu {
         id: menu
 
+        x: root.opensRight ? 0 : root.width - width
+        y: -height - 6
         width: 224
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
         transformOrigin: root.opensRight ? Popup.BottomLeft : Popup.BottomRight
 
         KMenuItem {
             text: qsTr("Settings")
-            iconName: "settings"
+            iconName: "gear"
             hint: qsTr("Ctrl+,")
             objectName: "sidebar.settings"
             onTriggered: Models.DesktopState.activeView = Models.DesktopState.Settings
@@ -79,11 +84,49 @@ AbstractButton {
             onTriggered: Models.DesktopState.activeView = Models.DesktopState.People
         }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
+        PlainLabel {
+            leftPadding: 10
+            topPadding: 4
+            bottomPadding: 2
+            text: qsTr("Resume")
+            color: KodosiTheme.inkFaint
+            font.pixelSize: KodosiTheme.fontCaption
+            font.weight: Font.Medium
+        }
+        KMenuItem {
+            text: Models.DesktopSettings.agentLabel("claude")
+            agent: "claude"
+            objectName: "sidebar.resume.claude"
+            onTriggered: root.resumeRequested("claude")
+        }
+        KMenuItem {
+            text: Models.DesktopSettings.agentLabel("copilot")
+            agent: "copilot"
+            objectName: "sidebar.resume.copilot"
+            onTriggered: root.resumeRequested("copilot")
+        }
+        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
         KMenuItem {
             text: qsTr("About Kodosi")
             iconName: "info"
             objectName: "sidebar.about"
             onTriggered: root.aboutRequested()
         }
+        MenuSeparator {
+            visible: Models.Account.signedIn
+            height: visible ? implicitHeight : 0
+            contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+        }
+        KMenuItem {
+            visible: Models.Account.signedIn
+            height: visible ? implicitHeight : 0
+            text: qsTr("Sign out…")
+            iconName: "leave"
+            objectName: "sidebar.signOut"
+            onTriggered: signOut.open()
+        }
+    }
+    SignOutDialog {
+        id: signOut
     }
 }

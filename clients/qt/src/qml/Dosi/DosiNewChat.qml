@@ -10,7 +10,7 @@ KIconButton {
     id: root
 
     glyph: "pencil"
-    active: confirm.visible
+    open: confirm.visible
     enabled: Models.Dosi.state !== "unavailable"
     objectName: "dosi.new"
     Accessible.id: objectName
