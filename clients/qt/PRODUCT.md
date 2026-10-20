@@ -1,18 +1,7 @@
-# Product
+# Kodosi for Linux and Windows
 
-## Platform
+Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system and shortcuts:
+[DESIGN.md](DESIGN.md).
 
-Linux and Windows desktop
-
-## Purpose
-
-Shared intent: [PRODUCT.md](../../PRODUCT.md). The app looks and behaves like the
-[Mac app](../macos/PRODUCT.md). Visual system and shortcuts: [DESIGN.md](DESIGN.md).
-
-## Principles
-
-- Keep terminals and the room conversation easy to reach.
-- Make common actions immediate; show secondary choices only when needed.
-- Use plain language, with keyboard access, screen readers, visible focus, enough
-  contrast and reduced motion.
-- Preserve files, provider history, identity and consent.
+The app looks and behaves like the [Mac app](../macos/PRODUCT.md). Every control works
+with the keyboard and screen readers and shows its focus.

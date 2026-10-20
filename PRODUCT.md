@@ -21,9 +21,8 @@ operating-system privileges.
 
 ## People and agents
 
-Humans and agents read and write the same room conversation. Agents get room context
-and actions through simple runtime tools and a skill that work from their existing
-harnesses.
+Humans and agents read and write the same room conversation. Agents take part through
+the `kodosi` command and its room skill.
 
 New members get the full history. Anyone can post messages, put tasks up for grabs,
 claim, release, close and reopen them. A task can carry context, repositories, and a
@@ -76,18 +75,15 @@ A terminal opened in a room keeps the conversation beside it. Tasks and reposito
 share that workspace. Drafts and reading position survive moving between them. Show
 progress where work happens and give each failure a clear recovery action.
 
-## Current implementation
+## What the apps do
 
-- The runtime and backend implement room terminal sharing, encrypted conversation and
-  task history, repository links, and GitHub and Gitea issue actions.
-- The Mac app and the Qt app start terminals on the computer's host and take part in
-  rooms. The Qt app runs on Linux and Windows 11; it is not yet validated on Windows
-  hardware. The iPhone and iPad app follows, answers and controls the terminals of the
-  person's computers and friends, takes part in rooms, and starts no terminals.
-- Each app contains the `kodosi` CLI, which uses the apps' words. `kodosi terminal`
-  starts, opens and shares terminals and starts agents in them, and reads, types into,
-  waits for and shows a terminal; `kodosi room` and its bundled skill let existing agents
-  take part through the running host.
+- The Mac app and the Linux and Windows app run terminals on the computer's host and
+  take part in rooms. The iPhone and iPad app follows, answers and controls the
+  terminals of the person's computers and friends, takes part in rooms, and starts no
+  terminals.
+- Each app contains the `kodosi` command. `kodosi terminal` starts, reads, types into,
+  waits for, shows and shares terminals and starts agents in them; `kodosi room` and its
+  skill let agents take part in rooms.
 - Dosi is the person's agent for their other agents. It sees every terminal, agent and
   room of the person, acts on them with the `kodosi` command, shows them in the app and
   asks with choices. It runs on the computer where the person writes, with the agent,

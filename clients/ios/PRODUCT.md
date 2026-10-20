@@ -4,7 +4,8 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
 
 The app follows, answers and controls the terminals of your computers and of the
 friends who share with you, and takes part in rooms. Starting terminals or programs,
-changing sharing and reading provider conversations stay on the computer.
+sharing a terminal with friends and reading provider conversations stay on the
+computer.
 
 - Sign-in opens in a system sign-in window. A new device is trusted like a computer: by
   a code entered on a trusted device, the recovery key, or starting fresh.
