@@ -57,7 +57,8 @@ progress bar. A program that reports nothing shows no state.
 ## 4. Ask Dosi
 
 Dosi is your agent for your other agents. Select Dosi's face at the bottom of the sidebar
-(⌘J). The first time, choose its agent in Settings › Dosi.
+(⌘J). Dosi runs on Claude Code or Codex; Settings › Dosi chooses which, with its account,
+model and effort.
 
 <p align="center">
   <picture>
@@ -76,13 +77,13 @@ question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi
 ## 5. Add your other computers
 
 Sign in on the new computer with the same account. It shows a code: enter the code in
-Settings › Devices on a computer that you already use. An iPhone or iPad joins the same
-way. Then each computer shows the terminals of all your computers.
+Settings › Account on a Mac, or Settings › Devices on Linux and Windows, on a computer
+that you already use. An iPhone or iPad joins the same way. Then each computer shows the
+terminals of all your computers.
 
-Make a recovery key in Settings › Devices and keep it in a safe place. If you lose all
-your devices, sign in on a new one and choose "Use my recovery key" to keep your friends
-and rooms. Remove a lost device from another device. If a device was stolen, also make a
-new recovery key.
+Make a recovery key there too, and keep it safe. If you lose all your devices, sign in
+on a new one and choose "Use my recovery key" to keep your friends and rooms. Remove a
+lost device from another device. If a device was stolen, also make a new recovery key.
 
 ## 6. Work with friends
 
