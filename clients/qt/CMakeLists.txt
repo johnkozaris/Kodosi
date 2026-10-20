@@ -67,6 +67,19 @@ set(
 )
 file(MAKE_DIRECTORY "${KODOSI_RUNTIME_BUNDLE_ROOT}")
 set(KODOSI_GHOSTTY_VT_ROOT "${KODOSI_GHOSTTY_ROOT}/Vendor/GhosttyVt/${KODOSI_GHOSTTY_LAYOUT}")
+set(KODOSI_CARGO_ENVIRONMENT
+    "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
+    "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
+)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    # A release names ~ in place of the home folder of the person who builds it.
+    if(WIN32)
+        set(KODOSI_BUILD_HOME "$ENV{USERPROFILE}")
+    else()
+        set(KODOSI_BUILD_HOME "$ENV{HOME}")
+    endif()
+    list(APPEND KODOSI_CARGO_ENVIRONMENT "CARGO_ENCODED_RUSTFLAGS=--remap-path-prefix=${KODOSI_BUILD_HOME}=~")
+endif()
 
 if(NOT EXISTS "${KODOSI_RUNTIME_MANIFEST}")
     message(FATAL_ERROR "Kodosi runtime manifest not found: ${KODOSI_RUNTIME_MANIFEST}")
@@ -87,9 +100,7 @@ execute_process(
 add_custom_target(kodosi-runtime-library-build
     COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
     COMMAND
-        "${CMAKE_COMMAND}" -E env
-        "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
-        "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
+        "${CMAKE_COMMAND}" -E env ${KODOSI_CARGO_ENVIRONMENT}
         "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/scripts/build-runtime-library.py"
         --manifest "${KODOSI_RUNTIME_MANIFEST}"
         --output-dir "${KODOSI_RUNTIME_BUNDLE_ROOT}"
@@ -124,9 +135,7 @@ add_dependencies(kodosi-rust-runtime kodosi-runtime-library-build)
 add_custom_target(kodosi-rust-cli-build ALL
     COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
     COMMAND
-        "${CMAKE_COMMAND}" -E env
-        "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
-        "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
+        "${CMAKE_COMMAND}" -E env ${KODOSI_CARGO_ENVIRONMENT}
         "${CARGO_EXECUTABLE}" build
         --manifest-path "${KODOSI_RUNTIME_MANIFEST}"
         --locked

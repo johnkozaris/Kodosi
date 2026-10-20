@@ -180,6 +180,13 @@ def verify_payload(files: dict[str, zipfile.ZipInfo], read: Reader, logos: list[
             fail(f"{name} is not an {arch} binary")
 
 
+def verify_home(read: Reader) -> None:
+    home = str(Path.home()).encode("utf-8")
+    for name in ("kodosi-qt.exe", "kodosi.exe"):
+        if home in read(name):
+            fail(f"{name} names the home folder of the build, {Path.home()}")
+
+
 def same(files: dict[str, zipfile.ZipInfo], read: Reader, name: str, source: Path) -> None:
     if name not in files:
         fail(f"missing {name}")
@@ -254,6 +261,7 @@ def main() -> None:
         ).read_bytes():
             fail("Kodosi.appinstaller is missing or differs from the configured file")
         verify_payload(files, read, logos, arch)
+        verify_home(read)
         verify_imports(files, read, windows_library)
         verify_evidence(files, read, arguments.build_dir, arguments.qt_root)
     print(f"Windows package verified: {arguments.package.name}")
