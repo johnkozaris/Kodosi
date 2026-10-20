@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Installs the notices of the Mac app or of the iOS app in the resources folder of the
 app. First it checks the Ghostty notices with verify-third-party-notices.py. Builds other
-than Debug also get the licenses of the Rust crates in the runtime."""
+than Debug also get the licenses of the Rust crates in the runtime, which the iOS app gets
+as one file for each crate."""
 
 from __future__ import annotations
 
@@ -90,12 +91,31 @@ def rust_notices(platform: str, output: Path) -> dict[str, Path]:
     path = f"{Path.home() / '.cargo/bin'}{os.pathsep}{os.environ.get('PATH', '')}"
     if subprocess.run(inventory, stdout=subprocess.DEVNULL, env={**os.environ, "PATH": path}).returncode != 0:
         raise SystemExit("[!] notices: the licenses of the Rust crates could not be collected")
-    folder = "RustNotices" if platform == "macosx" else "Notices/Rust"
+    if platform != "macosx":
+        return {f"Notices/Rust/{source.name}": source for source in crate_notices(output)}
     return {
-        f"{folder}/{source.relative_to(output).as_posix()}": source
+        f"RustNotices/{source.relative_to(output).as_posix()}": source
         for source in sorted(output.rglob("*"))
         if source.is_file()
     }
+
+
+def crate_notices(output: Path) -> list[Path]:
+    inventory = json.loads((output / "rust-dependency-licenses.json").read_text(encoding="utf-8"))
+    folder = output / "crates"
+    folder.mkdir()
+    files = []
+    for crate in inventory["dependencies"]:
+        notice = folder / f"{crate['name']} {crate['version']}.txt"
+        if notice.exists():
+            raise SystemExit(f"[!] notices: two Rust crates are named {notice.stem}")
+        parts = [crate["license"]]
+        for evidence in crate["licenseFiles"]:
+            parts.append("/".join(Path(evidence["path"]).parts[2:]))
+            parts.append((output / evidence["path"]).read_text(encoding="utf-8", errors="replace").strip())
+        notice.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
+        files.append(notice)
+    return files
 
 
 def install(platform: str, configuration: str, resources: Path) -> None:
