@@ -78,12 +78,12 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
 
     public async Task CreateAsync(Guid userId, CreateMission body, CancellationToken ct)
     {
-        Limits.Id(body.Id, "Mission ID");
+        Limits.Id(body.Id, "Room ID");
         var name = Limits.Text(body.Name, "Mission name", 128);
         var existing = await db.Missions.SingleOrDefaultAsync(x => x.Id == body.Id, ct);
         if (existing is not null)
         {
-            if (existing.OwnerUserId != userId || existing.Name != name || existing.Dosi != body.Dosi) throw ApiException.Conflict("Mission ID was reused.");
+            if (existing.OwnerUserId != userId || existing.Name != name || existing.Dosi != body.Dosi) throw ApiException.Conflict("This room ID is already in use.");
             return;
         }
         if (body.Dosi)
@@ -149,7 +149,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (await db.MissionMembers.AnyAsync(x => x.MissionId == id && x.UserId == body.UserId, ct)) return;
         if (await db.MissionInvitations.AnyAsync(x => x.MissionId == id && x.UserId == body.UserId, ct)) return;
         if (await db.MissionInvitations.CountAsync(x => x.UserId == body.UserId, ct) >= Limits.MaxPendingMissionInvitations)
-            throw ApiException.Conflict("This person has too many pending Mission invitations.");
+            throw ApiException.Conflict("This person has too many open room invitations.");
         await RequireMissionCapacityAsync(body.UserId, ct);
         var people = await RoomMembership.PeopleOf(db, id, invited: true).CountAsync(ct);
         var most = (await plans.LimitsAsync(db, mission.OwnerUserId, ct)).RoomPeople;
@@ -192,7 +192,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         var prepared = await PrepareKeysAsync(actor, keys, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var mission = await RequireMemberForUpdateAsync(id, actor, ct);
-        if (userId == mission.OwnerUserId) throw ApiException.Invalid("The owner must delete the Mission instead of leaving.");
+        if (userId == mission.OwnerUserId) throw ApiException.Invalid("The owner cannot leave the room. Delete it instead.");
         if (actor != userId && mission.OwnerUserId != actor) throw ApiException.Forbidden();
         var viewers = await TerminalPeopleAsync(id, ct);
         var terminals = await TerminalsOf(id).ToListAsync(ct);
@@ -221,7 +221,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
     {
         var rooms = RoomMembership.RoomsOf(db, userId);
         if (await db.Missions.CountAsync(x => rooms.Contains(x.Id) && !x.Dosi, ct) >= Limits.MaxVisibleMissions)
-            throw ApiException.Conflict("Leave a Mission before joining or creating another.");
+            throw ApiException.Conflict("Leave a room before you join or make another.");
     }
 
     private async Task NotifyAsync(Guid id, CancellationToken ct) => connections.Notify(await MemberIdsAsync(id, ct), "missions", id);

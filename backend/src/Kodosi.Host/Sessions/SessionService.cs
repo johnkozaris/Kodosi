@@ -19,13 +19,13 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<Session> OwnerAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var session = await AuthorizedAsync(id, userId, ct);
-        return session.OwnerUserId == userId ? session : throw ApiException.Forbidden("Only the owner may change this publication.");
+        return session.OwnerUserId == userId ? session : throw ApiException.Forbidden("Only the owner can change this terminal.");
     }
 
     public async Task<Session> HostAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
     {
         var session = await OwnerAsync(id, userId, ct);
-        return session.HostDeviceId == deviceId ? session : throw ApiException.Forbidden("Only the hosting device may change this publication.");
+        return session.HostDeviceId == deviceId ? session : throw ApiException.Forbidden("Only the computer that hosts this terminal can change it.");
     }
 
     public async Task<SessionDto> DescribeAsync(Session session, CancellationToken ct) =>
@@ -35,7 +35,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     {
         var usable = TerminalAccess.People(db).Where(x => x.UserId == userId).Select(x => x.SessionId);
         var sessions = await DescribeAsync(db.Sessions.Where(x => !x.Ended && usable.Contains(x.Id)), Limits.SessionCatalog + 1, ct);
-        if (sessions.Count > Limits.SessionCatalog) throw ApiException.Conflict("The session catalog exceeds its display limit.");
+        if (sessions.Count > Limits.SessionCatalog) throw ApiException.Conflict("There are too many terminals to list.");
         return sessions;
     }
 
@@ -62,17 +62,17 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
 
     public async Task<SessionDto> CreateAsync(Guid userId, ApprovedDevice device, CreateSession body, CancellationToken ct)
     {
-        Limits.Id(body.Id, "Session ID"); Limits.Id(body.IncarnationId, "Incarnation ID");
-        if (body.HostDeviceId != device.Id) throw ApiException.Forbidden("The hosting device proof must match.");
+        Limits.Id(body.Id, "Terminal ID"); Limits.Id(body.IncarnationId, "Incarnation ID");
+        if (body.HostDeviceId != device.Id) throw ApiException.Forbidden("Only the computer that hosts a terminal can add it.");
         var existing = await db.Sessions.SingleOrDefaultAsync(x => x.Id == body.Id, ct);
         if (existing is not null)
         {
             if (existing.Ended || existing.OwnerUserId != userId || existing.HostDeviceId != device.Id || existing.IncarnationId != body.IncarnationId)
-                throw ApiException.Conflict("Session publication identity was already used.");
+                throw ApiException.Conflict("This terminal ID is already in use.");
             return await DescribeAsync(existing, ct);
         }
         if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended, ct) >= Limits.MaxSessionsPerUser)
-            throw ApiException.Conflict("Too many published sessions.");
+            throw ApiException.Conflict("You have too many terminals.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId)
         {
@@ -136,7 +136,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
         if (selected.Count > most) throw ApiException.Forbidden($"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Session recipients must be accepted friends.");
+        if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Share a terminal only with accepted friends.");
         var existing = await db.SessionMembers.Where(x => x.SessionId == id).ToListAsync(ct);
         if (selected.SetEquals(existing.Select(x => x.UserId))) return await DescribeAsync(session, ct);
         var affected = existing.Select(x => x.UserId).Union(selected).Append(userId).ToArray();
@@ -152,7 +152,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task LeaveAsync(Guid id, Guid userId, LeaveSession body, CancellationToken ct)
     {
         var session = await AuthorizedAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        if (session.OwnerUserId == userId) throw ApiException.Invalid("The owner cannot leave their own session.");
+        if (session.OwnerUserId == userId) throw ApiException.Invalid("You cannot leave your own terminal.");
         if (session.MissionId is not null) throw ApiException.Conflict("Leave the room to leave its shared terminals.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -215,9 +215,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     }
 
     internal static void Incarnation(Session session, Guid expected)
-    { if (expected == Guid.Empty || session.IncarnationId != expected) throw ApiException.Conflict("This session publication was replaced."); }
+    { if (expected == Guid.Empty || session.IncarnationId != expected) throw ApiException.Conflict("This terminal was replaced."); }
     internal static void Match(Session session, Guid incarnation, long revision)
-    { Incarnation(session, incarnation); if (session.AuthorizationRevision != revision) throw ApiException.Conflict("Session sharing changed; refresh before retrying."); }
+    { Incarnation(session, incarnation); if (session.AuthorizationRevision != revision) throw ApiException.Conflict("The sharing of this terminal changed; refresh before retrying."); }
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
         string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,

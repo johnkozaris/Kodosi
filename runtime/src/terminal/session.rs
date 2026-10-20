@@ -1345,7 +1345,7 @@ impl LocalActor {
                 .map_err(Error::from),
             TerminalControl::Close => {
                 self.host_stop_reply = Some(reply);
-                return Some("Session stopped by a controller.".to_owned());
+                return Some("The terminal was closed.".to_owned());
             }
         };
         let reason = result.as_ref().err().map(ToString::to_string);
@@ -1401,24 +1401,24 @@ impl LocalActor {
         let mut host_open = true;
         let reason = loop {
             if self.cancellation.is_cancelled() {
-                break "Session stopped.".to_owned();
+                break "The terminal stopped.".to_owned();
             }
             let input = self.pending_input();
             tokio::select! {
-                () = self.cancellation.cancelled() => break "Session stopped.".to_owned(),
+                () = self.cancellation.cancelled() => break "The terminal stopped.".to_owned(),
                 command = self.commands.recv() => match command {
                     Some(command) => { if let Some(reason) = self.command(command).await { break reason; } }
-                    None => break "Hosting runtime stopped.".to_owned(),
+                    None => break "Kodosi stopped.".to_owned(),
                 },
                 request = self.host.recv(), if host_open => match request {
                     Some(request) => { if let Some(reason) = self.host_request(request).await { break reason; } }
                     None => host_open = false,
                 },
                 transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
-                    Ok(Transfer::Read(0)) => break "Session ended.".to_owned(),
+                    Ok(Transfer::Read(0)) => break "The terminal ended.".to_owned(),
                     Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } }
                     Ok(Transfer::Wrote(count)) => self.wrote(count),
-                    Err(error) if error.raw_os_error() == Some(5) => break "Session ended.".to_owned(),
+                    Err(error) if error.raw_os_error() == Some(5) => break "The terminal ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },
                 _ = tick.tick() => self.maintain().await,

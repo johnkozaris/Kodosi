@@ -989,7 +989,7 @@ async fn a_failed_reconnect_waits_longer_each_time_and_only_a_final_answer_ends_
         completion: Completion::Connected {
             id,
             attempt,
-            result: Err(Error::Invalid("The session is not available.".to_owned())),
+            result: Err(Error::Invalid("This terminal is not available.".to_owned())),
         },
     });
     assert!(!runtime.reconnect.contains_key(&id));

@@ -20,7 +20,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
                            select new { device.SigningPublicKey, device.IssuedAtMs, device.ExpiresAtMs, device.Revoked, ListBody = list.Body, ListExpiresAtMs = list.ExpiresAtMs })
             .SingleOrDefaultAsync(ct);
         if (found is null || !DeviceApproval.IsCurrent(found.Revoked, found.ExpiresAtMs, found.ListExpiresAtMs, clock.GetUtcNow().ToUnixTimeMilliseconds(), allowExpiredList))
-            throw ApiException.Forbidden("Approve this device before using shared sessions.");
+            throw ApiException.Forbidden("Approve this device before you use shared terminals.");
         if (!DeviceApproval.Listed(found.ListBody).Contains(deviceId))
             throw ApiException.Forbidden("This device was removed.");
         return new ApprovedDevice(deviceId, userId, found.SigningPublicKey, found.IssuedAtMs, found.ExpiresAtMs);

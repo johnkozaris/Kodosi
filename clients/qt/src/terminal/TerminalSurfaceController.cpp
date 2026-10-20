@@ -143,8 +143,7 @@ bool TerminalSurfaceController::bind(
                 binding->attached = false;
                 scheduleRemoteRetry(
                     *binding,
-                    QStringLiteral(
-                        "The runtime rejected the terminal connection (%1).")
+                    QStringLiteral("The terminal could not connect (%1).")
                         .arg(result));
             });
         connect(view, &TerminalView::terminalClosed, this, [this, view] {
@@ -397,7 +396,7 @@ void TerminalSurfaceController::tryAttach(Binding& binding)
     if (!binding.attached) {
         scheduleRemoteRetry(
             binding,
-            QStringLiteral("The runtime rejected the terminal attachment."));
+            QStringLiteral("The terminal could not connect."));
     } else if (sharedSubscription && !binding.view->terminalReady()) {
         armCheckpointTimeout(binding);
     }

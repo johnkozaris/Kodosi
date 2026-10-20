@@ -165,7 +165,6 @@ pub struct RemoteSession {
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
     pub online: bool,
-    #[serde(default)]
     pub status: Option<TerminalStatus>,
 }
 
