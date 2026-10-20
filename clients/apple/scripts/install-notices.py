@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Installs the notices of the Mac app or of the iOS app in the resources folder of the
-app. First it checks the Ghostty notices with verify-third-party-notices.py."""
+app. First it checks the Ghostty notices with verify-third-party-notices.py. Builds other
+than Debug also get the licenses of the Rust crates in the runtime."""
 
 from __future__ import annotations
 
@@ -14,6 +15,11 @@ import tempfile
 from pathlib import Path, PurePosixPath
 
 IOS_SLICES = {"iphoneos": "ios-arm64", "iphonesimulator": "ios-arm64-simulator"}
+RUST_TARGETS = {
+    "macosx": "aarch64-apple-darwin",
+    "iphoneos": "aarch64-apple-ios",
+    "iphonesimulator": "aarch64-apple-ios-sim",
+}
 MAC_GHOSTTY_FILES = (
     "LICENSE",
     "LICENSE-GHOSTTY",
@@ -68,7 +74,31 @@ def notice_files(platform: str, ghostty: Path) -> dict[str, Path]:
     return files
 
 
-def install(platform: str, resources: Path) -> None:
+def rust_notices(platform: str, output: Path) -> dict[str, Path]:
+    root = repository_root()
+    inventory = [
+        sys.executable,
+        str(root / "clients/qt/scripts/release/generate-rust-license-inventory.py"),
+        "--manifest",
+        str(root / "runtime/Cargo.toml"),
+        "--target",
+        RUST_TARGETS[platform],
+        "--output-dir",
+        str(output),
+    ]
+    # Xcode gives its build phases a PATH without the Rust tools.
+    path = f"{Path.home() / '.cargo/bin'}{os.pathsep}{os.environ.get('PATH', '')}"
+    if subprocess.run(inventory, stdout=subprocess.DEVNULL, env={**os.environ, "PATH": path}).returncode != 0:
+        raise SystemExit("[!] notices: the licenses of the Rust crates could not be collected")
+    folder = "RustNotices" if platform == "macosx" else "Notices/Rust"
+    return {
+        f"{folder}/{source.relative_to(output).as_posix()}": source
+        for source in sorted(output.rglob("*"))
+        if source.is_file()
+    }
+
+
+def install(platform: str, configuration: str, resources: Path) -> None:
     ghostty = Path(os.environ.get("KODOSI_GHOSTTY_DIR") or repository_root() / "terminal/ghostty")
     check = [sys.executable, str(ghostty / "scripts/verify-third-party-notices.py")]
     if os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1":
@@ -77,26 +107,30 @@ def install(platform: str, resources: Path) -> None:
         raise SystemExit("[!] notices: the Ghostty notices differ from terminal/ghostty/ThirdPartyNotices/inventory.json")
     files = notice_files(platform, ghostty)
     resources.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".notices-", dir=resources) as temporary:
-        staging = Path(temporary)
-        for name, source in files.items():
-            (staging / name).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, staging / name)
-            shutil.copymode(source, staging / name)
-        for entry in sorted(staging.iterdir()):
-            destination = resources / entry.name
-            if destination.is_dir() and not destination.is_symlink():
-                shutil.rmtree(destination)
-            os.replace(entry, destination)
+    with tempfile.TemporaryDirectory(prefix="kodosi-rust-notices-") as rust:
+        if configuration != "Debug":
+            files.update(rust_notices(platform, Path(rust)))
+        with tempfile.TemporaryDirectory(prefix=".notices-", dir=resources) as temporary:
+            staging = Path(temporary)
+            for name, source in files.items():
+                (staging / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, staging / name)
+                shutil.copymode(source, staging / name)
+            for entry in sorted(staging.iterdir()):
+                destination = resources / entry.name
+                if destination.is_dir() and not destination.is_symlink():
+                    shutil.rmtree(destination)
+                os.replace(entry, destination)
     print(f"[*] Installed {len(files)} notice files for {platform} in {resources}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("platform", choices=("macosx", *IOS_SLICES))
+    parser.add_argument("configuration", help="the Xcode build configuration")
     parser.add_argument("resources", type=Path, help="the resources folder of the app")
     arguments = parser.parse_args()
-    install(arguments.platform, arguments.resources)
+    install(arguments.platform, arguments.configuration, arguments.resources)
 
 
 if __name__ == "__main__":
