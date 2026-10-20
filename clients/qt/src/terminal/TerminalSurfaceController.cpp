@@ -459,12 +459,7 @@ void TerminalSurfaceController::armCheckpointTimeout(Binding& binding)
                 return candidate.view == view
                     && candidate.attached
                     && candidate.surfaceGeneration == surfaceGeneration
-                    && candidate.subscription.sessionId
-                        == subscription.sessionId
-                    && candidate.subscription.subscriptionId
-                        == subscription.subscriptionId
-                    && candidate.subscription.generation
-                        == subscription.generation;
+                    && candidate.subscription == subscription;
             });
         if (binding == m_bindings.end() || binding->view == nullptr
             || binding->view->terminalReady()) {

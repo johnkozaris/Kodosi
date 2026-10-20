@@ -41,6 +41,8 @@ struct TerminalSubscription {
     QString sessionId;
     QString subscriptionId;
     std::uint64_t generation;
+
+    bool operator==(const TerminalSubscription&) const = default;
 };
 struct TerminalData {
     TerminalSubscription subscription;
