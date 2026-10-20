@@ -24,8 +24,8 @@ body:
   - type: input
     id: system
     attributes:
-      label: System and revision
-      placeholder: macOS 26.4, Apple silicon, abc1234
+      label: System and Kodosi version
+      placeholder: macOS 26.4, Apple silicon, Kodosi 0.1.0
     validations:
       required: true
   - type: textarea
@@ -39,5 +39,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Related lines of `app.log` or `host.log`, with private data removed.
+      description: Related lines of `app.log` or `host.log`, with private data removed. They are in `~/Library/Application Support/kodosi` on a Mac, `~/.config/kodosi` on Linux and `%USERPROFILE%\.kodosi` on Windows.
       render: text

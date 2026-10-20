@@ -48,8 +48,8 @@ fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &st
 fn shell_scripts_report_path_sign_in_variables_and_agent_definitions() {
     let prelude = r#"export CLAUDE_CONFIG_DIR=/srv/claude-main
 claude() { command claude "$@"; }
-claudesim() { CLAUDE_CONFIG_DIR="$HOME/.claude-alt" claude "$@"; }
-alias codex-sw='CODEX_HOME=~/.codex-sw codex'
+claudebeta() { CLAUDE_CONFIG_DIR="$HOME/.claude-beta" claude "$@"; }
+alias codex-lab='CODEX_HOME=~/.codex-lab codex'
 alias cc='claude --dangerously-skip-permissions'
 alias gs='git status'
 gitlog() { git log; }"#;
@@ -79,23 +79,23 @@ gitlog() { git log; }"#;
             .map(|definition| definition.name.as_str())
             .collect::<Vec<_>>();
         names.sort_unstable();
-        assert_eq!(names, ["claude", "claudesim", "codex-sw"], "{shell}");
-        let claudesim = facts
+        assert_eq!(names, ["claude", "claudebeta", "codex-lab"], "{shell}");
+        let claudebeta = facts
             .definitions
             .iter()
-            .find(|definition| definition.name == "claudesim")
+            .find(|definition| definition.name == "claudebeta")
             .expect("function");
         assert!(
-            claudesim.text.contains(".claude-alt"),
-            "{shell}: {claudesim:?}"
+            claudebeta.text.contains(".claude-beta"),
+            "{shell}: {claudebeta:?}"
         );
-        assert!(!claudesim.text.contains('\n'));
-        let codex_sw = facts
+        assert!(!claudebeta.text.contains('\n'));
+        let codex_lab = facts
             .definitions
             .iter()
-            .find(|definition| definition.name == "codex-sw")
+            .find(|definition| definition.name == "codex-lab")
             .expect("alias");
-        assert_eq!(codex_sw.text, "CODEX_HOME=~/.codex-sw codex", "{shell}");
+        assert_eq!(codex_lab.text, "CODEX_HOME=~/.codex-lab codex", "{shell}");
     }
     if Path::new("/bin/sh").exists() {
         let family = shell::family(Path::new("/bin/sh")).expect("known shell");
@@ -136,14 +136,14 @@ fn definitions_name_the_sign_in_folder_they_give_the_agent() {
         Some(home.join(".claude-work"))
     );
     assert_eq!(
-        claude(r#"export CLAUDE_CONFIG_DIR="$HOME/.claude-alt"; claude "$@""#),
-        Some(home.join(".claude-alt"))
+        claude(r#"export CLAUDE_CONFIG_DIR="$HOME/.claude-beta"; claude "$@""#),
+        Some(home.join(".claude-beta"))
     );
     assert_eq!(
         claude("env 'CLAUDE_CONFIG_DIR=/srv/claude two' claude"),
         Some("/srv/claude two".into())
     );
-    assert_eq!(claude(r#"_claude_profile "$HOME/.claude-alt" "$@""#), None);
+    assert_eq!(claude(r#"_claude_profile "$HOME/.claude-beta" "$@""#), None);
     assert_eq!(
         claude(r#"CLAUDE_CONFIG_DIR="$config_dir" "$HOME/.local/bin/claude""#),
         None
@@ -206,8 +206,8 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
     put(home, ".claude.json", &claude_sign_in("ada@example.com"));
     put(
         home,
-        ".claude-alt/.claude.json",
-        &claude_sign_in("sim@example.com"),
+        ".claude-beta/.claude.json",
+        &claude_sign_in("beta@example.com"),
     );
     put(
         home,
@@ -231,8 +231,11 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
     fs::create_dir_all(home.join(".claude-squad/cache")).unwrap();
     put(
         home,
-        ".codex-sw/auth.json",
-        &format!(r#"{{"tokens":{{"id_token":"{}"}}}}"#, jwt("sw@example.com")),
+        ".codex-lab/auth.json",
+        &format!(
+            r#"{{"tokens":{{"id_token":"{}"}}}}"#,
+            jwt("lab@example.com")
+        ),
     );
     let facts = Facts {
         path: Some("/nowhere".into()),
@@ -243,7 +246,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
             definition("codex", "codex"),
             definition("claude-x", "CLAUDE_CONFIG_DIR=~/.profiles/x claude"),
             definition("claude-team", "CLAUDE_CONFIG_DIR=~/team/.claude claude"),
-            definition("claude-alt", "CLAUDE_CONFIG_DIR=~/.claude-alt claude"),
+            definition("claude-beta", "CLAUDE_CONFIG_DIR=~/.claude-beta claude"),
             definition("claude-gone", "CLAUDE_CONFIG_DIR=~/.claude-gone claude"),
             definition("cc", "claude --dangerously-skip-permissions"),
         ],
@@ -253,7 +256,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
         rows(&catalog, Agent::Claude),
         [
             "default ada@example.com ~/.claude",
-            "alt sim@example.com ~/.claude-alt",
+            "beta beta@example.com ~/.claude-beta",
             "default-2 ~/.claude-default",
             "personal me@example.com ~/.claude_personal",
             "started ~/.claude-started",
@@ -265,7 +268,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
     );
     assert_eq!(
         rows(&catalog, Agent::Codex),
-        ["default ~/.codex", "sw sw@example.com ~/.codex-sw"]
+        ["default ~/.codex", "lab lab@example.com ~/.codex-lab"]
     );
     let claude = &catalog.agents[0].accounts;
     assert_eq!(claude[0].command, "claude");

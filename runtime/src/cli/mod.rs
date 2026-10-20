@@ -22,6 +22,7 @@ mod terminal;
     about = "Shared terminals and rooms for people and their coding agents."
 )]
 struct Arguments {
+    /// Print JSON.
     #[arg(long, global = true)]
     json: bool,
     #[command(subcommand)]
@@ -36,15 +37,21 @@ enum Action {
     },
     #[command(about = "Show the account and the terminals.")]
     Status,
-    #[command(subcommand)]
+    #[command(subcommand, about = "Start, read, type into and share terminals.")]
     Terminal(TerminalAction),
-    #[command(subcommand)]
+    #[command(
+        subcommand,
+        about = "List the agents, their accounts, models and efforts."
+    )]
     Agent(AgentAction),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Sign in or out, or delete your account.")]
     Auth(AuthAction),
-    #[command(subcommand)]
+    #[command(
+        subcommand,
+        about = "Approve and remove your devices, and make a recovery key."
+    )]
     Devices(DeviceAction),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Add, verify and remove friends.")]
     Friends(FriendAction),
     #[command(
         about = "Work with rooms and their members, conversation, tasks, repositories and terminals."
@@ -52,7 +59,10 @@ enum Action {
     Room(rooms::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
     Dosi(DosiAction),
-    #[command(subcommand)]
+    #[command(
+        subcommand,
+        about = "Read the saved conversations of Claude Code and Copilot CLI."
+    )]
     Provider(ProviderAction),
     #[command(hide = true)]
     InternalHost,
@@ -90,6 +100,7 @@ enum DosiAction {
 enum HostAction {
     /// Stop the host that runs in the background. It refuses while terminals run, unless --force ends them.
     Stop {
+        /// End the terminals that run, then stop.
         #[arg(long)]
         force: bool,
     },
@@ -127,10 +138,13 @@ enum TerminalAction {
     },
     /// Start a terminal on this computer.
     Start {
+        /// The name of the terminal. The default is Terminal, or the name of the new branch.
         #[arg(long)]
         name: Option<String>,
+        /// The folder to start in. The default is your home folder.
         #[arg(long)]
         directory: Option<PathBuf>,
+        /// Start the terminal in this room, by its name or ID.
         #[arg(long)]
         room: Option<String>,
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
@@ -173,6 +187,7 @@ enum TerminalAction {
         provider: String,
         conversation: Uuid,
         directory: PathBuf,
+        /// The name of the terminal.
         #[arg(long)]
         name: Option<String>,
     },
@@ -182,6 +197,7 @@ enum TerminalAction {
     Input {
         terminal: String,
         text: String,
+        /// Press Enter after the text.
         #[arg(long)]
         enter: bool,
     },
@@ -266,15 +282,19 @@ enum FriendAction {
 }
 #[derive(Subcommand)]
 enum ProviderAction {
+    /// Show the program and the settings files of an agent, for a folder if you give one.
     Inspect {
         provider: String,
+        /// The folder whose project settings to show.
         #[arg(long)]
         directory: Option<PathBuf>,
     },
+    /// List the saved conversations of an agent in a folder.
     History {
         provider: String,
         directory: PathBuf,
     },
+    /// Print a saved conversation.
     Read {
         provider: String,
         conversation: Uuid,
