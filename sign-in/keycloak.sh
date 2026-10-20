@@ -14,6 +14,7 @@ check_jar=dev/turnstile/build/kodosi-turnstile-stand-in.jar
 realm=kodosi
 form='registration%20with%20check%20registration%20form'
 reset='reset%20with%20check'
+broker=kodosi-first-broker-login
 people=dev/people.txt
 # Keycloak e-mails the lockout notes only when this option names them, and then only what it
 # names. UPDATE_PASSWORD or UPDATE_TOTP too would send two e-mails for one change.
@@ -181,10 +182,17 @@ calm kc create localization/en -r $realm \
 calm kc update authentication/required-actions/delete_account -r $realm -s enabled=true
 calm kc add-roles -r $realm --rname "default-roles-$realm" --cclientid account --rolename delete-account
 
-review=$(kc get 'authentication/flows/first%20broker%20login/executions' -r $realm --format csv \
+calm kc create 'authentication/flows/first%20broker%20login/copy' -r $realm -b "{\"newName\":\"$broker\"}"
+review=$(kc get "authentication/flows/$broker/executions" -r $realm --format csv \
   --noquotes --fields providerId,authenticationConfig | sed -n 's/^idp-review-profile,//p')
 calm kc update "authentication/config/$review" -r $realm \
   -b '{"alias":"review profile config","config":{"update.profile.on.first.login":"on"}}'
+calm kc create "authentication/flows/$broker%20Handle%20Existing%20Account/executions/execution" \
+  -r $realm -s provider=idp-confirm-override-link
+calm kc update "authentication/flows/$broker/executions" -r $realm \
+  -b "{\"id\":\"$(step_of $broker idp-confirm-override-link)\",\"requirement\":\"REQUIRED\",\"priority\":30}"
+calm kc update "authentication/flows/$broker/executions" -r $realm \
+  -b "{\"id\":\"$(step_of $broker idp-email-verification)\",\"requirement\":\"DISABLED\"}"
 
 calm kc create "authentication/flows/$form/executions/execution" -r $realm \
   -s provider=kodosi-turnstile-registration
@@ -201,7 +209,7 @@ check pass
 
 keys='"clientId":"sample","clientSecret":"sample"'
 calm kc create identity-provider/instances -r $realm -s alias=google -s providerId=google \
-  -s displayName=Google -s enabled=true -s "config={$keys}"
+  -s displayName=Google -s enabled=true -s firstBrokerLoginFlowAlias=$broker -s "config={$keys}"
 calm kc create identity-provider/instances -r $realm -s alias=apple -s providerId=oidc \
   -s displayName=Apple -s enabled=true \
   -s "config={$keys,\"authorizationUrl\":\"https://appleid.apple.com/auth/authorize\",\"tokenUrl\":\"https://appleid.apple.com/auth/token\"}"
@@ -217,7 +225,7 @@ outside="http://localhost:$port/realms/elsewhere/protocol/openid-connect"
 inside="http://$name:8080/realms/elsewhere/protocol/openid-connect"
 calm kc create identity-provider/instances -r $realm -s alias=github -s providerId=oidc \
   -s displayName=GitHub -s enabled=true -s trustEmail=false \
-  -s 'firstBrokerLoginFlowAlias=first broker login' \
+  -s firstBrokerLoginFlowAlias=$broker \
   -s "config={\"clientId\":\"kodosi\",\"clientSecret\":\"$secret\",\"clientAuthMethod\":\"client_secret_post\",\"authorizationUrl\":\"$outside/auth\",\"tokenUrl\":\"$inside/token\",\"userInfoUrl\":\"$inside/userinfo\",\"jwksUrl\":\"$inside/certs\",\"validateSignature\":\"false\",\"defaultScope\":\"openid profile email\",\"syncMode\":\"IMPORT\",\"pkceEnabled\":\"true\",\"pkceMethod\":\"S256\"}"
 calm kc create identity-provider/instances/github/mappers -r $realm \
   -s 'name=kodosi user name' -s identityProviderAlias=github \

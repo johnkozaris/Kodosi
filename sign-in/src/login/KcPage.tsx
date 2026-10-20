@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import { useI18n } from "./i18n";
 import type { KcContext } from "./KcContext";
 import { CheckPage } from "./pages/check";
-import { LinkAccount, LinkByEmail, Ways } from "./pages/choices";
+import { LinkAccount, LinkByEmail, ReplaceLink, Ways } from "./pages/choices";
 import { ConfigTotp, Otp, RecoveryConfig, RecoveryInput } from "./pages/codes";
 import { DeviceCode, Grant } from "./pages/device";
 import { NewEmail, Register, ReviewProfile, Welcome } from "./pages/join";
@@ -62,6 +62,8 @@ export default function KcPage({ kcContext }: { kcContext: KcContext }) {
       return <Ways kcContext={kcContext} i18n={i18n} />;
     case "login-idp-link-confirm.ftl":
       return <LinkAccount kcContext={kcContext} i18n={i18n} />;
+    case "login-idp-link-confirm-override.ftl":
+      return <ReplaceLink kcContext={kcContext} i18n={i18n} />;
     case "login-idp-link-email.ftl":
       return <LinkByEmail kcContext={kcContext} i18n={i18n} />;
     case "info.ftl":

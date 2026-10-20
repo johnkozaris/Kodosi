@@ -199,6 +199,12 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsLinkReview: "Check my details",
       kdsLinkEmailLead: "We sent a link to the email of your account. Open it to add {0}.",
       kdsLinkVerified: "I opened the link",
+      kdsReplaceTitle: "Change your {0} account?",
+      kdsReplaceLead: "Your account signs in with {0} now.",
+      kdsReplaceLeadPlain: "Your account signs in with a different {0} account now.",
+      kdsReplaceUse: "Use {0}",
+      kdsReplaceKeep: "Keep {0}",
+      kdsReplaceKeepPlain: "Keep the account I have",
 
       // The words never say whether an account exists.
       invalidUserMessage: "That name or password is not right.",
@@ -215,6 +221,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       notMatchPasswordMessage: "The two passwords are not the same.",
       usernameExistsMessage: "That username is taken. Pick a different one.",
       federatedIdentityConfirmLinkMessage: "An account with the {0} {1} exists already.",
+      federatedIdentityConfirmOverrideMessage: "Your account signs in with {4} now.",
+      federatedIdentityConfirmReauthenticateMessage: "Sign in to your account to add {0}.",
       "error-user-attribute-required": "Fill in each marked row.",
       termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",

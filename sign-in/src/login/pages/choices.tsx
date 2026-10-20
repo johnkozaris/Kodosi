@@ -6,9 +6,10 @@ import {
   Link2,
   Mail,
   Smartphone,
+  Undo2,
   UserRound,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { ActionRow } from "../../parts/rows";
 import { IconTile, type Tint } from "../../parts/tile";
@@ -116,10 +117,75 @@ export function LinkAccount({ kcContext, i18n }: Page<"login-idp-link-confirm.ft
   );
 }
 
+export function ReplaceLink({ kcContext, i18n }: Page<"login-idp-link-confirm-override.ftl">) {
+  const { url, idpDisplayName, brokerContext, message } = kcContext;
+  const { msgStr } = i18n;
+  const linked = valueIn(i18n, message?.summary, "federatedIdentityConfirmOverrideMessage");
+  const next = brokerContext?.username;
+  return (
+    <Stage
+      kcContext={kcContext}
+      i18n={i18n}
+      title={msgStr("kdsReplaceTitle", idpDisplayName)}
+      lead={
+        linked ? msgStr("kdsReplaceLead", linked) : msgStr("kdsReplaceLeadPlain", idpDisplayName)
+      }
+      quiet
+    >
+      <form id="kc-register-form" action={url.loginAction} method="post">
+        <ActionRow
+          name="submitAction"
+          id="confirmOverride"
+          value="confirmOverride"
+          tile={<IconTile tint="copper" icon={<Link2 />} />}
+          title={next ? msgStr("kdsReplaceUse", next) : msgStr("kdsLinkAdd")}
+        />
+        <ActionRow
+          href={url.loginRestartFlowUrl}
+          id="loginRestartLink"
+          tile={<IconTile tint="shell" icon={<Undo2 />} />}
+          title={linked ? msgStr("kdsReplaceKeep", linked) : msgStr("kdsReplaceKeepPlain")}
+        />
+      </form>
+    </Stage>
+  );
+}
+
+const LINK_SENT = "kodosi.link-sent";
+const RESEND_AFTER = 30;
+
+function secondsSinceSent(): number {
+  try {
+    return (Date.now() - Number(sessionStorage.getItem(LINK_SENT) ?? 0)) / 1000;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+function markSent() {
+  try {
+    sessionStorage.setItem(LINK_SENT, `${Date.now()}`);
+  } catch {}
+}
+
 export function LinkByEmail({ kcContext, i18n }: Page<"login-idp-link-email.ftl">) {
   const { url, idpAlias } = kcContext;
   const { msgStr } = i18n;
   const service = (kcContext as { idpDisplayName?: string }).idpDisplayName || idpAlias;
+  // Keycloak sends one more mail each time this page address opens before the link is used.
+  const [since] = useState(secondsSinceSent);
+  const [again, setAgain] = useState(since < 15);
+  const [wait, setWait] = useState(Math.max(0, Math.ceil(RESEND_AFTER - since)));
+  useEffect(() => {
+    if (!again) return;
+    const timer = window.setTimeout(() => setAgain(false), 2600);
+    return () => clearTimeout(timer);
+  }, [again]);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const timer = window.setTimeout(() => setWait((now) => now - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [wait]);
   return (
     <Stage
       kcContext={kcContext}
@@ -130,14 +196,33 @@ export function LinkByEmail({ kcContext, i18n }: Page<"login-idp-link-email.ftl"
     >
       <ActionRow
         href={url.loginAction}
+        onClick={markSent}
         tile={<IconTile tint="green" icon={<Check />} />}
         title={msgStr("kdsLinkVerified")}
       />
-      <ActionRow
-        href={url.loginAction}
-        tile={<IconTile tint="teal" icon={<Mail />} />}
-        title={msgStr("kdsSendAgain")}
-      />
+      {again ? (
+        <ActionRow
+          type="button"
+          disabled
+          tile={<IconTile tint="green" icon={<Check />} />}
+          title={<span className="pop inline-block">{msgStr("kdsSentAgain")}</span>}
+        />
+      ) : wait > 0 ? (
+        <ActionRow
+          type="button"
+          disabled
+          tile={<IconTile tint="teal" icon={<Mail />} />}
+          title={msgStr("kdsSendAgain")}
+          detail={<span className="tabular-nums">{msgStr("kdsSendAgainIn", `${wait}`)}</span>}
+        />
+      ) : (
+        <ActionRow
+          href={url.loginAction}
+          onClick={markSent}
+          tile={<IconTile tint="teal" icon={<Mail />} />}
+          title={msgStr("kdsSendAgain")}
+        />
+      )}
     </Stage>
   );
 }
