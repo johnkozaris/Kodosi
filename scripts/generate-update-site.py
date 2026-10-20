@@ -173,6 +173,7 @@ def main() -> None:
         + "\n",
         encoding="utf-8",
     )
+    (site / "robots.txt").write_text("User-agent: *\nDisallow: /\n", encoding="utf-8")
     (site / "_redirects").write_text(
         f"/apt/pool/:version/:file https://github.com/{REPOSITORY}/releases/download/v:version/:file 302\n"
         + "".join(f"/download/{platform} {download}/{files[platform].name} 302\n" for platform in downloads),

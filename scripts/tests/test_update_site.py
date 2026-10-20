@@ -84,6 +84,7 @@ class UpdateSiteTest(unittest.TestCase):
             sums = (root / "release/SHA256SUMS").read_text(encoding="utf-8")
             self.assertIn(f"{hashlib.sha256(b'disk image').hexdigest()}  Kodosi-{VERSION}.dmg\n", sums)
             self.assertEqual((site / "macos/appcast.xml").read_text(encoding="utf-8"), "<rss/>")
+            self.assertEqual((site / "robots.txt").read_text(encoding="utf-8"), "User-agent: *\nDisallow: /\n")
 
     def test_a_package_of_another_version_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
