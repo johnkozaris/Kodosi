@@ -4,7 +4,8 @@ set -euo pipefail
 
 folder=${1:?Usage: make-signing-certificate.sh <new folder>}
 
-mkdir -m 700 "$folder"
+umask 077
+mkdir "$folder"
 cat > "$folder/openssl.cnf" <<'EOF'
 [req]
 prompt = no

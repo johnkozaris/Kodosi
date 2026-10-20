@@ -58,8 +58,6 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: runtime
-      - name: Build, test and package the app
-        run: KODOSI_MSIX_PUBLISHER="CN=Kodosi" just --justfile clients/qt/justfile windows-package
       - name: Make a test certificate like the release certificate
         run: clients/qt/scripts/release/make-signing-certificate.sh "$(cygpath -u "$RUNNER_TEMP")/certificate"
       - name: Put the test key in the certificate store
@@ -67,6 +65,8 @@ jobs:
         run: |
           Import-PfxCertificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.pfx" `
             -CertStoreLocation Cert:\CurrentUser\My -Password (New-Object System.Security.SecureString) | Out-Null
+      - name: Build, test and package the app
+        run: KODOSI_MSIX_PUBLISHER="CN=Kodosi" just --justfile clients/qt/justfile windows-package
       - name: Bundle the package and sign the bundle
         working-directory: clients/qt
         run: |
@@ -79,9 +79,9 @@ jobs:
           Import-Certificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.cer" `
             -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
           $version = (Get-Content VERSION).Trim()
-          Add-AppxPackage -Path "clients\qt\build\release\Kodosi-$version.msixbundle"
+          Add-AppxPackage -Path (Resolve-Path "clients\qt\build\release\Kodosi-$version.msixbundle").Path
           $output = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\kodosi.exe" --version
-          if ($LASTEXITCODE -ne 0 -or $output -notmatch [regex]::Escape($version)) {
+          if ($LASTEXITCODE -ne 0 -or "$output" -notmatch [regex]::Escape($version)) {
             throw "kodosi --version printed '$output'"
           }
           Get-AppxPackage com.kodosi.Kodosi | Remove-AppxPackage
