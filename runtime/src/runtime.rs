@@ -357,6 +357,7 @@ struct Local {
     entry: SessionEntry,
     creation: Command,
     published: bool,
+    room_sequence: u64,
     worktree: Option<crate::worktree::Worktree>,
 }
 
@@ -393,6 +394,7 @@ impl Local {
                     .mission_id
                     .as_deref()
                     .and_then(|id| Uuid::parse_str(id).ok()),
+                room_sequence: self.room_sequence,
                 shared_with: self.entry.shared_with.iter().cloned().collect(),
             },
             self.terminal.host_requests.clone(),
@@ -1637,13 +1639,24 @@ impl Runtime {
             .get("sharedWith")
             .cloned()
             .and_then(|users| serde_json::from_value::<Vec<String>>(users).ok());
-        if let (Some(id), Some(incarnation), Some(users)) = (id, incarnation, users)
+        let room = event
+            .get("missionId")
+            .cloned()
+            .and_then(|room| serde_json::from_value::<Option<Uuid>>(room).ok());
+        let sequence = event.get("roomSequence").and_then(Value::as_u64);
+        let administering = id.is_some_and(|id| self.administering.contains(&id));
+        if let (Some(id), Some(incarnation), Some(users), Some(room), Some(sequence)) =
+            (id, incarnation, users, room, sequence)
             && let Some(local) = self
                 .local
                 .get_mut(&id)
                 .filter(|local| local.terminal.incarnation_id == incarnation)
         {
             local.entry.shared_with = users;
+            if !administering {
+                local.entry.mission_id = room.map(|room| room.to_string());
+            }
+            local.room_sequence = sequence;
             self.publish_catalog();
         }
     }
@@ -1670,8 +1683,9 @@ impl Runtime {
                 && !self.publishing.contains(&remote.id)
             {
                 local.entry.name.clone_from(&remote.name);
-                local.entry.mission_id = remote.mission_id.map(|id| id.to_string());
-                local.entry.mission_name.clone_from(&remote.mission_name);
+                local.entry.mission_name = remote.mission_name.clone().filter(|_| {
+                    local.entry.mission_id == remote.mission_id.map(|id| id.to_string())
+                });
                 local
                     .entry
                     .shared_with

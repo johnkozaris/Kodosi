@@ -84,6 +84,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.HostDeviceId).HasMaxLength(256);
             e.Property(x => x.HostName).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(128);
+            e.Property(x => x.RoomDeviceId).HasMaxLength(256);
             e.Property(x => x.AuthorizationRevision).IsConcurrencyToken();
             e.HasIndex(x => x.IncarnationId).IsUnique();
             e.HasIndex(x => new { x.Ended, x.ExpiresAt });

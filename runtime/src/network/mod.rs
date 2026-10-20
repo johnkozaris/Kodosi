@@ -147,6 +147,7 @@ pub struct LocalPublication {
     pub incarnation_id: Uuid,
     pub name: String,
     pub mission_id: Option<Uuid>,
+    pub room_sequence: u64,
     pub shared_with: BTreeSet<String>,
 }
 

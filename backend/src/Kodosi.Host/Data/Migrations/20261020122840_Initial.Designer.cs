@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kodosi.Data.Migrations
 {
     [DbContext(typeof(KodosiDbContext))]
-    [Migration("20261017112123_DropIdentityRevision")]
-    partial class DropIdentityRevision
+    [Migration("20261020122840_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -234,6 +234,9 @@ namespace Kodosi.Data.Migrations
                     b.Property<long>("ContentSequence")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("Dosi")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("HistoryTrimmed")
                         .HasColumnType("boolean");
 
@@ -251,6 +254,10 @@ namespace Kodosi.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("Dosi", "OwnerUserId")
+                        .IsUnique()
+                        .HasFilter("\"Dosi\"");
 
                     b.ToTable("missions", (string)null);
                 });
@@ -440,6 +447,16 @@ namespace Kodosi.Data.Migrations
 
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("RoomDeviceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("RoomSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RoomSignature")
+                        .HasColumnType("bytea");
 
                     b.HasKey("Id");
 

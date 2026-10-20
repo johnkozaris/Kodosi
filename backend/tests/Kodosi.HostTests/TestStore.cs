@@ -79,6 +79,9 @@ internal sealed class TestStore : IAsyncDisposable
 internal sealed record TestUser(User User, DeviceFixture Fixture, Device Device)
 {
     public ApprovedDevice Approved => ApprovedDevice.From(Device);
+
+    public SessionService.RoomChoiceWrite RoomChoice(Guid terminal, Guid incarnation, Guid? room, long sequence) =>
+        new(Device.Id, sequence, Convert.ToBase64String(Fixture.Sign(Proofs.TerminalRoom(User.Id, terminal, incarnation, room, sequence, Device.Id))));
 }
 
 internal sealed class ManualClock : TimeProvider

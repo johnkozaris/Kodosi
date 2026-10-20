@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Kodosi.Accounts;
 using Kodosi.Missions;
 using Kodosi.Plans;
+using Kodosi.Security;
 using Kodosi.TerminalConnections;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Routing;
@@ -65,6 +66,16 @@ public sealed partial class ContractTests(PostgresFixture postgres)
         Assert.Equal(promised.Order(), routes.Where(x => x.Contains(" /api/", StringComparison.Ordinal)).Order());
         Assert.Contains("GET " + connections.GetProperty("routes").GetProperty("device").GetString(), routes);
         Assert.Equal(routes.Count, routes.Distinct().Count());
+    }
+
+    [Fact]
+    public void TheTerminalRoomProofHasTheBytesOfTheSharedVector()
+    {
+        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV1");
+        Guid Id(string name) => Guid.Parse(vector.GetProperty(name).GetString()!);
+        var bytes = Proofs.TerminalRoom(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("roomId"),
+            vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
+        Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
     }
 
     [Fact]

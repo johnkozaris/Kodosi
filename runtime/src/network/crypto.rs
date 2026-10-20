@@ -107,6 +107,28 @@ pub fn device_session_proof_preimage(
     Ok(bytes)
 }
 
+pub(crate) fn terminal_room_preimage(
+    owner_id: &str,
+    terminal: Uuid,
+    incarnation: Uuid,
+    room: Option<Uuid>,
+    sequence: u64,
+    device_id: &str,
+) -> Result<Vec<u8>> {
+    let room = room.map(|room| room.to_string()).unwrap_or_default();
+    signed_fields(
+        b"kodosi-terminal-room-v1",
+        &[
+            owner_id.as_bytes(),
+            terminal.to_string().as_bytes(),
+            incarnation.to_string().as_bytes(),
+            room.as_bytes(),
+            &sequence.to_be_bytes(),
+            device_id.as_bytes(),
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,28 +159,50 @@ mod tests {
 
     #[test]
     fn the_device_session_proof_vector_matches_the_current_manifest() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../protocol/crypto-domains.json");
-        let manifest: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        let vector = &manifest["deviceProofPreimageVectors"]["sessionV1"];
+        let vector = vector("sessionV1");
         let text = |key: &str| vector[key].as_str().unwrap().to_owned();
-        let hex = |value: String| {
-            value
-                .as_bytes()
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
-                .collect::<Vec<_>>()
-        };
         let bytes = device_session_proof_preimage(
             &text("userId"),
             &text("deviceId"),
             &Uuid::parse_str(&text("challengeId")).unwrap(),
-            &hex(text("challengeHex")),
+            &hex(&text("challengeHex")),
         )
         .unwrap();
-        assert_eq!(bytes, hex(text("preimageHex")));
+        assert_eq!(bytes, hex(&text("preimageHex")));
+    }
+
+    #[test]
+    fn the_terminal_room_vector_matches_the_current_manifest() {
+        let vector = vector("terminalRoomV1");
+        let text = |key: &str| vector[key].as_str().unwrap().to_owned();
+        let id = |key: &str| Uuid::parse_str(&text(key)).unwrap();
+        let bytes = terminal_room_preimage(
+            &text("ownerId"),
+            id("terminalId"),
+            id("incarnationId"),
+            Some(id("roomId")),
+            vector["sequence"].as_u64().unwrap(),
+            &text("deviceId"),
+        )
+        .unwrap();
+        assert_eq!(bytes, hex(&text("preimageHex")));
+    }
+
+    fn vector(name: &str) -> serde_json::Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../protocol/crypto-domains.json");
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        manifest["deviceProofPreimageVectors"][name].clone()
+    }
+
+    fn hex(value: &str) -> Vec<u8> {
+        value
+            .as_bytes()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect()
     }
 }

@@ -177,10 +177,14 @@ async fn current_publication(
             {
                 return Err(Error::Stale);
             }
-            if dto.mission_id.is_some() {
+            let local = (info.mission_id, info.room_sequence);
+            if let Some((room, sequence)) = network.room_change(credentials, local, &dto).await {
                 let mut local = publication.info.write().await;
-                local.mission_id = dto.mission_id;
-                local.shared_with = dto.shared_with.iter().cloned().collect();
+                local.mission_id = room;
+                local.room_sequence = sequence;
+                if room.is_some() {
+                    local.shared_with = dto.shared_with.iter().cloned().collect();
+                }
             }
             *publication.dto.write().await = dto.clone();
             Ok(dto)

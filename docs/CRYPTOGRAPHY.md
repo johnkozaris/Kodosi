@@ -48,6 +48,10 @@ authenticated data starts with a domain label, and each field carries its length
   only the host device's approved key. The host admits only verified, non-recovery
   devices of accounts that may use the terminal, and checks again when sharing or
   devices change.
+- **Terminal rooms:** the device that puts a terminal into a room, or takes it out, signs
+  the change with a sequence. The host takes a room for its terminal only with the
+  signature of an approved device of its owner and a sequence newer than the last one
+  that it took.
 - **Room key states:** a hash chain signed by member devices. Only the owner adds members
   or removes others; a member can leave. Devices remember the newest state they
   accepted, to detect an older or forked history.
@@ -71,8 +75,8 @@ authenticated data starts with a domain label, and each field carries its length
 4. A friend added by username relies on the backend for the first identity.
 5. The link code is not a PAKE: the backend can guess it with about 2^80 work in its 10
    minutes.
-6. The backend can withhold or reorder room items, whose order is unsigned, and withhold
-   or change terminal status.
+6. The backend can withhold or reorder room items, whose order is unsigned, withhold or
+   change terminal status, and withhold a change of a terminal's room.
 7. Room keys do not change with use; one key should encrypt fewer than 2^32 records.
 8. A key state's time comes from its author; devices refuse only future times.
 9. A recovery key plus the account's sign-in approves a device. A device removed before
