@@ -493,6 +493,15 @@ def check_links(root: Path) -> None:
                 fail(f"{name} links {line.strip()}, which is outside {PRIVATE}")
 
 
+def check_home(root: Path) -> None:
+    home = str(Path.home()).encode("utf-8")
+    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
+        data = (root / name).read_bytes()
+        if (start := data.find(home)) >= 0:
+            path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
+            fail(f"{name} names the home folder of the build: {path}")
+
+
 def check_desktop(root: Path) -> None:
     lines = (root / DESKTOP).read_text(encoding="utf-8").splitlines()
     for line in ("Exec=kodosi-qt %u", "MimeType=x-scheme-handler/kodosi;"):
@@ -538,6 +547,7 @@ def main() -> None:
                 check_repository(package, root)
             check_files(root, qt_version)
             check_links(root)
+            check_home(root)
             check_desktop(root)
     except PackageError as error:
         raise SystemExit(f"Linux package error: {package.name}: {error}") from None

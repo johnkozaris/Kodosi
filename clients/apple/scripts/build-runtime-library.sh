@@ -12,7 +12,11 @@ kodosi_apple_platform "$1"
 repository=$(kodosi_repository_root)
 case "$2" in
     Debug) profile=dev ;;
-    Release | WorkingTreeValidation) profile=release ;;
+    Release | WorkingTreeValidation)
+        profile=release
+        # A release names ~ in place of the home folder of the person who builds it.
+        export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~"
+        ;;
     *)
         echo "Unknown Xcode configuration: $2. Use Debug, Release or WorkingTreeValidation." >&2
         exit 64
