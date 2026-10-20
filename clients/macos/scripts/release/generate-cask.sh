@@ -25,6 +25,11 @@ hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$scratch/volu
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
     "$scratch/volume/Kodosi.app/Contents/Info.plist")
 hdiutil detach -quiet "$scratch/volume"
+if [[ $KODOSI_DOWNLOAD_URL != *"$version"* ]]; then
+    echo "$KODOSI_DOWNLOAD_URL does not name version $version." >&2
+    exit 1
+fi
+url=$(printf '%s' "$KODOSI_DOWNLOAD_URL" | sed "s/${version//./\\.}/#{version}/g")
 mkdir -p "$(dirname "$output")"
 # No zap stanza: an uninstall keeps the Kodosi data and the device identity of this Mac.
 cat >"$output" <<RUBY
@@ -32,7 +37,7 @@ cask "kodosi" do
   version "$version"
   sha256 "$sha256"
 
-  url "$KODOSI_DOWNLOAD_URL"
+  url "$url"
   name "Kodosi"
   desc "Shared terminals and rooms for people and their coding agents"
   homepage "https://kodosi.com"
@@ -44,7 +49,7 @@ cask "kodosi" do
 
   auto_updates true
   depends_on arch: :arm64
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Kodosi.app"
   binary "#{appdir}/Kodosi.app/Contents/MacOS/Kodosi", target: "kodosi"
