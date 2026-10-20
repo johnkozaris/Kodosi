@@ -46,8 +46,8 @@ up data before migrating. For a local backend on `127.0.0.1:5180` that signs in 
 `auth.kodosi.com`, give [compose.yaml](../compose.yaml) a new PostgreSQL volume:
 
 ```sh
-docker volume create kodosi-docs-dev-postgres
-export KODOSI_POSTGRES_VOLUME=kodosi-docs-dev-postgres
+docker volume create kodosi-dev-postgres
+export KODOSI_POSTGRES_VOLUME=kodosi-dev-postgres
 just backend-docker-run
 ```
 

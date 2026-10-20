@@ -97,7 +97,7 @@ A state has one moving sign: the light circling a working terminal's mark, or Do
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.
-- **Do** keep native focus, labels, stable accessibility identifiers and selectable message text.
+- **Do** keep native focus, labels, stable accessibility identifiers, localizable text and selectable message text.
 - **Do** keep hidden terminal surfaces inactive, and let Core Animation run anything that loops.
 - **Don't** clip or scale the terminal surface; inset it in its tile.
 - **Don't** put a glow, blur, colored shadow, gradient, gloss or bright rim on a mark, cursor or button, or use copper as decoration.

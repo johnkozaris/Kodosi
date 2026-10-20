@@ -45,10 +45,3 @@ sidebar, the rail and the terminal tiles of this computer, and ⌘J does nothing
 Preview saved Claude Code and Copilot CLI conversations without changing them. Resume
 starts a new terminal through the provider's own CLI. Settings opens provider settings
 without editing them.
-
-## Experience
-
-Keep the terminal central and the actions clear, and show objects before explanations.
-Motion follows an action or a real change of state and never moves the terminal
-surface. Focus, accessibility, localization and reduced motion matter; Settings can
-reduce motion when the system does not.
