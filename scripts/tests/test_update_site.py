@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "generate-update-site.py"
+WINDOWS_CERTIFICATE = Path(__file__).resolve().parents[2] / "clients/qt/packaging/windows/Kodosi.cer"
 VERSION = "1.2.3"
 
 
@@ -98,6 +99,7 @@ class UpdateSiteTest(unittest.TestCase):
             appinstaller = (site / "windows/Kodosi.appinstaller").read_text(encoding="utf-8")
             self.assertIn(f'Version="{VERSION}.0"', appinstaller)
             self.assertIn("Content-Type: application/appinstaller", (site / "_headers").read_text(encoding="utf-8"))
+            self.assertEqual((site / "windows/Kodosi.cer").read_bytes(), WINDOWS_CERTIFICATE.read_bytes())
             download = f"https://github.com/johnkozaris/Kodosi/releases/download/v{VERSION}"
             redirects = (site / "_redirects").read_text(encoding="utf-8")
             self.assertIn(f"/download/windows {download}/Kodosi-{VERSION}.msixbundle 302\n", redirects)

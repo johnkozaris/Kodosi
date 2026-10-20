@@ -69,7 +69,7 @@ windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
         PATH="$(cygpath -u "$PWD")/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
-# Build, test, package and verify the MSIX; for a signed release, set KODOSI_MSIX_PUBLISHER to the certificate subject.
+# Build, test, package and verify the MSIX; for a release, set KODOSI_MSIX_PUBLISHER to CN=Kodosi.
 windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
@@ -87,16 +87,16 @@ windows-package: tools-install
             --build-dir build/windows-release \
             --qt-root ".tools/Qt/$KODOSI_QT_ARCH"
 
-# Sign a package or the bundle with Azure Artifact Signing.
+# Sign a package or the bundle with the key of packaging/windows/Kodosi.cer from the user's certificate store.
 windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-# Put the x64 and ARM64 packages from windows-package in build/release/Kodosi-<version>.msixbundle.
+# Put the packages from windows-package in build/release/Kodosi-<version>.msixbundle.
 windows-bundle:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/bundle-msix.sh "build/release/Kodosi-{{ version }}.msixbundle" \
-            "build/release/kodosi-{{ version }}-windows-x64.msix" "build/release/kodosi-{{ version }}-windows-arm64.msix"
+            build/release/kodosi-{{ version }}-windows-*.msix
 
 # Package the committed Linux release twice, compare and verify the packages, and write the release manifest.
 release-package: tools-install
