@@ -43,21 +43,26 @@ enum RoomAction {
     Show,
     /// Read the conversation.
     Read {
+        /// Print only the messages after this sequence number.
         #[arg(long)]
         since: Option<u64>,
+        /// Print the messages before this sequence number.
         #[arg(long)]
         before: Option<u64>,
     },
     /// Post a message.
     Post {
         text: String,
+        /// The name of the agent that writes, for example Claude Code.
         #[arg(long)]
         agent: Option<String>,
     },
     /// Wait for activity in the room.
     Wait {
+        /// The longest wait, in seconds.
         #[arg(long, default_value_t = 60)]
         timeout: u64,
+        /// Wait for activity after this sequence number.
         #[arg(long)]
         after: Option<u64>,
     },
@@ -74,49 +79,54 @@ enum RoomAction {
 }
 #[derive(Subcommand)]
 enum TaskAction {
+    /// List the tasks.
     List {
+        /// List only the open tasks that nobody claimed.
         #[arg(long)]
         available: bool,
     },
+    /// Put a task up for grabs.
     Create {
         title: String,
+        /// What the task needs.
         #[arg(long, default_value = "")]
         description: String,
+        /// Link a repository of the room. Repeat it for more.
         #[arg(long = "repo")]
         repositories: Vec<String>,
     },
-    Claim {
-        task: String,
-    },
-    Release {
-        task: String,
-    },
+    /// Take a task.
+    Claim { task: String },
+    /// Give a task back.
+    Release { task: String },
+    /// Close a task.
     Close {
         task: String,
+        /// The result or a pull request link.
         #[arg(long)]
         note: Option<String>,
     },
-    Reopen {
-        task: String,
-    },
-    Import {
-        repository: String,
-        number: u64,
-    },
+    /// Open a closed task again.
+    Reopen { task: String },
+    /// Make a task of a GitHub or Gitea issue. A change of the task changes the issue.
+    Import { repository: String, number: u64 },
 }
 #[derive(Subcommand)]
 enum RepoAction {
+    /// List the repositories.
     List,
+    /// Link a repository, by default the origin of the current folder's checkout.
     Add {
         url: Option<String>,
+        /// Use the origin of the checkout in this folder.
         #[arg(long)]
         directory: Option<PathBuf>,
+        /// github or gitea, when the address does not show it.
         #[arg(long)]
         provider: Option<String>,
     },
-    Issues {
-        repository: String,
-    },
+    /// List the open issues of a repository.
+    Issues { repository: String },
 }
 
 fn terminal() -> Option<String> {
