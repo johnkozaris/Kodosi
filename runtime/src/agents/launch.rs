@@ -97,11 +97,7 @@ impl Launcher {
     }
 
     pub fn choose(&self, change: &AgentChoiceChange) {
-        let mut state = self.state();
-        match change {
-            AgentChoiceChange::Tab { agent } => state.saved.agent = *agent,
-            AgentChoiceChange::Pick(pick) => state.saved.set(pick.clone()),
-        }
+        self.state().saved.apply(change);
     }
 
     pub async fn save(self: Arc<Self>) {
@@ -188,7 +184,7 @@ impl Launcher {
 }
 
 impl AgentChoice {
-    pub(super) fn pick(&self, agent: Agent) -> AgentPick {
+    pub(crate) fn pick(&self, agent: Agent) -> AgentPick {
         self.picks
             .iter()
             .find(|pick| pick.agent == agent)
@@ -199,6 +195,13 @@ impl AgentChoice {
                 model: None,
                 effort: None,
             })
+    }
+
+    pub(crate) fn apply(&mut self, change: &AgentChoiceChange) {
+        match change {
+            AgentChoiceChange::Tab { agent } => self.agent = *agent,
+            AgentChoiceChange::Pick(pick) => self.set(pick.clone()),
+        }
     }
 
     fn set(&mut self, pick: AgentPick) {

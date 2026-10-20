@@ -6,8 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{DosiEntry, DosiLog, DosiRecord, DosiSetup};
-use crate::agents::Agent;
+use super::{DosiEntry, DosiLog, DosiRecord};
+use crate::agents::{Agent, AgentChoice};
 
 const STATE: &str = "state.json";
 const LOG: &str = "log.jsonl";
@@ -29,7 +29,7 @@ pub(super) struct ProviderSession {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Saved {
-    pub setup: DosiSetup,
+    pub setup: AgentChoice,
     pub sessions: Vec<ProviderSession>,
 }
 

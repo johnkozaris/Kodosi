@@ -9,20 +9,32 @@ ColumnLayout {
     id: root
 
     readonly property var details: Models.Dosi.details
-    readonly property var setup: details.setup || ({})
+    readonly property var choice: details.setup || ({})
     readonly property var installed: details.agents || []
-    readonly property string agent: setup.agent || installed[0] || ""
+    readonly property string agent: choice.agent || installed[0] || ""
+    readonly property var setup: (choice.picks || []).find(entry => entry.agent === agent) || ({})
     readonly property var info: Models.Launcher.agents.find(entry => entry.agent === agent) || null
     readonly property var modelSet: agent.length > 0 ? Models.Launcher.models[agent] : undefined
-    readonly property var model: modelSet ? (modelSet.models || []).find(entry => entry.id === setup.model) || null : null
-    readonly property var efforts: !modelSet ? [] : model ? (modelSet.efforts || []).filter(entry => (model.efforts || []).indexOf(entry.id) >= 0) : modelSet.efforts || []
+    readonly property var efforts: effortsFor(setup.model)
     readonly property var instructions: Models.Dosi.instructions
     property string draft: ""
     property bool editing: false
+    property bool saved: false
     readonly property bool changed: instructions.loaded === true && draft !== instructions.text
 
+    function effortsFor(id) {
+        if (!modelSet)
+            return []
+        const allowed = ((modelSet.models || []).find(entry => entry.id === id) || {}).efforts || []
+        return (modelSet.efforts || []).filter(entry => allowed.length === 0 || allowed.indexOf(entry.id) >= 0)
+    }
+    function chooseModel(id) {
+        const kept = effortsFor(id).some(entry => entry.id === setup.effort)
+        choose({ model: id, effort: (kept || !modelSet) ? setup.effort || "" : "" })
+    }
+
     function choose(next) {
-        Models.Dosi.configure(Object.assign({ agent: agent, account: setup.account || "", model: setup.model || "", effort: setup.effort || "" }, next))
+        Models.Dosi.choose(Object.assign({ type: "pick", agent: agent, account: setup.account || "", model: setup.model || "", effort: setup.effort || "" }, next))
     }
 
     spacing: 22
@@ -44,8 +56,17 @@ ColumnLayout {
             if (!root.changed || Models.Dosi.instructions.saving === false)
                 root.draft = Models.Dosi.instructions.text || ""
         }
+        function onSaved() {
+            root.saved = true
+            savedLife.restart()
+        }
 
         target: Models.Dosi
+    }
+    Timer {
+        id: savedLife
+        interval: 2000
+        onTriggered: root.saved = false
     }
 
     RowLayout {
@@ -66,6 +87,7 @@ ColumnLayout {
                 font.weight: Font.DemiBold
             }
             PlainLabel {
+                Layout.fillWidth: true
                 text: qsTr("Your agent for your agents")
                 color: KodosiTheme.inkMuted
                 font.pixelSize: KodosiTheme.fontFootnote
@@ -77,7 +99,7 @@ ColumnLayout {
             identifier: "settings.dosi.agent"
             options: root.installed.map(entry => ({ value: entry, label: Models.DesktopSettings.agentLabel(entry) }))
             currentValue: root.agent
-            onActivated: value => Models.Dosi.configure({ agent: value })
+            onActivated: value => Models.Dosi.choose({ type: "tab", agent: value })
         }
     }
     ListGroup {
@@ -105,50 +127,91 @@ ColumnLayout {
             }
         }
     }
-    ListGroup {
+    ColumnLayout {
         Layout.fillWidth: true
         visible: Models.DesktopState.dosiOn && root.agent.length > 0
-        footer: qsTr("Dosi works in its own folder with the account that you choose here.")
+        spacing: 8
 
-        ListRow {
-            title: Models.DesktopSettings.agentLabel(root.agent)
-            subtitle: qsTr("Account")
-            leading: AgentMark { program: root.agent; size: 28 }
+        ListGroup {
+            Layout.fillWidth: true
 
-            Picker {
-                objectName: "settings.dosi.account"
-                values: [{ value: "", label: qsTr("Default") }].concat((root.info ? root.info.accounts : [])
-                    .filter(entry => entry.name !== "default")
-                    .map(entry => ({ value: entry.name, label: entry.identity || entry.name })))
-                current: root.setup.account || ""
-                onPicked: value => root.choose({ account: value })
+            ListRow {
+                title: Models.DesktopSettings.agentLabel(root.agent)
+                subtitle: qsTr("Account")
+                leading: AgentMark { program: root.agent; size: 28 }
+
+                Picker {
+                    objectName: "settings.dosi.account"
+                    values: [{ value: "", label: qsTr("Default") }].concat((root.info ? root.info.accounts : [])
+                        .filter(entry => entry.name !== "default")
+                        .map(entry => ({ value: entry.name, label: entry.identity || entry.name })))
+                    current: root.setup.account || ""
+                    onPicked: value => root.choose({ account: value })
+                }
+            }
+            ListRow {
+                title: qsTr("Model")
+                iconName: "cube"
+                tint: "#8660d9"
+
+                Picker {
+                    objectName: "settings.dosi.model"
+                    values: [{ value: "", label: qsTr("The agent's choice") }].concat((root.modelSet ? root.modelSet.models : [])
+                        .map(entry => ({ value: entry.id, label: entry.label })))
+                    current: root.setup.model || ""
+                    onPicked: value => root.chooseModel(value)
+                }
+            }
+            ListRow {
+                visible: root.efforts.length > 0
+                title: qsTr("Effort")
+                iconName: "sparkle"
+                tint: "#4f9bb0"
+
+                Picker {
+                    objectName: "settings.dosi.effort"
+                    values: [{ value: "", label: qsTr("The agent's choice") }].concat(root.efforts
+                        .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
+                    current: root.setup.effort || ""
+                    onPicked: value => root.choose({ effort: value })
+                }
             }
         }
-        ListRow {
-            title: qsTr("Model")
-            iconName: "cube"
-            tint: "#8660d9"
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            Layout.rightMargin: 4
+            spacing: 6
 
-            Picker {
-                objectName: "settings.dosi.model"
-                values: [{ value: "", label: qsTr("The agent's choice") }].concat((root.modelSet ? root.modelSet.models : [])
-                    .map(entry => ({ value: entry.id, label: entry.label })))
-                current: root.setup.model || ""
-                onPicked: value => root.choose({ model: value, effort: "" })
+            PlainLabel {
+                Layout.fillWidth: true
+                text: qsTr("Dosi uses these from your next message.")
+                color: KodosiTheme.inkFaint
+                font.pixelSize: KodosiTheme.fontCaption
+                wrapMode: Text.WordWrap
             }
-        }
-        ListRow {
-            visible: root.efforts.length > 0
-            title: qsTr("Effort")
-            iconName: "sparkle"
-            tint: "#4f9bb0"
+            Row {
+                spacing: 4
+                opacity: root.saved ? 1 : 0
+                scale: root.saved ? 1 : 0.9
+                objectName: "settings.dosi.saved"
 
-            Picker {
-                objectName: "settings.dosi.effort"
-                values: [{ value: "", label: qsTr("The agent's choice") }].concat(root.efforts
-                    .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
-                current: root.setup.effort || ""
-                onPicked: value => root.choose({ effort: value })
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+
+                KIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 11
+                    height: 11
+                    name: "check"
+                    color: KodosiTheme.ready
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("Saved")
+                    color: KodosiTheme.ready
+                    font.pixelSize: KodosiTheme.fontCaption
+                }
             }
         }
     }

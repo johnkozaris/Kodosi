@@ -48,6 +48,15 @@ public final class DosiStore {
         return true
     }
 
+    public var pending: Bool {
+        guard state == .working, snapshot?.remote == nil else { return false }
+        switch items.last?.body {
+        case let .question(question)?: return !question.open
+        case let body?: return !body.live
+        case nil: return true
+        }
+    }
+
     public func reset() {
         snapshot = nil
         items = []
@@ -131,8 +140,8 @@ public final class DosiStore {
         _ = try await commands.request("dosi.new")
     }
 
-    public func configure(_ setup: DosiSetup) async throws {
-        _ = try await commands.request("dosi.setup", ["setup": setup.json])
+    public func choose(_ change: AgentChoiceChange) async throws {
+        _ = try await commands.request("dosi.setup", ["change": change.json])
     }
 
     public func instructions() async throws -> DosiInstructions {

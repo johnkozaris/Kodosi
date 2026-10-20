@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use super::{
     AGENTS, DosiAgent, DosiBody, DosiConversation, DosiEntry, DosiInstructions, DosiItem, DosiLog,
-    DosiPage, DosiQueued, DosiRecord, DosiRemote, DosiSetup, DosiSnapshot, DosiState, DosiTone,
+    DosiPage, DosiQueued, DosiRecord, DosiRemote, DosiSnapshot, DosiState, DosiTone,
     DosiToolStatus, SharedInstructions, TOKEN_VARIABLE,
     adapters::{Adapter, Choice, Event},
     context,
@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{
     Error, Result,
-    agents::{self, Agent, Launcher},
+    agents::{self, Agent, AgentChoice, AgentChoiceChange, Launcher},
 };
 
 const IDLE_LIFE: Duration = Duration::from_mins(10);
@@ -221,7 +221,7 @@ pub(crate) struct Engine {
     store: Store,
     folder: PathBuf,
     messages: mpsc::Sender<Message>,
-    setup: DosiSetup,
+    setup: AgentChoice,
     sessions: Vec<ProviderSession>,
     agents: Vec<DosiAgent>,
     log: Log,
@@ -384,9 +384,8 @@ impl Engine {
 
     fn account(&self, agent: Agent) -> String {
         self.setup
+            .pick(agent)
             .account
-            .clone()
-            .filter(|_| self.setup.agent == Some(agent))
             .unwrap_or_else(|| "default".to_owned())
     }
 
@@ -433,9 +432,9 @@ impl Engine {
             .unwrap_or_default();
         let snapshot = DosiSnapshot {
             state,
-            setup: DosiSetup {
+            setup: AgentChoice {
                 agent: self.agent(),
-                ..self.setup.clone()
+                picks: AGENTS.map(|agent| self.setup.pick(agent)).to_vec(),
             },
             agents: self.agents.clone(),
             instructions_edited: self.edited,
@@ -651,7 +650,7 @@ impl Engine {
         }
         self.processes += 1;
         let process = self.processes;
-        let account = (self.setup.agent == Some(key.agent)).then(|| key.account.clone());
+        let account = self.setup.pick(key.agent).account;
         let runner = self.runners.runner(key.agent, account);
         self.preparing = Some((process, key, message, text));
         let messages = self.messages.clone();
@@ -689,13 +688,13 @@ impl Engine {
             })
         });
         self.save();
-        let chosen = self.setup.agent == Some(key.agent);
+        let pick = self.setup.pick(key.agent);
         let launch = adapter.launch(
             &Choice {
                 session: session_id.as_deref(),
                 resume: resuming,
-                model: self.setup.model.as_deref().filter(|_| chosen),
-                effort: self.setup.effort.as_deref().filter(|_| chosen),
+                model: pick.model.as_deref(),
+                effort: pick.effort.as_deref(),
             },
             &message,
         );
@@ -1185,12 +1184,18 @@ impl Engine {
         out.snapshot = true;
     }
 
-    pub(crate) fn configure(&mut self, setup: DosiSetup, out: &mut Output) -> Result<()> {
-        if setup.agent.is_some_and(|agent| !AGENTS.contains(&agent)) {
+    pub(crate) fn configure(&mut self, change: &AgentChoiceChange, out: &mut Output) -> Result<()> {
+        let agent = match change {
+            AgentChoiceChange::Tab { agent } => *agent,
+            AgentChoiceChange::Pick(pick) => Some(pick.agent),
+        };
+        if agent.is_some_and(|agent| !AGENTS.contains(&agent)) {
             return Err(Error::Invalid("Dosi cannot run on that agent.".to_owned()));
         }
-        if setup != self.setup {
-            self.setup = setup;
+        let used = |engine: &Self| engine.agent().map(|agent| engine.setup.pick(agent));
+        let before = used(self);
+        self.setup.apply(change);
+        if used(self) != before {
             self.restart_process();
         }
         self.save();

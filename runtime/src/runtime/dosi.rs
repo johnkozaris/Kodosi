@@ -69,8 +69,8 @@ impl Runtime {
                 self.dosi.renew(&mut out);
                 None
             }
-            Command::DosiConfigure { setup, .. } => {
-                self.dosi.configure(setup.clone(), &mut out)?;
+            Command::DosiConfigure { change, .. } => {
+                self.dosi.configure(change, &mut out)?;
                 None
             }
             Command::DosiReadInstructions { .. } => {

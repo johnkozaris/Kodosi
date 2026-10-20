@@ -131,6 +131,15 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(change?["change"] == .object(["type": .string("tab"), "agent": .string("codex")]))
 }
 
+@Test func aModelThatNamesNoEffortsTakesEveryEffort() {
+    let models = AgentModels(models: [AgentModel(id: "opus", label: "Opus", efforts: []),
+                                      AgentModel(id: "mini", label: "Mini", efforts: ["low"])],
+                             efforts: [AgentOption(id: "low"), AgentOption(id: "high")])
+    #expect(models.efforts(for: "opus").map(\.id) == ["low", "high"])
+    #expect(models.efforts(for: "mini").map(\.id) == ["low"])
+    #expect(models.efforts(for: nil).map(\.id) == ["low", "high"])
+}
+
 @Test func onlyALocalTerminalAtItsPromptOffersToStartAProgram() throws {
     func session(kind: String, prompt: Bool?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [

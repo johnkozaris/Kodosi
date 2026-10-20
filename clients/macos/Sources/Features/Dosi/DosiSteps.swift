@@ -34,6 +34,16 @@ struct DosiThought: View {
     }
 }
 
+struct DosiThinking: View {
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Text("thinking").font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
+            .padding(.leading, 14).frame(height: 18)
+            .accessibilityIdentifier("dosi.thinking")
+    }
+}
+
 struct DosiToolStatus: View {
     @Environment(\.theme) private var theme
     let status: DosiTool.Status

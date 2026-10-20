@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     Error, Result,
     agents::{Agent, AgentChoiceChange, AgentStart},
-    dosi::{DosiContext, DosiSetup},
+    dosi::DosiContext,
     identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
 };
@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 65;
+pub const VERSION: u32 = 66;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -535,7 +535,7 @@ pub enum Command {
     DosiConfigure {
         #[serde(rename = "requestId")]
         request_id: String,
-        setup: DosiSetup,
+        change: AgentChoiceChange,
     },
     #[serde(rename = "dosi.instructions.read")]
     DosiReadInstructions {
@@ -1569,14 +1569,6 @@ impl Command {
                     text(terminal, "terminal", 128)?;
                 }
             }
-            Self::DosiConfigure { setup, .. } => {
-                for value in [&setup.account, &setup.model, &setup.effort]
-                    .into_iter()
-                    .flatten()
-                {
-                    text(value, "choice", 128)?;
-                }
-            }
             Self::DosiWriteInstructions {
                 text: Some(instructions),
                 ..
@@ -1642,6 +1634,10 @@ impl Command {
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
             Self::ChooseAgent {
+                change: AgentChoiceChange::Pick(pick),
+                ..
+            }
+            | Self::DosiConfigure {
                 change: AgentChoiceChange::Pick(pick),
                 ..
             } => {
@@ -1971,7 +1967,8 @@ mod tests {
             json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":["work"]}),
             json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Which account?","options":["work","personal"],"multiple":false,"terminal":null}),
             json!({"type":"dosi.new","requestId":ID}),
-            json!({"type":"dosi.setup","requestId":ID,"setup":{"agent":"claude","account":"default","model":"opus","effort":"high"}}),
+            json!({"type":"dosi.setup","requestId":ID,"change":{"type":"pick","agent":"claude","account":"default","model":"opus","effort":"high"}}),
+            json!({"type":"dosi.setup","requestId":ID,"change":{"type":"tab","agent":"codex"}}),
             json!({"type":"dosi.instructions.read","requestId":ID}),
             json!({"type":"dosi.instructions.write","requestId":ID,"text":"# Dosi\n\nBe brief."}),
             json!({"type":"dosi.history","requestId":ID,"before":ID}),

@@ -51,6 +51,11 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
 struct AgentModels: Decodable, Equatable {
     var models: [AgentModel]
     var efforts: [AgentOption]
+
+    func efforts(for model: String?) -> [AgentOption] {
+        guard let allowed = models.first(where: { $0.id == model })?.efforts, !allowed.isEmpty else { return efforts }
+        return efforts.filter { allowed.contains($0.id) }
+    }
 }
 
 struct AgentModel: Decodable, Equatable, Identifiable {
@@ -66,52 +71,6 @@ struct AgentOption: Decodable, Equatable, Identifiable {
         switch id {
         case "xhigh": String(localized: "Extra high")
         default: id.prefix(1).uppercased() + id.dropFirst()
-        }
-    }
-}
-
-struct AgentChoice: Decodable, Equatable {
-    var agent: String?
-    var picks: [AgentPick] = []
-
-    func pick(_ agent: String) -> AgentPick {
-        picks.first { $0.agent == agent } ?? AgentPick(agent: agent)
-    }
-
-    mutating func apply(_ change: AgentChoiceChange) {
-        switch change {
-        case let .tab(agent):
-            self.agent = agent
-        case let .pick(pick):
-            if let index = picks.firstIndex(where: { $0.agent == pick.agent }) {
-                picks[index] = pick
-            } else {
-                picks.append(pick)
-            }
-        }
-    }
-}
-
-struct AgentPick: Decodable, Equatable {
-    var agent: String
-    var account: String?
-    var model: String?
-    var effort: String?
-}
-
-enum AgentChoiceChange: Equatable {
-    case tab(String?)
-    case pick(AgentPick)
-
-    var json: JSONValue {
-        switch self {
-        case let .tab(agent):
-            .object(["type": .string("tab"), "agent": agent.map(JSONValue.string) ?? .null])
-        case let .pick(pick):
-            .object([
-                "type": .string("pick"), "agent": .string(pick.agent), "account": pick.account.map(JSONValue.string) ?? .null,
-                "model": pick.model.map(JSONValue.string) ?? .null, "effort": pick.effort.map(JSONValue.string) ?? .null,
-            ])
         }
     }
 }
@@ -160,9 +119,7 @@ struct LaunchPlan {
     }
 
     var efforts: [AgentOption] {
-        let all = models?.efforts ?? []
-        guard let model, !model.efforts.isEmpty else { return all }
-        return all.filter { model.efforts.contains($0.id) }
+        models?.efforts(for: modelId) ?? []
     }
 
     var effortId: String? {

@@ -12,9 +12,11 @@ struct DosiSettingsView: View {
     @State private var renewing = false
     @State private var editing = false
     @State private var message: String?
+    @State private var saves = 0
+    @State private var saved = false
 
-    private var setup: DosiSetup {
-        deps.dosi.snapshot?.setup ?? DosiSetup()
+    private var choice: AgentChoice {
+        deps.dosi.snapshot?.setup ?? AgentChoice()
     }
 
     private var installed: [DosiAgent] {
@@ -22,7 +24,7 @@ struct DosiSettingsView: View {
     }
 
     private var agent: String? {
-        setup.agent ?? installed.first?.agent
+        choice.agent ?? installed.first?.agent
     }
 
     var body: some View {
@@ -35,7 +37,7 @@ struct DosiSettingsView: View {
                 }
                 Spacer()
                 if deps.workbench.dosiOn, installed.count > 1, let agent {
-                    SegmentedPill(selection: Binding(get: { agent }, set: { choose(DosiSetup(agent: $0)) }),
+                    SegmentedPill(selection: Binding(get: { agent }, set: { choose(.tab($0)) }),
                                   options: installed.map { SegmentOption(value: $0.agent, title: AgentKind(program: $0.agent).label) },
                                   compact: true, identifier: "settings.dosi.agent")
                 }
@@ -69,6 +71,14 @@ struct DosiSettingsView: View {
             }
         }
         .task(id: "\(deps.accountEpoch):\(deps.dosi.snapshot?.instructionsEdited ?? false)") { await loadInstructions() }
+        .task(id: saves) {
+            guard saves > 0 else { return }
+            withAnimation(theme.motion.snappy) { saved = true }
+            try? await Task.sleep(for: .seconds(2))
+            if !Task.isCancelled {
+                withAnimation(theme.motion.fade) { saved = false }
+            }
+        }
     }
 
     @ViewBuilder
@@ -130,35 +140,48 @@ struct DosiSettingsView: View {
     private func picks(_ agent: String) -> some View {
         let info = deps.launcher.agent(agent)
         let models = deps.launcher.models[agent]
-        let model = models?.models.first { $0.id == setup.model }
-        let efforts = model.map { chosen in models?.efforts.filter { chosen.efforts.contains($0.id) } ?? [] } ?? models?.efforts ?? []
-        return ListGroup(footer: "Dosi works in its own folder with the account that you choose here.") {
-            ListRow(title: info?.kind.label ?? AgentKind(program: agent).label, subtitle: String(localized: "Account")) {
-                AgentMark(kind: AgentKind(program: agent), size: 28, activity: .awake)
-            } trailing: {
-                MenuPicker(title: "Account", selection: Binding(get: { setup.account }, set: { pick(account: $0) }),
-                           values: [nil] + (info?.accounts.map(\.name) ?? []).filter { $0 != "default" },
-                           label: { name in
-                               name.flatMap { name in info?.accounts.first { $0.name == name }?.title(program: info?.program ?? agent) }
-                                   ?? String(localized: "Default")
-                           }, identifier: "settings.dosi.account")
-            }
-            ListRow(String(localized: "Model"), symbol: "cpu", tint: TileTint.purple) {
-                MenuPicker(title: "Model", selection: Binding(get: { setup.model }, set: { pick(model: $0) }),
-                           values: [nil] + (models?.models.map(\.id) ?? []),
-                           label: { id in
-                               id.flatMap { id in models?.models.first { $0.id == id }?.label } ?? String(localized: "The agent's choice")
-                           }, identifier: "settings.dosi.model")
-            }
-            if !efforts.isEmpty {
-                ListRow(String(localized: "Effort"), symbol: "gauge.with.dots.needle.67percent", tint: TileTint.teal) {
-                    MenuPicker(title: "Effort", selection: Binding(get: { setup.effort }, set: { pick(effort: $0) }),
-                               values: [nil] + efforts.map(\.id),
+        let setup = choice.pick(agent)
+        let efforts = models?.efforts(for: setup.model) ?? []
+        return VStack(alignment: .leading, spacing: 8) {
+            ListGroup {
+                ListRow(title: info?.kind.label ?? AgentKind(program: agent).label, subtitle: String(localized: "Account")) {
+                    AgentMark(kind: AgentKind(program: agent), size: 28, activity: .awake)
+                } trailing: {
+                    MenuPicker(title: "Account", selection: Binding(get: { setup.account }, set: { pick(account: $0) }),
+                               values: [nil] + (info?.accounts.map(\.name) ?? []).filter { $0 != "default" },
+                               label: { name in
+                                   name.flatMap { name in info?.accounts.first { $0.name == name }?.title(program: info?.program ?? agent) }
+                                       ?? String(localized: "Default")
+                               }, identifier: "settings.dosi.account")
+                }
+                ListRow(String(localized: "Model"), symbol: "cpu", tint: TileTint.purple) {
+                    MenuPicker(title: "Model", selection: Binding(get: { setup.model }, set: { pick(model: $0) }),
+                               values: [nil] + (models?.models.map(\.id) ?? []),
                                label: { id in
-                                   id.flatMap { id in efforts.first { $0.id == id }?.label } ?? String(localized: "The agent's choice")
-                               }, identifier: "settings.dosi.effort")
+                                   id.flatMap { id in models?.models.first { $0.id == id }?.label } ?? String(localized: "The agent's choice")
+                               }, identifier: "settings.dosi.model")
+                }
+                if !efforts.isEmpty {
+                    ListRow(String(localized: "Effort"), symbol: "gauge.with.dots.needle.67percent", tint: TileTint.teal) {
+                        MenuPicker(title: "Effort", selection: Binding(get: { setup.effort }, set: { pick(effort: $0) }),
+                                   values: [nil] + efforts.map(\.id),
+                                   label: { id in
+                                       id.flatMap { id in efforts.first { $0.id == id }?.label } ?? String(localized: "The agent's choice")
+                                   }, identifier: "settings.dosi.effort")
+                    }
                 }
             }
+            HStack(spacing: 6) {
+                Text("Dosi uses these from your next message.")
+                Spacer(minLength: 8)
+                if saved {
+                    Label("Saved", systemImage: "checkmark").foregroundStyle(theme.colors.ready)
+                        .transition(AnyTransition.pop)
+                        .accessibilityIdentifier("settings.dosi.saved")
+                }
+            }
+            .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+            .padding(.horizontal, 4)
         }
     }
 
@@ -227,25 +250,29 @@ struct DosiSettingsView: View {
     }
 
     private func pick(account: String?? = .none, model: String?? = .none, effort: String?? = .none) {
-        var next = setup
-        next.agent = agent
+        guard let agent else { return }
+        var next = choice.pick(agent)
         if let account {
             next.account = account
         }
         if let model {
             next.model = model
-            next.effort = nil
+            if let efforts = deps.launcher.models[agent]?.efforts(for: model), !efforts.contains(where: { $0.id == next.effort }) {
+                next.effort = nil
+            }
         }
         if let effort {
             next.effort = effort
         }
-        choose(next)
+        choose(.pick(next))
     }
 
-    private func choose(_ next: DosiSetup) {
+    private func choose(_ change: AgentChoiceChange) {
         Task { @MainActor in
             do {
-                try await deps.dosi.configure(next)
+                try await deps.dosi.choose(change)
+                message = nil
+                saves += 1
             } catch { message = error.localizedDescription }
         }
     }
