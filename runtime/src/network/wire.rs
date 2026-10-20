@@ -41,6 +41,17 @@ pub(crate) struct SessionDto {
     pub host_online: bool,
     #[serde(default)]
     pub status: Option<TerminalStatus>,
+    pub room_sequence: u64,
+    #[cfg(feature = "host")]
+    pub room_choice: Option<RoomChoice>,
+}
+
+#[cfg(feature = "host")]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RoomChoice {
+    pub device_id: String,
+    pub signature: String,
 }
 
 impl From<SessionDto> for super::RemoteSession {

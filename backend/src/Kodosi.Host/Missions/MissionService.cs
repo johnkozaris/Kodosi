@@ -129,7 +129,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         var terminals = await TerminalsOf(id).ToListAsync(ct);
         foreach (var terminal in terminals)
         {
-            terminal.MissionId = null;
+            SessionService.LeaveRoom(terminal);
             terminal.AuthorizationRevision = checked(terminal.AuthorizationRevision + 1);
         }
         db.Missions.Remove(mission); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
@@ -200,7 +200,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await db.MissionInvitations.Where(x => x.MissionId == id && x.UserId == userId).ExecuteDeleteAsync(ct);
         foreach (var terminal in terminals)
         {
-            if (terminal.OwnerUserId == userId) terminal.MissionId = null;
+            if (terminal.OwnerUserId == userId) SessionService.LeaveRoom(terminal);
             terminal.AuthorizationRevision = checked(terminal.AuthorizationRevision + 1);
         }
         await db.SaveChangesAsync(ct);

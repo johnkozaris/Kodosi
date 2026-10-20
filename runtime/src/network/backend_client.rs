@@ -650,16 +650,24 @@ impl BackendClient {
                 if operation == "session.rename" {
                     let _response:Value=self.inner.http.device(Method::PATCH,&format!("api/sessions/{id}"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision,"name":wire::text(&args,"name")?}))).await?;
                 } else {
-                    if let Some(room) = args.get("missionId").and_then(Value::as_str) {
+                    let room = args
+                        .get("missionId")
+                        .and_then(Value::as_str)
+                        .map(|room| {
+                            Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))
+                        })
+                        .transpose()?;
+                    if let Some(room) = room {
                         self.refresh_room_keys(
                             &credentials,
-                            Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?,
+                            room,
                             false,
                             &mut rooms::Lookups::default(),
                         )
                         .await?;
                     }
-                    let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":args.get("missionId").cloned().unwrap_or(Value::Null)}))).await?;
+                    let choice = Self::room_choice(&credentials, &current, room)?;
+                    let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":room,"choice":choice}))).await?;
                 }
                 events.push(self.session_event().await?);
                 events.push(session_result(operation, &args));
@@ -755,40 +763,59 @@ impl BackendClient {
         }
         #[cfg(feature = "host")]
         {
-            let publications = self.inner.publications.lock().await;
-            for dto in &sessions {
-                if let Some(publication) = publications.get(&dto.id) {
-                    if publication.changing.load(Ordering::Acquire)
-                        || publication.pending_shares.lock().await.is_some()
-                    {
-                        continue;
-                    }
-                    let mut info = publication.info.write().await;
-                    if info.incarnation_id != dto.incarnation_id
-                        || dto.host_device_id != credentials.keys.device_id
-                    {
-                        continue;
-                    }
-                    info.name.clone_from(&dto.name);
-                    info.mission_id = dto.mission_id;
-                    let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
-                    let removed = !info.shared_with.is_subset(&reported);
-                    if info.mission_id.is_some() {
-                        info.shared_with.clone_from(&reported);
-                    } else {
-                        info.shared_with.retain(|user| reported.contains(user));
-                    }
-                    drop(info);
-                    let previous = publication.dto.read().await.clone();
-                    *publication.dto.write().await = dto.clone();
-                    if removed || previous.authorization_revision != dto.authorization_revision {
-                        publication.invalidate();
-                    }
-                    self.emit_for(credentials.generation, Some(credentials.user_id.clone()), json!({
-                        "type":"network.sharing", "sessionId":dto.id, "incarnationId":dto.incarnation_id,
-                        "sharedWith":publication.info.read().await.shared_with
-                    }));
+            let owned = {
+                let publications = self.inner.publications.lock().await;
+                sessions
+                    .iter()
+                    .filter_map(|dto| Some((Arc::clone(publications.get(&dto.id)?), dto)))
+                    .collect::<Vec<_>>()
+            };
+            for (publication, dto) in owned {
+                if publication.changing.load(Ordering::Acquire)
+                    || publication.pending_shares.lock().await.is_some()
+                {
+                    continue;
                 }
+                let local = {
+                    let info = publication.info.read().await;
+                    (info.mission_id, info.room_sequence)
+                };
+                let change = self.room_change(&credentials, local, dto).await;
+                let mut info = publication.info.write().await;
+                if info.incarnation_id != dto.incarnation_id
+                    || dto.host_device_id != credentials.keys.device_id
+                {
+                    continue;
+                }
+                info.name.clone_from(&dto.name);
+                if let Some((room, sequence)) =
+                    change.filter(|_| (info.mission_id, info.room_sequence) == local)
+                {
+                    info.mission_id = room;
+                    info.room_sequence = sequence;
+                }
+                let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
+                let removed = !info.shared_with.is_subset(&reported);
+                if info.mission_id.is_none() {
+                    info.shared_with.retain(|user| reported.contains(user));
+                } else if info.mission_id == dto.mission_id {
+                    info.shared_with.clone_from(&reported);
+                }
+                let sharing = json!({
+                    "type":"network.sharing", "sessionId":dto.id, "incarnationId":dto.incarnation_id,
+                    "sharedWith":info.shared_with, "missionId":info.mission_id, "roomSequence":info.room_sequence
+                });
+                drop(info);
+                let previous = publication.dto.read().await.clone();
+                *publication.dto.write().await = dto.clone();
+                if removed || previous.authorization_revision != dto.authorization_revision {
+                    publication.invalidate();
+                }
+                self.emit_for(
+                    credentials.generation,
+                    Some(credentials.user_id.clone()),
+                    sharing,
+                );
             }
         }
         Ok(
@@ -1261,5 +1288,6 @@ mod friends;
 mod notifications;
 mod recovery;
 mod rooms;
+mod terminal_rooms;
 #[cfg(test)]
 mod tests;

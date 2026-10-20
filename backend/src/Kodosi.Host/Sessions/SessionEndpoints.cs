@@ -17,7 +17,7 @@ internal static class SessionEndpoints
         group.MapPatch("/{id:guid}", async (Guid id, SessionService.RenameSession body, DeviceCaller caller, SessionService sessions, CancellationToken ct) =>
             Results.Ok(await sessions.RenameAsync(id, caller.User.Id, body, ct)));
         group.MapPut("/{id:guid}/mission", async (Guid id, SessionService.AttachSession body, DeviceCaller caller, SessionService sessions, CancellationToken ct) =>
-            Results.Ok(await sessions.AttachAsync(id, caller.User.Id, body, ct)));
+            Results.Ok(await sessions.AttachAsync(id, caller.User.Id, caller.Device, body, ct)));
         group.MapPut("/{id:guid}/members", async (Guid id, SessionService.ShareSession body, DeviceCaller caller, SessionService sessions, CancellationToken ct) =>
             Results.Ok(await sessions.ShareAsync(id, caller.User.Id, caller.Device.Id, body, ct)));
         group.MapDelete("/{id:guid}/members/me", async (Guid id, [FromBody] SessionService.LeaveSession body, DeviceCaller caller, SessionService sessions,

@@ -33,10 +33,8 @@ namespace Kodosi.Data.Migrations
                     Subject = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
                     Handle = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     DisplayName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    Email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: true),
-                    AvatarUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
                     IdentityIncarnationId = table.Column<Guid>(type: "uuid", nullable: true),
-                    IdentityRevision = table.Column<long>(type: "bigint", nullable: false)
+                    Plan = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -57,8 +55,7 @@ namespace Kodosi.Data.Migrations
                     Label = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     SigningPublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    State = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
-                    ApprovedGeneration = table.Column<long>(type: "bigint", nullable: true)
+                    State = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -77,7 +74,6 @@ namespace Kodosi.Data.Migrations
                 {
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     Generation = table.Column<long>(type: "bigint", nullable: false),
-                    SignerDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     Body = table.Column<byte[]>(type: "bytea", nullable: false),
                     Signature = table.Column<byte[]>(type: "bytea", nullable: false),
                     IssuedAtMs = table.Column<long>(type: "bigint", nullable: false),
@@ -100,7 +96,6 @@ namespace Kodosi.Data.Migrations
                 {
                     Id = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Label = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     SignerDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     Certificate = table.Column<byte[]>(type: "bytea", nullable: false),
                     CertificateSignature = table.Column<byte[]>(type: "bytea", nullable: false),
@@ -175,8 +170,11 @@ namespace Kodosi.Data.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Dosi = table.Column<bool>(type: "boolean", nullable: false),
                     KeyVersion = table.Column<long>(type: "bigint", nullable: false),
-                    ContentSequence = table.Column<long>(type: "bigint", nullable: false)
+                    ContentSequence = table.Column<long>(type: "bigint", nullable: false),
+                    ContentBytes = table.Column<long>(type: "bigint", nullable: false),
+                    HistoryTrimmed = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -256,8 +254,7 @@ namespace Kodosi.Data.Migrations
                     Signature = table.Column<byte[]>(type: "bytea", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -278,9 +275,7 @@ namespace Kodosi.Data.Migrations
                     Version = table.Column<long>(type: "bigint", nullable: false),
                     Epoch = table.Column<long>(type: "bigint", nullable: false),
                     Body = table.Column<byte[]>(type: "bytea", nullable: false),
-                    Signature = table.Column<byte[]>(type: "bytea", nullable: false),
-                    DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                    Signature = table.Column<byte[]>(type: "bytea", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -328,6 +323,9 @@ namespace Kodosi.Data.Migrations
                     HostName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     MissionId = table.Column<Guid>(type: "uuid", nullable: true),
+                    RoomSequence = table.Column<long>(type: "bigint", nullable: false),
+                    RoomDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    RoomSignature = table.Column<byte[]>(type: "bytea", nullable: true),
                     AuthorizationRevision = table.Column<long>(type: "bigint", nullable: false),
                     Ended = table.Column<bool>(type: "boolean", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -437,6 +435,13 @@ namespace Kodosi.Data.Migrations
                 name: "IX_mission_members_UserId",
                 table: "mission_members",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_missions_Dosi_OwnerUserId",
+                table: "missions",
+                columns: new[] { "Dosi", "OwnerUserId" },
+                unique: true,
+                filter: "\"Dosi\"");
 
             migrationBuilder.CreateIndex(
                 name: "IX_missions_OwnerUserId",

@@ -189,6 +189,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             incarnation_id: incarnation,
             name: "test".into(),
             mission_id: None,
+            room_sequence: 0,
             shared_with: BTreeSet::new(),
         },
         requests,
@@ -207,6 +208,8 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             authorization_revision: 1,
             host_online: true,
             status: None,
+            room_sequence: 0,
+            room_choice: None,
         },
     ));
     network
@@ -243,6 +246,7 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             incarnation_id: incarnation,
             name: "live shell".into(),
             mission_id: Some(Uuid::now_v7()),
+            room_sequence: 0,
             shared_with: BTreeSet::from([friend.clone()]),
         },
         requests,
@@ -261,6 +265,8 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             authorization_revision: 4,
             host_online: false,
             status: None,
+            room_sequence: 0,
+            room_choice: None,
         },
     ));
     *publication.pending_shares.lock().await = Some(BTreeSet::from([friend]));
@@ -317,7 +323,7 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     let dto: SessionDto = serde_json::from_value(json!({
         "id":id,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
         "hostDeviceId":"device","hostName":"Host","missionId":null,"missionName":null,"sharedWith":[],
-        "authorizationRevision":1,"hostOnline":true
+        "authorizationRevision":1,"hostOnline":true,"roomSequence":0
     }))
     .unwrap();
     let info = LocalPublication {
@@ -325,6 +331,7 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
         incarnation_id: incarnation,
         name: "Terminal".into(),
         mission_id: None,
+        room_sequence: 0,
         shared_with: BTreeSet::new(),
     };
     network.inner.publications.lock().await.insert(

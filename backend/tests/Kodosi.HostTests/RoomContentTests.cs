@@ -127,7 +127,8 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         await using var removal = store.Fork(pause); await using var attachment = store.Fork();
         var removing = removal.Missions.RemoveMemberAsync(room,alice.User.Id,bob.User.Id,ct);
         await pause.Reached.Task.WaitAsync(TimeSpan.FromSeconds(5),ct);
-        var attaching = attachment.Sessions.AttachAsync(terminal, bob.User.Id,new(incarnation,room),ct);
+        var attaching = attachment.Sessions.AttachAsync(terminal, bob.User.Id, bob.Approved,
+            new(incarnation, room, bob.RoomChoice(terminal, incarnation, room, 1)), ct);
         try {
             Assert.NotSame(attaching,await Task.WhenAny(attaching,Task.Delay(150,ct)));
         } finally { pause.Resume.TrySetResult(); }

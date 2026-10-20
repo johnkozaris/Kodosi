@@ -83,6 +83,9 @@ public sealed class Session
     public string HostName { get; set; } = "";
     public string Name { get; set; } = "";
     public Guid? MissionId { get; set; }
+    public long RoomSequence { get; set; }
+    public string? RoomDeviceId { get; set; }
+    public byte[]? RoomSignature { get; set; }
     public long AuthorizationRevision { get; set; } = 1;
     public bool Ended { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

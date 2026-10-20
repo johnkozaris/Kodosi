@@ -202,14 +202,43 @@ public sealed class SharingTests(PostgresFixture postgres)
         var shared = await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         var renamed = await store.Sessions.RenameAsync(id, owner.User.Id, new(incarnation, shared.AuthorizationRevision, "Renamed"), TestContext.Current.CancellationToken);
         Assert.Equal("Renamed", renamed.Name);
-        Assert.Equal(mission, (await store.Sessions.AttachAsync(id, owner.User.Id, new(incarnation, mission), TestContext.Current.CancellationToken)).MissionId);
-        Assert.Null((await store.Sessions.AttachAsync(id, owner.User.Id, new(incarnation, null), TestContext.Current.CancellationToken)).MissionId);
+        Assert.Equal(mission, (await store.Sessions.AttachAsync(id, owner.User.Id, owner.Approved,
+            new(incarnation, mission, owner.RoomChoice(id, incarnation, mission, 1)), TestContext.Current.CancellationToken)).MissionId);
+        Assert.Null((await store.Sessions.AttachAsync(id, owner.User.Id, owner.Approved,
+            new(incarnation, null, owner.RoomChoice(id, incarnation, null, 2)), TestContext.Current.CancellationToken)).MissionId);
         Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, owner.User.Id, second.DeviceId,
             new(incarnation, shared.AuthorizationRevision, []), TestContext.Current.CancellationToken))).Status);
         Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.RenameAsync(id, friend.User.Id,
             new(incarnation, shared.AuthorizationRevision, "Not allowed"), TestContext.Current.CancellationToken))).Status);
-        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id,
-            new(incarnation, mission), TestContext.Current.CancellationToken))).Status);
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id, friend.Approved,
+            new(incarnation, mission, friend.RoomChoice(id, incarnation, mission, 3)), TestContext.Current.CancellationToken))).Status);
+    }
+
+    [Fact]
+    public async Task OnlyANewerRoomChoiceThatTheSendingDeviceSignedMovesATerminal()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner");
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var room = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(owner.User.Id, new(room, "Project"), ct);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), ct);
+        Task<SessionService.SessionDto> Attach(Guid? target, SessionService.RoomChoiceWrite choice) =>
+            store.Sessions.AttachAsync(id, owner.User.Id, owner.Approved, new(incarnation, target, choice), ct);
+        var stranger = new DeviceFixture(owner.User.Id, owner.Device.Id);
+        var forged = new SessionService.RoomChoiceWrite(owner.Device.Id, 5,
+            Convert.ToBase64String(stranger.Sign(Proofs.TerminalRoom(owner.User.Id, id, incarnation, room, 5, owner.Device.Id))));
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => Attach(room, forged))).Status);
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => Attach(room, owner.RoomChoice(id, incarnation, Guid.CreateVersion7(), 5)))).Status);
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => Attach(room, owner.RoomChoice(id, incarnation, room, 5) with { DeviceId = "other" }))).Status);
+        var moved = await Attach(room, owner.RoomChoice(id, incarnation, room, 5));
+        Assert.Equal((room, 5L, owner.Device.Id), (moved.MissionId, moved.RoomSequence, moved.RoomChoice?.DeviceId));
+        Assert.Equal(6, (await Attach(room, owner.RoomChoice(id, incarnation, room, 6))).RoomSequence);
+        Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(() => Attach(null, owner.RoomChoice(id, incarnation, null, 6)))).Status);
+        await store.Missions.DeleteAsync(room, owner.User.Id, ct);
+        store.Db.ChangeTracker.Clear();
+        var left = Assert.Single(await store.Sessions.ListAsync(owner.User.Id, ct));
+        Assert.Equal((null, 6L, null), (left.MissionId, left.RoomSequence, left.RoomChoice));
     }
 
     [Fact]

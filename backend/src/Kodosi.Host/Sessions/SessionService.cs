@@ -2,6 +2,7 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Missions;
 using Kodosi.Plans;
+using Kodosi.Security;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,7 +55,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             var (online, status) = connections.Live(session.Id);
             return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, row.OwnerName, session.HostDeviceId,
                 session.HostName, session.MissionId, row.MissionName, people[session.Id].Where(user => user != session.OwnerUserId).ToArray(),
-                session.AuthorizationRevision, online, status);
+                session.AuthorizationRevision, online, status, session.RoomSequence,
+                session.RoomSignature is { } signature ? new RoomChoice(session.RoomDeviceId!, Convert.ToBase64String(signature)) : null);
         }).ToList();
     }
 
@@ -102,7 +104,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         return await DescribeAndNotifyAsync(session, ct);
     }
 
-    public async Task<SessionDto> AttachAsync(Guid id, Guid userId, AttachSession body, CancellationToken ct)
+    public async Task<SessionDto> AttachAsync(Guid id, Guid userId, ApprovedDevice device, AttachSession body, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId)
@@ -111,10 +113,11 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             await missions.RequireSharedRoomAsync(missionId, ct);
         }
         var session = await OwnerAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
-        if (session.MissionId == body.MissionId) return await DescribeAsync(session, ct);
+        var signature = RoomSignature(session, device, body);
         var before = await TerminalAccess.PeopleAsync(db, id, ct);
-        await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
+        if (session.MissionId != body.MissionId) await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
         session.MissionId = body.MissionId;
+        session.RoomSequence = body.Choice.Sequence; session.RoomDeviceId = device.Id; session.RoomSignature = signature;
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         await TerminalAccess.RevokeAsync(db, connections, [session], ct);
@@ -188,6 +191,23 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         return described;
     }
 
+    private static byte[] RoomSignature(Session session, ApprovedDevice device, AttachSession body)
+    {
+        var choice = body.Choice;
+        if (choice.DeviceId != device.Id) throw ApiException.Forbidden("The device that sends the room must sign it.");
+        if (choice.Sequence <= session.RoomSequence) throw ApiException.Conflict("The room of this terminal changed; refresh before retrying.");
+        var signature = Limits.Base64(choice.Signature, "Room signature", IdentityWireFormat.MlDsa65SignatureLength);
+        var signed = Proofs.TerminalRoom(session.OwnerUserId, session.Id, session.IncarnationId, body.MissionId, choice.Sequence, device.Id);
+        return SignatureVerifier.Verify(device.SigningPublicKey, signed, signature) ? signature : throw ApiException.Forbidden("Invalid room signature.");
+    }
+
+    internal static void LeaveRoom(Session session)
+    {
+        session.MissionId = null;
+        session.RoomDeviceId = null;
+        session.RoomSignature = null;
+    }
+
     internal static void End(Session session, DateTimeOffset now)
     {
         session.Ended = true;
@@ -201,10 +221,12 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
         string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
-        TerminalStatus? Status);
+        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice);
+    public sealed record RoomChoice(string DeviceId, string Signature);
     public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
-    public sealed record AttachSession(Guid IncarnationId, Guid? MissionId);
+    public sealed record AttachSession(Guid IncarnationId, Guid? MissionId, RoomChoiceWrite Choice);
+    public sealed record RoomChoiceWrite(string DeviceId, long Sequence, string Signature);
     public sealed record ShareSession(Guid IncarnationId, long ExpectedRevision, Guid[] UserIds);
     public sealed record LeaveSession(Guid IncarnationId, long ExpectedRevision);
 }

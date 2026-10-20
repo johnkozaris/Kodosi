@@ -900,6 +900,7 @@ impl Runtime {
                         entry,
                         creation: command,
                         published: false,
+                        room_sequence: 0,
                         worktree: started.worktree.take(),
                     },
                 );

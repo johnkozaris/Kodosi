@@ -1,6 +1,6 @@
 {
-  "apiContractVersion": 28,
-  "oldestApiContractVersion": 28,
+  "apiContractVersion": 29,
+  "oldestApiContractVersion": 29,
   "authContractVersion": 1,
   "compatibility": {
     "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
@@ -66,6 +66,12 @@
     "offlineExpiry": false,
     "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access",
     "status": "GET /api/sessions and GET /api/sessions/{id} give the newest status of a terminal while its host is connected, or null (terminalStatus in terminal-connections.json)"
+  },
+  "terminalRoom": {
+    "choice": "PUT /api/sessions/{id}/mission takes {incarnationId, missionId, choice: {deviceId, sequence, signature}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v1 and the length-prefixed owner account id, terminal id, incarnation id, room id (empty for no room), 8-byte big-endian sequence and its own device id",
+    "sequence": "greater than the roomSequence of the terminal; a device signs the larger of roomSequence + 1 and the Unix time in milliseconds",
+    "read": "GET /api/sessions and GET /api/sessions/{id} give roomSequence and roomChoice {deviceId, signature}: the last signed choice, or null when the terminal got its room at its start or the server took it out of its room",
+    "host": "the hosting device takes a room for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took; it takes the terminal out of a room without one"
   },
   "deviceLink": {
     "code": "12 random symbols of Crockford base 32 (60 bits) that the new device makes and shows; the server never gets it",

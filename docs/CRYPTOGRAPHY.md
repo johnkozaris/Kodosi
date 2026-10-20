@@ -48,6 +48,10 @@ authenticated data starts with a domain label, and each field carries its length
   only the host device's approved key. The host admits only verified, non-recovery
   devices of accounts that may use the terminal, and checks again when sharing or
   devices change.
+- **Terminal rooms:** the device that puts a terminal into a room, or takes it out, signs
+  the change with a sequence. The host takes a room for its terminal only with the
+  signature of an approved device of its owner and a sequence newer than the last one
+  that it took.
 - **Room key states:** a hash chain signed by member devices. Only the owner adds members
   or removes others; a member can leave. Devices remember the newest state they
   accepted, to detect an older or forked history.
