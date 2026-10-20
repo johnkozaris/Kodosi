@@ -1,5 +1,9 @@
-# Historical contract/redaction fixtures reviewed as dummy credentials.
+# Reviewed findings: dummy credentials in tests, and the public key of the update feed.
 3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:136
 3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:194
 3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:31
 3858d0d5d51a975bc0b408c9087319dc6d1a11cb:rustProcess/crates/agent-intel/src/claude/transcript.rs:curl-auth-header:156
+944c164d30f06837262f2db24958ec1f2fbf0819:runtime/src/diagnostics/redact.rs:private-key:318
+973f8038174d317e78f8ce71bde5a3f5a18e5445:runtime/src/protocol.rs:generic-api-key:1272
+fcd61df18702b375a9acfa91d3d7a4b33d892de1:runtime/src/protocol.rs:generic-api-key:1721
+2c9c500d2ec9a06437da390e5182a4eccd26a31b:clients/macos/Config/Release.xcconfig:generic-api-key:17

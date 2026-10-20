@@ -31,6 +31,9 @@ Run these from the repository root; `just --list` shows the rest.
 | `just ios-build`, `just ios-check` | Build or check the iPhone and iPad app |
 | `just sign-in-check` | Check and build the sign-in pages |
 
+`gitleaks git`, run by hand, looks for secrets in the Git history and skips the reviewed
+findings in [.gitleaksignore](../.gitleaksignore).
+
 The justfile in each app's folder has its release recipes. Name a new recipe component
 first and verb last (`mac-build`), a script verb first (`build-ghostty.sh`), and other
 files like their neighbors.
@@ -73,6 +76,8 @@ of new terminals; the host gives its terminals your real `HOME`, so point it at 
 that sets a disposable one. Never touch real provider settings, memory, conversations,
 credentials or working files. The app writes a redacted `app.log` in the data root, and
 the host `host.log`; check them for private data before you attach them to an issue.
+With `KODOSI_TERMINAL_DEBUG=1`, the Mac and iPhone apps write the sizes and lifecycle of
+their terminal views to stderr.
 
 ## Data formats
 
