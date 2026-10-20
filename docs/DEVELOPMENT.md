@@ -81,8 +81,7 @@ their terminal views to stderr.
 
 ## Data formats
 
-Kodosi keeps no code for earlier formats: after a format change, use a new database
-volume and data root. If sign-in then says "Stored device identity is invalid", delete
-the item `kodosi.<user id>.device` of the service `com.kodosi.local` (Keychain Access on
-macOS; `secret-tool clear service com.kodosi.local username kodosi.<user id>.device` on
-Linux) and approve the computer again.
+An update keeps the data of the last release: a new format also reads the released one,
+and a change of the database is a new migration (`dotnet ef migrations add <Name>` in
+`backend/`). A contract change that older apps cannot use raises the oldest version in
+`protocol/` only 60 days after the release with the new version.

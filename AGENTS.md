@@ -35,7 +35,9 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - Leave provider execution, permissions, settings and conversations with the provider.
 - Preserve end-to-end encryption, chosen sharing, identity continuity, bounded resource
   use and ordered terminal state.
-- Kodosi has no release: keep no code for earlier protocol versions or saved formats.
+- Kodosi is released. An update keeps the saved data of the last release, each change
+  of the database is a new migration, and the backend serves an app for 60 days after
+  the release that replaces it.
 - Never reset live databases or touch real provider data, credentials, conversations,
   memory or working files.
 - Keep dependencies project-local. Run checks through the root `justfile`; name files,

@@ -7,7 +7,7 @@
   <a href="clients/macos/README.md"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
   <a href="clients/qt/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 or later on iPhone and iPad"></a>
-  <img src="https://img.shields.io/badge/status-in%20development-8a7a70?style=flat-square&labelColor=2a211d" alt="In development">
+  <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Latest release"></a>
 </p>
 
 Kodosi is a terminal app for coding agents. It keeps the terminals of all your computers
@@ -61,10 +61,18 @@ them. [Security](docs/SECURITY.md)
 
 ## Get Kodosi
 
-Kodosi is in development and has no release yet. Build it for your
-[Mac](clients/macos/README.md), your [Linux or Windows](clients/qt/README.md) computer, or
-your [iPhone or iPad](clients/ios/README.md), then follow
-[Getting started](docs/GETTING_STARTED.md).
+- **Mac** (Apple silicon, macOS 26.4 or later):
+  [download Kodosi](https://updates.kodosi.com/download/macos), or
+  `brew install --cask johnkozaris/tap/kodosi`. The app updates itself.
+- **Linux** (x86-64, Ubuntu 24.04 or Debian 13 or later): install the
+  [Debian package](https://updates.kodosi.com/download/linux). It adds the Kodosi apt
+  repository, so system updates update Kodosi. The
+  [release](https://github.com/johnkozaris/Kodosi/releases/latest) also has an Arch
+  package and a portable archive.
+- **Windows, iPhone and iPad:** build Kodosi for [Windows](clients/qt/README.md) or for
+  your [iPhone or iPad](clients/ios/README.md).
+
+Then follow [Getting started](docs/GETTING_STARTED.md).
 
 ## Learn more
 

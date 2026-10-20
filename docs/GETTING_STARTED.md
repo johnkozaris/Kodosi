@@ -1,9 +1,7 @@
 # Getting started
 
-Build Kodosi for your [Mac](../clients/macos/README.md), your
-[Linux or Windows](../clients/qt/README.md) computer, or your
-[iPhone or iPad](../clients/ios/README.md). This guide uses the Mac keys; on Linux and
-Windows, use Ctrl+Shift with the same letter.
+[Get Kodosi](../README.md#get-kodosi) for your computer. This guide uses the Mac keys; on
+Linux and Windows, use Ctrl+Shift with the same letter.
 
 ## 1. Sign in
 
