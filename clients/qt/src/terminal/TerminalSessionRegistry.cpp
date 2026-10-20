@@ -46,23 +46,6 @@ struct SessionEntry {
     bool checkpointAdmitted = false;
 };
 
-bool sameSubscription(
-    const TerminalSubscription& left,
-    const TerminalSubscription& right) noexcept
-{
-    return left.sessionId == right.sessionId
-        && left.subscriptionId == right.subscriptionId
-        && left.generation == right.generation;
-}
-
-bool sameIdentity(
-    const TerminalSurfaceIdentity& left,
-    const TerminalSurfaceIdentity& right) noexcept
-{
-    return sameSubscription(left.subscription, right.subscription)
-        && left.surfaceGeneration == right.surfaceGeneration;
-}
-
 std::string sessionKey(const QString& sessionId)
 {
     const auto utf8 = sessionId.toUtf8();
@@ -143,15 +126,13 @@ public:
         const auto session = sessions.find(
             sessionKey(identity.subscription.sessionId));
         if (session == sessions.end()
-            || !sameSubscription(
-                session->second.subscription,
-                identity.subscription)) {
+            || session->second.subscription != identity.subscription) {
             return {};
         }
         const auto surface =
             session->second.surfaces.find(identity.surfaceGeneration);
         if (surface != session->second.surfaces.end()
-            && sameIdentity(surface->second->identity, identity)) {
+            && surface->second->identity == identity) {
             return surface->second;
         }
         return {};
@@ -163,7 +144,7 @@ public:
         std::scoped_lock lock(mutex);
         const auto session = sessions.find(sessionKey(subscription.sessionId));
         if (session == sessions.end()
-            || !sameSubscription(session->second.subscription, subscription)) {
+            || session->second.subscription != subscription) {
             return {};
         }
         std::vector<std::shared_ptr<Entry>> entries;
@@ -186,9 +167,7 @@ public:
         std::scoped_lock lock(mutex);
         const auto session = sessions.find(sessionKey(subscription.sessionId));
         if (session == sessions.end()
-            || !sameSubscription(
-                session->second.subscription,
-                subscription)) {
+            || session->second.subscription != subscription) {
             return std::nullopt;
         }
         const auto displaced = [nextSequence](const std::shared_ptr<Entry>& entry) {
@@ -250,9 +229,7 @@ public:
         std::scoped_lock lock(mutex);
         const auto session = sessions.find(sessionKey(subscription.sessionId));
         if (session == sessions.end()
-            || !sameSubscription(
-                session->second.subscription,
-                subscription)) {
+            || session->second.subscription != subscription) {
             return std::nullopt;
         }
         if (completeSeedRefresh) {
@@ -328,9 +305,7 @@ TerminalSessionRegistry::registerSurface(
             .requiresRefresh = false,
         };
     }
-    if (!sameSubscription(
-            session->second.subscription,
-            entry->identity.subscription)
+    if (session->second.subscription != entry->identity.subscription
         || session->second.surfaces.contains(
             entry->identity.surfaceGeneration)
         || session->second.surfaces.size()
@@ -363,9 +338,7 @@ void TerminalSessionRegistry::cancelSurfaceRefresh(
     const auto session = m_impl->sessions.find(
         sessionKey(identity.subscription.sessionId));
     if (session == m_impl->sessions.end()
-        || !sameSubscription(
-            session->second.subscription,
-            identity.subscription)) {
+        || session->second.subscription != identity.subscription) {
         return;
     }
     std::erase(
@@ -380,15 +353,13 @@ bool TerminalSessionRegistry::unregisterSurface(
     const auto session = m_impl->sessions.find(
         sessionKey(identity.subscription.sessionId));
     if (session == m_impl->sessions.end()
-        || !sameSubscription(
-            session->second.subscription,
-            identity.subscription)) {
+        || session->second.subscription != identity.subscription) {
         return false;
     }
     const auto surface =
         session->second.surfaces.find(identity.surfaceGeneration);
     if (surface == session->second.surfaces.end()
-        || !sameIdentity(surface->second->identity, identity)) {
+        || surface->second->identity != identity) {
         return false;
     }
     std::erase(

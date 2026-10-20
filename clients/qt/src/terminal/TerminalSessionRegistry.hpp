@@ -36,6 +36,8 @@ struct TerminalResizeOutcome {
 struct TerminalSurfaceIdentity {
     TerminalSubscription subscription;
     std::uint64_t surfaceGeneration;
+
+    bool operator==(const TerminalSurfaceIdentity&) const = default;
 };
 
 class TerminalSessionRegistry final : public TerminalEventSink {

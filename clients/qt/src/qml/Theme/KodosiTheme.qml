@@ -65,8 +65,6 @@ QtObject {
     readonly property real radiusSheet: 22
     readonly property real radiusTile: 12
 
-    readonly property real sidebarWidth: 252
-    readonly property real railWidth: 78
     readonly property real frameInset: 8
     readonly property real titleBarHeight: 36
     readonly property real headerHeight: 54

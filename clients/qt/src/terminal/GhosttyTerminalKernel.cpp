@@ -31,15 +31,6 @@ GhosttyTerminalKernel::Failure ghosttyFailure(QString operation, const GhosttyRe
     };
 }
 
-bool sameSubscription(
-    const TerminalSubscription& left,
-    const TerminalSubscription& right) noexcept
-{
-    return left.sessionId == right.sessionId
-        && left.subscriptionId == right.subscriptionId
-        && left.generation == right.generation;
-}
-
 QColor color(const GhosttyColorRgb value)
 {
     return {value.r, value.g, value.b};
@@ -876,7 +867,7 @@ public:
                 QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
             };
         }
-        if (!sameSubscription(candidate, subscription)) {
+        if (candidate != subscription) {
             return Failure {
                 Failure::Code::StaleSubscription,
                 QStringLiteral("Terminal scrolling belongs to a stale subscription."),
@@ -1168,7 +1159,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
             QStringLiteral("Raw terminal data requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(data.subscription, m_impl->subscription)) {
+    if (data.subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Raw terminal data belongs to a stale subscription."),
@@ -1268,7 +1259,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
             QStringLiteral("Terminal resize requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal resize belongs to a stale subscription."),
@@ -1326,7 +1317,7 @@ GhosttyTerminalKernel::encodeKey(
             QStringLiteral("Terminal key encoding requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal key input belongs to a stale subscription."),
@@ -1407,7 +1398,7 @@ GhosttyTerminalKernel::encodePaste(
             QStringLiteral("Terminal paste requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal paste belongs to a stale subscription."),
@@ -1472,7 +1463,7 @@ GhosttyTerminalKernel::encodeMouse(
             QStringLiteral("Terminal mouse input requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal mouse input belongs to a stale subscription."),
@@ -1628,7 +1619,7 @@ GhosttyTerminalKernel::linkAt(
             QStringLiteral("Terminal link lookup requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal link lookup belongs to a stale subscription."),
@@ -1710,7 +1701,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::beginSelection(
             QStringLiteral("Terminal selection requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal selection belongs to a stale subscription."),
@@ -1790,7 +1781,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::updateSelection(
             QStringLiteral("Terminal selection requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal selection belongs to a stale subscription."),
@@ -1853,7 +1844,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::clearSelection(
             QStringLiteral("Terminal selection requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal selection belongs to a stale subscription."),
@@ -1895,7 +1886,7 @@ GhosttyTerminalKernel::selectedText(const TerminalSubscription& subscription)
             QStringLiteral("Terminal selection requires an admitted checkpoint."),
         });
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
+    if (subscription != m_impl->subscription) {
         return std::unexpected(Failure {
             Failure::Code::StaleSubscription,
             QStringLiteral("Terminal selection belongs to a stale subscription."),
