@@ -75,8 +75,8 @@ authenticated data starts with a domain label, and each field carries its length
 4. A friend added by username relies on the backend for the first identity.
 5. The link code is not a PAKE: the backend can guess it with about 2^80 work in its 10
    minutes.
-6. The backend can withhold or reorder room items, whose order is unsigned, and withhold
-   or change terminal status.
+6. The backend can withhold or reorder room items, whose order is unsigned, withhold or
+   change terminal status, and withhold a change of a terminal's room.
 7. Room keys do not change with use; one key should encrypt fewer than 2^32 records.
 8. A key state's time comes from its author; devices refuse only future times.
 9. A recovery key plus the account's sign-in approves a device. A device removed before
