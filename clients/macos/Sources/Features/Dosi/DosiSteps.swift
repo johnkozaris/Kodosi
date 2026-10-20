@@ -171,7 +171,6 @@ struct DosiReceipt: View {
 }
 
 struct DosiToolGroup: View {
-    @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let items: [DosiItem]
     @State private var open = false

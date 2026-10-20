@@ -263,7 +263,6 @@ struct NewTerminalButton: View {
 
 struct AccountCapsule: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
 
     var body: some View {
         if let prompt = deps.signInPrompt {
