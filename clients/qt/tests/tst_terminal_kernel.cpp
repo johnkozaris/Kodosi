@@ -3389,7 +3389,7 @@ void TerminalKernelTest::surfaceControllerScopesAttachmentOutcomes()
     QCOMPARE(firstState, QStringLiteral("healthy"));
     QCOMPARE(
         secondState,
-        QStringLiteral("The runtime rejected the terminal attachment."));
+        QStringLiteral("The terminal could not connect."));
     QVERIFY(firstView.terminalReady());
     QVERIFY(!secondView.terminalReady());
 }

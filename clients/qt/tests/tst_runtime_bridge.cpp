@@ -34,7 +34,7 @@ private slots:
             std::optional<kodosi::RuntimeBridge::Result> result;
             bridge.startAsync([&](auto value) { result = std::move(value); });
             QVERIFY(result && !*result);
-            QCOMPARE(result->error().message, QStringLiteral("The linked runtime is incompatible with this version of Kodosi."));
+            QCOMPARE(result->error().message, QStringLiteral("This copy of Kodosi is damaged. Install it again."));
             QVERIFY(!bridge.isRunning());
             QVERIFY(runtime_fixture::userdata == nullptr);
         }

@@ -1099,7 +1099,7 @@ void TerminalView::handleFocusOutcome(TerminalFocusOutcome outcome)
     if (!outcome.applied) {
         emit operationError(
             outcome.reason.isEmpty()
-                ? QStringLiteral("The runtime rejected terminal focus.")
+                ? QStringLiteral("Kodosi could not focus the terminal.")
                 : std::move(outcome.reason));
     }
 }
@@ -1171,7 +1171,7 @@ void TerminalView::dispatchResize()
         static_cast<std::uint64_t>(rows) * cellHeightPixels;
     if (widthProduct > std::numeric_limits<std::uint32_t>::max()
         || heightProduct > std::numeric_limits<std::uint32_t>::max()) {
-        emit operationError(QStringLiteral("Terminal pixel geometry exceeds the runtime limit."));
+        emit operationError(QStringLiteral("The terminal is too large."));
         return;
     }
     const auto widthPixels = static_cast<std::uint32_t>(widthProduct);

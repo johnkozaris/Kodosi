@@ -273,7 +273,7 @@ bool SessionActionsModel::share(
 {
     const auto session = m_sessions.session(id);
     if (!session || session->kind != QStringLiteral("local")) {
-        m_workspace.setError(tr("Change sharing on the computer hosting this terminal."));
+        m_workspace.setError(tr("Change sharing on the computer that hosts this terminal."));
         return false;
     }
     if (!m_workspace.account().signedIn()) {

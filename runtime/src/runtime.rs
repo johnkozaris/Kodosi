@@ -46,6 +46,10 @@ type DosiMessage = std::convert::Infallible;
 #[cfg(feature = "host")]
 pub(crate) const NOT_PUBLISHED: &str =
     "Remote access is still connecting. Try again when this device is online and approved.";
+pub(crate) const SHARE_ON_HOST: &str = "Change sharing on the computer that hosts this terminal.";
+#[cfg(feature = "host")]
+pub(crate) const SHARING_CHANGED: &str =
+    "The sharing of this terminal changed. Open sharing again before you save.";
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
 #[cfg(feature = "host")]

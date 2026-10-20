@@ -43,11 +43,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("The runtime is busy. Try again.")]
+    #[error("Kodosi is busy. Try again.")]
     Busy,
-    #[error("The runtime has stopped.")]
+    #[error("Kodosi has stopped.")]
     Stopped,
-    #[error("The session is not available.")]
+    #[error("This terminal is not available.")]
     NotFound,
     #[error("The terminal or the account changed. Try again.")]
     Stale,

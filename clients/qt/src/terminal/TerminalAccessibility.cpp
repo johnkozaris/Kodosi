@@ -54,7 +54,7 @@ public:
         case QAccessible::Value:
             return view->accessibleText();
         case QAccessible::Description:
-            return QCoreApplication::translate("TerminalAccessible", "Live terminal session");
+            return QCoreApplication::translate("TerminalAccessible", "Live terminal");
         default:
             return {};
         }

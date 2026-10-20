@@ -81,12 +81,12 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     if (isRunning()) { completion({}); return; }
     if (kodosi_protocol_version() != protocolVersion || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
         completion(std::unexpected(failure(KODOSI_FFI_DESER_FAILED,
-            tr("The linked runtime is incompatible with this version of Kodosi."))));
+            tr("This copy of Kodosi is damaged. Install it again."))));
         return;
     }
     if (m_starting) {
         completion(std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
-            tr("The runtime is still starting."))));
+            tr("Kodosi is still starting."))));
         return;
     }
     m_starting = true;
@@ -125,7 +125,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
                     } else {
                         current->m_activeGeneration.store(0, std::memory_order_release);
                         if (refusal.message.isEmpty())
-                            refusal.message = tr("Kodosi could not start its terminal runtime.");
+                            refusal.message = tr("Terminals could not start.");
                         completion(std::unexpected(std::move(refusal)));
                     }
                 }, Qt::QueuedConnection);
@@ -178,7 +178,7 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
         return result;
     if (json.isEmpty() || json.size() > maximumEventBytes) {
         return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE,
-            tr("The command exceeds the runtime limit.")));
+            tr("The command is too large.")));
     }
     const QByteArray command(json.data(), json.size());
     const auto fields = jsonObjectFields(command);
@@ -190,14 +190,14 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
     bytes += QByteArrayLiteral(",\"accountEpoch\":") + QByteArray::number(m_accountEpoch);
     for (const auto& field : *fields) {
         if (field.name == QStringLiteral("accountUserId") || field.name == QStringLiteral("accountEpoch")) {
-            return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The runtime owns the command account identity.")));
+            return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The command must not name the account.")));
         }
         bytes += ',' + jsonStringBytes(field.name) + ':';
         bytes.append(field.value.data(), field.value.size());
     }
     bytes += '}';
     if (bytes.size() > maximumEventBytes)
-        return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE, tr("The command exceeds the runtime limit.")));
+        return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE, tr("The command is too large.")));
     return terminalOperationResult(
         kodosi_send_command(m_handle, reinterpret_cast<const std::uint8_t*>(bytes.constData()),
             static_cast<std::uintptr_t>(bytes.size())),
@@ -254,7 +254,7 @@ RuntimeBridge::Result RuntimeBridge::requireRunning() const
     if (isRunning())
         return {};
     return std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
-        tr("The terminal runtime is not running.")));
+        tr("Kodosi is not ready.")));
 }
 RuntimeBridge::Result RuntimeBridge::terminalOperationResult(std::int32_t result, QString operation) const
 {
@@ -284,7 +284,7 @@ void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
                     return;
                 stop();
                 emit eventError(
-                    tr("Kodosi could not keep up with runtime updates. Restart the runtime to reconnect."));
+                    tr("Kodosi got too many updates and stopped. Try again."));
             },
             Qt::QueuedConnection);
         return;
@@ -314,7 +314,7 @@ void RuntimeBridge::deliverEvent(const QByteArray& payload)
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(payload, &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        emit eventError(tr("The runtime returned an invalid event."));
+        emit eventError(tr("Kodosi got an incomplete answer."));
         return;
     }
     const auto object = document.object();

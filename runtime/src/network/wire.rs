@@ -39,7 +39,6 @@ pub(crate) struct SessionDto {
     pub shared_with: Vec<String>,
     pub authorization_revision: u64,
     pub host_online: bool,
-    #[serde(default)]
     pub status: Option<TerminalStatus>,
     pub room_sequence: u64,
     #[cfg(feature = "host")]

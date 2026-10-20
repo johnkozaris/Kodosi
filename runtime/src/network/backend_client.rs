@@ -600,9 +600,7 @@ impl BackendClient {
                         .cloned()
                         .ok_or(Error::Stale)?;
                     if publication.info.read().await.shared_with != expected_users {
-                        return Err(invalid(
-                            "Session sharing changed. Reopen sharing before saving.",
-                        ));
+                        return Err(invalid(crate::runtime::SHARING_CHANGED));
                     }
                 }
                 self.require_trusted_friends(&self.credentials()?, &users)
@@ -928,7 +926,7 @@ impl BackendClient {
                             Some(json!({"keys":keys})),
                         )
                     }
-                    _ => return Err(invalid("Unsupported Mission operation.")),
+                    _ => return Err(invalid("Unsupported room operation.")),
                 }
             }
         };
@@ -1077,7 +1075,7 @@ impl BackendClient {
             .await
             .get(&id)
             .cloned()
-            .ok_or_else(|| invalid("Change sharing on the computer hosting this session."))?;
+            .ok_or_else(|| invalid(crate::runtime::SHARE_ON_HOST))?;
         if publication.info.read().await.incarnation_id != incarnation {
             return Err(Error::Stale);
         }
@@ -1109,7 +1107,7 @@ impl BackendClient {
             if current.shared_with.iter().cloned().collect::<BTreeSet<_>>() == users { return Ok(current); }
             if !users.is_subset(&previous) && (current.authorization_revision != publication.dto.read().await.authorization_revision
                 || current.shared_with.iter().cloned().collect::<BTreeSet<_>>() != previous) {
-                return Err(Error::Backend { status: 409, message: "Session sharing changed. Refresh before adding access.".into() });
+                return Err(Error::Backend { status: 409, message: "The sharing of this terminal changed. Refresh before you add people.".into() });
             }
             self.inner.http.device::<SessionDto>(Method::PUT,&format!("api/sessions/{id}/members"),&credentials,Some(json!({"incarnationId":incarnation,"expectedRevision":current.authorization_revision,"userIds":users}))).await
         }.await;

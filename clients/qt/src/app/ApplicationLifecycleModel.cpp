@@ -206,8 +206,7 @@ void ApplicationLifecycleModel::handleRuntimeRunningChanged(
     }
     ++m_attemptToken;
     m_attemptInFlight = false;
-    fail(QStringLiteral(
-        "The Kodosi runtime stopped unexpectedly. Try again."));
+    fail(QStringLiteral("Kodosi stopped unexpectedly. Try again."));
 }
 
 void ApplicationLifecycleModel::setOutdatedHost(std::optional<OutdatedHost> host)
@@ -234,7 +233,7 @@ void ApplicationLifecycleModel::fail(QString message)
 {
     const auto safe = boundedText(
         std::move(message),
-        QStringLiteral("Kodosi could not start its runtime."));
+        QStringLiteral("Kodosi could not start."));
     if (m_state == State::Failed && m_errorText == safe) {
         return;
     }

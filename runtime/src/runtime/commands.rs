@@ -37,7 +37,6 @@ use std::sync::Arc;
 const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
 #[cfg(not(feature = "host"))]
 const NO_DOSI: &str = "Dosi runs on the computer that hosts your terminals.";
-const SHARE_ON_HOST: &str = "Change sharing on the computer hosting this session.";
 
 impl Runtime {
     pub(super) fn apply_for_consumer(
@@ -433,18 +432,16 @@ impl Runtime {
                             != local.entry.shared_with.iter().collect::<BTreeSet<_>>()
                     })
                 {
-                    return Err(Error::Invalid(
-                        "Session sharing changed. Reopen sharing before saving.".into(),
-                    ));
+                    return Err(Error::Invalid(super::SHARING_CHANGED.to_owned()));
                 }
                 if !self.local.contains_key(&id) {
-                    return Err(Error::Invalid(SHARE_ON_HOST.to_owned()));
+                    return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
                 }
                 self.require_publication(id)?;
             }
             #[cfg(not(feature = "host"))]
             Command::ShareSession { .. } => {
-                return Err(Error::Invalid(SHARE_ON_HOST.to_owned()));
+                return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
             }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
@@ -455,7 +452,7 @@ impl Runtime {
                 if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
                 return Err(Error::Invalid(
-                    "The owner cannot leave their own session.".to_owned(),
+                    "You cannot leave your own terminal.".to_owned(),
                 ));
             }
             _ => {}
@@ -477,7 +474,7 @@ impl Runtime {
             Ok(())
         } else {
             Err(Error::Invalid(
-                "Only the owner can change this session.".to_owned(),
+                "Only the owner can change this terminal.".to_owned(),
             ))
         }
     }

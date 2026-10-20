@@ -101,7 +101,7 @@ public sealed class ConnectionDirectory
             if (hosted.TryGetValue(session.Id, out var live))
             {
                 if (live.Host == entry && live.IncarnationId == session.IncarnationId) return;
-                EndPipesLocked(live.Pipes, 409, "Session publication changed.", ending);
+                EndPipesLocked(live.Pipes, 409, "This terminal was replaced.", ending);
                 live.Host.Hosted.Remove(session.Id);
                 live.Host = entry; live.IncarnationId = session.IncarnationId; live.Status = null;
             }
@@ -149,7 +149,7 @@ public sealed class ConnectionDirectory
         {
             if (!entries.TryGetValue(viewer, out var watcher)) throw ApiException.Conflict("The device connection closed.");
             if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw ApiException.Conflict("The host is offline.");
-            if (live.IncarnationId != session.IncarnationId) throw ApiException.Conflict("Session publication changed.");
+            if (live.IncarnationId != session.IncarnationId) throw ApiException.Conflict("This terminal was replaced.");
             if (live.Pipes.Count >= MaximumSessionPipes) throw new ApiException(503, "Too many connected participants.");
             if (watcher.Views >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");
             if (!pipes.TryAdd(pipeId, new Pipe(pipeId, session.Id, viewer, live.Host.Connection))) throw ApiException.Conflict("The view identity is in use.");
