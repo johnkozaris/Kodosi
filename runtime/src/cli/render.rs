@@ -319,7 +319,7 @@ fn friends(event: &Value) -> String {
     lines.join("\n")
 }
 
-fn missions(event: &Value) -> String {
+pub(super) fn missions(event: &Value) -> String {
     let list = |key: &str| event[key].as_array().cloned().unwrap_or_default();
     let mut lines = Vec::new();
     let names = list("missions")
