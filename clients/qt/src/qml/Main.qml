@@ -90,7 +90,7 @@ ApplicationWindow {
                 onDetailsRequested: sessionId => details.openSession(sessionId)
                 onShareRequested: sessionId => share.openSession(sessionId)
                 onNewTerminalRequested: folder => window.openLauncher(folder)
-                onResumeRequested: history.openModal()
+                onResumeRequested: provider => history.openModal(provider)
                 onPaletteRequested: palette.open()
                 onNewRoomRequested: window.openNewRoom()
                 onDosiSettingsRequested: {

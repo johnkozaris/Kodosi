@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
@@ -7,25 +9,41 @@ MenuItem {
     id: root
 
     property string iconName: ""
+    property string agent: ""
     property string hint: ""
     property int badge: 0
     property bool destructive: false
     readonly property color tone: !enabled ? KodosiTheme.inkFaint : destructive ? KodosiTheme.danger : KodosiTheme.ink
 
     implicitHeight: 32
-    leftPadding: 10
+    leftPadding: 8
     rightPadding: 12
 
     indicator: Item {}
     contentItem: RowLayout {
         spacing: 9
 
-        KIcon {
-            visible: root.iconName.length > 0
-            Layout.preferredWidth: 14
-            Layout.preferredHeight: 14
-            name: root.iconName
-            color: root.destructive ? KodosiTheme.danger : root.highlighted ? KodosiTheme.ink : KodosiTheme.inkMuted
+        Item {
+            visible: root.iconName.length > 0 || root.agent.length > 0
+            Layout.preferredWidth: 18
+            Layout.preferredHeight: 18
+
+            KIcon {
+                anchors.centerIn: parent
+                width: 14
+                height: 14
+                visible: root.agent.length === 0
+                name: root.iconName
+                color: !root.enabled ? KodosiTheme.inkFaint : root.destructive ? KodosiTheme.danger : root.highlighted ? KodosiTheme.ink : KodosiTheme.inkMuted
+            }
+            Loader {
+                anchors.fill: parent
+                active: root.agent.length > 0
+                sourceComponent: AgentMark {
+                    program: root.agent
+                    size: 18
+                }
+            }
         }
         PlainLabel {
             Layout.fillWidth: true
@@ -54,6 +72,6 @@ MenuItem {
     }
     background: Rectangle {
         radius: KodosiTheme.radiusSm
-        color: root.highlighted && root.enabled ? (root.destructive ? KodosiTheme.dangerSoft : KodosiTheme.accentSoft) : "transparent"
+        color: root.highlighted && root.enabled ? KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, 0.06) : "transparent"
     }
 }

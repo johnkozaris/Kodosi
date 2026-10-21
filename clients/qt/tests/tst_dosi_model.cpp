@@ -259,12 +259,12 @@ private slots:
         f.snapshot({ entry(QStringLiteral("a"), words(QStringLiteral("person"), QStringLiteral("Hi"))),
             entry(QStringLiteral("b"), words(QStringLiteral("text"), QStringLiteral("Hello."))) });
         QVERIFY(!f.dosi.unseen());
-        QCOMPARE(f.dosi.line(), QStringLiteral("ask dosi"));
+        QCOMPARE(f.dosi.line(), QStringLiteral("Ask Dosi"));
         f.item(entry(QStringLiteral("c"), words(QStringLiteral("person"), QStringLiteral("And?")), QStringLiteral("t2")));
         QVERIFY(!f.dosi.unseen());
         f.item(entry(QStringLiteral("d"), words(QStringLiteral("text"), QStringLiteral("Done.")), QStringLiteral("t2")));
         QVERIFY(f.dosi.unseen());
-        QCOMPARE(f.dosi.line(), QStringLiteral("dosi answered"));
+        QCOMPARE(f.dosi.line(), QStringLiteral("Dosi answered"));
     }
 
     void turningDosiOffClosesItAndKeepsItClosed()

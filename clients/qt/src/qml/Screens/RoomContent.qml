@@ -254,18 +254,24 @@ Item {
                     id: optionsButton
                     glyph: "more"
                     size: 30
+                    open: options.visible
                     Accessible.name: qsTr("Room options")
                     objectName: "room.options"
                     Accessible.id: objectName
-                    onClicked: options.popup(optionsButton, 0, optionsButton.height + 4)
+                    onClicked: options.visible ? options.close() : options.open()
 
                     KMenu {
                         id: options
+                        x: optionsButton.width - width
+                        y: optionsButton.height + 4
+                        width: 224
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                        transformOrigin: Popup.TopRight
                         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: root.owner; onTriggered: root.renaming = true }
                         KMenuItem { text: qsTr("Copy agent instructions"); iconName: "agent"; onTriggered: Models.Missions.copyAgentInstructions() }
                         KMenuItem { text: qsTr("Refresh"); iconName: "refresh"; onTriggered: Models.Missions.roomAction({ type: "read" }) }
                         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-                        KMenuItem { text: root.owner ? qsTr("Delete room…") : qsTr("Leave room…"); iconName: "close"; destructive: true; onTriggered: remove.open() }
+                        KMenuItem { text: root.owner ? qsTr("Delete room…") : qsTr("Leave room…"); iconName: root.owner ? "trash" : "leave"; destructive: true; onTriggered: remove.open() }
                     }
                 }
             }

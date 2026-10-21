@@ -50,8 +50,9 @@ struct SessionTileView: View {
                 .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
         }
         .overlay {
-            shape.strokeBorder(isSelected && !roomEmbedded ? theme.colors.accent.opacity(0.75) : theme.colors.hairline.opacity(0.7),
-                               lineWidth: isSelected && !roomEmbedded ? 1.5 : 0.5)
+            let selected = isSelected && !roomEmbedded
+            shape.strokeBorder(selected ? theme.colors.accent.mix(with: theme.colors.hairline, by: 0.55) : theme.colors.hairline.opacity(0.7),
+                               lineWidth: selected ? 1 : 0.5)
                 .allowsHitTesting(false)
         }
         .overlay {

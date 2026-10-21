@@ -8,17 +8,20 @@ AbstractButton {
     required property string glyph
     property int size: 28
     property bool active: false
+    property bool open: false
     property bool destructive: false
     property bool onTerminal: false
     property color glyphColor: onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
     readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
+    readonly property bool lit: hovered && enabled
+    readonly property real radius: Math.min(KodosiTheme.radiusMd, size * 0.32)
 
     activeFocusOnTab: true
     hoverEnabled: true
     implicitWidth: size
     implicitHeight: size
-    opacity: enabled ? 1 : 0.35
     scale: pressed && enabled ? 0.95 : 1
+    Accessible.selected: active
     ToolTip.text: Accessible.name
     ToolTip.visible: hovered && ToolTip.text.length > 0
     ToolTip.delay: Tip.delay
@@ -32,30 +35,38 @@ AbstractButton {
             height: width
             name: root.glyph
             strokeWidth: 1.9
-            color: root.hovered && root.enabled && root.destructive ? KodosiTheme.danger
-                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accentStrong)
-                : root.hovered && root.enabled ? root.ink
+            color: !root.enabled ? (root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalInkFaint, KodosiTheme.terminal, 0.35) : KodosiTheme.mix(KodosiTheme.inkFaint, KodosiTheme.surface, 0.35))
+                : root.lit && root.destructive ? KodosiTheme.danger
+                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentStrong : KodosiTheme.accentStrong)
+                : root.lit || root.open ? root.ink
                 : root.glyphColor
         }
     }
     background: Item {
-        readonly property bool lit: root.hovered && root.enabled
+        Raised {
+            anchors.fill: parent
+            radius: root.radius
+            fill: root.onTerminal ? KodosiTheme.terminalLifted : KodosiTheme.raised
+            opacity: root.active || root.open ? 1 : 0
+            visible: opacity > 0
 
+            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+        }
         Bezel {
             anchors.fill: parent
-            radius: Math.min(KodosiTheme.radiusMd, root.size * 0.32)
+            radius: root.radius
             quiet: true
             pressed: root.pressed
-            fill: parent.lit && root.destructive ? KodosiTheme.dangerSoft
-                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentSoft : KodosiTheme.accentSoft)
+            fill: root.lit && root.destructive ? KodosiTheme.dangerSoft
                 : root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : KodosiTheme.buttonFace(true)
-            opacity: parent.lit || root.active ? 1 : 0
+            opacity: root.lit && !root.active && !root.open ? 1 : 0
+            visible: opacity > 0
 
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
         }
         Rectangle {
             anchors.fill: parent
-            radius: Math.min(KodosiTheme.radiusMd, root.size * 0.32)
+            radius: root.radius
             color: "transparent"
             border.width: root.visualFocus ? 1.5 : 0
             border.color: KodosiTheme.accentStrong

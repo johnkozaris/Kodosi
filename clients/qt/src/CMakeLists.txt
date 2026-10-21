@@ -308,6 +308,7 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/CommandPalette.qml
         qml/Shell/Sidebar.qml
         qml/Shell/SidebarMenu.qml
+        qml/Shell/SignOutDialog.qml
         qml/Shell/StartupOverlay.qml
         qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml

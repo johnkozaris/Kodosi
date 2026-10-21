@@ -229,7 +229,6 @@ Item {
                         onTerminal: true
                         objectName: root.objectName + ".share"
                         visible: root.shareable
-                        active: !!root.session.missionId || (root.session.sharedWith || []).length > 0
                         onClicked: root.shareSessionRequested(root.sessionId)
                     }
                     KIconButton {
@@ -388,8 +387,8 @@ Item {
         anchors.fill: parent
         radius: KodosiTheme.radiusTile
         color: "transparent"
-        border.width: root.ringed ? 1.5 : 1
-        border.color: root.ringed ? KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.8) : KodosiTheme.alpha(KodosiTheme.terminalHairline, 0.8)
+        border.width: 1
+        border.color: root.ringed ? KodosiTheme.mix(KodosiTheme.terminalAccent, KodosiTheme.terminalHairline, 0.55) : KodosiTheme.alpha(KodosiTheme.terminalHairline, 0.8)
 
         Behavior on border.color { ColorAnimation { duration: KodosiTheme.motionFade } }
     }

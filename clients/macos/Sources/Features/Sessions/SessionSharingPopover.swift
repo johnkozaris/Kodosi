@@ -106,13 +106,19 @@ struct SessionSharingPopover: View {
                                 RoomSigil(key: mission.id, size: 18)
                                 Text(mission.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
                                 if selected {
-                                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).transition(AnyTransition.pop)
+                                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(theme.colors.accentStrong).transition(AnyTransition.pop)
                                 }
                             }
-                            .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.ink)
+                            .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
                             .padding(.leading, 5).padding(.trailing, 10).frame(height: 28)
-                            .background(selected ? theme.colors.accentSoft : theme.colors.ink.opacity(0.07), in: Capsule())
-                            .overlay { Capsule().strokeBorder(theme.colors.accent.opacity(selected ? 0.6 : 0), lineWidth: 1) }
+                            .background {
+                                if selected {
+                                    RaisedBackground(shape: Capsule(), fill: theme.colors.lifted, elevation: .resting)
+                                } else {
+                                    WellBackground(shape: Capsule())
+                                }
+                            }
                         }
                         .buttonStyle(PressScaleStyle()).disabled(saving)
                         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -125,7 +131,7 @@ struct SessionSharingPopover: View {
                 Text("Friends").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 if deps.people.friends.isEmpty {
                     Button { dismiss(); deps.workbench.section = .people } label: { Label("Add a friend", systemImage: "person.badge.plus") }
-                        .buttonStyle(.kodosi(.tinted))
+                        .buttonStyle(.kodosi(.secondary))
                 } else {
                     ScrollView {
                         FlowLayout(spacing: 10) {

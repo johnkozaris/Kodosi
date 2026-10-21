@@ -38,7 +38,6 @@ Button {
     topPadding: 0
     bottomPadding: 0
     scale: pressed && enabled ? 0.97 : 1
-    opacity: enabled || variant !== KButton.Primary ? 1 : 0.55
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
@@ -79,14 +78,13 @@ Button {
             anchors.fill: parent
             visible: root.variant !== KButton.Ghost
             radius: root.radius
-            quiet: root.variant !== KButton.Primary
+            quiet: root.variant !== KButton.Primary || !root.enabled
             pressed: root.pressed && root.enabled
-            lifted: root.enabled
-            fill: root.variant === KButton.Primary
-                ? (!root.enabled ? KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.surface, 0.45) : root.lit ? KodosiTheme.accentHover : KodosiTheme.accent)
+            fill: !root.enabled ? KodosiTheme.buttonFace(false)
+                : root.variant === KButton.Primary ? (root.lit ? KodosiTheme.accentHover : KodosiTheme.accent)
                 : root.variant === KButton.Tinted ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, root.lit ? 0.14 : 0)
                 : root.variant === KButton.Danger ? KodosiTheme.mix(KodosiTheme.dangerSoft, KodosiTheme.danger, root.lit ? 0.14 : 0)
-                : KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, (KodosiTheme.isDark ? 0.07 : 0) + (root.lit ? 0.03 : 0))
+                : KodosiTheme.buttonFace(root.lit)
         }
         Rectangle {
             anchors.fill: parent

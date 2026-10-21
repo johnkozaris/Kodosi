@@ -8,8 +8,6 @@ struct SidebarSectionHeader: View {
     let title: LocalizedStringKey
     let addTitle: LocalizedStringKey
     let identifier: String
-    let selected: Bool
-    let pill: Namespace.ID
     let open: () -> Void
     let add: () -> Void
 
@@ -18,18 +16,13 @@ struct SidebarSectionHeader: View {
             Button(action: open) {
                 HStack {
                     Text(title).appTextStyle(.caption)
-                        .foregroundStyle(selected || hovered ? theme.colors.ink : theme.colors.inkFaint)
+                        .foregroundStyle(hovered ? theme.colors.ink : theme.colors.inkFaint)
                     Spacer(minLength: 0)
                 }
                 .padding(.leading, 10).frame(height: 26).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             IconButton(title: addTitle, symbol: "plus", identifier: identifier, size: 22, action: add)
-        }
-        .background {
-            if selected {
-                SelectionPill(namespace: pill, radius: Radius.sm)
-            }
         }
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
@@ -193,7 +186,7 @@ struct SidebarFolderHeader: View {
             if group.host == nil, let directory = group.directory {
                 if group.sessions.contains(where: { $0.repository == true }) {
                     IconButton(title: "New terminal on a new branch", symbol: "arrow.triangle.branch",
-                               identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).branch", size: 20, active: branching)
+                               identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).branch", size: 20, open: branching)
                     {
                         branching = true
                     }

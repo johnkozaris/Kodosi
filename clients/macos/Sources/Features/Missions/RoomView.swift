@@ -136,23 +136,35 @@ struct RoomHeader: View {
                     CountBadge(count: state.unread).offset(x: 6, y: -4).transition(AnyTransition.pop)
                 }
             }
-            Menu {
-                if isOwner {
-                    Button("Rename") { name = detail.mission.name; state.renaming = true; nameFocused = true }
-                }
-                Button("Refresh") { Task { await deps.readRoom(roomId) } }
-                Divider()
-                if isOwner {
-                    Button("Delete room…", role: .destructive) { confirmDelete = true }
-                } else {
-                    Button("Leave room…", role: .destructive) { confirmLeave = true }
-                }
-            } label: {
-                Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
-                    .frame(width: 30, height: 30).contentShape(Circle())
+            IconButton(title: "Room options", symbol: "ellipsis", identifier: "room.options", size: 30, open: state.optionsVisible) {
+                state.optionsVisible.toggle()
             }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .accessibilityLabel(Text("Room options")).accessibilityIdentifier("room.options")
+            .kodosiPopover(isPresented: $state.optionsVisible, arrowEdge: .bottom, alignment: .trailing) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if isOwner {
+                        PanelMenuRow(Text("Rename"), icon: .symbol("pencil"), identifier: "room.options.rename") {
+                            name = detail.mission.name; state.renaming = true; nameFocused = true
+                        }
+                    }
+                    PanelMenuRow(Text("Refresh"), icon: .symbol("arrow.clockwise"), identifier: "room.options.refresh") {
+                        Task { await deps.readRoom(roomId) }
+                    }
+                    PanelMenuDivider()
+                    if isOwner {
+                        PanelMenuRow(Text("Delete room…"), icon: .symbol("trash"), identifier: "room.options.delete", destructive: true) {
+                            confirmDelete = true
+                        }
+                    } else {
+                        PanelMenuRow(Text("Leave room…"), icon: .symbol("rectangle.portrait.and.arrow.right"),
+                                     identifier: "room.options.leave", destructive: true)
+                        {
+                            confirmLeave = true
+                        }
+                    }
+                }
+                .padding(6)
+                .frame(width: 200)
+            }
         }
         .padding(.leading, 16).padding(.trailing, 10).frame(height: Metrics.headerHeight)
         .animation(theme.motion.snappy, value: state.unread)

@@ -105,7 +105,7 @@ struct SessionTileHeader: View {
             }
             if session.kind == .local, session.isOwner {
                 IconButton(title: "Share", symbol: "person.badge.plus", identifier: "\(stageId).share", size: 26,
-                           active: deps.workbench.sharingSessionId == session.id)
+                           open: deps.workbench.sharingSessionId == session.id)
                 {
                     deps.workbench.sharingSessionId = session.id
                 }

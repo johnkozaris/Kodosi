@@ -30,18 +30,18 @@ extension AppDependencies {
 
     var dosiLine: String {
         switch dosi.state {
-        case .unavailable: return String(localized: "choose dosi's agent in settings")
-        case .stopping: return String(localized: "dosi is stopping")
+        case .unavailable: return String(localized: "Choose Dosi's agent in Settings")
+        case .stopping: return String(localized: "Dosi is stopping")
         case .working:
             if let remote = dosi.snapshot?.remote {
-                return String(localized: "dosi is working on \(remote.computer)")
+                return String(localized: "Dosi is working on \(remote.computer)")
             }
-            return String(localized: "dosi is working")
+            return String(localized: "Dosi is working")
         case .idle, .connecting:
             if !dosi.openQuestions.isEmpty {
-                return String(localized: "dosi has a question")
+                return String(localized: "Dosi has a question")
             }
-            return dosi.unseen ? String(localized: "dosi answered") : String(localized: "ask dosi")
+            return dosi.unseen ? String(localized: "Dosi answered") : String(localized: "Ask Dosi")
         }
     }
 

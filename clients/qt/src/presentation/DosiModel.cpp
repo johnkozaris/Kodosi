@@ -106,16 +106,16 @@ QString DosiModel::line() const
 {
     const auto value = state();
     if (value == QStringLiteral("unavailable"))
-        return tr("choose dosi's agent in settings");
+        return tr("Choose Dosi's agent in Settings");
     if (value == QStringLiteral("stopping"))
-        return tr("dosi is stopping");
+        return tr("Dosi is stopping");
     if (value == QStringLiteral("working")) {
         const auto computer = m_snapshot.value(QStringLiteral("remote")).toObject().value(QStringLiteral("computer")).toString();
-        return computer.isEmpty() ? tr("dosi is working") : tr("dosi is working on %1").arg(computer);
+        return computer.isEmpty() ? tr("Dosi is working") : tr("Dosi is working on %1").arg(computer);
     }
     if (asking())
-        return tr("dosi has a question");
-    return unseen() ? tr("dosi answered") : tr("ask dosi");
+        return tr("Dosi has a question");
+    return unseen() ? tr("Dosi answered") : tr("Ask Dosi");
 }
 
 bool DosiModel::unseen() const

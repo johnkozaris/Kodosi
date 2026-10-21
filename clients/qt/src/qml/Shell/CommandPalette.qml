@@ -45,7 +45,7 @@ KPopover {
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
             list.push({ id: "action.room", group: group, title: qsTr("New room"), kind: "action", icon: "grid", tint: "#8c7bd1" })
         list.push({ id: "action.people", group: group, title: qsTr("Friends"), kind: "action", icon: "people", tint: "#5b82c9" })
-        list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "settings", tint: "#6b6560" })
+        list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "gear", tint: "#6b6560" })
         return list
     }
     function run(item) {

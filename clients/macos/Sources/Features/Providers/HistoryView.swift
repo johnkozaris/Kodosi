@@ -21,11 +21,13 @@ struct HistoryView: View {
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle())
         .onAppear {
-            browser = ConversationBrowser(
+            let opened = ConversationBrowser(
                 commands: deps.commandSink,
                 directory: deps.selectedLocalDirectory ?? ""
             )
-            browser?.load()
+            opened.provider = deps.workbench.historyProvider
+            browser = opened
+            opened.load()
         }
         .onDisappear { browser?.cancel() }
         .onChange(of: deps.accountEpoch) { _, _ in dismiss() }

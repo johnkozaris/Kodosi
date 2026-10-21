@@ -12,6 +12,7 @@ final class RoomViewState {
     var conversationVisible = true
     var conversationWidth: CGFloat = 380
     var peopleVisible = false
+    var optionsVisible = false
     var renaming = false
     var selectedTerminal: String?
     var message = "" {

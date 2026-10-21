@@ -14,7 +14,7 @@ final class WorkbenchState {
         case sessions, missions, people, settings
     }
 
-    enum SettingsSection: String { case terminal, providers, dosi, devices, general }
+    enum SettingsSection: String, CaseIterable { case terminal, providers, dosi, devices, general }
 
     static let maximumStagedSessions = 6
     static let sidebarWidths: ClosedRange<CGFloat> = 220 ... 380
@@ -27,6 +27,7 @@ final class WorkbenchState {
     var detailsSessionId: String?
     var sharingSessionId: String?
     var showsHistory = false
+    var historyProvider: Provider = .claude
     var showsPalette = false
     var showsNewRoom = false
     var launcher: LauncherRequest?
@@ -130,6 +131,11 @@ final class WorkbenchState {
 
     func selectSession(_ id: String) {
         selectedSessionId = id
+    }
+
+    func resume(_ provider: Provider) {
+        historyProvider = provider
+        showsHistory = true
     }
 
     func showSession(_ id: String, inRoom roomId: String? = nil) {

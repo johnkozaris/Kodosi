@@ -132,7 +132,7 @@ struct SidebarView: View {
 
     private var rooms: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SidebarSectionHeader(title: "Rooms", addTitle: "New room", identifier: "missions.create", selected: selection == .rooms, pill: pill) {
+            SidebarSectionHeader(title: "Rooms", addTitle: "New room", identifier: "missions.create") {
                 deps.showRooms()
             } add: {
                 if deps.account.isReady {
@@ -170,9 +170,7 @@ struct SidebarView: View {
 
     private var terminals: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SidebarSectionHeader(title: "Terminals", addTitle: "New terminal", identifier: "sidebar.terminals.new",
-                                 selected: false, pill: pill)
-            {
+            SidebarSectionHeader(title: "Terminals", addTitle: "New terminal", identifier: "sidebar.terminals.new") {
                 deps.workbench.section = .sessions
             } add: {
                 deps.openLauncher()
@@ -263,6 +261,7 @@ struct NewTerminalButton: View {
 
 struct AccountCapsule: View {
     @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
 
     var body: some View {
         if let prompt = deps.signInPrompt {
@@ -289,13 +288,14 @@ struct AccountCapsule: View {
                 deps.workbench.section = .settings
             } label: {
                 HStack(spacing: 9) {
-                    PersonAvatar(name: deps.account.selfName, size: 20, isSelf: true)
-                    Text(deps.account.selfName)
+                    PersonAvatar(name: deps.account.selfName, size: 24, isSelf: true)
+                    Text(deps.account.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, -6).frame(height: 34)
+                .padding(.horizontal, 5).frame(height: 34)
+                .hoverRow()
             }
-            .buttonStyle(.kodosi(.secondary))
+            .buttonStyle(PressScaleStyle(scale: 0.98))
             .tip("Account").accessibilityLabel(Text("Account"))
             .accessibilityIdentifier("sidebar.account")
         }

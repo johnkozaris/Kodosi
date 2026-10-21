@@ -42,7 +42,7 @@ Item {
     signal newTerminalRequested(string folder)
     signal detailsRequested(string sessionId)
     signal shareRequested(string sessionId)
-    signal resumeRequested
+    signal resumeRequested(string provider)
     signal paletteRequested
     signal newRoomRequested
     signal dosiSettingsRequested
@@ -103,7 +103,6 @@ Item {
         property string title: ""
         property string addName: ""
         property string identifier: ""
-        property bool selected: false
 
         signal clicked
         signal addClicked
@@ -124,7 +123,7 @@ Item {
             contentItem: PlainLabel {
                 leftPadding: 10
                 text: header.title
-                color: header.selected ? KodosiTheme.accentStrong : titleButton.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
+                color: titleButton.hovered ? KodosiTheme.ink : KodosiTheme.inkFaint
                 font.pixelSize: KodosiTheme.fontCaption
                 font.weight: Font.DemiBold
                 verticalAlignment: Text.AlignVCenter
@@ -206,7 +205,7 @@ Item {
                 ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
                 ToolTip.delay: Tip.delay
                 background: Bezel {
-                    radius: 17
+                    radius: KodosiTheme.radiusMd
                     fill: railNew.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
                     pressed: railNew.pressed
                     opacity: railNewSpot.hidden ? 0 : 1
@@ -217,7 +216,7 @@ Item {
                         key: "new"
                         place: "rail"
                         fill: KodosiTheme.accent
-                        radius: 17
+                        radius: KodosiTheme.radiusMd
                     }
                 }
                 contentItem: Item {
@@ -346,18 +345,43 @@ Item {
                     railFoot.play()
             }
 
-            KIconButton {
-                anchors.horizontalCenter: parent.horizontalCenter
-                glyph: "history"
-                size: 32
-                Accessible.name: qsTr("Resume")
-                onClicked: root.resumeRequested()
+            RailItem {
+                objectName: root.accountReady ? "sidebar.account" : "sidebar.signIn"
+                Accessible.id: objectName
+                Accessible.name: root.accountReady ? Identity.selfName : signInLabel.text
+                contentItem: Item {
+                    PersonAvatar {
+                        anchors.centerIn: parent
+                        visible: root.accountReady
+                        name: Identity.selfName
+                        size: 26
+                        isSelf: true
+                    }
+                    SlotMark {
+                        anchors.centerIn: parent
+                        visible: !Models.Account.signedIn
+                        glyph: "person"
+                        tint: KodosiTheme.inkMuted
+                        size: 26
+                    }
+                    KIcon {
+                        anchors.centerIn: parent
+                        width: 16
+                        height: 16
+                        visible: Models.Account.signedIn && !root.accountReady
+                        name: "lock"
+                        color: KodosiTheme.accentStrong
+                        strokeWidth: 2
+                    }
+                }
+                onClicked: root.accountReady ? root.accountSettingsRequested() : root.signIn()
             }
             SidebarMenu {
                 anchors.horizontalCenter: parent.horizontalCenter
                 opensRight: true
                 selected: root.selection === "people" || root.selection === "settings"
                 onAboutRequested: root.aboutRequested()
+                onResumeRequested: provider => root.resumeRequested(provider)
             }
         }
     }
@@ -538,7 +562,6 @@ Item {
                     title: qsTr("Rooms")
                     addName: qsTr("New room")
                     identifier: "sidebar.rooms"
-                    selected: root.selection === "rooms"
                     onClicked: root.showRooms()
                     onAddClicked: root.accountReady ? root.newRoomRequested() : root.signIn()
                 }
@@ -809,7 +832,7 @@ Item {
                                     glyph: "branch"
                                     visible: folder.group.repository === true
                                         && (folderHover.hovered || (branchPopover.visible && branchPopover.directory === folder.group.directory))
-                                    active: branchPopover.visible && branchPopover.directory === folder.group.directory
+                                    open: branchPopover.visible && branchPopover.directory === folder.group.directory
                                     objectName: "sidebar.folder.branch." + folder.group.key
                                     Accessible.id: objectName
                                     Accessible.name: qsTr("New terminal on a new branch in %1").arg(folder.group.name)
@@ -1157,7 +1180,7 @@ Item {
                     visible: root.accountReady
                     hoverEnabled: true
                     activeFocusOnTab: true
-                    scale: pressed ? 0.97 : 1
+                    scale: pressed ? 0.98 : 1
                     objectName: "sidebar.account"
                     Accessible.id: objectName
                     Accessible.name: qsTr("Account")
@@ -1169,13 +1192,12 @@ Item {
 
                     contentItem: RowLayout {
                         spacing: 9
-                        PersonAvatar { Layout.leftMargin: 8; name: Identity.selfName; size: 20; isSelf: true }
+                        PersonAvatar { Layout.leftMargin: 5; name: Identity.selfName; size: 24; isSelf: true }
                         PlainLabel { Layout.fillWidth: true; text: Identity.selfName; font.weight: Font.DemiBold; elide: Text.ElideRight }
                     }
-                    background: Bezel {
-                        quiet: true
-                        pressed: account.pressed
-                        fill: KodosiTheme.buttonFace(account.hovered)
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusMd
+                        color: KodosiTheme.alpha(KodosiTheme.ink, account.hovered ? 0.06 : 0)
                     }
                     onClicked: root.accountSettingsRequested()
 
@@ -1184,6 +1206,7 @@ Item {
                 SidebarMenu {
                     selected: root.selection === "people" || root.selection === "settings"
                     onAboutRequested: root.aboutRequested()
+                    onResumeRequested: provider => root.resumeRequested(provider)
                 }
             }
         }

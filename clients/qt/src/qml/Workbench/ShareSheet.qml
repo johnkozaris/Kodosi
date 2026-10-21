@@ -160,15 +160,22 @@ KPopover {
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 7
                                 RoomSigil { key: chip.modelData.id; size: 18 }
-                                PlainLabel { text: chip.modelData.name; color: chip.selected ? KodosiTheme.accentStrong : KodosiTheme.ink; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
+                                PlainLabel { text: chip.modelData.name; color: chip.selected ? KodosiTheme.ink : KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
                                 KIcon { visible: chip.selected; Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "check"; strokeWidth: 2.8; color: KodosiTheme.accentStrong }
                             }
                         }
-                        background: Rectangle {
-                            radius: 14
-                            color: chip.selected ? KodosiTheme.accentSoft : KodosiTheme.alpha(KodosiTheme.ink, 0.07)
-                            border.width: chip.selected ? 1 : 0
-                            border.color: KodosiTheme.alpha(KodosiTheme.accent, 0.6)
+                        background: Item {
+                            Raised {
+                                anchors.fill: parent
+                                visible: chip.selected
+                                radius: height / 2
+                                fill: KodosiTheme.lifted
+                            }
+                            Well {
+                                anchors.fill: parent
+                                visible: !chip.selected
+                                radius: height / 2
+                            }
                         }
                         onClicked: {
                             root.room = selected ? "" : modelData.id;
@@ -186,7 +193,6 @@ KPopover {
             PlainLabel { text: qsTr("Friends"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
             KButton {
                 visible: Models.People.friends.length === 0
-                variant: KButton.Tinted
                 iconName: "share"
                 text: qsTr("Add a friend")
                 onClicked: { root.close(); Models.DesktopState.activeView = Models.DesktopState.People; }
