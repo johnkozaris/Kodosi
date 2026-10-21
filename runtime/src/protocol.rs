@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 67;
+pub const VERSION: u32 = 68;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
@@ -535,6 +535,8 @@ pub enum Command {
         token: String,
         question: String,
         options: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        keys: Vec<String>,
         #[serde(default)]
         multiple: bool,
         #[serde(default)]
@@ -678,6 +680,7 @@ pub enum SessionKind {
 pub enum SessionStatus {
     Running,
     Reconnecting,
+    Offline,
     Closing,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -1591,8 +1594,8 @@ impl Command {
 
     fn validate_dosi(&self) -> Result<()> {
         use crate::dosi::{
-            MAX_INSTRUCTIONS_BYTES, MAX_MESSAGE_BYTES, MAX_OPTION_BYTES, MAX_OPTIONS,
-            MAX_QUESTION_BYTES,
+            MAX_ANSWER_BYTES, MAX_INSTRUCTIONS_BYTES, MAX_MESSAGE_BYTES, MAX_OPTION_BYTES,
+            MAX_OPTIONS, MAX_QUESTION_BYTES,
         };
         match self {
             Self::DosiSend { text, context, .. } => {
@@ -1610,17 +1613,23 @@ impl Command {
                 item_id, choices, ..
             } => {
                 parse_id(item_id)?;
-                if choices.is_empty() || choices.len() > MAX_OPTIONS {
-                    return Err(Error::Invalid("Choose one to eight answers.".to_owned()));
+                if choices.is_empty() || choices.len() > MAX_OPTIONS + 1 {
+                    return Err(Error::Invalid(
+                        "Choose one to eight answers, and add at most one of your own.".to_owned(),
+                    ));
                 }
                 for choice in choices {
-                    text(choice, "answer", MAX_OPTION_BYTES)?;
+                    text(choice, "answer", MAX_ANSWER_BYTES)?;
+                    if choice.trim().is_empty() {
+                        return Err(Error::Invalid("An answer must have words.".to_owned()));
+                    }
                 }
             }
             Self::DosiAsk {
                 token,
                 question,
                 options,
+                keys,
                 terminal,
                 ..
             } => {
@@ -1634,6 +1643,18 @@ impl Command {
                     text(option, "choice", MAX_OPTION_BYTES)?;
                     if !seen.insert(option) {
                         return Err(Error::Invalid("Each choice must be different.".to_owned()));
+                    }
+                }
+                if !keys.is_empty() && (terminal.is_none() || keys.len() != options.len()) {
+                    return Err(Error::Invalid(
+                        "Give the keys of every choice, and the terminal they go to.".to_owned(),
+                    ));
+                }
+                for typed in keys {
+                    if typed.len() > MAX_OPTION_BYTES || typed.chars().any(char::is_control) {
+                        return Err(Error::Invalid(format!(
+                            "keys must contain at most {MAX_OPTION_BYTES} bytes without control characters"
+                        )));
                     }
                 }
                 if let Some(terminal) = terminal {
@@ -2039,7 +2060,7 @@ mod tests {
             json!({"type":"dosi.stop","requestId":ID}),
             json!({"type":"dosi.unqueue","requestId":ID,"queuedId":ID}),
             json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":["work"]}),
-            json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Which account?","options":["work","personal"],"multiple":false,"terminal":null}),
+            json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Overwrite the notes?","options":["Yes","No"],"keys":["y","n"],"multiple":false,"terminal":"Release notes"}),
             json!({"type":"dosi.new","requestId":ID}),
             json!({"type":"dosi.setup","requestId":ID,"change":{"type":"pick","agent":"claude","account":"default","model":"opus","effort":"high"}}),
             json!({"type":"dosi.setup","requestId":ID,"change":{"type":"tab","agent":"codex"}}),
@@ -2145,6 +2166,23 @@ mod tests {
         assert!(ask(json!(["a", "a"])).is_err());
         assert!(ask(json!((0..9).map(|n| n.to_string()).collect::<Vec<_>>())).is_err());
         assert!(ask(json!(["new\nline"])).is_err());
+        let keyed = |keys: Value, terminal: Value| {
+            serde_json::from_value::<CommandEnvelope>(envelope(
+                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Overwrite?","options":["Yes","No"],"keys":keys,"terminal":terminal}),
+            ))
+        };
+        assert!(keyed(json!(["y", ""]), json!("Release notes")).is_ok());
+        assert!(keyed(json!(["y"]), json!("Release notes")).is_err());
+        assert!(keyed(json!(["y", "n"]), json!(null)).is_err());
+        assert!(keyed(json!(["y", "\u{1b}"]), json!("Release notes")).is_err());
+        let answer = |choices: Value| {
+            serde_json::from_value::<CommandEnvelope>(envelope(
+                json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":choices}),
+            ))
+        };
+        assert!(answer(json!(["Yes", "Use the other file first"])).is_ok());
+        assert!(answer(json!(["  "])).is_err());
+        assert!(answer(json!([])).is_err());
         for text in [
             "",
             "  \n ",

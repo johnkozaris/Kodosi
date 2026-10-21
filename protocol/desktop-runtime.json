@@ -3783,6 +3783,12 @@
               }
             ]
           },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "multiple": {
             "type": "boolean"
           },
@@ -5659,6 +5665,9 @@
                     },
                     {
                       "const": "reconnecting"
+                    },
+                    {
+                      "const": "offline"
                     },
                     {
                       "const": "closing"
@@ -8373,6 +8382,12 @@
                                 }
                               ]
                             },
+                            "keys": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
                             "kind": {
                               "const": "question"
                             },
@@ -8952,6 +8967,12 @@
                           }
                         ]
                       },
+                      "keys": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
                       "kind": {
                         "const": "question"
                       },
@@ -9377,6 +9398,12 @@
                                     }
                                   ]
                                 },
+                                "keys": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
                                 "kind": {
                                   "const": "question"
                                 },
@@ -9700,7 +9727,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 67,
+  "protocolVersion": 68,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

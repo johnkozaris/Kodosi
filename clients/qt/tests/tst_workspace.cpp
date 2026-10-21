@@ -249,6 +249,20 @@ private slots:
         f.sessions.apply(test::snapshot({ test::session(1) }));
         QVERIFY(f.sessions.presentationSession(test::id(1))->canControl);
     }
+    void aTerminalWhoseComputerIsAwayKeepsItsViewAndTakesNoTyping()
+    {
+        Fixture f;
+        auto remote = test::session(1, true, false);
+        for (const auto* status : { "reconnecting", "offline" }) {
+            remote.insert(QStringLiteral("status"), QLatin1String(status));
+            f.sessions.apply(test::snapshot({ remote }));
+            const auto presentation = f.sessions.presentationSession(test::id(1));
+            QVERIFY(presentation->canControl);
+            QVERIFY(!presentation->canType);
+            QVERIFY(!f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("canControl")).toBool());
+        }
+        QVERIFY(f.sessions.presentationSession(test::id(1))->away);
+    }
     void folderGroupsKeepNamesAndRemoteDirectoriesPresentationOnly()
     {
         Fixture f;
@@ -664,9 +678,14 @@ private slots:
         f.workspace.apply(test::snapshot({ test::session(1) }), 0);
         QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
         QVERIFY(f.workspace.sessionActions().close(test::id(1)));
+        f.desktop.setLauncherPrompt(QStringLiteral("fix the build"));
+        f.desktop.setLauncherFolder(QStringLiteral("/work/atlas"));
+        f.desktop.setLauncherRemoteFolder(QStringLiteral("studio"), QStringLiteral("/home/me/atlas"));
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") },
             { QStringLiteral("accountEpoch"), 2 } }, 2);
         QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(f.desktop.launcherPrompt().isEmpty() && f.desktop.launcherFolder().isEmpty());
+        QVERIFY(f.desktop.launcherRemoteFolders().isEmpty());
         QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(!f.workspace.account().signedIn());
     }

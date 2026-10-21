@@ -613,13 +613,11 @@ QVariantMap DosiModel::row(const QVariantMap& item, const QVariantList& run, boo
         const auto session = terminalId(reference);
         const auto options = content.value(QStringLiteral("options")).toStringList();
         const bool multiple = content.value(QStringLiteral("multiple")).toBool();
-        const bool brief = std::all_of(options.cbegin(), options.cend(), [](const QString& option) { return option.size() <= 3; });
         shown.insert(QStringLiteral("question"), content.value(QStringLiteral("question")).toString());
         shown.insert(QStringLiteral("options"), options);
         shown.insert(QStringLiteral("multiple"), multiple);
         shown.insert(QStringLiteral("sessionId"), session);
         shown.insert(QStringLiteral("open"), reply.isNull());
-        shown.insert(QStringLiteral("keys"), !reference.isEmpty() && !multiple && brief);
         if (!reply.isNull()) {
             const auto chosen = reply.toStringList();
             auto line = chosen.isEmpty() ? tr("not answered") : chosen.join(QStringLiteral(", "));

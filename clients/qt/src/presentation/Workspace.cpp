@@ -131,6 +131,7 @@ void Workspace::clearAccountData(bool clearLinks)
     m_dosi.reset();
     m_sessionActions.reset(clearLinks);
     m_desktop.clearSessions();
+    m_desktop.clearLauncherDraft();
     m_sessions.resetRuntimeAuthority();
     notifyBusy();
 }

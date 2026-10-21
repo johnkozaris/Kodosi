@@ -38,8 +38,11 @@ of the rest lists them. The line becomes the composer; New chat sits in the head
 asks first. The back button or Esc returns to the list, and ⌘. stops Dosi. While Dosi
 works, its line shows the marks of what it touches, and a terminal that Dosi types in
 shows what it typed. Until Dosi shows its next step or words, the conversation says that
-it is thinking. A question waits in the conversation, and the line says that Dosi
-has a question. A collapsed sidebar keeps Dosi at the bottom of the rail.
+it is thinking. A question waits in the conversation with a button for each answer and
+a field for your own words, and the line says that Dosi has a question. A question about
+a terminal also shows its short answers on the terminal's header, and an answer types
+into that terminal; your own words go to Dosi instead. A collapsed sidebar keeps Dosi at
+the bottom of the rail.
 Settings › Dosi chooses its agent, account, model and effort, edits its instructions and
 shows its folder. Each agent keeps its own account, model and effort. A choice is saved
 at once, and Dosi uses it from the next message. Turned off there, Dosi leaves the

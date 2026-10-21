@@ -315,6 +315,7 @@ impl Runtime {
         };
         let id = parse_id(session_id)?;
         self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
         self.job_capacity()?;
         let read = self.target(id)?.read(*history);
         let command = command.clone();
@@ -339,6 +340,7 @@ impl Runtime {
         };
         let id = parse_id(session_id)?;
         self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
         self.job_capacity()?;
         let input = self
             .target(id)?
@@ -463,6 +465,7 @@ impl Runtime {
 
     fn end_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
+        self.reachable(id)?;
         if !self.hosts(&id)
             && self
                 .connections
@@ -610,6 +613,9 @@ impl Runtime {
             self.result(&command);
             return Ok(());
         }
+        if !self.host_online(id) {
+            return self.await_host(id, &command);
+        }
         if let Some(opening) = self.opening.get_mut(&id) {
             if !opening.commands.iter().any(|waiting| waiting == &command) {
                 if opening.commands.len() >= 32 {
@@ -666,6 +672,47 @@ impl Runtime {
             }
         });
         Ok(())
+    }
+
+    fn await_host(&mut self, id: Uuid, command: &Command) -> Result<()> {
+        if !matches!(command, Command::OpenRemote { .. }) {
+            return Err(self.offline(id));
+        }
+        if self.views.contains_key(&id)
+            && let Some(incarnation) = self
+                .remotes
+                .get(&id)
+                .and_then(|entry| Uuid::parse_str(&entry.incarnation_id).ok())
+        {
+            self.reconnect.entry(id).or_insert_with(|| Reconnect {
+                incarnation,
+                failures: 0,
+                next: tokio::time::Instant::now(),
+                connected: None,
+            });
+        }
+        self.result(command);
+        Ok(())
+    }
+
+    pub(super) fn reachable(&self, id: Uuid) -> Result<()> {
+        if self.host_online(id) {
+            Ok(())
+        } else {
+            Err(self.offline(id))
+        }
+    }
+
+    fn offline(&self, id: Uuid) -> Error {
+        Error::Other(
+            self.remotes
+                .get(&id)
+                .and_then(|entry| entry.host_name.as_deref())
+                .map_or_else(
+                    || "Its computer is offline.".to_owned(),
+                    |host| format!("{host} is offline."),
+                ),
+        )
     }
 
     fn disconnect_remote(&mut self, id: Uuid) {
@@ -1125,36 +1172,50 @@ impl Runtime {
                     }
                 }
             }
-            Err(error) => {
-                tracing::warn!(%id, %error, "remote terminal connection failed");
-                if matches!(error, Error::Invalid(_)) {
-                    self.reconnect.remove(&id);
-                    if let Some(connection) = self.connections.remove(&id) {
-                        connection.disconnect();
-                    }
-                }
-                if let Some(retry) = self.reconnect.get_mut(&id) {
-                    retry.failures = retry.failures.saturating_add(1);
-                    retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
-                    retry.connected = None;
-                }
-                let recovering = self.reconnect.contains_key(&id) && self.recovering(id);
-                if let Some(entry) = self.remotes.get_mut(&id) {
-                    if recovering {
-                        entry.status = SessionStatus::Reconnecting;
-                    } else {
-                        entry.connection_state = if matches!(error, Error::Invalid(_)) {
-                            ConnectionState::Blocked
-                        } else {
-                            ConnectionState::Offline
-                        };
-                        entry.message = Some(error.to_string());
-                    }
-                }
-                self.publish_catalog();
-                for command in opening.commands {
-                    self.error(&command, &error);
-                }
+            Err(error) => self.connection_failed(id, opening.commands, error),
+        }
+    }
+
+    fn connection_failed(&mut self, id: Uuid, commands: Vec<Command>, error: Error) {
+        tracing::warn!(%id, %error, "remote terminal connection failed");
+        let blocked = matches!(error, Error::Invalid(_));
+        if blocked {
+            self.reconnect.remove(&id);
+            if let Some(connection) = self.connections.remove(&id) {
+                connection.disconnect();
+            }
+        }
+        if let Some(retry) = self.reconnect.get_mut(&id) {
+            retry.failures = retry.failures.saturating_add(1);
+            retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
+            retry.connected = None;
+        }
+        let recovering = self.reconnect.contains_key(&id) && self.recovering(id);
+        let online = self.host_online(id);
+        let status = self.remote_status(id, online);
+        if let Some(entry) = self.remotes.get_mut(&id) {
+            if recovering {
+                entry.status = status;
+            } else {
+                entry.connection_state = if blocked {
+                    ConnectionState::Blocked
+                } else {
+                    ConnectionState::Offline
+                };
+                entry.message = (blocked || online).then(|| error.to_string());
+            }
+        }
+        self.publish_catalog();
+        let error = if blocked || online {
+            error
+        } else {
+            self.offline(id)
+        };
+        for command in commands {
+            if !blocked && !online && matches!(command, Command::OpenRemote { .. }) {
+                self.result(&command);
+            } else {
+                self.error(&command, &error);
             }
         }
     }

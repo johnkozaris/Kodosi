@@ -49,7 +49,9 @@ a message while a person types in that terminal.
 
 Reconnecting restores the current state without disturbing other viewers or repeating
 input whose delivery is uncertain. A stale connection never controls a replacement
-terminal. A lost connection does not change sharing.
+terminal. A lost connection does not change sharing. When the computer of a terminal is
+offline, the terminal says so, keeps its last screen and takes no input; it opens again
+when that computer is back.
 
 ## Encryption
 

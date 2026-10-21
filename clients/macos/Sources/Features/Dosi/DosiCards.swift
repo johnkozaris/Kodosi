@@ -81,9 +81,14 @@ struct DosiQuestionCard: View {
     let item: DosiItem
     let question: DosiQuestion
     @State private var picked: Set<String> = []
+    @State private var own = ""
 
-    private var keys: Bool {
-        question.terminal != nil && !question.multiple && question.options.allSatisfy { $0.count <= 3 }
+    private var words: String {
+        own.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var choices: [String] {
+        question.options.filter(picked.contains) + (words.isEmpty ? [] : [words])
     }
 
     var body: some View {
@@ -95,26 +100,23 @@ struct DosiQuestionCard: View {
                 Text(question.question).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.colors.ink)
                     .textSelection(.enabled)
             }
-            if keys {
-                HStack(spacing: 6) {
-                    ForEach(question.options, id: \.self) { option in
-                        Button(option) { deps.answerDosi(item, [option]) }
-                            .buttonStyle(DosiKeyStyle())
-                            .accessibilityIdentifier("dosi.answer.\(AccessibilityIdentifier.token(option))")
-                    }
+            FlowLayout(spacing: 6) {
+                ForEach(question.options, id: \.self) { option in
+                    Button(option) { choose(option) }
+                        .buttonStyle(.kodosi(question.multiple && picked.contains(option) ? .tinted : .secondary, size: .small))
+                        .accessibilityIdentifier("dosi.answer.\(AccessibilityIdentifier.token(option))")
                 }
-            } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(question.options, id: \.self) { option in
-                        Button(option) { choose(option) }
-                            .buttonStyle(.kodosi(question.multiple && picked.contains(option) ? .tinted : .secondary, size: .small))
-                            .accessibilityIdentifier("dosi.answer.\(AccessibilityIdentifier.token(option))")
-                    }
-                }
-                if question.multiple {
-                    Button("Send") { deps.answerDosi(item, question.options.filter(picked.contains)) }
-                        .buttonStyle(.kodosi(.primary, size: .small)).disabled(picked.isEmpty)
+            }
+            HStack(spacing: 6) {
+                TextField("Something else", text: $own)
+                    .textFieldStyle(WellTextFieldStyle(radius: Radius.sm, compact: true))
+                    .onSubmit(send)
+                    .accessibilityIdentifier("dosi.answer.own")
+                if question.multiple || !words.isEmpty {
+                    Button("Send", action: send)
+                        .buttonStyle(.kodosi(.primary, size: .small)).disabled(choices.isEmpty)
                         .accessibilityIdentifier("dosi.answer.send")
+                        .transition(AnyTransition.pop)
                 }
             }
         }
@@ -122,6 +124,7 @@ struct DosiQuestionCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .raised(Radius.lg, fill: theme.colors.raised, elevation: .lifted)
         .animation(theme.motion.snappy, value: picked)
+        .animation(theme.motion.snappy, value: words.isEmpty)
     }
 
     private func choose(_ option: String) {
@@ -135,22 +138,10 @@ struct DosiQuestionCard: View {
             picked.insert(option)
         }
     }
-}
 
-struct DosiKeyStyle: ButtonStyle {
-    @Environment(\.theme) private var theme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, design: .monospaced)).foregroundStyle(theme.colors.ink)
-            .padding(.horizontal, 8).frame(minWidth: 28, minHeight: 28)
-            .background {
-                BezelBackground(shape: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous), fill: theme.colors.lifted,
-                                bezel: .quiet)
-                    .environment(\.bezelPressed, configuration.isPressed)
-            }
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .animation(theme.motion.snappy, value: configuration.isPressed)
+    private func send() {
+        guard !choices.isEmpty, question.multiple || choices.count == 1 else { return }
+        deps.answerDosi(item, choices)
     }
 }
 

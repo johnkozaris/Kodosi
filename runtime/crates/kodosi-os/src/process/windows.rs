@@ -139,6 +139,8 @@ pub(super) fn detach(command: &mut std::process::Command) {
     }
 }
 
+pub(super) const fn reset_signals() {}
+
 pub(super) fn is_running(pid: u32) -> bool {
     let handle = unsafe {
         OpenProcess(

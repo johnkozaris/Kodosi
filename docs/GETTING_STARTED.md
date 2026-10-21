@@ -67,7 +67,8 @@ model and effort.
 
 Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and rooms,
 answers, and types, starts and closes things for you. When it needs a choice, it asks with
-buttons. Your conversation with Dosi is the same on all your computers.
+buttons, and you can also answer in your own words. Your conversation with Dosi is the
+same on all your computers.
 
 The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
 question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
@@ -144,5 +145,6 @@ does.
 Make sure that the computer of the terminal is online, with Kodosi open, and that the
 terminal is still shared. A new device can need approval, and a friend with a changed
 identity can need verification in Friends. After a lost connection, Kodosi shows the
-current state again. If Kodosi says that it is not sure your input arrived, look at the
-terminal before you type the command again.
+current state again. When Kodosi says that a computer is offline, its terminals open
+again when it is back, unless they ended there. If Kodosi says that it is not sure your
+input arrived, look at the terminal before you type the command again.

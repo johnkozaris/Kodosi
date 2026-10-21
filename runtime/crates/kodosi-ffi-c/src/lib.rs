@@ -290,6 +290,7 @@ fn run_cli(invocation: Vec<OsString>) -> i32 {
     if !kodosi_runtime::cli::is_invocation(&invocation) {
         return KODOSI_CLI_NOT_INVOKED;
     }
+    kodosi_os::process::reset_signals();
     std::panic::catch_unwind(AssertUnwindSafe(|| {
         Executor::new().map_or(KODOSI_CLI_FAILED, |executor| {
             i32::from(executor.block_on(kodosi_runtime::cli::run_with(invocation)))

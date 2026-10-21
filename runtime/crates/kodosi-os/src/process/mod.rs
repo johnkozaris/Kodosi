@@ -46,6 +46,10 @@ pub fn with_default_signals(command: &mut std::process::Command) {
     imp::with_default_signals(command);
 }
 
+pub fn reset_signals() {
+    imp::reset_signals();
+}
+
 #[cfg(unix)]
 pub fn end_group(leader: u32, force: bool) {
     imp::end_group(leader, force);

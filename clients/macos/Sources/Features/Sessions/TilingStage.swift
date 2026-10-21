@@ -36,9 +36,8 @@ struct StageOverview: View {
     @Environment(AppDependencies.self) private var deps
 
     var body: some View {
-        @Bindable var workbench = deps.workbench
         GeometryReader { proxy in
-            AgentLauncher(folder: $workbench.homeFolder, centered: true, focus: workbench.launcherFocus)
+            AgentLauncher(centered: true, focus: deps.workbench.launcherFocus)
                 .frame(maxWidth: .infinity)
                 .padding(.top, max(40, proxy.size.height / 2 - 150))
         }

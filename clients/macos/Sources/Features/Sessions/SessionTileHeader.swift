@@ -88,6 +88,10 @@ struct SessionTileHeader: View {
             Text("Reconnecting").appTextStyle(.caption).foregroundStyle(theme.colors.caution).shimmer()
                 .accessibilityIdentifier("\(stageId).reconnecting")
         }
+        if session.kind == .remote, session.isConnected, session.status == .offline {
+            Text(session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                .accessibilityIdentifier("\(stageId).offline")
+        }
         if session.kind == .remote, session.isConnected, let notice = session.message {
             Text(notice).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
                 .accessibilityIdentifier("\(stageId).notice")
@@ -144,17 +148,21 @@ struct DosiKeys: View {
     let item: DosiItem
     let question: DosiQuestion
 
+    private var brief: Bool {
+        !question.multiple && question.options.count <= 3 && question.options.allSatisfy { $0.count <= 12 }
+    }
+
     var body: some View {
         HStack(spacing: 4) {
             DosiFace(mood: .asking, size: 16).help(question.question)
-            if question.multiple {
-                Button("Answer") { deps.workbench.openDosi() }.buttonStyle(.kodosi(.tinted, size: .small))
-            } else {
-                ForEach(question.options.prefix(4), id: \.self) { option in
+            if brief {
+                ForEach(question.options, id: \.self) { option in
                     Button(option) { deps.answerDosi(item, [option]) }
                         .buttonStyle(.kodosi(.secondary, size: .small))
                         .accessibilityIdentifier("dosi.keys.\(AccessibilityIdentifier.token(option))")
                 }
+            } else {
+                Button("Answer") { deps.workbench.openDosi() }.buttonStyle(.kodosi(.tinted, size: .small))
             }
         }
         .accessibilityElement(children: .contain)

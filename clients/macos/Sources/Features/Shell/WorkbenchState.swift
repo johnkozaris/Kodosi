@@ -3,8 +3,13 @@ import KodosiBridge
 import Observation
 
 struct LauncherRequest: Equatable {
-    var folder: String?
     var roomId: String?
+}
+
+struct LauncherDraft: Equatable {
+    var prompt = ""
+    var folder: String?
+    var remoteFolders: [String: String] = [:]
 }
 
 @MainActor
@@ -31,7 +36,7 @@ final class WorkbenchState {
     var showsPalette = false
     var showsNewRoom = false
     var launcher: LauncherRequest?
-    var homeFolder: String?
+    var launcherDraft = LauncherDraft()
     var launcherFocus = 0
     var selectedMissionId: String?
     var sidebarCollapsed = false {
@@ -200,11 +205,11 @@ final class WorkbenchState {
         showsPalette = false
         showsNewRoom = false
         launcher = nil
+        launcherDraft = LauncherDraft()
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {
         let available = Set(sessions.map(\.id))
-        let unreachable = Set(sessions.filter { $0.kind == .remote && $0.status == .reconnecting }.map(\.id))
         for id in stagedSessionIds where !available.contains(id) {
             dismissSession(id)
         }
@@ -223,7 +228,7 @@ final class WorkbenchState {
             detailsSessionId = nil
         }
         save()
-        return restore.filter { !unreachable.contains($0) }
+        return restore
     }
 
     private func save() {

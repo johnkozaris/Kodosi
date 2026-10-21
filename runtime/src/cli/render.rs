@@ -369,9 +369,9 @@ fn state(session: &Value) -> String {
             session["connectionState"].as_str().unwrap_or_default(),
             session["status"].as_str().unwrap_or_default(),
         ) {
+            (_, "offline") => "host offline".to_owned(),
             ("connected", "reconnecting") => "reconnecting".to_owned(),
             ("connected", _) => "open".to_owned(),
-            ("offline", "reconnecting") => "host offline".to_owned(),
             ("offline", _) => "not open".to_owned(),
             (other, _) => other.to_owned(),
         }
@@ -382,6 +382,15 @@ fn state(session: &Value) -> String {
         return activity;
     }
     state
+}
+
+pub(super) fn offline(session: &Value) -> Option<String> {
+    (session["status"] == "offline").then(|| {
+        session["hostName"].as_str().map_or_else(
+            || "Its computer is offline.".to_owned(),
+            |host| format!("{host} is offline."),
+        )
+    })
 }
 
 fn activity(session: &Value) -> Option<String> {
@@ -486,7 +495,8 @@ mod tests {
                 {"id":"01a10d06-92a7-7367-8536-000000000003","name":"agent","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"blocked","kind":"permission","title":"Review","message":"Allow the command?"}},
                 {"id":"01a10d06-92a7-7367-8536-000000000004","name":"deploy","kind":"remote","status":"running","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[],"programStatus":{"state":"working","progress":40}},
                 {"id":"01a10d06-92a7-7367-8536-000000000005","name":"shell","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"idle"}},
-                {"id":"01a10d06-92a7-7367-8536-000000000006","name":"away","kind":"remote","status":"reconnecting","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
+                {"id":"01a10d06-92a7-7367-8536-000000000006","name":"away","kind":"remote","status":"offline","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
+                {"id":"01a10d06-92a7-7367-8536-000000000007","name":"tv","kind":"remote","status":"offline","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[]},
             ]}),
         ]);
         assert_eq!(
@@ -498,7 +508,8 @@ mod tests {
              agent   this computer  needs approval                  000003\n\
              deploy  Studio         working 40%                     000004\n\
              shell   this computer  running                         000005\n\
-             away    carol, Studio  host offline                    000006"
+             away    carol, Studio  host offline                    000006\n\
+             tv      Studio         host offline                    000007"
         );
         assert!(
             session(&context.sessions[2], &context)

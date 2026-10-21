@@ -12,6 +12,9 @@ Item {
     property var picked: []
     readonly property bool answered: row.open === false
     readonly property var session: row.sessionId ? Models.Sessions.presentationForSession(row.sessionId) : null
+    readonly property string words: own.text.trim()
+    readonly property var choices: (row.options || []).filter(option => picked.indexOf(option) >= 0)
+        .concat(words.length > 0 ? [words] : [])
 
     function choose(option) {
         if (!row.multiple) {
@@ -25,6 +28,10 @@ Item {
         else
             next.push(option)
         picked = next
+    }
+    function send() {
+        if (choices.length > 0 && (row.multiple || choices.length === 1))
+            Models.Dosi.answer(row.id, choices)
     }
 
     implicitHeight: answered ? pill.height : card.height
@@ -128,57 +135,12 @@ Item {
                     wrapMode: Text.WordWrap
                 }
             }
-            Row {
-                visible: root.row.keys === true
-                spacing: 6
-
-                Repeater {
-                    model: root.row.keys === true ? root.row.options : []
-
-                    AbstractButton {
-                        id: key
-
-                        required property string modelData
-
-                        implicitWidth: Math.max(28, keyLabel.implicitWidth + 16)
-                        implicitHeight: 28
-                        hoverEnabled: true
-                        activeFocusOnTab: true
-                        objectName: "dosi.answer." + modelData
-                        Accessible.id: objectName
-                        Accessible.name: modelData
-                        scale: pressed ? 0.95 : 1
-                        onClicked: root.choose(modelData)
-
-                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-
-                        background: Bezel {
-                            radius: KodosiTheme.radiusSm
-                            quiet: true
-                            pressed: key.pressed
-                            fill: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, key.hovered ? 0.05 : 0)
-                        }
-                        contentItem: PlainLabel {
-                            id: keyLabel
-                            text: key.modelData
-                            color: KodosiTheme.ink
-                            font.family: "monospace"
-                            font.pixelSize: KodosiTheme.fontBody
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        KFocusIndicator { active: key.visualFocus }
-                    }
-                }
-            }
             Flow {
-                visible: root.row.keys !== true
                 width: parent.width
                 spacing: 6
 
                 Repeater {
-                    model: root.row.keys !== true ? root.row.options || [] : []
+                    model: root.row.options || []
 
                     KButton {
                         required property string modelData
@@ -192,15 +154,42 @@ Item {
                     }
                 }
             }
-            KButton {
-                visible: root.row.multiple === true
-                compact: true
-                variant: KButton.Primary
-                text: qsTr("Send")
-                enabled: root.picked.length > 0
-                objectName: "dosi.answer.send"
-                Accessible.id: objectName
-                onClicked: Models.Dosi.answer(root.row.id, (root.row.options || []).filter(option => root.picked.indexOf(option) >= 0))
+            Row {
+                width: parent.width
+                spacing: 6
+
+                KTextField {
+                    id: own
+
+                    compact: true
+                    width: parent.width - (send.shown ? send.width + parent.spacing : 0)
+                    placeholderText: qsTr("Something else")
+                    objectName: "dosi.answer.own"
+                    Accessible.id: objectName
+                    Accessible.name: placeholderText
+                    onAccepted: root.send()
+
+                    Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+                }
+                KButton {
+                    id: send
+
+                    readonly property bool shown: root.row.multiple === true || root.words.length > 0
+
+                    visible: opacity > 0
+                    opacity: shown ? 1 : 0
+                    scale: shown ? 1 : 0.9
+                    compact: true
+                    variant: KButton.Primary
+                    text: qsTr("Send")
+                    enabled: root.choices.length > 0
+                    objectName: "dosi.answer.send"
+                    Accessible.id: objectName
+                    onClicked: root.send()
+
+                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+                }
             }
         }
     }

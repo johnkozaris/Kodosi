@@ -5,8 +5,8 @@ import SwiftUI
 struct AgentLauncher: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Binding var folder: String?
     var roomId: String?
+    var defaultFolder: String?
     var centered = false
     var focus = 0
     var started: () -> Void = {}
@@ -17,9 +17,7 @@ struct AgentLauncher: View {
     @State private var addError: String?
     @State private var starting = false
     @State private var error: String?
-    @State private var prompt = ""
     @State private var focusRequest = 1
-    @State private var remoteFolders: [String: String] = [:]
 
     private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
@@ -37,6 +35,14 @@ struct AgentLauncher: View {
 
     private var launcher: LauncherState {
         deps.launcher(for: computer)
+    }
+
+    private var draft: LauncherDraft {
+        deps.workbench.launcherDraft
+    }
+
+    private var folder: String? {
+        draft.folder ?? defaultFolder
     }
 
     private var ink: AppTheme.Colors {
@@ -57,7 +63,7 @@ struct AgentLauncher: View {
 
     private var directory: String? {
         if let computer {
-            return remoteFolders[computer] ?? launcher.places?.recent.first
+            return draft.remoteFolders[computer] ?? launcher.places?.recent.first
         }
         return folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
     }
@@ -137,7 +143,9 @@ struct AgentLauncher: View {
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
             .background(TerminalInk.band)
-            LauncherCommandLine(info: info, prompt: $prompt, hint: hint, focus: focus + focusRequest, submit: start) {
+            LauncherCommandLine(
+                info: info, prompt: Bindable(deps.workbench).launcherDraft.prompt, hint: hint, focus: focus + focusRequest, submit: start
+            ) {
                 folderKey
             } choices: {
                 if let info, info.accounts.count > 1 || info.addsAccounts {
@@ -201,7 +209,7 @@ struct AgentLauncher: View {
             }
             .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
                 RemoteFolders(launcher: launcher, computer: computerName, current: directory) { path in
-                    remoteFolders[computer] = path
+                    deps.workbench.launcherDraft.remoteFolders[computer] = path
                     closeMenu()
                 } close: {
                     closeMenu()
@@ -321,11 +329,11 @@ struct AgentLauncher: View {
             deps.settings.lastComputer = id
             deps.settings.save()
         case let .folder(path):
-            folder = path
+            deps.workbench.launcherDraft.folder = path
         case .anotherFolder:
             closeMenu()
             if let selected = pickWorkingDirectory(initialDirectory: directory) {
-                folder = selected
+                deps.workbench.launcherDraft.folder = selected
             }
             return
         case .newAccount:
@@ -361,7 +369,7 @@ struct AgentLauncher: View {
                 HStack(spacing: 8) {
                     Text(startTitle)
                     Image(systemName: "return").font(.system(size: 11, weight: .bold)).opacity(0.6)
-                        .bounce(on: prompt.isEmpty)
+                        .bounce(on: draft.prompt.isEmpty)
                 }
                 .shimmer(starting)
             }
@@ -400,7 +408,7 @@ struct AgentLauncher: View {
 
     private func start() {
         guard !starting, ready else { return }
-        let words = prompt.trimmingCharacters(in: .whitespaces)
+        let words = draft.prompt.trimmingCharacters(in: .whitespaces)
         let installed = info?.installed == true
         let agent = installed ? plan.start : nil
         let command: String? = if let info {
@@ -419,7 +427,7 @@ struct AgentLauncher: View {
                     name: generateSessionName(), directory: directory, computer: computer, roomId: roomId,
                     command: command, agent: agent, prompt: first
                 )
-                prompt = ""
+                deps.workbench.launcherDraft = LauncherDraft()
                 started()
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }

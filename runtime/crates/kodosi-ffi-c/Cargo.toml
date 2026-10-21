@@ -16,6 +16,7 @@ host = ["kodosi-runtime/host"]
 
 [dependencies]
 kodosi-runtime = {path = "../..", default-features = false}
+kodosi-os = {path = "../kodosi-os"}
 bytes = {workspace = true}
 uuid = {workspace = true}
 
@@ -27,7 +28,6 @@ serde_json = {workspace = true}
 tracing = {workspace = true}
 
 [dev-dependencies]
-kodosi-os = {path = "../kodosi-os"}
 tempfile = {workspace = true}
 
 [build-dependencies]

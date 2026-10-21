@@ -180,6 +180,36 @@ void DesktopStateModel::clearSessions()
     emit selectedSessionIdChanged();
     emit stageLayoutModeChanged();
 }
+void DesktopStateModel::setLauncherPrompt(const QString& value)
+{
+    if (m_launcherPrompt == value)
+        return;
+    m_launcherPrompt = value;
+    emit launcherDraftChanged();
+}
+void DesktopStateModel::setLauncherFolder(const QString& value)
+{
+    if (m_launcherFolder == value)
+        return;
+    m_launcherFolder = value;
+    emit launcherDraftChanged();
+}
+void DesktopStateModel::setLauncherRemoteFolder(const QString& computer, const QString& path)
+{
+    if (m_launcherRemoteFolders.value(computer).toString() == path)
+        return;
+    m_launcherRemoteFolders.insert(computer, path);
+    emit launcherDraftChanged();
+}
+void DesktopStateModel::clearLauncherDraft()
+{
+    if (m_launcherPrompt.isEmpty() && m_launcherFolder.isEmpty() && m_launcherRemoteFolders.isEmpty())
+        return;
+    m_launcherPrompt.clear();
+    m_launcherFolder.clear();
+    m_launcherRemoteFolders.clear();
+    emit launcherDraftChanged();
+}
 void DesktopStateModel::reconcile()
 {
     if (!m_sessions || !m_sessions->hasAuthoritativeSnapshot())

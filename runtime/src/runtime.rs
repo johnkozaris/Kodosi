@@ -822,6 +822,7 @@ struct Runtime {
     room_latest: HashMap<String, u64>,
     room_seen: Option<(String, BTreeMap<String, u64>)>,
     reconnect: HashMap<Uuid, Reconnect>,
+    link_connects: u64,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -944,6 +945,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         room_latest: HashMap::new(),
         room_seen: None,
         reconnect: HashMap::new(),
+        link_connects: 0,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1085,7 +1087,11 @@ impl Runtime {
         for entry in &entries {
             let now = Activity::of(entry);
             let before = self.activity.get(&entry.id);
-            let stopped = before.is_some_and(|before| before.working) && !now.working;
+            let away = matches!(
+                entry.status,
+                SessionStatus::Offline | SessionStatus::Reconnecting
+            );
+            let stopped = !away && before.is_some_and(|before| before.working) && !now.working;
             let waits = now.wait.is_some() && before.map(|before| before.wait) != Some(now.wait);
             if (stopped || waits) && Activity::calls(entry) {
                 self.notice(&entry.id);
@@ -1324,6 +1330,7 @@ impl Runtime {
         let result = self
             .job_capacity()
             .and_then(|()| self.check_incarnation(session, incarnation))
+            .and_then(|()| self.reachable(session))
             .and_then(|()| self.target(session));
         match result {
             Ok(target) => {
@@ -1363,7 +1370,10 @@ impl Runtime {
                 drop(reply.send(self.snapshot_events().map(|events| (events, receiver))));
             }
             Request::Subscribe { session, reply } => {
-                let target = self.job_capacity().and_then(|()| self.target(session));
+                let target = self
+                    .job_capacity()
+                    .and_then(|()| self.reachable(session))
+                    .and_then(|()| self.target(session));
                 match target {
                     Ok(target) => {
                         let response = target.subscribe();
@@ -1799,6 +1809,11 @@ impl Runtime {
             .iter()
             .map(|entry| (entry.id, entry.incarnation_id))
             .collect::<HashMap<_, _>>();
+        let returned = remotes
+            .iter()
+            .filter(|remote| remote.online && !self.host_online(remote.id))
+            .map(|remote| remote.id)
+            .collect::<Vec<_>>();
         let retired = self
             .reconnect
             .iter()
@@ -1838,6 +1853,9 @@ impl Runtime {
             .into_iter()
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
+        for id in returned {
+            self.reconnect_now(id);
+        }
         self.publish_catalog();
         self.started_remotes();
     }
@@ -1872,10 +1890,11 @@ impl Runtime {
         else {
             return;
         };
+        let returned = notice.online && !listed.online;
         listed.online = notice.online;
         listed.status = notice.status;
         self.started_remotes();
-        let recovering = self.recovering(id);
+        let status = self.remote_status(id, notice.online);
         let Some(entry) = self
             .remotes
             .get_mut(&id)
@@ -1883,11 +1902,10 @@ impl Runtime {
         else {
             return;
         };
-        entry.status = if notice.online && !recovering {
-            SessionStatus::Running
-        } else {
-            SessionStatus::Reconnecting
-        };
+        entry.status = status;
+        if !notice.online {
+            entry.program_status = None;
+        }
         if self
             .connections
             .get(&id)
@@ -1895,7 +1913,31 @@ impl Runtime {
         {
             self.show_shared_status(id);
         }
+        if returned {
+            self.reconnect_now(id);
+        }
         self.publish_catalog();
+    }
+
+    fn host_online(&self, id: Uuid) -> bool {
+        self.listed.get(&id).is_none_or(|remote| remote.online)
+    }
+
+    fn remote_status(&self, id: Uuid, online: bool) -> SessionStatus {
+        if !online {
+            SessionStatus::Offline
+        } else if self.recovering(id) {
+            SessionStatus::Reconnecting
+        } else {
+            SessionStatus::Running
+        }
+    }
+
+    fn reconnect_now(&mut self, id: Uuid) {
+        if let Some(retry) = self.reconnect.get_mut(&id) {
+            retry.failures = 0;
+            retry.next = tokio::time::Instant::now();
+        }
     }
 
     fn listed_remote(&self, remote: &RemoteSession) -> RemoteSession {
@@ -1999,7 +2041,9 @@ impl Runtime {
             repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
             program_status: if live {
-                previous.and_then(|entry| entry.program_status.clone())
+                previous
+                    .filter(|_| remote.online)
+                    .and_then(|entry| entry.program_status.clone())
             } else {
                 shared.and_then(TerminalStatus::program_status)
             },
@@ -2018,11 +2062,7 @@ impl Runtime {
             host_device_id: Some(remote.host_device_id),
             host_name: Some(remote.host_name),
             is_owner,
-            status: if remote.online && !self.recovering(remote.id) {
-                SessionStatus::Running
-            } else {
-                SessionStatus::Reconnecting
-            },
+            status: self.remote_status(remote.id, remote.online),
             connection_state,
             message: self
                 .remotes
@@ -2236,16 +2276,18 @@ impl Runtime {
             connection.disconnect();
         }
         let recovering = self.recovering(id);
+        let online = self.host_online(id);
+        let status = self.remote_status(id, online);
         if let Some(entry) = self.remotes.get_mut(&id) {
             entry.connected_users.clear();
             if recovering {
-                entry.status = SessionStatus::Reconnecting;
+                entry.status = status;
                 entry.message = reason
                     .ends_with(INPUT_NOT_SENT)
                     .then(|| INPUT_NOT_SENT.to_owned());
             } else {
                 entry.connection_state = ConnectionState::Offline;
-                entry.message = Some(reason);
+                entry.message = online.then_some(reason);
             }
         }
         if !recovering {
@@ -2255,12 +2297,26 @@ impl Runtime {
     }
 
     fn reconnect_views(&mut self) {
+        let connects = self.network.inner.link.connects();
+        if connects != self.link_connects {
+            self.link_connects = connects;
+            let recovering = self
+                .reconnect
+                .keys()
+                .copied()
+                .filter(|id| self.recovering(*id))
+                .collect::<Vec<_>>();
+            for id in recovering {
+                self.reconnect_now(id);
+            }
+        }
         let now = tokio::time::Instant::now();
         let ids = self
             .reconnect
             .iter()
             .filter(|(id, retry)| {
                 retry.next <= now
+                    && self.host_online(**id)
                     && self
                         .connections
                         .get(id)
