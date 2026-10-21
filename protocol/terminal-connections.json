@@ -1,9 +1,10 @@
 {
-  "terminalConnectionProtocolVersion": 22,
+  "terminalConnectionProtocolVersion": 23,
   "oldestTerminalConnectionProtocolVersion": 22,
   "channelProtocolVersion": 2,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
+    "calls": "the server sends hosts and caller only to devices whose hello protocolVersion is 23 or newer",
     "channel": "the accept frame carries channelProtocolVersion; a viewer with another channel version closes the channel and shows which side must update Kodosi"
   },
   "routes": {
@@ -19,8 +20,10 @@
     "hello": [
       "protocolVersion",
       "deviceId",
-      "deviceSession"
+      "deviceSession",
+      "hosts"
     ],
+    "hosts": "true when the device hosts terminals and takes calls from the other devices of its person; a viewer leaves it out",
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
     "text": "JSON control messages; maximum 16384 bytes; the server takes 4096 control messages and then 128 each second from one device connection, where host and open count two, and closes a connection that sends more",
@@ -29,6 +32,7 @@
       "unhost": "sessionId",
       "status": "sessionId, incarnationId, status: the newest status of the terminal (terminalStatus), or null; only from the hosting device; the device sends it again after host on each new connection",
       "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
+      "call": "pipe, deviceId: open a pipe to another connected device of the same person that hosts; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "close": "pipe",
       "ping": "the answer is pong"
     },
@@ -36,11 +40,13 @@
       "changed": "surface (devices, friends, sessions, missions, rooms): the device reads that list again",
       "terminal": "sessionId, incarnationId, online, status: to the devices of the people who can use the terminal, but not to the hosting device, after its host connects, disconnects or changes the status",
       "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
+      "caller": "pipe, userId, deviceId: to a hosting device, when another device of its person calls it",
+      "hosts": "deviceIds: the connected devices of the person that host, after ready and after each change",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
       "pong": "the answer to ping"
     },
-    "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered",
+    "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered; call: a device of the same person, to another of its devices that hosts",
     "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds or that did not take one message in 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
     "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view",
     "restart": "when the server stops, it closes each device connection with WebSocket status 1012 (service restart) and drops the messages that wait; the device connects again"
@@ -57,7 +63,9 @@
     "order": "frames of one pipe keep their order",
     "backpressure": "the server holds at most 16777216 bytes for one device and 268435456 bytes for all devices together; when a frame does not fit, the server closes that pipe with status 503 (\"The connection is too slow.\" for one device, \"The Kodosi server is busy.\" for all devices) and the device connection stays open",
     "viewersMax": 64,
-    "deviceMax": 256
+    "deviceMax": 256,
+    "callsMax": 16,
+    "calls": "a hosting device takes at most callsMax calls at once; a call counts toward deviceMax of the calling device"
   },
   "channel": {
     "transport": "TLS 1.3 records in pipe frames; the viewer is the TLS client",
@@ -66,6 +74,7 @@
     "authentication": "raw public keys (RFC 7250): the ML-DSA-65 signing key of each device certificate, both sides",
     "viewerCheck": "the host key must equal the key of the hosting device in the verified device list of the owner",
     "hostCheck": "the viewer key must equal the key of the device that the server named in its viewer notice, in the verified device list of the owner or of a person the host shared this terminal with",
+    "callCheck": "the caller key must equal the key of the called device in the verified device list of the person; the called device admits only a device of its own person, never the entry of the recovery key, whose key equals the key in that list",
     "resumption": "TLS 1.3 session tickets with a new key exchange (psk_dhe_ke); a device keeps the tickets of 256 hosts in memory and a host keeps 1024 sessions in memory; a resumed channel carries the device key of the first handshake",
     "newTrafficKeys": "after 16777216 frames or 1 hour",
     "resumedStart": "the host of a resumed channel sends accept and the first keyframe with its first flight, so a later view of the same host starts in one round trip",
@@ -151,8 +160,32 @@
         "type": 15,
         "direction": "host",
         "body": "JSON: requestId, accepted, message"
+      },
+      "request": {
+        "type": 16,
+        "direction": "caller",
+        "body": "JSON: one desktop-runtime command with its requestId; only on a call"
+      },
+      "answer": {
+        "type": 17,
+        "direction": "host",
+        "body": "JSON: the desktop-runtime answer to one request, with the requestId of the request; only on a call"
       }
     }
+  },
+  "calls": {
+    "purpose": "a device asks another computer of its person for the choices of a new terminal and starts one there",
+    "requests": [
+      "provider.agents",
+      "provider.agentModels",
+      "provider.addAccount",
+      "provider.choose",
+      "folders.list",
+      "session.create"
+    ],
+    "start": "a call has no accept frame: the caller sends requests at once, and the host answers each request with one answer frame, in any order, or sends refuse and closes the channel",
+    "limits": "a request is at most 65536 bytes and an answer at most 524288 bytes; the host works on at most 4 requests of one call at once and reads the next request when it sends an answer",
+    "idle": "the caller closes a call 60 seconds after its last answer and waits at most 25 seconds for an answer; the host answers each request in 20 seconds and closes a call that sent nothing for 120 seconds"
   },
   "output": {
     "start": "the first output-carrying frames of a channel are a keyframe; a view never starts in another way",

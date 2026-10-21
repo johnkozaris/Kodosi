@@ -9,6 +9,7 @@ struct LauncherRequest: Equatable {
 struct LauncherDraft: Equatable {
     var prompt = ""
     var folder: String?
+    var remoteFolders: [String: String] = [:]
 }
 
 @MainActor

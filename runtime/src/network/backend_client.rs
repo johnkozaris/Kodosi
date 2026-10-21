@@ -56,6 +56,7 @@ pub(crate) struct Inner {
     pub(crate) publications: Mutex<BTreeMap<Uuid, Arc<terminal_connections::Publication>>>,
     pub(crate) connections: Mutex<Vec<CancellationToken>>,
     pub(crate) link: Arc<terminal_connections::Link>,
+    pub(crate) calls: terminal_connections::Lines,
     channel_keys: std::sync::Mutex<Option<Arc<terminal_connections::ChannelKeys>>>,
     identities: std::sync::Mutex<BTreeMap<String, device_identity::KeptIdentity>>,
     sessions: std::sync::Mutex<BTreeMap<Uuid, SessionDto>>,
@@ -145,6 +146,7 @@ impl BackendClient {
                 publications: Mutex::new(BTreeMap::new()),
                 connections: Mutex::new(Vec::new()),
                 link: Arc::default(),
+                calls: terminal_connections::Lines::default(),
                 channel_keys: std::sync::Mutex::new(None),
                 identities: std::sync::Mutex::default(),
                 sessions: std::sync::Mutex::default(),
@@ -1234,6 +1236,15 @@ impl BackendClient {
         terminal_connections::check_generation(self, generation)?;
         self.renew_token().await?;
         terminal_connections::connect_remote(self.clone(), id).await
+    }
+
+    pub(crate) async fn ask_computer(&self, device: &str, request: Value) -> Result<Value> {
+        terminal_connections::ask_computer(self, device, request).await
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn answer_calls(&self, answering: terminal_connections::Answering) {
+        terminal_connections::answer_calls(self.clone(), answering);
     }
 }
 

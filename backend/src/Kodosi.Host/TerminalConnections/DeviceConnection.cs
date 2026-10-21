@@ -22,9 +22,10 @@ internal sealed class DeviceConnection : IAsyncDisposable
     private long sendingSince;
     private int closing;
 
-    public DeviceConnection(WebSocket socket, Guid userId, string deviceId, RelayBudget relays, TimeProvider clock)
+    public DeviceConnection(WebSocket socket, Guid userId, string deviceId, RelayBudget relays, TimeProvider clock,
+        int version = ContractVersions.TerminalConnection, bool hosts = false)
     {
-        Socket = socket; UserId = userId; DeviceId = deviceId;
+        Socket = socket; UserId = userId; DeviceId = deviceId; Version = version; Hosts = hosts;
         this.relays = relays;
         this.clock = clock;
         expired = new CancellationTokenSource(Timeout.InfiniteTimeSpan, clock);
@@ -35,6 +36,9 @@ internal sealed class DeviceConnection : IAsyncDisposable
     public WebSocket Socket { get; }
     public Guid UserId { get; }
     public string DeviceId { get; }
+    public int Version { get; }
+    public bool Hosts { get; }
+    public bool KnowsCalls => Version >= ContractVersions.Calls;
     public CancellationToken Stopped => stopped.Token;
     public CancellationToken Expired => expired.Token;
     public bool IsOpen => Volatile.Read(ref closing) == 0 && !stopped.IsCancellationRequested && Socket.State == WebSocketState.Open;
@@ -151,7 +155,10 @@ internal sealed class DeviceConnection : IAsyncDisposable
     private readonly record struct Outgoing(byte[] Bytes, WebSocketMessageType Type);
 }
 
-internal sealed record Pipe(Guid Id, Guid SessionId, DeviceConnection Viewer, DeviceConnection Host);
+internal sealed record Pipe(Guid Id, Guid SessionId, DeviceConnection Viewer, DeviceConnection Host)
+{
+    public bool IsCall => SessionId == Guid.Empty;
+}
 
 internal enum Relayed { Sent, Slow, Busy }
 

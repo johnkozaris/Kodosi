@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 use super::{
@@ -12,6 +13,8 @@ pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
+const CALL_REQUEST: usize = 64 * 1024;
+const CALL_ANSWER: usize = 512 * 1024;
 const HEADER: usize = 7;
 const PACK_FROM: usize = 256;
 const OUTPUT_LEVEL: u32 = 3;
@@ -90,6 +93,8 @@ pub(crate) enum Frame {
         offset: u64,
     },
     ControlResult(ControlResult),
+    Request(Value),
+    Answer(Value),
 }
 
 impl Frame {
@@ -173,6 +178,8 @@ impl Frame {
             Self::Refresh => (13, Vec::new()),
             Self::InputAck { offset } => (14, offset.to_be_bytes().to_vec()),
             Self::ControlResult(result) => (15, serde_json::to_vec(result)?),
+            Self::Request(request) => (16, call_json(request, CALL_REQUEST)?),
+            Self::Answer(answer) => (17, call_json(answer, CALL_ANSWER)?),
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -293,8 +300,29 @@ impl Frame {
                 }
             }
             15 => Self::ControlResult(serde_json::from_slice(json(4096)?)?),
+            16 => Self::Request(call_value(json(CALL_REQUEST)?)?),
+            17 => Self::Answer(call_value(json(CALL_ANSWER)?)?),
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
+    }
+}
+
+fn call_json(value: &Value, limit: usize) -> Result<Vec<u8>> {
+    let body = serde_json::to_vec(value)?;
+    if !value.is_object() || body.len() > limit {
+        return Err(invalid(
+            "The message to the other computer exceeds its bound.",
+        ));
+    }
+    Ok(body)
+}
+
+fn call_value(body: &[u8]) -> Result<Value> {
+    let value: Value = serde_json::from_slice(body)?;
+    if value.is_object() {
+        Ok(value)
+    } else {
+        Err(invalid("The other computer sent an invalid message."))
     }
 }
 
@@ -492,6 +520,20 @@ mod tests {
             .encode()
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_call_carries_one_json_object_within_its_bound() {
+        let request = serde_json::json!({"type":"folders.list","requestId":"x","path":"~/Repos"});
+        assert!(
+            matches!(round_trip(&Frame::Request(request.clone())), Frame::Request(value) if value == request)
+        );
+        let long = serde_json::json!({"text":"x".repeat(CALL_REQUEST)});
+        assert!(Frame::Request(long.clone()).encode().is_err());
+        assert!(
+            matches!(round_trip(&Frame::Answer(long.clone())), Frame::Answer(value) if value == long)
+        );
+        assert!(Frame::Answer(serde_json::json!("text")).encode().is_err());
     }
 
     #[test]

@@ -210,6 +210,13 @@ FocusScope {
                     tint: "#4f9bb0"
                     size: 26
                 }
+                IconTile {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: row.modelData.icon === "device"
+                    iconName: "laptop"
+                    tint: "#6b6560"
+                    size: 26
+                }
                 AccountMark {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: row.modelData.icon === "account"

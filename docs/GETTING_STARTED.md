@@ -80,6 +80,11 @@ Settings › Account on a Mac, or Settings › Devices on Linux and Windows, on 
 that you already use. An iPhone or iPad joins the same way. Then each computer shows the
 terminals of all your computers.
 
+To start a terminal on another of your computers, choose that computer at the right end
+of the launcher's band. The folder key then lists its recent folders, and Choose a
+folder… opens the folders in its home. That computer needs Kodosi open, or `kodosi host`
+running in a terminal.
+
 Make a recovery key there too, and keep it safe. If you lose all your devices, sign in
 on a new one and choose "Use my recovery key" to keep your friends and rooms. Remove a
 lost device from another device. If a device was stolen, also make a new recovery key.
@@ -122,6 +127,7 @@ does.
 | --- | --- |
 | `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model` and `--effort` change it. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
+| `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types a line. |

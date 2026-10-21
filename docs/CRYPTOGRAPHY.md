@@ -48,6 +48,10 @@ authenticated data starts with a domain label, and each field carries its length
   only the host device's approved key. The host admits only verified, non-recovery
   devices of accounts that may use the terminal, and checks again when sharing or
   devices change.
+- **Calls:** a device opens the same channel to another computer of its own account to
+  list that computer's agents and folders and start a terminal there. The caller accepts
+  only that device's approved key; the host admits only verified, non-recovery devices of
+  its own account and answers only those requests.
 - **Terminal rooms:** the device that puts a terminal into a room, or takes it out, signs
   the change with a sequence. The host takes a room for its terminal only with the
   signature of an approved device of its owner and a sequence newer than the last one

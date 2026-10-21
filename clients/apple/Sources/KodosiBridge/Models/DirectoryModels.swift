@@ -67,6 +67,38 @@ public struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct FolderList: Decodable, Equatable, Sendable {
+    public let path: String
+    public let parent: String?
+    public let home: String
+    public let folders: [String]
+    public let recent: [String]
+
+    public init(path: String, parent: String?, home: String, folders: [String], recent: [String]) {
+        self.path = path
+        self.parent = parent
+        self.home = home
+        self.folders = folders
+        self.recent = recent
+    }
+
+    public var separator: String {
+        home.contains("\\") ? "\\" : "/"
+    }
+
+    public func shown(_ folder: String) -> String {
+        if folder == home {
+            return "~"
+        }
+        let prefix = home.hasSuffix(separator) ? home : home + separator
+        return folder.hasPrefix(prefix) ? "~" + separator + folder.dropFirst(prefix.count) : folder
+    }
+
+    public func child(_ name: String) -> String {
+        path.hasSuffix(separator) ? path + name : path + separator + name
+    }
+}
+
 public struct MissionEntry: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String

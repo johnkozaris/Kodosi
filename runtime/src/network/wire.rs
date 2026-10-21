@@ -170,6 +170,20 @@ pub(crate) fn number(value: &Value, field: &str) -> Result<u64> {
 pub(crate) fn id(value: &Value, field: &str) -> Result<Uuid> {
     Uuid::parse_str(text(value, field)?).map_err(|_| invalid(format!("Invalid {field}.")))
 }
+pub(crate) fn hosts(value: &Value) -> Result<Vec<String>> {
+    value
+        .get("deviceIds")
+        .and_then(Value::as_array)
+        .ok_or_else(|| invalid("Invalid deviceIds."))?
+        .iter()
+        .map(|device| {
+            device
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| invalid("Invalid deviceIds."))
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Change {
@@ -230,6 +244,7 @@ impl TerminalNotice {
 pub(crate) enum Notice {
     Changed(Change),
     Terminal(TerminalNotice),
+    Hosts(Vec<String>),
 }
 pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec<u8>> {
     crate::identity::pins::decode(text(value, field)?, limit)

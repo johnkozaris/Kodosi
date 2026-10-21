@@ -10,7 +10,8 @@ threat model, mechanisms and known limits; no independent party has audited it y
 Sharing a terminal grants full control with the host user's operating-system privileges.
 Everyone in a room can use the room's shared terminals, including members invited
 later. Sharing one terminal shares nothing else. People who share are trusted, and so
-are the programs and agents in their terminals.
+are the programs and agents in their terminals. Each of your approved devices controls
+all your terminals and can start new ones on your other computers that run Kodosi.
 
 ## What the service sees
 

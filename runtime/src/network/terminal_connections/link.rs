@@ -62,6 +62,15 @@ struct Shared {
     outgoing: Option<Outgoing>,
     routes: BTreeMap<Uuid, Route>,
     hosting: BTreeMap<Uuid, Hosting>,
+    #[cfg(feature = "host")]
+    callers: Option<mpsc::Sender<Caller>>,
+}
+
+#[cfg(feature = "host")]
+pub(crate) struct Caller {
+    pub(super) pipe: Pipe,
+    pub(super) user: String,
+    pub(super) device: String,
 }
 
 #[derive(Default)]
@@ -219,6 +228,23 @@ impl Link {
     }
 
     pub(crate) fn open(self: &Arc<Self>, session: Uuid, incarnation: Uuid) -> Result<Pipe> {
+        self.request(
+            |id| json!({"type":"open","pipe":id,"sessionId":session,"incarnationId":incarnation}),
+        )
+    }
+
+    pub(crate) fn call(self: &Arc<Self>, device: &str) -> Result<Pipe> {
+        self.request(|id| json!({"type":"call","pipe":id,"deviceId":device}))
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn take_calls(&self, callers: mpsc::Sender<Caller>) {
+        if let Ok(mut shared) = self.shared.lock() {
+            shared.callers = Some(callers);
+        }
+    }
+
+    fn request(self: &Arc<Self>, message: impl FnOnce(Uuid) -> Value) -> Result<Pipe> {
         let id = Uuid::now_v7();
         let mut shared = self.shared.lock().map_err(|_| Error::Closed)?;
         let outgoing = shared
@@ -229,9 +255,7 @@ impl Link {
         drop(shared);
         outgoing
             .control
-            .send(text(
-                &json!({"type":"open","pipe":id,"sessionId":session,"incarnationId":incarnation}),
-            ))
+            .send(text(&message(id)))
             .map_err(|_| Error::Closed)?;
         Ok(pipe)
     }
@@ -389,6 +413,13 @@ impl Link {
                 drop(refused);
                 return Ok(None);
             }
+            "caller" => {
+                let refused = self.caller(&mut shared, &outgoing, value)?;
+                drop(shared);
+                drop(refused);
+                return Ok(None);
+            }
+            "hosts" => return Ok(Some(wire::Notice::Hosts(wire::hosts(value)?))),
             "closed" => {
                 if let Some(route) = shared.routes.remove(&wire::id(value, "pipe")?) {
                     let error =
@@ -399,6 +430,42 @@ impl Link {
             _ => return Err(invalid("Unsupported device connection message.")),
         }
         Ok(None)
+    }
+
+    fn caller(
+        self: &Arc<Self>,
+        shared: &mut Shared,
+        outgoing: &Outgoing,
+        value: &Value,
+    ) -> Result<Option<Pipe>> {
+        let id = wire::id(value, "pipe")?;
+        let (user, device) = (
+            wire::text(value, "userId")?.to_owned(),
+            wire::text(value, "deviceId")?.to_owned(),
+        );
+        let pipe = self.route(shared, id, outgoing);
+        #[cfg(feature = "host")]
+        let refused = match &shared.callers {
+            Some(callers) => callers
+                .try_send(Caller { pipe, user, device })
+                .err()
+                .map(|refused| refused.into_inner().pipe),
+            None => Some(pipe),
+        };
+        #[cfg(not(feature = "host"))]
+        let refused = {
+            drop((user, device));
+            Some(pipe)
+        };
+        if refused.is_some() {
+            shared.routes.remove(&id);
+            drop(
+                outgoing
+                    .control
+                    .send(text(&json!({"type":"close","pipe":id}))),
+            );
+        }
+        Ok(refused)
     }
 }
 

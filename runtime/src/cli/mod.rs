@@ -136,7 +136,7 @@ enum TerminalAction {
         #[arg(long, default_value_t = 600)]
         timeout: u64,
     },
-    /// Start a terminal on this computer.
+    /// Start a terminal on this computer, or on another computer of yours with --computer.
     Start {
         /// The name of the terminal. The default is Terminal, or the name of the new branch.
         #[arg(long)]
@@ -144,6 +144,9 @@ enum TerminalAction {
         /// The folder to start in. The default is your home folder.
         #[arg(long)]
         directory: Option<PathBuf>,
+        /// Start the terminal on another computer of yours, by the name that `kodosi devices list` shows. There, a relative --directory, or one that starts with ~ in quotes, is in your home.
+        #[arg(long)]
+        computer: Option<String>,
         /// Start the terminal in this room, by its name or ID.
         #[arg(long)]
         room: Option<String>,
@@ -547,7 +550,7 @@ async fn start_command(
     client: &mut local_host::Client,
     context: &mut Context,
     name: Option<String>,
-    directory: Option<PathBuf>,
+    (directory, computer): (Option<PathBuf>, Option<String>),
     room: Option<String>,
     branch: Option<String>,
     agent: Option<Value>,
@@ -566,10 +569,116 @@ async fn start_command(
                 .map(|known| known.label().to_owned())
         })
     });
+    let computer = match computer {
+        Some(reference) => computer_id(client, context, &reference).await?,
+        None => None,
+    };
+    if computer.is_some() && branch.is_some() && directory.is_none() {
+        return Err(Error::Invalid(
+            "Give --directory, the repository on that computer, for a new branch there.".into(),
+        ));
+    }
     let (name, directory) = start_defaults(name, directory, branch.as_deref());
+    let directory = match &computer {
+        Some(computer) => remote_folder(client, context, computer, directory).await?,
+        None => path(directory)?,
+    };
     Ok(
-        json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch,"agent":agent,"prompt":prompt}),
+        json!({"type":"session.create","requestId":request,"name":name,"workingDir":directory,"missionId":room,"branch":branch,"agent":agent,"prompt":prompt,"computer":computer}),
     )
+}
+
+async fn device_id(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    reference: &str,
+    kind: &str,
+) -> Result<String> {
+    request(client, context, json!({"type":"devices.refresh"}), true).await?;
+    let list = context
+        .latest
+        .get("devices.list")
+        .cloned()
+        .unwrap_or_default();
+    let matches = list["devices"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|entry| {
+            entry["label"]
+                .as_str()
+                .is_some_and(|label| label.eq_ignore_ascii_case(reference))
+                || entry["deviceId"].as_str().is_some_and(|id| {
+                    id == reference || (reference.len() >= 4 && id.ends_with(reference))
+                })
+        })
+        .filter_map(|entry| entry["deviceId"].as_str())
+        .collect::<Vec<_>>();
+    only(&matches, kind, reference, "kodosi devices list").map(str::to_owned)
+}
+
+async fn computer_id(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    reference: &str,
+) -> Result<Option<String>> {
+    let id = device_id(client, context, reference, "computer").await?;
+    let latest = |kind: &str| context.latest.get(kind).cloned().unwrap_or_default();
+    if latest("devices.list")["selfDeviceId"].as_str() == Some(id.as_str()) {
+        return Ok(None);
+    }
+    let online = latest("devices.hosts")["deviceIds"]
+        .as_array()
+        .is_some_and(|hosts| hosts.iter().any(|host| host.as_str() == Some(id.as_str())));
+    if online {
+        Ok(Some(id))
+    } else {
+        Err(Error::Invalid(format!(
+            "\"{reference}\" is not online. Open Kodosi or run `kodosi host` there."
+        )))
+    }
+}
+
+async fn remote_folder(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    computer: &str,
+    directory: Option<PathBuf>,
+) -> Result<Option<String>> {
+    let Some(directory) = directory else {
+        return Ok(None);
+    };
+    let directory = directory
+        .into_os_string()
+        .into_string()
+        .map_err(|_| Error::Invalid("The folder must be text.".into()))?;
+    let bytes = directory.as_bytes();
+    if directory.starts_with(['/', '\\'])
+        || bytes.len() > 1 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+    {
+        return Ok(Some(directory));
+    }
+    let listed = request(
+        client,
+        context,
+        json!({"type":"folders.list","computer":computer}),
+        true,
+    )
+    .await?;
+    let home = listed["folders"]["home"]
+        .as_str()
+        .ok_or_else(|| Error::Other("The other computer did not name its home folder.".into()))?;
+    let rest = match directory.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => rest,
+        _ => directory.as_str(),
+    }
+    .trim_start_matches(['/', '\\']);
+    let separator = if home.contains('\\') { '\\' } else { '/' };
+    Ok(Some(if rest.is_empty() {
+        home.to_owned()
+    } else {
+        format!("{}{separator}{rest}", home.trim_end_matches(separator))
+    }))
 }
 
 async fn terminal_command(
@@ -582,6 +691,7 @@ async fn terminal_command(
         TerminalAction::Start {
             name,
             directory,
+            computer,
             room,
             branch,
             agent,
@@ -601,7 +711,15 @@ async fn terminal_command(
                 })
                 .transpose()?;
             start_command(
-                request, client, context, name, directory, room, branch, agent, prompt,
+                request,
+                client,
+                context,
+                name,
+                (directory, computer),
+                room,
+                branch,
+                agent,
+                prompt,
             )
             .await
         }
@@ -869,25 +987,7 @@ async fn device_command(
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
         DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
         DeviceAction::Revoke { device } => {
-            request(client, context, json!({"type":"devices.refresh"}), true).await?;
-            let list = context
-                .latest
-                .get("devices.list")
-                .cloned()
-                .unwrap_or_default();
-            let matches = list["devices"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|entry| {
-                    entry["label"] == device.as_str()
-                        || entry["deviceId"].as_str().is_some_and(|id| {
-                            id == device || (device.len() >= 4 && id.ends_with(&device))
-                        })
-                })
-                .filter_map(|entry| entry["deviceId"].as_str())
-                .collect::<Vec<_>>();
-            let id = only(&matches, "device", &device, "kodosi devices list")?;
+            let id = device_id(client, context, &device, "device").await?;
             json!({"type":"devices.revoke","deviceId":id})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),

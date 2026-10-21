@@ -104,6 +104,11 @@ progress where work happens and give each failure a clear recovery action.
   efforts. The person picks them and may type a first prompt; the new terminal's shell
   types the command. A missing agent offers its install command. The host keeps the last
   choice, so the apps and `kodosi terminal start --agent` start the same way.
+- The launcher can also start the terminal on another of the person's computers where
+  Kodosi runs. It then shows that computer's agents, accounts and last choice, its recent
+  folders, and the folders in its home, one level at a time. Only the person's own
+  approved devices can ask, and the requests and answers stay end-to-end encrypted.
+  `kodosi terminal start --computer` does the same.
 - A terminal at its prompt offers a mark for each installed agent, which starts it with
   the person's last choice. Kodosi types the command into the shell and does no more.
 - Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard
