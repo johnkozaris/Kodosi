@@ -1123,6 +1123,9 @@ async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is
         Err(Error::Other("The server did not respond.".to_owned())),
     );
     assert_eq!(remote_state(&runtime, id), reconnecting);
+    assert!(runtime.reconnect[&id].next > Instant::now());
+    runtime.replace_remotes(vec![remote.clone()]);
+    assert!(runtime.reconnect[&id].next <= Instant::now());
 
     let _updates = reconnect(&mut runtime, &remote);
     assert_eq!(
@@ -1186,12 +1189,14 @@ async fn a_view_whose_computer_goes_offline_says_so_and_connects_again_when_it_i
         title: None,
         message: None,
     });
+    runtime.publish_catalog();
     host_notice(&mut runtime, &remote, false);
     assert_eq!(
         remote_state(&runtime, id),
         (ConnectionState::Connected, SessionStatus::Offline, None)
     );
     assert_eq!(runtime.remotes[&id].program_status, None);
+    assert!(!runtime.attention.contains(&id.to_string()));
     let (reply, typed) = oneshot::channel();
     runtime.input(
         id,

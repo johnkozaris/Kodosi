@@ -988,7 +988,11 @@ impl Runtime {
         for entry in &entries {
             let now = Activity::of(entry);
             let before = self.activity.get(&entry.id);
-            let stopped = before.is_some_and(|before| before.working) && !now.working;
+            let away = matches!(
+                entry.status,
+                SessionStatus::Offline | SessionStatus::Reconnecting
+            );
+            let stopped = !away && before.is_some_and(|before| before.working) && !now.working;
             let waits = now.wait.is_some() && before.map(|before| before.wait) != Some(now.wait);
             if (stopped || waits) && Activity::calls(entry) {
                 self.notice(&entry.id);
@@ -1704,9 +1708,11 @@ impl Runtime {
             .iter()
             .map(|entry| (entry.id, entry.incarnation_id))
             .collect::<HashMap<_, _>>();
-        let returned = remotes
+        let retry = remotes
             .iter()
-            .filter(|remote| remote.online && !self.host_online(remote.id))
+            .filter(|remote| {
+                remote.online && (!self.host_online(remote.id) || self.recovering(remote.id))
+            })
             .map(|remote| remote.id)
             .collect::<Vec<_>>();
         let retired = self
@@ -1748,7 +1754,7 @@ impl Runtime {
             .into_iter()
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
-        for id in returned {
+        for id in retry {
             self.reconnect_now(id);
         }
         self.publish_catalog();

@@ -41,7 +41,7 @@ struct SessionDetailsView: View {
             }
             if let current {
                 ListGroup {
-                    ListRow(current.hostLabel, subtitle: current.isConnected ? nil : current.message ?? current.statusLabel,
+                    ListRow(current.hostLabel, subtitle: hostState(current),
                             symbol: DeviceGlyph.symbol(for: current.hostLabel), tint: TileTint.graphite)
                     if let place = current.place, let label = current.placeLabel {
                         ListRow(label, subtitle: current.runsAsRoot ? String(localized: "As root") : nil,
@@ -88,6 +88,13 @@ struct SessionDetailsView: View {
         } message: {
             Text("You lose access until the owner shares it again. The terminal keeps running.")
         }
+    }
+
+    private func hostState(_ current: RuntimeSession) -> String? {
+        if current.status == .offline {
+            return current.statusLabel
+        }
+        return current.isConnected ? nil : current.message ?? current.statusLabel
     }
 
     @ViewBuilder

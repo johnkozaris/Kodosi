@@ -377,6 +377,15 @@ fn state(session: &Value) -> String {
     state
 }
 
+pub(super) fn offline(session: &Value) -> Option<String> {
+    (session["status"] == "offline").then(|| {
+        session["hostName"].as_str().map_or_else(
+            || "Its computer is offline.".to_owned(),
+            |host| format!("{host} is offline."),
+        )
+    })
+}
+
 fn activity(session: &Value) -> Option<String> {
     let status = &session["programStatus"];
     Some(match (status["state"].as_str()?, status["kind"].as_str()) {
