@@ -80,7 +80,7 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit
                 )
-                .layoutValue(key: FillsRow.self, value: max(120, PromptTextView.width(hint: hint)))
+                .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint)) : .infinity)
                 .accessibilityIdentifier("launcher.prompt")
             }
         }

@@ -491,7 +491,7 @@ ColumnLayout {
 
                 property real rowEnd: 0
                 property real rowTop: 0
-                readonly property bool inline: width - rowEnd >= Math.max(120, promptInput.fitWidth)
+                readonly property bool inline: root.info === null && width - rowEnd >= Math.max(120, promptInput.fitWidth)
 
                 width: parent.width
                 implicitHeight: !promptInput.visible ? keys.height
