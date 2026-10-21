@@ -182,7 +182,7 @@ bool SessionActionsModel::createOnBranch(const QString& directory, const QString
 }
 
 bool SessionActionsModel::create(const QString& name, const QString& directory, const QString& command,
-    const QString& prompt, const QString& roomId, const QVariantMap& agent)
+    const QString& prompt, const QString& roomId, const QVariantMap& agent, const QString& computer)
 {
     QJsonObject line;
     if (!command.trimmed().isEmpty())
@@ -191,9 +191,12 @@ bool SessionActionsModel::create(const QString& name, const QString& directory, 
         line.insert(QStringLiteral("agent"), QJsonObject::fromVariantMap(agent));
     if (!prompt.trimmed().isEmpty())
         line.insert(QStringLiteral("prompt"), prompt.trimmed());
+    if (!computer.isEmpty())
+        line.insert(QStringLiteral("computer"), computer);
     if (!createInternal(name, directory, {}, {}, roomId, {}, line))
         return false;
-    m_settings.setWorkingDirectory(directory);
+    if (computer.isEmpty())
+        m_settings.setWorkingDirectory(directory);
     return true;
 }
 

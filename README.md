@@ -24,7 +24,8 @@ terminals. Everything is end-to-end encrypted.
 ## What Kodosi does
 
 **Every terminal in one window.** The terminals of your Mac, your Linux computer and your
-friends' computers are in one sidebar. Each one is a real shell on its own computer.
+friends' computers are in one sidebar. Each one is a real shell on its own computer, and
+you start a new one on any of your computers from the same window.
 
 **Know which agent needs you.** Run Claude Code, Codex, Copilot CLI or any other terminal
 agent. Each terminal shows when its agent works, waits for your approval, is done or

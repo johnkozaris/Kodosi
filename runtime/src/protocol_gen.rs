@@ -467,6 +467,7 @@ mod tests {
         check(&protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
+            computer: Some("device-2".to_owned()),
             command: protocol::Command::ListSessions {
                 request_id: ID.to_owned(),
             },
@@ -474,6 +475,7 @@ mod tests {
         check(&protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
+            computer: None,
             command: protocol::Command::Resize {
                 session_id: ID.to_owned(),
                 identity: protocol::ResizeIdentity {
@@ -510,6 +512,7 @@ mod tests {
         let mut malformed = serde_json::to_value(protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
+            computer: None,
             command: protocol::Command::ListSessions {
                 request_id: ID.to_owned(),
             },
@@ -619,6 +622,7 @@ mod tests {
                 ),
                 ("workingDir", json!(DIRECTORY)),
                 ("workingDirectory", json!(DIRECTORY)),
+                ("path", json!(DIRECTORY)),
                 ("worktrees", json!(WORKTREES)),
                 ("branch", json!("fix/login")),
                 ("rows", json!(24)),

@@ -33,7 +33,8 @@ public:
     Q_INVOKABLE bool activateInRoom(const QString& sessionId);
     Q_INVOKABLE bool minimize(const QString& sessionId);
     Q_INVOKABLE bool create(const QString& name, const QString& directory, const QString& command = {},
-        const QString& prompt = {}, const QString& roomId = {}, const QVariantMap& agent = {});
+        const QString& prompt = {}, const QString& roomId = {}, const QVariantMap& agent = {},
+        const QString& computer = {});
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
     Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,

@@ -19,21 +19,30 @@ ColumnLayout {
     property bool adding: false
     readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
     readonly property string home: Models.DesktopSettings.homeDirectory
-    readonly property var choice: Models.Launcher.choice
-    readonly property var agents: Models.Launcher.agents
+    readonly property var computers: Models.Devices.computers
+    readonly property string computer: {
+        const wanted = Models.DesktopSettings.lastComputer
+        return computers.some(entry => entry.deviceId === wanted) ? wanted : ""
+    }
+    readonly property string computerName: (computers.find(entry => entry.deviceId === computer) || {}).label || qsTr("This computer")
+    readonly property var launcher: computer.length > 0 ? Models.Launcher.remote : Models.Launcher
+    readonly property var places: launcher.places
+    readonly property var choice: root.launcher.choice
+    readonly property var agents: root.launcher.agents
     readonly property string agentId: choice.agent || ""
     readonly property var info: agents.find(entry => entry.agent === agentId) || null
-    readonly property var modelSet: info ? Models.Launcher.models[info.agent] : undefined
-    readonly property bool loadingModels: info !== null && Models.Launcher.loadingModels.indexOf(info.agent) >= 0
-    readonly property var plan: info ? Models.Launcher.plans[info.agent] || null : null
+    readonly property var modelSet: info ? root.launcher.models[info.agent] : undefined
+    readonly property bool loadingModels: info !== null && root.launcher.loadingModels.indexOf(info.agent) >= 0
+    readonly property var plan: info ? root.launcher.plans[info.agent] || null : null
     readonly property var account: plan ? plan.account || null : null
     readonly property string modelId: plan ? plan.modelId : ""
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
-    readonly property string directory: folder || Models.DesktopSettings.effectiveWorkingDirectory
+    readonly property string directory: computer.length > 0 ? Models.DesktopState.launcherRemoteFolders[computer] || (places.recent || [])[0] || ""
+        : folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
-    readonly property string folderTitle: tilde(directory) === "~" ? "~" : Models.Sessions.folderName(directory)
+    readonly property string folderTitle: folderName(directory)
     readonly property string modelTitle: model ? model.label : modelId
     readonly property int effortLevel: efforts.findIndex(entry => entry.id === effortId)
     readonly property bool takesWords: !info || info.installed
@@ -47,6 +56,21 @@ ColumnLayout {
 
     function tilde(path) {
         return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path
+    }
+    function shown(path) {
+        if (computer.length === 0)
+            return tilde(path)
+        const base = places.home || ""
+        const separator = base.indexOf("\\") >= 0 ? "\\" : "/"
+        const prefix = base.endsWith(separator) ? base : base + separator
+        return !path || path === base ? "~" : base.length > 0 && path.startsWith(prefix) ? "~" + separator + path.slice(prefix.length) : path
+    }
+    function child(listing, name) {
+        const separator = (listing.home || "").indexOf("\\") >= 0 ? "\\" : "/"
+        return listing.path.endsWith(separator) ? listing.path + name : listing.path + separator + name
+    }
+    function folderName(path) {
+        return shown(path) === "~" ? "~" : Models.Sessions.folderName(path)
     }
     function focusPrompt(path) {
         if (path)
@@ -66,7 +90,7 @@ ColumnLayout {
         const words = promptInput.text.trim()
         const installed = !!info && info.installed
         const command = !info ? words : installed ? "" : info.install
-        if (Models.SessionActions.create("", directory, command, installed ? words : "", roomId, installed ? plan.start : ({}))) {
+        if (Models.SessionActions.create("", directory, command, installed ? words : "", roomId, installed ? plan.start : ({}), computer)) {
             Models.DesktopState.clearLauncherDraft()
             root.started()
         }
@@ -115,6 +139,8 @@ ColumnLayout {
             label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
     }
     function folderRows() {
+        if (computer.length > 0)
+            return remoteRows()
         const seen = []
         const local = Models.Sessions.sessions.filter(session => session.kind === "local").map(session => session.workingDirectory || "")
         for (const path of [folder, Models.DesktopSettings.effectiveWorkingDirectory].concat(local).concat([home])) {
@@ -125,8 +151,30 @@ ColumnLayout {
             title: tilde(path) === "~" ? "~" : Models.Sessions.folderName(path) }))
             .concat([{ id: "menu.choose", kind: "action", title: qsTr("Choose a folder…"), icon: "slot", glyph: "folder" }])
     }
+    function remoteRows() {
+        const listing = launcher.listing
+        if (listing.path) {
+            const rows = [{ id: "menu.use", kind: "action", title: qsTr("Use %1").arg(folderName(listing.path)), icon: "slot", glyph: "check" }]
+            if (launcher.folderError.length > 0)
+                rows.push({ id: "menu.failure", kind: "note", title: launcher.folderError })
+            if (listing.parent)
+                rows.push({ id: "menu.up", kind: "choice", title: folderName(listing.parent), icon: "slot", glyph: "chevron-up" })
+            return rows.concat(listing.folders.map(name => ({ id: "folder:" + name, kind: "choice", title: name, icon: "folder" })))
+        }
+        const rows = (places.recent || []).map(path => ({ id: path, kind: "choice", icon: "folder", subtitle: shown(path),
+            current: path === directory, title: folderName(path) }))
+        if (!places.home)
+            rows.push({ id: "menu.asking", kind: "note", working: launcher.folderError.length === 0,
+                title: launcher.folderError.length > 0 ? launcher.folderError : qsTr("Asking %1 for its folders").arg(computerName) })
+        return rows.concat([{ id: "menu.choose", kind: "action", title: qsTr("Choose a folder…"), icon: "slot", glyph: "folder" }])
+    }
+    function computerRows() {
+        return [{ id: "menu.here", kind: "choice", icon: "device", title: qsTr("This computer"), current: computer.length === 0 }]
+            .concat(computers.map(entry => ({ id: entry.deviceId, kind: "choice", icon: "device", title: entry.label,
+                current: entry.deviceId === computer })))
+    }
     function popover(kind) {
-        return kind === "folder" ? folderPopover : kind === "account" ? accountPopover : modelPopover
+        return kind === "computer" ? computerPopover : kind === "folder" ? folderPopover : kind === "account" ? accountPopover : modelPopover
     }
     function toggleMenu(kind) {
         if (menuKind === kind) {
@@ -140,14 +188,33 @@ ColumnLayout {
     function closeMenu() {
         menuKind = ""
         adding = false
-        for (const item of [folderPopover, accountPopover, modelPopover]) {
+        for (const item of [computerPopover, folderPopover, accountPopover, modelPopover]) {
             if (item.visible)
                 item.close()
         }
+        if (computer.length > 0)
+            launcher.closeFolders()
         promptInput.forceActiveFocus()
     }
     function pick(kind, id) {
-        if (kind === "folder") {
+        if (kind === "computer") {
+            Models.DesktopSettings.lastComputer = id === "menu.here" ? "" : id
+        } else if (kind === "folder" && computer.length > 0) {
+            const listing = launcher.listing
+            if (id === "menu.choose") {
+                launcher.listFolders(places.home || "", true)
+                return
+            }
+            if (id === "menu.up") {
+                launcher.listFolders(listing.parent, true)
+                return
+            }
+            if (id.startsWith("folder:")) {
+                launcher.listFolders(child(listing, id.slice(7)), true)
+                return
+            }
+            Models.DesktopState.setLauncherRemoteFolder(computer, id === "menu.use" ? listing.path : id)
+        } else if (kind === "folder") {
             if (id === "menu.choose") {
                 closeMenu()
                 Models.DesktopFiles.requestDirectory("launcher", directory)
@@ -161,13 +228,20 @@ ColumnLayout {
                 accountName.forceActiveFocus()
                 return
             }
-            Models.Launcher.choose("account", info.agent, id)
+            root.launcher.choose("account", info.agent, id)
         } else if (kind === "model") {
-            Models.Launcher.choose("model", info.agent, id === "menu.default" ? "" : id)
+            root.launcher.choose("model", info.agent, id === "menu.default" ? "" : id)
         } else if (kind === "effort") {
-            Models.Launcher.choose("effort", info.agent, id)
+            root.launcher.choose("effort", info.agent, id)
         }
         closeMenu()
+    }
+
+    function askComputer() {
+        if (computer.length === 0)
+            return
+        Models.Launcher.remote.computer = computer
+        Models.Launcher.remote.listFolders()
     }
 
     spacing: centered ? 24 : 16
@@ -176,27 +250,39 @@ ColumnLayout {
 
     Component.onCompleted: {
         showDraft()
-        Models.Launcher.refresh(false)
-        Models.Launcher.loadModels(agentId)
+        askComputer()
+        root.launcher.refresh(false)
+        root.launcher.loadModels(agentId)
+    }
+    onComputerChanged: {
+        askComputer()
+        if (menuKind.length > 0)
+            closeMenu()
+        root.launcher.refresh(false)
     }
     onVisibleChanged: {
         if (visible) {
-            Models.Launcher.refresh(false)
+            askComputer()
+            root.launcher.refresh(false)
             promptInput.forceActiveFocus()
         }
     }
     onAgentIdChanged: {
         closeMenu()
-        Models.Launcher.loadModels(agentId)
+        root.launcher.loadModels(agentId)
         promptInput.forceActiveFocus()
     }
-    onInfoChanged: Models.Launcher.loadModels(agentId)
+    onInfoChanged: root.launcher.loadModels(agentId)
 
     Connections {
-        target: Models.Launcher
+        target: root.launcher
 
         function onAccountAdded(agent, name) {
             root.closeMenu()
+        }
+        function onFoldersChanged() {
+            if (folderPopover.visible)
+                folderList.reset()
         }
     }
     Connections {
@@ -219,7 +305,7 @@ ColumnLayout {
 
         function onStateChanged() {
             if (Qt.application.state === Qt.ApplicationActive)
-                Models.Launcher.refresh(false)
+                root.launcher.refresh(false)
         }
     }
 
@@ -410,7 +496,7 @@ ColumnLayout {
                             }
                         }
                         onClicked: {
-                            Models.Launcher.chooseAgent(modelData.id)
+                            root.launcher.chooseAgent(modelData.id)
                             promptInput.forceActiveFocus()
                         }
                     }
@@ -456,16 +542,80 @@ ColumnLayout {
             }
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: 12
+                anchors.rightMargin: root.computers.length > 0 ? 6 : 12
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.verticalCenterOffset: 2
                 spacing: 5
                 objectName: "launcher.place"
 
-                KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: KodosiTheme.terminalInkMuted }
+                AbstractButton {
+                    id: computerKey
+
+                    readonly property bool open: root.menuKind === "computer"
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.computers.length > 0
+                    objectName: "launcher.computer"
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Computer")
+                    Accessible.description: root.computerName
+                    ToolTip.visible: hovered && !open
+                    ToolTip.delay: Tip.delay
+                    ToolTip.text: qsTr("Computer")
+                    activeFocusOnTab: true
+                    hoverEnabled: true
+                    height: 26
+                    leftPadding: 8
+                    rightPadding: 8
+                    scale: pressed ? 0.96 : 1
+                    onClicked: root.toggleMenu("computer")
+
+                    contentItem: Row {
+                        spacing: 5
+
+                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: KodosiTheme.terminalInkMuted }
+                        PlainLabel {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.min(implicitWidth, 150)
+                            text: root.computerName
+                            elide: Text.ElideRight
+                            color: computerKey.hovered || computerKey.open ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                            font.pixelSize: KodosiTheme.fontFootnote
+                        }
+                        KIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 9
+                            height: 9
+                            name: "chevron-down"
+                            strokeWidth: 2.4
+                            color: computerKey.open ? KodosiTheme.terminalAccent : KodosiTheme.terminalInkMuted
+                            rotation: computerKey.open ? 180 : 0
+
+                            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+                        }
+                    }
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusSm
+                        color: computerKey.hovered || computerKey.open ? "#2a221e" : "transparent"
+                        border.width: computerKey.visualFocus ? 1.5 : 0
+                        border.color: KodosiTheme.terminalAccent
+
+                        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+                    }
+                }
+                KIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.computers.length === 0
+                    width: 13
+                    height: 13
+                    name: "laptop"
+                    strokeWidth: 1.9
+                    color: KodosiTheme.terminalInkMuted
+                }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.roomName.length > 0 ? qsTr("This computer") + "  ·" : qsTr("This computer")
+                    visible: root.computers.length === 0 || root.roomName.length > 0
+                    text: root.computers.length > 0 ? "·" : root.roomName.length > 0 ? qsTr("This computer") + "  ·" : qsTr("This computer")
                     color: KodosiTheme.terminalInkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
@@ -544,7 +694,7 @@ ColumnLayout {
                         Accessible.id: objectName
                         Accessible.name: qsTr("Folder")
                         ToolTip.visible: hovered && !open
-                        ToolTip.text: root.tilde(root.directory)
+                        ToolTip.text: root.shown(root.directory)
                         ToolTip.delay: Tip.delay
                         glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
                         onClicked: root.toggleMenu("folder")
@@ -666,6 +816,7 @@ ColumnLayout {
             onClicked: root.start()
         }
         KIconButton {
+            visible: root.computer.length === 0
             glyph: "history"
             size: 32
             objectName: "launcher.resume"
@@ -678,6 +829,25 @@ ColumnLayout {
     }
 
     LauncherDropdown {
+        id: computerPopover
+
+        parent: computerKey
+        onOpened: computerList.reset()
+        onClosed: {
+            if (root.menuKind === "computer")
+                root.closeMenu()
+        }
+        contentItem: PickerList {
+            id: computerList
+            rows: root.computerRows()
+            listWidth: 250
+            objectName: "launcher.list.computer"
+            Accessible.id: objectName
+            onPicked: id => root.pick("computer", id)
+            onClosed: root.closeMenu()
+        }
+    }
+    LauncherDropdown {
         id: folderPopover
 
         parent: folderKey
@@ -689,7 +859,7 @@ ColumnLayout {
         contentItem: PickerList {
             id: folderList
             rows: root.folderRows()
-            listWidth: 300
+            listWidth: root.computer.length > 0 ? 320 : 300
             objectName: "launcher.list.folder"
             Accessible.id: objectName
             onPicked: id => root.pick("folder", id)
@@ -728,8 +898,8 @@ ColumnLayout {
                     ? root.info.accounts[0].folder : "~/." + (root.info ? root.info.program : "")
 
                 function submit() {
-                    if (slug.length > 0 && !Models.Launcher.addingAccount)
-                        Models.Launcher.addAccount(root.info.agent, accountName.text)
+                    if (slug.length > 0 && !root.launcher.addingAccount)
+                        root.launcher.addAccount(root.info.agent, accountName.text)
                 }
 
                 visible: root.adding
@@ -761,8 +931,8 @@ ColumnLayout {
                     KButton {
                         variant: KButton.Primary
                         text: qsTr("Add")
-                        working: Models.Launcher.addingAccount
-                        enabled: newAccount.slug.length > 0 && !Models.Launcher.addingAccount
+                        working: root.launcher.addingAccount
+                        enabled: newAccount.slug.length > 0 && !root.launcher.addingAccount
                         objectName: "launcher.account.add"
                         Accessible.id: objectName
                         onClicked: newAccount.submit()
@@ -781,8 +951,8 @@ ColumnLayout {
                 PlainLabel {
                     Layout.fillWidth: true
                     Layout.leftMargin: 40
-                    visible: Models.Launcher.accountError.length > 0
-                    text: Models.Launcher.accountError
+                    visible: root.launcher.accountError.length > 0
+                    text: root.launcher.accountError
                     color: KodosiTheme.caution
                     font.pixelSize: KodosiTheme.fontFootnote
                     wrapMode: Text.WordWrap

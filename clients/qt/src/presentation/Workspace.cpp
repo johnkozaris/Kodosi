@@ -302,6 +302,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_devices.changed();
         return;
     }
+    if (type == QStringLiteral("devices.hosts")) {
+        m_devices.m_hosts = event.value(QStringLiteral("deviceIds")).toVariant().toStringList();
+        emit m_devices.changed();
+        return;
+    }
     if (type == QStringLiteral("devices.link.selfResolved")) {
         m_devices.m_approvalCode.clear();
         emit m_devices.changed();
@@ -353,7 +358,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         receiveResult(type, event);
         return;
     }
-    if (type == QStringLiteral("provider.error") || !type.endsWith(QStringLiteral(".error")))
+    if (type == QStringLiteral("provider.error") || type == QStringLiteral("folders.error")
+        || !type.endsWith(QStringLiteral(".error")))
         return;
     const auto id = event.value(QStringLiteral("requestId")).toString();
     if (type == QStringLiteral("room.error")) {

@@ -24,6 +24,7 @@ pub(super) struct Waiting {
     missions: Option<Scope>,
     rooms: BTreeMap<Uuid, Option<u64>>,
     terminals: BTreeMap<Uuid, TerminalNotice>,
+    hosts: Option<Vec<String>>,
 }
 
 impl Waiting {
@@ -34,6 +35,10 @@ impl Waiting {
                 if !self.surfaces.contains("sessions") {
                     self.terminals.insert(terminal.session, terminal);
                 }
+                Ok(())
+            }
+            Notice::Hosts(hosts) => {
+                self.hosts = Some(hosts);
                 Ok(())
             }
         }
@@ -80,6 +85,7 @@ impl Waiting {
             && self.missions.is_none()
             && self.rooms.is_empty()
             && self.terminals.is_empty()
+            && self.hosts.is_none()
     }
 }
 
@@ -167,6 +173,9 @@ impl BackendClient {
                             },
                             () = tokio::time::sleep_until(at) => break,
                         }
+                        if let Some(hosts) = waiting.hosts.take() {
+                            self.emit_hosts(admitted, hosts);
+                        }
                     }
                 }
                 while let Ok(notice) = notices.try_recv() {
@@ -193,6 +202,7 @@ impl BackendClient {
             result = terminal_connections::run_link(self, &credentials, &sender) => result,
             result = refresh => result,
         };
+        self.emit_hosts(admitted, Vec::new());
         if matches!(result, Err(Error::Backend { status: 403, .. })) {
             let mut waiting = Waiting::default();
             waiting.add(&Change::of("devices"))?;
@@ -209,6 +219,9 @@ impl BackendClient {
         admitted: &Credentials,
         waiting: &mut Waiting,
     ) -> Result<()> {
+        if let Some(hosts) = waiting.hosts.take() {
+            self.emit_hosts(admitted, hosts);
+        }
         let _operation = self.inner.operations.lock().await;
         self.check_credentials(admitted)?;
         let credentials = self.credentials()?;
@@ -293,6 +306,15 @@ impl BackendClient {
         } else {
             Err(Error::EnrollmentRequired)
         }
+    }
+
+    fn emit_hosts(&self, admitted: &Credentials, mut hosts: Vec<String>) {
+        hosts.retain(|device| *device != admitted.keys.device_id);
+        self.emit_for(
+            admitted.generation,
+            Some(admitted.user_id.clone()),
+            json!({"type":"devices.hosts","deviceIds":hosts}),
+        );
     }
 
     fn terminal_event(&self, notice: &TerminalNotice) -> Value {

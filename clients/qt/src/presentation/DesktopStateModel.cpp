@@ -194,12 +194,20 @@ void DesktopStateModel::setLauncherFolder(const QString& value)
     m_launcherFolder = value;
     emit launcherDraftChanged();
 }
+void DesktopStateModel::setLauncherRemoteFolder(const QString& computer, const QString& path)
+{
+    if (m_launcherRemoteFolders.value(computer).toString() == path)
+        return;
+    m_launcherRemoteFolders.insert(computer, path);
+    emit launcherDraftChanged();
+}
 void DesktopStateModel::clearLauncherDraft()
 {
-    if (m_launcherPrompt.isEmpty() && m_launcherFolder.isEmpty())
+    if (m_launcherPrompt.isEmpty() && m_launcherFolder.isEmpty() && m_launcherRemoteFolders.isEmpty())
         return;
     m_launcherPrompt.clear();
     m_launcherFolder.clear();
+    m_launcherRemoteFolders.clear();
     emit launcherDraftChanged();
 }
 void DesktopStateModel::reconcile()

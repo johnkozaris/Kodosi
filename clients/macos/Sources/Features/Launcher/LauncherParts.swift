@@ -177,6 +177,32 @@ struct AgentTabs: View {
     }
 }
 
+struct ComputerKey: View {
+    @Environment(\.theme) private var theme
+    let name: String
+    let open: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                DeviceGlyph(label: name).squash(trigger: name)
+                Text(verbatim: name).lineLimit(1).contentTransition(.interpolate)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .rotationEffect(.degrees(open ? 180 : 0))
+            }
+            .padding(.horizontal, -3)
+        }
+        .buttonStyle(.kodosi(open ? .tinted : .ghost, size: .small))
+        .animation(theme.motion.snappy, value: open)
+        .help(String(localized: "Computer"))
+        .accessibilityLabel(Text("Computer"))
+        .accessibilityValue(Text(verbatim: name))
+        .accessibilityIdentifier("launcher.computer")
+    }
+}
+
 struct TabShape: Shape {
     let radius: CGFloat
     let flare: CGFloat

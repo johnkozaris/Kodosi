@@ -253,6 +253,72 @@ private slots:
                 { QStringLiteral("account"), QStringLiteral("default") }, { QStringLiteral("model"), QStringLiteral("opus") },
                 { QStringLiteral("effort"), QStringLiteral("high") } }));
     }
+    void aLauncherForAnotherComputerAsksThatComputerAndKeepsItsAnswers()
+    {
+        ProviderCommands commands;
+        kodosi::AgentLauncherModel launcher(commands);
+        auto& remote = *launcher.remote();
+        remote.setComputer(QStringLiteral("laptop"));
+        remote.listFolders();
+        QCOMPARE(commands.values.size(), 2);
+        for (const auto& command : std::as_const(commands.values))
+            QCOMPARE(command.value(QStringLiteral("computer")).toString(), QStringLiteral("laptop"));
+        const auto places = commands.values.last();
+        QCOMPARE(places.value(QStringLiteral("type")).toString(), QStringLiteral("folders.list"));
+        QVERIFY(!places.contains(QStringLiteral("path")));
+        launcher.refresh(true);
+        QVERIFY(!commands.values.last().contains(QStringLiteral("computer")));
+
+        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { QJsonObject { { QStringLiteral("agent"), QStringLiteral("codex") } } } } }, 0));
+        QCOMPARE(remote.agents().size(), 1);
+        QVERIFY(launcher.agents().isEmpty());
+        const auto folders = [](const QJsonObject& command, const QString& path, const QStringList& names) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("folders.result") },
+                { QStringLiteral("requestId"), command.value(QStringLiteral("requestId")) },
+                { QStringLiteral("operation"), QStringLiteral("folders.list") },
+                { QStringLiteral("folders"),
+                    QJsonObject { { QStringLiteral("path"), path }, { QStringLiteral("parent"), QStringLiteral("/home") },
+                        { QStringLiteral("home"), QStringLiteral("/home/ada") }, { QStringLiteral("folders"), QJsonArray::fromStringList(names) },
+                        { QStringLiteral("recent"), QJsonArray { QStringLiteral("/home/ada/kodosi") } } } } };
+        };
+        launcher.apply(folders(places, QStringLiteral("/home/ada"), { QStringLiteral("kodosi") }));
+        QCOMPARE(remote.places().value(QStringLiteral("recent")).toStringList(), QStringList { QStringLiteral("/home/ada/kodosi") });
+        QVERIFY(remote.listing().isEmpty());
+        QVERIFY(launcher.places().isEmpty());
+
+        remote.listFolders(QStringLiteral("/home/ada/kodosi"), true);
+        const auto browse = commands.values.last();
+        QCOMPARE(browse.value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada/kodosi"));
+        launcher.apply(folders(browse, QStringLiteral("/home/ada/kodosi"), { QStringLiteral("runtime") }));
+        QCOMPARE(remote.listing().value(QStringLiteral("folders")).toStringList(), QStringList { QStringLiteral("runtime") });
+        QCOMPARE(remote.places().value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada"));
+
+        remote.listFolders(QStringLiteral("/home/ada/kodosi/gone"), true);
+        launcher.apply({ { QStringLiteral("type"), QStringLiteral("folders.error") },
+            { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("folders.list") }, { QStringLiteral("message"), QStringLiteral("This folder is not there.") } });
+        QCOMPARE(remote.folderError(), QStringLiteral("This folder is not there."));
+        QCOMPARE(remote.listing().value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada/kodosi"));
+        remote.closeFolders();
+        QVERIFY(remote.listing().isEmpty() && remote.folderError().isEmpty());
+
+        remote.listFolders(QStringLiteral("/home/ada"), true);
+        const auto older = commands.values.last();
+        remote.listFolders(QStringLiteral("/home"), true);
+        launcher.apply(folders(commands.values.last(), QStringLiteral("/home"), { QStringLiteral("ada") }));
+        launcher.apply(folders(older, QStringLiteral("/home/ada"), { QStringLiteral("kodosi") }));
+        QCOMPARE(remote.listing().value(QStringLiteral("path")).toString(), QStringLiteral("/home"));
+        remote.listFolders(QStringLiteral("/home/ada"), true);
+        const auto late = commands.values.last();
+        remote.closeFolders();
+        launcher.apply(folders(late, QStringLiteral("/home/ada"), {}));
+        QVERIFY(remote.listing().isEmpty());
+
+        const auto sent = commands.values.size();
+        remote.setComputer({});
+        QVERIFY(remote.places().isEmpty() && remote.agents().isEmpty());
+        QCOMPARE(commands.values.size(), sent);
+    }
 };
 QTEST_GUILESS_MAIN(ProviderModelsTest)
 #include "tst_provider_models.moc"
