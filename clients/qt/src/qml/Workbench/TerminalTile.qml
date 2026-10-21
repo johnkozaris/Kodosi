@@ -23,8 +23,10 @@ Item {
     readonly property string sessionName: session.name || qsTr("Terminal")
     readonly property bool shareable: session.kind === "local" && session.isOwner === true
     readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
+    readonly property bool away: session.kind === "remote" && session.status === "offline"
+    readonly property string awayText: qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
     readonly property string notice: session.kind === "remote" && session.connectionState === "connected"
-        ? (session.status === "reconnecting" ? qsTr("Reconnecting") : session.message || "") : ""
+        ? (away ? awayText : session.status === "reconnecting" ? qsTr("Reconnecting") : session.message || "") : ""
     property string terminalError: ""
     property string terminalOperationError: ""
     property string joinedUser: ""
@@ -180,7 +182,7 @@ Item {
                 }
                 PlainLabel {
                     Accessible.id: objectName
-                    color: KodosiTheme.terminalInkFaint
+                    color: root.away ? KodosiTheme.caution : KodosiTheme.terminalInkFaint
                     font.pixelSize: KodosiTheme.fontCaption
                     objectName: root.objectName + ".notice"
                     text: root.notice
@@ -331,13 +333,13 @@ Item {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredWidth: 12
                         Layout.preferredHeight: 22
-                        visible: root.terminalError.length === 0
+                        visible: root.terminalError.length === 0 && !root.away
                         blinks: visible
                         color: KodosiTheme.terminalAccent
                     }
                     ShimmerText {
                         Layout.alignment: Qt.AlignHCenter
-                        visible: root.terminalError.length === 0
+                        visible: root.terminalError.length === 0 && !root.away
                         text: qsTr("Connecting")
                         active: visible
                         color: KodosiTheme.terminalInk
@@ -345,6 +347,25 @@ Item {
                         font.weight: Font.DemiBold
                         Accessible.ignored: false
                         Accessible.name: qsTr("Connecting terminal")
+                    }
+                    PlainLabel {
+                        Layout.fillWidth: true
+                        color: KodosiTheme.terminalInk
+                        font.pixelSize: KodosiTheme.fontHeadline
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter
+                        objectName: root.objectName + ".away"
+                        text: root.awayText
+                        visible: root.away && root.terminalError.length === 0
+                    }
+                    PlainLabel {
+                        Layout.fillWidth: true
+                        color: KodosiTheme.terminalInkMuted
+                        font.pixelSize: KodosiTheme.fontFootnote
+                        horizontalAlignment: Text.AlignHCenter
+                        text: qsTr("The terminal opens when its computer is back.")
+                        visible: root.away && root.terminalError.length === 0
+                        wrapMode: Text.WordWrap
                     }
                     PlainLabel {
                         Layout.fillWidth: true

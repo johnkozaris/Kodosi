@@ -46,7 +46,7 @@ public struct TerminalPlace: Decodable, Equatable, Sendable {
 
 public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case local, remote }
-    public enum Status: String, Decodable, Sendable { case running, reconnecting, closing }
+    public enum Status: String, Decodable, Sendable { case running, reconnecting, offline, closing }
     public enum Connection: String, Decodable, Sendable { case local, connecting, connected, offline, blocked }
 
     public let id: String
@@ -120,7 +120,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var isTroubled: Bool {
-        connectionState == .blocked || (connectionState == .offline && (status == .reconnecting || message != nil))
+        connectionState == .blocked || status == .offline || (connectionState == .offline && message != nil)
     }
 
     public var folderName: String? {
@@ -132,7 +132,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var canControl: Bool {
-        isConnected && status != .closing
+        isConnected && status == .running
     }
 
     public var canOpen: Bool {
@@ -153,17 +153,14 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var statusLabel: String {
-        switch connectionState {
-        case .offline where status == .reconnecting: String(localized: "Its computer is offline", bundle: .module)
-        case .offline: String(localized: "Not connected", bundle: .module)
-        case .blocked: String(localized: "No access", bundle: .module)
-        case .connecting: String(localized: "Connecting", bundle: .module)
-        case .local, .connected:
-            switch status {
-            case .running: String(localized: "Running", bundle: .module)
-            case .reconnecting: String(localized: "Reconnecting", bundle: .module)
-            case .closing: String(localized: "Closing", bundle: .module)
-            }
+        switch (connectionState, status) {
+        case (.blocked, _): String(localized: "No access", bundle: .module)
+        case (_, .offline): String(localized: "\(hostLabel) is offline", bundle: .module)
+        case (.offline, _): String(localized: "Not connected", bundle: .module)
+        case (.connecting, _): String(localized: "Connecting", bundle: .module)
+        case (_, .running): String(localized: "Running", bundle: .module)
+        case (_, .reconnecting): String(localized: "Reconnecting", bundle: .module)
+        case (_, .closing): String(localized: "Closing", bundle: .module)
         }
     }
 }

@@ -1161,6 +1161,113 @@ async fn a_view_says_that_input_was_not_sent_until_the_next_input() {
     );
 }
 
+fn host_notice(runtime: &mut Runtime, remote: &RemoteSession, online: bool) {
+    let generation = runtime.network.generation();
+    runtime.network_event(BackendEvent {
+        generation,
+        user_id: None,
+        event: json!({"type":"network.terminal","sessionId":remote.id,
+            "incarnationId":remote.incarnation_id,"online":online,"status":null}),
+    });
+}
+
+#[tokio::test]
+async fn a_view_whose_computer_goes_offline_says_so_and_connects_again_when_it_is_back() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
+
+    lose_link(&mut runtime, &remote, &updates, "The host is offline.").await;
+    runtime.remotes.get_mut(&id).unwrap().program_status = Some(crate::terminal::ProgramStatus {
+        state: crate::terminal::ProgramState::Working,
+        kind: None,
+        progress: None,
+        title: None,
+        message: None,
+    });
+    host_notice(&mut runtime, &remote, false);
+    assert_eq!(
+        remote_state(&runtime, id),
+        (ConnectionState::Connected, SessionStatus::Offline, None)
+    );
+    assert_eq!(runtime.remotes[&id].program_status, None);
+    let (reply, typed) = oneshot::channel();
+    runtime.input(
+        id,
+        remote.incarnation_id,
+        Uuid::now_v7(),
+        Bytes::from_static(b"ls\r"),
+        Arc::new(Semaphore::new(3))
+            .try_acquire_many_owned(3)
+            .unwrap(),
+        Some(reply),
+    );
+    assert_eq!(
+        typed.await.unwrap().unwrap_err().to_string(),
+        "Other computer is offline."
+    );
+
+    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    assert!(!runtime.opening.contains_key(&id));
+
+    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now() + Duration::from_mins(1);
+    host_notice(&mut runtime, &remote, true);
+    assert_eq!(remote_state(&runtime, id).1, SessionStatus::Reconnecting);
+    runtime.reconnect_views();
+    assert!(runtime.opening.contains_key(&id));
+    let (again, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    connected(&mut runtime, id, Ok(again));
+    assert_eq!(
+        remote_state(&runtime, id),
+        (ConnectionState::Connected, SessionStatus::Running, None)
+    );
+}
+
+#[tokio::test]
+async fn opening_a_terminal_whose_computer_is_offline_waits_for_the_computer() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    remote.online = false;
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    assert_eq!(
+        remote_state(&runtime, id),
+        (ConnectionState::Offline, SessionStatus::Offline, None)
+    );
+    runtime
+        .apply_for_consumer(
+            &Command::OpenRemote {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: id.to_string(),
+            },
+            Uuid::now_v7(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+    assert!(!runtime.opening.contains_key(&id));
+    assert!(runtime.reconnect.contains_key(&id));
+    let close = Command::CloseSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+        expected_runtime_incarnation_id: remote.incarnation_id.to_string(),
+    };
+    assert_eq!(
+        runtime.apply(&close).unwrap_err().to_string(),
+        "Other computer is offline."
+    );
+
+    remote.online = true;
+    runtime.replace_remotes(vec![remote]);
+    assert_eq!(
+        remote_state(&runtime, id),
+        (ConnectionState::Offline, SessionStatus::Running, None)
+    );
+    runtime.reconnect_views();
+    assert!(runtime.opening.contains_key(&id));
+}
+
 #[tokio::test]
 async fn remote_demand_is_released_only_by_its_consumer() {
     let (mut runtime, _root) = registry_fixture();
@@ -1435,5 +1542,5 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     );
     runtime.network_event(notice(false, "done"));
     assert_eq!(shown(&runtime), (None, None, None));
-    assert_eq!(runtime.remotes[&id].status, SessionStatus::Reconnecting);
+    assert_eq!(runtime.remotes[&id].status, SessionStatus::Offline);
 }

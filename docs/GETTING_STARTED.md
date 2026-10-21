@@ -138,5 +138,6 @@ does.
 Make sure that the computer of the terminal is online, with Kodosi open, and that the
 terminal is still shared. A new device can need approval, and a friend with a changed
 identity can need verification in Friends. After a lost connection, Kodosi shows the
-current state again. If Kodosi says that it is not sure your input arrived, look at the
-terminal before you type the command again.
+current state again. When Kodosi says that a computer is offline, its terminals open
+again when it is back, unless they ended there. If Kodosi says that it is not sure your
+input arrived, look at the terminal before you type the command again.

@@ -118,7 +118,7 @@ bool SessionCatalogModel::isWorking(const Session& session)
     if (!session.programState.isEmpty())
         return session.programState == QStringLiteral("working");
     const auto scalars = session.title.toUcs4();
-    return presentation(session).canControl && !scalars.isEmpty() && isSpinner(scalars.first());
+    return presentation(session).canType && !scalars.isEmpty() && isSpinner(scalars.first());
 }
 
 QString SessionCatalogModel::waitState(const Session& session)
@@ -223,10 +223,12 @@ SessionCatalogModel::PresentationSession SessionCatalogModel::presentation(const
 {
     const bool local = s.kind == QStringLiteral("local");
     const bool blocked = s.connectionState == QStringLiteral("blocked");
+    const bool away = s.status == QStringLiteral("offline");
     const bool live = s.status == QStringLiteral("running")
-        || s.status == QStringLiteral("reconnecting");
+        || s.status == QStringLiteral("reconnecting") || away;
     const bool ready = live && (local || s.connectionState == QStringLiteral("connected")) && !blocked;
-    return { s.id, s.kind, !blocked, !local && !blocked && live, ready };
+    return { s.id, s.kind, !blocked, !local && !blocked && live, ready,
+        ready && s.status == QStringLiteral("running"), away };
 }
 std::optional<SessionCatalogModel::PresentationSession> SessionCatalogModel::presentationSession(
     const QString& id) const
@@ -269,7 +271,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
         { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
-        { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canControl } };
+        { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType } };
 }
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJsonObject& o)
 {
@@ -286,7 +288,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
         || (s.kind != QStringLiteral("local") && s.kind != QStringLiteral("remote"))
         || !o.value(QStringLiteral("isOwner")).isBool()
         || !QStringList { QStringLiteral("running"),
-            QStringLiteral("reconnecting"), QStringLiteral("closing") }
+            QStringLiteral("reconnecting"), QStringLiteral("offline"), QStringLiteral("closing") }
             .contains(s.status)
         || !QStringList { QStringLiteral("local"), QStringLiteral("connecting"), QStringLiteral("connected"),
             QStringLiteral("offline"), QStringLiteral("blocked") }

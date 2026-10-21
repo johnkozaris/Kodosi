@@ -88,6 +88,10 @@ struct SessionTileHeader: View {
             Text("Reconnecting").appTextStyle(.caption).foregroundStyle(theme.colors.caution).shimmer()
                 .accessibilityIdentifier("\(stageId).reconnecting")
         }
+        if session.kind == .remote, session.isConnected, session.status == .offline {
+            Text(session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                .accessibilityIdentifier("\(stageId).offline")
+        }
         if session.kind == .remote, session.isConnected, let notice = session.message {
             Text(notice).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
                 .accessibilityIdentifier("\(stageId).notice")

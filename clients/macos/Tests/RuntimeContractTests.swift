@@ -59,6 +59,18 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try !runtimeSession(connection: "blocked").canControl)
 }
 
+@Test func aRemoteTerminalTakesNoInputWhileItsComputerIsAway() throws {
+    for status in ["reconnecting", "offline"] {
+        let session = try runtimeSession(connection: "connected", status: status)
+        #expect(session.isConnected)
+        #expect(!session.canControl)
+        #expect(session.canOpen)
+    }
+    let away = try runtimeSession(connection: "connected", status: "offline")
+    #expect(away.isTroubled)
+    #expect(away.statusLabel == "Remote computer is offline")
+}
+
 @Test func deepLinksOnlyIdentifyRealSessionUUIDs() throws {
     let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
     let url = try #require(URL(string: "kodosi://session/\(id)"))
@@ -96,17 +108,17 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(restarted.reconcile([session]).isEmpty)
 }
 
-@Test @MainActor func stageRestorationStagesButDoesNotOpenSessionsWhoseHostIsOffline() throws {
+@Test @MainActor func stageRestorationOpensSessionsWhoseHostIsOfflineSoTheyConnectWhenItIsBack() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
-    let session = try runtimeSession(status: "reconnecting")
-    #expect(session.statusLabel == "Its computer is offline")
+    let session = try runtimeSession(status: "offline")
+    #expect(session.statusLabel == "Remote computer is offline")
     #expect(try runtimeSession().statusLabel == "Not connected")
     let first = WorkbenchState(defaults: defaults)
     first.switchAccount("owner")
     first.showSession(session.id)
     let restarted = WorkbenchState(defaults: defaults)
     restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]).isEmpty)
+    #expect(restarted.reconcile([session]) == [session.id])
     #expect(restarted.stagedSessionIds == [session.id])
 }
 

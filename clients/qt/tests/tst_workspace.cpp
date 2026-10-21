@@ -249,6 +249,20 @@ private slots:
         f.sessions.apply(test::snapshot({ test::session(1) }));
         QVERIFY(f.sessions.presentationSession(test::id(1))->canControl);
     }
+    void aTerminalWhoseComputerIsAwayKeepsItsViewAndTakesNoTyping()
+    {
+        Fixture f;
+        auto remote = test::session(1, true, false);
+        for (const auto* status : { "reconnecting", "offline" }) {
+            remote.insert(QStringLiteral("status"), QLatin1String(status));
+            f.sessions.apply(test::snapshot({ remote }));
+            const auto presentation = f.sessions.presentationSession(test::id(1));
+            QVERIFY(presentation->canControl);
+            QVERIFY(!presentation->canType);
+            QVERIFY(!f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("canControl")).toBool());
+        }
+        QVERIFY(f.sessions.presentationSession(test::id(1))->away);
+    }
     void folderGroupsKeepNamesAndRemoteDirectoriesPresentationOnly()
     {
         Fixture f;
