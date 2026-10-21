@@ -14,19 +14,19 @@ pub const GhosttyResult_GHOSTTY_REJECTED: GhosttyResult = -7;
 pub const GhosttyResult_GHOSTTY_RESULT_MAX_VALUE: GhosttyResult = 2147483647;
 pub type GhosttyResult = ::std::os::raw::c_int;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct GhosttyTerminalImpl {
     _unused: [u8; 0],
 }
 pub type GhosttyTerminal = *mut GhosttyTerminalImpl;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct GhosttySnapshotDecoderImpl {
     _unused: [u8; 0],
 }
 pub type GhosttySnapshotDecoder = *mut GhosttySnapshotDecoderImpl;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct GhosttyFormatterImpl {
     _unused: [u8; 0],
 }
