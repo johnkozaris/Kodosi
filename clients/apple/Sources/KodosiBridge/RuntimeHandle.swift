@@ -27,7 +27,7 @@ public final class RuntimeHandle: @unchecked Sendable {
     @discardableResult
     public func withHandle<T>(
         matching expectedGeneration: UInt64,
-        _ body: (UnsafeMutableRawPointer) -> T
+        _ body: (UnsafeMutableRawPointer) -> T,
     ) -> T? {
         guard let snapshot = handleSlot.snapshot(matching: expectedGeneration) else {
             return nil
@@ -69,7 +69,7 @@ public final class RuntimeHandle: @unchecked Sendable {
                 on_terminal_data: Self.onTerminalData,
                 on_terminal_control: Self.onTerminalControl,
                 on_terminal_connect_result: Self.onTerminalConnectResult,
-                on_terminal_checkpoint: Self.onTerminalCheckpoint
+                on_terminal_checkpoint: Self.onTerminalCheckpoint,
             )
             let handle = withUnsafePointer(to: &callbacks) {
                 kodosi_start($0, UInt(MemoryLayout<kodosi_callbacks_t>.size), retained.toOpaque())
@@ -137,15 +137,15 @@ public final class RuntimeHandle: @unchecked Sendable {
     public func refreshTerminal(
         sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) {
         guard terminalSubscriptions.contains(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         ) else {
             Logger.terminal.debug(
-                "Ignored stale terminal refresh for \(sessionId), subscription \(subscriptionId)"
+                "Ignored stale terminal refresh for \(sessionId), subscription \(subscriptionId)",
             )
             return
         }
@@ -157,14 +157,14 @@ public final class RuntimeHandle: @unchecked Sendable {
                         handle,
                         sessionPointer,
                         subscriptionPointer,
-                        subscriptionGeneration
+                        subscriptionGeneration,
                     )
                 }
             }
         }
         if result != Int32(KODOSI_FFI_OK) {
             Logger.terminal.error(
-                "terminal_refresh failed for \(sessionId): \(result ?? Int32(KODOSI_FFI_RUNTIME_STOPPED))"
+                "terminal_refresh failed for \(sessionId): \(result ?? Int32(KODOSI_FFI_RUNTIME_STOPPED))",
             )
         }
     }
@@ -172,28 +172,28 @@ public final class RuntimeHandle: @unchecked Sendable {
     public func disconnectTerminal(
         sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) {
         guard let removal = terminalSubscriptions.removeExactTakingCompletion(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         ) else {
             Logger.terminal.debug(
-                "Ignored stale terminal disconnect for \(sessionId), subscription \(subscriptionId)"
+                "Ignored stale terminal disconnect for \(sessionId), subscription \(subscriptionId)",
             )
             return
         }
         removal.pendingCompletion?(
             false,
-            String(localized: "The terminal connection was cancelled.", bundle: .module)
+            String(localized: "The terminal connection was cancelled.", bundle: .module),
         )
         guard let generation = handleSlot.currentGeneration() else { return }
         disconnectRustTerminal(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
             subscriptionGeneration: subscriptionGeneration,
-            handleGeneration: generation
+            handleGeneration: generation,
         )
     }
 
@@ -201,7 +201,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         sessionId: String,
         subscriptionId: String,
         subscriptionGeneration: UInt64,
-        handleGeneration: UInt64
+        handleGeneration: UInt64,
     ) {
         _ = withHandle(matching: handleGeneration) { handle in
             sessionId.withCString { sessionPointer in
@@ -210,7 +210,7 @@ public final class RuntimeHandle: @unchecked Sendable {
                         handle,
                         sessionPointer,
                         subscriptionPointer,
-                        subscriptionGeneration
+                        subscriptionGeneration,
                     )
                 }
             }
@@ -224,12 +224,12 @@ public final class RuntimeHandle: @unchecked Sendable {
     private func hasTerminalConnection(
         _ sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) -> Bool {
         terminalSubscriptions.contains(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         )
     }
 
@@ -238,17 +238,17 @@ public final class RuntimeHandle: @unchecked Sendable {
         subscriptionId: String,
         subscriptionGeneration: UInt64,
         result: Int32,
-        message: String? = nil
+        message: String? = nil,
     ) {
         let succeeded = result == Int32(KODOSI_FFI_OK)
         guard let completion = terminalSubscriptions.takeCompletion(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
             subscriptionGeneration: subscriptionGeneration,
-            keepConnection: succeeded
+            keepConnection: succeeded,
         ) else {
             Logger.terminal.debug(
-                "Ignored stale terminal completion for \(sessionId), subscription \(subscriptionId), generation \(subscriptionGeneration)"
+                "Ignored stale terminal completion for \(sessionId), subscription \(subscriptionId), generation \(subscriptionGeneration)",
             )
             return
         }
@@ -279,12 +279,12 @@ public final class RuntimeHandle: @unchecked Sendable {
         let connection = self_.terminalSubscriptions.connection(
             sessionId: sessionId,
             subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         )
 
         guard let connection else {
             Logger.terminal.debug(
-                "Ignored stale terminal data for \(sessionId), subscription \(subscriptionIdValue)"
+                "Ignored stale terminal data for \(sessionId), subscription \(subscriptionIdValue)",
             )
             return
         }
@@ -301,7 +301,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         let connection = self_.terminalSubscriptions.connection(
             sessionId: sessionId,
             subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         )
 
         guard let connection else { return }
@@ -318,7 +318,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         guard let connection = self_.terminalSubscriptions.connection(
             sessionId: sessionId,
             subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: generation
+            subscriptionGeneration: generation,
         ) else { return Int32(KODOSI_FFI_STALE_SUBSCRIPTION) }
         return connection.onCheckpoint(Data(bytes: bytes, count: Int(len)), console)
     }
@@ -329,7 +329,7 @@ public final class RuntimeHandle: @unchecked Sendable {
             sessionId: String(cString: sid),
             subscriptionId: String(cString: subscriptionId),
             subscriptionGeneration: subscriptionGeneration,
-            result: result
+            result: result,
         )
     }
 }
@@ -340,7 +340,7 @@ public extension RuntimeHandle {
         let subscriptionGeneration = connection.subscriptionGeneration
         guard terminalSubscriptions.install(connection, sessionId: sessionId) else {
             Logger.terminal.debug(
-                "Ignored stale terminal connect for \(sessionId), generation \(subscriptionGeneration)"
+                "Ignored stale terminal connect for \(sessionId), generation \(subscriptionGeneration)",
             )
             return
         }
@@ -351,7 +351,7 @@ public extension RuntimeHandle {
                 subscriptionId: subscriptionId,
                 subscriptionGeneration: subscriptionGeneration,
                 result: Int32(KODOSI_FFI_RUNTIME_STOPPED),
-                message: String(localized: "Kodosi is not ready.", bundle: .module)
+                message: String(localized: "Kodosi is not ready.", bundle: .module),
             )
             Logger.terminal.error("connectTerminal: runtime handle is nil for \(sessionId)")
             return
@@ -362,7 +362,7 @@ public extension RuntimeHandle {
                 sessionId: sessionId,
                 subscriptionId: subscriptionId,
                 subscriptionGeneration: subscriptionGeneration,
-                handleGeneration: activeGeneration
+                handleGeneration: activeGeneration,
             )
         }
     }
@@ -371,13 +371,13 @@ public extension RuntimeHandle {
         sessionId: String,
         subscriptionId: String,
         subscriptionGeneration: UInt64,
-        handleGeneration activeGeneration: UInt64
+        handleGeneration activeGeneration: UInt64,
     ) async {
         for attempt in 0 ... Self.terminalConnectBackoff.count {
             guard hasTerminalConnection(
                 sessionId,
                 subscriptionId: subscriptionId,
-                subscriptionGeneration: subscriptionGeneration
+                subscriptionGeneration: subscriptionGeneration,
             ) else { return }
             let result = withHandle(matching: activeGeneration) { handle in
                 sessionId.withCString { sessionPointer in
@@ -386,7 +386,7 @@ public extension RuntimeHandle {
                             handle,
                             sessionPointer,
                             subscriptionPointer,
-                            subscriptionGeneration
+                            subscriptionGeneration,
                         )
                     }
                 }
@@ -395,13 +395,13 @@ public extension RuntimeHandle {
                 guard hasTerminalConnection(
                     sessionId,
                     subscriptionId: subscriptionId,
-                    subscriptionGeneration: subscriptionGeneration
+                    subscriptionGeneration: subscriptionGeneration,
                 ) else {
                     disconnectRustTerminal(
                         sessionId: sessionId,
                         subscriptionId: subscriptionId,
                         subscriptionGeneration: subscriptionGeneration,
-                        handleGeneration: activeGeneration
+                        handleGeneration: activeGeneration,
                     )
                     return
                 }
@@ -421,7 +421,7 @@ public extension RuntimeHandle {
                     subscriptionId: subscriptionId,
                     subscriptionGeneration: subscriptionGeneration,
                     result: result,
-                    message: String(localized: "The terminal could not connect (\(result)).", bundle: .module)
+                    message: String(localized: "The terminal could not connect (\(result)).", bundle: .module),
                 )
             } else {
                 Logger.terminal.error("terminal_connect aborted after runtime restart for \(sessionId)")
@@ -430,7 +430,7 @@ public extension RuntimeHandle {
                     subscriptionId: subscriptionId,
                     subscriptionGeneration: subscriptionGeneration,
                     result: Int32(KODOSI_FFI_RUNTIME_STOPPED),
-                    message: String(localized: "Kodosi started again before the terminal connected.", bundle: .module)
+                    message: String(localized: "Kodosi started again before the terminal connected.", bundle: .module),
                 )
             }
             return

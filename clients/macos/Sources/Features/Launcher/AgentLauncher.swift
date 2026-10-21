@@ -112,7 +112,7 @@ struct AgentLauncher: View {
                 AgentTabs(
                     items: tabItems, selection: choice.agent ?? "shell",
                     hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
-                    showsAll: $showsAll
+                    showsAll: $showsAll,
                 ) { id in
                     choose(.tab(id == "shell" ? nil : id))
                     closeMenu()
@@ -124,7 +124,7 @@ struct AgentLauncher: View {
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
             .background(TerminalInk.band)
             LauncherCommandLine(
-                info: info, prompt: Bindable(deps.workbench).launcherDraft.prompt, hint: hint, focus: focus + focusRequest, submit: start
+                info: info, prompt: Bindable(deps.workbench).launcherDraft.prompt, hint: hint, focus: focus + focusRequest, submit: start,
             ) {
                 folderKey
             } choices: {
@@ -161,7 +161,7 @@ struct AgentLauncher: View {
     private var folderKey: some View {
         PickerKey(
             title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
-            label: String(localized: "Folder"), help: directory.map(tilde)
+            label: String(localized: "Folder"), help: directory.map(tilde),
         ) {
             Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
         } action: {
@@ -170,7 +170,7 @@ struct AgentLauncher: View {
         .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
             PickerList(
                 rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
-                identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu
+                identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu,
             )
         }
     }
@@ -180,7 +180,7 @@ struct AgentLauncher: View {
         let title = account?.title(program: info.program) ?? ""
         return PickerKey(
             title: title, open: menu == .account, identifier: "launcher.account",
-            label: String(localized: "Account"), help: account?.identity
+            label: String(localized: "Account"), help: account?.identity,
         ) {
             AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 16)
         } action: {
@@ -189,12 +189,12 @@ struct AgentLauncher: View {
         .kodosiPopover(isPresented: presented(.account), alignment: .leading) {
             if adding {
                 NewAccountForm(
-                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving
+                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving,
                 ) { add($0, to: info) }
             } else {
                 PickerList(
                     rows: LauncherMenu.account.rows(plan, recents: [], directory: directory, loading: false),
-                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu
+                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu,
                 )
             }
         }
@@ -206,7 +206,7 @@ struct AgentLauncher: View {
         return PickerKey(
             title: named ?? String(localized: "Model"), quiet: named == nil,
             loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
-            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort")
+            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort"),
         ) {
             Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
         } accessory: {
@@ -221,7 +221,7 @@ struct AgentLauncher: View {
             VStack(spacing: 0) {
                 PickerList(
                     rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
-                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu
+                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu,
                 )
                 if !plan.efforts.isEmpty {
                     Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
@@ -317,7 +317,7 @@ struct AgentLauncher: View {
             .disabled(starting || !ready)
             .accessibilityIdentifier("launcher.start")
             IconButton(
-                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
+                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32,
             ) {
                 deps.workbench.launcher = nil
                 deps.workbench.showsHistory = true
@@ -359,7 +359,7 @@ struct AgentLauncher: View {
             defer { starting = false }
             do {
                 try await deps.createSession(
-                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, agent: agent, prompt: first
+                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, agent: agent, prompt: first,
                 )
                 deps.workbench.launcherDraft = LauncherDraft()
                 started()

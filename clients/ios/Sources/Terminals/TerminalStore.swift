@@ -35,7 +35,7 @@ final class TerminalStore {
             style: { TerminalAppearance.style },
             onFocusResult: { sessionId, incarnation, requestId, accepted in
                 focus.applyResult(sessionId: sessionId, runtimeIncarnationId: incarnation, requestId: requestId, accepted: accepted)
-            }
+            },
         )
     }
 

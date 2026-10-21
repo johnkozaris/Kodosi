@@ -3,21 +3,39 @@ import SwiftUI
     import AppKit
 #endif
 
+public struct ClosePanelAction: Equatable {
+    private var panel: UUID?
+    private var close: () -> Void = {}
+
+    public init() {}
+
+    public init(panel: UUID, close: @escaping () -> Void) {
+        self.panel = panel
+        self.close = close
+    }
+
+    public func callAsFunction() {
+        close()
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.panel == rhs.panel
+    }
+}
+
 public extension EnvironmentValues {
-    @Entry var closePanel: () -> Void = {}
+    @Entry var closePanel = ClosePanelAction()
 }
 
 public extension View {
     func kodosiPopover(
         isPresented: Binding<Bool>, arrowEdge: Edge = .bottom, alignment: HorizontalAlignment = .center,
-        @ViewBuilder content: @escaping () -> some View
+        @ViewBuilder content: @escaping () -> some View,
     ) -> some View {
         #if os(macOS)
             modifier(KodosiPopoverSource(isPresented: isPresented, edge: arrowEdge, alignment: alignment, popover: content))
         #else
-            popover(isPresented: isPresented, arrowEdge: arrowEdge) {
-                content().environment(\.closePanel) { isPresented.wrappedValue = false }
-            }
+            modifier(KodosiPopoverSource(isPresented: isPresented, edge: arrowEdge, popover: content))
         #endif
     }
 
@@ -45,6 +63,21 @@ public extension View {
     }
 }
 
+#if !os(macOS)
+    private struct KodosiPopoverSource<Popover: View>: ViewModifier {
+        @Binding var isPresented: Bool
+        let edge: Edge
+        let popover: () -> Popover
+        @State private var id = UUID()
+
+        func body(content: Content) -> some View {
+            content.popover(isPresented: $isPresented, arrowEdge: edge) {
+                popover().environment(\.closePanel, ClosePanelAction(panel: id) { isPresented = false })
+            }
+        }
+    }
+#endif
+
 #if os(macOS)
     private struct KodosiPopoverSource<Popover: View>: ViewModifier {
         @Environment(\.theme) private var theme
@@ -62,7 +95,8 @@ public extension View {
                     let close = { isPresented = false }
                     return [KodosiPopoverItem(
                         id: id, anchor: anchor, edge: edge, alignment: alignment,
-                        content: AnyView(popover().environment(\.closePanel, close)), closing: !isPresented, dismiss: close
+                        content: AnyView(popover().environment(\.closePanel, ClosePanelAction(panel: id, close: close))),
+                        closing: !isPresented, dismiss: close,
                     )]
                 }
                 .onChange(of: isPresented) { _, now in
@@ -200,7 +234,7 @@ public extension View {
             }
             let clamped = CGPoint(
                 x: min(max(origin.x, Self.margin), max(Self.margin, bounds.width - size.width - Self.margin)),
-                y: min(max(origin.y, Self.margin), max(Self.margin, bounds.height - size.height - Self.margin))
+                y: min(max(origin.y, Self.margin), max(Self.margin, bounds.height - size.height - Self.margin)),
             )
             let across = min(max((anchor.midX - clamped.x) / max(size.width, 1), 0), 1)
             let down = min(max((anchor.midY - clamped.y) / max(size.height, 1), 0), 1)

@@ -16,7 +16,7 @@ struct SettingsView: View {
                             DockItem(id: index, title: section.title, symbol: section.symbol, key: section.rawValue)
                         },
                         selection: sections.firstIndex(of: workbench.settingsSection) ?? 0,
-                        identifier: "settings"
+                        identifier: "settings",
                     ) { workbench.settingsSection = sections[$0] }
                 }
                 Group {

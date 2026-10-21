@@ -3,7 +3,7 @@ import Testing
 
 @MainActor
 struct TerminalClipboardReadTests {
-    @Test func aReadInAnotherPersonsTerminalWaitsForTheAnswerOfThePerson() {
+    @Test func `a read in another persons terminal waits for the answer of the person`() {
         let proxy = TerminalRendererDelegateProxy()
         var asked = 0
         var answers: [Bool] = []
@@ -15,7 +15,7 @@ struct TerminalClipboardReadTests {
         #expect(answers.isEmpty)
     }
 
-    @Test func aReadInTheOwnTerminalIsAnsweredWithoutAPrompt() {
+    @Test func `a read in the own terminal is answered without a prompt`() {
         let proxy = TerminalRendererDelegateProxy()
         proxy.asksBeforeClipboardRead = false
         var asked = 0

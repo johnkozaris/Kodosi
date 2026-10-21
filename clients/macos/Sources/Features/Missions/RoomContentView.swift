@@ -30,7 +30,7 @@ struct RoomContentView: View {
         .id(state.canvas)
         .transition(.asymmetric(
             insertion: state.canvas == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
-            removal: .identity
+            removal: .identity,
         ))
     }
 }

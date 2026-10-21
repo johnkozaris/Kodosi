@@ -22,7 +22,7 @@ extension TerminalSessionManager {
             onData: outputHandler(link, renderer: renderer),
             onControl: controlHandler(link, controls: controls, renderer: renderer),
             onCheckpoint: checkpointHandler(link, renderer: renderer),
-            onConnectionResult: connectionResultHandler(link, resizeDelivery: resizeDelivery)
+            onConnectionResult: connectionResultHandler(link, resizeDelivery: resizeDelivery),
         ))
     }
 
@@ -30,7 +30,7 @@ extension TerminalSessionManager {
         _ data: Data,
         sessionId: String,
         token: TerminalConnectionToken,
-        resizeDelivery: ResizeDeliveryState? = nil
+        resizeDelivery: ResizeDeliveryState? = nil,
     ) {
         TerminalControlFrames.handle(
             data,
@@ -64,8 +64,8 @@ extension TerminalSessionManager {
                 onBell: { [weak self, token] in
                     guard token.isActive, self?.sessions[sessionId]?.token === token else { return }
                     self?.beep()
-                }
-            )
+                },
+            ),
         )
     }
 }
@@ -89,14 +89,14 @@ private extension TerminalSessionManager {
             guard link.token.isActive, let renderer, !renderer.receive(data), link.token.deactivate() else { return }
             Task { @MainActor [weak self] in
                 self?.fail(link, message: String(
-                    localized: "This terminal fell behind. Try again.", bundle: .module
+                    localized: "This terminal fell behind. Try again.", bundle: .module,
                 ))
             }
         }
     }
 
     func controlHandler(
-        _ link: RuntimeLink, controls: RuntimeEventInbox, renderer: TerminalRendererSession
+        _ link: RuntimeLink, controls: RuntimeEventInbox, renderer: TerminalRendererSession,
     ) -> @Sendable (Data) -> Void {
         { [weak self, weak renderer] data in
             guard link.token.isActive else { return }
@@ -124,7 +124,7 @@ private extension TerminalSessionManager {
     }
 
     func checkpointHandler(
-        _ link: RuntimeLink, renderer: TerminalRendererSession
+        _ link: RuntimeLink, renderer: TerminalRendererSession,
     ) -> TerminalSubscriptionRegistry.CheckpointHandler {
         { [weak self, weak renderer] snapshot, console in
             guard link.token.isActive, let renderer,
@@ -135,7 +135,7 @@ private extension TerminalSessionManager {
             Task { @MainActor [weak self, weak renderer] in
                 guard link.token.isActive, let renderer, self?.sessions[link.sessionId]?.token === link.token else { return }
                 self?.noteCheckpointRestored(
-                    sessionId: link.sessionId, token: link.token, surfaceGeneration: renderer.nativeSurfaceGeneration
+                    sessionId: link.sessionId, token: link.token, surfaceGeneration: renderer.nativeSurfaceGeneration,
                 )
             }
             return Int32(KODOSI_FFI_OK)
@@ -143,7 +143,7 @@ private extension TerminalSessionManager {
     }
 
     func connectionResultHandler(
-        _ link: RuntimeLink, resizeDelivery: ResizeDeliveryState
+        _ link: RuntimeLink, resizeDelivery: ResizeDeliveryState,
     ) -> TerminalSubscriptionRegistry.ConnectionResult {
         { [weak self] accepted, message in
             Task { @MainActor [weak self] in
@@ -156,7 +156,7 @@ private extension TerminalSessionManager {
                     resizeDelivery.reset()
                     link.token.deactivate()
                     self?.renderStateBySession[link.sessionId] = .failed(
-                        message ?? String(localized: "The terminal could not connect.", bundle: .module)
+                        message ?? String(localized: "The terminal could not connect.", bundle: .module),
                     )
                 }
             }

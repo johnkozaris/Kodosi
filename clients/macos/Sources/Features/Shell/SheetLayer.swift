@@ -9,6 +9,7 @@ struct SheetLayer<Content: View>: View {
     @ViewBuilder let content: Content
     @State private var risen = false
     @State private var monitor: Any?
+    @State private var panel = UUID()
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.sheet, style: .continuous)
@@ -19,7 +20,7 @@ struct SheetLayer<Content: View>: View {
                     .onTapGesture(perform: close)
                     .accessibilityHidden(true)
                 SheetFit(margin: 24) {
-                    content.environment(\.closePanel, close)
+                    content.environment(\.closePanel, ClosePanelAction(panel: panel, close: close))
                 }
                 .clipShape(shape)
                 .background { RaisedBackground(shape: shape, fill: theme.colors.surface, elevation: .floating) }

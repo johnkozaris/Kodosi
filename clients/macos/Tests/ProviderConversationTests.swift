@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test func resumeSessionNameFallsBackWithoutChangingHistoryTitle() {
+@Test func `resume session name falls back without changing history title`() {
     let invalidTitles: [String?] = [
         nil, "", " \n\t ", "task\nwith control", "task\u{0000}title",
         String(repeating: "a", count: 129), String(repeating: "é", count: 65),
@@ -12,7 +12,7 @@ import Testing
         for title in invalidTitles {
             let conversation = ProviderConversation(
                 provider: provider, nativeConversationId: "native-conversation", workingDirectory: "/project",
-                title: title, updatedAt: nil
+                title: title, updatedAt: nil,
             )
             #expect(conversation.sessionName == provider.name)
             #expect(ProductInput.validName(conversation.sessionName))
@@ -22,11 +22,11 @@ import Testing
     }
 }
 
-@Test func resumeSessionNamePreservesValidUTF8BoundaryAndTrimsOnlyName() {
+@Test func `resume session name preserves valid UTF-8 boundary and trims only name`() {
     for title in ["Saved work", String(repeating: "a", count: 128), String(repeating: "é", count: 64), "  Saved work  "] {
         let conversation = ProviderConversation(
             provider: .claude, nativeConversationId: "native-conversation", workingDirectory: "/project",
-            title: title, updatedAt: nil
+            title: title, updatedAt: nil,
         )
         #expect(conversation.sessionName == title.trimmingCharacters(in: .whitespacesAndNewlines))
         #expect(ProductInput.validName(conversation.sessionName))

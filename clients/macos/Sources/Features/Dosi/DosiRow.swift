@@ -235,7 +235,7 @@ struct SidebarResizeHandle: View {
                         start = origin
                         deps.workbench.resizeSidebar(to: origin + drag.translation.width)
                     }
-                    .onEnded { _ in start = nil }
+                    .onEnded { _ in start = nil },
             )
             .accessibilityHidden(true)
     }

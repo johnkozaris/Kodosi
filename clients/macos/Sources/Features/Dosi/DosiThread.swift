@@ -84,7 +84,7 @@ struct DosiThread: View {
 
     private static let row = AnyTransition.asymmetric(
         insertion: .opacity.combined(with: .offset(y: 8)).combined(with: .scale(scale: 0.97, anchor: .bottom)),
-        removal: .opacity.combined(with: .offset(y: -12))
+        removal: .opacity.combined(with: .offset(y: -12)),
     )
 
     var body: some View {

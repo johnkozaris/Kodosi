@@ -86,7 +86,7 @@ public extension AppTheme {
 
             highlight: Color(red: 1, green: 0.945, blue: 0.863).opacity(0.09),
             lowlight: Color.black.opacity(0.3),
-            shadow: Color.black
+            shadow: Color.black,
         )
 
         public static let light = Colors(
@@ -121,7 +121,7 @@ public extension AppTheme {
 
             highlight: Color.white.opacity(0.95),
             lowlight: Color(red: 0.31, green: 0.19, blue: 0.09).opacity(0.06),
-            shadow: Color(red: 0.18, green: 0.12, blue: 0.06)
+            shadow: Color(red: 0.18, green: 0.12, blue: 0.06),
         )
     }
 }
@@ -176,7 +176,7 @@ public func hex(_ value: UInt32) -> Color {
     Color(
         red: Double((value >> 16) & 0xFF) / 255,
         green: Double((value >> 8) & 0xFF) / 255,
-        blue: Double(value & 0xFF) / 255
+        blue: Double(value & 0xFF) / 255,
     )
 }
 

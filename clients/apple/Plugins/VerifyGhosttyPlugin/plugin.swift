@@ -19,7 +19,7 @@ struct VerifyGhosttyPlugin: BuildToolPlugin {
                 displayName: "Verify the Ghostty pins",
                 executable: URL(filePath: "/usr/bin/env"),
                 arguments: arguments,
-                outputFilesDirectory: output
+                outputFilesDirectory: output,
             ),
         ]
     }

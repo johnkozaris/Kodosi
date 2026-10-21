@@ -64,7 +64,7 @@ public enum RoomMentions {
         let terminals = sessions.map { session in
             RoomMention(
                 id: session.id, name: session.name, detail: session.agent.isAgent ? session.agent.label : session.hostLabel,
-                kind: .terminal(session.agent)
+                kind: .terminal(session.agent),
             )
         }
         return people + terminals

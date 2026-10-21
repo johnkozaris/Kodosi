@@ -63,7 +63,7 @@ public struct RecoveryKeySheet: View {
                 Button(action: copy) {
                     Label(
                         copied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module),
-                        systemImage: copied ? "checkmark" : "doc.on.doc"
+                        systemImage: copied ? "checkmark" : "doc.on.doc",
                     )
                     .contentTransition(.symbolEffect(.replace))
                     .frame(maxWidth: .infinity)
@@ -118,7 +118,7 @@ public struct RecoveryKeySheet: View {
         #else
             UIPasteboard.general.setItems(
                 [[UTType.utf8PlainText.identifier: key]],
-                options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(180)]
+                options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(180)],
             )
         #endif
         copied = true

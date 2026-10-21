@@ -44,7 +44,7 @@ struct VerificationCode: View {
             Button(action: copy) {
                 Label(
                     copied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module),
-                    systemImage: copied ? "checkmark" : "doc.on.doc"
+                    systemImage: copied ? "checkmark" : "doc.on.doc",
                 )
                 .contentTransition(.symbolEffect(.replace))
             }

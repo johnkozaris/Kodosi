@@ -3,7 +3,7 @@ import AppKit
 @MainActor
 func pickWorkingDirectory(
     initialDirectory: String? = nil,
-    message: String = String(localized: "Choose a folder for the new terminal")
+    message: String = String(localized: "Choose a folder for the new terminal"),
 ) -> String? {
     let panel = NSOpenPanel()
     panel.canChooseDirectories = true

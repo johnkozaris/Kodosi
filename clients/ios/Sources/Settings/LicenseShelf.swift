@@ -27,7 +27,7 @@ nonisolated enum LicenseShelf {
         guard let root, let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
+            options: [.skipsHiddenFiles],
         ) else { return [] }
         let base = root.standardizedFileURL.pathComponents
         return enumerator.compactMap { $0 as? URL }

@@ -147,7 +147,7 @@ struct CommandPalette: View {
             Item(
                 id: "terminal.\(session.id)", group: String(localized: "Terminals"), title: session.name,
                 detail: [session.folderName, session.kind == .remote ? session.hostLabel : nil].compactMap(\.self).joined(separator: " · "),
-                icon: .agent(session.agent, deps.activity(of: session))
+                icon: .agent(session.agent, deps.activity(of: session)),
             ) { deps.activateSession(session.id) }
         }
     }
@@ -181,7 +181,7 @@ struct CommandPalette: View {
             },
             Item(
                 id: "action.resume", group: group, title: String(localized: "Resume a conversation"),
-                icon: .symbol("clock.arrow.circlepath", TileTint.amber)
+                icon: .symbol("clock.arrow.circlepath", TileTint.amber),
             ) {
                 deps.workbench.showsHistory = true
             },

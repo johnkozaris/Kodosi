@@ -30,7 +30,7 @@ struct DevicesSection: View {
                         symbol: "laptopcomputer.and.arrow.down",
                         tint: theme.colors.accent,
                         title: Text("Add a device"),
-                        subtitle: Text("Enter the code that the new device shows")
+                        subtitle: Text("Enter the code that the new device shows"),
                     ) {
                         if !account.deviceRequests.isEmpty {
                             CountBadge(count: account.deviceRequests.count)
@@ -112,7 +112,7 @@ struct DeviceRow: View {
             symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
             tint: isThisDevice ? TileTint.orange : TileTint.graphite,
             title: Text(title),
-            subtitle: subtitle
+            subtitle: subtitle,
         ) {
             if removable {
                 Button("Remove") { confirmingRemoval = true }

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.3
 
 import PackageDescription
 
@@ -32,13 +32,13 @@ let package = Package(
             name: "KodosiBridge",
             dependencies: ["KodosiKit"],
             resources: [.process("Resources")],
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
         ),
         .target(
             name: "KodosiDesign",
             dependencies: ["KodosiBridge"],
             resources: [.process("Resources")],
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
         ),
         .target(
             name: "KodosiTerminal",
@@ -49,24 +49,24 @@ let package = Package(
             swiftSettings: swiftSettings,
             plugins: [
                 .plugin(name: "VerifyGhosttyPlugin"),
-            ]
+            ],
         ),
         .target(
             name: "KodosiTerminalSessions",
             dependencies: ["KodosiKit", "KodosiBridge", "KodosiTerminal"],
             resources: [.process("Resources")],
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
         ),
         .testTarget(
             name: "KodosiTerminalTests",
             dependencies: ["KodosiTerminal"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
-            ]
+            ],
         ),
         .plugin(
             name: "VerifyGhosttyPlugin",
-            capability: .buildTool()
+            capability: .buildTool(),
         ),
-    ]
+    ],
 )

@@ -24,7 +24,7 @@
             allowsInput: Bool,
             asksBeforeClipboardRead: Bool = true,
             isSurfaceVisible: Bool,
-            onFocusChange: @escaping (Bool) -> Void
+            onFocusChange: @escaping (Bool) -> Void,
         ) {
             _session = ObservedObject(wrappedValue: session)
             self.sessionName = sessionName
@@ -47,7 +47,7 @@
                 allowsInput: allowsInput,
                 asksBeforeClipboardRead: asksBeforeClipboardRead,
                 isSurfaceVisible: isSurfaceVisible,
-                onFocusChange: onFocusChange
+                onFocusChange: onFocusChange,
             )
         }
     }
@@ -62,7 +62,7 @@
 
         func askToShareClipboard(
             sessionName: String,
-            _ answer: @escaping @MainActor (Bool) -> Void
+            _ answer: @escaping @MainActor (Bool) -> Void,
         ) {
             guard allowsInput, !clipboardPromptOpen,
                   var presenter = window?.rootViewController
@@ -74,7 +74,7 @@
             let alert = UIAlertController(
                 title: String(localized: "Let a program read your clipboard?"),
                 message: String(localized: "A program in \(sessionName) asks for the text that you copied."),
-                preferredStyle: .alert
+                preferredStyle: .alert,
             )
             alert.addAction(UIAlertAction(title: String(localized: "Don’t Allow"), style: .cancel) { [weak self] _ in
                 self?.clipboardPromptOpen = false

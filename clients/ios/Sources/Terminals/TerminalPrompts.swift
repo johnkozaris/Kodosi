@@ -34,7 +34,7 @@ private struct TerminalPrompts: ViewModifier {
                 if !shown {
                     prompt = nil
                 }
-            }
+            },
         )
     }
 
@@ -88,7 +88,7 @@ private struct TerminalPrompts: ViewModifier {
                 prompt.map { String(localized: "Close \($0.session.name)?") } ?? "",
                 isPresented: closing,
                 titleVisibility: .visible,
-                presenting: prompt
+                presenting: prompt,
             ) { current in
                 Button("Close terminal", role: .destructive) {
                     model.terminals.close(current.session)

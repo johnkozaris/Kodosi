@@ -31,7 +31,7 @@
         }
     }
 
-    @Test func scrollbackBudgetUsesExplicitBoundedByteUnits() {
+    @Test func `scrollback budget uses explicit bounded byte units`() {
         let minimum = TerminalScrollbackBudget(lines: 100)
         let standard = TerminalScrollbackBudget(lines: 10000)
         let maximum = TerminalScrollbackBudget(lines: 100_000)
@@ -46,11 +46,11 @@
         #expect(maximum.bytes.isMultiple(of: TerminalScrollbackBudget.allocationPageBytes))
     }
 
-    @Test func scrollbackBudgetClampsOverflowToMaximum() {
+    @Test func `scrollback budget clamps overflow to maximum`() {
         #expect(TerminalScrollbackBudget(lines: .max).bytes == TerminalScrollbackBudget.maximumBytes)
     }
 
-    @Test func hostManagedRendererAllowsTheClipboardAndStoresImagesAsTheHostDoes() {
+    @Test func `host managed renderer allows the clipboard and stores images as the host does`() {
         #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.key) == [
             "clipboard-read",
             "clipboard-write",
@@ -64,10 +64,10 @@
     }
 
     @MainActor
-    @Test func accessibilitySubscribersRemainIndependent() async {
+    @Test func `accessibility subscribers remain independent`() async {
         let session = TerminalRendererSession(
             write: { _ in },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         let first = AccessibilityUpdateRecorder()
         let second = AccessibilityUpdateRecorder()
@@ -94,10 +94,10 @@
     }
 
     @MainActor
-    @Test func accessibilityRefreshRetriesUntilCommittedViewportChanges() async {
+    @Test func `accessibility refresh retries until committed viewport changes`() async {
         let session = TerminalRendererSession(
             write: { _ in },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         let attempts = AccessibilityUpdateRecorder()
         let token = session.registerAccessibilityUpdateHandler {
@@ -114,10 +114,10 @@
     }
 
     @MainActor
-    @Test func nativeSurfaceGenerationIdentifiesFirstAndReplacementAttachments() {
+    @Test func `native surface generation identifies first and replacement attachments`() {
         let session = TerminalRendererSession(
             write: { _ in },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
 
         #expect(session.nativeSurfaceGeneration == 0)
@@ -131,12 +131,12 @@
     }
 
     @MainActor
-    @Test func rendererSessionDeallocatesAfterOwnerRelease() {
+    @Test func `renderer session deallocates after owner release`() {
         weak var weakSession: TerminalRendererSession?
         do {
             let session = TerminalRendererSession(
                 write: { _ in },
-                resize: { _, _ in }
+                resize: { _, _ in },
             )
             weakSession = session
         }
@@ -145,11 +145,11 @@
     }
 
     @MainActor
-    @Test func readOnlyRendererSuppressesBackendWrites() {
+    @Test func `read only renderer suppresses backend writes`() {
         let writes = LockedByteRecorder()
         let session = TerminalRendererSession(
             write: { writes.append($0) },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         session.setAllowsInput(false)
 
@@ -162,12 +162,12 @@
     }
 
     @MainActor
-    @Test func runtimeFocusRevocationResignsAndAllowsUserReacquisition() {
+    @Test func `runtime focus revocation resigns and allows user reacquisition`() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
             styleMask: [.titled],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
         let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
         var focusEvents: [Bool] = []
@@ -189,7 +189,7 @@
     }
 
     @MainActor
-    @Test func windowKeyLossReleasesFocusWithoutResponderReplacement() {
+    @Test func `window key loss releases focus without responder replacement`() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
                               styleMask: [.titled], backing: .buffered, defer: false)
         let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
@@ -217,23 +217,23 @@
             characters: character,
             charactersIgnoringModifiers: character,
             isARepeat: false,
-            keyCode: keyCode
+            keyCode: keyCode,
         ))
     }
 
     @MainActor
-    @Test func readOnlyHostedViewConsumesInputProducingEvents() async throws {
+    @Test func `read only hosted view consumes input producing events`() async throws {
         let writes = LockedByteRecorder()
         let session = TerminalRendererSession(
             write: { writes.append($0) },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         session.setAllowsInput(false)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
             styleMask: [.titled],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
         let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
         view.allowsInput = false
@@ -262,7 +262,7 @@
             context: nil,
             eventNumber: 1,
             clickCount: 0,
-            pressure: 0
+            pressure: 0,
         ))
 
         #expect(view.performKeyEquivalent(with: key))
@@ -287,7 +287,7 @@
     }
 
     @MainActor
-    @Test func hostedViewExposesViewportTextAccessibility() {
+    @Test func `hosted view exposes viewport text accessibility`() {
         let view = TerminalRendererHostedView(frame: .zero)
         view.viewportText = { "visible terminal output" }
         view.refreshAccessibilityViewport()
@@ -301,7 +301,7 @@
     }
 
     @MainActor
-    @Test func accessibilityTextQueriesRefreshOneCachedViewport() {
+    @Test func `accessibility text queries refresh one cached viewport`() {
         let view = TerminalRendererHostedView(frame: .zero)
         var text = "old"
         view.viewportText = { text }
@@ -315,18 +315,18 @@
     }
 
     @MainActor
-    @Test func readOnlyHostedViewScrollsViewportWithoutBackendWrites() async throws {
+    @Test func `read only hosted view scrolls viewport without backend writes`() async throws {
         let writes = LockedByteRecorder()
         let session = TerminalRendererSession(
             write: { writes.append($0) },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         session.setAllowsInput(false)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 160),
             styleMask: [.titled],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
         let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
         view.allowsInput = false
@@ -367,7 +367,7 @@
             wheelCount: 1,
             wheel1: 20,
             wheel2: 0,
-            wheel3: 0
+            wheel3: 0,
         ))
         let event = try #require(NSEvent(cgEvent: cgEvent))
         view.scrollWheel(with: event)
@@ -386,10 +386,10 @@
     }
 
     @MainActor
-    @Test func rendererAppliesScrollbackBudgetToSurfaceConfiguration() {
+    @Test func `renderer applies scrollback budget to surface configuration`() {
         let session = TerminalRendererSession(
             write: { _ in },
-            resize: { _, _ in }
+            resize: { _, _ in },
         )
         let palette = TerminalPalette(
             background: "000000",
@@ -397,7 +397,7 @@
             cursor: "ffffff",
             selectionBackground: "333333",
             selectionForeground: "ffffff",
-            ansiColors: Array(repeating: "000000", count: 16)
+            ansiColors: Array(repeating: "000000", count: 16),
         )
         let style = TerminalStyle(
             fontFamily: "monospace",
@@ -409,7 +409,7 @@
             paddingX: 0,
             paddingY: 0,
             minimumContrast: 1,
-            palette: palette
+            palette: palette,
         )
 
         session.setStyle(style)

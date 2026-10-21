@@ -83,7 +83,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(condition())
 }
 
-@Test @MainActor func terminalNotificationOpensCurrentMinimizedSessionAndWithdrawsOnExit() async throws {
+@Test @MainActor func `terminal notification opens current minimized session and withdraws on exit`() async throws {
     let driver = NotificationDriver()
     let defaults = try #require(EphemeralUserDefaults(prefix: "TerminalNotification"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -121,7 +121,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(!app.openTerminalNotification(identifier: request.identifier))
 }
 
-@Test @MainActor func aTerminalThatNeedsItsPersonAlertsWhileTheAppIsNotInFront() async throws {
+@Test @MainActor func `a terminal that needs its person alerts while the app is not in front`() async throws {
     let driver = NotificationDriver()
     let defaults = try #require(EphemeralUserDefaults(prefix: "TerminalAlert"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -171,7 +171,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(try app.sign(of: #require(app.session(own))) == .done)
 }
 
-@Test func onlyTheOwnerAndThePeopleWhoHaveATerminalOpenGetItsAlert() throws {
+@Test func `only the owner and the people who have a terminal open get its alert`() throws {
     func session(owner: Bool, kind: String, connection: String) throws -> RuntimeSession {
         try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
             "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
@@ -186,7 +186,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(try session(owner: false, kind: "remote", connection: "offline").alert == nil)
 }
 
-@Test @MainActor func terminalNotificationLateDeliveryCannotOutliveItsSession() async throws {
+@Test @MainActor func `terminal notification late delivery cannot outlive its session`() async throws {
     let driver = NotificationDriver(delaysDelivery: true)
     let notifications = TerminalNotifications(driver: driver)
     let session = try runtimeSession(kind: "local", connection: "local")
@@ -201,7 +201,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(notifications.sessionToOpen(identifier: identifier) == nil)
 }
 
-@Test @MainActor func terminalNotificationPendingAuthorizationCannotCrossRestartOrAccount() async throws {
+@Test @MainActor func `terminal notification pending authorization cannot cross restart or account`() async throws {
     let driver = NotificationDriver(delaysAuthorization: true)
     let notifications = TerminalNotifications(driver: driver)
     let session = try runtimeSession(kind: "local", connection: "local")
@@ -223,7 +223,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(driver.posted.isEmpty)
 }
 
-@Test @MainActor func terminalNotificationCoalescesAndBoundsInflightWork() async throws {
+@Test @MainActor func `terminal notification coalesces and bounds inflight work`() async throws {
     let driver = NotificationDriver(delaysDelivery: true)
     let notifications = TerminalNotifications(driver: driver)
     let sessions = try (0 ..< 40).map { _ in try runtimeSession(UUIDv7.generate(), kind: "local", connection: "local") }
@@ -239,7 +239,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     driver.finishDelivery()
 }
 
-@Test @MainActor func terminalNotificationRejectsReplacementAndPriorAccountActions() async throws {
+@Test @MainActor func `terminal notification rejects replacement and prior account actions`() async throws {
     let driver = NotificationDriver()
     let notifications = TerminalNotifications(driver: driver)
     let session = try runtimeSession(kind: "local", connection: "local")
@@ -263,7 +263,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(driver.withdrawn.contains(current))
 }
 
-@Test @MainActor func terminalNotificationStartupRemovesOnlyOlderTerminalNotifications() async {
+@Test @MainActor func `terminal notification startup removes only older terminal notifications`() async {
     let driver = NotificationDriver(existingIdentifiers: ["terminal-old-runtime", "unrelated-feature"])
     let notifications = TerminalNotifications(driver: driver)
     notifications.activate()

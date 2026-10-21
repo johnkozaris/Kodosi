@@ -86,7 +86,7 @@ final class TerminalRendererDelegateProxy:
 extension TerminalViewState: @retroactive TerminalSurfaceOpenURLDelegate {
     public func terminalDidRequestOpenURL(
         _ url: String,
-        kind _: TerminalOpenURLKind
+        kind _: TerminalOpenURLKind,
     ) {
         guard let parsed = URL(string: url), parsed.scheme != nil else { return }
         #if os(macOS)

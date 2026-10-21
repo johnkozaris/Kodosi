@@ -48,7 +48,7 @@ public struct DosiFace: View {
             shape.fill(theme.colors.terminal)
             shape.strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.18), .clear, .black.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: max(0.5, size * 0.03)
+                lineWidth: max(0.5, size * 0.03),
             )
             FaceHost(art: FaceArt(mood: mood, loops: !still && !theme.motion.reduced, eases: !theme.motion.reduced,
                                   copper: AppTheme.dark.colors.accent),
@@ -220,7 +220,7 @@ private final class FaceRig {
         let shown = pose.presentation() ?? pose
         return Frame(
             pose: shown.transform, opacity: shown.opacity, drift: (drift.presentation() ?? drift).transform,
-            eyes: eyes.map { ($0.presentation() ?? $0).transform }, shades: eyes.map { ($0.presentation() ?? $0).opacity }
+            eyes: eyes.map { ($0.presentation() ?? $0).transform }, shades: eyes.map { ($0.presentation() ?? $0).opacity },
         )
     }
 

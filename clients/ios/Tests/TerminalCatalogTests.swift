@@ -8,7 +8,7 @@ struct TerminalCatalogTests {
         try JSONDecoder().decode([RuntimeSession].self, from: JSONSerialization.data(withJSONObject: entries))
     }
 
-    @Test func terminalsThatWaitStayWithTheirComputer() throws {
+    @Test func `terminals that wait stay with their computer`() throws {
         let all = try sessions([
             terminalEntry("build", state: "working", host: "Studio"),
             terminalEntry("review", state: "blocked", host: "Studio"),
@@ -20,7 +20,7 @@ struct TerminalCatalogTests {
         #expect(groups.flatMap(\.sessions).map(\.id) == ["notes", "build", "review"])
     }
 
-    @Test func aFriendsTerminalThatWaitsCountsOnlyWhileYouHaveItOpen() throws {
+    @Test func `a friends terminal that waits counts only while you have it open`() throws {
         let all = try sessions([
             terminalEntry("closed", state: "blocked", owner: false, host: "Lab", connection: "offline"),
             terminalEntry("open", state: "blocked", owner: false, host: "Lab"),
@@ -29,7 +29,7 @@ struct TerminalCatalogTests {
         #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed", "open"])
     }
 
-    @Test func friendsTerminalsAreSharedWithYouAfterYourComputers() throws {
+    @Test func `friends terminals are shared with you after your computers`() throws {
         let all = try sessions([
             terminalEntry("theirs", state: "idle", owner: false, host: "Maria's Mac"),
             terminalEntry("mine", state: "idle", host: "Studio"),
@@ -41,7 +41,7 @@ struct TerminalCatalogTests {
         #expect(groups.last?.sessions.last?.missionName == "Launch")
     }
 
-    @Test func searchFindsNamesComputersRoomsAndAgents() throws {
+    @Test func `search finds names computers rooms and agents`() throws {
         let all = try sessions([
             terminalEntry("deploy", state: "idle", host: "Studio"),
             terminalEntry("tests", state: "idle", host: "Air", room: (id: "room-1", name: "Launch")),

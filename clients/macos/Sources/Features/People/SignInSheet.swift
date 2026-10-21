@@ -19,7 +19,7 @@ struct SignInSheet: View {
             }
             SignInTrack(
                 completed: steps, working: deps.account.stage.isPending,
-                device: String(localized: "This Mac"), symbol: "laptopcomputer"
+                device: String(localized: "This Mac"), symbol: "laptopcomputer",
             )
             Group {
                 switch deps.account.stage {

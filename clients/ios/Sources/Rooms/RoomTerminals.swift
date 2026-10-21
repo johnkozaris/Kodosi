@@ -16,7 +16,7 @@ struct RoomTerminals: View {
             if sessions.isEmpty {
                 EmptyState(
                     title: "No terminals here yet",
-                    message: "Share one of your terminals with this room. Everyone in the room gets full control."
+                    message: "Share one of your terminals with this room. Everyone in the room gets full control.",
                 ) {
                     TerminalGhost()
                 } actions: {

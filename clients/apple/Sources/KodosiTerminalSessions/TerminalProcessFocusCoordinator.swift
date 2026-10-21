@@ -45,7 +45,7 @@ public final class TerminalProcessFocusCoordinator {
 
     public init(
         sendFocus: @escaping (TerminalProcessFocusLease, String, @escaping (Bool) -> Void) -> Void,
-        sendBlur: @escaping (TerminalProcessFocusReleaseAuthority, @escaping (Bool) -> Void) -> Void
+        sendBlur: @escaping (TerminalProcessFocusReleaseAuthority, @escaping (Bool) -> Void) -> Void,
     ) {
         self.sendFocus = sendFocus
         self.sendBlur = sendBlur
@@ -60,13 +60,13 @@ public final class TerminalProcessFocusCoordinator {
         runtimeIncarnationId: String,
         subscriptionId: String,
         subscriptionGeneration: UInt64,
-        surfaceId: UUID
+        surfaceId: UUID,
     ) {
         let lease = TerminalProcessFocusLease(
             sessionId: sessionId,
             runtimeIncarnationId: runtimeIncarnationId,
             subscriptionId: subscriptionId,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         )
         guard leaseBySurfaceId[surfaceId] != lease else { return }
         release(surfaceId: surfaceId)
@@ -136,7 +136,7 @@ public final class TerminalProcessFocusCoordinator {
 
     private func requestBlur(_ lease: TerminalProcessFocusLease, generation: UInt64, retryCount: Int) {
         let authority = TerminalProcessFocusReleaseAuthority(
-            lease: lease, generation: generation, requestId: UUIDv7.generate()
+            lease: lease, generation: generation, requestId: UUIDv7.generate(),
         )
         leases[lease]?.release = authority
         sendBlur(authority) { [weak self] admitted in
@@ -181,16 +181,16 @@ public extension TerminalProcessFocusCoordinator {
                 completion(CommandSink.didAcceptSynchronously(commands.sendTerminalFocus(
                     sessionId: lease.sessionId, clientId: lease.subscriptionId,
                     subscriptionGeneration: lease.subscriptionGeneration,
-                    requestId: requestId, expectedRuntimeIncarnationId: lease.runtimeIncarnationId
+                    requestId: requestId, expectedRuntimeIncarnationId: lease.runtimeIncarnationId,
                 )))
             },
             sendBlur: { authority, completion in
                 completion(CommandSink.didAcceptSynchronously(commands.sendTerminalBlur(
                     sessionId: authority.lease.sessionId, clientId: authority.lease.subscriptionId,
                     subscriptionGeneration: authority.lease.subscriptionGeneration,
-                    expectedRuntimeIncarnationId: authority.lease.runtimeIncarnationId
+                    expectedRuntimeIncarnationId: authority.lease.runtimeIncarnationId,
                 )))
-            }
+            },
         )
     }
 }

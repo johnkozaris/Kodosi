@@ -40,7 +40,7 @@ public struct KodosiSwitchStyle: ToggleStyle {
                 Spacer(minLength: 12)
                 Capsule()
                     .fill((configuration.isOn ? theme.colors.accent : theme.colors.well).shadow(.inner(
-                        color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.12), radius: 2, y: 1
+                        color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.12), radius: 2, y: 1,
                     )))
                     .frame(width: 36, height: 21)
                     .overlay(alignment: configuration.isOn ? .trailing : .leading) {
@@ -146,7 +146,7 @@ public struct MenuPicker<Value: Hashable>: View {
         title: LocalizedStringKey,
         selection: Binding<Value>,
         values: [Value],
-        label: @escaping (Value) -> String, identifier: String = "picker"
+        label: @escaping (Value) -> String, identifier: String = "picker",
     ) {
         self.title = title
         _selection = selection

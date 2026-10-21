@@ -23,7 +23,7 @@ struct HistoryView: View {
         .onAppear {
             let opened = ConversationBrowser(
                 commands: deps.commandSink,
-                directory: deps.selectedLocalDirectory ?? ""
+                directory: deps.selectedLocalDirectory ?? "",
             )
             opened.provider = deps.workbench.historyProvider
             browser = opened
@@ -152,7 +152,7 @@ struct HistoryView: View {
                 EmptyState(
                     title: browser.conversations.isEmpty && !browser.loading ? "Nothing saved here" : "Pick a conversation",
                     message: browser.conversations.isEmpty && !browser.loading
-                        ? "Choose another project, or switch the agent." : "You see it here before you resume it."
+                        ? "Choose another project, or switch the agent." : "You see it here before you resume it.",
                 ) {
                     AgentMark(kind: browser.provider.agent, size: 52, activity: .asleep)
                 } actions: { EmptyView() }

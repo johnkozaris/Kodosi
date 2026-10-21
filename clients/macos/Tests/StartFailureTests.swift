@@ -3,7 +3,7 @@ import KodosiBridge
 import KodosiKit
 import Testing
 
-@Test func startFailuresMapFromTheRuntimeContract() {
+@Test func `start failures map from the runtime contract`() {
     #expect(RuntimeStartFailure.Code(rawValue: KODOSI_START_HOST_OUTDATED) == .hostOutdated)
     #expect(RuntimeStartFailure.Code(rawValue: KODOSI_START_REJECTED) == .rejected)
     #expect(RuntimeStartFailure.Code(rawValue: 99) == .other(99))
@@ -23,6 +23,6 @@ import Testing
     }
     #expect(
         RuntimeStartFailure(raw)
-            == RuntimeStartFailure(code: .hostOutdated, hostKind: .foreground, hostPID: 7, hostTerminals: 1, message: "updated")
+            == RuntimeStartFailure(code: .hostOutdated, hostKind: .foreground, hostPID: 7, hostTerminals: 1, message: "updated"),
     )
 }

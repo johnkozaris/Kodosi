@@ -25,7 +25,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
 
     @ObservationIgnored private var install: (() -> Void)?
     @ObservationIgnored private lazy var controller = SPUStandardUpdaterController(
-        startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil
+        startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil,
     )
 
     func start() {

@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test @MainActor func aSendAcknowledgementPreservesTheNextRoomDraft() async throws {
+@Test @MainActor func `a send acknowledgement preserves the next room draft`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "RoomDraft"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -33,7 +33,7 @@ import Testing
     #expect(app.roomView(UUIDv7.generate()).message.isEmpty)
 }
 
-@Test @MainActor func aRoomCountsOnlyNewMessagesThatSomeoneElseWrote() throws {
+@Test @MainActor func `a room counts only new messages that someone else wrote`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "RoomUnread"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -62,7 +62,7 @@ import Testing
     #expect(app.roomView("room-1").unread == 2)
 }
 
-@Test @MainActor func aShownRoomIsSeenWhenTheAppComesToTheFront() throws {
+@Test @MainActor func `a shown room is seen when the app comes to the front`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "RoomSeen"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)

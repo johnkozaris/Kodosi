@@ -12,7 +12,7 @@ public struct TerminalPalette: Sendable {
         cursor: String,
         selectionBackground: String,
         selectionForeground: String,
-        ansiColors: [String]
+        ansiColors: [String],
     ) {
         self.background = background
         self.foreground = foreground
@@ -35,6 +35,6 @@ public extension TerminalPalette {
             "5d8ec7", "b06dba", "5dafa6", "c4b8a8",
             "8c7a6f", "d66060", "6dcc85", "d6b35d",
             "7daad9", "c88dd0", "7dc7be", "e8e1d9",
-        ]
+        ],
     )
 }

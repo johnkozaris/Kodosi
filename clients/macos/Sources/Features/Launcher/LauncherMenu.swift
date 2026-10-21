@@ -40,13 +40,13 @@ enum LauncherMenu: String, Equatable {
                 id: account.name, title: title,
                 subtitle: account.identity ?? String(localized: "Signs in when it starts"),
                 icon: .account(initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil),
-                current: account.name == current
+                current: account.name == current,
             )
         }
         if info.addsAccounts {
             rows.append(PickerRow(
                 id: add, kind: .action, title: String(localized: "Add an account"),
-                subtitle: String(localized: "Another subscription with its own sign-in"), icon: .slot("plus")
+                subtitle: String(localized: "Another subscription with its own sign-in"), icon: .slot("plus"),
             ))
         }
         return rows
@@ -57,14 +57,14 @@ enum LauncherMenu: String, Equatable {
         if models == nil {
             rows.append(PickerRow(
                 id: "menu.models", kind: .note,
-                title: loading ? String(localized: "Asking \(agent) for its models") : String(localized: "\(agent) lists no models")
+                title: loading ? String(localized: "Asking \(agent) for its models") : String(localized: "\(agent) lists no models"),
             ))
         }
         rows += (models ?? []).map { model in
             PickerRow(
                 id: model.id, title: model.label,
                 detail: model.label.caseInsensitiveCompare(model.id) == .orderedSame ? nil : model.id,
-                current: model.id == current
+                current: model.id == current,
             )
         }
         return rows

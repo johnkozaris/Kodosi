@@ -20,7 +20,7 @@ public struct DebugBackendConfiguration: Equatable, Sendable {
               port > 0
         else { return nil }
         return DebugBackendConfiguration(
-            api: "http://\(host):\(port)"
+            api: "http://\(host):\(port)",
         )
     }
 

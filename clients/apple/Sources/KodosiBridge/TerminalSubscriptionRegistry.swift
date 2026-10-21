@@ -19,7 +19,7 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
             onData: @escaping @Sendable (Data) -> Void,
             onControl: @escaping @Sendable (Data) -> Void,
             onCheckpoint: @escaping CheckpointHandler,
-            onConnectionResult: @escaping ConnectionResult
+            onConnectionResult: @escaping ConnectionResult,
         ) {
             self.subscriptionId = subscriptionId
             self.subscriptionGeneration = subscriptionGeneration
@@ -62,7 +62,7 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
     public func connection(
         sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) -> Connection? {
         lock.withLock {
             guard let connection = connections[sessionId]?.connection,
@@ -78,19 +78,19 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
     public func contains(
         sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) -> Bool {
         connection(
             sessionId: sessionId,
             subscriptionId: subscriptionId,
-            subscriptionGeneration: subscriptionGeneration
+            subscriptionGeneration: subscriptionGeneration,
         ) != nil
     }
 
     public func removeExactTakingCompletion(
         sessionId: String,
         subscriptionId: String,
-        subscriptionGeneration: UInt64
+        subscriptionGeneration: UInt64,
     ) -> Removal? {
         lock.withLock {
             guard let entry = connections[sessionId],
@@ -104,7 +104,7 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
             return Removal(
                 pendingCompletion: entry.completionPending
                     ? connection.onConnectionResult
-                    : nil
+                    : nil,
             )
         }
     }
@@ -113,7 +113,7 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
         sessionId: String,
         subscriptionId: String,
         subscriptionGeneration: UInt64,
-        keepConnection: Bool
+        keepConnection: Bool,
     ) -> ConnectionResult? {
         lock.withLock {
             guard var entry = connections[sessionId],

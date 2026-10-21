@@ -69,7 +69,7 @@ private struct FriendDetailList: View {
                         symbol: "checkmark.seal.fill",
                         tint: TileTint.green,
                         title: Text("Verified"),
-                        subtitle: Text("The invite that \(friend.personName) sent you matches this identity.")
+                        subtitle: Text("The invite that \(friend.personName) sent you matches this identity."),
                     )
                     .raisedRows()
                     .transition(.opacity)
@@ -132,7 +132,7 @@ private struct FriendDetailList: View {
                         symbol: "person.badge.minus",
                         tint: TileTint.red,
                         title: Text("Remove friend"),
-                        titleColor: theme.colors.danger
+                        titleColor: theme.colors.danger,
                     )
                 }
                 .disabled(people.isBusy(friend.handle))

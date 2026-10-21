@@ -22,7 +22,7 @@ struct TerminalControllerTests {
         log.clear()
     }
 
-    @Test func openingAnnouncesTheViewAndLeavingDisconnectsIt() async {
+    @Test func `opening announces the view and leaving disconnects it`() async {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
         await log.waitFor("session.openRemote")
@@ -34,7 +34,7 @@ struct TerminalControllerTests {
         #expect(!controller.opening)
     }
 
-    @Test func aTerminalWithoutAccessIsNotOpened() async throws {
+    @Test func `a terminal without access is not opened`() async throws {
         try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "blocked")]])
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
@@ -45,7 +45,7 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func backgroundStopsWatchingAndTellsTheHost() throws {
+    @Test func `background stops watching and tells the host`() throws {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
         try deliver("term.bell", ["sessionId": "s1"])
@@ -60,13 +60,13 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func focusAndBlurNameTheViewSubscription() throws {
+    @Test func `focus and blur name the view subscription`() throws {
         let token = TerminalConnectionToken()
         let surface = UUID()
         let focus = TerminalProcessFocusCoordinator(commands: model.commands)
         focus.acquire(
             sessionId: "s1", runtimeIncarnationId: "s1-1", subscriptionId: token.subscriptionId,
-            subscriptionGeneration: token.subscriptionGeneration, surfaceId: surface
+            subscriptionGeneration: token.subscriptionGeneration, surfaceId: surface,
         )
         let focused = try #require(log.fields(of: "session.focus").first)
         #expect(focused["sessionId"] as? String == "s1")
@@ -82,7 +82,7 @@ struct TerminalControllerTests {
         #expect((blurred["requestId"] as? String)?.isEmpty == false)
     }
 
-    @Test func onlyAVisibleActiveRenderedControllableViewTakesFocus() {
+    @Test func `only a visible active rendered controllable view takes focus`() {
         let focused = TerminalPresence(visible: true, active: true, rendered: true, canControl: true)
         #expect(focused.watching)
         #expect(focused.focused)
@@ -102,7 +102,7 @@ struct TerminalControllerTests {
         #expect(!presence.watching)
     }
 
-    @Test func aMessageWaitsWhileTheTerminalCannotTakeIt() {
+    @Test func `a message waits while the terminal cannot take it`() {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
         controller.draft = "Plan the release\nThen ship it"
@@ -112,7 +112,7 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func interruptAndLeaveNameTheCurrentIncarnation() async throws {
+    @Test func `interrupt and leave name the current incarnation`() async throws {
         let session = try #require(model.terminals.session("s1"))
         model.terminals.interrupt(session)
         model.terminals.leave(session)
@@ -125,7 +125,7 @@ struct TerminalControllerTests {
         }
     }
 
-    @Test func sharingWithARoomAttachesTheTerminal() async throws {
+    @Test func `sharing with a room attaches the terminal`() async throws {
         let session = try #require(model.terminals.session("s1"))
         let sharing = Task { try await model.terminals.share(session, inRoom: "room-1") }
         await log.waitFor("session.attachMission")
@@ -152,7 +152,7 @@ func terminalEntry(
     owner: Bool = true,
     host: String = "Studio",
     connection: String = "connected",
-    room: (id: String, name: String)? = nil
+    room: (id: String, name: String)? = nil,
 ) -> [String: Any] {
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",

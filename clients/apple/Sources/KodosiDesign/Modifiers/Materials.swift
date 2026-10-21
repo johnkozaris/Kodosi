@@ -57,9 +57,9 @@ public struct RaisedBackground<S: InsettableShape>: View {
                             .init(color: theme.colors.lowlight.opacity(0), location: 0.6),
                             .init(color: theme.colors.lowlight, location: 1),
                         ],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
+                        startPoint: .topLeading, endPoint: .bottomTrailing,
                     ),
-                    lineWidth: 1
+                    lineWidth: 1,
                 )
             }
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.5 : 0.7), lineWidth: 0.5) }
@@ -108,7 +108,7 @@ public struct BezelBackground<S: InsettableShape>: View {
             }
             .shadow(
                 color: shadow.opacity(dark ? (quiet ? 0.21 : 0.35) : (quiet ? 0.14 : 0.3)),
-                radius: dark ? 1.5 : 0.75, y: 1
+                radius: dark ? 1.5 : 0.75, y: 1,
             )
     }
 
@@ -144,7 +144,7 @@ public struct WellBackground<S: InsettableShape>: View {
     public var body: some View {
         shape
             .fill((fill ?? theme.colors.well).shadow(.inner(
-                color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.1), radius: 2, y: 1
+                color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.1), radius: 2, y: 1,
             )))
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.35 : 0.45), lineWidth: 0.5) }
     }
@@ -152,10 +152,10 @@ public struct WellBackground<S: InsettableShape>: View {
 
 public extension View {
     func raised(
-        _ radius: CGFloat = Radius.lg, fill: Color? = nil, elevation: Elevation = .resting
+        _ radius: CGFloat = Radius.lg, fill: Color? = nil, elevation: Elevation = .resting,
     ) -> some View {
         background(RaisedBackground(
-            shape: RoundedRectangle(cornerRadius: radius, style: .continuous), fill: fill, elevation: elevation
+            shape: RoundedRectangle(cornerRadius: radius, style: .continuous), fill: fill, elevation: elevation,
         ))
     }
 
@@ -234,7 +234,7 @@ public struct GroundBackdrop: View {
             theme.colors.ground
             RadialGradient(
                 colors: [theme.colors.accent.opacity(theme.isDark ? 0.09 : 0.07), .clear],
-                center: .topLeading, startRadius: 0, endRadius: 620
+                center: .topLeading, startRadius: 0, endRadius: 620,
             )
             if let grain = GrainTexture.shared {
                 Image(decorative: grain, scale: 2)
@@ -268,7 +268,7 @@ private enum GrainTexture {
         return CGImage(
             width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: side * 4,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent,
         )
     }
 }

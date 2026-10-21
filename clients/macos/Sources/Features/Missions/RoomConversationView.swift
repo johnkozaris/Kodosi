@@ -82,7 +82,7 @@ struct RoomConversationView: View {
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let previous = index > 0 ? messages[index - 1] : nil
                         RoomMessageRow(
-                            roomId: roomId, message: message, previous: previous, targets: targets, state: state
+                            roomId: roomId, message: message, previous: previous, targets: targets, state: state,
                         )
                         .id(message.id)
                     }

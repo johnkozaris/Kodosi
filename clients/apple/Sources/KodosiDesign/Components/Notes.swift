@@ -94,7 +94,7 @@ public struct EmptyState<Art: View, Actions: View>: View {
         title: LocalizedStringKey,
         message: LocalizedStringKey? = nil,
         @ViewBuilder art: @escaping () -> Art,
-        @ViewBuilder actions: @escaping () -> Actions
+        @ViewBuilder actions: @escaping () -> Actions,
     ) {
         self.title = title
         self.message = message
@@ -190,7 +190,7 @@ public struct DashedSlot<Content: View>: View {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(
                         hovered ? theme.colors.accent.opacity(0.7) : theme.colors.inkFaint.opacity(0.5),
-                        style: StrokeStyle(lineWidth: 1.2, dash: [5, 5])
+                        style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]),
                     )
             }
             .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))

@@ -60,7 +60,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     }
 }
 
-@Test @MainActor func newTerminalFocusesTheHomeLauncherAndOpensASheetElsewhere() throws {
+@Test @MainActor func `new terminal focuses the home launcher and opens a sheet elsewhere`() throws {
     let (app, _) = try launcherApp("LauncherHome")
     defer { app.shutdownProcess() }
     app.openLauncher()
@@ -81,7 +81,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.workbench.launcherDraft == LauncherDraft())
 }
 
-@Test @MainActor func aTerminalStartedForARoomJoinsThatRoom() async throws {
+@Test @MainActor func `a terminal started for a room joins that room`() async throws {
     let (app, sent) = try launcherApp("LauncherRoom")
     defer { app.shutdownProcess() }
     let creating = Task { try await app.createSession(name: "Test", directory: "/work", roomId: "room", command: "claude") }
@@ -102,7 +102,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.freshTerminals.contains(created))
 }
 
-@Test @MainActor func theLauncherStartsTheAgentAsItShowsIt() async throws {
+@Test @MainActor func `the launcher starts the agent as it shows it`() async throws {
     let (app, sent) = try launcherApp("LauncherPlan")
     defer { app.shutdownProcess() }
     try await answerAgentRequests(app, sent: sent)
@@ -113,7 +113,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(LaunchPlan(launcher: app.launcher).account?.name == "default")
 }
 
-@Test @MainActor func aChoiceMadeHereOutlivesAnAnswerAskedBeforeIt() async throws {
+@Test @MainActor func `a choice made here outlives an answer asked before it`() async throws {
     let (app, sent) = try launcherApp("LauncherChoice")
     defer { app.shutdownProcess() }
     var asked: String?
@@ -135,7 +135,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(change?["change"] == .object(["type": .string("tab"), "agent": .string("codex")]))
 }
 
-@Test func aModelThatNamesNoEffortsTakesEveryEffort() {
+@Test func `a model that names no efforts takes every effort`() {
     let models = AgentModels(models: [AgentModel(id: "opus", label: "Opus", efforts: []),
                                       AgentModel(id: "mini", label: "Mini", efforts: ["low"])],
                              efforts: [AgentOption(id: "low"), AgentOption(id: "high")])
@@ -144,7 +144,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(models.efforts(for: nil).map(\.id) == ["low", "high"])
 }
 
-@Test func onlyALocalTerminalAtItsPromptOffersToStartAProgram() throws {
+@Test func `only a local terminal at its prompt offers to start a program`() throws {
     func session(kind: String, prompt: Bool?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()), "kind": .string(kind),
@@ -162,7 +162,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(try !session(kind: "remote", prompt: true).atPrompt)
 }
 
-@Test func theCommandLinkNeedsNoQuestionAndKeepsOtherFiles() throws {
+@Test func `the command link needs no question and keeps other files`() throws {
     let home = FileManager.default.temporaryDirectory.appending(path: "kodosi-link-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: home) }
     let own = try #require(Bundle.main.executableURL?.resolvingSymlinksInPath())
@@ -174,7 +174,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
 
     try FileManager.default.removeItem(at: link)
     try FileManager.default.createSymbolicLink(
-        atPath: link.path, withDestinationPath: "/Applications/KodosiDesktop.app/Contents/MacOS/KodosiDesktop"
+        atPath: link.path, withDestinationPath: "/Applications/KodosiDesktop.app/Contents/MacOS/KodosiDesktop",
     )
     #expect(CommandLineTool.keepLinked(home: home) == "~/.local/bin/kodosi")
     #expect(link.resolvingSymlinksInPath() == own)

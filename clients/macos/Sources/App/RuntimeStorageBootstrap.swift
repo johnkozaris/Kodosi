@@ -15,7 +15,7 @@ struct RuntimeStorageBootstrap {
         dataRoot: URL?,
         harnessHome: URL?,
         defaultWorkingDirectory: URL? = nil,
-        defaults: UserDefaults
+        defaults: UserDefaults,
     ) {
         self.dataRoot = dataRoot
         self.harnessHome = harnessHome
@@ -31,7 +31,7 @@ struct RuntimeStorageBootstrap {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
         fileManager: FileManager = .default,
-        installEnvironment: Bool = true
+        installEnvironment: Bool = true,
     ) throws -> RuntimeStorageBootstrap {
         let isHostedTest = environment[xctestEnvironmentKey] != nil
         let productionHome = fileManager.homeDirectoryForCurrentUser.standardizedFileURL
@@ -47,13 +47,13 @@ struct RuntimeStorageBootstrap {
                 dataRoot: nil,
                 harnessHome: nil,
                 defaultWorkingDirectory: nil,
-                defaults: .standard
+                defaults: .standard,
             )
         }
 
         let base = try baseRoot(
             configured: configured, isHostedTest: isHostedTest, fileManager: fileManager,
-            productionHome: productionHome, productionRoot: productionRoot
+            productionHome: productionHome, productionRoot: productionRoot,
         )
         let root = isHostedTest
             ? base.appending(path: "run-\(processIdentifier)-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -62,13 +62,13 @@ struct RuntimeStorageBootstrap {
             root.path,
             fileManager: fileManager,
             productionHome: productionHome,
-            productionRoot: productionRoot
+            productionRoot: productionRoot,
         )
         let harnessHome = root.appending(path: "harness-home", directoryHint: .isDirectory)
         let runtimeDirectory = root.appending(path: "runtime", directoryHint: .isDirectory)
         let defaultWorkingDirectory = root.appending(
             path: "workspace",
-            directoryHint: .isDirectory
+            directoryHint: .isDirectory,
         )
         for directory in [root, harnessHome, runtimeDirectory, defaultWorkingDirectory] {
             _ = try validateRoot(directory.path, fileManager: fileManager,
@@ -90,7 +90,7 @@ struct RuntimeStorageBootstrap {
         }
 
         guard let defaults = EphemeralUserDefaults(
-            prefix: "com.kodosi.desktop.isolated.\(processIdentifier)"
+            prefix: "com.kodosi.desktop.isolated.\(processIdentifier)",
         ) else {
             throw BootstrapError.preferencesUnavailable
         }
@@ -98,22 +98,22 @@ struct RuntimeStorageBootstrap {
             dataRoot: root,
             harnessHome: harnessHome,
             defaultWorkingDirectory: defaultWorkingDirectory,
-            defaults: defaults
+            defaults: defaults,
         )
     }
 
     private static func baseRoot(
         configured: String, isHostedTest: Bool, fileManager: FileManager,
-        productionHome: URL, productionRoot: URL
+        productionHome: URL, productionRoot: URL,
     ) throws -> URL {
         if configured == xctestTemporaryRoot {
             guard isHostedTest else {
                 throw BootstrapError.invalidDataRoot(
-                    "the XCTest temporary-root sentinel is valid only for hosted tests"
+                    "the XCTest temporary-root sentinel is valid only for hosted tests",
                 )
             }
             let temporaryDirectory = try canonicalExistingDirectory(
-                fileManager.temporaryDirectory
+                fileManager.temporaryDirectory,
             )
             return try validateRoot(
                 temporaryDirectory
@@ -121,14 +121,14 @@ struct RuntimeStorageBootstrap {
                     .path,
                 fileManager: fileManager,
                 productionHome: productionHome,
-                productionRoot: productionRoot
+                productionRoot: productionRoot,
             )
         } else {
             return try validateRoot(
                 configured,
                 fileManager: fileManager,
                 productionHome: productionHome,
-                productionRoot: productionRoot
+                productionRoot: productionRoot,
             )
         }
     }
@@ -137,14 +137,14 @@ struct RuntimeStorageBootstrap {
         _ raw: String,
         fileManager: FileManager = .default,
         productionHome: URL? = nil,
-        productionRoot: URL? = nil
+        productionRoot: URL? = nil,
     ) throws -> URL {
         guard !raw.isEmpty else { throw BootstrapError.invalidDataRoot("must not be empty") }
         guard !raw.contains("$"),
               !raw.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         else {
             throw BootstrapError.invalidDataRoot(
-                "must not contain unresolved variables or control characters"
+                "must not contain unresolved variables or control characters",
             )
         }
         guard (raw as NSString).isAbsolutePath else {
@@ -174,7 +174,7 @@ struct RuntimeStorageBootstrap {
             || productionRoot.path.hasPrefix(normalized.path + "/")
         {
             throw BootstrapError.invalidDataRoot(
-                "must not overlap the production Kodosi data directory"
+                "must not overlap the production Kodosi data directory",
             )
         }
 
@@ -184,7 +184,7 @@ struct RuntimeStorageBootstrap {
         }
         if try sharesExistingPrefixIdentity(normalized, productionRoot) {
             throw BootstrapError.invalidDataRoot(
-                "must not alias the production Kodosi data directory or a descendant"
+                "must not alias the production Kodosi data directory or a descendant",
             )
         }
         return normalized
@@ -193,7 +193,7 @@ struct RuntimeStorageBootstrap {
     private static func canonicalExistingDirectory(_ directory: URL) throws -> URL {
         guard let resolved = realpath(directory.path, nil) else {
             throw BootstrapError.invalidDataRoot(
-                "could not resolve the XCTest temporary directory"
+                "could not resolve the XCTest temporary directory",
             )
         }
         defer { free(resolved) }
@@ -207,7 +207,7 @@ struct RuntimeStorageBootstrap {
 
     private static func sharesExistingPrefixIdentity(
         _ candidate: URL,
-        _ protectedRoot: URL
+        _ protectedRoot: URL,
     ) throws -> Bool {
         guard let protectedIdentity = try fileIdentity(protectedRoot) else { return false }
         var current = URL(fileURLWithPath: "/", isDirectory: true)
@@ -253,12 +253,12 @@ struct RuntimeStorageBootstrap {
             let type = status.st_mode & S_IFMT
             if type == S_IFLNK {
                 throw BootstrapError.invalidDataRoot(
-                    "must not traverse symbolic link \(current.path)"
+                    "must not traverse symbolic link \(current.path)",
                 )
             }
             if type != S_IFDIR {
                 throw BootstrapError.invalidDataRoot(
-                    "existing component \(current.path) is not a directory"
+                    "existing component \(current.path) is not a directory",
                 )
             }
         }
@@ -266,7 +266,7 @@ struct RuntimeStorageBootstrap {
 
     private static func createPrivateDirectory(
         _ directory: URL,
-        fileManager: FileManager
+        fileManager: FileManager,
     ) throws {
         try rejectExistingSymlinks(in: directory)
         if let attributes = try? fileManager.attributesOfItem(atPath: directory.path),
@@ -278,11 +278,11 @@ struct RuntimeStorageBootstrap {
         try fileManager.createDirectory(
             at: directory,
             withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
+            attributes: [.posixPermissions: 0o700],
         )
         try fileManager.setAttributes(
             [.posixPermissions: 0o700],
-            ofItemAtPath: directory.path
+            ofItemAtPath: directory.path,
         )
     }
 

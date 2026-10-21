@@ -17,7 +17,7 @@ enum TerminalControlFrames {
     static func handle(
         _ data: Data,
         sessionId: String,
-        handlers: TerminalControlHandlers
+        handlers: TerminalControlHandlers,
     ) {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
@@ -53,7 +53,7 @@ enum TerminalControlFrames {
             columns: cols,
             rows: rows,
             cellWidthPixels: cellWidthPixels,
-            cellHeightPixels: cellHeightPixels
+            cellHeightPixels: cellHeightPixels,
         )
     }
 
@@ -65,7 +65,7 @@ enum TerminalControlFrames {
     }
 
     private static func handleFocusResult(
-        _ json: [String: Any], applied: Bool, sessionId: String, handlers: TerminalControlHandlers
+        _ json: [String: Any], applied: Bool, sessionId: String, handlers: TerminalControlHandlers,
     ) {
         guard controlSessionId(from: json) == sessionId,
               let requestId = json["requestId"] as? String,
@@ -83,13 +83,13 @@ enum TerminalControlFrames {
         let reason = json["reason"] as? String
         handlers.onClosed(reason)
         Logger.terminal.info(
-            "Terminal closed for \(sessionId) at sequence \(finalSequence): \(reason ?? "unknown")"
+            "Terminal closed for \(sessionId) at sequence \(finalSequence): \(reason ?? "unknown")",
         )
     }
 
     private static func resizeIdentity(
         from json: [String: Any],
-        sessionId: String
+        sessionId: String,
     ) -> TerminalResizeIdentity? {
         guard controlSessionId(from: json) == sessionId,
               let requestId = json["requestId"] as? String,
@@ -119,7 +119,7 @@ enum TerminalControlFrames {
             widthPixels: widthPixels,
             heightPixels: heightPixels,
             cellWidthPixels: cellWidthPixels,
-            cellHeightPixels: cellHeightPixels
+            cellHeightPixels: cellHeightPixels,
         )
     }
 

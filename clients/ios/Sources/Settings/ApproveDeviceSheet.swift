@@ -116,7 +116,7 @@ struct ApproveDeviceSheet: View {
         TextField(
             String(localized: "Code shown on the other device"),
             text: Binding(get: { code }, set: { code = DeviceCode.format($0) }),
-            prompt: Text(verbatim: "XXXX-XXXX-XXXX")
+            prompt: Text(verbatim: "XXXX-XXXX-XXXX"),
         )
         .font(.system(.title2, design: .monospaced, weight: .semibold))
         .multilineTextAlignment(.center)

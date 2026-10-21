@@ -17,7 +17,7 @@ struct SettingRow<Trailing: View>: View {
         title: Text,
         subtitle: Text? = nil,
         titleColor: Color? = nil,
-        @ViewBuilder trailing: @escaping () -> Trailing
+        @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
         self.symbol = symbol
         self.tint = tint

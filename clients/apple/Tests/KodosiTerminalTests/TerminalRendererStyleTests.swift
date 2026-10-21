@@ -4,28 +4,28 @@
     import SwiftUI
     import Testing
 
-    @Test @MainActor func hostedSwiftUIViewAppliesStyleWithoutReplacingSession() async throws {
+    @Test @MainActor func `hosted SwiftUI view applies style without replacing session`() async throws {
         let session = TerminalRendererSession(write: { _ in }, resize: { _, _ in })
         let palette = TerminalPalette(
             background: "000000", foreground: "ffffff", cursor: "ffffff",
-            selectionBackground: "333333", selectionForeground: "ffffff", ansiColors: Array(repeating: "000000", count: 16)
+            selectionBackground: "333333", selectionForeground: "ffffff", ansiColors: Array(repeating: "000000", count: 16),
         )
         func style(_ fontSize: Float) -> TerminalStyle {
             TerminalStyle(
                 fontFamily: "monospace", fontSize: fontSize, lineHeightAdjustment: 0, cursorStyle: .block,
                 cursorBlink: false, scrollback: TerminalScrollbackBudget(lines: 10000), paddingX: 0, paddingY: 0,
-                minimumContrast: 1, palette: palette
+                minimumContrast: 1, palette: palette,
             )
         }
         session.setStyle(style(14))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
-            styleMask: [.titled], backing: .buffered, defer: false
+            styleMask: [.titled], backing: .buffered, defer: false,
         )
         let hosting = NSHostingView(rootView: TerminalRendererView(
             session: session, sessionName: "Style Test", accessibilityIdentifier: "test.terminal.style",
             shouldFocus: false, allowsFocus: false, allowsInput: false, isSurfaceVisible: true,
-            onFocus: {}, onFocusChange: { _ in }, onShareShortcut: {}
+            onFocus: {}, onFocusChange: { _ in }, onShareShortcut: {},
         ))
         window.contentView = hosting
         window.orderBack(nil)

@@ -28,7 +28,7 @@ struct HistoryMessageView: View {
                 text.padding(.horizontal, 13).padding(.vertical, 9)
                     .background {
                         UnevenRoundedRectangle(
-                            topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous
+                            topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous,
                         )
                         .fill(theme.colors.accentSoft)
                     }

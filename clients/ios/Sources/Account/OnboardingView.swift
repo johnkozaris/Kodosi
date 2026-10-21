@@ -43,7 +43,7 @@ struct OnboardingView: View {
                     if showsTrack {
                         SignInTrack(
                             completed: account.stage.completedSteps, working: account.stage.isPending,
-                            device: ThisDevice.title, symbol: ThisDevice.symbol
+                            device: ThisDevice.title, symbol: ThisDevice.symbol,
                         )
                         .transition(.opacity.combined(with: .offset(y: -10)))
                     }
@@ -52,7 +52,7 @@ struct OnboardingView: View {
                         .id(stageKey)
                         .transition(.asymmetric(
                             insertion: .opacity.combined(with: .offset(y: 14)),
-                            removal: .opacity
+                            removal: .opacity,
                         ))
                 }
                 .padding(.horizontal, 24)
@@ -70,7 +70,7 @@ struct OnboardingView: View {
             guard let page = account.signInPage else { return }
             do {
                 let answer = try await webAuthenticationSession.authenticate(
-                    using: page, callbackURLScheme: "com.kodosi", preferredBrowserSession: .shared
+                    using: page, callbackURLScheme: "com.kodosi", preferredBrowserSession: .shared,
                 )
                 account.finishSignIn(with: answer)
             } catch {

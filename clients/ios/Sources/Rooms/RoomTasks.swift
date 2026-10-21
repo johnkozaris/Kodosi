@@ -85,7 +85,7 @@ struct RoomTasks: View {
                 } label: {
                     Label(
                         repositories.first { $0.id == state.repositoryFilter }?.name ?? String(localized: "All"),
-                        systemImage: "line.3.horizontal.decrease"
+                        systemImage: "line.3.horizontal.decrease",
                     )
                     .appTextStyle(.footnote)
                     .lineLimit(1)

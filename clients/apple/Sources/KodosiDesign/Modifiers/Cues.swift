@@ -131,7 +131,7 @@ public extension AnyTransition {
     static var grow: AnyTransition {
         .asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.94, anchor: .topLeading)),
-            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading))
+            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading)),
         )
     }
 

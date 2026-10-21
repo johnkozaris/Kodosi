@@ -47,7 +47,7 @@ private final class Box<T>: @unchecked Sendable {
 private let page = "https://auth.example/realms/kodosi/protocol/openid-connect/auth?client_id=kodosi-app&state=s"
 private let browserPage: [String: JSONValue] = ["url": .string(page)]
 
-@Test @MainActor func signInWalksThroughTheStepsAndOnlyOpensTheBrowserOnce() throws {
+@Test @MainActor func `sign in walks through the steps and only opens the browser once`() throws {
     let (app, record) = try signedOutApp(prefix: "SignInSteps")
     #expect(app.signInPrompt == "Sign in")
     app.beginSignIn()
@@ -78,7 +78,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
-@Test @MainActor func cancelStopsThePendingSignInAndFailuresKeepProgress() throws {
+@Test @MainActor func `cancel stops the pending sign in and failures keep progress`() throws {
     let (app, record) = try signedOutApp(prefix: "SignInCancel")
     app.beginSignIn()
     try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
@@ -104,7 +104,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
-@Test @MainActor func untrustedMacContinuesIntoTheTrustStepWithApprovalOrReset() throws {
+@Test @MainActor func `untrusted Mac continues into the trust step with approval or reset`() throws {
     let (app, record) = try signedOutApp(prefix: "SignInTrust")
     app.beginSignIn()
     try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
@@ -140,7 +140,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
-@Test @MainActor func restoredUntrustedAccountOffersTrustWithoutStealingFocus() throws {
+@Test @MainActor func `restored untrusted account offers trust without stealing focus`() throws {
     let (app, _) = try signedOutApp(prefix: "SignInRestore")
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))
     #expect(app.account.stage == .trustingDevice(.choose))
@@ -156,7 +156,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
-@Test @MainActor func trustReasonShowsUntilThisMacIsApprovedAndAnEndedSignInSaysSo() throws {
+@Test @MainActor func `trust reason shows until this Mac is approved and an ended sign in says so`() throws {
     let (app, _) = try signedOutApp(prefix: "SignInReason")
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))
     try app.receive(runtimeEvent("devices.list", fields: [
@@ -177,7 +177,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
-@Test @MainActor func deletingTheAccountWaitsForTheBrowserAndEndsSignedOutWithANote() throws {
+@Test @MainActor func `deleting the account waits for the browser and ends signed out with a note`() throws {
     let (app, record) = try signedOutApp(prefix: "AccountDeletion")
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
     let page = "https://auth.example/realms/kodosi/protocol/openid-connect/auth?kc_action=delete_account"

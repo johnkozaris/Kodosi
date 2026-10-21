@@ -2,7 +2,7 @@ import Foundation
 @testable import KodosiDesktop
 import Testing
 
-@Test func ephemeralDefaultsCleanUpAfterTheirLastConsumer() throws {
+@Test func `ephemeral defaults clean up after their last consumer`() throws {
     var owner = EphemeralUserDefaults(prefix: "EphemeralDefaultsLifetimeTests")
     let suite = try #require(owner?.suiteName)
     let file = try #require(owner?.persistentFileURL)
@@ -27,7 +27,7 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: file.path))
 }
 
-@Test func ephemeralDefaultsPreserveFoundationPersistenceAndOtherSuites() throws {
+@Test func `ephemeral defaults preserve foundation persistence and other suites`() throws {
     let retained = try #require(EphemeralUserDefaults(prefix: "EphemeralDefaultsIsolationTests"))
     retained.set("retained", forKey: "value")
     #expect(retained.synchronize())
@@ -50,7 +50,7 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: retained.persistentFileURL.path))
 }
 
-@Test func ephemeralDefaultsExplicitCleanupIsRepeatable() throws {
+@Test func `ephemeral defaults explicit cleanup is repeatable`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "EphemeralDefaultsCleanupTests"))
     defaults.set(Data([1, 2, 3]), forKey: "value")
     #expect(defaults.synchronize())
@@ -62,7 +62,7 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: defaults.persistentFileURL.deletingLastPathComponent().path))
 }
 
-@Test func ephemeralDefaultsUsePrivateTemporaryBacking() throws {
+@Test func `ephemeral defaults use private temporary backing`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "EphemeralDefaultsBackingTests"))
     let directory = defaults.persistentFileURL.deletingLastPathComponent()
     let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)

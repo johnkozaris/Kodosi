@@ -89,7 +89,7 @@ final class AppDependencies {
             onFocusResult: { sessionId, incarnation, requestId, accepted in
                 focus.applyResult(sessionId: sessionId, runtimeIncarnationId: incarnation,
                                   requestId: requestId, accepted: accepted)
-            }
+            },
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
         account.notify = { [weak self] message in self?.errorMessage = message }
@@ -306,7 +306,7 @@ final class AppDependencies {
 
     func createSession(
         name: String, directory: String?, roomId: String? = nil, resume: ProviderConversationIdentity? = nil,
-        branch: String? = nil, command: String? = nil, agent: AgentStart? = nil, prompt: String? = nil
+        branch: String? = nil, command: String? = nil, agent: AgentStart? = nil, prompt: String? = nil,
     ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {

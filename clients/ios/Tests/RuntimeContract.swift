@@ -54,7 +54,7 @@ enum RuntimeContract {
             else { continue }
             shapes[type] = Shape(
                 required: Set(variant["required"] as? [String] ?? []),
-                allowed: Set(properties.keys)
+                allowed: Set(properties.keys),
             )
         }
         return shapes
@@ -62,14 +62,14 @@ enum RuntimeContract {
 }
 
 struct RuntimeContractTests {
-    @Test func theSchemaListsTheCommandsTheAppSends() {
+    @Test func `the schema lists the commands the app sends`() {
         let open = #"{"type":"session.openRemote","sessionId":"s","accountUserId":null,"accountEpoch":0}"#
         #expect(RuntimeContract.violation(in: Data(open.utf8)) != nil)
         let complete = #"{"type":"session.openRemote","sessionId":"s","requestId":"r","accountUserId":null,"accountEpoch":0}"#
         #expect(RuntimeContract.violation(in: Data(complete.utf8)) == nil)
     }
 
-    @Test func theAppExpectsTheSchemaVersion() {
+    @Test func `the app expects the schema version`() {
         #expect(RuntimeContract.version == Int(RuntimeHandle.expectedProtocolVersion))
     }
 }

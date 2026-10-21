@@ -20,7 +20,7 @@ struct RoomStoreTests {
         log.clear()
     }
 
-    @Test func listKeepsRoomsAndInvitations() throws {
+    @Test func `list keeps rooms and invitations`() throws {
         try deliver("missions.snapshot", [
             "missions": [mission("room-1", owner: "user-1"), mission("room-2", owner: "user-2")],
             "invitations": [invitation("inv-1", room: "room-3")],
@@ -34,7 +34,7 @@ struct RoomStoreTests {
         #expect(!model.rooms.isOwner(of: "room-2"))
     }
 
-    @Test func roomThatLeavesTheListIsGone() throws {
+    @Test func `room that leaves the list is gone`() throws {
         try deliver("missions.snapshot", list(["room-1", "room-2"]))
         try deliver("room.snapshot", ["room": room("room-2", messages: [message("m1", 1, author: "user-2")])])
         model.rooms.visibleRoomId = "room-1"
@@ -45,7 +45,7 @@ struct RoomStoreTests {
         #expect(model.rooms.departed.isEmpty)
     }
 
-    @Test func laterSnapshotsMergeMessagesAndCountUnreadFromOthers() async throws {
+    @Test func `later snapshots merge messages and count unread from others`() async throws {
         try deliver("room.snapshot", ["room": room("room-1", messages: [message("m1", 1, author: "user-2"), message("m2", 2, author: "user-1")])])
         try deliver("room.snapshot", ["room": room("room-1", messages: [
             message("m2", 2, author: "user-1"), message("m3", 3, author: "user-2"),
@@ -60,7 +60,7 @@ struct RoomStoreTests {
         #expect((seen["sequence"] as? NSNumber)?.uint64Value == 5)
     }
 
-    @Test func olderPagesAreNotNew() throws {
+    @Test func `older pages are not new`() throws {
         try deliver("room.snapshot", ["room": room("room-1", messages: [message("m5", 5, author: "user-2")], hasOlder: true)])
         try deliver("room.snapshot", ["room": room("room-1", messages: [
             message("m3", 3, author: "user-2"), message("m4", 4, author: "user-2"),
@@ -72,7 +72,7 @@ struct RoomStoreTests {
         #expect(model.rooms.snapshots["room-1"]?.hasOlder == false)
     }
 
-    @Test func readingTheConversationKeepsItRead() throws {
+    @Test func `reading the conversation keeps it read`() throws {
         try deliver("room.snapshot", ["room": room("room-1", messages: [message("m1", 1, author: "user-2")])])
         model.rooms.visibleRoomId = "room-1"
         model.rooms.view("room-1").watchingConversation = true
@@ -83,7 +83,7 @@ struct RoomStoreTests {
         #expect(model.rooms.unread["room-1"] == 1)
     }
 
-    @Test func tasksKeepTheirNewestVersion() throws {
+    @Test func `tasks keep their newest version`() throws {
         try deliver("room.snapshot", ["room": room("room-1", tasks: [task("t1", version: 3, title: "New title")])])
         #expect(!model.rooms.view("room-1").freshTasks)
         try deliver("room.snapshot", ["room": room("room-1", tasks: [
@@ -95,7 +95,7 @@ struct RoomStoreTests {
         #expect(!model.rooms.view("room-1").freshTasks)
     }
 
-    @Test func issuesAreKeptByRepository() throws {
+    @Test func `issues are kept by repository`() throws {
         try deliver("room.result", [
             "requestId": "request-1", "operation": "room.command", "roomId": "room-1", "repositoryId": "repo-1",
             "issues": [[
@@ -106,7 +106,7 @@ struct RoomStoreTests {
         #expect(model.rooms.issues["repo-1"]?.map(\.number) == [12])
     }
 
-    @Test func accountChangeClearsRooms() throws {
+    @Test func `account change clears rooms`() throws {
         try deliver("missions.snapshot", list(["room-1"]))
         try deliver("room.snapshot", ["room": room("room-1", messages: [message("m1", 1, author: "user-2")])])
         model.rooms.view("room-1").message = "Draft"
@@ -117,7 +117,7 @@ struct RoomStoreTests {
         #expect(model.rooms.view("room-1").message.isEmpty)
     }
 
-    @Test func openingARoomReadsItAndLoadsItsMembers() async throws {
+    @Test func `opening a room reads it and loads its members`() async throws {
         let opening = Task { await model.rooms.open("room-1") }
         let open = try await log.next("mission.open")
         #expect(fields(open) == ["missionId", "requestId"])
@@ -140,7 +140,7 @@ struct RoomStoreTests {
         #expect(model.rooms.snapshots["room-1"]?.messages.count == 1)
     }
 
-    @Test func earlierMessagesAskBeforeTheFirst() async throws {
+    @Test func `earlier messages ask before the first`() async throws {
         let reading = Task { await model.rooms.read("room-1", before: 41) }
         let command = try await log.next("room.command")
         #expect(try action(command) as NSDictionary == ["type": "read", "before": 41])
@@ -148,7 +148,7 @@ struct RoomStoreTests {
         await reading.value
     }
 
-    @Test func postSendsTheTrimmedDraftAndClearsIt() async throws {
+    @Test func `post sends the trimmed draft and clears it`() async throws {
         let state = model.rooms.view("room-1")
         state.message = "  Hello @Ana  "
         let posting = Task { await model.rooms.post(in: "room-1") }
@@ -164,7 +164,7 @@ struct RoomStoreTests {
         #expect(!state.sending)
     }
 
-    @Test func draftEditedWhileSendingStays() async throws {
+    @Test func `draft edited while sending stays`() async throws {
         let state = model.rooms.view("room-1")
         state.message = "First"
         let posting = Task { await model.rooms.post(in: "room-1") }
@@ -175,7 +175,7 @@ struct RoomStoreTests {
         #expect(state.message == "First and more")
     }
 
-    @Test func failedPostKeepsTheDraft() async throws {
+    @Test func `failed post keeps the draft`() async throws {
         let state = model.rooms.view("room-1")
         state.message = "Hello"
         let posting = Task { await model.rooms.post(in: "room-1") }
@@ -187,7 +187,7 @@ struct RoomStoreTests {
         #expect(state.sent == 0)
     }
 
-    @Test func createRoomUsesItsRequestAsTheRoomAndInvitesFriends() async throws {
+    @Test func `create room uses its request as the room and invites friends`() async throws {
         let creating = Task { try await model.rooms.create(name: "  Launch week ", inviting: ["user-2", "user-3"]) }
         let create = try await log.next("mission.create")
         #expect(fields(create) == ["name", "requestId"])
@@ -204,7 +204,7 @@ struct RoomStoreTests {
         #expect(try await creating.value == roomId)
     }
 
-    @Test func inviteNamesTheRoomAndTheFriend() async throws {
+    @Test func `invite names the room and the friend`() async throws {
         let inviting = Task { try await model.rooms.invite("user-2", to: "room-1") }
         let command = try await log.next("mission.invite")
         #expect(fields(command) == ["missionId", "requestId", "userId"])
@@ -215,7 +215,7 @@ struct RoomStoreTests {
     }
 
     @Test(arguments: [true, false])
-    func answeringAnInvitationNamesIt(accept: Bool) async throws {
+    func `answering an invitation names it`(accept: Bool) async throws {
         try deliver("missions.snapshot", [
             "missions": [], "invitations": [invitation("inv-1", room: "room-3")],
             "missionsTruncated": false, "invitationsTruncated": false,
@@ -230,7 +230,7 @@ struct RoomStoreTests {
         try await answering.value
     }
 
-    @Test func membershipActionsNameTheRoom() async throws {
+    @Test func `membership actions name the room`() async throws {
         try deliver("missions.snapshot", list(["room-1"]))
         let member = try JSONValue.object([
             "userId": .string("user-2"), "handle": .string("ana"), "displayName": .string("Ana"), "isOwner": .bool(false),
@@ -255,7 +255,7 @@ struct RoomStoreTests {
         }
     }
 
-    @Test func createTaskSendsItsFields() async throws {
+    @Test func `create task sends its fields`() async throws {
         let creating = Task {
             try await model.rooms.createTask(in: "room-1", title: " Ship it ", description: " Notes ", repositoryIds: ["repo-2", "repo-1"])
         }
@@ -267,7 +267,7 @@ struct RoomStoreTests {
         try await creating.value
     }
 
-    @Test func messageBecomesATask() async throws {
+    @Test func `message becomes a task`() async throws {
         try deliver("room.snapshot", ["room": room("room-1", messages: [
             message("m1", 1, author: "user-2", text: "\n  Fix the login page  \nIt fails on Safari."),
         ])])
@@ -283,14 +283,14 @@ struct RoomStoreTests {
         try await making.value
     }
 
-    @Test func taskChangesSendTheirFields() async throws {
+    @Test func `task changes send their fields`() async throws {
         try deliver("room.snapshot", ["room": room("room-1", tasks: [task("t1", version: 1, title: "Ship it")])])
         let task = try #require(model.rooms.snapshots["room-1"]?.tasks.first)
         let changes = [
             RoomTaskCase(change: .claim, note: nil, action: ["type": "updateTask", "taskId": "t1", "change": "claim"]),
             RoomTaskCase(change: .release, note: "  ", action: ["type": "updateTask", "taskId": "t1", "change": "release"]),
             RoomTaskCase(
-                change: .close, note: " Merged #12 ", action: ["type": "updateTask", "taskId": "t1", "change": "close", "note": "Merged #12"]
+                change: .close, note: " Merged #12 ", action: ["type": "updateTask", "taskId": "t1", "change": "close", "note": "Merged #12"],
             ),
             RoomTaskCase(change: .reopen, note: nil, action: ["type": "updateTask", "taskId": "t1", "change": "reopen"]),
         ]
@@ -304,7 +304,7 @@ struct RoomStoreTests {
         }
     }
 
-    @Test func repositoryAddressIsTrimmed() async throws {
+    @Test func `repository address is trimmed`() async throws {
         let adding = Task { try await model.rooms.addRepository(" https://github.com/team/app ", to: "room-1") }
         let command = try await log.next("room.command")
         #expect(try action(command) as NSDictionary == ["type": "addRepository", "url": "https://github.com/team/app"])

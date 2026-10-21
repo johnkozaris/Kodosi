@@ -28,7 +28,7 @@ public final class TerminalInputQueue: @unchecked Sendable {
         perSessionBudget: defaultPerSessionBudget,
         globalBudget: defaultGlobalBudget,
         coalesceLimit: chunkBytes,
-        busyDelays: defaultBusyDelays
+        busyDelays: defaultBusyDelays,
     )
 
     public typealias Sender = @Sendable (Data) -> Int32?
@@ -135,7 +135,7 @@ public final class TerminalInputQueue: @unchecked Sendable {
         perSessionBudget: Int,
         globalBudget: Int,
         coalesceLimit: Int,
-        busyDelays: [Duration]
+        busyDelays: [Duration],
     ) {
         precondition(perSessionBudget > 0)
         precondition(globalBudget >= perSessionBudget)
@@ -152,7 +152,7 @@ public final class TerminalInputQueue: @unchecked Sendable {
         sessionId: String,
         coalescingToken: UInt64,
         send: @escaping Sender,
-        onFailure: @escaping FailureHandler
+        onFailure: @escaping FailureHandler,
     ) {
         guard !data.isEmpty else { return }
         var shouldStart = false
@@ -187,7 +187,7 @@ public final class TerminalInputQueue: @unchecked Sendable {
                     data: data,
                     send: send,
                     onFailure: onFailure,
-                    coalescingToken: coalescingToken
+                    coalescingToken: coalescingToken,
                 ))
             }
             session.byteCount += data.count

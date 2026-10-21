@@ -109,7 +109,7 @@ struct DosiMoreTerminals: View {
     var body: some View {
         DosiMoreChip(
             count: sessions.count, needs: needs, selected: sessions.contains { selected($0) },
-            label: Text("\(sessions.count) more terminals"), identifier: "dosi.marks.more", glints: glints, glintDelay: glintDelay
+            label: Text("\(sessions.count) more terminals"), identifier: "dosi.marks.more", glints: glints, glintDelay: glintDelay,
         ) {
             DosiMoreList(count: sessions.count) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
@@ -164,7 +164,7 @@ struct DosiMoreRooms: View {
     var body: some View {
         DosiMoreChip(
             count: missions.count, needs: missions.contains(where: \.unread), selected: missions.contains { selected($0) },
-            label: Text("\(missions.count) more rooms"), identifier: "dosi.marks.room.more", glints: glints, glintDelay: glintDelay
+            label: Text("\(missions.count) more rooms"), identifier: "dosi.marks.room.more", glints: glints, glintDelay: glintDelay,
         ) {
             DosiMoreList(count: missions.count) {
                 ForEach(Array(missions.enumerated()), id: \.element.id) { index, mission in

@@ -12,7 +12,7 @@ public struct DeviceTrustChoices: View {
 
         public init(
             request: @escaping () -> Void, cancelRequest: @escaping () -> Void, recover: @escaping (String) -> Void,
-            startFresh: @escaping () -> Void, signInAgain: @escaping () -> Void, retry: @escaping () -> Void
+            startFresh: @escaping () -> Void, signInAgain: @escaping () -> Void, retry: @escaping () -> Void,
         ) {
             self.request = request
             self.cancelRequest = cancelRequest
@@ -42,7 +42,7 @@ public struct DeviceTrustChoices: View {
         content
             .animation(theme.motion.spring, value: trust)
             .confirmationDialog(
-                Text("Start fresh on this \(device)?", bundle: .module), isPresented: $confirmingReset, titleVisibility: .visible
+                Text("Start fresh on this \(device)?", bundle: .module), isPresented: $confirmingReset, titleVisibility: .visible,
             ) {
                 Button(role: .destructive, action: actions.startFresh) { Text("Start fresh", bundle: .module) }
                     .accessibilityIdentifier("deviceTrust.confirmReset")

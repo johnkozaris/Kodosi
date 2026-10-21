@@ -30,7 +30,7 @@
             onFocus: @escaping () -> Void,
             onFocusChange: @escaping (Bool) -> Void,
             registerFocusRevoker: @escaping (TerminalFocusRevoker?) -> Void = { _ in },
-            onShareShortcut: @escaping () -> Void
+            onShareShortcut: @escaping () -> Void,
         ) {
             _session = ObservedObject(wrappedValue: session)
             self.sessionName = sessionName
@@ -59,7 +59,7 @@
                 onFocus: onFocus,
                 onFocusChange: onFocusChange,
                 registerFocusRevoker: registerFocusRevoker,
-                onShareShortcut: onShareShortcut
+                onShareShortcut: onShareShortcut,
             )
         }
     }
@@ -100,7 +100,7 @@
 
         func askToShareClipboard(
             sessionName: String,
-            _ answer: @escaping @MainActor (Bool) -> Void
+            _ answer: @escaping @MainActor (Bool) -> Void,
         ) {
             guard allowsInput, !clipboardPromptOpen, let window else { return }
             clipboardPromptOpen = true
@@ -153,7 +153,7 @@
 
         @discardableResult
         func refreshAccessibilityViewport(
-            postNotification: Bool = true
+            postNotification: Bool = true,
         ) -> Bool {
             let text = viewportText?() ?? ""
             guard text != accessibilityViewportText else { return false }
@@ -221,13 +221,13 @@
         override func setMarkedText(
             _ string: Any,
             selectedRange: NSRange,
-            replacementRange: NSRange
+            replacementRange: NSRange,
         ) {
             guard allowsInput else { return }
             super.setMarkedText(
                 string,
                 selectedRange: selectedRange,
-                replacementRange: replacementRange
+                replacementRange: replacementRange,
             )
             viewportDidPotentiallyChange?()
         }
@@ -323,7 +323,7 @@
                 context: nil,
                 eventNumber: event.eventNumber,
                 clickCount: event.clickCount,
-                pressure: event.pressure
+                pressure: event.pressure,
             ) else {
                 return event
             }
@@ -364,7 +364,7 @@
 
         static func dismantleNSView(
             _ view: TerminalRendererHostedView,
-            coordinator _: ()
+            coordinator _: (),
         ) {
             view.onFocusChange = nil
             view.shareShortcut = nil
@@ -433,7 +433,7 @@
             view.setAccessibilityHelp(
                 allowsInput
                     ? "Interactive terminal showing the visible output."
-                    : "Read-only terminal showing the visible output. You can review, select, and copy text."
+                    : "Read-only terminal showing the visible output. You can review, select, and copy text.",
             )
             view.setAccessibilityIdentifier(accessibilityIdentifier)
             if !allowsFocus, view.window?.firstResponder === view {
@@ -442,7 +442,7 @@
         }
 
         private static func cancelAccessibilityUpdates(
-            for view: TerminalRendererHostedView
+            for view: TerminalRendererHostedView,
         ) {
             if let session = view.accessibilityUpdateSession,
                let token = view.accessibilityUpdateToken

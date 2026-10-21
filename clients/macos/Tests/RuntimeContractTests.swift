@@ -24,7 +24,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     ]))
 }
 
-@Test func eventEnvelopeRequiresExplicitAccountAndExactEpoch() throws {
+@Test func `event envelope requires explicit account and exact epoch`() throws {
     let event = try runtimeEvent("system.ready", epoch: UInt64.max, userId: nil)
     #expect(event.accountEpoch == UInt64.max)
     #expect(event.accountUserId == nil)
@@ -39,7 +39,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     }
 }
 
-@Test func envelopeCannotBeOverriddenByCommandFields() throws {
+@Test func `envelope cannot be overridden by command fields`() throws {
     let command = RuntimeCommand(type: "session.list", fields: ["accountEpoch": .int(99), "accountUserId": .string("wrong")])
     let data = try JSONEncoder().encode(RuntimeCommandEnvelope(accountUserId: nil, accountEpoch: UInt64.max, command: command))
     let decoded = try JSONDecoder().decode(RuntimeEvent.self, from: data)
@@ -48,7 +48,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(decoded.type == "session.list")
 }
 
-@Test func remoteSessionNeverTreatsHostDirectoryAsLocalPath() throws {
+@Test func `remote session never treats host directory as local path`() throws {
     let remote = try runtimeSession(connection: "connected", owner: false)
     #expect(remote.localDirectory == nil)
     #expect(remote.canControl)
@@ -59,7 +59,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try !runtimeSession(connection: "blocked").canControl)
 }
 
-@Test func aRemoteTerminalTakesNoInputWhileItsComputerIsAway() throws {
+@Test func `a remote terminal takes no input while its computer is away`() throws {
     for status in ["reconnecting", "offline"] {
         let session = try runtimeSession(connection: "connected", status: status)
         #expect(session.isConnected)
@@ -71,7 +71,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(away.statusLabel == "Remote computer is offline")
 }
 
-@Test func deepLinksOnlyIdentifyRealSessionUUIDs() throws {
+@Test func `deep links only identify real session UUIDs`() throws {
     let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
     let url = try #require(URL(string: "kodosi://session/\(id)"))
     #expect(DeepLinkRouter.destination(for: url)?.sessionId == id)
@@ -83,7 +83,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     }
 }
 
-@Test @MainActor func stageRestorationIsAccountScopedAndSurvivesDelayedCatalog() throws {
+@Test @MainActor func `stage restoration is account scoped and survives delayed catalog`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestoration"))
     let session = try runtimeSession()
     let first = WorkbenchState(defaults: defaults)
@@ -108,7 +108,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(restarted.reconcile([session]).isEmpty)
 }
 
-@Test @MainActor func stageRestorationOpensSessionsWhoseHostIsOfflineSoTheyConnectWhenItIsBack() throws {
+@Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "offline")
     #expect(session.statusLabel == "Remote computer is offline")
@@ -122,7 +122,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(restarted.stagedSessionIds == [session.id])
 }
 
-@Test @MainActor func stageLimitKeepsExistingTerminalsAndAllowsReopening() throws {
+@Test @MainActor func `stage limit keeps existing terminals and allows reopening`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageLimit"))
     let workbench = WorkbenchState(defaults: defaults)
     let ids = (0 ..< 7).map { _ in UUIDv7.generate() }
@@ -138,7 +138,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(workbench.selectedSessionId == ids[6])
 }
 
-@Test func eventInboxIsBoundedOrderedAndClosesWaiter() async {
+@Test func `event inbox is bounded ordered and closes waiter`() async {
     let inbox = RuntimeEventInbox()
     for index in 0 ..< 256 {
         #expect(inbox.push(Data("\(index)".utf8)))
@@ -158,7 +158,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(inbox.didOverflow)
 }
 
-@Test func terminalControlInboxEnforcesItsOwnCountAndByteBudget() async {
+@Test func `terminal control inbox enforces its own count and byte budget`() async {
     let inbox = RuntimeEventInbox(maximumBytes: 8, maximumCount: 2)
     #expect(inbox.push(Data([1, 2, 3, 4])))
     #expect(inbox.push(Data([5, 6, 7, 8])))
@@ -170,7 +170,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     inbox.close()
 }
 
-@Test @MainActor func folderGroupsAndNavigationFollowTheWorkingSession() throws {
+@Test @MainActor func `folder groups and navigation follow the working session`() throws {
     let first = try runtimeSession(kind: "local", connection: "local")
     let second = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local")
     let remote = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b31")
@@ -188,7 +188,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(workbench.stagedSessionIds == [first.id, second.id])
 }
 
-@Test func eachHostFolderShowsItsLastFolder() throws {
+@Test func `each host folder shows its last folder`() throws {
     for (path, name) in [
         ("/Users/ada/project", "project"), ("/home/ada/project/", "project"), (#"/home/ada/one\two"#, #"one\two"#), ("/", "/"),
         (#"C:\Users\ada\project"#, "project"), (#"d:/Users/ada/project\"#, "project"), (#"C:\"#, "C:"),
@@ -201,7 +201,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(SessionFolderGroup.groups([windows]).map(\.name) == ["project"])
 }
 
-@Test func providerTitleDoesNotReplaceTheSidebarName() throws {
+@Test func `provider title does not replace the sidebar name`() throws {
     let session = try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("Green Gecko"), "title": .string("GitHub Copilot"),
@@ -212,7 +212,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(!session.isWorking)
 }
 
-@Test func terminalTitleSpinnerMarksAnAgentAtWork() throws {
+@Test func `terminal title spinner marks an agent at work`() throws {
     func session(title: String?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
@@ -236,7 +236,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try !session(title: nil).isWorking)
 }
 
-@Test func aProgramStatusReportIsTheStateOfItsTerminal() throws {
+@Test func `a program status report is the state of its terminal`() throws {
     func session(title: String? = nil, status: [String: JSONValue]) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
@@ -291,7 +291,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(done.sign(unseen: false) == nil)
 }
 
-@Test func aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost() throws {
+@Test func `a room terminal that is not open here shows the status of its host`() throws {
     func session(title: String? = nil, status: [String: JSONValue]?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
@@ -311,7 +311,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try !session(title: "\u{2810} Draft the release notes", status: nil).isWorking)
 }
 
-@Test func aTerminalNamesWhereItsProgramRunsAndWhetherAsRoot() throws {
+@Test func `a terminal names where its program runs and whether as root`() throws {
     func session(context: [String: JSONValue]?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),

@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test @MainActor func commandReplyMatchesRequestAndOperation() async throws {
+@Test @MainActor func `command reply matches request and operation`() async throws {
     var sent: [Data] = []
     let commands = CommandSink { data in sent.append(data); return 0 }
     commands.setAccount(userId: "owner", epoch: 4)
@@ -29,7 +29,7 @@ import Testing
     #expect(completed)
 }
 
-@Test @MainActor func accountChangeCancelsPendingMutation() async throws {
+@Test @MainActor func `account change cancels pending mutation`() async throws {
     var sent = false
     let commands = CommandSink { _ in sent = true; return 0 }
     commands.setAccount(userId: "owner", epoch: 1)
@@ -44,7 +44,7 @@ import Testing
     }
 }
 
-@Test @MainActor func duplicateRequestCannotReplaceContinuation() async throws {
+@Test @MainActor func `duplicate request cannot replace continuation`() async throws {
     var sent = false
     let commands = CommandSink { _ in sent = true; return 0 }
     let fields: [String: JSONValue] = ["requestId": .string("duplicate")]
@@ -63,7 +63,7 @@ import Testing
     }
 }
 
-@Test @MainActor func synchronousRejectionDoesNotReportSuccess() async {
+@Test @MainActor func `synchronous rejection does not report success`() async {
     let commands = CommandSink { _ in 5 }
     do {
         _ = try await commands.request("session.create")
@@ -71,7 +71,7 @@ import Testing
     } catch { #expect(error as? RuntimeError == .rejected(5)) }
 }
 
-@Test @MainActor func anErrorShowsOnceAndOnlyForARequestOfTheApp() async throws {
+@Test @MainActor func `an error shows once and only for a request of the app`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "CommandErrors"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -99,7 +99,7 @@ import Testing
     #expect(app.errorMessage == "Try again.")
 }
 
-@Test @MainActor func aFailedFriendRequestOfThisAppShowsItsError() throws {
+@Test @MainActor func `a failed friend request of this app shows its error`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "FriendRequestError"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -126,7 +126,7 @@ import Testing
     }
 }
 
-@Test @MainActor func previewUsesNativeIdentityAndByteCursor() async throws {
+@Test @MainActor func `preview uses native identity and byte cursor`() async throws {
     var requests: [[String: JSONValue]] = []
     let commands = CommandSink { data in
         if let value = try? JSONDecoder().decode([String: JSONValue].self, from: data) {

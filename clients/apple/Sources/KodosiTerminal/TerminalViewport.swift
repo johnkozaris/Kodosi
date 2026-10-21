@@ -8,7 +8,7 @@ public struct TerminalViewport: Sendable {
         columns: UInt16,
         rows: UInt16,
         cellWidthPixels: UInt32,
-        cellHeightPixels: UInt32
+        cellHeightPixels: UInt32,
     ) {
         self.columns = columns
         self.rows = rows

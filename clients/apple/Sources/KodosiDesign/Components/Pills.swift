@@ -82,7 +82,7 @@ public struct DockItem: Identifiable, Sendable {
     public var key: String?
 
     public init(
-        id: Int, title: String, symbol: String, count: Int = 0, progress: Double? = nil, fresh: Bool = false, key: String? = nil
+        id: Int, title: String, symbol: String, count: Int = 0, progress: Double? = nil, fresh: Bool = false, key: String? = nil,
     ) {
         self.id = id
         self.title = title

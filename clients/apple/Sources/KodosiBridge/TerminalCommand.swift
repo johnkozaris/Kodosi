@@ -22,7 +22,7 @@ public struct TerminalResizeIdentity: Equatable, Sendable {
         widthPixels: UInt32,
         heightPixels: UInt32,
         cellWidthPixels: UInt32,
-        cellHeightPixels: UInt32
+        cellHeightPixels: UInt32,
     ) {
         self.requestId = requestId
         self.expectedRuntimeIncarnationId = expectedRuntimeIncarnationId
@@ -45,14 +45,14 @@ enum TerminalCommand: Encodable {
         clientId: String,
         subscriptionGeneration: UInt64,
         requestId: String,
-        expectedRuntimeIncarnationId: String
+        expectedRuntimeIncarnationId: String,
     )
     case blur(
         sessionId: String,
         clientId: String,
         subscriptionGeneration: UInt64,
         requestId: String,
-        expectedRuntimeIncarnationId: String
+        expectedRuntimeIncarnationId: String,
     )
 
     private enum CodingKeys: String, CodingKey {
@@ -78,7 +78,7 @@ enum TerminalCommand: Encodable {
             try c.encode(identity.requestId, forKey: .requestId)
             try c.encode(
                 identity.expectedRuntimeIncarnationId,
-                forKey: .expectedRuntimeIncarnationId
+                forKey: .expectedRuntimeIncarnationId,
             )
             try c.encode(identity.subscriptionId, forKey: .subscriptionId)
             try c.encode(identity.subscriptionGeneration, forKey: .subscriptionGeneration)
