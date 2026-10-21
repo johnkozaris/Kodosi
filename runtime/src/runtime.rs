@@ -739,6 +739,7 @@ struct Runtime {
     room_latest: HashMap<String, u64>,
     room_seen: Option<(String, BTreeMap<String, u64>)>,
     reconnect: HashMap<Uuid, Reconnect>,
+    link_connects: u64,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -856,6 +857,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         room_latest: HashMap::new(),
         room_seen: None,
         reconnect: HashMap::new(),
+        link_connects: 0,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1708,11 +1710,9 @@ impl Runtime {
             .iter()
             .map(|entry| (entry.id, entry.incarnation_id))
             .collect::<HashMap<_, _>>();
-        let retry = remotes
+        let returned = remotes
             .iter()
-            .filter(|remote| {
-                remote.online && (!self.host_online(remote.id) || self.recovering(remote.id))
-            })
+            .filter(|remote| remote.online && !self.host_online(remote.id))
             .map(|remote| remote.id)
             .collect::<Vec<_>>();
         let retired = self
@@ -1754,7 +1754,7 @@ impl Runtime {
             .into_iter()
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
-        for id in retry {
+        for id in returned {
             self.reconnect_now(id);
         }
         self.publish_catalog();
@@ -2179,6 +2179,19 @@ impl Runtime {
     }
 
     fn reconnect_views(&mut self) {
+        let connects = self.network.inner.link.connects();
+        if connects != self.link_connects {
+            self.link_connects = connects;
+            let recovering = self
+                .reconnect
+                .keys()
+                .copied()
+                .filter(|id| self.recovering(*id))
+                .collect::<Vec<_>>();
+            for id in recovering {
+                self.reconnect_now(id);
+            }
+        }
         let now = tokio::time::Instant::now();
         let ids = self
             .reconnect

@@ -654,6 +654,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             opening: HashMap::new(),
             views: HashMap::new(),
             reconnect: HashMap::new(),
+            link_connects: 0,
             #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
             #[cfg(feature = "host")]
@@ -1125,7 +1126,10 @@ async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is
     assert_eq!(remote_state(&runtime, id), reconnecting);
     assert!(runtime.reconnect[&id].next > Instant::now());
     runtime.replace_remotes(vec![remote.clone()]);
-    assert!(runtime.reconnect[&id].next <= Instant::now());
+    assert!(runtime.reconnect[&id].next > Instant::now());
+    runtime.network.inner.link.note_connected();
+    runtime.reconnect_views();
+    assert!(runtime.opening.contains_key(&id));
 
     let _updates = reconnect(&mut runtime, &remote);
     assert_eq!(
