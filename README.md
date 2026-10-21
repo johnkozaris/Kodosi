@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-c98566?style=flat-square&labelColor=2a211d" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
   <a href="clients/macos/README.md"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
   <a href="clients/qt/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 or later on iPhone and iPad"></a>
@@ -87,7 +87,7 @@ vulnerabilities [in private](docs/SECURITY.md#report-a-vulnerability).
 
 ## License
 
-Kodosi is [MIT licensed](LICENSE). The name and logo are not: see
+Kodosi is under the [Apache License 2.0](LICENSE). The name and logo are not: see
 [Trademarks](TRADEMARKS.md). Built with [Ghostty](https://ghostty.org), Rust, Swift, Qt
 and ASP.NET Core; see the [third-party notices](terminal/ghostty/THIRD_PARTY_NOTICES.md)
 and [picture credits](docs/media/README.md).
