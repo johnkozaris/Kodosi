@@ -2,7 +2,7 @@
 
 The name Kodosi, the Kodosi logo (the copper K, [kodosi-mark.png](docs/brand/kodosi-mark.png)),
 the wordmark ([kodosi-wordmark.png](docs/brand/kodosi-wordmark.png)) and the app icons
-are trademarks of John Kozaris. The [MIT License](LICENSE) covers the code, not these
+are trademarks of John Kozaris. The [Apache License 2.0](LICENSE) covers the code, not these
 marks.
 
 You may, without asking:

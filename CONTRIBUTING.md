@@ -15,5 +15,5 @@ Read [PRODUCT.md](PRODUCT.md), [AGENTS.md](AGENTS.md) and
 - Keep credentials, signing keys, private terminal content and personal configuration
   out of Git, issues and logs.
 
-Contributions are under the [MIT license](LICENSE) and the
+Contributions are under the [Apache License 2.0](LICENSE) and the
 [Code of Conduct](CODE_OF_CONDUCT.md).
