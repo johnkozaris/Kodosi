@@ -21,7 +21,7 @@ struct RemoteFolders: View {
             if let listing {
                 PickerList(
                     rows: rows(in: listing), identifier: "launcher.list.browse", width: 320,
-                    pick: { browse($0, in: listing) }, close: close
+                    pick: { browse($0, in: listing) }, close: close,
                 )
                 .id(listing.path)
             } else {
@@ -43,7 +43,7 @@ struct RemoteFolders: View {
         var rows = (places?.recent ?? []).map { folder in
             PickerRow(
                 id: folder, title: name(folder, in: places), subtitle: places?.shown(folder), icon: .folder,
-                current: folder == current
+                current: folder == current,
             )
         }
         if places == nil {

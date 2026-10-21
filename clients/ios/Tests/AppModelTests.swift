@@ -28,13 +28,13 @@ struct AppModelTests {
         try model.receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
     }
 
-    @Test func readyRuntimeRefreshesTheSignedInAccount() throws {
+    @Test func `ready runtime refreshes the signed in account`() throws {
         try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion])
         #expect(model.phase == .ready)
         #expect(sent.types == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"])
     }
 
-    @Test func signInOpensOnlySecurePagesAndGivesTheAnswerBack() throws {
+    @Test func `sign in opens only secure pages and gives the answer back`() throws {
         try deliver("auth.required", userId: nil)
         model.account.signIn()
         #expect(sent.types.last == "auth.login.start")
@@ -49,7 +49,7 @@ struct AppModelTests {
         #expect(model.account.signInPage == nil)
     }
 
-    @Test func untrustedDeviceAsksForTrustUntilEnrolled() throws {
+    @Test func `untrusted device asks for trust until enrolled`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": false])
         #expect(model.account.needsOnboarding)
         #expect(model.account.stage == .trustingDevice(.choose))
@@ -58,7 +58,7 @@ struct AppModelTests {
         #expect(model.account.stage == .signedIn)
     }
 
-    @Test func newerAccountEpochClearsEarlierState() throws {
+    @Test func `newer account epoch clears earlier state`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
         #expect(model.terminals.sessions.count == 1)
@@ -69,7 +69,7 @@ struct AppModelTests {
         #expect(model.account.userId == "user-2")
     }
 
-    @Test func anErrorGoesToItsRequestOrShowsOnce() async throws {
+    @Test func `an error goes to its request or shows once`() async throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         let creating = Task { try await model.commands.request("mission.create", ["requestId": .string("create"), "name": .string("Launch")]) }
         for _ in 0 ..< 100 where !sent.types.contains("mission.create") {
@@ -82,7 +82,7 @@ struct AppModelTests {
         #expect(model.notices.current?.message == "Try again.")
     }
 
-    @Test func aFailedFriendRequestOfThisAppShowsItsError() throws {
+    @Test func `a failed friend request of this app shows its error`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         #expect(model.people.add("kodosi:nobody:00ff"))
         let requestId = try #require(sent.last("friends.request.send")?["requestId"] as? String)
@@ -91,7 +91,7 @@ struct AppModelTests {
         #expect(!model.people.sendingRequest)
     }
 
-    @Test func aDoneTerminalShowsItsSignUntilTheHostKnowsYouLooked() throws {
+    @Test func `a done terminal shows its sign until the host knows you looked`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         var unseen = session(id: "s1", state: "done")
         unseen["attention"] = true
@@ -102,7 +102,7 @@ struct AppModelTests {
         #expect(sent.last("session.visible")?["sessionIds"] as? [String] == ["s1"])
     }
 
-    @Test func blockedTerminalsNeedYouAndTheWatchedOneIsReported() throws {
+    @Test func `blocked terminals need you and the watched one is reported`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "blocked"), session(id: "s2", state: "blocked")]])
         model.terminals.watchingSessionId = "s2"

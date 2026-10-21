@@ -10,7 +10,7 @@ private let people = [
     RoomMention(id: "t1", name: "Amber Wren", kind: .terminal(.claude)),
 ]
 
-@Test func mentionsMatchTheLongestKnownNameAtAWordBoundary() {
+@Test func `mentions match the longest known name at a word boundary`() {
     let segments = RoomMentions.segments("Hi @maya chen and @Amber Wren, mail a@Maya.com @Mayan", targets: people)
     #expect(segments == [
         .text("Hi "), .mention(people[1]), .text(" and "), .mention(people[3]), .text(", mail a@Maya.com @Mayan"),
@@ -21,7 +21,7 @@ private let people = [
     #expect(!RoomMentions.mentionsSelf("ping @Maya", targets: people))
 }
 
-@Test func mentionDraftsCompleteTheNameAfterTheLastAtSign() {
+@Test func `mention drafts complete the name after the last at sign`() {
     #expect(RoomMentions.query(in: "Thanks @ma") == "ma")
     #expect(RoomMentions.query(in: "@") == "")
     #expect(RoomMentions.query(in: "mail a@b") == nil)
@@ -39,7 +39,7 @@ private let people = [
     #expect(RoomMentions.start("hi @") == "hi @")
 }
 
-@Test func terminalMentionLinksRoundTrip() throws {
+@Test func `terminal mention links round trip`() throws {
     let link = try #require(people[3].link)
     #expect(link.absoluteString == "kodosi-room://terminal/t1")
     #expect(RoomMentions.terminalId(in: link) == "t1")
@@ -48,13 +48,13 @@ private let people = [
 }
 
 @MainActor
-@Test func messageTextLinksAddresses() {
+@Test func `message text links addresses`() {
     let text = RoomMessageText.formatted("See https://github.com/team/app/pull/7 and **this**")
     #expect(text.runs.compactMap(\.link).map(\.absoluteString) == ["https://github.com/team/app/pull/7"])
     #expect(String(text.characters) == "See https://github.com/team/app/pull/7 and this")
 }
 
-@Test func messagesGroupByAuthorAndTime() throws {
+@Test func `messages group by author and time`() throws {
     func message(_ id: String, author: String, at date: String) throws -> RoomMessage {
         try JSONValue.object([
             "id": .string(id), "sequence": .uint(1), "authorId": .string(author), "authorName": .string("Ana"),

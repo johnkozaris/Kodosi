@@ -68,7 +68,7 @@ struct DeviceSettingsView: View {
                                 .foregroundStyle(theme.colors.inkFaint)
                             TextField(
                                 "Code shown on the other device",
-                                text: Binding(get: { code }, set: { code = DeviceCode.format($0) })
+                                text: Binding(get: { code }, set: { code = DeviceCode.format($0) }),
                             )
                             .textFieldStyle(.plain).appTextStyle(.callout).onSubmit(approve)
                             .accessibilityIdentifier("settings.devices.code")
@@ -147,7 +147,7 @@ struct DeviceSettingsView: View {
         } message: {
             Text(deps.account.deletionSummary(
                 rooms: deps.missions,
-                terminals: String(localized: "Terminals on this Mac keep running. This cannot be undone.")
+                terminals: String(localized: "Terminals on this Mac keep running. This cannot be undone."),
             ))
         }
         .onAppear {

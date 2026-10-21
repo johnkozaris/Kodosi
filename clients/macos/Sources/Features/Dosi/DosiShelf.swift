@@ -193,7 +193,7 @@ private struct DosiTerminalChip: View {
             DosiChip(
                 name: session.name, width: width, selected: selected, shown: deps.workbench.stagedSessionIds.contains(session.id),
                 mark: AgentMark(session: session, size: 20, activity: deps.activity(of: session)).fold(.terminal(session.id), at: .slot),
-                sign: deps.sign(of: session).map { AnyView(StatusSign(form: $0, size: 9)) }
+                sign: deps.sign(of: session).map { AnyView(StatusSign(form: $0, size: 9)) },
             )
             .glint(trigger: glints, delay: glintDelay, radius: Radius.sm)
             .ring(trigger: rings, radius: Radius.sm)
@@ -244,7 +244,7 @@ private struct DosiRoomChip: View {
             DosiChip(
                 name: mission.name, width: width, selected: selected, shown: true,
                 mark: RoomSigil(key: mission.id, size: 20).fold(.room(mission.id), at: .slot),
-                sign: mission.unread ? AnyView(NewDot()) : nil
+                sign: mission.unread ? AnyView(NewDot()) : nil,
             )
             .glint(trigger: glints, delay: glintDelay, radius: Radius.sm)
             .ring(trigger: rings, color: theme.colors.accent, radius: Radius.sm)

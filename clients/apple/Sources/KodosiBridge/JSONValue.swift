@@ -31,7 +31,7 @@ public enum JSONValue: Codable, Equatable, Sendable {
         } else {
             throw DecodingError.dataCorruptedError(
                 in: c,
-                debugDescription: "Cannot decode JSONValue"
+                debugDescription: "Cannot decode JSONValue",
             )
         }
     }

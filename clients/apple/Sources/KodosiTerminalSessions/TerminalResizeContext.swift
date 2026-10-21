@@ -41,7 +41,7 @@ struct TerminalResizeContext {
             widthPixels: pixelGeometry.width,
             heightPixels: pixelGeometry.height,
             cellWidthPixels: pixelGeometry.cellWidth,
-            cellHeightPixels: pixelGeometry.cellHeight
+            cellHeightPixels: pixelGeometry.cellHeight,
         )
         guard let identity = lastResize.begin(measuredIdentity, key: key) else { return }
 
@@ -50,7 +50,7 @@ struct TerminalResizeContext {
         let interval = signposter.beginInterval(
             "resize.deliver",
             id: signpostID,
-            "cols=\(wireCols) rows=\(wireRows)"
+            "cols=\(wireCols) rows=\(wireRows)",
         )
         Task { @MainActor in
             guard token.isActive else {
@@ -64,7 +64,7 @@ struct TerminalResizeContext {
                 signposter.endInterval(
                     "resize.deliver",
                     interval,
-                    "queued=\(queued ? 1 : 0, privacy: .public)"
+                    "queued=\(queued ? 1 : 0, privacy: .public)",
                 )
             }
         }
@@ -87,7 +87,7 @@ extension TerminalViewport {
             width: UInt32(columns) * cellWidthPixels,
             height: UInt32(rows) * cellHeightPixels,
             cellWidth: cellWidthPixels,
-            cellHeight: cellHeightPixels
+            cellHeight: cellHeightPixels,
         )
     }
 }

@@ -84,7 +84,7 @@ struct PeopleHome: View {
             message: """
             Send your invite to a friend, or add them with their invite or username. \
             Friends can open the terminals you share, and you can open theirs.
-            """
+            """,
         ) {
             TogetherArt(size: 52, ring: theme.colors.ground)
         } actions: {

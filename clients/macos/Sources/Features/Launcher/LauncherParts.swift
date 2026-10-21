@@ -78,7 +78,7 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
                 PromptField(
                     text: $prompt, hint: hint,
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
-                    focus: focus, submit: submit
+                    focus: focus, submit: submit,
                 )
                 .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint)) : .infinity)
                 .accessibilityIdentifier("launcher.prompt")

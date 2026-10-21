@@ -74,7 +74,7 @@ private struct KodosiThemeModifier: ViewModifier {
                 }
                 observer = window.map { window in
                     NotificationCenter.default.addObserver(
-                        forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+                        forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main,
                     ) { [weak self] _ in
                         MainActor.assumeIsolated { self?.report() }
                     }

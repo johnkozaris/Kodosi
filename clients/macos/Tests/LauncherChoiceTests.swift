@@ -1,7 +1,7 @@
 @testable import KodosiDesktop
 import Testing
 
-@Test func anAccountIsNamedByWhatSetsItApart() {
+@Test func `an account is named by what sets it apart`() {
     func title(_ name: String) -> String {
         AgentAccount(name: name, command: name).title(program: "claude")
     }
@@ -14,7 +14,7 @@ import Testing
     #expect(title("claudex") == "Claudex")
 }
 
-@Test func accountRowsShowWhoIsSignedInAndOfferAnotherSignIn() {
+@Test func `account rows show who is signed in and offer another sign in`() {
     let info = AgentInfo(
         agent: "claude", program: "claude", installed: true,
         accounts: [
@@ -23,7 +23,7 @@ import Testing
                          folder: "~/.claude-work"),
             AgentAccount(name: "personal", command: "env CLAUDE_CONFIG_DIR=/h/.claude-personal claude", folder: "~/.claude-personal"),
         ],
-        install: "", addsAccounts: true
+        install: "", addsAccounts: true,
     )
     let rows = LauncherMenu.accounts(info, current: "work")
     #expect(rows.map(\.title) == ["Default", "Work", "Personal", "Add an account"])

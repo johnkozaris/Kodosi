@@ -37,7 +37,7 @@ public enum RoomAction {
         return createTask(
             title: String(line.prefix(120)),
             description: String(localized: "From \(author): \(message.text)", bundle: .module),
-            repositoryIds: []
+            repositoryIds: [],
         )
     }
 

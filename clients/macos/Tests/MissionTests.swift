@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test @MainActor func selectedMissionRefreshesAfterDirectoryInvalidation() async throws {
+@Test @MainActor func `selected mission refreshes after directory invalidation`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "MissionRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)

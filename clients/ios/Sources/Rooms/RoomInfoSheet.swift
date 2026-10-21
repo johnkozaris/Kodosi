@@ -101,7 +101,7 @@ struct RoomInfoSheet: View {
             }
             .confirmationDialog(
                 owner ? String(localized: "Delete \(name)?") : String(localized: "Leave \(name)?"),
-                isPresented: $confirmingEnd, titleVisibility: .visible
+                isPresented: $confirmingEnd, titleVisibility: .visible,
             ) {
                 Button(owner ? "Delete room" : "Leave room", role: .destructive, action: end)
             } message: {
@@ -118,7 +118,7 @@ struct RoomInfoSheet: View {
                         removing = nil
                     }
                 }),
-                titleVisibility: .visible, presenting: removing
+                titleVisibility: .visible, presenting: removing,
             ) { member in
                 Button("Remove from room", role: .destructive) {
                     perform { try await rooms.remove(member, from: roomId) }

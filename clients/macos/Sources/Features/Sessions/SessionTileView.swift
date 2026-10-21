@@ -35,7 +35,7 @@ struct SessionTileView: View {
         VStack(spacing: 0) {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
-                showsActions: hovered || isSelected, viewers: viewers, isClosing: isClosing
+                showsActions: hovered || isSelected, viewers: viewers, isClosing: isClosing,
             ) { confirmingClose = true }
                 .background {
                     UnevenRoundedRectangle(topLeadingRadius: Self.radius, topTrailingRadius: Self.radius, style: .continuous)
@@ -114,7 +114,7 @@ struct SessionTileView: View {
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",
                 title: session.statusLabel,
                 message: away ? String(localized: "The terminal opens when its computer is back.") : session.message,
-                working: session.connectionState == .connecting
+                working: session.connectionState == .connecting,
             ) {
                 if session.connectionState == .offline, !away {
                     Button("Connect") { deps.activateSession(session.id) }
@@ -137,7 +137,7 @@ struct SessionTileView: View {
                     isFocused: isSelected && state == .rendered,
                     allowsInput: session.canControl && state == .rendered,
                     asksBeforeClipboardRead: !session.isOwner,
-                    isSurfaceVisible: state == .rendered
+                    isSurfaceVisible: state == .rendered,
                 ) {
                     select()
                 } onFocusChange: { focused in
@@ -145,7 +145,7 @@ struct SessionTileView: View {
                         deps.terminalFocus.acquire(
                             sessionId: session.id, runtimeIncarnationId: session.incarnationId,
                             subscriptionId: managed.token.subscriptionId,
-                            subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId
+                            subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId,
                         )
                     } else {
                         deps.terminalFocus.release(surfaceId: surfaceId)

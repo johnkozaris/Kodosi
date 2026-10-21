@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test @MainActor func aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder() async throws {
+@Test @MainActor func `a terminal on a new branch sends the branch and the chosen folder`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "BranchTerminal"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -43,7 +43,7 @@ import Testing
     #expect(sent.last?["worktrees"] == nil)
 }
 
-@Test @MainActor func theBranchFolderStaysAfterARestart() throws {
+@Test @MainActor func `the branch folder stays after a restart`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "BranchFolder"))
     let settings = DesktopSettings(defaults: defaults)
     #expect(settings.branchFolder == nil)

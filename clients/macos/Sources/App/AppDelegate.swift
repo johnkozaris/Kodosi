@@ -21,14 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         do {
             #if DEBUG
                 try DebugBackendConfiguration.resolve(
-                    info: Bundle.main.infoDictionary ?? [:]
+                    info: Bundle.main.infoDictionary ?? [:],
                 )?.install()
             #endif
             let bootstrap = try RuntimeStorageBootstrap.resolve()
             storageBootstrap = bootstrap
             dependencies = AppDependencies(
                 defaults: bootstrap.defaults,
-                storageBootstrap: bootstrap
+                storageBootstrap: bootstrap,
             )
             super.init()
         } catch {
@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let corrected = Self.correctedWindowFrame(
             window.frame,
             visibleFrames: NSScreen.screens.map(\.visibleFrame),
-            mainVisibleFrame: mainScreen.visibleFrame
+            mainVisibleFrame: mainScreen.visibleFrame,
         )
         guard corrected != window.frame else { return }
         window.setFrame(corrected, display: true, animate: false)
@@ -173,7 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     nonisolated func userNotificationCenter(
         _: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
+        didReceive response: UNNotificationResponse,
     ) async {
         let identifier = response.notification.request.identifier
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
@@ -186,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     static func correctedWindowFrame(
         _ frame: NSRect,
         visibleFrames: [NSRect],
-        mainVisibleFrame: NSRect
+        mainVisibleFrame: NSRect,
     ) -> NSRect {
         let center = NSPoint(x: frame.midX, y: frame.midY)
         let attachedVisibleFrame = visibleFrames.first(where: { $0.contains(center) })
@@ -203,11 +203,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             : center
         let x = min(
             max(targetCenter.x - width / 2, targetVisibleFrame.minX),
-            targetVisibleFrame.maxX - width
+            targetVisibleFrame.maxX - width,
         )
         let y = min(
             max(targetCenter.y - height / 2, targetVisibleFrame.minY),
-            targetVisibleFrame.maxY - height
+            targetVisibleFrame.maxY - height,
         )
         return NSRect(x: x, y: y, width: width, height: height)
     }

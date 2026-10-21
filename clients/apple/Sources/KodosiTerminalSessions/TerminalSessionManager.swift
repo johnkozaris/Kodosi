@@ -22,7 +22,7 @@ public final class ManagedTerminalSession {
         token: TerminalConnectionToken,
         resizeAuthority: TerminalResizeAuthorityCell,
         resizeDelivery: ResizeDeliveryState,
-        runtimeIncarnationId: String
+        runtimeIncarnationId: String,
     ) {
         self.renderer = renderer
         self.token = token
@@ -45,7 +45,7 @@ public final class TerminalSessionManager {
     public typealias Disconnect = @MainActor (
         _ sessionId: String,
         _ subscriptionId: String,
-        _ subscriptionGeneration: UInt64
+        _ subscriptionGeneration: UInt64,
     ) -> Void
 
     private var inputErrorsBySession: [String: String] = [:]
@@ -68,7 +68,7 @@ public final class TerminalSessionManager {
         style: @escaping @MainActor () -> TerminalStyle,
         disconnectTerminal: Disconnect? = nil,
         beep: @escaping @MainActor () -> Void = {},
-        onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in }
+        onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in },
     ) {
         self.runtimeHandle = runtimeHandle
         self.commandSink = commandSink
@@ -77,7 +77,7 @@ public final class TerminalSessionManager {
             runtimeHandle.disconnectTerminal(
                 sessionId: sessionId,
                 subscriptionId: subscriptionId,
-                subscriptionGeneration: subscriptionGeneration
+                subscriptionGeneration: subscriptionGeneration,
             )
         }
         self.beep = beep
@@ -109,14 +109,14 @@ public final class TerminalSessionManager {
         reconcileSessions(
             liveSessionIds: Set(visible.map(\.id)),
             runtimeIncarnations: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.incarnationId) }),
-            resizeAuthority: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.canControl) })
+            resizeAuthority: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.canControl) }),
         )
     }
 
     public func reconcileSessions(
         liveSessionIds: Set<String>,
         runtimeIncarnations: [String: String] = [:],
-        resizeAuthority: [String: Bool] = [:]
+        resizeAuthority: [String: Bool] = [:],
     ) {
         let replacedSessionIds: Set<String> = Set(sessions.compactMap { sessionId, managed -> String? in
             guard let incarnation = runtimeIncarnations[sessionId],
@@ -160,7 +160,7 @@ public final class TerminalSessionManager {
             disconnectTerminal(
                 sessionId,
                 previous.token.subscriptionId,
-                previous.token.subscriptionGeneration
+                previous.token.subscriptionGeneration,
             )
         }
         let managed = createSession(sessionId: sessionId)
@@ -170,7 +170,7 @@ public final class TerminalSessionManager {
 
     func refreshRendererSession(
         sessionId: String,
-        expectedToken: TerminalConnectionToken
+        expectedToken: TerminalConnectionToken,
     ) {
         guard let existing = sessions[sessionId],
               existing.token === expectedToken,
@@ -179,7 +179,7 @@ public final class TerminalSessionManager {
         runtimeHandle.refreshTerminal(
             sessionId: sessionId,
             subscriptionId: existing.token.subscriptionId,
-            subscriptionGeneration: existing.token.subscriptionGeneration
+            subscriptionGeneration: existing.token.subscriptionGeneration,
         )
     }
 
@@ -198,7 +198,7 @@ public final class TerminalSessionManager {
         disconnectTerminal(
             sessionId,
             existing.token.subscriptionId,
-            existing.token.subscriptionGeneration
+            existing.token.subscriptionGeneration,
         )
     }
 
@@ -208,7 +208,7 @@ public final class TerminalSessionManager {
         let token = TerminalConnectionToken()
         let runtimeIncarnationId = runtimeIncarnationsBySession[sessionId] ?? ""
         let resizeAuthority = TerminalResizeAuthorityCell(
-            resizeAuthorityBySession[sessionId] == true
+            resizeAuthorityBySession[sessionId] == true,
         )
         let inputFailure: @Sendable (TerminalInputFailure) -> Void = { [weak self, token] failure in
             guard token.isActive else { return }
@@ -222,7 +222,7 @@ public final class TerminalSessionManager {
             runtimeHandle: runtimeHandle,
             token: token,
             runtimeIncarnationId: runtimeIncarnationId,
-            onFailure: inputFailure
+            onFailure: inputFailure,
         )
 
         let renderer = TerminalRendererSession(
@@ -238,7 +238,7 @@ public final class TerminalSessionManager {
             onSurfaceAttached: { [weak self, token] _ in
                 guard token.isActive else { return }
                 self?.connectToRuntimeIfNeeded(sessionId: sessionId, token: token)
-            }
+            },
         )
 
         renderer.setStyle(style())
@@ -249,14 +249,14 @@ public final class TerminalSessionManager {
             token: token,
             resizeAuthority: resizeAuthority,
             resizeDelivery: lastResize,
-            runtimeIncarnationId: runtimeIncarnationId
+            runtimeIncarnationId: runtimeIncarnationId,
         )
     }
 
     func noteCheckpointRestored(
         sessionId: String,
         token: TerminalConnectionToken,
-        surfaceGeneration: UInt64
+        surfaceGeneration: UInt64,
     ) {
         guard token.isActive,
               let managed = sessions[sessionId],
@@ -279,14 +279,14 @@ public final class TerminalSessionManager {
             TerminalResizeContext(
                 sessionId: sessionId, commandSink: commandSink, lastResize: managed.resizeDelivery,
                 resizeAuthority: managed.resizeAuthority, token: managed.token,
-                runtimeIncarnationId: managed.runtimeIncarnationId, surfaceGeneration: surfaceGeneration
+                runtimeIncarnationId: managed.runtimeIncarnationId, surfaceGeneration: surfaceGeneration,
             ).deliver(viewport)
         }
     }
 
     private func connectToRuntimeIfNeeded(
         sessionId: String,
-        token: TerminalConnectionToken
+        token: TerminalConnectionToken,
     ) {
         guard token.isActive,
               let managed = sessions[sessionId],

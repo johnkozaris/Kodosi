@@ -110,7 +110,7 @@ struct RoomScreen: View {
     }
 
     private func dock(
-        _ state: RoomViewState, sections: [RoomSection], selection: RoomSection, select: @escaping (RoomSection) -> Void
+        _ state: RoomViewState, sections: [RoomSection], selection: RoomSection, select: @escaping (RoomSection) -> Void,
     ) -> some View {
         let tasks = rooms.snapshots[roomId]?.tasks ?? []
         let open = tasks.filter { !$0.closed }.count

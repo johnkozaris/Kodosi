@@ -140,7 +140,7 @@ struct RoomTasksView: View {
             defer { state.busy = false }
             do {
                 try await deps.roomAction(
-                    roomId, RoomAction.createTask(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories)
+                    roomId, RoomAction.createTask(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories),
                 )
                 if revision == state.taskRevision {
                     state.taskTitle = ""; state.taskDescription = ""; state.taskRepositories.removeAll()
@@ -260,7 +260,7 @@ private struct RoomTaskCard: View {
             }
             TextField("Result or pull request link", text: Binding(
                 get: { state.completionNotes[task.id] ?? task.note ?? "" },
-                set: { state.completionNotes[task.id] = $0 }
+                set: { state.completionNotes[task.id] = $0 },
             ), axis: .vertical)
                 .lineLimit(1 ... 4).accessibilityIdentifier("room.task.note")
             HStack(spacing: 8) {

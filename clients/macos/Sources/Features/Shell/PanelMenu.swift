@@ -20,7 +20,7 @@ struct PanelMenuRow<Trailing: View>: View {
 
     init(
         _ title: Text, icon: PanelMenuIcon, identifier: String, destructive: Bool = false, action: @escaping () -> Void,
-        @ViewBuilder trailing: @escaping () -> Trailing
+        @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
         self.title = title
         self.icon = icon

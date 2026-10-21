@@ -9,7 +9,7 @@ struct MissionsView: View {
         if !deps.account.isReady {
             SignInView(
                 title: "Rooms are for working together",
-                message: "Share terminals, talk, and hand off tasks with people and agents."
+                message: "Share terminals, talk, and hand off tasks with people and agents.",
             )
         } else if let detail = deps.missionDetail, detail.mission.id == deps.workbench.selectedMissionId {
             RoomView(detail: detail, state: deps.roomView(detail.mission.id))

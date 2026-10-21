@@ -131,7 +131,7 @@ private struct TerminalKeyCap: View {
                 .background {
                     BezelBackground(
                         shape: shape, fill: highlighted ? theme.colors.accent : theme.colors.lifted,
-                        bezel: highlighted ? .solid : .quiet
+                        bezel: highlighted ? .solid : .quiet,
                     )
                 }
                 .contentShape(shape)

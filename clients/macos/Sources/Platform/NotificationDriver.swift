@@ -3,7 +3,7 @@ import Foundation
 
 protocol DesktopNotificationDriving: Sendable {
     func getAuthorizationStatus(
-        _ completion: @escaping @Sendable (UNAuthorizationStatus) -> Void
+        _ completion: @escaping @Sendable (UNAuthorizationStatus) -> Void,
     )
     func requestAuthorization() async throws -> Bool
     func add(_ request: UNNotificationRequest, completion: @escaping @Sendable (Error?) -> Void)
@@ -15,7 +15,7 @@ struct SystemNotificationDriver: DesktopNotificationDriving {
     let center = UNUserNotificationCenter.current()
 
     func getAuthorizationStatus(
-        _ completion: @escaping @Sendable (UNAuthorizationStatus) -> Void
+        _ completion: @escaping @Sendable (UNAuthorizationStatus) -> Void,
     ) {
         center.getNotificationSettings { completion($0.authorizationStatus) }
     }

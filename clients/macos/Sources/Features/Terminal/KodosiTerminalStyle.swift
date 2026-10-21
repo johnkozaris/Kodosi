@@ -17,7 +17,7 @@ enum KodosiTerminalStyle {
             paddingX: 4,
             paddingY: 4,
             minimumContrast: 1.1,
-            palette: .kodosi
+            palette: .kodosi,
         )
     }
 }

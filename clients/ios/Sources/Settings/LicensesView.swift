@@ -26,7 +26,7 @@ struct LicensesView: View {
                                     symbol: "doc.text",
                                     tint: TileTint.graphite,
                                     title: Text(file.title),
-                                    subtitle: file.folder.map { Text($0) }
+                                    subtitle: file.folder.map { Text($0) },
                                 )
                             }
                             .raisedRows()

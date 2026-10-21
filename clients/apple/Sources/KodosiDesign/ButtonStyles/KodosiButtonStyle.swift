@@ -159,7 +159,7 @@ public struct IconButton: View {
         destructive: Bool = false,
         active: Bool = false,
         open: Bool = false,
-        action: @escaping () -> Void
+        action: @escaping () -> Void,
     ) {
         self.title = title
         self.symbol = symbol

@@ -13,7 +13,7 @@ struct PeopleStoreTests {
         store.reset(userId: "user-1")
     }
 
-    @Test func snapshotReplacesFriendsAndRequests() throws {
+    @Test func `snapshot replaces friends and requests`() throws {
         #expect(!store.loaded)
         try deliverSnapshot()
         #expect(store.loaded)
@@ -28,7 +28,7 @@ struct PeopleStoreTests {
         #expect(store.revision == 1)
     }
 
-    @Test func addingSendsTheTrimmedTextWithARequestId() throws {
+    @Test func `adding sends the trimmed text with a request id`() throws {
         #expect(!store.add("   "))
         #expect(outbox.sent.isEmpty)
         #expect(store.add("  kodosi:ana:00ff  "))
@@ -42,7 +42,7 @@ struct PeopleStoreTests {
         #expect(!store.sendingRequest)
     }
 
-    @Test func requestActionsUseTheHandleAndSettleOnTheNextSnapshot() throws {
+    @Test func `request actions use the handle and settle on the next snapshot`() throws {
         try deliverSnapshot()
         let incoming = try #require(store.incoming.first)
         let outgoing = try #require(store.outgoing.first)
@@ -62,7 +62,7 @@ struct PeopleStoreTests {
                              "accountUserId": .null, "accountEpoch": .int(0)])
     }
 
-    @Test func friendActionsUseTheFriendHandle() throws {
+    @Test func `friend actions use the friend handle`() throws {
         try deliverSnapshot()
         let ana = try #require(store.friend("id-ana"))
         let bo = try #require(store.friend("id-bo"))
@@ -72,7 +72,7 @@ struct PeopleStoreTests {
         #expect(outbox.sent.map { $0["username"] } == [.string("bo"), .string("ana")])
     }
 
-    @Test func verifySendsTheTrimmedInvite() throws {
+    @Test func `verify sends the trimmed invite`() throws {
         try deliverSnapshot()
         let bo = try #require(store.friend("id-bo"))
         store.verify(bo, invite: " \n ")
@@ -84,7 +84,7 @@ struct PeopleStoreTests {
         #expect(command["invite"] == .string("kodosi:bo:abcd"))
     }
 
-    @Test func inviteRequestKeepsTheInviteText() throws {
+    @Test func `invite request keeps the invite text`() throws {
         store.requestInvite()
         store.requestInvite()
         #expect(outbox.types == ["friends.invite"])
@@ -94,7 +94,7 @@ struct PeopleStoreTests {
         #expect(!store.fetchingInvite)
     }
 
-    @Test func onlyFriendErrorsSettlePendingWork() throws {
+    @Test func `only friend errors settle pending work`() throws {
         try deliverSnapshot()
         let ana = try #require(store.friend("id-ana"))
         store.remove(ana)
@@ -104,7 +104,7 @@ struct PeopleStoreTests {
         #expect(!store.isBusy("ana"))
     }
 
-    @Test func resetForgetsTheEarlierAccount() throws {
+    @Test func `reset forgets the earlier account`() throws {
         try deliverSnapshot()
         try store.receive(event("friends.result", ["operation": "friends.invite", "requestId": "request-1", "text": "kodosi:me:0a1b"]))
         store.reset(userId: "user-2")
@@ -114,7 +114,7 @@ struct PeopleStoreTests {
         #expect(store.ownInvite == nil)
     }
 
-    @Test func refreshWaitsForTheNextSnapshot() async throws {
+    @Test func `refresh waits for the next snapshot`() async throws {
         let refresh = Task { await store.refresh() }
         for _ in 0 ..< 100 where outbox.sent.isEmpty {
             await Task.yield()

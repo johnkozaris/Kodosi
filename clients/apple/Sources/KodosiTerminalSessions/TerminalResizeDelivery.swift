@@ -33,7 +33,7 @@ public final class ResizeDeliveryState: Sendable {
             $0.pending[request.requestId] = PendingResize(
                 key: key,
                 request: request,
-                admittedAtNanoseconds: nowNanoseconds
+                admittedAtNanoseconds: nowNanoseconds,
             )
             return request
         }

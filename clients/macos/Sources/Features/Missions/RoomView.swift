@@ -323,7 +323,7 @@ struct RoomPeoplePopover: View {
         Task { @MainActor in
             do {
                 _ = try await deps.commandSink.request(
-                    "mission.removeMember", ["missionId": .string(detail.mission.id), "userId": .string(member.userId)]
+                    "mission.removeMember", ["missionId": .string(detail.mission.id), "userId": .string(member.userId)],
                 )
             } catch { state.failure = error.localizedDescription }
         }

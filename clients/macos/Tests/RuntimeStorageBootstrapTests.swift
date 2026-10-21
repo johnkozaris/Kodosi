@@ -12,12 +12,12 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
         .appending(path: name, directoryHint: .isDirectory)
 }
 
-@Test func debugBackendConfigurationAcceptsOnlyLoopbackEndpoints() {
+@Test func `debug backend configuration accepts only loopback endpoints`() {
     #expect(DebugBackendConfiguration.resolve(info: [
         DebugBackendConfiguration.hostInfoKey: "127.0.0.1",
         DebugBackendConfiguration.portInfoKey: "5180",
     ]) == DebugBackendConfiguration(
-        api: "http://127.0.0.1:5180"
+        api: "http://127.0.0.1:5180",
     ))
     #expect(DebugBackendConfiguration.resolve(info: [
         DebugBackendConfiguration.hostInfoKey: "localhost",
@@ -44,18 +44,18 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
 }
 
 @MainActor
-@Test func hostedBootstrapRequiresExplicitDataRoot() {
+@Test func `hosted bootstrap requires explicit data root`() {
     #expect(throws: RuntimeStorageBootstrap.BootstrapError.missingTestDataRoot) {
         try RuntimeStorageBootstrap.resolve(
             environment: [RuntimeStorageBootstrap.xctestEnvironmentKey: "/tmp/test.xctestconfiguration"],
             processIdentifier: 42,
-            installEnvironment: false
+            installEnvironment: false,
         )
     }
 }
 
 @MainActor
-@Test func storageBootstrapRejectsUnsafeRoots() {
+@Test func `storage bootstrap rejects unsafe roots`() {
     for candidate in [
         "",
         "relative",
@@ -71,15 +71,15 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
 }
 
 @MainActor
-@Test func storageBootstrapRejectsFilesystemAliasesOfProductionRoot() throws {
+@Test func `storage bootstrap rejects filesystem aliases of production root`() throws {
     let parent = try canonicalTemporaryTestDirectory(
-        "KodosiStorageIdentityTests-\(UUID().uuidString)"
+        "KodosiStorageIdentityTests-\(UUID().uuidString)",
     )
     defer { try? FileManager.default.removeItem(at: parent) }
     let production = parent.appending(path: "kodosi", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(
         at: production,
-        withIntermediateDirectories: true
+        withIntermediateDirectories: true,
     )
     let alias = parent.appending(path: "KODOSI", directoryHint: .isDirectory)
     let candidate = alias.appending(path: "isolated", directoryHint: .isDirectory)
@@ -88,14 +88,14 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
         try RuntimeStorageBootstrap.validateRoot(
             candidate.path,
             productionHome: parent,
-            productionRoot: production
+            productionRoot: production,
         )
     }
     #expect(!FileManager.default.fileExists(atPath: candidate.path))
 }
 
 @MainActor
-@Test func storageBootstrapRejectsProtectedAncestorsAndChildSymlinksBeforeMutation() throws {
+@Test func `storage bootstrap rejects protected ancestors and child symlinks before mutation`() throws {
     let parent = try canonicalTemporaryTestDirectory("KodosiBootstrapPreflight-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: parent) }
     let production = parent.appending(path: "production/kodosi")
@@ -121,10 +121,10 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
 }
 
 @MainActor
-@Test func hostedBootstrapCreatesUniqueContainedPaths() throws {
+@Test func `hosted bootstrap creates unique contained paths`() throws {
     let parent = URL(
         fileURLWithPath: "/private/var/tmp/KodosiBootstrapTests-\(UUID().uuidString)",
-        isDirectory: true
+        isDirectory: true,
     )
     defer { try? FileManager.default.removeItem(at: parent) }
     let environment = [
@@ -135,12 +135,12 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
     let first = try RuntimeStorageBootstrap.resolve(
         environment: environment,
         processIdentifier: 101,
-        installEnvironment: false
+        installEnvironment: false,
     )
     let second = try RuntimeStorageBootstrap.resolve(
         environment: environment,
         processIdentifier: 102,
-        installEnvironment: false
+        installEnvironment: false,
     )
     let firstRoot = try #require(first.dataRoot)
     let secondRoot = try #require(second.dataRoot)
@@ -155,13 +155,13 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
 }
 
 @MainActor
-@Test func isolatedBootstrapReleasesPreferencesAfterItsLastConsumer() throws {
+@Test func `isolated bootstrap releases preferences after its last consumer`() throws {
     let root = try canonicalTemporaryTestDirectory("KodosiBootstrapLifetimeTests-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }
     var bootstrap: RuntimeStorageBootstrap? = try RuntimeStorageBootstrap.resolve(
         environment: [RuntimeStorageBootstrap.dataRootEnvironmentKey: root.path],
         processIdentifier: 103,
-        installEnvironment: false
+        installEnvironment: false,
     )
     let file = try #require((bootstrap?.defaults as? EphemeralUserDefaults)?.persistentFileURL)
     var consumer = bootstrap?.defaults
@@ -176,7 +176,7 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
 }
 
 @MainActor
-@Test func productionBootstrapKeepsStandardPreferences() throws {
+@Test func `production bootstrap keeps standard preferences`() throws {
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     #expect(!bootstrap.isIsolated)
     #expect(bootstrap.defaults === UserDefaults.standard)

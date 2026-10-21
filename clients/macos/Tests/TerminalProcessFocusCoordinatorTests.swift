@@ -3,12 +3,12 @@ import KodosiTerminalSessions
 import Testing
 
 @Test @MainActor
-func rejectedFocusRetriesOnceThenRevokesOnlyTheCurrentLease() {
+func `rejected focus retries once then revokes only the current lease`() {
     var requests: [(TerminalProcessFocusLease, String)] = []
     var revoked = 0
     let coordinator = TerminalProcessFocusCoordinator(
         sendFocus: { lease, request, completion in requests.append((lease, request)); completion(true) },
-        sendBlur: { _, completion in completion(true) }
+        sendBlur: { _, completion in completion(true) },
     )
     let surface = UUID()
     coordinator.registerRevoker(surfaceId: surface) { revoked += 1 }
@@ -27,7 +27,7 @@ func rejectedFocusRetriesOnceThenRevokesOnlyTheCurrentLease() {
 }
 
 @Test @MainActor
-func acceptedPendingTerminalBlurRefocusesReacquiredLease() {
+func `accepted pending terminal blur refocuses reacquired lease`() {
     var focusLeases: [TerminalProcessFocusLease] = []
     var blurAuthorities: [TerminalProcessFocusReleaseAuthority] = []
     var blurCompletions: [(Bool) -> Void] = []
@@ -39,12 +39,12 @@ func acceptedPendingTerminalBlurRefocusesReacquiredLease() {
         sendBlur: { authority, completion in
             blurAuthorities.append(authority)
             blurCompletions.append(completion)
-        }
+        },
     )
     let lease = TerminalProcessFocusLease(
         sessionId: "session",
         runtimeIncarnationId: "incarnation",
-        subscriptionId: "subscription", subscriptionGeneration: 1
+        subscriptionId: "subscription", subscriptionGeneration: 1,
     )
     let surfaceId = UUID()
 
@@ -52,14 +52,14 @@ func acceptedPendingTerminalBlurRefocusesReacquiredLease() {
         sessionId: lease.sessionId,
         runtimeIncarnationId: lease.runtimeIncarnationId,
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     coordinator.release(surfaceId: surfaceId)
     coordinator.acquire(
         sessionId: lease.sessionId,
         runtimeIncarnationId: lease.runtimeIncarnationId,
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
 
     #expect(focusLeases == [lease])
@@ -76,7 +76,7 @@ func acceptedPendingTerminalBlurRefocusesReacquiredLease() {
 }
 
 @Test @MainActor
-func terminallyRejectedBlurRetriesWithoutReacquisition() {
+func `terminally rejected blur retries without reacquisition`() {
     var blurAuthorities: [TerminalProcessFocusReleaseAuthority] = []
     var blurCompletions: [(Bool) -> Void] = []
     let coordinator = TerminalProcessFocusCoordinator(
@@ -84,7 +84,7 @@ func terminallyRejectedBlurRetriesWithoutReacquisition() {
         sendBlur: { authority, completion in
             blurAuthorities.append(authority)
             blurCompletions.append(completion)
-        }
+        },
     )
     let surfaceId = UUID()
 
@@ -92,7 +92,7 @@ func terminallyRejectedBlurRetriesWithoutReacquisition() {
         sessionId: "session",
         runtimeIncarnationId: "incarnation",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     coordinator.release(surfaceId: surfaceId)
 
@@ -109,13 +109,13 @@ func terminallyRejectedBlurRetriesWithoutReacquisition() {
         sessionId: "session",
         runtimeIncarnationId: "incarnation",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     #expect(blurAuthorities.count == 2)
 }
 
 @Test @MainActor
-func staleBlurCallbackCannotDisplaceReplacementBlurGeneration() {
+func `stale blur callback cannot displace replacement blur generation`() {
     var focusCount = 0
     var blurAuthorities: [TerminalProcessFocusReleaseAuthority] = []
     var blurCompletions: [(Bool) -> Void] = []
@@ -127,7 +127,7 @@ func staleBlurCallbackCannotDisplaceReplacementBlurGeneration() {
         sendBlur: { authority, completion in
             blurAuthorities.append(authority)
             blurCompletions.append(completion)
-        }
+        },
     )
     let surfaceId = UUID()
 
@@ -135,14 +135,14 @@ func staleBlurCallbackCannotDisplaceReplacementBlurGeneration() {
         sessionId: "session",
         runtimeIncarnationId: "incarnation",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     coordinator.release(surfaceId: surfaceId)
     coordinator.acquire(
         sessionId: "session",
         runtimeIncarnationId: "incarnation",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     coordinator.release(surfaceId: surfaceId)
 
@@ -154,7 +154,7 @@ func staleBlurCallbackCannotDisplaceReplacementBlurGeneration() {
 }
 
 @Test @MainActor
-func retiredIncarnationBlurRetriesCannotRefocusReplacementIncarnation() {
+func `retired incarnation blur retries cannot refocus replacement incarnation`() {
     var focusLeases: [TerminalProcessFocusLease] = []
     var blurCalls: [(TerminalProcessFocusReleaseAuthority, (Bool) -> Void)] = []
     let coordinator = TerminalProcessFocusCoordinator(
@@ -164,7 +164,7 @@ func retiredIncarnationBlurRetriesCannotRefocusReplacementIncarnation() {
         },
         sendBlur: { authority, completion in
             blurCalls.append((authority, completion))
-        }
+        },
     )
     let surfaceId = UUID()
 
@@ -172,14 +172,14 @@ func retiredIncarnationBlurRetriesCannotRefocusReplacementIncarnation() {
         sessionId: "session",
         runtimeIncarnationId: "old",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
     coordinator.release(surfaceId: surfaceId)
     coordinator.acquire(
         sessionId: "session",
         runtimeIncarnationId: "replacement",
         subscriptionId: "subscription", subscriptionGeneration: 1,
-        surfaceId: surfaceId
+        surfaceId: surfaceId,
     )
 
     blurCalls[0].1(false)

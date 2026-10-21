@@ -28,7 +28,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     item(id, ["kind": .string("text"), "text": .string(text), "live": .bool(live)])
 }
 
-@Test @MainActor func aSnapshotKeepsEarlierPagesAndANewConversationStartsClean() async throws {
+@Test @MainActor func `a snapshot keeps earlier pages and a new conversation starts clean`() async throws {
     let commands = CommandSink()
     var sent: [[String: JSONValue]] = []
     commands.transport = { data in
@@ -69,7 +69,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(dosi.items.isEmpty)
 }
 
-@Test @MainActor func aTerminalFindsItsQuestionAndTheFaceFollowsTheTurn() throws {
+@Test @MainActor func `a terminal finds its question and the face follows the turn`() throws {
     let dosi = DosiStore(commands: CommandSink())
     let question = item("q", [
         "kind": .string("question"), "question": .string("Continue?"), "options": .array([.string("y"), .string("n")]),
@@ -91,7 +91,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(DosiTool.Action.allCases.allSatisfy { DosiWords.deeds[$0] != nil })
 }
 
-@Test @MainActor func aReplyFromBeforeTheStartIsReadAndANewOneIsNot() throws {
+@Test @MainActor func `a reply from before the start is read and a new one is not`() throws {
     let dosi = DosiStore(commands: CommandSink())
     try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(items: [person("a", "Hi"), text("b", "Hello.")])))
     #expect(!dosi.unseen)
@@ -104,7 +104,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(!dosi.unseen)
 }
 
-@Test @MainActor func aMessageToDosiNamesTheTerminalThatThePersonLooksAt() async throws {
+@Test @MainActor func `a message to Dosi names the terminal that the person looks at`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "DosiContext"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -130,7 +130,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(send["context"] == .object(["terminal": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "room": .null]))
 }
 
-@Test @MainActor func dosiThinksInTheThreadUntilItsTurnShowsSomething() throws {
+@Test @MainActor func `in the thread Dosi thinks until its turn shows something`() throws {
     let dosi = DosiStore(commands: CommandSink())
     try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(state: "working", items: [person("a", "What needs me?")])))
     #expect(dosi.pending)
@@ -150,7 +150,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(!dosi.pending)
 }
 
-@Test @MainActor func theSidebarKeepsAWidthForTheListAndOneForDosi() throws {
+@Test @MainActor func `the sidebar keeps a width for the list and one for Dosi`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "DosiWidth"))
     let workbench = WorkbenchState(defaults: defaults)
     #expect(workbench.shownSidebarWidth == Metrics.sidebarWidth)
@@ -167,7 +167,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(restored.dosiOpen && restored.shownSidebarWidth == 500)
 }
 
-@Test @MainActor func turningDosiOffClosesItAndKeepsItClosed() throws {
+@Test @MainActor func `turning Dosi off closes it and keeps it closed`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "DosiOff"))
     let workbench = WorkbenchState(defaults: defaults)
     workbench.openDosi()
@@ -179,7 +179,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(!restored.dosiOn && !restored.dosiOpen)
 }
 
-@Test func theThreadGroupsStepsOfATurnAndMarksLongGaps() throws {
+@Test func `the thread groups steps of a turn and marks long gaps`() throws {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
     let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 18, hour: 15)))
@@ -209,7 +209,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(DosiWords.receipt(typing) == "typing just test · build" && DosiWords.said(typed) == "typed just test")
 }
 
-@Test @MainActor func aStepInATerminalTouchesItOnceAndTheCardFollowsTheStep() throws {
+@Test @MainActor func `a step in a terminal touches it once and the card follows the step`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "dosi-touch"))
     let app = try AppDependencies(defaults: defaults, storageBootstrap: RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false))
     app.sessions = try [runtimeSession(kind: "local")]
@@ -226,7 +226,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(app.dosiTouches[id]?.count == 2 && app.dosiTouches[id]?.tool?.action == .read && app.dosiTouches[id]?.shows == false)
 }
 
-@Test func theShelfShowsOnlyWholeChipsAndADropdownForTheRest() {
+@Test func `the shelf shows only whole chips and a dropdown for the rest`() {
     let more: (Int) -> CGFloat = { _ in 30 }
     #expect(DosiShelfFit.shown([100, 100, 100], in: 308, more: more) == 3)
     #expect(DosiShelfFit.shown([100, 100, 100, 100], in: 341, more: more) == 2)

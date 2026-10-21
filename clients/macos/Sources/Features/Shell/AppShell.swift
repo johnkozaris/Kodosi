@@ -24,7 +24,7 @@ struct AppShell: View {
                     .background {
                         RaisedBackground(
                             shape: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous),
-                            fill: theme.colors.surface, elevation: .resting
+                            fill: theme.colors.surface, elevation: .resting,
                         )
                     }
                     .padding([.top, .trailing, .bottom], Metrics.frameInset)
@@ -116,7 +116,7 @@ struct AppShell: View {
             SheetLayer(close: { workbench.launcher = nil }, content: {
                 AgentLauncher(
                     roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
-                    started: { workbench.launcher = nil }
+                    started: { workbench.launcher = nil },
                 )
                 .padding(24)
             })

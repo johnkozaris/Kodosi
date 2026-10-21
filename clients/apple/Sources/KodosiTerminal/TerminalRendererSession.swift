@@ -150,7 +150,7 @@ public final class TerminalRendererSession: ObservableObject {
     public init(
         write: @escaping @Sendable (Data) -> Void,
         resize: @escaping @Sendable (TerminalViewport, UInt64) -> Void,
-        onSurfaceAttached: @escaping @MainActor @Sendable (UInt64) -> Void = { _ in }
+        onSurfaceAttached: @escaping @MainActor @Sendable (UInt64) -> Void = { _ in },
     ) {
         Self.configureDebugLoggingIfRequested()
         let inputAuthority = TerminalInputAuthority()
@@ -169,17 +169,17 @@ public final class TerminalRendererSession: ObservableObject {
                         columns: viewport.columns,
                         rows: viewport.rows,
                         cellWidthPixels: viewport.cellWidthPixels,
-                        cellHeightPixels: viewport.cellHeightPixels
+                        cellHeightPixels: viewport.cellHeightPixels,
                     ),
-                    surfaceGeneration.value
+                    surfaceGeneration.value,
                 )
-            }
+            },
         )
         self.backend = backend
         let configuration = TerminalSurfaceOptions(session: backend)
         viewState = TerminalViewState(
             controller: TerminalController.shared,
-            configuration: configuration
+            configuration: configuration,
         )
         viewState.onSurfaceAttached = { [weak self] in
             guard let self else { return }
@@ -195,7 +195,7 @@ public final class TerminalRendererSession: ObservableObject {
                 columns: $0.columns,
                 rows: $0.rows,
                 cellWidthPixels: $0.cellWidthPixels,
-                cellHeightPixels: $0.cellHeightPixels
+                cellHeightPixels: $0.cellHeightPixels,
             )
         }
     }
@@ -226,7 +226,7 @@ public final class TerminalRendererSession: ObservableObject {
     }
 
     func registerAccessibilityUpdateHandler(
-        _ handler: @escaping @MainActor @Sendable () -> Bool
+        _ handler: @escaping @MainActor @Sendable () -> Bool,
     ) -> UUID {
         accessibilityUpdateRelay.register(handler)
     }
@@ -251,7 +251,7 @@ public final class TerminalRendererSession: ObservableObject {
             session: backend,
             fontSize: style.ghosttyFontSize,
             terminalConfiguration: Self.makeConfiguration(style: style),
-            scrollbackLimitBytes: style.scrollback.bytes
+            scrollbackLimitBytes: style.scrollback.bytes,
         )
     }
 
@@ -268,7 +268,7 @@ public final class TerminalRendererSession: ObservableObject {
             columns: viewport.columns,
             rows: viewport.rows,
             cellWidthPixels: viewport.cellWidthPixels,
-            cellHeightPixels: viewport.cellHeightPixels
+            cellHeightPixels: viewport.cellHeightPixels,
         )) else { return false }
         accessibilityUpdateRelay.signal()
         return true
@@ -318,7 +318,7 @@ public final class TerminalRendererSession: ObservableObject {
             }
             $0.withCustom(
                 "adjust-cell-height",
-                "\(style.lineHeightAdjustment)%"
+                "\(style.lineHeightAdjustment)%",
             )
             $0.withBackground(palette.background)
             $0.withForeground(palette.foreground)

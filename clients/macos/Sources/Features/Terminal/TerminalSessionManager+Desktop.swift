@@ -9,7 +9,7 @@ extension TerminalSessionManager {
         settings: DesktopSettings,
         disconnectTerminal: Disconnect? = nil,
         beep: @escaping @MainActor () -> Void = { NSSound.beep() },
-        onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in }
+        onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in },
     ) {
         self.init(
             runtimeHandle: runtimeHandle,
@@ -17,7 +17,7 @@ extension TerminalSessionManager {
             style: { KodosiTerminalStyle.make(settings: settings.terminalSettings) },
             disconnectTerminal: disconnectTerminal,
             beep: beep,
-            onFocusResult: onFocusResult
+            onFocusResult: onFocusResult,
         )
     }
 

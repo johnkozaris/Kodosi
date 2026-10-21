@@ -85,7 +85,7 @@ private struct MentionRenderer: TextRenderer {
                     let rect = run.typographicBounds.rect.insetBy(dx: -3, dy: 0)
                     context.fill(
                         RoundedRectangle(cornerRadius: 5, style: .continuous).path(in: rect),
-                        with: .color(chip.color.opacity(0.18))
+                        with: .color(chip.color.opacity(0.18)),
                     )
                 }
                 context.draw(run)

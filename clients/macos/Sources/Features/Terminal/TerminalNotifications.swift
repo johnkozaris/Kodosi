@@ -104,14 +104,14 @@ final class TerminalNotifications {
                         driver.remove(identifiers: [identifier])
                     }
                 }
-            }
+            },
         )
     }
 
     private func deliver(
         _ request: UNNotificationRequest,
         remainsRelevant: @escaping @MainActor @Sendable () -> Bool,
-        completion: @escaping @Sendable () -> Void
+        completion: @escaping @Sendable () -> Void,
     ) {
         let driver = driver
         driver.getAuthorizationStatus { status in

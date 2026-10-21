@@ -48,7 +48,7 @@ private struct TerminalScreenContent: View {
             connected: session?.isConnected == true,
             canControl: session?.canControl == true,
             incarnation: session?.incarnationId,
-            rendered: controller.renderState == .rendered
+            rendered: controller.renderState == .rendered,
         )
     }
 
@@ -142,7 +142,7 @@ private struct TerminalScreenContent: View {
                         if focused {
                             controller.focusTerminal()
                         }
-                    }
+                    },
                 )
                 .padding(5)
                 .overlay {

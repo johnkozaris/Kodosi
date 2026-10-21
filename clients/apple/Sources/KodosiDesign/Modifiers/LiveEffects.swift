@@ -431,7 +431,7 @@ public extension AnyTransition {
     static var rise: AnyTransition {
         .asymmetric(
             insertion: .opacity.combined(with: .offset(y: 8)).combined(with: .scale(scale: 0.97, anchor: .bottom)),
-            removal: .opacity
+            removal: .opacity,
         )
     }
 

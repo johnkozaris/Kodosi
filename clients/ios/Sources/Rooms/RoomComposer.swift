@@ -55,7 +55,7 @@ struct RoomComposer: View {
             .background {
                 RaisedBackground(
                     shape: RoundedRectangle(cornerRadius: 23, style: .continuous), fill: theme.colors.lifted,
-                    elevation: focused ? .lifted : .resting
+                    elevation: focused ? .lifted : .resting,
                 )
             }
             .overlay {

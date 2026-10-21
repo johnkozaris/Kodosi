@@ -74,7 +74,7 @@ struct RoomMessageRow: View {
         UnevenRoundedRectangle(
             topLeadingRadius: 18, bottomLeadingRadius: 18,
             bottomTrailingRadius: endsGroup ? 6 : 18, topTrailingRadius: startsGroup ? 18 : 8,
-            style: .continuous
+            style: .continuous,
         )
     }
 
@@ -130,7 +130,7 @@ struct RoomMessageRow: View {
         } else if message.agent != nil {
             AgentMark(
                 kind: AgentKind(agentName: message.agent, program: terminal?.program), size: 30,
-                activity: terminal?.mark(rested: .awake) ?? .awake
+                activity: terminal?.mark(rested: .awake) ?? .awake,
             )
         } else {
             PersonAvatar(name: message.authorName, key: message.authorId, size: 30, isSelf: message.authorId == model.rooms.userId)

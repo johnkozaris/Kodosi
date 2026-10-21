@@ -5,22 +5,22 @@ import KodosiTerminalSessions
 import Testing
 
 struct TerminalInputTests {
-    @Test func aMessageKeepsItsLinesAndDropsTrailingNewlines() {
+    @Test func `a message keeps its lines and drops trailing newlines`() {
         #expect(TerminalMessage.text(from: "Plan the release\nThen ship it\n\n") == "Plan the release\nThen ship it")
         #expect(TerminalMessage.text(from: "  indented\r\n") == "  indented")
         #expect(TerminalMessage.text(from: " \n\t\n") == nil)
         #expect(TerminalMessage.text(from: "") == nil)
     }
 
-    @Test func aMessageFitsOneInputChunk() {
+    @Test func `a message fits one input chunk`() {
         #expect(TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes)))
         #expect(!TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes + 1)))
     }
 
-    @Test func typingIsDeliveredInOrderInBoundedChunks() async {
+    @Test func `typing is delivered in order in bounded chunks`() async {
         let queue = TerminalInputQueue(
             perSessionBudget: 1 << 20, globalBudget: 1 << 21,
-            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)]
+            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)],
         )
         let sent = TerminalChunkRecorder()
         var expected = Data()
@@ -37,10 +37,10 @@ struct TerminalInputTests {
         #expect(sent.chunks.allSatisfy { $0.count <= TerminalInputQueue.chunkBytes })
     }
 
-    @Test func aBusyRuntimeGetsTheSameChunkAgainWithoutLossOrRepeat() async {
+    @Test func `a busy runtime gets the same chunk again without loss or repeat`() async {
         let queue = TerminalInputQueue(
             perSessionBudget: 1 << 20, globalBudget: 1 << 21,
-            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)]
+            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)],
         )
         let sent = TerminalChunkRecorder()
         let busy = TerminalChunkRecorder()
@@ -57,10 +57,10 @@ struct TerminalInputTests {
         #expect(busy.chunks.count == 1)
     }
 
-    @Test func aPasteBeyondTheTerminalBudgetIsRefused() {
+    @Test func `a paste beyond the terminal budget is refused`() {
         let queue = TerminalInputQueue(
             perSessionBudget: 1024, globalBudget: 4096,
-            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)]
+            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)],
         )
         let failures = TerminalFailureRecorder()
         queue.enqueue(Data(repeating: 1, count: 2048), sessionId: "s1", coalescingToken: 1, send: { _ in

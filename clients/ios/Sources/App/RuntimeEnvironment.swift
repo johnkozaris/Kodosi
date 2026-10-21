@@ -6,7 +6,7 @@ enum RuntimeEnvironment {
     static func install() throws {
         let fileManager = FileManager.default
         let support = try fileManager.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true,
         )
         var root = support.appending(path: "kodosi", directoryHint: .isDirectory)
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

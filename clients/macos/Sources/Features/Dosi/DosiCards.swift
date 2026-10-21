@@ -14,7 +14,7 @@ struct DosiPersonBubble: View {
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background {
                     UnevenRoundedRectangle(
-                        topLeadingRadius: 14, bottomLeadingRadius: 14, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous
+                        topLeadingRadius: 14, bottomLeadingRadius: 14, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous,
                     )
                     .fill(theme.colors.accentSoft)
                 }

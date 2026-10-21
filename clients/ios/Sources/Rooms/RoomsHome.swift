@@ -52,7 +52,7 @@ struct RoomsHome: View {
             RoomCreateSheet { created = $0 }
         }
         .confirmationDialog(
-            confirmationTitle, isPresented: confirmationShown, titleVisibility: .visible, presenting: confirming
+            confirmationTitle, isPresented: confirmationShown, titleVisibility: .visible, presenting: confirming,
         ) { mission in
             if rooms.isOwner(of: mission.id) {
                 Button("Delete room", role: .destructive) { rooms.run { try await rooms.delete(mission.id) } }

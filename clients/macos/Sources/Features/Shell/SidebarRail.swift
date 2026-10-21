@@ -82,7 +82,7 @@ struct SidebarRail: View {
     }
 
     private func railItem(
-        selected: Bool, help: String, identifier: String, action: @escaping () -> Void, @ViewBuilder content: () -> some View
+        selected: Bool, help: String, identifier: String, action: @escaping () -> Void, @ViewBuilder content: () -> some View,
     ) -> some View {
         Button(action: action) {
             content()

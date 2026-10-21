@@ -32,12 +32,12 @@ struct TerminalWriteContext: Sendable {
                             subscription,
                             token.subscriptionGeneration,
                             base,
-                            UInt(bytes.count)
+                            UInt(bytes.count),
                         )
                     }
                 }
             },
-            onFailure: onFailure
+            onFailure: onFailure,
         )
     }
 
@@ -47,8 +47,8 @@ struct TerminalWriteContext: Sendable {
             UnsafePointer<CChar>,
             UnsafePointer<CChar>,
             UnsafePointer<CChar>,
-            UnsafePointer<UInt8>?
-        ) -> T
+            UnsafePointer<UInt8>?,
+        ) -> T,
     ) -> T {
         sessionId.withCString { session in
             runtimeIncarnationId.withCString { incarnation in
@@ -58,7 +58,7 @@ struct TerminalWriteContext: Sendable {
                             session,
                             incarnation,
                             subscription,
-                            buffer.baseAddress?.assumingMemoryBound(to: UInt8.self)
+                            buffer.baseAddress?.assumingMemoryBound(to: UInt8.self),
                         )
                     }
                 }

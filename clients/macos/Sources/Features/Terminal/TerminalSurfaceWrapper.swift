@@ -49,7 +49,7 @@ struct TerminalSurfaceWrapper: View {
             onFocus: onFocus,
             onFocusChange: onFocusChange,
             registerFocusRevoker: registerFocusRevoker,
-            onShareShortcut: onShareShortcut
+            onShareShortcut: onShareShortcut,
         )
         .background(theme.colors.terminal)
         .onChange(of: inputAllowed, initial: true) { _, enabled in

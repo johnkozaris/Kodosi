@@ -53,7 +53,7 @@ public struct RuntimeStartFailure: Equatable, Sendable {
         }
         self.init(
             code: Code(rawValue: raw.code), hostKind: HostKind(rawValue: raw.host_kind),
-            hostPID: raw.host_pid, hostTerminals: raw.host_terminals, message: message
+            hostPID: raw.host_pid, hostTerminals: raw.host_terminals, message: message,
         )
     }
 

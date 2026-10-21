@@ -3,7 +3,7 @@ import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
-@Test func productNamesUseSharedBounds() {
+@Test func `product names use shared bounds`() {
     #expect(ProductInput.validName(" Terminal "))
     #expect(ProductInput.validName(String(repeating: "é", count: 64)))
     #expect(!ProductInput.validName(String(repeating: "é", count: 65)))
@@ -11,7 +11,7 @@ import Testing
     #expect(!ProductInput.validName("one\ntwo"))
 }
 
-@Test @MainActor func signedOutStartupAndRefreshOnlyListLocalSessions() throws {
+@Test @MainActor func `signed out startup and refresh only list local sessions`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SignedOutRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -38,7 +38,7 @@ import Testing
     app.shutdownProcess()
 }
 
-@Test @MainActor func coldDeepLinkWaitsForAuthenticationThenOpensRemote() async throws {
+@Test @MainActor func `cold deep link waits for authentication then opens remote`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "ColdLink"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -82,7 +82,7 @@ import Testing
     app.shutdownProcess()
 }
 
-@Test @MainActor func changedAccountDropsOldCatalogAndDirectoryState() throws {
+@Test @MainActor func `changed account drops old catalog and directory state`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "AccountFence"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -109,7 +109,7 @@ import Testing
     app.shutdownProcess()
 }
 
-@Test @MainActor func friendSnapshotCarriesIdentityStateAndOnlyARequestedInviteIsCopied() throws {
+@Test @MainActor func `friend snapshot carries identity state and only a requested invite is copied`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "FriendIdentity"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)

@@ -31,7 +31,7 @@ final class DesktopSettings {
             fontSize: TerminalDefaults.fontSize,
             lineHeight: TerminalDefaults.lineHeight,
             scrollbackLines: TerminalDefaults.scrollbackLines,
-            cursorBlink: false
+            cursorBlink: false,
         )
 
         func normalized() -> TerminalSettings {
@@ -40,15 +40,15 @@ final class DesktopSettings {
             copy.fontFamily = family.isEmpty ? TerminalDefaults.fontFamily : family
             copy.fontSize = min(
                 max(fontSize, TerminalDefaults.fontSizeRange.lowerBound),
-                TerminalDefaults.fontSizeRange.upperBound
+                TerminalDefaults.fontSizeRange.upperBound,
             )
             copy.lineHeight = min(
                 max(lineHeight, TerminalDefaults.lineHeightRange.lowerBound),
-                TerminalDefaults.lineHeightRange.upperBound
+                TerminalDefaults.lineHeightRange.upperBound,
             )
             copy.scrollbackLines = min(
                 max(scrollbackLines, TerminalDefaults.scrollbackRange.lowerBound),
-                TerminalDefaults.scrollbackRange.upperBound
+                TerminalDefaults.scrollbackRange.upperBound,
             )
             return copy
         }

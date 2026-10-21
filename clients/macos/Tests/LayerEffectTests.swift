@@ -22,7 +22,7 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     }
 }
 
-@Test @MainActor func aWorkingLightTurnsWithTheClock() throws {
+@Test @MainActor func `a working light turns with the clock`() throws {
     let (window, host) = hosted()
     defer { window.close() }
     let working = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: nil), in: host)
@@ -37,7 +37,7 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     #expect(min(gap, TurningLight.period - gap) < 0.5)
 }
 
-@Test @MainActor func withReducedMotionAWorkingMarkGlowsAlongItsWholeEdge() throws {
+@Test @MainActor func `with reduced motion a working mark glows along its whole edge`() throws {
     let renderer = ImageRenderer(content: LightRim(onTile: .working, cornerRadius: 12, lineWidth: 3)
         .frame(width: 40, height: 40)
         .environment(\.theme, AppTheme.dark.reducingMotion(true)))
@@ -55,7 +55,7 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     #expect(alpha(20, 20) == 0)
 }
 
-@Test @MainActor func onATileTheLightAlsoWarmsTheFaceOnItsSide() throws {
+@Test @MainActor func `on a tile the light also warms the face on its side`() throws {
     let (window, host) = hosted()
     defer { window.close() }
     let tile = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: .white), in: host)
@@ -65,14 +65,14 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     #expect(tile.allSatisfy { $0.gradient.animation(forKey: "turn") != nil })
 }
 
-@Test func theLightLeadsWithAShortEdgeAndTrailsALongerOne() {
+@Test func `the light leads with a short edge and trails a longer one`() {
     #expect(TurningLight.glow(at: 0) == 1)
     #expect(abs(TurningLight.glow(at: 20.0 / 360) - exp(-0.5)) < 0.001)
     #expect(abs(TurningLight.glow(at: 1 - 36.0 / 360) - exp(-0.5)) < 0.001)
     #expect(TurningLight.glow(at: 0.5) < 0.001)
 }
 
-@Test func progressSweepsClockwiseFromTheTop() {
+@Test func `progress sweeps clockwise from the top`() {
     let rect = CGRect(x: 0, y: 0, width: 40, height: 40)
     let quarter = Wedge(fraction: 0.25).path(in: rect)
     #expect(quarter.contains(CGPoint(x: 36, y: 4)))
@@ -81,7 +81,7 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     #expect(Wedge(fraction: 1).path(in: rect).contains(CGPoint(x: 4, y: 4)))
 }
 
-@Test @MainActor func aLineGlidesOnlyWhileItFlowsWithMotion() throws {
+@Test @MainActor func `a line glides only while it flows with motion`() throws {
     let (window, host) = hosted(NSRect(x: 10, y: 10, width: 120, height: 3))
     defer { window.close() }
     for still in [false, true] {
@@ -92,7 +92,7 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     }
 }
 
-@Test @MainActor func loopingMarksAnimateInCoreAnimationAndStopWithoutAWindow() throws {
+@Test @MainActor func `looping marks animate in core animation and stop without a window`() throws {
     let (window, host) = hosted(NSRect(x: 10, y: 10, width: 18, height: 18))
     let breath = Breath(color: .orange, size: 7)
     host.update(setup: breath, environment: EnvironmentValues()) { Breath.draw(breath, $0) }

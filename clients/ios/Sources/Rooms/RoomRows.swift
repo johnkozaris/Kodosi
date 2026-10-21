@@ -77,7 +77,7 @@ private struct RoomRowActivity: View {
                         people: members.map { member in
                             AvatarStack.Person(id: member.userId, name: member.personName, isSelf: member.userId == model.rooms.userId)
                         },
-                        size: 20, limit: 4, ring: theme.colors.raised
+                        size: 20, limit: 4, ring: theme.colors.raised,
                     )
                 }
                 Spacer(minLength: 0)

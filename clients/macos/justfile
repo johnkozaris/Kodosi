@@ -21,12 +21,12 @@ apple-test: ghostty-pins-check
 
 # Lint the Swift sources of the Mac app and of the shared Swift package.
 lint:
-    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --lint --swiftversion 6.0
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --lint --swiftversion 6.3
     swiftlint lint --quiet Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins
 
 # Format the Swift sources of the Mac app and of the shared Swift package.
 format:
-    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.0
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.3
 
 # Test the shared Swift package and the Mac app.
 test: xcode-gen apple-test

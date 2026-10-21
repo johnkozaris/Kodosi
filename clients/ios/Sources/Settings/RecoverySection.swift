@@ -18,7 +18,7 @@ struct RecoverySection: View {
                 if !presented {
                     account.dismissRecoveryKey()
                 }
-            }
+            },
         )
     }
 
@@ -34,7 +34,7 @@ struct RecoverySection: View {
                 SettingRow(
                     symbol: "key.fill",
                     tint: TileTint.amber,
-                    title: Text(account.hasRecoveryKey ? "Make a new key…" : "Make a recovery key")
+                    title: Text(account.hasRecoveryKey ? "Make a new key…" : "Make a recovery key"),
                 ) {
                     if account.creatingRecoveryKey {
                         ProgressView()

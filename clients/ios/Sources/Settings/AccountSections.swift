@@ -90,7 +90,7 @@ struct AccountActionsSection: View {
                 if !presented {
                     account.closeDeletionPage()
                 }
-            }
+            },
         )
     }
 
@@ -164,7 +164,7 @@ struct AccountActionsSection: View {
     private var deletionSummary: String {
         account.deletionSummary(
             rooms: model.rooms.missions,
-            terminals: String(localized: "Terminals on your computers keep running. This cannot be undone.")
+            terminals: String(localized: "Terminals on your computers keep running. This cannot be undone."),
         )
     }
 }

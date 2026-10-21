@@ -9,12 +9,12 @@ xcode-gen:
 
 # Lint the Swift sources of the iPhone and iPad app.
 lint:
-    swiftformat Sources Tests --lint --swiftversion 6.0
+    swiftformat Sources Tests --lint --swiftversion 6.3
     swiftlint lint --quiet Sources Tests
 
 # Format the Swift sources of the iPhone and iPad app.
 format:
-    swiftformat Sources Tests --swiftversion 6.0
+    swiftformat Sources Tests --swiftversion 6.3
 
 # Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
 deployment-targets-check:

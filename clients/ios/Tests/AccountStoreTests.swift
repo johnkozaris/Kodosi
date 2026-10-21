@@ -17,7 +17,7 @@ struct AccountStoreTests {
         store.reset(userId: "user-1")
     }
 
-    @Test func devicesListPutsThisDeviceFirstAndTheRecoveryKeyLast() throws {
+    @Test func `devices list puts this device first and the recovery key last`() throws {
         try deliverDevices()
         #expect(store.orderedDevices.map(\.deviceId) == ["phone", "mac", "key"])
         #expect(store.hasRecoveryKey)
@@ -28,7 +28,7 @@ struct AccountStoreTests {
         #expect(!store.canRemove(phone))
     }
 
-    @Test func removingADeviceSendsItsId() throws {
+    @Test func `removing a device sends its id`() throws {
         try deliverDevices()
         let mac = try #require(store.devices.first { $0.deviceId == "mac" })
         store.revokeDevice(mac)
@@ -36,7 +36,7 @@ struct AccountStoreTests {
         #expect(outbox.sent.last?["deviceId"] == .string("mac"))
     }
 
-    @Test func approvingADeviceShowsWhichDeviceWasApproved() throws {
+    @Test func `approving a device shows which device was approved`() throws {
         store.approveDevice(code: "   ")
         #expect(outbox.sent.isEmpty)
         store.approveDevice(code: " abcd-efgh-jkmn \n")
@@ -51,7 +51,7 @@ struct AccountStoreTests {
         #expect(store.approval == nil)
     }
 
-    @Test func failedApprovalStaysInTheSheetOnlyWhileApproving() throws {
+    @Test func `failed approval stays in the sheet only while approving`() throws {
         let failure = try event("devices.error", ["operation": "devices.link.approve", "message": "No device has this code."])
         #expect(!store.absorb(error: failure, message: "No device has this code."))
         store.approveDevice(code: "ABCD-EFGH-JKMN")
@@ -59,7 +59,7 @@ struct AccountStoreTests {
         #expect(store.approval == .failed("No device has this code."))
     }
 
-    @Test func recoveryKeyIsShownOnceItArrives() throws {
+    @Test func `recovery key is shown once it arrives`() throws {
         store.createRecoveryKey()
         store.createRecoveryKey()
         #expect(outbox.types == ["devices.recovery.create"])
@@ -73,14 +73,14 @@ struct AccountStoreTests {
         #expect(store.newRecoveryKey == nil)
     }
 
-    @Test func recoveryKeyFailureEndsTheWait() throws {
+    @Test func `recovery key failure ends the wait`() throws {
         store.createRecoveryKey()
         let failure = try event("devices.error", ["operation": "devices.recovery.create", "message": "Try again."])
         #expect(!store.absorb(error: failure, message: "Try again."))
         #expect(!store.creatingRecoveryKey)
     }
 
-    @Test func accountDeletionOpensTheConfirmationPage() throws {
+    @Test func `account deletion opens the confirmation page`() throws {
         store.deleteAccount()
         store.deleteAccount()
         #expect(outbox.types == ["auth.deleteAccount"])
@@ -99,21 +99,21 @@ struct AccountStoreTests {
         #expect(store.deletionPage == nil)
     }
 
-    @Test func insecureDeletionPageIsNotOpened() throws {
+    @Test func `insecure deletion page is not opened`() throws {
         store.deleteAccount()
         try store.receiveAuth(event("auth.deletion_pending", ["confirmationUri": "http://auth.kodosi.com/delete"]))
         #expect(store.deletion == .confirming(nil))
         #expect(store.deletionPage == nil)
     }
 
-    @Test func deletionFailureEndsTheRequestAndShowsTheMessage() throws {
+    @Test func `deletion failure ends the request and shows the message`() throws {
         store.deleteAccount()
         let failure = try event("auth.error", ["operation": "auth.deleteAccount", "message": "Kodosi could not reach the server."])
         #expect(!store.absorb(error: failure, message: "Kodosi could not reach the server."))
         #expect(store.deletion == nil)
     }
 
-    @Test func deletedAccountClearsTheDeletionAndSaysSo() throws {
+    @Test func `deleted account clears the deletion and says so`() throws {
         store.deleteAccount()
         try store.receiveAuth(event("auth.deletion_pending", ["confirmationUri": deletionPage]))
         try store.receiveAuth(event("auth.required", ["reason": "accountDeleted"]))
@@ -122,7 +122,7 @@ struct AccountStoreTests {
         #expect(notices.current?.message == "Your Kodosi account is deleted.")
     }
 
-    @Test func authErrorWhileSignedInKeepsTheSignedInStage() throws {
+    @Test func `auth error while signed in keeps the signed in stage`() throws {
         try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
         #expect(store.isReady)
         let failure = try event("auth.error", ["operation": "auth.refresh", "message": "Offline."])
@@ -130,7 +130,7 @@ struct AccountStoreTests {
         #expect(store.stage == .signedIn)
     }
 
-    @Test func authErrorDuringSignInFailsTheSignIn() throws {
+    @Test func `auth error during sign in fails the sign in`() throws {
         store.reset(userId: nil)
         try store.receiveAuth(event("auth.required", userId: nil, ["reason": "signedOut"]))
         store.signIn()
@@ -140,12 +140,12 @@ struct AccountStoreTests {
         #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
     }
 
-    @Test func signOutSendsLogout() {
+    @Test func `sign out sends logout`() {
         store.signOut()
         #expect(outbox.types == ["auth.logout"])
     }
 
-    @Test func refreshDevicesWaitsForTheNextList() async throws {
+    @Test func `refresh devices waits for the next list`() async throws {
         let refresh = Task { await store.refreshDevices() }
         for _ in 0 ..< 100 where outbox.sent.isEmpty {
             await Task.yield()
@@ -156,7 +156,7 @@ struct AccountStoreTests {
         #expect(store.devicesRevision == 1)
     }
 
-    @Test func resetForgetsDevicesAndPendingWork() throws {
+    @Test func `reset forgets devices and pending work`() throws {
         try deliverDevices()
         store.approveDevice(code: "ABCD-EFGH-JKMN")
         store.createRecoveryKey()

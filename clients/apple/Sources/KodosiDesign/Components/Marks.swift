@@ -36,7 +36,7 @@ public struct PersonAvatar: View {
             .background {
                 Circle().fill(LinearGradient(
                     colors: [tint.mix(with: .white, by: 0.18), tint, tint.mix(with: .black, by: 0.16)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
+                    startPoint: .topLeading, endPoint: .bottomTrailing,
                 ))
             }
             .overlay { Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.5) }
@@ -131,12 +131,12 @@ public struct AgentMark: View {
                 colors: asleep
                     ? [theme.colors.raised.mix(with: kind.tint, by: 0.14), theme.colors.raised.mix(with: kind.tint, by: 0.3)]
                     : [kind.tint.mix(with: .white, by: 0.2), kind.tint, kind.tint.mix(with: .black, by: 0.2)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
+                startPoint: .topLeading, endPoint: .bottomTrailing,
             ))
             shape.strokeBorder(
                 LinearGradient(colors: [.white.opacity(asleep ? 0.12 : 0.4), .clear, .black.opacity(0.18)],
                                startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: max(0.5, size * 0.03)
+                lineWidth: max(0.5, size * 0.03),
             )
             light
             glyph.foregroundStyle(asleep ? kind.tint.mix(with: theme.colors.ink, by: 0.35) : .white)
@@ -296,13 +296,13 @@ public struct IconTile: View {
             .background {
                 shape.fill(LinearGradient(
                     colors: [color.mix(with: .white, by: 0.22), color, color.mix(with: .black, by: 0.2)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
+                    startPoint: .topLeading, endPoint: .bottomTrailing,
                 ))
             }
             .overlay {
                 shape.strokeBorder(
                     LinearGradient(colors: [.white.opacity(0.4), .clear, .black.opacity(0.18)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 0.75
+                    lineWidth: 0.75,
                 )
             }
             .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.4 : 0.18), radius: size * 0.08, x: 1, y: 2)
@@ -330,7 +330,7 @@ public struct RoomSigil: View {
         ZStack {
             shape.fill(LinearGradient(
                 colors: [tint.mix(with: .white, by: 0.16), tint.mix(with: .black, by: 0.08), tint.mix(with: .black, by: 0.34)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
+                startPoint: .topLeading, endPoint: .bottomTrailing,
             ))
             VStack(spacing: gap) {
                 ForEach(0 ..< 2, id: \.self) { row in
@@ -346,7 +346,7 @@ public struct RoomSigil: View {
             }
             shape.strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.42), .clear, .black.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: max(0.5, size * 0.03)
+                lineWidth: max(0.5, size * 0.03),
             )
         }
         .frame(width: size, height: size)

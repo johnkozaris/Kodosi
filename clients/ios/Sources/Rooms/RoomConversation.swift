@@ -17,7 +17,7 @@ struct RoomConversation: View {
         RoomMentions.targets(
             members: rooms.details[roomId]?.members ?? [],
             sessions: model.terminals.sessions.filter { $0.missionId == roomId },
-            userId: rooms.userId
+            userId: rooms.userId,
         )
     }
 
@@ -66,7 +66,7 @@ struct RoomConversation: View {
                         message: message,
                         previous: index > 0 ? messages[index - 1] : nil,
                         next: index + 1 < messages.count ? messages[index + 1] : nil,
-                        targets: targets
+                        targets: targets,
                     )
                     .transition(AnyTransition.rise)
                 }
@@ -121,16 +121,16 @@ struct RoomConversation: View {
         if rooms.isOwner(of: roomId) {
             steps.append(RoomWelcome.Step(
                 title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
-                done: (rooms.details[roomId]?.members.count ?? 0) > 1
+                done: (rooms.details[roomId]?.members.count ?? 0) > 1,
             ) { state.showsInfo = true })
         }
         steps.append(RoomWelcome.Step(
             title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
-            done: model.terminals.sessions.contains { $0.missionId == roomId }
+            done: model.terminals.sessions.contains { $0.missionId == roomId },
         ) { show(.terminals, in: state) })
         steps.append(RoomWelcome.Step(
             title: "Put up a task", symbol: "checklist", tint: TileTint.orange,
-            done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true)
+            done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true),
         ) { show(.tasks, in: state) })
         return RoomWelcome(name: rooms.mission(roomId)?.name ?? "", key: roomId, steps: steps)
     }

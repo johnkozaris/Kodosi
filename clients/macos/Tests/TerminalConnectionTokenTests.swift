@@ -3,7 +3,7 @@ import KodosiBridge
 import KodosiTerminalSessions
 import Testing
 
-@Test func terminalSubscriptionTokensAreCanonicalUUIDs() throws {
+@Test func `terminal subscription tokens are canonical UUIDs`() throws {
     let first = TerminalConnectionToken()
     let replacement = TerminalConnectionToken()
     for token in [first, replacement] {
@@ -16,7 +16,7 @@ import Testing
     #expect(first.subscriptionGeneration < replacement.subscriptionGeneration)
 }
 
-@Test func inputSuppressionDoesNotRetireTheRendererConnection() {
+@Test func `input suppression does not retire the renderer connection`() {
     let token = TerminalConnectionToken()
     #expect(!token.canSendInput)
     token.setInputAllowed(true)
@@ -30,7 +30,7 @@ import Testing
     #expect(!token.deactivate())
 }
 
-@Test @MainActor func focusBlurAndResizeUseCanonicalSubscriptionToken() throws {
+@Test @MainActor func `focus blur and resize use canonical subscription token`() throws {
     let token = TerminalConnectionToken()
     let sessionId = UUIDv7.generate()
     let incarnationId = UUIDv7.generate()
@@ -39,17 +39,17 @@ import Testing
     let commands = CommandSink { data in sent.append(data); return 0 }
     #expect(commands.sendTerminalFocus(
         sessionId: sessionId, clientId: token.subscriptionId, subscriptionGeneration: token.subscriptionGeneration,
-        requestId: requestId, expectedRuntimeIncarnationId: incarnationId
+        requestId: requestId, expectedRuntimeIncarnationId: incarnationId,
     ) == 0)
     #expect(commands.sendTerminalBlur(
         sessionId: sessionId, clientId: token.subscriptionId, subscriptionGeneration: token.subscriptionGeneration,
-        expectedRuntimeIncarnationId: incarnationId
+        expectedRuntimeIncarnationId: incarnationId,
     ) == 0)
     commands.sendTerminalResize(sessionId: sessionId, identity: TerminalResizeIdentity(
         requestId: requestId, expectedRuntimeIncarnationId: incarnationId,
         subscriptionId: token.subscriptionId, subscriptionGeneration: token.subscriptionGeneration,
         surfaceGeneration: 1, cols: 80, rows: 24, widthPixels: 640, heightPixels: 384,
-        cellWidthPixels: 8, cellHeightPixels: 16
+        cellWidthPixels: 8, cellHeightPixels: 16,
     ))
     #expect(sent.count == 3)
     for data in sent {

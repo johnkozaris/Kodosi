@@ -10,7 +10,7 @@ public struct ListGroup<Content: View>: View {
     public init(
         title: LocalizedStringKey? = nil,
         footer: LocalizedStringKey? = nil,
-        @ViewBuilder content: @escaping () -> Content
+        @ViewBuilder content: @escaping () -> Content,
     ) {
         self.title = title
         self.footer = footer
@@ -55,7 +55,7 @@ public struct ListRow<Leading: View, Trailing: View>: View {
         subtitle: String? = nil,
         monoSubtitle: Bool = false,
         @ViewBuilder leading: @escaping () -> Leading,
-        @ViewBuilder trailing: @escaping () -> Trailing
+        @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -84,7 +84,7 @@ public struct ListRow<Leading: View, Trailing: View>: View {
 public extension ListRow where Leading == IconTile {
     init(
         _ title: String, subtitle: String? = nil, monoSubtitle: Bool = false, symbol: String, tint: Color? = nil,
-        @ViewBuilder trailing: @escaping () -> Trailing
+        @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
         self.init(title: title, subtitle: subtitle, monoSubtitle: monoSubtitle,
                   leading: { IconTile(symbol: symbol, tint: tint, size: 28) }, trailing: trailing)

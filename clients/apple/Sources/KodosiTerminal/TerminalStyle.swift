@@ -20,7 +20,7 @@ public struct TerminalStyle: Sendable {
         paddingX: Int,
         paddingY: Int,
         minimumContrast: Double,
-        palette: TerminalPalette
+        palette: TerminalPalette,
     ) {
         self.fontFamily = fontFamily
         self.fontSize = fontSize

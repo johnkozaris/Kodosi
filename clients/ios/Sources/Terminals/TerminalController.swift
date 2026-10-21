@@ -150,7 +150,7 @@ final class TerminalController {
             runtimeIncarnationId: session.incarnationId,
             subscriptionId: surface.token.subscriptionId,
             subscriptionGeneration: surface.token.subscriptionGeneration,
-            surfaceId: surfaceId
+            surfaceId: surfaceId,
         )
         holdsFocus = true
     }

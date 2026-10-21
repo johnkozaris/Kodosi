@@ -135,7 +135,7 @@ struct RoomTaskSheet: View {
     }
 
     private func action(
-        _ title: LocalizedStringKey, _ change: RoomTaskChange, kind: KodosiButtonStyle.Kind, task: RoomTask, note: String? = nil
+        _ title: LocalizedStringKey, _ change: RoomTaskChange, kind: KodosiButtonStyle.Kind, task: RoomTask, note: String? = nil,
     ) -> some View {
         Button {
             perform(change, on: task, note: note)

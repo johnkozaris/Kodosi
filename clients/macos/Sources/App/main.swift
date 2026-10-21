@@ -3,7 +3,7 @@ import KodosiKit
 import SwiftUI
 
 let cliStatus = UnsafeRawPointer(CommandLine.unsafeArgv).withMemoryRebound(
-    to: UnsafePointer<CChar>?.self, capacity: Int(CommandLine.argc)
+    to: UnsafePointer<CChar>?.self, capacity: Int(CommandLine.argc),
 ) { arguments in
     kodosi_cli_main(CommandLine.argc, arguments)
 }

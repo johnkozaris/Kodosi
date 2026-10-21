@@ -65,7 +65,7 @@ struct PeopleView: View {
                     if !$0 {
                         pendingRemoval = nil
                     }
-                }), titleVisibility: .visible
+                }), titleVisibility: .visible,
             ) {
                 if let friend = pendingRemoval {
                     Button("Remove", role: .destructive) {

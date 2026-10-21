@@ -106,7 +106,7 @@ struct SidebarView: View {
         guard !theme.motion.reduced else { return .identity }
         return .asymmetric(
             insertion: AnyTransition.pop.animation(theme.motion.snappy?.delay(0.12)),
-            removal: AnyTransition.pop.animation(theme.motion.fade)
+            removal: AnyTransition.pop.animation(theme.motion.fade),
         )
     }
 

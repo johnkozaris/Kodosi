@@ -6,7 +6,7 @@ import KodosiTerminalSessions
 import Observation
 import Testing
 
-@Test @MainActor func createdSessionHasIncarnationBeforePresentationConstructsRenderer() async throws {
+@Test @MainActor func `created session has incarnation before presentation constructs renderer`() async throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "CreatedRenderer"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -50,7 +50,7 @@ import Testing
     #expect(app.terminalManager.session(for: id) === managed)
 }
 
-@Test @MainActor func aNewFrameOfATitleSpinnerChangesNothingOnScreen() throws {
+@Test @MainActor func `a new frame of a title spinner changes nothing on screen`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SpinnerFrame"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -79,7 +79,7 @@ import Testing
     #expect(app.sessions.first?.activity == "Ship the release")
 }
 
-@Test @MainActor func releasingRendererCancelsItsConnectionWithoutClosingTheSession() throws {
+@Test @MainActor func `releasing renderer cancels its connection without closing the session`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "RendererRelease"))
     let runtime = RuntimeHandle(inbox: RuntimeEventInbox())
     let commands = CommandSink { _ in Issue.record("Renderer release must not send session.close"); return 0 }
@@ -101,7 +101,7 @@ import Testing
     manager.releaseSession(for: id)
 }
 
-@Test @MainActor func terminalTilesFillTheStageWithoutChangingSessionOrder() {
+@Test @MainActor func `terminal tiles fill the stage without changing session order`() {
     for size in [CGSize(width: 960, height: 660), CGSize(width: 1400, height: 800), CGSize(width: 700, height: 500)] {
         for count in 1 ... 6 {
             let bounds = CGRect(origin: .zero, size: size)

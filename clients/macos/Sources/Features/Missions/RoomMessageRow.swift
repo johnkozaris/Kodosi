@@ -80,7 +80,7 @@ struct RoomMessageRow: View {
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background {
                     UnevenRoundedRectangle(
-                        topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous
+                        topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous,
                     )
                     .fill(theme.colors.accentSoft)
                 }

@@ -49,7 +49,7 @@ public final class CommandSink {
             return try transport(JSONEncoder().encode(RuntimeCommandEnvelope(
                 accountUserId: accountUserId,
                 accountEpoch: accountEpoch,
-                command: command
+                command: command,
             )))
         } catch {
             onFailure?(error.localizedDescription)
@@ -92,7 +92,7 @@ public final class CommandSink {
     }
 
     public func mutate(
-        _ operation: String, session target: RuntimeSession, current: RuntimeSession?, fields: [String: JSONValue] = [:]
+        _ operation: String, session target: RuntimeSession, current: RuntimeSession?, fields: [String: JSONValue] = [:],
     ) async throws {
         guard let current, current.incarnationId == target.incarnationId else {
             throw RuntimeError.operation(String(localized: "This terminal changed. Try again.", bundle: .module))
@@ -110,7 +110,7 @@ public final class CommandSink {
         let area = pending.operation.prefix(while: { $0 != "." })
         if event.type == area + ".error" {
             finish(requestId, result: .failure(RuntimeError.operation(
-                event.string("message") ?? String(localized: "That did not work.", bundle: .module)
+                event.string("message") ?? String(localized: "That did not work.", bundle: .module),
             )))
         } else if event.type == area + ".result" {
             finish(requestId, result: .success(event))
