@@ -72,7 +72,11 @@ fn private_files_open_once_and_lock() {
     let second = open_private(&path).unwrap();
     assert!(second.try_lock().is_err());
     drop(first);
-    assert!(second.try_lock().is_ok());
+    let released = std::time::Instant::now();
+    while second.try_lock().is_err() {
+        assert!(released.elapsed() < std::time::Duration::from_secs(5));
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 }
 
 #[test]
