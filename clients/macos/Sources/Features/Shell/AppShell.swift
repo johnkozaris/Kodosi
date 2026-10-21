@@ -115,8 +115,8 @@ struct AppShell: View {
         case .launcher:
             SheetLayer(close: { workbench.launcher = nil }, content: {
                 AgentLauncher(
-                    folder: Binding(get: { workbench.launcher?.folder }, set: { workbench.launcher?.folder = $0 }),
-                    roomId: workbench.launcher?.roomId, started: { workbench.launcher = nil }
+                    roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
+                    started: { workbench.launcher = nil }
                 )
                 .padding(24)
             })

@@ -3,8 +3,12 @@ import KodosiBridge
 import Observation
 
 struct LauncherRequest: Equatable {
-    var folder: String?
     var roomId: String?
+}
+
+struct LauncherDraft: Equatable {
+    var prompt = ""
+    var folder: String?
 }
 
 @MainActor
@@ -31,7 +35,7 @@ final class WorkbenchState {
     var showsPalette = false
     var showsNewRoom = false
     var launcher: LauncherRequest?
-    var homeFolder: String?
+    var launcherDraft = LauncherDraft()
     var launcherFocus = 0
     var selectedMissionId: String?
     var sidebarCollapsed = false {
@@ -200,6 +204,7 @@ final class WorkbenchState {
         showsPalette = false
         showsNewRoom = false
         launcher = nil
+        launcherDraft = LauncherDraft()
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {

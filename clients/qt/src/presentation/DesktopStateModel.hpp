@@ -23,6 +23,8 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
+    Q_PROPERTY(QString launcherPrompt READ launcherPrompt WRITE setLauncherPrompt NOTIFY launcherDraftChanged)
+    Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged)
 public:
     enum ActiveView { Sessions, Missions, People, Settings };
     Q_ENUM(ActiveView)
@@ -56,6 +58,11 @@ public:
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
     Q_INVOKABLE void clearError();
     void clearSessions();
+    QString launcherPrompt() const { return m_launcherPrompt; }
+    QString launcherFolder() const { return m_launcherFolder; }
+    void setLauncherPrompt(const QString& value);
+    void setLauncherFolder(const QString& value);
+    Q_INVOKABLE void clearLauncherDraft();
 signals:
     void activeViewChanged();
     void sidebarOpenChanged();
@@ -67,6 +74,7 @@ signals:
     void stageLayoutModeChanged();
     void lastErrorChanged();
     void modalOpenChanged();
+    void launcherDraftChanged();
 
 protected:
     bool eventFilter(QObject*, QEvent*) override;
@@ -79,6 +87,8 @@ private:
     QString m_selected;
     QStringList m_staged;
     QString m_error;
+    QString m_launcherPrompt;
+    QString m_launcherFolder;
     ActiveView m_activeView = Sessions;
     bool m_sidebarOpen = true;
     bool m_dosiOpen = false;

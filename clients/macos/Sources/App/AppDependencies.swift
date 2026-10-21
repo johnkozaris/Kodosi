@@ -293,12 +293,14 @@ final class AppDependencies {
     }
 
     func openLauncher(folder: String? = nil, roomId: String? = nil) {
+        if let folder {
+            workbench.launcherDraft.folder = folder
+        }
         let onHome = workbench.section == .sessions && !workbench.stagedSessionIds.contains { session($0) != nil }
         if onHome, roomId == nil {
-            workbench.homeFolder = folder ?? workbench.homeFolder
             workbench.launcherFocus += 1
         } else {
-            workbench.launcher = LauncherRequest(folder: folder ?? selectedLocalDirectory, roomId: roomId)
+            workbench.launcher = LauncherRequest(roomId: roomId)
         }
     }
 

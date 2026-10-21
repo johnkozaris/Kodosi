@@ -11,7 +11,8 @@ ColumnLayout {
     id: root
 
     property bool centered: false
-    property string folder: ""
+    property bool inSheet: false
+    readonly property string folder: Models.DesktopState.launcherFolder
     property string roomId: ""
     property bool showsAll: false
     property string menuKind: ""
@@ -49,8 +50,15 @@ ColumnLayout {
     }
     function focusPrompt(path) {
         if (path)
-            folder = path
+            Models.DesktopState.launcherFolder = path
         promptInput.forceActiveFocus()
+    }
+    function showDraft() {
+        const prompt = Models.DesktopState.launcherPrompt
+        if (promptInput.text !== prompt) {
+            promptInput.text = prompt
+            promptInput.cursorPosition = promptInput.length
+        }
     }
     function start() {
         if (!ready)
@@ -59,7 +67,7 @@ ColumnLayout {
         const installed = !!info && info.installed
         const command = !info ? words : installed ? "" : info.install
         if (Models.SessionActions.create("", directory, command, installed ? words : "", roomId, installed ? plan.start : ({}))) {
-            promptInput.clear()
+            Models.DesktopState.clearLauncherDraft()
             root.started()
         }
     }
@@ -145,7 +153,7 @@ ColumnLayout {
                 Models.DesktopFiles.requestDirectory("launcher", directory)
                 return
             }
-            folder = id
+            Models.DesktopState.launcherFolder = id
         } else if (kind === "account") {
             if (id === "menu.add") {
                 adding = true
@@ -167,6 +175,7 @@ ColumnLayout {
     Accessible.id: objectName
 
     Component.onCompleted: {
+        showDraft()
         Models.Launcher.refresh(false)
         Models.Launcher.loadModels(agentId)
     }
@@ -195,7 +204,14 @@ ColumnLayout {
 
         function onDirectoryPicked(purpose, path) {
             if (purpose === "launcher" && root.visible)
-                root.folder = path
+                Models.DesktopState.launcherFolder = path
+        }
+    }
+    Connections {
+        target: Models.DesktopState
+
+        function onLauncherDraftChanged() {
+            root.showDraft()
         }
     }
     Connections {
@@ -621,9 +637,11 @@ ColumnLayout {
                     y: commandLine.inline ? commandLine.rowTop : keys.height + 6
                     width: commandLine.inline ? commandLine.width - commandLine.rowEnd : commandLine.width
                     hint: root.hint
+                    clearsOnEscape: !root.inSheet
                     objectName: "launcher.prompt"
                     Accessible.id: objectName
                     Accessible.name: root.info ? qsTr("First prompt") : qsTr("Command")
+                    onTextChanged: Models.DesktopState.launcherPrompt = text
                     onSubmitted: root.start()
                 }
             }
