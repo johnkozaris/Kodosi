@@ -85,13 +85,13 @@ enum DosiAction {
     /// Ask the person a question with choices in Dosi's conversation. Only Dosi in the Kodosi app asks this way.
     Ask {
         question: String,
-        /// One choice; repeat it for each choice.
+        /// One choice; repeat it for each choice. With --terminal, write the words to show, = and what to type, as Yes=y.
         #[arg(long = "option", required = true)]
         options: Vec<String>,
         /// Let the person pick more than one choice.
         #[arg(long)]
         multiple: bool,
-        /// Type the chosen option and Enter into this terminal.
+        /// Type what the chosen option types, and Enter, into this terminal.
         #[arg(long)]
         terminal: Option<String>,
     },

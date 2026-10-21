@@ -39,7 +39,8 @@ pub(super) async fn run(
                     "Only Dosi in the Kodosi app asks with buttons. Ask in your answer.".to_owned(),
                 )
             })?;
-            json!({"type":"dosi.ask","token":token,"question":question,"options":options,"multiple":multiple,"terminal":terminal})
+            let (options, keys) = choices(options, terminal.is_some());
+            json!({"type":"dosi.ask","token":token,"question":question,"options":options,"keys":keys,"multiple":multiple,"terminal":terminal})
         }
     };
     let event = request(client, context, command, json_output).await?;
@@ -48,6 +49,20 @@ pub(super) async fn run(
     } else {
         print_text(&render::result(&event, context))
     }
+}
+
+fn choices(options: Vec<String>, typed: bool) -> (Vec<String>, Vec<String>) {
+    let (labels, keys): (Vec<_>, Vec<_>) = options
+        .into_iter()
+        .map(|option| match option.rsplit_once('=') {
+            Some((label, keys)) if typed && !label.trim().is_empty() => {
+                (label.trim().to_owned(), keys.trim().to_owned())
+            }
+            _ => (option.clone(), option),
+        })
+        .unzip();
+    let keys = if labels == keys { Vec::new() } else { keys };
+    (labels, keys)
 }
 
 async fn say(
@@ -199,4 +214,32 @@ fn line(body: &DosiBody) -> Option<String> {
         },
         DosiBody::Reasoning { .. } => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::choices;
+
+    fn owned(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_terminal_question_shows_words_and_types_keys() {
+        assert_eq!(
+            choices(owned(&["Yes=y", "No = n", "Go on=", "a=b=c", "=x"]), true),
+            (
+                owned(&["Yes", "No", "Go on", "a=b", "=x"]),
+                owned(&["y", "n", "", "c", "=x"])
+            )
+        );
+        assert_eq!(
+            choices(owned(&["y", "n"]), true),
+            (owned(&["y", "n"]), Vec::new())
+        );
+        assert_eq!(
+            choices(owned(&["x=1", "Other"]), false),
+            (owned(&["x=1", "Other"]), Vec::new())
+        );
+    }
 }

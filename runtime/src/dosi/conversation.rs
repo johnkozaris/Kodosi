@@ -141,18 +141,24 @@ impl Conversation {
         item
     }
 
-    pub(super) fn upsert(&mut self, item: DosiItem, sequence: u64, mine: bool) -> bool {
+    pub(super) fn upsert(
+        &mut self,
+        item: DosiItem,
+        sequence: u64,
+        mine: bool,
+        restoring: bool,
+    ) -> bool {
         if let Some(entry) = self
             .entries
             .iter_mut()
             .find(|entry| entry.item.id == item.id)
         {
             entry.sequence = Some(entry.sequence.map_or(sequence, |known| known.max(sequence)));
-            if mine || entry.item == item {
+            if (mine && !restoring) || entry.item == item {
                 return false;
             }
             entry.item = item;
-            entry.mine = false;
+            entry.mine &= mine;
             return true;
         }
         let position = self
@@ -348,19 +354,35 @@ impl Conversation {
         changed
     }
 
-    pub(super) fn answer(&mut self, id: &str, choices: Vec<String>) -> Option<DosiItem> {
-        let item = self.find(id)?;
+    pub(super) fn answer(
+        &mut self,
+        id: &str,
+        choices: Vec<String>,
+    ) -> Result<DosiItem, &'static str> {
+        let closed = "This question is closed.";
+        let item = self.find(id).ok_or(closed)?;
         let DosiBody::Question {
-            answer, options, ..
+            answer,
+            options,
+            multiple,
+            ..
         } = &mut item.body
         else {
-            return None;
+            return Err(closed);
         };
-        if answer.is_some() || choices.iter().any(|choice| !options.contains(choice)) {
-            return None;
+        if answer.is_some() {
+            return Err(closed);
+        }
+        let own = choices
+            .iter()
+            .filter(|choice| !options.contains(choice))
+            .count();
+        let distinct = choices.iter().collect::<HashSet<_>>().len() == choices.len();
+        if choices.is_empty() || own > 1 || !distinct || (!*multiple && choices.len() > 1) {
+            return Err("Choose from the answers, and add at most one of your own.");
         }
         *answer = Some(choices);
-        Some(item.clone())
+        Ok(item.clone())
     }
 
     pub(super) fn close_questions(&mut self) -> Vec<DosiItem> {
@@ -420,8 +442,17 @@ fn size(item: &DosiItem) -> usize {
             text.as_ref().map_or(0, String::len) + output.as_ref().map_or(0, String::len)
         }
         DosiBody::Question {
-            question, options, ..
-        } => question.len() + options.iter().map(String::len).sum::<usize>(),
+            question,
+            options,
+            keys,
+            answer,
+            ..
+        } => std::iter::once(question)
+            .chain(options)
+            .chain(keys)
+            .chain(answer.iter().flatten())
+            .map(String::len)
+            .sum(),
         DosiBody::Notice { text, .. } => text.as_ref().map_or(0, String::len),
     }
     .saturating_add(128)

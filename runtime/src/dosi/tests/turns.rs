@@ -425,6 +425,7 @@ async fn only_dosi_asks_and_the_answer_continues_without_a_new_bubble() {
                 &other,
                 "Which?".to_owned(),
                 vec!["a".to_owned()],
+                Vec::new(),
                 false,
                 None,
                 &mut Output::default()
@@ -436,6 +437,7 @@ async fn only_dosi_asks_and_the_answer_continues_without_a_new_bubble() {
             &token,
             "Which folder?".to_owned(),
             vec!["api".to_owned(), "web".to_owned()],
+            Vec::new(),
             false,
             None,
             &mut Output::default(),
@@ -452,7 +454,7 @@ async fn only_dosi_asks_and_the_answer_continues_without_a_new_bubble() {
         rig.engine
             .answer(
                 &question.id,
-                vec!["mobile".to_owned()],
+                vec!["api".to_owned(), "web".to_owned()],
                 &mut Output::default()
             )
             .is_err()
@@ -472,6 +474,65 @@ async fn only_dosi_asks_and_the_answer_continues_without_a_new_bubble() {
         &item.body,
         DosiBody::Question { answer: Some(answer), .. } if answer == &["web".to_owned()]
     )));
+}
+
+#[tokio::test]
+async fn a_terminal_answer_types_its_keys_and_own_words_go_to_dosi() {
+    let mut rig = Rig::new();
+    rig.send("slow please");
+    rig.until(|rig| !rig.file("token").is_empty()).await;
+    let token = rig.file("token");
+    for question in ["Overwrite the notes?", "Push it?"] {
+        rig.engine
+            .ask(
+                &token,
+                question.to_owned(),
+                vec!["Yes".to_owned(), "No".to_owned()],
+                vec!["y".to_owned(), "n".to_owned()],
+                false,
+                Some("notes".to_owned()),
+                &mut Output::default(),
+            )
+            .unwrap();
+    }
+    rig.stop();
+    rig.idle().await;
+    let questions = rig
+        .items()
+        .into_iter()
+        .filter(|item| matches!(item.body, DosiBody::Question { .. }))
+        .collect::<Vec<_>>();
+    let mut out = Output::default();
+    rig.engine
+        .answer(&questions[0].id, vec!["Yes".to_owned()], &mut out)
+        .unwrap();
+    let typed = out
+        .typing
+        .iter()
+        .map(|typing| (typing.terminal.as_str(), typing.text.as_str()))
+        .collect::<Vec<_>>();
+    assert_eq!(typed, [("notes", "y\r")]);
+    assert_eq!(rig.snapshot()["state"], "idle");
+    let mut out = Output::default();
+    rig.engine
+        .answer(
+            &questions[1].id,
+            vec!["Wait for the review".to_owned()],
+            &mut out,
+        )
+        .unwrap();
+    assert!(out.typing.is_empty());
+    assert_eq!(rig.snapshot()["state"], "working");
+    rig.idle().await;
+    let input = rig.file("input");
+    assert!(input.contains(r#"with Yes. Kodosi typed \"y\" and Enter in the terminal notes."#));
+    assert!(input.contains(r#"in their own words: \"Wait for the review\". Kodosi typed nothing"#));
+    let items = rig.items();
+    rig.engine.shutdown();
+    let (engine, _) = Rig::engine(&rig.base);
+    let restored: Vec<DosiItem> =
+        serde_json::from_value(engine.snapshot()["dosi"]["items"].clone()).unwrap();
+    assert_eq!(restored, items);
 }
 
 #[tokio::test]
