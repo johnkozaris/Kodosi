@@ -16,10 +16,10 @@
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "keycloak-js": "26.2.4",
-    "keycloakify": "11.16.1",
-    "lucide-react": "1.51.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "keycloakify": "11.16.3",
+    "lucide-react": "1.60.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
@@ -28,10 +28,10 @@
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.1",
-    "oxlint": "1.86.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "oxlint": "1.89.0",
     "tailwindcss": "4.3.3",
-    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript": "7.0.2",
     "vite": "8.3.4"
   }
 }
