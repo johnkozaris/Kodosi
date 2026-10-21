@@ -68,13 +68,17 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.workbench.launcherFocus == 1)
     app.openLauncher(folder: "/work/atlas")
     #expect(app.workbench.launcher == nil)
-    #expect(app.workbench.homeFolder == "/work/atlas")
+    #expect(app.workbench.launcherDraft.folder == "/work/atlas")
     app.openLauncher(roomId: "room")
-    #expect(app.workbench.launcher == LauncherRequest(folder: nil, roomId: "room"))
+    #expect(app.workbench.launcher == LauncherRequest(roomId: "room"))
+    app.workbench.launcherDraft.prompt = "fix the build"
     app.workbench.launcher = nil
     app.workbench.section = .people
     app.openLauncher()
     #expect(app.workbench.launcher == LauncherRequest())
+    #expect(app.workbench.launcherDraft == LauncherDraft(prompt: "fix the build", folder: "/work/atlas"))
+    app.workbench.switchAccount("another-user")
+    #expect(app.workbench.launcherDraft == LauncherDraft())
 }
 
 @Test @MainActor func aTerminalStartedForARoomJoinsThatRoom() async throws {

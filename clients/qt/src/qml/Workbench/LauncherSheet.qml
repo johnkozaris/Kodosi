@@ -1,6 +1,7 @@
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
+import Kodosi.Models 1.0 as Models
 
 KPopover {
     id: root
@@ -8,7 +9,8 @@ KPopover {
     signal resumeRequested
 
     function openFor(folder, roomId) {
-        launcher.folder = folder || ""
+        if (folder)
+            Models.DesktopState.launcherFolder = folder
         launcher.roomId = roomId || ""
         open()
     }
@@ -28,6 +30,7 @@ KPopover {
     contentItem: AgentLauncher {
         id: launcher
 
+        inSheet: true
         onStarted: root.close()
         onResumeRequested: {
             root.close()

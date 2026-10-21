@@ -7,6 +7,7 @@ TextEdit {
     id: root
 
     property string hint: ""
+    property bool clearsOnEscape: true
     property bool holds: true
     property bool lit: true
     readonly property real cell: metrics.advanceWidth("M")
@@ -54,7 +55,7 @@ TextEdit {
     Keys.onTabPressed: nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
     Keys.onBacktabPressed: nextItemInFocusChain(false).forceActiveFocus(Qt.BacktabFocusReason)
     Keys.onEscapePressed: event => {
-        if (length > 0)
+        if (clearsOnEscape && length > 0)
             clear()
         else
             event.accepted = false
