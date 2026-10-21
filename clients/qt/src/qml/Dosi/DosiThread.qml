@@ -191,10 +191,6 @@ Item {
                 }
             }
         }
-        add: Transition {
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
-            NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
-        }
         displaced: Transition {
             NumberAnimation { property: "y"; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
         }
@@ -210,7 +206,14 @@ Item {
             width: ListView.view.width - 28
             height: gap + body.height
             transformOrigin: Item.Bottom
+            ListView.onAdd: arrive.restart()
 
+            ParallelAnimation {
+                id: arrive
+
+                NumberAnimation { target: entry; property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
+                NumberAnimation { target: entry; property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+            }
             Loader {
                 id: body
                 y: entry.gap

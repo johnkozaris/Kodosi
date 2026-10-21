@@ -67,7 +67,8 @@ model and effort.
 
 Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and rooms,
 answers, and types, starts and closes things for you. When it needs a choice, it asks with
-buttons. Your conversation with Dosi is the same on all your computers.
+buttons, and you can also answer in your own words. Your conversation with Dosi is the
+same on all your computers.
 
 The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
 question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.

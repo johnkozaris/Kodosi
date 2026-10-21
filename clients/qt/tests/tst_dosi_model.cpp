@@ -182,16 +182,16 @@ private slots:
         Fixture f;
         f.workspace.apply(test::snapshot({ test::session(1) }), 0);
         QJsonObject question { { QStringLiteral("kind"), QStringLiteral("question") }, { QStringLiteral("question"), QStringLiteral("Ship it?") },
-            { QStringLiteral("options"), QJsonArray { QStringLiteral("y"), QStringLiteral("n") } }, { QStringLiteral("terminal"), QStringLiteral("Terminal") } };
+            { QStringLiteral("options"), QJsonArray { QStringLiteral("Yes"), QStringLiteral("No") } },
+            { QStringLiteral("keys"), QJsonArray { QStringLiteral("y"), QStringLiteral("n") } }, { QStringLiteral("terminal"), QStringLiteral("Terminal") } };
         f.snapshot({ entry(QStringLiteral("q"), question) });
         QVERIFY(f.dosi.asking());
         QCOMPARE(f.dosi.terminalQuestions().value(test::id(1)).toMap().value(QStringLiteral("item")).toString(), QStringLiteral("q"));
-        QVERIFY(f.dosi.rows().last().toMap().value(QStringLiteral("keys")).toBool());
-        question.insert(QStringLiteral("answer"), QJsonArray { QStringLiteral("y") });
+        question.insert(QStringLiteral("answer"), QJsonArray { QStringLiteral("Yes") });
         f.item(entry(QStringLiteral("q"), question));
         QVERIFY(!f.dosi.asking());
         QVERIFY(f.dosi.terminalQuestions().isEmpty());
-        QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("answered")).toString(), QStringLiteral("y · Terminal"));
+        QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("answered")).toString(), QStringLiteral("Yes · Terminal"));
     }
 
     void dosiThinksInTheThreadUntilItsTurnShowsSomething()

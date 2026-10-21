@@ -10,6 +10,8 @@ Row {
 
     required property string sessionId
     readonly property var question: Models.DesktopState.dosiOn ? Models.Dosi.terminalQuestions[sessionId] || null : null
+    readonly property bool brief: !!question && question.multiple !== true && question.options.length <= 3
+        && question.options.every(option => option.length <= 12)
 
     spacing: 4
     visible: opacity > 0
@@ -33,14 +35,14 @@ Row {
     }
     KButton {
         anchors.verticalCenter: parent.verticalCenter
-        visible: !!root.question && root.question.multiple === true
+        visible: !!root.question && !root.brief
         compact: true
         variant: KButton.Tinted
         text: qsTr("Answer")
         onClicked: Models.DesktopState.openDosi()
     }
     Repeater {
-        model: root.question && root.question.multiple !== true ? root.question.options.slice(0, 4) : []
+        model: root.brief ? root.question.options : []
 
         KButton {
             required property string modelData

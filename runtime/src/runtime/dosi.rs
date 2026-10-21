@@ -51,6 +51,7 @@ impl Runtime {
                 token,
                 question,
                 options,
+                keys,
                 multiple,
                 terminal,
                 ..
@@ -59,6 +60,7 @@ impl Runtime {
                     token,
                     question.clone(),
                     options.clone(),
+                    keys.clone(),
                     *multiple,
                     terminal.clone(),
                     &mut out,

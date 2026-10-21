@@ -31,6 +31,7 @@ pub const MAX_INSTRUCTIONS_BYTES: usize = 32 * 1024;
 pub const MAX_QUESTION_BYTES: usize = 1024;
 pub const MAX_OPTION_BYTES: usize = 200;
 pub const MAX_OPTIONS: usize = 8;
+pub const MAX_ANSWER_BYTES: usize = 1024;
 pub const TOKEN_VARIABLE: &str = "KODOSI_DOSI_TOKEN";
 
 pub const AGENTS: [Agent; 2] = [Agent::Claude, Agent::Codex];
@@ -137,6 +138,8 @@ pub enum DosiBody {
     Question {
         question: String,
         options: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        keys: Vec<String>,
         multiple: bool,
         terminal: Option<String>,
         answer: Option<Vec<String>>,

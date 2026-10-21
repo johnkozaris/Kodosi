@@ -3091,6 +3091,12 @@
               }
             ]
           },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "multiple": {
             "type": "boolean"
           },
@@ -7448,6 +7454,12 @@
                                 }
                               ]
                             },
+                            "keys": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
                             "kind": {
                               "const": "question"
                             },
@@ -8027,6 +8039,12 @@
                           }
                         ]
                       },
+                      "keys": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
                       "kind": {
                         "const": "question"
                       },
@@ -8451,6 +8469,12 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "keys": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
                                 },
                                 "kind": {
                                   "const": "question"

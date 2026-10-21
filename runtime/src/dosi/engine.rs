@@ -326,7 +326,7 @@ impl Engine {
         self.conversation = None;
         let mut out = Output::default();
         for entry in log.entries {
-            self.record(entry, &mut out);
+            self.record(entry, true, &mut out);
         }
     }
 
@@ -1114,11 +1114,13 @@ impl Engine {
             .ok_or_else(|| Error::Invalid("Dosi has no conversation.".to_owned()))?;
         let answered = conversation
             .answer(item, choices)
-            .ok_or_else(|| Error::Invalid("This question is closed.".to_owned()))?;
+            .map_err(|reason| Error::Invalid(reason.to_owned()))?;
         out.item(&answered);
         self.write(answered.clone(), out);
         let DosiBody::Question {
             question,
+            options,
+            keys,
             terminal,
             answer: Some(choices),
             ..
@@ -1126,21 +1128,51 @@ impl Engine {
         else {
             return Ok(());
         };
-        let chosen = choices.join(", ");
+        let (picked, own): (Vec<_>, Vec<_>) = choices
+            .into_iter()
+            .partition(|choice| options.contains(choice));
+        let with = if picked.is_empty() {
+            String::new()
+        } else {
+            format!(" with {}", picked.join(", "))
+        };
+        let words = own.first().map_or_else(String::new, |own| {
+            let and = if picked.is_empty() { "" } else { " and" };
+            format!("{and} in their own words: \"{own}\"")
+        });
+        let note = format!("The person answered \"{question}\"{with}{words}");
         if let Some(terminal) = terminal {
-            for choice in &choices {
+            let typed = picked
+                .iter()
+                .map(|choice| {
+                    let index = options.iter().position(|option| option == choice);
+                    index.and_then(|index| keys.get(index)).unwrap_or(choice)
+                })
+                .collect::<Vec<_>>();
+            for text in &typed {
                 out.typing.push(Typing {
                     terminal: terminal.clone(),
-                    text: format!("{choice}\r"),
+                    text: format!("{text}\r"),
                 });
             }
+            let typed = if typed.is_empty() {
+                "nothing".to_owned()
+            } else {
+                typed
+                    .iter()
+                    .map(|text| format!("\"{text}\" and Enter"))
+                    .collect::<Vec<_>>()
+                    .join(", then ")
+            };
             self.notes.push(format!(
-                "The person answered \"{question}\" with {chosen}, and Kodosi typed it in the terminal {terminal}."
+                "{note}. Kodosi typed {typed} in the terminal {terminal}."
             ));
-            return Ok(());
+            if own.is_empty() {
+                return Ok(());
+            }
+        } else {
+            self.notes.push(format!("{note}."));
         }
-        self.notes
-            .push(format!("The person answered \"{question}\": {chosen}"));
         self.wake = true;
         self.advance(out);
         Ok(())
@@ -1151,6 +1183,7 @@ impl Engine {
         token: &str,
         question: String,
         options: Vec<String>,
+        keys: Vec<String>,
         multiple: bool,
         terminal: Option<String>,
         out: &mut Output,
@@ -1167,6 +1200,7 @@ impl Engine {
         let item = conversation.push(DosiBody::Question {
             question,
             options,
+            keys,
             multiple,
             terminal,
             answer: None,
@@ -1307,7 +1341,7 @@ impl Engine {
                 .as_mut()
                 .filter(|current| current.id == conversation)
         {
-            current.upsert(item, entry.sequence, true);
+            current.upsert(item, entry.sequence, true, false);
         }
     }
 
@@ -1450,7 +1484,7 @@ impl Engine {
             .collect::<Vec<_>>();
         self.store.append(book, &entries);
         for entry in entries {
-            self.record(entry, out);
+            self.record(entry, false, out);
         }
         if let Some(instructions) = log.instructions.filter(|_| !saving)
             && let Err(error) = self.adopt_instructions(instructions.text.as_deref(), out)
@@ -1493,7 +1527,7 @@ impl Engine {
         }
     }
 
-    fn record(&mut self, entry: DosiEntry, out: &mut Output) {
+    fn record(&mut self, entry: DosiEntry, restoring: bool, out: &mut Output) {
         let DosiEntry {
             sequence,
             mine,
@@ -1553,7 +1587,7 @@ impl Engine {
                 }
                 let id = item.id.clone();
                 if let Some(current) = self.conversation.as_mut()
-                    && current.upsert(item, sequence, mine)
+                    && current.upsert(item, sequence, mine, restoring)
                     && let Some(item) = current.item(&id)
                 {
                     out.item(item);

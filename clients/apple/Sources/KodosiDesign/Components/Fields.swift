@@ -4,19 +4,21 @@ public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
     @Environment(\.theme) private var theme
     @FocusState private var focused: Bool
     public var radius: CGFloat = Radius.md
+    public var compact = false
 
-    public init(radius: CGFloat = Radius.md) {
+    public init(radius: CGFloat = Radius.md, compact: Bool = false) {
         self.radius = radius
+        self.compact = compact
     }
 
     @MainActor
     public func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .textFieldStyle(.plain)
-            .appTextStyle(.body)
+            .appTextStyle(compact ? .footnote : .body)
             .focused($focused)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 34)
+            .padding(.horizontal, compact ? 10 : 12)
+            .frame(minHeight: compact ? KodosiButtonStyle.Size.small.height : 34)
             .well(radius)
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
