@@ -13,10 +13,11 @@ public sealed class TerminalConnectionTests
     private static DeviceConnection Connection(WebSocket socket, Guid user, string device, RelayBudget relays) =>
         new(socket, user, device, relays, TimeProvider.System);
 
-    private static (DeviceConnection Connection, CapturingSocket Socket) Device(ConnectionDirectory directory, Guid? user = null, string device = "viewer")
+    private static (DeviceConnection Connection, CapturingSocket Socket) Device(ConnectionDirectory directory, Guid? user = null, string device = "viewer",
+        bool hosts = false, int version = ContractVersions.TerminalConnection)
     {
         var socket = new CapturingSocket();
-        return (Connection(socket, user ?? Guid.CreateVersion7(), device, directory.Relays), socket);
+        return (new DeviceConnection(socket, user ?? Guid.CreateVersion7(), device, directory.Relays, TimeProvider.System, version, hosts), socket);
     }
 
     private static async Task<JsonElement> MessageAsync(CapturingSocket socket, string type)
@@ -278,6 +279,82 @@ public sealed class TerminalConnectionTests
         Assert.Equal((0, 0, 0), directory.Counts());
         Assert.False(IsOnline(directory, state.Id));
     }
+
+    [Fact]
+    public async Task ADeviceCallsOnlyAnotherConnectedComputerOfItsPerson()
+    {
+        var directory = new ConnectionDirectory(); var user = Guid.CreateVersion7();
+        var (computer, computerSocket) = Device(directory, user, "computer", hosts: true);
+        var (phone, phoneSocket) = Device(directory, user, "phone");
+        var (stranger, _) = Device(directory, device: "stranger", hosts: true);
+        await using var disposeComputer = computer; await using var disposePhone = phone; await using var disposeStranger = stranger;
+        directory.Register(computer); directory.Register(phone); directory.Register(stranger);
+        directory.Ready(computer); directory.Ready(stranger);
+        Assert.False(phoneSocket.Frames.Reader.TryRead(out _));
+        directory.Ready(phone);
+        Assert.Equal(["computer"], Hosts(await MessageAsync(phoneSocket, "hosts")));
+
+        var pipe = Guid.CreateVersion7();
+        directory.Call(phone, pipe, "computer");
+        var caller = await MessageAsync(computerSocket, "caller");
+        Assert.Equal(pipe, caller.GetProperty("pipe").GetGuid());
+        Assert.Equal(user, caller.GetProperty("userId").GetGuid());
+        Assert.Equal("phone", caller.GetProperty("deviceId").GetString());
+        var up = BackendApplication.PipeFrame(pipe, [1]); var down = BackendApplication.PipeFrame(pipe, [2]);
+        Assert.Equal(up.Length, directory.Relay(phone, pipe, up));
+        Assert.Equal(up, await BinaryAsync(computerSocket));
+        Assert.Equal(down.Length, directory.Relay(computer, pipe, down));
+        Assert.Equal(down, await BinaryAsync(phoneSocket));
+
+        foreach (var (from, to) in new[] { (phone, "stranger"), (phone, "phone"), (computer, "computer"), (computer, "phone"), (phone, "missing") })
+            Assert.Equal(409, Assert.Throws<ApiException>(() => directory.Call(from, Guid.CreateVersion7(), to)).Status);
+    }
+
+    [Fact]
+    public async Task AComputerTakesFewCallsAtOnceAndItsLossEndsThemAndTellsTheOtherDevices()
+    {
+        var directory = new ConnectionDirectory(); var user = Guid.CreateVersion7();
+        var (computer, _) = Device(directory, user, "computer", hosts: true);
+        var (laptop, laptopSocket) = Device(directory, user, "laptop", hosts: true);
+        var (older, olderSocket) = Device(directory, user, "older", version: ContractVersions.OldestTerminalConnection);
+        await using var disposeComputer = computer; await using var disposeLaptop = laptop; await using var disposeOlder = older;
+        foreach (var device in new[] { computer, laptop, older }) { directory.Register(device); directory.Ready(device); }
+        Assert.Equal(["computer", "laptop"], Hosts(await MessageAsync(laptopSocket, "hosts")));
+        var calls = Enumerable.Range(0, ConnectionDirectory.MaximumCalls).Select(_ => Guid.CreateVersion7()).ToArray();
+        foreach (var call in calls) directory.Call(laptop, call, "computer");
+        Assert.Equal(503, Assert.Throws<ApiException>(() => directory.Call(laptop, Guid.CreateVersion7(), "computer")).Status);
+        directory.Close(laptop, calls[0]);
+        directory.Call(laptop, Guid.CreateVersion7(), "computer");
+
+        directory.Remove(computer);
+        Assert.Equal(["laptop"], Hosts(await MessageAsync(laptopSocket, "hosts")));
+        var closed = await MessageAsync(laptopSocket, "closed");
+        Assert.Equal(409, closed.GetProperty("status").GetInt32());
+        Assert.Equal("That computer is not online.", closed.GetProperty("message").GetString());
+        Assert.Equal((2, 0, 0), directory.Counts());
+        while (olderSocket.Frames.Reader.TryRead(out var frame))
+            Assert.DoesNotContain("\"hosts\"", Encoding.UTF8.GetString(frame.Bytes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AComputerThatConnectsAgainBeforeItsOldConnectionEndsStaysReachable()
+    {
+        var directory = new ConnectionDirectory(); var user = Guid.CreateVersion7();
+        var (old, _) = Device(directory, user, "computer", hosts: true);
+        var (computer, computerSocket) = Device(directory, user, "computer", hosts: true);
+        var (laptop, laptopSocket) = Device(directory, user, "laptop");
+        await using var disposeOld = old; await using var disposeComputer = computer; await using var disposeLaptop = laptop;
+        directory.Register(old); directory.Ready(old);
+        directory.Register(computer); directory.Ready(computer);
+        Assert.Equal(["computer"], Hosts(await MessageAsync(computerSocket, "hosts")));
+        directory.Register(laptop); directory.Ready(laptop);
+        Assert.Equal(["computer"], Hosts(await MessageAsync(laptopSocket, "hosts")));
+        var pipe = Guid.CreateVersion7();
+        directory.Call(laptop, pipe, "computer");
+        Assert.Equal(pipe, (await MessageAsync(computerSocket, "caller")).GetProperty("pipe").GetGuid());
+    }
+
+    private static string[] Hosts(JsonElement notice) => notice.GetProperty("deviceIds").EnumerateArray().Select(x => x.GetString()!).ToArray();
 
     private static bool IsOnline(ConnectionDirectory directory, Guid sessionId) => directory.Live(sessionId).Online;
 

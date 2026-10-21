@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QSize>
 #include <QStringList>
+#include <QVariantMap>
 #include <memory>
 #include <optional>
 
@@ -25,6 +26,7 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
     Q_PROPERTY(QString launcherPrompt READ launcherPrompt WRITE setLauncherPrompt NOTIFY launcherDraftChanged)
     Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged)
+    Q_PROPERTY(QVariantMap launcherRemoteFolders READ launcherRemoteFolders NOTIFY launcherDraftChanged)
 public:
     enum ActiveView { Sessions, Missions, People, Settings };
     Q_ENUM(ActiveView)
@@ -60,8 +62,10 @@ public:
     void clearSessions();
     QString launcherPrompt() const { return m_launcherPrompt; }
     QString launcherFolder() const { return m_launcherFolder; }
+    QVariantMap launcherRemoteFolders() const { return m_launcherRemoteFolders; }
     void setLauncherPrompt(const QString& value);
     void setLauncherFolder(const QString& value);
+    Q_INVOKABLE void setLauncherRemoteFolder(const QString& computer, const QString& path);
     Q_INVOKABLE void clearLauncherDraft();
 signals:
     void activeViewChanged();
@@ -89,6 +93,7 @@ private:
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;
+    QVariantMap m_launcherRemoteFolders;
     ActiveView m_activeView = Sessions;
     bool m_sidebarOpen = true;
     bool m_dosiOpen = false;

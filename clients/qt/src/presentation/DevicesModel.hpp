@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QStringList>
 #include <QVariantList>
 
 namespace kodosi {
@@ -16,6 +17,7 @@ class DevicesModel final : public QObject {
     Q_PROPERTY(QString selfDeviceId READ selfDeviceId NOTIFY changed)
     Q_PROPERTY(QString newRecoveryKey READ newRecoveryKey NOTIFY changed)
     Q_PROPERTY(bool hasRecoveryKey READ hasRecoveryKey NOTIFY changed)
+    Q_PROPERTY(QVariantList computers READ computers NOTIFY changed)
 
 public:
     explicit DevicesModel(Workspace& workspace);
@@ -28,6 +30,7 @@ public:
     QString selfDeviceId() const { return m_selfDeviceId; }
     QString newRecoveryKey() const { return m_newRecoveryKey; }
     bool hasRecoveryKey() const;
+    QVariantList computers() const;
 
     Q_INVOKABLE void revoke(const QString& deviceId);
     Q_INVOKABLE void approve(const QString& code);
@@ -48,6 +51,7 @@ private:
     Workspace& m_workspace;
     QVariantList m_devices;
     QVariantList m_requests;
+    QStringList m_hosts;
     QString m_approvalCode;
     QString m_notice;
     QString m_selfDeviceId;

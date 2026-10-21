@@ -46,15 +46,16 @@ internal static partial class ConnectionEndpoints
             using (var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted))
             {
                 handshake.CancelAfter(Handshake);
-                (deviceId, var secret) = await HelloAsync(socket, reader, handshake.Token);
+                (deviceId, var secret, var version, var hosts) = await HelloAsync(socket, reader, handshake.Token);
                 await RequireSessionAsync(socket, deviceSessions, user.Id, deviceId, secret, handshake.Token);
                 await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
-                connection = new DeviceConnection(socket, user.Id, deviceId, directory.Relays, clock);
+                connection = new DeviceConnection(socket, user.Id, deviceId, directory.Relays, clock, version, hosts);
                 connection.ExtendUntil(expires);
                 directory.Register(connection);
                 await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
             }
             connection.Send(Wire.Ready);
+            directory.Ready(connection);
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, connection.Stopped, connection.Expired);
             await ListenAsync(connection, reader, directory, scopes, metrics, clock, logger, lifetime.Token);
         }
@@ -80,19 +81,21 @@ internal static partial class ConnectionEndpoints
         }
     }
 
-    private static async Task<(string DeviceId, string? Session)> HelloAsync(WebSocket socket, MessageReader reader, CancellationToken ct)
+    private static async Task<(string DeviceId, string? Session, int Version, bool Hosts)> HelloAsync(WebSocket socket, MessageReader reader, CancellationToken ct)
     {
         if (await reader.ReadAsync(ControlBytes, ct) != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
         using var hello = JsonDocument.Parse(reader.Memory, new JsonDocumentOptions { MaxDepth = 32 });
         var root = hello.RootElement;
         if (root.GetProperty("type").GetString() != "hello") throw ApiException.Invalid("Expected device connection hello.");
-        if (root.GetProperty("protocolVersion").GetInt32() is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
+        var version = root.GetProperty("protocolVersion").GetInt32();
+        if (version is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
         {
             await socket.SendAsync(Wire.Encode(new RefusedNotice("version", ContractVersions.OldestTerminalConnection, ContractVersions.TerminalConnection)),
                 WebSocketMessageType.Text, true, ct);
             throw ApiException.Invalid("Unsupported terminal connection protocol.");
         }
-        return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString());
+        var hosts = version >= ContractVersions.Calls && root.TryGetProperty("hosts", out var flag) && flag.GetBoolean();
+        return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString(), version, hosts);
     }
 
     private static async Task RequireSessionAsync(WebSocket socket, DeviceSessions deviceSessions, Guid userId, string deviceId, string? secret,
@@ -165,6 +168,20 @@ internal static partial class ConnectionEndpoints
                     {
                         metrics.Refused(refusal.Status.ToString(CultureInfo.InvariantCulture));
                         connection.Send(Wire.Encode(new ClosedNotice(open.Pipe, refusal.Status, refusal.Message)));
+                    }
+                    break;
+                }
+                case CallMessage call:
+                {
+                    try
+                    {
+                        if (call.Pipe == Guid.Empty) throw ApiException.Invalid("A view identity is required.");
+                        directory.Call(connection, call.Pipe, call.DeviceId);
+                    }
+                    catch (ApiException refusal)
+                    {
+                        metrics.Refused(refusal.Status.ToString(CultureInfo.InvariantCulture));
+                        connection.Send(Wire.Encode(new ClosedNotice(call.Pipe, refusal.Status, refusal.Message)));
                     }
                     break;
                 }

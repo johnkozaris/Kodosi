@@ -36,6 +36,7 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     m_blink = m_settings->value(QStringLiteral("terminal/blink"), false).toBool();
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
     m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
+    m_computer = m_settings->value(QStringLiteral("terminal/computer")).toString();
 }
 QString DesktopSettings::agentOf(const QString& text)
 {
@@ -93,6 +94,14 @@ void DesktopSettings::setWorkingDirectory(const QString& path)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setLastComputer(const QString& computer)
+{
+    if (computer == m_computer)
+        return;
+    m_computer = computer;
+    persist();
+    emit settingsChanged();
+}
 void DesktopSettings::setBranchFolder(const QString& path)
 {
     const QFileInfo info(path);
@@ -123,6 +132,7 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("terminal/blink"), m_blink);
     m_settings->setValue(QStringLiteral("terminal/directory"), m_directory);
     m_settings->setValue(QStringLiteral("terminal/branchFolder"), m_branchFolder);
+    m_settings->setValue(QStringLiteral("terminal/computer"), m_computer);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Terminal settings could not be saved.");

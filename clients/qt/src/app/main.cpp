@@ -163,6 +163,8 @@ int main(int argc, char* argv[])
             providerFiles.apply(event);
             launcher.apply(event);
         }
+        if (type == QStringLiteral("folders.result") || type == QStringLiteral("folders.error"))
+            launcher.apply(event);
         if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
             history.reset();
             providerFiles.reset();

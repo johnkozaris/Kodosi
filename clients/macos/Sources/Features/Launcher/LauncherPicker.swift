@@ -9,6 +9,7 @@ struct PickerRow: Identifiable, Equatable {
     enum Icon: Equatable {
         case none, folder
         case account(initial: String, key: String, signedIn: Bool)
+        case device(String)
         case slot(String)
     }
 
@@ -290,6 +291,8 @@ struct PickerIcon: View {
             IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 26)
         case let .account(initial, key, signedIn):
             AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26)
+        case let .device(label):
+            IconTile(symbol: DeviceGlyph.symbol(for: label), tint: TileTint.graphite, size: 26)
         case let .slot(symbol):
             SlotMark(symbol: symbol, round: symbol != "folder", size: 26)
         }

@@ -35,6 +35,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -58,6 +68,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -103,6 +123,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -126,6 +156,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -167,6 +207,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -190,6 +240,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -231,6 +291,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -263,6 +333,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -286,6 +366,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -334,6 +424,16 @@
           "code": {
             "type": "string"
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -358,6 +458,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -399,6 +509,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -422,6 +542,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -463,6 +593,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -486,6 +626,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -531,6 +681,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -554,6 +714,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -599,6 +769,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -626,6 +806,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -671,6 +861,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -698,6 +898,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -743,6 +953,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -770,6 +990,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -819,6 +1049,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -842,6 +1082,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -971,6 +1221,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "anyOf": [
               {
@@ -1077,6 +1337,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1121,6 +1391,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1152,6 +1432,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1279,6 +1569,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1310,6 +1610,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1363,6 +1673,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1406,6 +1726,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -1433,6 +1763,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1481,6 +1821,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -1517,6 +1867,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -1544,6 +1904,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1613,6 +1983,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1644,6 +2024,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1917,6 +2307,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -1945,6 +2345,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -1990,6 +2400,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -2013,6 +2433,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2049,6 +2479,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2098,6 +2538,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -2134,6 +2584,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -2161,6 +2621,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2211,6 +2681,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -2242,6 +2722,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2287,6 +2777,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "invitationId": {
             "type": "string"
           },
@@ -2314,6 +2814,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2363,6 +2873,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -2390,6 +2910,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2495,6 +3025,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "limit": {
             "anyOf": [
               {
@@ -2568,6 +3108,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "provider": {
             "oneOf": [
               {
@@ -2612,6 +3162,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2675,6 +3235,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -2727,6 +3297,16 @@
               },
               {
                 "const": "opencode"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
               }
             ]
           },
@@ -2877,6 +3457,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -2901,6 +3491,68 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "folders.list"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -2980,6 +3632,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -3003,6 +3665,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -3054,6 +3726,16 @@
             },
             "type": "array"
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "itemId": {
             "type": "string"
           },
@@ -3082,6 +3764,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -3148,6 +3840,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -3299,6 +4001,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -3332,6 +4044,16 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -3355,6 +4077,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
             "anyOf": [
               {
                 "type": "string"
@@ -3409,6 +4141,16 @@
           "before": {
             "type": "string"
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -3453,6 +4195,16 @@
           "cols": {
             "format": "u16",
             "type": "integer"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedRuntimeIncarnationId": {
             "type": "string"
@@ -3529,6 +4281,16 @@
           "clientId": {
             "type": "string"
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -3577,6 +4339,16 @@
           },
           "clientId": {
             "type": "string"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedRuntimeIncarnationId": {
             "type": "string"
@@ -4315,6 +5087,41 @@
           "selfDeviceId",
           "localDeviceEnrolled",
           "devices"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "const": "devices.hosts"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "deviceIds"
         ],
         "type": "object"
       },
@@ -7095,6 +7902,124 @@
               }
             ]
           },
+          "folders": {
+            "additionalProperties": false,
+            "properties": {
+              "folders": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "home": {
+                "type": "string"
+              },
+              "parent": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "recent": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "path",
+              "parent",
+              "home",
+              "folders",
+              "recent"
+            ],
+            "type": "object"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "folders.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "folders"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "folders.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -8802,7 +9727,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 67,
+  "protocolVersion": 68,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

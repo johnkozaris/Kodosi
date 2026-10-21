@@ -3,18 +3,20 @@ import KodosiBridge
 import KodosiDesign
 
 enum LauncherMenu: String, Equatable {
-    case folder, account, model
+    case computer, folder, account, model
 
     enum Pick: Equatable {
-        case folder(String), anotherFolder, account(String), newAccount, model(String?)
+        case computer(String?), folder(String), anotherFolder, account(String), newAccount, model(String?)
     }
 
     static let add = "menu.add"
     static let choose = "menu.choose"
     static let standard = "menu.default"
+    static let here = "menu.here"
 
     func pick(_ id: String) -> Pick {
         switch self {
+        case .computer: .computer(id == Self.here ? nil : id)
         case .folder: id == Self.choose ? .anotherFolder : .folder(id)
         case .account: id == Self.add ? .newAccount : .account(id)
         case .model: .model(id == Self.standard ? nil : id)
@@ -24,6 +26,8 @@ enum LauncherMenu: String, Equatable {
     @MainActor
     func rows(_ plan: LaunchPlan, recents: [String], directory: String?, loading: Bool) -> [PickerRow] {
         switch self {
+        case .computer:
+            []
         case .folder:
             Self.folders(recents, current: directory)
         case .account:
@@ -31,6 +35,12 @@ enum LauncherMenu: String, Equatable {
         case .model:
             Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelId)
         }
+    }
+
+    static func computers(_ computers: [MyDeviceEntry], current: String?) -> [PickerRow] {
+        let here = String(localized: "This Mac")
+        return [PickerRow(id: Self.here, title: here, icon: .device(here), current: current == nil)]
+            + computers.map { PickerRow(id: $0.deviceId, title: $0.label, icon: .device($0.label), current: $0.deviceId == current) }
     }
 
     static func accounts(_ info: AgentInfo, current: String) -> [PickerRow] {

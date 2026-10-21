@@ -56,6 +56,7 @@ final class DesktopSettings {
 
     private(set) var terminalSettings = TerminalSettings.defaults
     var lastWorkingDir: String?
+    var lastComputer: String?
     var branchFolder: String?
 
     enum CursorStyle: String, CaseIterable, Codable {
@@ -84,6 +85,11 @@ final class DesktopSettings {
         } else {
             d.removeObject(forKey: "session.lastWorkingDir")
         }
+        if let lastComputer {
+            d.set(lastComputer, forKey: "session.lastComputer")
+        } else {
+            d.removeObject(forKey: "session.lastComputer")
+        }
         if let branchFolder {
             d.set(branchFolder, forKey: "session.branchFolder")
         } else {
@@ -96,6 +102,7 @@ final class DesktopSettings {
         terminalSettings = (d.data(forKey: Self.terminalSettingsKey)
             .flatMap { try? JSONDecoder().decode(TerminalSettings.self, from: $0) } ?? .defaults).normalized()
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
+        lastComputer = d.string(forKey: "session.lastComputer")
         branchFolder = d.string(forKey: "session.branchFolder")
     }
 }

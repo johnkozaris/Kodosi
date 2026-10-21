@@ -74,7 +74,7 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
             text(&latest("devices.link.resolved"), "deviceLabel")
         ),
         ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
-        ("devices.result", _) => devices(&latest("devices.list")),
+        ("devices.result", _) => devices(&latest("devices.list"), &latest("devices.hosts")),
         ("friends.result" | "mission.result", _) if unapproved(context) => account(context),
         ("friends.result", "friends.invite") => text(event, "text"),
         ("friends.result", _) => friends(&latest("friends.snapshot")),
@@ -236,7 +236,12 @@ fn agent_models(result: &Value) -> String {
     format!("Models: {}\nEfforts: {}", list(models), list(efforts))
 }
 
-fn devices(event: &Value) -> String {
+fn devices(event: &Value, hosts: &Value) -> String {
+    let online = |device: &Value| {
+        hosts["deviceIds"]
+            .as_array()
+            .is_some_and(|online| online.contains(&device["deviceId"]))
+    };
     let mut lines = Vec::new();
     if event["localDeviceEnrolled"] == true {
         lines.push("This device is approved.".to_owned());
@@ -260,6 +265,8 @@ fn devices(event: &Value) -> String {
                     "this device".to_owned()
                 } else if device["recoveryKey"] == true {
                     "recovery key".to_owned()
+                } else if online(device) {
+                    "online".to_owned()
                 } else {
                     String::new()
                 },
@@ -516,6 +523,7 @@ mod tests {
     fn a_device_that_is_not_approved_shows_its_reason_and_the_way_out() {
         let listed = devices(
             &json!({"localDeviceEnrolled":false,"selfDeviceId":"a","notice":"Approve this device from one of your existing devices.","devices":[]}),
+            &Value::Null,
         );
         assert!(listed.starts_with(
             "This device is not approved. Approve this device from one of your existing devices."

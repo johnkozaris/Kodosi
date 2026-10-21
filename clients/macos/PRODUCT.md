@@ -8,6 +8,11 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
   after the plain terminal, then one line with the folder, the account, the model with
   its effort, and the first prompt. With nothing open it sits in the middle of the main
   area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
+- When another of your computers runs Kodosi, the launcher's band names the computer.
+  Choosing another computer shows its agents and choices, and the folder key lists its
+  recent folders and starts in the newest one. Choose a folder… opens its home: a click
+  opens a folder, the arrow row goes up, and Use takes the folder. The launcher keeps the
+  last computer. Resume stays on this Mac.
 - The sidebar groups terminals by folder and names the computer of a remote terminal. A
   repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals, rooms,
   people and actions. A terminal is renamed in place.

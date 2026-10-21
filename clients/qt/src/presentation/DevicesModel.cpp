@@ -1,6 +1,8 @@
 #include "presentation/DevicesModel.hpp"
 #include "presentation/Workspace.hpp"
 
+#include <algorithm>
+
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QJsonObject>
@@ -48,6 +50,23 @@ bool DevicesModel::hasRecoveryKey() const
     return false;
 }
 
+QVariantList DevicesModel::computers() const
+{
+    QVariantList computers;
+    for (const auto& device : m_devices) {
+        const auto entry = device.toMap();
+        const auto id = entry.value(QStringLiteral("deviceId")).toString();
+        if (m_hosts.contains(id) && id != m_selfDeviceId && !entry.value(QStringLiteral("recoveryKey")).toBool())
+            computers.append(entry);
+    }
+    std::ranges::sort(computers, [](const QVariant& left, const QVariant& right) {
+        return QString::localeAwareCompare(left.toMap().value(QStringLiteral("label")).toString(),
+                   right.toMap().value(QStringLiteral("label")).toString())
+            < 0;
+    });
+    return computers;
+}
+
 void DevicesModel::makeRecoveryKey()
 {
     m_workspace.sendUntracked(QStringLiteral("devices.recovery.create"));
@@ -80,6 +99,7 @@ void DevicesModel::reset()
 {
     m_devices.clear();
     m_requests.clear();
+    m_hosts.clear();
     m_approvalCode.clear();
     m_newRecoveryKey.clear();
     m_notice.clear();

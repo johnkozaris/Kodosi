@@ -11,6 +11,7 @@ namespace Kodosi.TerminalConnections;
 [JsonDerivedType(typeof(UnhostMessage), "unhost")]
 [JsonDerivedType(typeof(StatusMessage), "status")]
 [JsonDerivedType(typeof(OpenMessage), "open")]
+[JsonDerivedType(typeof(CallMessage), "call")]
 [JsonDerivedType(typeof(CloseMessage), "close")]
 internal abstract record DeviceMessage;
 
@@ -24,6 +25,8 @@ internal sealed record StatusMessage(Guid SessionId, Guid IncarnationId, Termina
 
 internal sealed record OpenMessage(Guid Pipe, Guid SessionId, Guid IncarnationId) : DeviceMessage;
 
+internal sealed record CallMessage(Guid Pipe, string DeviceId) : DeviceMessage;
+
 internal sealed record CloseMessage(Guid Pipe) : DeviceMessage;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -34,6 +37,8 @@ internal sealed record CloseMessage(Guid Pipe) : DeviceMessage;
 [JsonDerivedType(typeof(ChangedNotice), "changed")]
 [JsonDerivedType(typeof(TerminalNotice), "terminal")]
 [JsonDerivedType(typeof(ViewerNotice), "viewer")]
+[JsonDerivedType(typeof(CallerNotice), "caller")]
+[JsonDerivedType(typeof(HostsNotice), "hosts")]
 [JsonDerivedType(typeof(AccessChangedNotice), "accessChanged")]
 [JsonDerivedType(typeof(ClosedNotice), "closed")]
 internal abstract record ServerMessage;
@@ -57,6 +62,10 @@ internal sealed record ChangedNotice(
 internal sealed record TerminalNotice(Guid SessionId, Guid IncarnationId, bool Online, TerminalStatus? Status) : ServerMessage;
 
 internal sealed record ViewerNotice(Guid Pipe, Guid SessionId, Guid UserId, string DeviceId) : ServerMessage;
+
+internal sealed record CallerNotice(Guid Pipe, Guid UserId, string DeviceId) : ServerMessage;
+
+internal sealed record HostsNotice(IReadOnlyList<string> DeviceIds) : ServerMessage;
 
 internal sealed record AccessChangedNotice(Guid SessionId) : ServerMessage;
 

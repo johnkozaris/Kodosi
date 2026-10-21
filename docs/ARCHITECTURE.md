@@ -47,6 +47,12 @@ The host also sends each terminal's agent and state, unencrypted and without its
 to the backend, which shows the newest to everyone who can open the terminal while the
 host is connected.
 
+A device can call another computer of the same person whose host is connected. The call
+is an end-to-end encrypted channel like a view, but to the host itself: the caller sends
+the launcher's requests (agents and choices, folders, a new terminal) as desktop
+commands, and the host answers them as one more client. The host takes calls only from
+the person's own approved devices and runs no other command.
+
 ## Backend and rooms
 
 One ASP.NET Core process serves the API and the WebSockets, holds the live connections

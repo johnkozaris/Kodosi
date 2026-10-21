@@ -23,13 +23,55 @@ QJsonValue nullable(const QString& value)
 }
 }
 
-AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent)
+AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent, bool remote)
     : QObject(parent)
     , m_commands(commands)
 {
     for (const auto signal : { &AgentLauncherModel::agentsChanged, &AgentLauncherModel::modelsChanged,
              &AgentLauncherModel::choiceChanged })
         connect(this, signal, this, &AgentLauncherModel::plansChanged);
+    if (!remote)
+        m_remote = new AgentLauncherModel(commands, this, true);
+}
+
+void AgentLauncherModel::setComputer(const QString& computer)
+{
+    if (computer == m_computer)
+        return;
+    m_computer = computer;
+    reset();
+    m_agents.clear();
+    m_models.clear();
+    m_choice.clear();
+    m_places.clear();
+    m_listing.clear();
+    m_folderError.clear();
+    m_browsing.clear();
+    m_refreshedAt = 0;
+    emit computerChanged();
+    emit agentsChanged();
+    emit choiceChanged();
+    emit foldersChanged();
+    if (!m_computer.isEmpty())
+        refresh(true);
+}
+
+void AgentLauncherModel::listFolders(const QString& path, bool browse)
+{
+    QJsonObject values { { QStringLiteral("type"), QStringLiteral("folders.list") } };
+    if (!path.isEmpty())
+        values.insert(QStringLiteral("path"), path);
+    const auto requestId = send(Request::Folders, path, values, browse);
+    if (browse)
+        m_browsing = requestId;
+}
+
+void AgentLauncherModel::closeFolders()
+{
+    m_browsing.clear();
+    m_listing.clear();
+    m_folderError.clear();
+    emit foldersChanged();
 }
 
 QVariantMap AgentLauncherModel::plans() const
@@ -106,8 +148,9 @@ void AgentLauncherModel::loadModels(const QString& agent)
     });
     if (!installed)
         return;
-    if (send(Request::Models, agent,
-            { { QStringLiteral("type"), QStringLiteral("provider.agentModels") }, { QStringLiteral("agent"), agent } })) {
+    if (!send(Request::Models, agent,
+            { { QStringLiteral("type"), QStringLiteral("provider.agentModels") }, { QStringLiteral("agent"), agent } })
+             .isEmpty()) {
         m_loading.append(agent);
         emit modelsChanged();
     }
@@ -157,15 +200,33 @@ void AgentLauncherModel::choose(const QString& kind, const QString& agent, const
 
 void AgentLauncherModel::apply(const QJsonObject& event)
 {
+    if (m_remote)
+        m_remote->apply(event);
     const auto requestId = event.value(QStringLiteral("requestId")).toString();
     const auto found = m_pending.constFind(requestId);
     if (found == m_pending.constEnd())
         return;
     const auto pending = *found;
     m_pending.remove(requestId);
-    const bool failed = event.value(QStringLiteral("type")).toString() == QStringLiteral("provider.error");
+    const auto type = event.value(QStringLiteral("type")).toString();
+    const bool failed = type.endsWith(QStringLiteral(".error"));
     const auto result = event.value(QStringLiteral("result")).toObject();
     switch (pending.request) {
+    case Request::Folders:
+        if (pending.browse && requestId != m_browsing)
+            break;
+        if (failed) {
+            m_folderError = event.value(QStringLiteral("message")).toString();
+        } else {
+            const auto folders = event.value(QStringLiteral("folders")).toObject().toVariantMap();
+            m_folderError.clear();
+            if (pending.agent.isEmpty())
+                m_places = folders;
+            if (pending.browse)
+                m_listing = folders;
+        }
+        emit foldersChanged();
+        break;
     case Request::Agents:
         if (!failed) {
             m_refreshedAt = QDateTime::currentMSecsSinceEpoch();
@@ -229,6 +290,8 @@ void AgentLauncherModel::apply(const QJsonObject& event)
 
 void AgentLauncherModel::reset()
 {
+    if (m_remote)
+        m_remote->reset();
     const bool adding = addingAccount();
     m_pending.clear();
     m_loading.clear();
@@ -238,19 +301,21 @@ void AgentLauncherModel::reset()
         emit accountErrorChanged();
 }
 
-bool AgentLauncherModel::send(Request request, const QString& agent, QJsonObject values)
+QString AgentLauncherModel::send(Request request, const QString& agent, QJsonObject values, bool browse)
 {
     const auto requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     values.insert(QStringLiteral("requestId"), requestId);
+    if (!m_computer.isEmpty())
+        values.insert(QStringLiteral("computer"), m_computer);
     if (!m_commands.send(QJsonDocument(values).toJson(QJsonDocument::Compact))) {
         if (request == Request::Account) {
             m_accountError = tr("Kodosi could not ask for a new account.");
             emit accountErrorChanged();
         }
-        return false;
+        return {};
     }
-    m_pending.insert(requestId, { request, agent, m_changes });
-    return true;
+    m_pending.insert(requestId, { request, agent, m_changes, browse });
+    return requestId;
 }
 
 void AgentLauncherModel::change(const QJsonObject& change)

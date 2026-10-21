@@ -680,10 +680,12 @@ private slots:
         QVERIFY(f.workspace.sessionActions().close(test::id(1)));
         f.desktop.setLauncherPrompt(QStringLiteral("fix the build"));
         f.desktop.setLauncherFolder(QStringLiteral("/work/atlas"));
+        f.desktop.setLauncherRemoteFolder(QStringLiteral("studio"), QStringLiteral("/home/me/atlas"));
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") },
             { QStringLiteral("accountEpoch"), 2 } }, 2);
         QVERIFY(f.desktop.stagedSessionIds().isEmpty());
         QVERIFY(f.desktop.launcherPrompt().isEmpty() && f.desktop.launcherFolder().isEmpty());
+        QVERIFY(f.desktop.launcherRemoteFolders().isEmpty());
         QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(!f.workspace.account().signedIn());
     }

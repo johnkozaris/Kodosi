@@ -54,6 +54,7 @@ final class AppDependencies {
 
     var accountEpoch: UInt64 = 0
     var accountKnown = false
+    @ObservationIgnored private var otherLaunchers: [String: LauncherState] = [:]
     private var eventTask: Task<Void, Never>?
     var activationTasks: [String: Task<Void, Never>] = [:]
     var missionTask: Task<Void, Never>?
@@ -199,6 +200,7 @@ final class AppDependencies {
         }
         commandSink.cancelPending()
         commandSink.transport = nil
+        otherLaunchers.removeAll()
         inbox.close()
         runtimeHandle.stop(completion: completion)
         eventTask?.cancel()
@@ -304,9 +306,20 @@ final class AppDependencies {
         }
     }
 
+    func launcher(for computer: String?) -> LauncherState {
+        guard let computer else { return launcher }
+        if let known = otherLaunchers[computer] {
+            return known
+        }
+        let made = LauncherState(commands: commandSink, computer: computer)
+        otherLaunchers[computer] = made
+        return made
+    }
+
     func createSession(
-        name: String, directory: String?, roomId: String? = nil, resume: ProviderConversationIdentity? = nil,
-        branch: String? = nil, command: String? = nil, agent: AgentStart? = nil, prompt: String? = nil,
+        name: String, directory: String?, computer: String? = nil, roomId: String? = nil,
+        resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil,
+        agent: AgentStart? = nil, prompt: String? = nil,
     ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
@@ -317,8 +330,10 @@ final class AppDependencies {
             roomView(roomId).canvas = 0
             fields["missionId"] = .string(roomId)
         }
-        if let directory {
-            fields["workingDir"] = .string(directory)
+        for (key, value) in [("workingDir", directory), ("computer", computer), ("command", command), ("prompt", prompt)] {
+            if let value {
+                fields[key] = .string(value)
+            }
         }
         if let resume {
             fields["resume"] = .object(["provider": .string(resume.provider.rawValue), "nativeConversationId": .string(resume.nativeConversationId)])
@@ -329,18 +344,14 @@ final class AppDependencies {
                 fields["worktrees"] = .string(folder)
             }
         }
-        if let command {
-            fields["command"] = .string(command)
-        }
         if let agent {
             fields["agent"] = agent.json
         }
-        if let prompt {
-            fields["prompt"] = .string(prompt)
-        }
         let created = try await commandSink.request("session.create", fields)
-        settings.lastWorkingDir = directory
-        settings.save()
+        if computer == nil {
+            settings.lastWorkingDir = directory
+            settings.save()
+        }
         guard let id = created.string("sessionId") else { return }
         freshTerminals.insert(id)
         activateSession(id, inRoom: roomId)
