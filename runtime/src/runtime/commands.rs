@@ -1,8 +1,6 @@
 use super::Reconnect;
 use bytes::Bytes;
-#[cfg(feature = "host")]
-use serde_json::Value;
-use serde_json::json;
+use serde_json::{Value, json};
 #[cfg(feature = "host")]
 use std::collections::BTreeSet;
 #[cfg(feature = "host")]
@@ -182,10 +180,22 @@ impl Runtime {
             Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
             | Command::AddAgentAccount { .. }
-            | Command::ChooseAgent { .. } => {
+            | Command::ChooseAgent { .. }
+            | Command::ListFolders { .. } => {
                 return Err(Error::Invalid(
                     "This device cannot start terminals.".to_owned(),
                 ));
+            }
+            #[cfg(feature = "host")]
+            Command::ListFolders { path, .. } => {
+                self.job_capacity()?;
+                let home = self.config.home.clone();
+                let recent = self.recent.with(self.running_folders());
+                let (command, path) = (command.clone(), path.clone());
+                self.spawn(async move {
+                    let result = crate::folders::list(home, path, recent).await;
+                    Completion::Folders { command, result }
+                });
             }
             Command::Resize { .. } | Command::Focus { .. } | Command::Blur { .. } => {
                 return Err(Error::Invalid(
@@ -204,6 +214,68 @@ impl Runtime {
                 self.job_capacity()?;
                 self.network_command(command.clone());
             }
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "host")]
+    fn running_folders(&self) -> Vec<String> {
+        let mut running = self
+            .local
+            .iter()
+            .filter_map(|(id, local)| Some((*id, local.entry.working_dir.clone()?)))
+            .collect::<Vec<_>>();
+        running.sort_by_key(|(id, _)| std::cmp::Reverse(*id));
+        running.into_iter().map(|(_, folder)| folder).collect()
+    }
+
+    pub(super) fn ask_computer(&mut self, command: &Command, computer: String) -> Result<()> {
+        if !command.runs_on_other_computers() {
+            return Err(Error::Invalid("Do this on the computer itself.".to_owned()));
+        }
+        self.job_capacity()?;
+        let request = serde_json::to_value(command)?;
+        let network = self.network.clone();
+        let command = command.clone();
+        self.spawn(async move {
+            let result = network
+                .ask_computer(&computer, request)
+                .await
+                .map_err(Error::from);
+            Completion::Asked { command, result }
+        });
+        Ok(())
+    }
+
+    pub(super) fn asked(&mut self, command: &Command, answer: Value) -> Result<()> {
+        let event = self
+            .event(answer.clone())
+            .map_err(|_| Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()))?;
+        if event.event.request_id() != Some(command.request_id()) || !event.event.is_answer() {
+            return Err(Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()));
+        }
+        let started = match (command, &event.event) {
+            (
+                Command::CreateSession { .. },
+                crate::EventBody::SessionResult {
+                    session_id: Some(id),
+                    ..
+                },
+            ) => Uuid::parse_str(id).ok(),
+            _ => None,
+        };
+        match started {
+            Some(id) => {
+                self.starting.insert(
+                    id,
+                    super::Starting {
+                        answer,
+                        until: tokio::time::Instant::now() + super::STARTING,
+                    },
+                );
+                self.started_remotes();
+            }
+            None => self.emit(answer),
         }
         Ok(())
     }
@@ -790,6 +862,18 @@ impl Runtime {
                 }
                 Err(error) => self.error(&command, &error),
             },
+            #[cfg(feature = "host")]
+            Completion::Folders { command, result } if current => match result {
+                Ok(folders) => {
+                    self.emit(json!({"type":"folders.result", "requestId":command.request_id(), "operation":command.operation(), "folders":folders}));
+                }
+                Err(error) => self.error(&command, &error),
+            },
+            Completion::Asked { command, result } if current => {
+                if let Err(error) = result.and_then(|answer| self.asked(&command, answer)) {
+                    self.error(&command, &error);
+                }
+            }
             Completion::Checkpoint { reply, result } => {
                 drop(reply.send(if current { result } else { Err(Error::Stale) }));
             }
@@ -826,7 +910,10 @@ impl Runtime {
             },
             Completion::Read { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
-            Completion::Provider { command, .. } => self.error(&command, &Error::Stale),
+            Completion::Provider { command, .. } | Completion::Folders { command, .. } => {
+                self.error(&command, &Error::Stale);
+            }
+            Completion::Asked { command, .. } => self.error(&command, &Error::Stale),
         }
     }
 
@@ -890,6 +977,9 @@ impl Runtime {
                     shared_with: vec![],
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
+                if let Some(folder) = &entry.working_dir {
+                    self.recent.remember(folder);
+                }
                 self.local.insert(
                     id,
                     Local {
@@ -944,6 +1034,11 @@ impl Runtime {
                 self.apply_metadata(command);
                 let later = reply.answered_later;
                 self.network_reply(reply);
+                if matches!(command, Command::RefreshDevices { .. })
+                    && let Some(hosts) = self.cached_events.get("devices.hosts").cloned()
+                {
+                    self.emit(hosts);
+                }
                 if !later {
                     self.finish(command);
                 }
@@ -1191,6 +1286,34 @@ async fn start_line(
 }
 
 #[cfg(feature = "host")]
+async fn start_folder(
+    config: &Config,
+    working_dir: Option<&str>,
+    worktrees: Option<&str>,
+) -> Result<PathBuf> {
+    let directory = working_dir.map_or_else(|| config.home.clone(), PathBuf::from);
+    if !directory.is_absolute() || worktrees.is_some_and(|place| !Path::new(place).is_absolute()) {
+        return Err(Error::Invalid(
+            "Choose a folder by its full path on that computer.".to_owned(),
+        ));
+    }
+    let shown = directory.display().to_string();
+    let directory = tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&directory))
+        .await
+        .map_err(std::io::Error::from)?
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::NotFound => Error::Invalid(format!("There is no folder {shown}.")),
+            _ => Error::Io(error),
+        })?;
+    if !tokio::fs::metadata(&directory).await?.is_dir() {
+        return Err(Error::Invalid(
+            "working directory is not a directory".to_owned(),
+        ));
+    }
+    Ok(directory)
+}
+
+#[cfg(feature = "host")]
 async fn create_session(
     id: Uuid,
     config: Config,
@@ -1211,17 +1334,7 @@ async fn create_session(
     else {
         return Err(Error::Invalid("expected session creation".to_owned()));
     };
-    let directory = working_dir
-        .as_ref()
-        .map_or_else(|| config.home.clone(), PathBuf::from);
-    let directory = tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&directory))
-        .await
-        .map_err(std::io::Error::from)??;
-    if !tokio::fs::metadata(&directory).await?.is_dir() {
-        return Err(Error::Invalid(
-            "working directory is not a directory".to_owned(),
-        ));
-    }
+    let directory = start_folder(&config, working_dir.as_deref(), worktrees.as_deref()).await?;
     if branch.is_some() && resume.is_some() {
         return Err(Error::Invalid(
             "A conversation resumes in its own folder, not on a new branch.".to_owned(),

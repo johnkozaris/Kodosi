@@ -57,6 +57,9 @@ const MAX_PUBLICATIONS_IN_FLIGHT: usize = 8;
 const COMMAND_CAPACITY: usize = 128;
 const MAX_QUEUED_INPUT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ANSWERS: usize = 256;
+#[cfg(feature = "host")]
+const CALL_ANSWER: Duration = Duration::from_secs(20);
+const STARTING: Duration = Duration::from_secs(20);
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
 
@@ -158,6 +161,69 @@ impl RuntimeHandle {
             consumer: Arc::new(Consumer::default()),
             ..self.clone()
         }
+    }
+
+    #[cfg(feature = "host")]
+    fn answering(self) -> crate::network::Answering {
+        Arc::new(move |request| {
+            let handle = self.clone();
+            Box::pin(async move { handle.answer_call(request).await })
+        })
+    }
+
+    #[cfg(feature = "host")]
+    async fn answer_call(&self, mut request: Value) -> Value {
+        let asked = request["requestId"].take();
+        let operation = request["type"].as_str().unwrap_or_default().to_owned();
+        let own = Uuid::now_v7().to_string();
+        request["requestId"] = json!(own);
+        let mut answer = match self.call_command(request, &own).await {
+            Ok(answer) => answer,
+            Err(error) => {
+                let area = operation.split('.').next().unwrap_or_default();
+                json!({"type":format!("{area}.error"),"operation":operation,"message":error.to_string()})
+            }
+        };
+        answer["requestId"] = asked;
+        answer
+    }
+
+    #[cfg(feature = "host")]
+    async fn call_command(&self, request: Value, own: &str) -> Result<Value> {
+        let command: Command = serde_json::from_value(request)
+            .map_err(|_| Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()))?;
+        command.validate()?;
+        if !command.runs_on_other_computers() {
+            return Err(Error::Invalid(
+                "This computer takes only the choices and the start of a new terminal from your other devices."
+                    .to_owned(),
+            ));
+        }
+        let (events, mut receiver) = self.observe().await?;
+        let scope = events.first().ok_or(Error::Stopped)?;
+        self.try_send(CommandEnvelope {
+            account_user_id: scope.account_user_id.clone(),
+            account_epoch: scope.account_epoch,
+            computer: None,
+            command,
+        })?;
+        tokio::time::timeout(CALL_ANSWER, async {
+            loop {
+                match receiver.recv().await {
+                    Ok(event)
+                        if event.recipient == Some(self.consumer.id)
+                            && event.event.request_id() == Some(own)
+                            && event.event.is_answer() =>
+                    {
+                        return Ok(serde_json::to_value(&event.event)?);
+                    }
+                    Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(broadcast::error::RecvError::Closed) => return Err(Error::Stopped),
+                }
+            }
+        })
+        .await
+        .map_err(|_| Error::Invalid("This computer did not finish in time.".to_owned()))?
     }
 
     pub async fn terminal_control(
@@ -516,6 +582,15 @@ enum Completion {
         command: Command,
         result: Result<Value>,
     },
+    #[cfg(feature = "host")]
+    Folders {
+        command: Command,
+        result: Result<crate::protocol::FolderList>,
+    },
+    Asked {
+        command: Command,
+        result: Result<Value>,
+    },
     Checkpoint {
         reply: oneshot::Sender<Result<crate::network::CheckpointCut>>,
         result: Result<crate::network::CheckpointCut>,
@@ -698,6 +773,11 @@ struct Reconnect {
     connected: Option<tokio::time::Instant>,
 }
 
+struct Starting {
+    answer: Value,
+    until: tokio::time::Instant,
+}
+
 impl Reconnect {
     fn delay(failures: u32) -> Duration {
         Duration::from_millis(250 << failures.min(7))
@@ -721,6 +801,8 @@ struct Runtime {
     launcher: Arc<crate::agents::Launcher>,
     #[cfg(feature = "host")]
     dosi: crate::dosi::Engine,
+    #[cfg(feature = "host")]
+    recent: crate::folders::Recent,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -730,6 +812,7 @@ struct Runtime {
     creating: HashMap<Uuid, Command>,
     listed: HashMap<Uuid, RemoteSession>,
     remotes: HashMap<Uuid, SessionEntry>,
+    starting: HashMap<Uuid, Starting>,
     connections: HashMap<Uuid, RemoteTerminal>,
     opening: HashMap<Uuid, Opening>,
     views: HashMap<Uuid, HashMap<Uuid, CancellationToken>>,
@@ -830,8 +913,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
     #[cfg(not(feature = "host"))]
     let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
+    #[cfg(feature = "host")]
+    network.answer_calls(handle.command_client().answering());
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
+        #[cfg(feature = "host")]
+        recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
         config,
         #[cfg(feature = "host")]
@@ -847,6 +934,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         creating: HashMap::new(),
         listed: HashMap::new(),
         remotes: HashMap::new(),
+        starting: HashMap::new(),
         connections: HashMap::new(),
         opening: HashMap::new(),
         views: HashMap::new(),
@@ -917,12 +1005,21 @@ impl Runtime {
 
     fn command(&mut self, envelope: &CommandEnvelope, consumer: Uuid, lifetime: CancellationToken) {
         let command = &envelope.command;
+        let own = self.network.identity().map(|identity| identity.device_id);
+        let elsewhere = envelope
+            .computer
+            .clone()
+            .filter(|computer| Some(computer) != own.as_ref());
         if let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
             self.refuse(command, consumer, &error);
         } else if envelope.account_epoch != self.scope.epoch
             || envelope.account_user_id != self.scope.user
         {
             self.error(command, &Error::Stale);
+        } else if let Some(computer) = elsewhere {
+            if let Err(error) = self.ask_computer(command, computer) {
+                self.error(command, &error);
+            }
         } else if let Err(error) = self.apply_for_consumer(command, consumer, lifetime) {
             self.error(command, &error);
         }
@@ -1149,7 +1246,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); } self.reconnect_views(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); } self.reconnect_views(); self.started_remotes(); }
             }
         }
         requests.close();
@@ -1431,6 +1528,7 @@ impl Runtime {
         self.reconnect.clear();
         self.listed.clear();
         self.remotes.clear();
+        self.starting.clear();
         self.cached_events.clear();
         self.room_latest.clear();
         self.room_seen = None;
@@ -1523,6 +1621,7 @@ impl Runtime {
                 kind,
                 "friends.snapshot"
                     | "devices.list"
+                    | "devices.hosts"
                     | "devices.link.snapshot"
                     | "missions.snapshot"
                     | "system.updateRequired"
@@ -1740,6 +1839,24 @@ impl Runtime {
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
         self.publish_catalog();
+        self.started_remotes();
+    }
+
+    fn started_remotes(&mut self) {
+        let now = tokio::time::Instant::now();
+        let shown = self
+            .starting
+            .iter()
+            .filter(|(id, starting)| {
+                starting.until <= now || self.listed.get(id).is_some_and(|listed| listed.online)
+            })
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        for id in shown {
+            if let Some(starting) = self.starting.remove(&id) {
+                self.emit(starting.answer);
+            }
+        }
     }
 
     fn terminal_changed(&mut self, event: &Value) {
@@ -1757,6 +1874,7 @@ impl Runtime {
         };
         listed.online = notice.online;
         listed.status = notice.status;
+        self.started_remotes();
         let recovering = self.recovering(id);
         let Some(entry) = self
             .remotes

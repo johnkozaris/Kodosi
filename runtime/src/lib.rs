@@ -24,6 +24,8 @@ pub mod cli;
 mod config;
 pub mod diagnostics;
 pub mod dosi;
+#[cfg(feature = "host")]
+mod folders;
 pub mod identity;
 #[cfg(feature = "host")]
 pub mod local_host;

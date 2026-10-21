@@ -24,6 +24,7 @@ public final class AccountStore {
     public private(set) var stage: SignInStage = .idle
     public private(set) var devices: [MyDeviceEntry] = []
     public private(set) var devicesRevision = 0
+    public private(set) var onlineHosts: Set<String> = []
     public private(set) var deviceRequests: [DeviceLinkRequest] = []
     public private(set) var approval: Approval?
     public private(set) var creatingRecoveryKey = false
@@ -64,6 +65,11 @@ public final class AccountStore {
         devices.contains(where: \.recoveryKey)
     }
 
+    public var computers: [MyDeviceEntry] {
+        devices.filter { onlineHosts.contains($0.deviceId) && $0.deviceId != selfDeviceId && !$0.recoveryKey }
+            .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
+    }
+
     public func canRemove(_ device: MyDeviceEntry) -> Bool {
         localDeviceEnrolled && device.deviceId != selfDeviceId
     }
@@ -86,6 +92,7 @@ public final class AccountStore {
         selfDeviceId = nil
         identityMessage = nil
         devices = []
+        onlineHosts = []
         deviceRequests = []
         approval = nil
         creatingRecoveryKey = false
@@ -120,17 +127,11 @@ public final class AccountStore {
 
     public func receiveDevices(_ event: RuntimeEvent) throws {
         switch event.type {
-        case "devices.list":
-            selfDeviceId = event.string("selfDeviceId")
-            localDeviceEnrolled = try event.value("localDeviceEnrolled")
-            identityMessage = localDeviceEnrolled ? nil : event.string("notice")
-            devices = try event.value("devices")
-            devicesRevision += 1
-            if localDeviceEnrolled, case .trustingDevice = stage {
-                stage = .signedIn
-            }
+        case "devices.list": try receiveList(event)
         case "devices.link.snapshot":
             deviceRequests = try event.value("requests")
+        case "devices.hosts":
+            onlineHosts = try Set(event.value("deviceIds", as: [String].self))
         case "devices.result" where event.string("operation") == "devices.link.startSelf":
             stage = .trustingDevice(.pendingApproval(code: event.string("code") ?? ""))
         case "devices.link.selfResolved":
@@ -178,6 +179,17 @@ public final class AccountStore {
             return true
         }
         return false
+    }
+
+    private func receiveList(_ event: RuntimeEvent) throws {
+        selfDeviceId = event.string("selfDeviceId")
+        localDeviceEnrolled = try event.value("localDeviceEnrolled")
+        identityMessage = localDeviceEnrolled ? nil : event.string("notice")
+        devices = try event.value("devices")
+        devicesRevision += 1
+        if localDeviceEnrolled, case .trustingDevice = stage {
+            stage = .signedIn
+        }
     }
 
     private func receiveReady(_ event: RuntimeEvent) throws {

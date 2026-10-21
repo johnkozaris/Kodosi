@@ -40,6 +40,7 @@ impl TestRuntime {
             .try_send(CommandEnvelope {
                 account_user_id: event.account_user_id.clone(),
                 account_epoch: event.account_epoch,
+                computer: None,
                 command,
             })
             .unwrap();
@@ -377,6 +378,7 @@ async fn a_stale_epoch_creates_nothing_and_hears_why() {
         .try_send(CommandEnvelope {
             account_user_id: scope.account_user_id.clone(),
             account_epoch: scope.account_epoch + 1,
+            computer: None,
             command: Command::CreateSession {
                 request_id: stale.clone(),
                 name: "stale".to_owned(),
@@ -396,6 +398,7 @@ async fn a_stale_epoch_creates_nothing_and_hears_why() {
         .try_send(CommandEnvelope {
             account_user_id: scope.account_user_id.clone(),
             account_epoch: scope.account_epoch,
+            computer: None,
             command: Command::ListSessions {
                 request_id: Uuid::now_v7().to_string(),
             },
@@ -584,6 +587,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
         .try_send(CommandEnvelope {
             account_user_id: snapshot[0].account_user_id.clone(),
             account_epoch: snapshot[0].account_epoch,
+            computer: None,
             command: Command::Focus {
                 request_id: Uuid::now_v7().to_string(),
                 session_id: session.to_string(),
@@ -640,6 +644,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             launcher,
             #[cfg(feature = "host")]
+            recent: crate::folders::Recent::load(&config.data_root),
+            #[cfg(feature = "host")]
             config,
             network,
             events,
@@ -650,6 +656,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             creating: HashMap::new(),
             listed: HashMap::new(),
             remotes: HashMap::new(),
+            starting: HashMap::new(),
             connections: HashMap::new(),
             opening: HashMap::new(),
             views: HashMap::new(),
@@ -750,6 +757,107 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
     let error = serde_json::to_value(error).unwrap();
     assert_eq!(error["type"], "friends.error");
     assert_eq!(error["requestId"], request.as_str());
+}
+
+#[tokio::test]
+async fn a_devices_refresh_says_again_which_computers_are_online() {
+    let (mut runtime, _root) = registry_fixture();
+    let generation = runtime.network.generation();
+    runtime.network_event(BackendEvent {
+        generation,
+        user_id: None,
+        event: json!({"type":"devices.hosts","deviceIds":["laptop"]}),
+    });
+    let mut events = runtime.events.subscribe();
+    let scope = runtime.scope.clone();
+    let refresh = Command::RefreshDevices {
+        request_id: Uuid::now_v7().to_string(),
+    };
+    let list = json!({"type":"devices.list","selfDeviceId":"desk","localDeviceEnrolled":true,"devices":[]});
+    let reply = BackendReply {
+        generation,
+        user_id: None,
+        events: vec![list],
+        answered_later: false,
+    };
+    runtime.network_completed(&scope, &refresh, false, generation, Ok(reply));
+    let told = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| serde_json::to_value(event).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(told.len(), 2, "{told:?}");
+    assert_eq!(told[0]["type"], "devices.list");
+    assert_eq!(told[1]["deviceIds"], json!(["laptop"]));
+}
+
+#[tokio::test]
+async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let request = Uuid::now_v7().to_string();
+    let start = Command::CreateSession {
+        request_id: request.clone(),
+        name: "Terminal".to_owned(),
+        working_dir: None,
+        mission_id: None,
+        resume: None,
+        branch: None,
+        worktrees: None,
+        command: None,
+        agent: None,
+        prompt: None,
+    };
+    runtime
+        .expect_answer(&start, Uuid::now_v7(), CancellationToken::new())
+        .unwrap();
+    let other = json!({"type":"session.result","requestId":Uuid::now_v7().to_string(),"operation":"session.create"});
+    assert!(runtime.asked(&start, other).is_err());
+    let id = Uuid::now_v7();
+    runtime
+        .asked(&start, json!({"type":"session.result","requestId":request,"operation":"session.create","sessionId":id}))
+        .unwrap();
+    let mut offline = remote_session(id, Uuid::now_v7());
+    offline.online = false;
+    runtime.replace_remotes(vec![offline.clone()]);
+    let answered = |events: &mut broadcast::Receiver<Event>| {
+        std::iter::from_fn(|| events.try_recv().ok())
+            .any(|event| event.event.request_id() == Some(&request))
+    };
+    assert!(!answered(&mut events));
+    runtime.replace_remotes(vec![remote_session(id, offline.incarnation_id)]);
+    assert!(answered(&mut events));
+}
+
+#[cfg(feature = "host")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn another_device_gets_answers_only_to_the_choices_of_a_new_terminal() {
+    let runtime = TestRuntime::new().await;
+    let caller = runtime.handle.command_client();
+    let asked = Uuid::now_v7().to_string();
+    let answer = caller
+        .answer_call(json!({"type":"folders.list","requestId":asked}))
+        .await;
+    assert_eq!(answer["type"], "folders.result", "{answer}");
+    assert_eq!(answer["requestId"], asked.as_str());
+    assert!(answer["folders"]["folders"].is_array());
+    for (request, refused) in [
+        (
+            json!({"type":"session.list","requestId":asked}),
+            "session.error",
+        ),
+        (
+            json!({"type":"folders.list","requestId":asked,"later":true}),
+            "folders.error",
+        ),
+    ] {
+        let answer = caller.answer_call(request).await;
+        assert_eq!(
+            (answer["type"].as_str(), answer["requestId"].as_str()),
+            (Some(refused), Some(asked.as_str()))
+        );
+    }
+    drop(caller);
+    runtime.shutdown().await;
+    drop(runtime);
 }
 
 #[tokio::test]

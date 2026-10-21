@@ -8,6 +8,7 @@ public sealed class ConnectionDirectory
     internal const int MaximumHostedTerminals = 65_536;
     internal const int MaximumSessionPipes = 64;
     internal const int MaximumDevicePipes = 256;
+    internal const int MaximumCalls = 16;
     private readonly Lock sync = new();
     private readonly Dictionary<Guid, Dictionary<string, Entry>> accounts = [];
     private readonly Dictionary<DeviceConnection, Entry> entries = new(ReferenceEqualityComparer.Instance);
@@ -66,13 +67,27 @@ public sealed class ConnectionDirectory
             var previous = devices?.GetValueOrDefault(connection.DeviceId);
             if (previous is null && ((devices?.Count ?? 0) >= Limits.MaxDevicesPerUser || entries.Count >= MaximumDeviceConnections))
                 throw new ApiException(503, "Too many device connections.");
-            if (previous is not null) DetachLocked(previous, ending);
+            if (previous is not null)
+            {
+                DetachLocked(previous, ending);
+                devices = accounts.GetValueOrDefault(connection.UserId);
+            }
             if (devices is null) accounts[connection.UserId] = devices = new Dictionary<string, Entry>(StringComparer.Ordinal);
             var entry = new Entry(connection);
             devices[connection.DeviceId] = entry;
             entries[connection] = entry;
         }
         ending.Apply(this);
+    }
+
+    internal void Ready(DeviceConnection connection)
+    {
+        lock (sync)
+        {
+            if (!entries.TryGetValue(connection, out var entry)) return;
+            entry.Ready = true;
+            TellHostsLocked(connection.UserId, connection.Hosts ? null : connection);
+        }
     }
 
     internal void Remove(DeviceConnection connection)
@@ -161,6 +176,25 @@ public sealed class ConnectionDirectory
         }
     }
 
+    internal void Call(DeviceConnection caller, Guid pipeId, string deviceId)
+    {
+        lock (sync)
+        {
+            if (!entries.TryGetValue(caller, out var calling)) throw ApiException.Conflict("The device connection closed.");
+            if (accounts.GetValueOrDefault(caller.UserId)?.GetValueOrDefault(deviceId) is not { Ready: true } called || called == calling
+                || !called.Connection.Hosts || !called.Connection.IsOpen)
+                throw ApiException.Conflict("That computer is not online.");
+            if (called.Calls >= MaximumCalls) throw new ApiException(503, "That computer is busy. Try again in a moment.");
+            if (calling.Views >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");
+            if (!pipes.TryAdd(pipeId, new Pipe(pipeId, Guid.Empty, caller, called.Connection))) throw ApiException.Conflict("The view identity is in use.");
+            calling.Pipes.Add(pipeId);
+            calling.Views++;
+            called.Pipes.Add(pipeId);
+            called.Calls++;
+            called.Connection.Send(Wire.Encode(new CallerNotice(pipeId, caller.UserId, caller.DeviceId)));
+        }
+    }
+
     internal void Close(DeviceConnection connection, Guid pipeId)
     {
         if (!pipes.TryGetValue(pipeId, out var pipe) || (pipe.Viewer != connection && pipe.Host != connection)) return;
@@ -225,14 +259,28 @@ public sealed class ConnectionDirectory
         var connection = entry.Connection;
         foreach (var sessionId in entry.Hosted.ToArray()) RemoveHostedLocked(sessionId, hosted[sessionId], ending, 409, "The host is offline.");
         foreach (var pipe in entry.Pipes.Select(id => pipes[id]).ToArray())
-            if (RemovePipeLocked(pipe)) ending.Pipes.Add((pipe, pipe.Host == connection ? 409 : 0, pipe.Host == connection ? "The host is offline." : "", connection));
+            if (RemovePipeLocked(pipe))
+            {
+                var lost = pipe.Host == connection;
+                ending.Pipes.Add((pipe, lost ? 409 : 0, !lost ? "" : pipe.IsCall ? "That computer is not online." : "The host is offline.", connection));
+            }
         entries.Remove(connection);
         if (accounts.TryGetValue(connection.UserId, out var devices) && devices.GetValueOrDefault(connection.DeviceId) == entry)
         {
             devices.Remove(connection.DeviceId);
             if (devices.Count == 0) accounts.Remove(connection.UserId);
         }
+        if (entry.Ready && connection.Hosts) TellHostsLocked(connection.UserId);
         ending.Aborted.Add(connection);
+    }
+
+    private void TellHostsLocked(Guid userId, DeviceConnection? only = null)
+    {
+        if (!accounts.TryGetValue(userId, out var devices)) return;
+        var ready = devices.Values.Where(x => x.Ready).ToArray();
+        var hosts = ready.Where(x => x.Connection.Hosts && x.Connection.IsOpen).Select(x => x.Connection.DeviceId).Order(StringComparer.Ordinal).ToArray();
+        var notice = Wire.Encode(new HostsNotice(hosts));
+        foreach (var entry in ready.Where(x => x.Connection.KnowsCalls && (only is null || x.Connection == only))) entry.Connection.Send(notice);
     }
 
     private void RemoveHostedLocked(Guid sessionId, Hosted live, Ending ending, int status = 404, string message = "This terminal is no longer available.")
@@ -258,7 +306,11 @@ public sealed class ConnectionDirectory
             viewer.Pipes.Remove(pipe.Id);
             viewer.Views--;
         }
-        if (entries.TryGetValue(pipe.Host, out var host)) host.Pipes.Remove(pipe.Id);
+        if (entries.TryGetValue(pipe.Host, out var host))
+        {
+            host.Pipes.Remove(pipe.Id);
+            if (pipe.IsCall) host.Calls--;
+        }
         return true;
     }
 
@@ -268,6 +320,8 @@ public sealed class ConnectionDirectory
         public HashSet<Guid> Hosted { get; } = [];
         public HashSet<Guid> Pipes { get; } = [];
         public int Views { get; set; }
+        public int Calls { get; set; }
+        public bool Ready { get; set; }
     }
 
     private sealed class Hosted(Guid incarnationId, Entry host)

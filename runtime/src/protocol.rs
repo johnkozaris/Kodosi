@@ -23,9 +23,10 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 66;
+pub const VERSION: u32 = 67;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
+pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +34,12 @@ pub struct CommandEnvelope {
     #[serde(deserialize_with = "account_user")]
     pub account_user_id: Option<String>,
     pub account_epoch: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "computer"
+    )]
+    pub computer: Option<String>,
     #[serde(flatten, deserialize_with = "validated_command")]
     pub command: Command,
 }
@@ -486,6 +493,13 @@ pub enum Command {
         request_id: String,
         change: AgentChoiceChange,
     },
+    #[serde(rename = "folders.list")]
+    ListFolders {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(default)]
+        path: Option<String>,
+    },
     #[serde(rename = "dosi.send")]
     DosiSend {
         #[serde(rename = "requestId")]
@@ -763,6 +777,8 @@ pub enum EventBody {
         notice: Option<String>,
         devices: Vec<DeviceEntry>,
     },
+    #[serde(rename = "devices.hosts")]
+    DevicesHosts { device_ids: Vec<String> },
     #[serde(rename = "devices.link.snapshot")]
     DeviceLinksSnapshot { requests: Vec<DeviceLinkRequest> },
     #[serde(rename = "devices.link.resolved")]
@@ -867,6 +883,18 @@ pub enum EventBody {
     },
     #[serde(rename = "provider.error")]
     ProviderError {
+        request_id: String,
+        operation: String,
+        message: String,
+    },
+    #[serde(rename = "folders.result")]
+    FoldersResult {
+        request_id: String,
+        operation: String,
+        folders: FolderList,
+    },
+    #[serde(rename = "folders.error")]
+    FoldersError {
         request_id: String,
         operation: String,
         message: String,
@@ -983,6 +1011,16 @@ pub struct DeviceEntry {
     pub label: String,
     pub cert_issued_at_ms: i64,
     pub recovery_key: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FolderList {
+    pub path: String,
+    pub parent: Option<String>,
+    pub home: String,
+    pub folders: Vec<String>,
+    pub recent: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -1115,6 +1153,8 @@ impl EventBody {
             | Self::MissionError { request_id, .. }
             | Self::ProviderResult { request_id, .. }
             | Self::ProviderError { request_id, .. }
+            | Self::FoldersResult { request_id, .. }
+            | Self::FoldersError { request_id, .. }
             | Self::DosiResult { request_id, .. }
             | Self::DosiError { request_id, .. } => Some(request_id),
             _ => None,
@@ -1142,6 +1182,7 @@ impl EventBody {
             Self::FriendsResult { .. } => "friends.result",
             Self::FriendsError { .. } => "friends.error",
             Self::DevicesList { .. } => "devices.list",
+            Self::DevicesHosts { .. } => "devices.hosts",
             Self::DeviceLinksSnapshot { .. } => "devices.link.snapshot",
             Self::DeviceLinkResolved { .. } => "devices.link.resolved",
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
@@ -1159,6 +1200,8 @@ impl EventBody {
             Self::MissionError { .. } => "mission.error",
             Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
+            Self::FoldersResult { .. } => "folders.result",
+            Self::FoldersError { .. } => "folders.error",
             Self::MissionShow { .. } => "mission.show",
             Self::DosiSnapshot { .. } => "dosi.snapshot",
             Self::DosiItem { .. } => "dosi.item",
@@ -1195,6 +1238,16 @@ fn account_user<'de, D: Deserializer<'de>>(
         parse_id(id).map_err(serde::de::Error::custom)?;
     }
     Ok(user)
+}
+
+fn computer<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error> {
+    let device = Option::<String>::deserialize(deserializer)?;
+    if let Some(device) = &device {
+        text(device, "computer", 1024).map_err(serde::de::Error::custom)?;
+    }
+    Ok(device)
 }
 
 fn validated_command<'de, D: Deserializer<'de>>(
@@ -1267,6 +1320,7 @@ impl Command {
             Self::InspectAgentModels { .. } => "provider.agentModels",
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
+            Self::ListFolders { .. } => "folders.list",
             Self::DosiSend { .. } => "dosi.send",
             Self::DosiStop { .. } => "dosi.stop",
             Self::DosiUnqueue { .. } => "dosi.unqueue",
@@ -1295,6 +1349,18 @@ impl Command {
                 | Self::DosiReadInstructions { .. }
                 | Self::DosiWriteInstructions { .. }
                 | Self::DosiHistory { .. }
+        )
+    }
+
+    pub const fn runs_on_other_computers(&self) -> bool {
+        matches!(
+            self,
+            Self::InspectAgents { .. }
+                | Self::InspectAgentModels { .. }
+                | Self::AddAgentAccount { .. }
+                | Self::ChooseAgent { .. }
+                | Self::ListFolders { .. }
+                | Self::CreateSession { resume: None, .. }
         )
     }
 
@@ -1360,6 +1426,7 @@ impl Command {
             | Self::InspectAgentModels { request_id, .. }
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
+            | Self::ListFolders { request_id, .. }
             | Self::DosiSend { request_id, .. }
             | Self::DosiStop { request_id }
             | Self::DosiUnqueue { request_id, .. }
@@ -1511,6 +1578,10 @@ impl Command {
             }
             Self::InspectProvider {
                 working_directory: Some(directory),
+                ..
+            }
+            | Self::ListFolders {
+                path: Some(directory),
                 ..
             } => directory_input(directory)?,
             _ => {}
@@ -1845,12 +1916,14 @@ fn agent_start(start: &AgentStart) -> Result<()> {
 
 fn directory_input(value: &str) -> Result<()> {
     text(value, "working directory", 4096)?;
-    let path = std::path::Path::new(value);
-    if !path.is_absolute()
-        || path
-            .components()
-            .any(|component| component == std::path::Component::ParentDir)
-    {
+    let bytes = value.as_bytes();
+    let absolute = value.starts_with('/')
+        || value.starts_with(r"\\")
+        || (bytes.len() > 2
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/'));
+    if !absolute || value.split(['/', '\\']).any(|part| part == "..") {
         return Err(Error::Invalid(
             "working directory must be absolute without parent traversal".to_owned(),
         ));
@@ -1959,6 +2032,7 @@ mod tests {
             json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":DIRECTORY}),
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
+            json!({"type":"folders.list","requestId":ID,"path":DIRECTORY}),
             resize(),
             json!({"type":"mission.show","requestId":ID,"missionId":ID}),
             json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"room":null}}),
@@ -2032,7 +2106,31 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 61);
+        assert_eq!(kinds.len(), 62);
+    }
+
+    #[test]
+    fn a_command_names_another_computer_and_any_platform_folder() {
+        let create = |computer: Value, folder: &str| {
+            let mut value = envelope(
+                json!({"type":"session.create","requestId":ID,"name":"Terminal","workingDir":folder}),
+            );
+            value["computer"] = computer;
+            serde_json::from_value::<CommandEnvelope>(value)
+        };
+        let command = create(json!("device-2"), r"C:\Users\ana\Repos").unwrap();
+        assert_eq!(command.computer.as_deref(), Some("device-2"));
+        assert!(command.command.runs_on_other_computers());
+        assert_eq!(
+            serde_json::to_value(&command).unwrap()["computer"],
+            "device-2"
+        );
+        assert!(create(Value::Null, "/home/ana/Repos").is_ok());
+        for folder in ["Repos", r"C:Repos", "/home/ana/../bob", r"C:\Users\..\bob"] {
+            assert!(create(json!("device-2"), folder).is_err(), "{folder}");
+        }
+        assert!(create(json!(""), "/home/ana").is_err());
+        assert!(create(json!("bad\ndevice"), "/home/ana").is_err());
     }
 
     #[test]

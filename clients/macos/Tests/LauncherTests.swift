@@ -98,6 +98,49 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.freshTerminals.contains(created))
 }
 
+@Test @MainActor func aLauncherForAnotherComputerAsksThatComputerAndStartsThere() async throws {
+    let (app, sent) = try launcherApp("LauncherComputer")
+    defer { app.shutdownProcess() }
+    let studio = app.launcher(for: "studio")
+    #expect(app.launcher(for: "studio") === studio)
+    #expect(app.launcher(for: nil) === app.launcher)
+    Task { _ = try? await studio.folders(at: "/home/maya") }
+    var listed: [String: JSONValue]?
+    for _ in 0 ..< 200 where listed == nil {
+        await Task.yield()
+        listed = sent().last { $0["type"] == .string("folders.list") }
+    }
+    #expect(listed?["computer"] == .string("studio"))
+    #expect(listed?["path"] == .string("/home/maya"))
+    app.settings.lastWorkingDir = "/Users/maya/here"
+    let creating = Task { try await app.createSession(name: "Test", directory: "/home/maya/work", computer: "studio") }
+    var create: [String: JSONValue]?
+    for _ in 0 ..< 200 where create == nil {
+        await Task.yield()
+        create = sent().last { $0["type"] == .string("session.create") }
+    }
+    let fields = try #require(create)
+    #expect(fields["computer"] == .string("studio"))
+    #expect(fields["workingDir"] == .string("/home/maya/work"))
+    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(fields["requestId"]?.stringValue)), "sessionId": .string(UUIDv7.generate()),
+        "operation": .string("session.create"),
+    ]))
+    try await creating.value
+    #expect(app.settings.lastWorkingDir == "/Users/maya/here")
+}
+
+@Test func aFolderOfAnotherComputerShowsFromItsOwnHome() {
+    let mac = FolderList(path: "/home/maya/Repos", parent: "/home/maya", home: "/home/maya", folders: ["kodosi"], recent: [])
+    #expect(mac.shown("/home/maya") == "~")
+    #expect(mac.shown("/home/maya/Repos/kodosi") == "~/Repos/kodosi")
+    #expect(mac.shown("/home/mayabe") == "/home/mayabe")
+    #expect(mac.child("kodosi") == "/home/maya/Repos/kodosi")
+    let windows = FolderList(path: #"C:\Users\maya"#, parent: #"C:\Users"#, home: #"C:\Users\maya"#, folders: [], recent: [])
+    #expect(windows.shown(#"C:\Users\maya\Repos"#) == #"~\Repos"#)
+    #expect(windows.child("Repos") == #"C:\Users\maya\Repos"#)
+}
+
 @Test @MainActor func theLauncherStartsTheAgentAsItShowsIt() async throws {
     let (app, sent) = try launcherApp("LauncherPlan")
     defer { app.shutdownProcess() }

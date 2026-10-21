@@ -34,6 +34,7 @@ use super::{
 #[cfg(feature = "host")]
 use super::{HostRequest, LocalPublication, PublicationOutput, PublishedFrame};
 
+mod calls;
 mod channel;
 #[cfg(feature = "host")]
 mod host;
@@ -42,6 +43,9 @@ mod link;
 mod pacer;
 mod participant;
 
+#[cfg(feature = "host")]
+pub(crate) use calls::{Answering, answer as answer_calls};
+pub(crate) use calls::{Lines, ask as ask_computer};
 pub(crate) use channel::ChannelKeys;
 pub(crate) use link::Link;
 
@@ -226,7 +230,7 @@ async fn admitted(
         tracing::warn!(%error, "terminal connection failed");
         invalid("Kodosi could not reach the terminal connection service.")
     })?;
-    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session})).await?;
+    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session,"hosts":cfg!(feature = "host")})).await?;
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
         "ready" => Ok(Some(socket)),

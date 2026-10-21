@@ -19,12 +19,24 @@ struct AgentLauncher: View {
     @State private var error: String?
     @State private var prompt = ""
     @State private var focusRequest = 1
+    @State private var remoteFolders: [String: String] = [:]
 
     private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
 
+    private var computer: String? {
+        guard let wanted = deps.settings.lastComputer,
+              deps.account.computers.contains(where: { $0.deviceId == wanted })
+        else { return nil }
+        return wanted
+    }
+
+    private var computerName: String {
+        computer.flatMap { id in deps.account.computers.first { $0.deviceId == id }?.label } ?? String(localized: "This Mac")
+    }
+
     private var launcher: LauncherState {
-        deps.launcher
+        deps.launcher(for: computer)
     }
 
     private var ink: AppTheme.Colors {
@@ -44,7 +56,10 @@ struct AgentLauncher: View {
     }
 
     private var directory: String? {
-        folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
+        if let computer {
+            return remoteFolders[computer] ?? launcher.places?.recent.first
+        }
+        return folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
     }
 
     private var ready: Bool {
@@ -77,8 +92,14 @@ struct AgentLauncher: View {
         }
         .animation(theme.motion.spring, value: choice)
         .animation(theme.motion.spring, value: launcher.catalog)
-        .task { await launcher.refresh() }
-        .task(id: "\(choice.agent ?? "")|\(info?.installed == true)") {
+        .task(id: computer ?? "") {
+            await launcher.refresh()
+            if computer != nil {
+                _ = try? await launcher.folders()
+            }
+        }
+        .onChange(of: computer) { closeMenu() }
+        .task(id: "\(computer ?? "")|\(choice.agent ?? "")|\(info?.installed == true)") {
             if let agent = choice.agent {
                 await launcher.loadModels(agent)
             }
@@ -137,8 +158,12 @@ struct AgentLauncher: View {
 
     private var place: some View {
         HStack(spacing: 5) {
-            DeviceGlyph(label: String(localized: "This Mac"))
-            Text("This Mac")
+            if deps.account.computers.isEmpty {
+                DeviceGlyph(label: String(localized: "This Mac"))
+                Text("This Mac")
+            } else {
+                computerKey
+            }
             if let roomName {
                 Text(verbatim: "·")
                 RoomSigil(key: roomId ?? "", size: 13)
@@ -146,23 +171,57 @@ struct AgentLauncher: View {
             }
         }
         .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
-        .padding(.bottom, 11)
+        .padding(.bottom, deps.account.computers.isEmpty ? 11 : 6)
     }
 
-    private var folderKey: some View {
-        PickerKey(
-            title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
-            label: String(localized: "Folder"), help: directory.map(tilde)
-        ) {
-            Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
-        } action: {
-            toggle(.folder)
+    private var computerKey: some View {
+        ComputerKey(name: computerName, open: menu == .computer) {
+            toggle(.computer)
         }
-        .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
+        .kodosiPopover(isPresented: presented(.computer), alignment: .trailing) {
             PickerList(
-                rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
-                identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu
+                rows: LauncherMenu.computers(deps.account.computers, current: computer),
+                identifier: "launcher.list.computer", width: 250, pick: pick, close: closeMenu
             )
+        }
+    }
+
+    @ViewBuilder
+    private var folderKey: some View {
+        if let computer {
+            let places = launcher.places
+            PickerKey(
+                title: directory.map { places?.shown($0) == "~" ? "~" : HostPath.folderName($0) } ?? "~",
+                open: menu == .folder, identifier: "launcher.folder",
+                label: String(localized: "Folder"), help: directory.map { places?.shown($0) ?? $0 }
+            ) {
+                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+            } action: {
+                toggle(.folder)
+            }
+            .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
+                RemoteFolders(launcher: launcher, computer: computerName, current: directory) { path in
+                    remoteFolders[computer] = path
+                    closeMenu()
+                } close: {
+                    closeMenu()
+                }
+            }
+        } else {
+            PickerKey(
+                title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
+                label: String(localized: "Folder"), help: directory.map(tilde)
+            ) {
+                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+            } action: {
+                toggle(.folder)
+            }
+            .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
+                PickerList(
+                    rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
+                    identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu
+                )
+            }
         }
     }
 
@@ -258,6 +317,9 @@ struct AgentLauncher: View {
     private func pick(_ id: String) {
         guard let menu else { return }
         switch menu.pick(id) {
+        case let .computer(id):
+            deps.settings.lastComputer = id
+            deps.settings.save()
         case let .folder(path):
             folder = path
         case .anotherFolder:
@@ -307,13 +369,17 @@ struct AgentLauncher: View {
             .keyboardShortcut(.defaultAction)
             .disabled(starting || !ready)
             .accessibilityIdentifier("launcher.start")
-            IconButton(
-                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
-            ) {
-                deps.workbench.launcher = nil
-                deps.workbench.showsHistory = true
+            if computer == nil {
+                IconButton(
+                    title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
+                ) {
+                    deps.workbench.launcher = nil
+                    deps.workbench.showsHistory = true
+                }
+                .transition(.opacity)
             }
         }
+        .animation(theme.motion.fade, value: computer == nil)
     }
 
     private var startTitle: LocalizedStringKey {
@@ -345,12 +411,13 @@ struct AgentLauncher: View {
         let first = installed && !words.isEmpty ? words : nil
         starting = true
         error = nil
-        let directory = directory
+        let (directory, computer, launcher) = (directory, computer, launcher)
         Task { @MainActor in
             defer { starting = false }
             do {
                 try await deps.createSession(
-                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, agent: agent, prompt: first
+                    name: generateSessionName(), directory: directory, computer: computer, roomId: roomId,
+                    command: command, agent: agent, prompt: first
                 )
                 prompt = ""
                 started()
