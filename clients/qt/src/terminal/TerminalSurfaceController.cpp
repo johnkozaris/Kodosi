@@ -84,7 +84,7 @@ bool TerminalSurfaceController::bind(
             .checkpointTimer = {},
             .attached = false,
         });
-        view->setTerminalInteraction(presentation && presentation->canControl, presentation && presentation->canControl);
+        view->setTerminalInteraction(presentation && presentation->canType, presentation && presentation->canType);
         connect(view, &QObject::destroyed, this, [this, view] {
             for (auto binding = m_bindings.begin();
                  binding != m_bindings.end();) {
@@ -161,7 +161,7 @@ bool TerminalSurfaceController::bind(
         return true;
     }
     if (found->sessionId == sessionId) {
-        found->view->setTerminalInteraction(presentation && presentation->canControl, presentation && presentation->canControl);
+        found->view->setTerminalInteraction(presentation && presentation->canType, presentation && presentation->canType);
         tryAttach(*found);
         return true;
     }
@@ -173,7 +173,7 @@ bool TerminalSurfaceController::bind(
     found->surfaceGeneration = 0;
     found->retryPending = false;
     found->attached = false;
-    found->view->setTerminalInteraction(presentation && presentation->canControl, presentation && presentation->canControl);
+    found->view->setTerminalInteraction(presentation && presentation->canType, presentation && presentation->canType);
     tryAttach(*found);
     return true;
 }
@@ -208,7 +208,7 @@ bool TerminalSurfaceController::retry(
     found->surfaceGeneration = 0;
     found->retryPending = false;
     found->attached = false;
-    found->view->setTerminalInteraction(presentation->canControl, presentation->canControl);
+    found->view->setTerminalInteraction(presentation->canType, presentation->canType);
     tryAttach(*found);
     return true;
 }
@@ -298,7 +298,7 @@ void TerminalSurfaceController::reconcile()
             binding = m_bindings.erase(binding);
             continue;
         }
-        binding->view->setTerminalInteraction(presentation->canControl, presentation->canControl);
+        binding->view->setTerminalInteraction(presentation->canType, presentation->canType);
         const auto connected = !presentation->isRemoteConnectable || presentation->canControl;
         if (connected != binding->runtimeConnected) {
             binding->runtimeConnected = connected;
@@ -336,7 +336,7 @@ void TerminalSurfaceController::reconcile()
 void TerminalSurfaceController::tryAttach(Binding& binding)
 {
     const auto presentation = m_sessions.presentationSession(binding.sessionId);
-    if (presentation && presentation->isRemoteConnectable && !presentation->canControl) {
+    if (presentation && presentation->isRemoteConnectable && (!presentation->canControl || presentation->away)) {
         return;
     }
     if (binding.attached || binding.retryPending

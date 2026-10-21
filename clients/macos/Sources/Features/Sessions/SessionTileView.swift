@@ -109,11 +109,14 @@ struct SessionTileView: View {
     @ViewBuilder
     private var terminal: some View {
         if !session.isConnected {
+            let away = session.status == .offline && session.connectionState != .blocked
             TerminalStateCard(
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",
-                title: session.statusLabel, message: session.message, working: session.connectionState == .connecting
+                title: session.statusLabel,
+                message: away ? String(localized: "The terminal opens when its computer is back.") : session.message,
+                working: session.connectionState == .connecting
             ) {
-                if session.connectionState == .offline {
+                if session.connectionState == .offline, !away {
                     Button("Connect") { deps.activateSession(session.id) }
                         .buttonStyle(.kodosi(.primary))
                         .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).connect")

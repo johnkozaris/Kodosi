@@ -1323,6 +1323,9 @@ async fn wait_for(
             if let Some(state) = until.iter().find(|state| state.reached(entry)) {
                 return Ok::<_, Error>((*state, entry.cloned().unwrap_or_default()));
             }
+            if let Some(offline) = entry.and_then(render::offline) {
+                return Err(Error::Other(offline));
+            }
             let frame = client.next().await?;
             if let Some(event) = frame.get("event") {
                 context.observe(event);
@@ -1493,6 +1496,9 @@ mod tests {
         assert!(!WaitState::Prompt.reached(Some(&entry)));
         assert!(WaitState::Closed.reached(None));
         assert!(!WaitState::Waiting.reached(None));
+        assert_eq!(render::offline(&entry), None);
+        let away = json!({"id":"t","status":"offline","hostName":"Studio"});
+        assert_eq!(render::offline(&away).unwrap(), "Studio is offline.");
     }
     #[test]
     fn background_hosts_only_exit_after_an_idle_grace_period() {

@@ -32,6 +32,9 @@ struct TerminalTitle: View {
             Text("Reconnecting")
                 .foregroundStyle(theme.colors.caution)
                 .shimmer()
+        } else if session.isConnected, session.status == .offline {
+            Text(session.statusLabel)
+                .foregroundStyle(theme.colors.caution)
         } else if session.isConnected, let notice = session.message {
             Text(notice)
                 .foregroundStyle(theme.colors.caution)

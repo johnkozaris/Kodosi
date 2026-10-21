@@ -14,6 +14,10 @@ struct TerminalSessionState: View {
         case .blocked:
             TerminalStateCard(symbol: "lock", title: session.statusLabel, message: session.message, working: false) { EmptyView() }
                 .accessibilityIdentifier("terminal.state.blocked")
+        case .offline where session.status == .offline:
+            TerminalStateCard(symbol: "wifi.slash", title: session.statusLabel, message: String(localized: "The terminal opens when its computer is back."),
+                              working: false) { EmptyView() }
+                .accessibilityIdentifier("terminal.state.away")
         case .offline where !opening:
             TerminalStateCard(symbol: "wifi.slash", title: session.statusLabel, message: failure ?? session.message, working: false) {
                 if session.canOpen {

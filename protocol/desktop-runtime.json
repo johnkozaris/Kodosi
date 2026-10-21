@@ -4860,6 +4860,9 @@
                       "const": "reconnecting"
                     },
                     {
+                      "const": "offline"
+                    },
+                    {
                       "const": "closing"
                     }
                   ]
@@ -8799,7 +8802,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 66,
+  "protocolVersion": 67,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

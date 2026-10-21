@@ -57,6 +57,8 @@ public:
         bool canRetainPresentation = false;
         bool isRemoteConnectable = false;
         bool canControl = false;
+        bool canType = false;
+        bool away = false;
     };
     enum Role {
         SessionIdRole = Qt::UserRole + 1,

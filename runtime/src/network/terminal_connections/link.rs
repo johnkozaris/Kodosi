@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU64, AtomicUsize};
 
 use super::{channel::Transport, *};
 use crate::network::TerminalStatus;
@@ -68,6 +68,7 @@ struct Shared {
 pub(crate) struct Link {
     shared: std::sync::Mutex<Shared>,
     changed: Notify,
+    connects: AtomicU64,
 }
 
 #[cfg(feature = "host")]
@@ -261,7 +262,17 @@ impl Link {
                 hosting.announced = false;
             }
         }
+        self.connects.fetch_add(1, Ordering::AcqRel);
         self.announce();
+    }
+
+    pub(crate) fn connects(&self) -> u64 {
+        self.connects.load(Ordering::Acquire)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn note_connected(&self) {
+        self.connects.fetch_add(1, Ordering::AcqRel);
     }
 
     fn disconnected(&self) {
