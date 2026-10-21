@@ -84,6 +84,13 @@ pub(super) fn with_default_signals(command: &mut std::process::Command) {
     }
 }
 
+#[allow(unsafe_code)]
+pub(super) fn reset_signals() {
+    use nix::sys::signal::{SigHandler, SigSet, Signal, signal};
+    let _ = SigSet::empty().thread_set_mask();
+    let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
+}
+
 pub(super) fn end_group(leader: u32, force: bool) {
     let Some(leader) = i32::try_from(leader)
         .ok()
@@ -135,8 +142,8 @@ pub(super) const fn allow_foreground(_pid: u32) {}
 
 #[cfg(test)]
 mod tests {
-    use nix::sys::signal::{SigSet, Signal};
-    use std::os::unix::process::ExitStatusExt as _;
+    use nix::sys::signal::{SigHandler, SigSet, Signal, signal};
+    use std::{io::Write as _, os::unix::process::ExitStatusExt as _};
 
     #[test]
     fn a_program_started_without_a_terminal_ends_on_a_signal_its_host_blocks() {
@@ -150,5 +157,38 @@ mod tests {
         .join()
         .unwrap();
         assert_eq!(status.signal(), Some(Signal::SIGTERM as i32));
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn a_program_started_with_blocked_signals_hears_them_and_survives_a_closed_pipe() {
+        const NAME: &str = "process::unix::tests::a_program_started_with_blocked_signals_hears_them_and_survives_a_closed_pipe";
+        const CHILD: &str = "KODOSI_TEST_BLOCKED_SIGNALS";
+        if std::env::var_os(CHILD).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        unsafe { signal(Signal::SIGPIPE, SigHandler::SigDfl) }.unwrap();
+        SigSet::from_iter([Signal::SIGCHLD, Signal::SIGTERM])
+            .thread_block()
+            .unwrap();
+        super::reset_signals();
+        let mask = SigSet::thread_get_mask().unwrap();
+        assert!(!mask.contains(Signal::SIGCHLD) && !mask.contains(Signal::SIGTERM));
+        let (reader, mut writer) = std::io::pipe().unwrap();
+        drop(reader);
+        assert_eq!(
+            writer.write_all(b"x").unwrap_err().kind(),
+            std::io::ErrorKind::BrokenPipe
+        );
     }
 }
