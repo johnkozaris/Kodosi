@@ -2,8 +2,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
-cargo_deny_version := "0.19.0"
-cargo_machete_version := "0.9.1"
+cargo_deny_version := "0.20.2"
+cargo_machete_version := "0.9.2"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 test_lints := "-D warnings -A clippy::unwrap_used -A clippy::expect_used"
 llvm_cov := "cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/'"
@@ -23,12 +23,12 @@ default:
 rust-tools-install:
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-deny --version {{ cargo_deny_version }}
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version {{ cargo_machete_version }}
-    cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.8.5
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.9.1
 
 # Install Bacon and the Rust check tools that its jobs use.
 [group('tools')]
 bacon-install: rust-tools-install
-    cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.22.0
+    cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.26.0
 
 [private]
 rust-dependency-tools-check:
@@ -98,7 +98,7 @@ rust-lint:
 # Check the Rust dependencies with cargo-deny.
 [group('rust')]
 rust-deny-check: rust-dependency-tools-check
-    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
+    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph advisories bans licenses sources
 
 # Find unused Rust dependencies with cargo-machete.
 [group('rust')]

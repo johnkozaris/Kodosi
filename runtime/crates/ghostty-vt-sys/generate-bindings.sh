@@ -52,7 +52,7 @@ cargo install \
   --quiet \
   --locked \
   --root "$tmp_dir/tool" \
-  --version 0.72.1 \
+  --version 0.73.2 \
   bindgen-cli
 
 set -- "-I$include_dir"

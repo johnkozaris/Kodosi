@@ -5,7 +5,7 @@ resolver = "3"
 [workspace.package]
 edition = "2024"
 publish = false
-rust-version = "1.99.0"
+rust-version = "1.99.1"
 version = "0.1.0"
 
 [workspace.lints.rust]
@@ -39,24 +39,24 @@ must_use_candidate = "allow"
 missing_const_for_fn = "allow"
 
 [workspace.dependencies]
-aws-lc-rs = "1.18.1"
+aws-lc-rs = "1.18.2"
 base64 = { version = "0.23.1", default-features = false, features = ["std"] }
 bytes = { version = "1.12.1", features = ["serde"] }
 futures-util = "0.3.34"
 reqwest = { version = "0.13.5", default-features = false, features = ["form", "json", "rustls", "stream"] }
-rustix = "1.1.4"
+rustix = "1.1.5"
 serde = "1.0.229"
-serde_json = "1.0.151"
-specta = "=2.0.0-rc.25"
+serde_json = "1.0.154"
+specta = "=2.0.0-rc.27"
 tempfile = "3.27.0"
-thiserror = "2.0.20"
+thiserror = "2.0.21"
 time = "0.3.55"
-tokio = "1.53.2"
+tokio = "1.54.1"
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
-tokio-util = "0.7.19"
+tokio-util = "0.7.20"
 tracing = "0.1.44"
-uuid = { version = "1.26.1", features = ["serde", "v7"] }
-zeroize = "1.9.0"
+uuid = { version = "1.28.0", features = ["serde", "v7"] }
+zeroize = "1.9.1"
 
 [package]
 autobins = false
@@ -75,7 +75,7 @@ host = ["dep:kodosi-pty", "tokio/process"]
 ghostty-vt = { path = "crates/ghostty-vt" }
 kodosi-os = { path = "crates/kodosi-os" }
 kodosi-pty = { path = "crates/kodosi-pty", optional = true }
-sha2 = "0.11.0"
+sha2 = "0.11.1"
 aws-lc-rs = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
@@ -88,7 +88,7 @@ rustls-platform-verifier = "0.7.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
-specta-macros = { version = "=2.0.0-rc.25", features = ["serde"] }
+specta-macros = { version = "=2.0.0-rc.27", features = ["serde"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true, features = ["formatting"] }
@@ -98,7 +98,7 @@ tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }
 uuid = { workspace = true }
 zeroize = { workspace = true }
-clap = { version = "4.6.6", features = ["derive"], optional = true }
+clap = { version = "4.6.7", features = ["derive"], optional = true }
 
 [build-dependencies]
 serde_json = { workspace = true }

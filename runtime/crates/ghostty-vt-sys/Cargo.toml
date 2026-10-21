@@ -8,7 +8,7 @@ links = "ghostty-vt"
 build = "build.rs"
 
 [build-dependencies]
-sha2 = "0.11.0"
+sha2 = "0.11.1"
 
 [lints.rust]
 unsafe_code = "allow"

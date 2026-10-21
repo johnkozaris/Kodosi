@@ -52,7 +52,7 @@ impl PtyReader {
                 .pending
                 .take()
                 .ok_or_else(|| io::Error::other("missing pending PTY reader file"))?;
-            self.async_fd = Some(AsyncFd::new(file)?);
+            self.async_fd = Some(unsafe { AsyncFd::register(file) }?);
         }
         self.async_fd
             .as_mut()
