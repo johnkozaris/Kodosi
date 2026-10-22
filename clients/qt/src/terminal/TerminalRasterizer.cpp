@@ -11,7 +11,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 namespace kodosi {
 namespace {
@@ -232,13 +234,38 @@ void drawImages(
     }
 }
 
-QFont styledFont(const QFont& base, const TerminalCell& cell)
-{
-    auto font = base;
-    font.setBold(cell.bold);
-    font.setItalic(cell.italic);
-    return font;
-}
+// The four faces of the font. Each cell that starts a run of another face sets the painter's
+// font, so a row of plain text sets it once.
+struct Faces {
+    explicit Faces(const QFont& font)
+        : regular(font)
+        , bold(font)
+        , italic(font)
+        , boldItalic(font)
+    {
+        regular.setBold(false);
+        regular.setItalic(false);
+        bold.setBold(true);
+        bold.setItalic(false);
+        italic.setBold(false);
+        italic.setItalic(true);
+        boldItalic.setBold(true);
+        boldItalic.setItalic(true);
+    }
+
+    [[nodiscard]] const QFont& of(const TerminalCell& cell) const
+    {
+        if (cell.bold) {
+            return cell.italic ? boldItalic : bold;
+        }
+        return cell.italic ? italic : regular;
+    }
+
+    QFont regular;
+    QFont bold;
+    QFont italic;
+    QFont boldItalic;
+};
 
 void drawDecoration(
     QPainter& painter,
@@ -264,6 +291,244 @@ void drawDecoration(
             QPointF(bounds.left(), bounds.top() + 1.0),
             QPointF(bounds.right(), bounds.top() + 1.0));
     }
+}
+
+QRectF rowBounds(const TerminalFrame& frame, const CellMetrics& cell, const std::uint16_t row)
+{
+    return {0.0, cell.height * row, cell.width * frame.columns, cell.height};
+}
+
+void drawRowBackgrounds(
+    QPainter& painter,
+    const TerminalFrame& frame,
+    const CellMetrics& cell,
+    const TerminalRasterizer::Palette& palette,
+    const std::uint16_t row)
+{
+    for (std::uint16_t column = 0; column < frame.columns; ++column) {
+        const auto* terminalCell = frame.cell(column, row);
+        if (terminalCell == nullptr) {
+            continue;
+        }
+        const auto background = terminalCell->selected
+            ? palette.selectionBackground
+            : terminalCell->background;
+        if (background != frame.background) {
+            painter.fillRect(
+                QRectF(cell.width * column, cell.height * row, cell.width, cell.height),
+                background);
+        }
+    }
+}
+
+void drawRowText(
+    QPainter& painter,
+    const TerminalFrame& frame,
+    const CellMetrics& cell,
+    const Faces& faces,
+    const TerminalRasterizer::Palette& palette,
+    const std::uint16_t row)
+{
+    const QFont* face = nullptr;
+    for (std::uint16_t column = 0; column < frame.columns; ++column) {
+        const auto* terminalCell = frame.cell(column, row);
+        if (terminalCell == nullptr) {
+            continue;
+        }
+        if (terminalCell->width == 0 || terminalCell->grapheme.isEmpty()
+            || terminalCell->grapheme.startsWith(kittyPlaceholder)) {
+            continue;
+        }
+        const auto span = std::max<std::uint8_t>(terminalCell->width, 1);
+        const QRectF bounds(
+            cell.width * column,
+            cell.height * row,
+            cell.width * span,
+            cell.height);
+        const auto foreground = terminalCell->selected
+            ? palette.selectionForeground
+            : terminalCell->foreground;
+        if (const auto& next = faces.of(*terminalCell); face != &next) {
+            face = &next;
+            painter.setFont(next);
+        }
+        painter.setPen(foreground);
+        if (!drawCellShape(painter, bounds, terminalCell->grapheme, foreground)) {
+            painter.drawText(
+                QPointF(bounds.left(), bounds.top() + cell.ascent),
+                terminalCell->grapheme);
+        }
+        drawDecoration(painter, bounds, *terminalCell, foreground);
+    }
+}
+
+void drawPreedit(
+    QPainter& painter,
+    const TerminalFrame& frame,
+    const CellMetrics& cell,
+    const QFont& font,
+    const TerminalRasterizer::Options& options)
+{
+    if (options.overlay.preedit.isEmpty()
+        || options.overlay.column >= frame.columns
+        || options.overlay.row >= frame.rows) {
+        return;
+    }
+    const QRectF preeditBounds(
+        cell.width * options.overlay.column,
+        cell.height * options.overlay.row,
+        cell.width * std::max<qsizetype>(options.overlay.preedit.size(), 1),
+        cell.height);
+    painter.fillRect(preeditBounds, options.palette.preeditBackground);
+    painter.setFont(font);
+    painter.setPen(options.palette.preeditForeground);
+    painter.drawText(
+        QPointF(preeditBounds.left(), preeditBounds.top() + cell.ascent),
+        options.overlay.preedit);
+    painter.drawLine(
+        QPointF(preeditBounds.left(), preeditBounds.bottom() - 1.0),
+        QPointF(preeditBounds.right(), preeditBounds.bottom() - 1.0));
+}
+
+bool cursorDrawn(const TerminalFrame& frame, const TerminalRasterizer::Options& options)
+{
+    return frame.cursor.visible && options.cursorPhaseVisible
+        && frame.cursor.column < frame.columns && frame.cursor.row < frame.rows;
+}
+
+TerminalCursorStyle cursorStyle(
+    const TerminalFrame& frame,
+    const TerminalRasterizer::Options& options)
+{
+    return options.cursorStyle.value_or(
+        frame.cursor.visualStyle == 0
+            ? TerminalCursorStyle::Bar
+            : frame.cursor.visualStyle == 2
+              ? TerminalCursorStyle::Underline
+              : frame.cursor.visualStyle == 3
+                ? TerminalCursorStyle::HollowBlock
+              : TerminalCursorStyle::Block);
+}
+
+void drawCursor(
+    QPainter& painter,
+    const TerminalFrame& frame,
+    const CellMetrics& cell,
+    const TerminalRasterizer::Options& options)
+{
+    if (!cursorDrawn(frame, options)) {
+        return;
+    }
+    auto cursorColumn = frame.cursor.column;
+    if (frame.cursor.wideTail && cursorColumn > 0) {
+        --cursorColumn;
+    }
+    const auto* cursorCell = frame.cell(cursorColumn, frame.cursor.row);
+    const auto cursorSpan = cursorCell != nullptr && cursorCell->width == 2
+        ? std::uint8_t {2}
+        : std::uint8_t {1};
+    const QRectF cursorBounds(
+        cell.width * cursorColumn,
+        cell.height * frame.cursor.row,
+        cell.width * cursorSpan,
+        cell.height);
+    painter.setPen(QPen(frame.cursorColor, 1.0));
+    switch (cursorStyle(frame, options)) {
+    case TerminalCursorStyle::Bar:
+        painter.fillRect(
+            QRectF(cursorBounds.left(), cursorBounds.top(), 2.0, cursorBounds.height()),
+            frame.cursorColor);
+        break;
+    case TerminalCursorStyle::Underline:
+        painter.fillRect(
+            QRectF(cursorBounds.left(), cursorBounds.bottom() - 2.0, cursorBounds.width(), 2.0),
+            frame.cursorColor);
+        break;
+    case TerminalCursorStyle::HollowBlock:
+        painter.drawRect(cursorBounds.adjusted(0.5, 0.5, -0.5, -0.5));
+        break;
+    case TerminalCursorStyle::Block: {
+        auto cursor = frame.cursorColor;
+        cursor.setAlpha(150);
+        painter.fillRect(cursorBounds, cursor);
+        break;
+    }
+    }
+}
+
+// The rows whose pixels can differ between two frames: rows with other cells, the rows of the
+// cursor and of the text being composed when they change, and the rows under changed images.
+std::vector<bool> changedRows(
+    const TerminalFrame& earlier,
+    const TerminalRasterizer::Options& earlierOptions,
+    const TerminalFrame& frame,
+    const TerminalRasterizer::Options& options)
+{
+    std::vector<bool> changed(frame.rows, false);
+    const auto mark = [&changed](const std::uint16_t row) {
+        if (row < changed.size()) {
+            changed[row] = true;
+        }
+    };
+    for (std::uint16_t row = 0; row < frame.rows; ++row) {
+        const auto first = static_cast<qsizetype>(row) * frame.columns;
+        if (!std::equal(
+                frame.cells.cbegin() + first,
+                frame.cells.cbegin() + first + frame.columns,
+                earlier.cells.cbegin() + first)) {
+            mark(row);
+        }
+    }
+    const auto earlierCursor = cursorDrawn(earlier, earlierOptions);
+    const auto cursor = cursorDrawn(frame, options);
+    if (earlierCursor != cursor || earlier.cursor != frame.cursor
+        || earlier.cursorColor != frame.cursorColor
+        || cursorStyle(earlier, earlierOptions) != cursorStyle(frame, options)) {
+        if (earlierCursor) {
+            mark(earlier.cursor.row);
+        }
+        if (cursor) {
+            mark(frame.cursor.row);
+        }
+    }
+    if (earlierOptions.overlay != options.overlay) {
+        if (!earlierOptions.overlay.preedit.isEmpty()) {
+            mark(earlierOptions.overlay.row);
+        }
+        if (!options.overlay.preedit.isEmpty()) {
+            mark(options.overlay.row);
+        }
+    }
+    if (earlier.images != frame.images) {
+        const auto markImage = [&](const TerminalImagePlacement& image) {
+            const auto top = std::max(0, static_cast<int>(std::floor(image.bounds.top())));
+            const auto bottom = std::min<int>(
+                frame.rows,
+                static_cast<int>(std::ceil(image.bounds.bottom())));
+            for (auto row = top; row < bottom; ++row) {
+                mark(static_cast<std::uint16_t>(row));
+            }
+        };
+        QVector<TerminalImagePlacement> kept;
+        QVector<TerminalImagePlacement> keeps;
+        for (const auto& [these, those, common] : {
+                 std::tuple {&earlier.images, &frame.images, &kept},
+                 std::tuple {&frame.images, &earlier.images, &keeps},
+             }) {
+            for (const auto& image : *these) {
+                if (those->contains(image)) {
+                    common->push_back(image);
+                } else {
+                    markImage(image);
+                }
+            }
+        }
+        // Images that stay but change their order overlap in another order.
+        if (kept != keeps) {
+            std::ranges::for_each(kept, markImage);
+        }
+    }
+    return changed;
 }
 
 }
@@ -368,130 +633,92 @@ QImage TerminalRasterizer::render(
     image.setDevicePixelRatio(devicePixelRatio);
     image.fill(frame.background);
 
+    const Faces faces(font);
     QPainter painter(&image);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowBackground);
     for (std::uint16_t row = 0; row < frame.rows; ++row) {
-        for (std::uint16_t column = 0; column < frame.columns; ++column) {
-            const auto* terminalCell = frame.cell(column, row);
-            if (terminalCell == nullptr) {
-                continue;
-            }
-            const QRectF bounds(
-                cell.width * column,
-                cell.height * row,
-                cell.width,
-                cell.height);
-            const auto background = terminalCell->selected
-                ? options.palette.selectionBackground
-                : terminalCell->background;
-            if (background != frame.background) {
-                painter.fillRect(bounds, background);
-            }
-        }
+        drawRowBackgrounds(painter, frame, cell, options.palette, row);
     }
     drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowText);
-
     for (std::uint16_t row = 0; row < frame.rows; ++row) {
-        for (std::uint16_t column = 0; column < frame.columns; ++column) {
-            const auto* terminalCell = frame.cell(column, row);
-            if (terminalCell == nullptr) {
-                continue;
-            }
-            if (terminalCell->width == 0 || terminalCell->grapheme.isEmpty()
-                || terminalCell->grapheme.startsWith(kittyPlaceholder)) {
-                continue;
-            }
-            const auto span = std::max<std::uint8_t>(terminalCell->width, 1);
-            const QRectF bounds(
-                cell.width * column,
-                cell.height * row,
-                cell.width * span,
-                cell.height);
-            const auto foreground = terminalCell->selected
-                ? options.palette.selectionForeground
-                : terminalCell->foreground;
-            painter.setFont(styledFont(font, *terminalCell));
-            painter.setPen(foreground);
-            if (!drawCellShape(painter, bounds, terminalCell->grapheme, foreground)) {
-                painter.drawText(
-                    QPointF(bounds.left(), bounds.top() + cell.ascent),
-                    terminalCell->grapheme);
-            }
-            drawDecoration(painter, bounds, *terminalCell, foreground);
-        }
+        drawRowText(painter, frame, cell, faces, options.palette, row);
     }
     drawImages(painter, frame, cell, TerminalImagePlacement::Layer::AboveText);
-
-    if (!options.overlay.preedit.isEmpty()
-        && options.overlay.column < frame.columns
-        && options.overlay.row < frame.rows) {
-        const QRectF preeditBounds(
-            cell.width * options.overlay.column,
-            cell.height * options.overlay.row,
-            cell.width * std::max<qsizetype>(options.overlay.preedit.size(), 1),
-            cell.height);
-        painter.fillRect(preeditBounds, options.palette.preeditBackground);
-        painter.setFont(font);
-        painter.setPen(options.palette.preeditForeground);
-        painter.drawText(
-            QPointF(preeditBounds.left(), preeditBounds.top() + cell.ascent),
-            options.overlay.preedit);
-        painter.drawLine(
-            QPointF(preeditBounds.left(), preeditBounds.bottom() - 1.0),
-            QPointF(preeditBounds.right(), preeditBounds.bottom() - 1.0));
-    }
-
-    if (frame.cursor.visible && options.cursorPhaseVisible
-        && frame.cursor.column < frame.columns
-        && frame.cursor.row < frame.rows) {
-        auto cursorColumn = frame.cursor.column;
-        if (frame.cursor.wideTail && cursorColumn > 0) {
-            --cursorColumn;
-        }
-        const auto* cursorCell = frame.cell(cursorColumn, frame.cursor.row);
-        const auto cursorSpan = cursorCell != nullptr && cursorCell->width == 2
-            ? std::uint8_t {2}
-            : std::uint8_t {1};
-        const QRectF cursorBounds(
-            cell.width * cursorColumn,
-            cell.height * frame.cursor.row,
-            cell.width * cursorSpan,
-            cell.height);
-        painter.setPen(QPen(frame.cursorColor, 1.0));
-        const auto cursorStyle = options.cursorStyle.value_or(
-            frame.cursor.visualStyle == 0
-                ? TerminalCursorStyle::Bar
-                : frame.cursor.visualStyle == 2
-                  ? TerminalCursorStyle::Underline
-                  : frame.cursor.visualStyle == 3
-                    ? TerminalCursorStyle::HollowBlock
-                  : TerminalCursorStyle::Block);
-        switch (cursorStyle) {
-        case TerminalCursorStyle::Bar:
-            painter.fillRect(
-                QRectF(cursorBounds.left(), cursorBounds.top(), 2.0, cursorBounds.height()),
-                frame.cursorColor);
-            break;
-        case TerminalCursorStyle::Underline:
-            painter.fillRect(
-                QRectF(cursorBounds.left(), cursorBounds.bottom() - 2.0, cursorBounds.width(), 2.0),
-                frame.cursorColor);
-            break;
-        case TerminalCursorStyle::HollowBlock:
-            painter.drawRect(cursorBounds.adjusted(0.5, 0.5, -0.5, -0.5));
-            break;
-        case TerminalCursorStyle::Block: {
-            auto cursor = frame.cursorColor;
-            cursor.setAlpha(150);
-            painter.fillRect(cursorBounds, cursor);
-            break;
-        }
-        }
-    }
+    drawPreedit(painter, frame, cell, font, options);
+    drawCursor(painter, frame, cell, options);
     painter.end();
     return image;
+}
+
+// Glyphs can reach into the next row, so each painted row also draws the text of its
+// neighbours, clipped to itself, and a changed row paints its neighbours too.
+std::optional<int> TerminalRasterizer::update(
+    QImage& image,
+    const TerminalFrame& earlier,
+    const Options& earlierOptions,
+    const TerminalFrame& frame,
+    const QFont& font,
+    const Options& options)
+{
+    const auto devicePixelRatio = image.devicePixelRatio();
+    const auto cells = static_cast<qsizetype>(frame.columns) * frame.rows;
+    if (image.isNull() || frame.columns == 0 || frame.rows == 0
+        || frame.columns != earlier.columns || frame.rows != earlier.rows
+        || frame.cells.size() != cells || earlier.cells.size() != cells
+        || frame.background != earlier.background
+        || options.palette != earlierOptions.palette
+        || options.lineHeight != earlierOptions.lineHeight) {
+        return std::nullopt;
+    }
+    const auto cell = metrics(font, options.lineHeight, devicePixelRatio);
+    if (std::round(cell.width * frame.columns * devicePixelRatio) != image.width()
+        || std::round(cell.height * frame.rows * devicePixelRatio) != image.height()) {
+        return std::nullopt;
+    }
+
+    const auto changed = changedRows(earlier, earlierOptions, frame, options);
+    std::vector<bool> painted(frame.rows, false);
+    for (std::uint16_t row = 0; row < frame.rows; ++row) {
+        if (changed[row]) {
+            painted[row] = true;
+            painted[row == 0 ? 0 : row - 1] = true;
+            painted[std::min<std::uint16_t>(row + 1, frame.rows - 1)] = true;
+        }
+    }
+    const auto count = static_cast<int>(std::count(painted.cbegin(), painted.cend(), true));
+    if (count == 0) {
+        return 0;
+    }
+
+    const Faces faces(font);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    for (std::uint16_t row = 0; row < frame.rows; ++row) {
+        if (!painted[row]) {
+            continue;
+        }
+        const auto bounds = rowBounds(frame, cell, row);
+        painter.setClipRect(bounds);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.fillRect(bounds, frame.background);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowBackground);
+        drawRowBackgrounds(painter, frame, cell, options.palette, row);
+        drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowText);
+        const auto first = row == 0 ? std::uint16_t {0} : static_cast<std::uint16_t>(row - 1);
+        const auto last = std::min<std::uint16_t>(row + 1, frame.rows - 1);
+        for (auto reach = first; reach <= last; ++reach) {
+            drawRowText(painter, frame, cell, faces, options.palette, reach);
+        }
+        drawImages(painter, frame, cell, TerminalImagePlacement::Layer::AboveText);
+        drawPreedit(painter, frame, cell, font, options);
+        drawCursor(painter, frame, cell, options);
+    }
+    painter.end();
+    return count;
 }
 
 }

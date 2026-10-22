@@ -203,9 +203,10 @@ private:
     QString m_expectedRuntimeIncarnationId;
     qreal m_renderedDevicePixelRatio = 0.0;
     qreal m_renderedViewportScale = 0.0;
-    int m_renderedFontPixelSize = 0;
+    QFont m_renderedFont;
+    TerminalRasterizer::Options m_renderedOptions;
+    QImage m_renderedImage;
     QString m_preedit;
-    QString m_renderedPreedit;
     QChar m_highSurrogate;
     std::uint64_t m_surfaceGeneration = 0;
     bool m_resizeQueued = false;

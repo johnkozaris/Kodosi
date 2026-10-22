@@ -228,7 +228,6 @@ TerminalView::TerminalView(QQuickItem* parent)
             return;
         }
         m_cursorPhaseVisible = !m_cursorPhaseVisible;
-        m_renderedFrame.reset();
         update();
     });
     connect(this, &QQuickItem::enabledChanged, this, &TerminalView::synchronizeInteraction);
@@ -536,7 +535,6 @@ void TerminalView::setTerminalInteraction(
     if (!m_canSendInput) {
         clearPendingInput();
         m_preedit.clear();
-        m_renderedPreedit.clear();
         m_pasteShortcutKey.reset();
         if (auto* inputMethod = QGuiApplication::inputMethod()) {
             inputMethod->reset();
@@ -715,7 +713,6 @@ void TerminalView::detach()
     m_desiredFocus = false;
     clearPendingInput();
     m_preedit.clear();
-    m_renderedPreedit.clear();
     m_selecting = false;
     m_reportedMouseButton = Qt::NoButton;
     m_copyShortcutActive = false;
@@ -833,7 +830,6 @@ void TerminalView::synchronizeInteraction()
     clearPendingInput();
     const bool ownsComposition = hasActiveFocus() && !m_preedit.isEmpty();
     m_preedit.clear();
-    m_renderedPreedit.clear();
     m_pasteShortcutKey.reset();
     m_copyShortcutActive = false;
     m_pressedLink.reset();
@@ -1294,7 +1290,6 @@ void TerminalView::updateBlinkTimer()
     m_cursorBlinkTimer.stop();
     if (!m_cursorPhaseVisible) {
         m_cursorPhaseVisible = true;
-        m_renderedFrame.reset();
         update();
     }
 }
