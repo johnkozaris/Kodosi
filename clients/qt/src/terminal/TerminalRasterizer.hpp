@@ -42,32 +42,17 @@ public:
 
     [[nodiscard]] static QSizeF logicalSize(
         const TerminalFrame& frame,
-        const QFont& font);
-    [[nodiscard]] static QSizeF logicalSize(
-        const TerminalFrame& frame,
         const QFont& font,
-        qreal lineHeight,
+        qreal lineHeight = 1.0,
         qreal devicePixelRatio = 1.0);
-    [[nodiscard]] static QSizeF cellSize(const QFont& font);
     [[nodiscard]] static QSizeF cellSize(
         const QFont& font,
-        qreal lineHeight,
+        qreal lineHeight = 1.0,
         qreal devicePixelRatio = 1.0);
     [[nodiscard]] static QImage render(
         const TerminalFrame& frame,
         const QFont& font,
         qreal devicePixelRatio);
-    [[nodiscard]] static QImage render(
-        const TerminalFrame& frame,
-        const QFont& font,
-        qreal devicePixelRatio,
-        const Palette& palette);
-    [[nodiscard]] static QImage render(
-        const TerminalFrame& frame,
-        const QFont& font,
-        qreal devicePixelRatio,
-        const Palette& palette,
-        const Overlay& overlay);
     [[nodiscard]] static QImage render(
         const TerminalFrame& frame,
         const QFont& font,

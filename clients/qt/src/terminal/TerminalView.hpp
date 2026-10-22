@@ -296,6 +296,7 @@ private:
     void updateBlinkTimer();
     [[nodiscard]] bool blinkEligible() const;
     void invalidateMetrics();
+    void forgetRaster();
 };
 
 }

@@ -431,7 +431,6 @@ void TerminalView::setCursorStyle(const int style)
         return;
     }
     m_cursorStyle = next;
-    m_renderedFrame.reset();
     emit cursorStyleChanged();
     update();
     configureAttachedKernel();
@@ -444,7 +443,6 @@ void TerminalView::setCursorBlink(const bool enabled)
         return;
     }
     m_cursorBlink = enabled;
-    m_renderedFrame.reset();
     emit cursorBlinkChanged();
     updateBlinkTimer();
     update();
@@ -470,7 +468,6 @@ void TerminalView::setSelectionBackground(const QColor& color)
         return;
     }
     m_palette.selectionBackground = color;
-    m_renderedFrame.reset();
     emit selectionBackgroundChanged();
     update();
 }
@@ -482,7 +479,6 @@ void TerminalView::setSelectionForeground(const QColor& color)
         return;
     }
     m_palette.selectionForeground = color;
-    m_renderedFrame.reset();
     emit selectionForegroundChanged();
     update();
 }
@@ -494,7 +490,6 @@ void TerminalView::setPreeditBackground(const QColor& color)
         return;
     }
     m_palette.preeditBackground = color;
-    m_renderedFrame.reset();
     emit preeditBackgroundChanged();
     update();
 }
@@ -506,7 +501,6 @@ void TerminalView::setPreeditForeground(const QColor& color)
         return;
     }
     m_palette.preeditForeground = color;
-    m_renderedFrame.reset();
     emit preeditForegroundChanged();
     update();
 }
@@ -729,7 +723,7 @@ void TerminalView::detach()
         inputMethod->update(Qt::ImEnabled | Qt::ImCursorRectangle);
     }
     m_frame.reset();
-    m_renderedFrame.reset();
+    forgetRaster();
     update();
     if (wasReady) {
         emit terminalReadyChanged();
@@ -1296,7 +1290,6 @@ void TerminalView::updateBlinkTimer()
 
 void TerminalView::invalidateMetrics()
 {
-    m_renderedFrame.reset();
     if (m_frame) {
         const auto sizeHint = gridSize();
         setImplicitSize(sizeHint.width(), sizeHint.height());

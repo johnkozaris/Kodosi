@@ -16,9 +16,7 @@ QSGNode* TerminalView::updatePaintNode(
     Q_UNUSED(updateData);
     auto* node = static_cast<QSGSimpleTextureNode*>(oldNode);
     if (!m_frame || window() == nullptr || width() <= 0.0 || height() <= 0.0) {
-        m_renderedFrame.reset();
-        m_renderedImage = {};
-        m_renderedDevicePixelRatio = 0.0;
+        forgetRaster();
         delete node;
         return nullptr;
     }
@@ -74,8 +72,7 @@ QSGNode* TerminalView::updatePaintNode(
             queueRenderPerformance(
                 rasterTimer.elapsed(),
                 QStringLiteral("invalid"));
-            m_renderedFrame.reset();
-            m_renderedImage = {};
+            forgetRaster();
             delete node;
             return nullptr;
         }
@@ -86,8 +83,7 @@ QSGNode* TerminalView::updatePaintNode(
             queueRenderPerformance(
                 rasterTimer.elapsed(),
                 QStringLiteral("texture-failed"));
-            m_renderedFrame.reset();
-            m_renderedImage = {};
+            forgetRaster();
             delete node;
             return nullptr;
         }
@@ -103,6 +99,12 @@ QSGNode* TerminalView::updatePaintNode(
     node->setRect(QRectF(viewportOffset(), logicalSize));
     node->setFiltering(scale == 1.0 ? QSGTexture::Nearest : QSGTexture::Linear);
     return node;
+}
+
+void TerminalView::forgetRaster()
+{
+    m_renderedFrame.reset();
+    m_renderedImage = {};
 }
 
 void TerminalView::queueRenderPerformance(

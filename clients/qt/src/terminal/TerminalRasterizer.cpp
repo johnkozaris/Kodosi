@@ -13,7 +13,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <limits>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -644,11 +643,6 @@ std::vector<RowChange> changedRows(
 
 }
 
-QSizeF TerminalRasterizer::logicalSize(const TerminalFrame& frame, const QFont& font)
-{
-    return logicalSize(frame, font, 1.0);
-}
-
 QSizeF TerminalRasterizer::logicalSize(
     const TerminalFrame& frame,
     const QFont& font,
@@ -660,11 +654,6 @@ QSizeF TerminalRasterizer::logicalSize(
         cell.width * frame.columns,
         cell.height * frame.rows,
     };
-}
-
-QSizeF TerminalRasterizer::cellSize(const QFont& font)
-{
-    return cellSize(font, 1.0);
 }
 
 QSizeF TerminalRasterizer::cellSize(
@@ -682,30 +671,6 @@ QImage TerminalRasterizer::render(
     const qreal devicePixelRatio)
 {
     return render(frame, font, devicePixelRatio, Options {});
-}
-
-QImage TerminalRasterizer::render(
-    const TerminalFrame& frame,
-    const QFont& font,
-    const qreal devicePixelRatio,
-    const Palette& palette)
-{
-    Options options;
-    options.palette = palette;
-    return render(frame, font, devicePixelRatio, options);
-}
-
-QImage TerminalRasterizer::render(
-    const TerminalFrame& frame,
-    const QFont& font,
-    const qreal devicePixelRatio,
-    const Palette& palette,
-    const Overlay& overlay)
-{
-    Options options;
-    options.palette = palette;
-    options.overlay = overlay;
-    return render(frame, font, devicePixelRatio, options);
 }
 
 QImage TerminalRasterizer::render(
@@ -764,7 +729,7 @@ QImage TerminalRasterizer::render(
 }
 
 // Glyphs can reach into the next row, so each painted row also draws the text of its
-// neighbours, clipped to itself, and a changed row paints its neighbours too.
+// neighbours, clipped to itself.
 std::optional<int> TerminalRasterizer::update(
     QImage& image,
     const TerminalFrame& earlier,
