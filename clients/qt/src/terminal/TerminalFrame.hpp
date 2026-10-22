@@ -24,6 +24,8 @@ struct TerminalCell {
     bool selected = false;
     std::int32_t underline = 0;
     std::uint8_t width = 1;
+
+    bool operator==(const TerminalCell&) const = default;
 };
 
 struct TerminalCursor {
@@ -33,6 +35,8 @@ struct TerminalCursor {
     std::uint16_t column = 0;
     std::uint16_t row = 0;
     std::int32_t visualStyle = 0;
+
+    bool operator==(const TerminalCursor&) const = default;
 };
 
 struct TerminalImagePlacement {
@@ -42,6 +46,12 @@ struct TerminalImagePlacement {
     QRect source;
     QRectF bounds;
     Layer layer = Layer::AboveText;
+
+    bool operator==(const TerminalImagePlacement& other) const
+    {
+        return pixels.cacheKey() == other.pixels.cacheKey() && source == other.source
+            && bounds == other.bounds && layer == other.layer;
+    }
 };
 
 struct TerminalScrollState {

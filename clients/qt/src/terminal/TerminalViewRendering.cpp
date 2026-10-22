@@ -16,8 +16,7 @@ QSGNode* TerminalView::updatePaintNode(
     Q_UNUSED(updateData);
     auto* node = static_cast<QSGSimpleTextureNode*>(oldNode);
     if (!m_frame || window() == nullptr || width() <= 0.0 || height() <= 0.0) {
-        m_renderedFrame.reset();
-        m_renderedDevicePixelRatio = 0.0;
+        forgetRaster();
         delete node;
         return nullptr;
     }
@@ -29,26 +28,39 @@ QSGNode* TerminalView::updatePaintNode(
 
     const auto devicePixelRatio = window()->effectiveDevicePixelRatio();
     const auto scale = viewportScale();
-    if (nodeNeedsTexture || m_renderedFrame != m_frame
-        || !qFuzzyCompare(m_renderedDevicePixelRatio, devicePixelRatio)
-        || !qFuzzyCompare(m_renderedViewportScale, scale)
-        || m_renderedFontPixelSize != m_font.pixelSize()
-        || m_renderedPreedit != m_preedit) {
-        TerminalRasterizer::Options options;
-        options.palette = m_palette;
-        options.overlay.preedit = m_preedit;
-        options.overlay.column = m_frame->cursor.column;
-        options.overlay.row = m_frame->cursor.row;
-        options.lineHeight = m_lineHeight;
-        options.cursorStyle = m_cursorStyle;
-        options.cursorPhaseVisible = m_cursorPhaseVisible;
+    TerminalRasterizer::Options options;
+    options.palette = m_palette;
+    options.overlay.preedit = m_preedit;
+    options.overlay.column = m_frame->cursor.column;
+    options.overlay.row = m_frame->cursor.row;
+    options.lineHeight = m_lineHeight;
+    options.cursorStyle = m_cursorStyle;
+    options.cursorPhaseVisible = m_cursorPhaseVisible;
+    const auto sameRaster = m_renderedFrame && !m_renderedImage.isNull()
+        && qFuzzyCompare(m_renderedDevicePixelRatio, devicePixelRatio)
+        && m_renderedFont == m_font;
+    if (nodeNeedsTexture || !sameRaster || m_renderedFrame != m_frame
+        || m_renderedOptions != options
+        || !qFuzzyCompare(m_renderedViewportScale, scale)) {
         QElapsedTimer rasterTimer;
         rasterTimer.start();
-        auto image = TerminalRasterizer::render(
-            *m_frame,
-            m_font,
-            devicePixelRatio,
-            options);
+        const auto painted = sameRaster
+            ? TerminalRasterizer::update(
+                  m_renderedImage,
+                  *m_renderedFrame,
+                  m_renderedOptions,
+                  *m_frame,
+                  m_font,
+                  options)
+            : std::nullopt;
+        if (!painted) {
+            m_renderedImage = TerminalRasterizer::render(
+                *m_frame,
+                m_font,
+                devicePixelRatio,
+                options);
+        }
+        auto image = m_renderedImage;
         if (!image.isNull() && scale < 1.0) {
             image = image.scaled(
                 QSize(std::max(1, qRound(image.width() * scale)),
@@ -60,6 +72,7 @@ QSGNode* TerminalView::updatePaintNode(
             queueRenderPerformance(
                 rasterTimer.elapsed(),
                 QStringLiteral("invalid"));
+            forgetRaster();
             delete node;
             return nullptr;
         }
@@ -70,21 +83,28 @@ QSGNode* TerminalView::updatePaintNode(
             queueRenderPerformance(
                 rasterTimer.elapsed(),
                 QStringLiteral("texture-failed"));
+            forgetRaster();
             delete node;
             return nullptr;
         }
         queueRenderPerformance(rasterTimer.elapsed(), QStringLiteral("ok"));
         node->setTexture(texture);
         m_renderedFrame = m_frame;
+        m_renderedOptions = options;
         m_renderedDevicePixelRatio = devicePixelRatio;
         m_renderedViewportScale = scale;
-        m_renderedFontPixelSize = m_font.pixelSize();
-        m_renderedPreedit = m_preedit;
+        m_renderedFont = m_font;
     }
     const auto logicalSize = gridSize() * scale;
     node->setRect(QRectF(viewportOffset(), logicalSize));
     node->setFiltering(scale == 1.0 ? QSGTexture::Nearest : QSGTexture::Linear);
     return node;
+}
+
+void TerminalView::forgetRaster()
+{
+    m_renderedFrame.reset();
+    m_renderedImage = {};
 }
 
 void TerminalView::queueRenderPerformance(

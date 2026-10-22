@@ -427,6 +427,8 @@ private slots:
     void rasterizerAlignsCellsToDevicePixels();
     void rasterizerFillsBlockAndPowerlineCells();
     void rasterizerDrawsImagesInTheirLayers();
+    void rasterizerPaintsChangedRowsAsTheWholeFrame();
+    void rasterizerDrawsARowAlikeInEveryRow();
     void kernelAppliesNativeCursorDefaultsAndScrollback();
     void scrollbackReconfigurationPublishesReplacementFrame();
     void terminalViewOwnsValidatedDisplaySettings();
@@ -1079,6 +1081,131 @@ void TerminalKernelTest::rasterizerDrawsImagesInTheirLayers()
     for (auto y = 0; y < static_cast<int>(cell.height()); ++y) {
         for (auto x = static_cast<int>(std::ceil(cell.width() * 3)); x < image.width(); ++x) {
             QCOMPARE(image.pixelColor(x, y), frame.background);
+        }
+    }
+}
+
+void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
+{
+    using Options = kodosi::TerminalRasterizer::Options;
+    kodosi::TerminalFrame earlier;
+    earlier.columns = 12;
+    earlier.rows = 10;
+    earlier.background = QColor(QStringLiteral("#120f0d"));
+    earlier.foreground = QColor(QStringLiteral("#dcdcdc"));
+    earlier.cursorColor = QColor(QStringLiteral("#db8a62"));
+    earlier.cursor = {.visible = true, .column = 2, .row = 1, .visualStyle = 1};
+    earlier.cells.resize(
+        static_cast<qsizetype>(earlier.columns) * earlier.rows,
+        {.foreground = earlier.foreground, .background = earlier.background});
+    const auto write = [](kodosi::TerminalFrame& frame, const int row, const QString& text) {
+        for (qsizetype column = 0; column < text.size(); ++column) {
+            auto& cell = frame.cells[row * frame.columns + column];
+            cell.grapheme = text.mid(column, 1);
+            cell.underline = row % 2;
+            cell.selected = row == 4;
+        }
+    };
+    write(earlier, 0, QStringLiteral("$ ls gyjpq"));
+    write(earlier, 2, QStringLiteral("█ Agy"));
+    write(earlier, 4, QStringLiteral("selected"));
+    QImage pixels(8, 8, QImage::Format_RGBA8888_Premultiplied);
+    pixels.fill(Qt::red);
+    earlier.images = {{
+        .pixels = pixels,
+        .source = QRect(0, 0, 8, 8),
+        .bounds = QRectF(8.0, 1.5, 3.0, 2.0),
+        .layer = kodosi::TerminalImagePlacement::Layer::BelowText,
+    }};
+
+    auto typed = earlier;
+    write(typed, 3, QStringLiteral("typed"));
+    typed.cursor.row = 3;
+    typed.cursor.column = 5;
+    auto moved = earlier;
+    moved.images[0].bounds = QRectF(7.0, 3.25, 3.0, 2.0);
+    auto scrolled = earlier;
+    std::copy(
+        earlier.cells.cbegin() + earlier.columns,
+        earlier.cells.cend(),
+        scrolled.cells.begin());
+    std::fill(
+        scrolled.cells.end() - earlier.columns,
+        scrolled.cells.end(),
+        kodosi::TerminalCell {.foreground = earlier.foreground, .background = earlier.background});
+    write(scrolled, earlier.rows - 1, QStringLiteral("new line gy"));
+    scrolled.images[0].bounds.translate(0.0, -1.0);
+    Options blink;
+    blink.cursorPhaseVisible = false;
+    Options composing;
+    composing.overlay = {QStringLiteral("ab"), 2, 1};
+    struct Change {
+        const kodosi::TerminalFrame* frame;
+        Options options;
+        int mostRows;
+    };
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    for (const auto lineHeight : {0.8, 1.2}) {
+        for (const auto ratio : {1.0, 1.5}) {
+            Options before;
+            before.lineHeight = lineHeight;
+            for (auto [frame, options, mostRows] : {
+                     Change {&earlier, Options {}, 0},
+                     Change {&typed, Options {}, 4},
+                     Change {&earlier, blink, 1},
+                     Change {&moved, Options {}, 5},
+                     Change {&scrolled, Options {}, 4},
+                     Change {&earlier, composing, 3},
+                 }) {
+                options.lineHeight = lineHeight;
+                auto image = kodosi::TerminalRasterizer::render(earlier, font, ratio, before);
+                const auto painted = kodosi::TerminalRasterizer::update(
+                    image, earlier, before, *frame, font, options);
+                QVERIFY(painted.has_value());
+                QVERIFY(*painted <= mostRows);
+                QCOMPARE(image, kodosi::TerminalRasterizer::render(*frame, font, ratio, options));
+            }
+        }
+    }
+
+    auto recolored = earlier;
+    recolored.background = QColor(QStringLiteral("#ffffff"));
+    auto image = kodosi::TerminalRasterizer::render(earlier, font, 1.0, Options {});
+    QVERIFY(!kodosi::TerminalRasterizer::update(
+        image, earlier, Options {}, recolored, font, Options {}));
+}
+
+void TerminalKernelTest::rasterizerDrawsARowAlikeInEveryRow()
+{
+    kodosi::TerminalFrame frame;
+    frame.columns = 8;
+    frame.rows = 9;
+    frame.background = QColor(QStringLiteral("#120f0d"));
+    frame.foreground = QColor(QStringLiteral("#dcdcdc"));
+    frame.cells.resize(
+        static_cast<qsizetype>(frame.columns) * frame.rows,
+        {.foreground = frame.foreground, .background = frame.background});
+    const auto line = QStringLiteral("▀▄▌▐▖▝█g");
+    for (qsizetype index = 0; index < frame.cells.size(); ++index) {
+        auto& cell = frame.cells[index];
+        cell.grapheme = line.mid(index % frame.columns, 1);
+        cell.underline = cell.grapheme == u"g" ? 1 : 0;
+        cell.strikethrough = cell.grapheme == u"g";
+    }
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    for (const auto ratio : {1.25, 1.5, 1.75, 2.25}) {
+        for (const auto lineHeight : {1.0, 1.3, 1.6}) {
+            kodosi::TerminalRasterizer::Options options;
+            options.lineHeight = lineHeight;
+            const auto image = kodosi::TerminalRasterizer::render(frame, font, ratio, options);
+            const auto rowHeight = image.height() / frame.rows;
+            QCOMPARE(rowHeight * frame.rows, image.height());
+            const auto second = image.copy(0, rowHeight, image.width(), rowHeight);
+            for (int row = 2; row + 1 < frame.rows; ++row) {
+                QCOMPARE(image.copy(0, rowHeight * row, image.width(), rowHeight), second);
+            }
         }
     }
 }

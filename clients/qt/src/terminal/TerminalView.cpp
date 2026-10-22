@@ -228,7 +228,6 @@ TerminalView::TerminalView(QQuickItem* parent)
             return;
         }
         m_cursorPhaseVisible = !m_cursorPhaseVisible;
-        m_renderedFrame.reset();
         update();
     });
     connect(this, &QQuickItem::enabledChanged, this, &TerminalView::synchronizeInteraction);
@@ -432,7 +431,6 @@ void TerminalView::setCursorStyle(const int style)
         return;
     }
     m_cursorStyle = next;
-    m_renderedFrame.reset();
     emit cursorStyleChanged();
     update();
     configureAttachedKernel();
@@ -445,7 +443,6 @@ void TerminalView::setCursorBlink(const bool enabled)
         return;
     }
     m_cursorBlink = enabled;
-    m_renderedFrame.reset();
     emit cursorBlinkChanged();
     updateBlinkTimer();
     update();
@@ -471,7 +468,6 @@ void TerminalView::setSelectionBackground(const QColor& color)
         return;
     }
     m_palette.selectionBackground = color;
-    m_renderedFrame.reset();
     emit selectionBackgroundChanged();
     update();
 }
@@ -483,7 +479,6 @@ void TerminalView::setSelectionForeground(const QColor& color)
         return;
     }
     m_palette.selectionForeground = color;
-    m_renderedFrame.reset();
     emit selectionForegroundChanged();
     update();
 }
@@ -495,7 +490,6 @@ void TerminalView::setPreeditBackground(const QColor& color)
         return;
     }
     m_palette.preeditBackground = color;
-    m_renderedFrame.reset();
     emit preeditBackgroundChanged();
     update();
 }
@@ -507,7 +501,6 @@ void TerminalView::setPreeditForeground(const QColor& color)
         return;
     }
     m_palette.preeditForeground = color;
-    m_renderedFrame.reset();
     emit preeditForegroundChanged();
     update();
 }
@@ -536,7 +529,6 @@ void TerminalView::setTerminalInteraction(
     if (!m_canSendInput) {
         clearPendingInput();
         m_preedit.clear();
-        m_renderedPreedit.clear();
         m_pasteShortcutKey.reset();
         if (auto* inputMethod = QGuiApplication::inputMethod()) {
             inputMethod->reset();
@@ -715,7 +707,6 @@ void TerminalView::detach()
     m_desiredFocus = false;
     clearPendingInput();
     m_preedit.clear();
-    m_renderedPreedit.clear();
     m_selecting = false;
     m_reportedMouseButton = Qt::NoButton;
     m_copyShortcutActive = false;
@@ -732,7 +723,7 @@ void TerminalView::detach()
         inputMethod->update(Qt::ImEnabled | Qt::ImCursorRectangle);
     }
     m_frame.reset();
-    m_renderedFrame.reset();
+    forgetRaster();
     update();
     if (wasReady) {
         emit terminalReadyChanged();
@@ -833,7 +824,6 @@ void TerminalView::synchronizeInteraction()
     clearPendingInput();
     const bool ownsComposition = hasActiveFocus() && !m_preedit.isEmpty();
     m_preedit.clear();
-    m_renderedPreedit.clear();
     m_pasteShortcutKey.reset();
     m_copyShortcutActive = false;
     m_pressedLink.reset();
@@ -1294,14 +1284,12 @@ void TerminalView::updateBlinkTimer()
     m_cursorBlinkTimer.stop();
     if (!m_cursorPhaseVisible) {
         m_cursorPhaseVisible = true;
-        m_renderedFrame.reset();
         update();
     }
 }
 
 void TerminalView::invalidateMetrics()
 {
-    m_renderedFrame.reset();
     if (m_frame) {
         const auto sizeHint = gridSize();
         setImplicitSize(sizeHint.width(), sizeHint.height());
