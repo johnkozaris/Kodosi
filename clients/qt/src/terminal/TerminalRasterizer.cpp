@@ -1,6 +1,7 @@
 #include "terminal/TerminalRasterizer.hpp"
 
 #include <QFontMetricsF>
+#include <QHashFunctions>
 #include <QPainter>
 #include <QPainterPath>
 #include <QStringView>
@@ -10,6 +11,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -456,64 +459,147 @@ void drawCursor(
     }
 }
 
-// The rows whose pixels can differ between two frames: rows with other cells, the rows of the
-// cursor and of the text being composed when they change, and the rows under changed images.
+bool sameRow(
+    const TerminalFrame& frame,
+    const std::uint16_t row,
+    const TerminalFrame& earlier,
+    const std::uint16_t earlierRow)
+{
+    const auto first = static_cast<qsizetype>(row) * frame.columns;
+    const auto earlierFirst = static_cast<qsizetype>(earlierRow) * earlier.columns;
+    return std::equal(
+        frame.cells.cbegin() + first,
+        frame.cells.cbegin() + first + frame.columns,
+        earlier.cells.cbegin() + earlierFirst);
+}
+
+std::vector<std::size_t> rowHashes(const TerminalFrame& frame)
+{
+    std::vector<std::size_t> hashes(frame.rows, 0);
+    for (std::uint16_t row = 0; row < frame.rows; ++row) {
+        auto seed = std::size_t {0};
+        for (std::uint16_t column = 0; column < frame.columns; ++column) {
+            const auto& cell = frame.cells[static_cast<qsizetype>(row) * frame.columns + column];
+            seed = qHashMulti(seed, cell.grapheme, cell.foreground.rgba(), cell.background.rgba(),
+                cell.bold, cell.italic, cell.invisible, cell.strikethrough, cell.overline,
+                cell.selected, cell.underline, cell.width);
+        }
+        hashes[row] = seed;
+    }
+    return hashes;
+}
+
+// How far the rows moved: row r of the frame shows row r + shift of the earlier frame. A move
+// counts only when it keeps at least two more rows than no move.
+int scrollOf(const TerminalFrame& earlier, const TerminalFrame& frame)
+{
+    const auto before = rowHashes(earlier);
+    const auto after = rowHashes(frame);
+    const int rows = frame.rows;
+    const auto kept = [&](const int shift) {
+        auto count = 0;
+        for (auto row = std::max(0, -shift); row < std::min(rows, rows - shift); ++row) {
+            count += after[row] == before[row + shift] ? 1 : 0;
+        }
+        return count;
+    };
+    auto best = 0;
+    auto bestKept = kept(0) + 1;
+    for (auto shift = 1 - rows; shift < rows; ++shift) {
+        if (const auto count = shift == 0 ? 0 : kept(shift); count > bestKept) {
+            best = shift;
+            bestKept = count;
+        }
+    }
+    return best;
+}
+
+void moveRows(QImage& image, const int shift, const int rowPixels)
+{
+    const auto offset = static_cast<qsizetype>(std::abs(shift)) * rowPixels * image.bytesPerLine();
+    if (offset >= image.sizeInBytes()) {
+        return;
+    }
+    auto* bits = image.bits();
+    const auto length = static_cast<std::size_t>(image.sizeInBytes() - offset);
+    if (shift > 0) {
+        std::memmove(bits, bits + offset, length);
+    } else {
+        std::memmove(bits + offset, bits, length);
+    }
+}
+
+// The rows whose pixels can differ between two frames, once the rows of the earlier image have
+// moved by shift: rows with other cells or with no earlier row, an edge row that lost the text
+// reaching in from beyond the edge, the rows of the cursor and of the text being composed when
+// they change, and the rows under changed images.
 std::vector<bool> changedRows(
     const TerminalFrame& earlier,
     const TerminalRasterizer::Options& earlierOptions,
     const TerminalFrame& frame,
-    const TerminalRasterizer::Options& options)
+    const TerminalRasterizer::Options& options,
+    const int shift)
 {
     std::vector<bool> changed(frame.rows, false);
-    const auto mark = [&changed](const std::uint16_t row) {
-        if (row < changed.size()) {
-            changed[row] = true;
+    const auto mark = [&changed](const int row) {
+        if (row >= 0 && static_cast<std::size_t>(row) < changed.size()) {
+            changed[static_cast<std::size_t>(row)] = true;
         }
     };
-    for (std::uint16_t row = 0; row < frame.rows; ++row) {
-        const auto first = static_cast<qsizetype>(row) * frame.columns;
-        if (!std::equal(
-                frame.cells.cbegin() + first,
-                frame.cells.cbegin() + first + frame.columns,
-                earlier.cells.cbegin() + first)) {
+    const int rows = frame.rows;
+    for (auto row = 0; row < rows; ++row) {
+        const auto source = row + shift;
+        if (source < 0 || source >= rows
+            || !sameRow(frame, static_cast<std::uint16_t>(row), earlier,
+                static_cast<std::uint16_t>(source))) {
             mark(row);
         }
     }
+    if (shift > 0) {
+        mark(0);
+    } else if (shift < 0) {
+        mark(rows - 1);
+    }
     const auto earlierCursor = cursorDrawn(earlier, earlierOptions);
     const auto cursor = cursorDrawn(frame, options);
-    if (earlierCursor != cursor || earlier.cursor != frame.cursor
+    if (shift != 0 || earlierCursor != cursor || earlier.cursor != frame.cursor
         || earlier.cursorColor != frame.cursorColor
         || cursorStyle(earlier, earlierOptions) != cursorStyle(frame, options)) {
         if (earlierCursor) {
-            mark(earlier.cursor.row);
+            mark(earlier.cursor.row - shift);
         }
         if (cursor) {
             mark(frame.cursor.row);
         }
     }
-    if (earlierOptions.overlay != options.overlay) {
+    if (shift != 0 || earlierOptions.overlay != options.overlay) {
         if (!earlierOptions.overlay.preedit.isEmpty()) {
-            mark(earlierOptions.overlay.row);
+            mark(earlierOptions.overlay.row - shift);
         }
         if (!options.overlay.preedit.isEmpty()) {
             mark(options.overlay.row);
         }
     }
-    if (earlier.images != frame.images) {
+    const auto moved = [&earlier, shift] {
+        auto images = earlier.images;
+        for (auto& image : images) {
+            image.bounds.translate(0.0, -shift);
+        }
+        return images;
+    }();
+    if (moved != frame.images) {
         const auto markImage = [&](const TerminalImagePlacement& image) {
             const auto top = std::max(0, static_cast<int>(std::floor(image.bounds.top())));
-            const auto bottom = std::min<int>(
-                frame.rows,
-                static_cast<int>(std::ceil(image.bounds.bottom())));
+            const auto bottom = std::min(rows, static_cast<int>(std::ceil(image.bounds.bottom())));
             for (auto row = top; row < bottom; ++row) {
-                mark(static_cast<std::uint16_t>(row));
+                mark(row);
             }
         };
         QVector<TerminalImagePlacement> kept;
         QVector<TerminalImagePlacement> keeps;
         for (const auto& [these, those, common] : {
-                 std::tuple {&earlier.images, &frame.images, &kept},
-                 std::tuple {&frame.images, &earlier.images, &keeps},
+                 std::tuple {&moved, &frame.images, &kept},
+                 std::tuple {&frame.images, &moved, &keeps},
              }) {
             for (const auto& image : *these) {
                 if (those->contains(image)) {
@@ -678,7 +764,11 @@ std::optional<int> TerminalRasterizer::update(
         return std::nullopt;
     }
 
-    const auto changed = changedRows(earlier, earlierOptions, frame, options);
+    const auto shift = scrollOf(earlier, frame);
+    if (shift != 0) {
+        moveRows(image, shift, static_cast<int>(std::lround(cell.height * devicePixelRatio)));
+    }
+    const auto changed = changedRows(earlier, earlierOptions, frame, options, shift);
     std::vector<bool> painted(frame.rows, false);
     for (std::uint16_t row = 0; row < frame.rows; ++row) {
         if (changed[row]) {

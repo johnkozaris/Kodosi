@@ -1123,6 +1123,17 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
     typed.cursor.column = 5;
     auto moved = earlier;
     moved.images[0].bounds = QRectF(7.0, 3.25, 3.0, 2.0);
+    auto scrolled = earlier;
+    std::copy(
+        earlier.cells.cbegin() + earlier.columns,
+        earlier.cells.cend(),
+        scrolled.cells.begin());
+    std::fill(
+        scrolled.cells.end() - earlier.columns,
+        scrolled.cells.end(),
+        kodosi::TerminalCell {.foreground = earlier.foreground, .background = earlier.background});
+    write(scrolled, earlier.rows - 1, QStringLiteral("new line gy"));
+    scrolled.images[0].bounds.translate(0.0, -1.0);
     Options blink;
     blink.cursorPhaseVisible = false;
     Options composing;
@@ -1143,6 +1154,7 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
                      Change {&typed, Options {}, 5},
                      Change {&earlier, blink, 3},
                      Change {&moved, Options {}, 7},
+                     Change {&scrolled, Options {}, 5},
                      Change {&earlier, composing, 3},
                  }) {
                 options.lineHeight = lineHeight;
