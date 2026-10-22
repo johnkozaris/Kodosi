@@ -50,6 +50,8 @@ CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devic
     };
 }
 
+// The edges of a block fall on whole device pixels counted from the corner of its cell, so a block
+// has the same pixels in every row, and a row moved in the image matches the row painted there.
 void fillBlock(
     QPainter& painter,
     const QRectF& bounds,
@@ -59,12 +61,18 @@ void fillBlock(
 {
     auto shade = color;
     shade.setAlphaF(color.alphaF() * opacity);
+    const auto ratio = painter.device()->devicePixelRatio();
+    const auto edge = [ratio](const qreal origin, const qreal size, const qreal fraction) {
+        return (std::round(origin * ratio) + std::round(std::round(size * ratio) * fraction)) / ratio;
+    };
     painter.fillRect(
         QRectF(
-            bounds.left() + (bounds.width() * part.left()),
-            bounds.top() + (bounds.height() * part.top()),
-            bounds.width() * part.width(),
-            bounds.height() * part.height()),
+            QPointF(
+                edge(bounds.left(), bounds.width(), part.left()),
+                edge(bounds.top(), bounds.height(), part.top())),
+            QPointF(
+                edge(bounds.left(), bounds.width(), part.right()),
+                edge(bounds.top(), bounds.height(), part.bottom()))),
         shade);
 }
 

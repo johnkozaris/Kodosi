@@ -428,6 +428,7 @@ private slots:
     void rasterizerFillsBlockAndPowerlineCells();
     void rasterizerDrawsImagesInTheirLayers();
     void rasterizerPaintsChangedRowsAsTheWholeFrame();
+    void rasterizerDrawsARowAlikeInEveryRow();
     void kernelAppliesNativeCursorDefaultsAndScrollback();
     void scrollbackReconfigurationPublishesReplacementFrame();
     void terminalViewOwnsValidatedDisplaySettings();
@@ -1173,6 +1174,40 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
     auto image = kodosi::TerminalRasterizer::render(earlier, font, 1.0, Options {});
     QVERIFY(!kodosi::TerminalRasterizer::update(
         image, earlier, Options {}, recolored, font, Options {}));
+}
+
+void TerminalKernelTest::rasterizerDrawsARowAlikeInEveryRow()
+{
+    kodosi::TerminalFrame frame;
+    frame.columns = 8;
+    frame.rows = 9;
+    frame.background = QColor(QStringLiteral("#120f0d"));
+    frame.foreground = QColor(QStringLiteral("#dcdcdc"));
+    frame.cells.resize(
+        static_cast<qsizetype>(frame.columns) * frame.rows,
+        {.foreground = frame.foreground, .background = frame.background});
+    const auto line = QStringLiteral("▀▄▌▐▖▝█g");
+    for (qsizetype index = 0; index < frame.cells.size(); ++index) {
+        auto& cell = frame.cells[index];
+        cell.grapheme = line.mid(index % frame.columns, 1);
+        cell.underline = cell.grapheme == u"g" ? 1 : 0;
+        cell.strikethrough = cell.grapheme == u"g";
+    }
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    for (const auto ratio : {1.25, 1.5, 1.75, 2.25}) {
+        for (const auto lineHeight : {1.0, 1.3, 1.6}) {
+            kodosi::TerminalRasterizer::Options options;
+            options.lineHeight = lineHeight;
+            const auto image = kodosi::TerminalRasterizer::render(frame, font, ratio, options);
+            const auto rowHeight = image.height() / frame.rows;
+            QCOMPARE(rowHeight * frame.rows, image.height());
+            const auto second = image.copy(0, rowHeight, image.width(), rowHeight);
+            for (int row = 2; row + 1 < frame.rows; ++row) {
+                QCOMPARE(image.copy(0, rowHeight * row, image.width(), rowHeight), second);
+            }
+        }
+    }
 }
 
 void TerminalKernelTest::kernelAppliesNativeCursorDefaultsAndScrollback()
