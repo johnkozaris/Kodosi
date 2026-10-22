@@ -106,12 +106,18 @@ private struct RailAccount: View {
 
     var body: some View {
         if let prompt = deps.signInPrompt {
+            let approving = deps.account.userId != nil
             Button { deps.beginSignIn() } label: {
-                Image(systemName: deps.account.userId != nil ? "checkmark.shield" : "person.fill")
+                Image(systemName: approving ? "checkmark.shield" : "person.fill")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(theme.colors.inkMuted)
                     .frame(width: 26, height: 26)
                     .overlay { Circle().strokeBorder(theme.colors.inkFaint, style: StrokeStyle(lineWidth: 1, dash: [2.4, 2])) }
+                    .overlay(alignment: .topTrailing) {
+                        if approving {
+                            StatusSign(form: .hand, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
+                        }
+                    }
                     .frame(width: 40, height: 40)
                     .hoverRow(radius: Radius.lg)
             }
@@ -119,11 +125,15 @@ private struct RailAccount: View {
             .tip(verbatim: prompt).accessibilityLabel(Text(verbatim: prompt))
             .accessibilityIdentifier("header.signIn")
         } else {
-            Button {
-                deps.workbench.settingsSection = .devices
-                deps.workbench.section = .settings
-            } label: {
+            Button { deps.workbench.showAccount() } label: {
                 PersonAvatar(name: deps.account.selfName, size: 26, isSelf: true)
+                    .overlay(alignment: .topTrailing) {
+                        if !deps.account.deviceRequests.isEmpty {
+                            StatusSign(form: .hand, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
+                                .transition(AnyTransition.pop)
+                        }
+                    }
+                    .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty)
                     .frame(width: 40, height: 40)
                     .hoverRow(radius: Radius.lg)
             }

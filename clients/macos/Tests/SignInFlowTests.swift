@@ -156,6 +156,46 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     app.shutdownProcess()
 }
 
+@Test @MainActor func `device notices lead to the account settings until dismissed and a new request shows again`() throws {
+    let (app, _) = try signedOutApp(prefix: "DeviceNotice")
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))
+    #expect(app.deviceNotice == .approvalNeeded)
+    app.beginSignIn()
+    #expect(app.deviceNotice == nil)
+    app.dismissSignIn()
+    app.account.requestDeviceApproval()
+    try app.receive(runtimeEvent("devices.result", fields: [
+        "operation": .string("devices.link.startSelf"), "requestId": .string(UUIDv7.generate()), "code": .string("JKMN-PQRS-TVWX"),
+    ]))
+    #expect(app.deviceNotice == .approvalWaiting)
+    app.openDeviceNotice()
+    #expect(app.workbench.section == .settings && app.workbench.settingsSection == .devices)
+    #expect(!app.workbench.focusesDeviceCode)
+    #expect(app.deviceNotice == nil)
+    app.workbench.section = .sessions
+    app.dismissDeviceNotice()
+    #expect(app.deviceNotice == nil)
+
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
+    let laptop: JSONValue = .object(["requestId": .string("laptop"), "deviceLabel": .string("Laptop")])
+    let desktop: JSONValue = .object(["requestId": .string("desktop"), "deviceLabel": .string("Desktop")])
+    try app.receive(runtimeEvent("devices.link.snapshot", fields: ["requests": .array([laptop])]))
+    #expect(requestIds(app.deviceNotice) == ["laptop"])
+    app.dismissDeviceNotice()
+    #expect(app.deviceNotice == nil)
+    try app.receive(runtimeEvent("devices.link.snapshot", fields: ["requests": .array([laptop, desktop])]))
+    #expect(requestIds(app.deviceNotice) == ["desktop"])
+    app.openDeviceNotice()
+    #expect(app.workbench.focusesDeviceCode)
+    #expect(app.deviceNotice == nil)
+    app.shutdownProcess()
+}
+
+private func requestIds(_ notice: DeviceNotice?) -> [String]? {
+    guard case let .requests(requests) = notice else { return nil }
+    return requests.map(\.id)
+}
+
 @Test @MainActor func `trust reason shows until this Mac is approved and an ended sign in says so`() throws {
     let (app, _) = try signedOutApp(prefix: "SignInReason")
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))

@@ -11,6 +11,8 @@ class DevicesModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList devices READ devices NOTIFY changed)
     Q_PROPERTY(QVariantList requests READ requests NOTIFY changed)
+    Q_PROPERTY(QVariantList waitingRequests READ waitingRequests NOTIFY changed)
+    Q_PROPERTY(bool approvalNoticeDismissed READ approvalNoticeDismissed NOTIFY changed)
     Q_PROPERTY(QString approvalCode READ approvalCode NOTIFY changed)
     Q_PROPERTY(QString notice READ notice NOTIFY changed)
     Q_PROPERTY(bool localDeviceEnrolled READ localDeviceEnrolled NOTIFY changed)
@@ -24,6 +26,8 @@ public:
 
     QVariantList devices() const { return m_devices; }
     QVariantList requests() const { return m_requests; }
+    QVariantList waitingRequests() const;
+    bool approvalNoticeDismissed() const { return m_approvalNoticeDismissed; }
     QString approvalCode() const { return m_approvalCode; }
     QString notice() const { return m_notice; }
     bool localDeviceEnrolled() const { return m_enrolled; }
@@ -41,6 +45,8 @@ public:
     Q_INVOKABLE void useRecoveryKey(const QString& key);
     Q_INVOKABLE void copyNewRecoveryKey();
     Q_INVOKABLE void forgetNewRecoveryKey();
+    Q_INVOKABLE void dismissRequests();
+    Q_INVOKABLE void dismissApprovalNotice();
 
 signals:
     void changed();
@@ -51,12 +57,14 @@ private:
     Workspace& m_workspace;
     QVariantList m_devices;
     QVariantList m_requests;
+    QStringList m_dismissedRequests;
     QStringList m_hosts;
     QString m_approvalCode;
     QString m_notice;
     QString m_selfDeviceId;
     QString m_newRecoveryKey;
     bool m_enrolled = false;
+    bool m_approvalNoticeDismissed = false;
 
     void reset();
 };

@@ -95,6 +95,8 @@ progress where work happens and give each failure a clear recovery action.
   as Dosi.
 - Apps update themselves in the background and never restart without asking, because a
   restart ends the host's terminals. An app too old for the backend asks for an update.
+- Until it is approved, a new device says so and shares nothing. The person's approved
+  computers show its request and lead to the approval.
 - Terminals show the state their programs report: working, waiting for a person, done
   or failed. Everyone who can open a terminal sees its state and who has it open. While
   the app is in the background, a terminal the person owns or has open sends a

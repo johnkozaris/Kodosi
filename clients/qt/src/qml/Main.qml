@@ -12,6 +12,23 @@ ApplicationWindow {
     readonly property bool modalOpen: Models.DesktopState.modalOpen || Models.DesktopFiles.busy
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
+    readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
+    readonly property string deviceNotice: {
+        if (!Models.Account.signedIn
+            || (Models.DesktopState.activeView === Models.DesktopState.Settings && settings.section === 3))
+            return "";
+        if (accountReady) {
+            const requests = Models.Devices.waitingRequests;
+            if (requests.length === 1)
+                return qsTr("%1 wants to use your account.").arg(requests[0].deviceLabel);
+            return requests.length > 1 ? qsTr("%1 devices want to use your account.").arg(requests.length) : "";
+        }
+        if (Models.Devices.approvalNoticeDismissed)
+            return "";
+        return Models.Devices.approvalCode.length > 0
+            ? qsTr("This computer waits for approval from another of your devices.")
+            : qsTr("This computer needs approval before it can share.");
+    }
 
     function openLauncher(folder, roomId) {
         const stage = stageLoader.item as TerminalStage;
@@ -99,7 +116,10 @@ ApplicationWindow {
                 }
                 onAccountSettingsRequested: {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
-                    settings.section = 2
+                    if (Models.Devices.requests.length > 0)
+                        settings.showDevices(true)
+                    else
+                        settings.section = 2
                 }
                 onAboutRequested: about.open()
             }
@@ -141,6 +161,36 @@ ApplicationWindow {
                         id: settings
                     }
                 }
+                NoticePill {
+                    readonly property bool shown: window.deviceNotice.length > 0
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: shown ? 10 : -height
+                    width: Math.min(implicitWidth, parent.width - 80)
+                    height: implicitHeight
+                    opacity: shown ? 1 : 0
+                    visible: opacity > 0
+                    identifier: "window.devices"
+                    sign: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
+                    text: window.deviceNotice
+                    actionText: window.accountReady ? qsTr("Approve…")
+                        : Models.Devices.approvalCode.length > 0 ? qsTr("Show code") : qsTr("Open Settings")
+
+                    Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                    onActionClicked: {
+                        Models.DesktopState.activeView = Models.DesktopState.Settings;
+                        settings.showDevices(window.accountReady);
+                    }
+                    onDismissed: {
+                        if (window.accountReady)
+                            Models.Devices.dismissRequests();
+                        else
+                            Models.Devices.dismissApprovalNotice();
+                    }
+                }
             }
         }
         WindowControls {
@@ -150,56 +200,24 @@ ApplicationWindow {
             anchors.topMargin: (KodosiTheme.titleBarHeight - height) / 2
             anchors.rightMargin: KodosiTheme.frameInset
         }
-        Item {
+        NoticePill {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: window.notice.length > 0 ? 22 : -height
-            width: Math.min(noticeRow.implicitWidth + 28, parent.width - 80)
-            height: Math.max(40, noticeText.implicitHeight + 20)
+            width: Math.min(implicitWidth, parent.width - 80)
+            height: implicitHeight
             opacity: window.notice.length > 0 ? 1 : 0
             visible: opacity > 0
+            identifier: "window.error"
+            text: window.notice
 
             Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
-            Raised {
-                anchors.fill: parent
-                radius: Math.min(20, height / 2)
-                fill: KodosiTheme.lifted
-                elevation: 3
-            }
-            RowLayout {
-                id: noticeRow
-                anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 8
-                spacing: 10
-
-                Rectangle { Layout.preferredWidth: 7; Layout.preferredHeight: 7; radius: 3.5; color: KodosiTheme.caution }
-                PlainLabel {
-                    id: noticeText
-                    Layout.fillWidth: true
-                    Layout.maximumWidth: 520
-                    text: window.notice
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                    objectName: "window.error.text"
-                    Accessible.id: objectName
-                }
-                KIconButton {
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Dismiss")
-                    glyph: "close"
-                    size: 26
-                    objectName: "window.error.dismiss"
-
-                    onClicked: {
-                        Models.AppState.clearError();
-                        Models.DesktopState.clearError();
-                        Models.DesktopFiles.clearError();
-                    }
-                }
+            onDismissed: {
+                Models.AppState.clearError();
+                Models.DesktopState.clearError();
+                Models.DesktopFiles.clearError();
             }
         }
     }

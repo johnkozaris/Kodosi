@@ -9,6 +9,12 @@ Item {
 
     property int section: 0
 
+    function showDevices(focusCode) {
+        section = 3;
+        if (focusCode)
+            Qt.callLater(() => devices.focusCode());
+    }
+
     Accessible.id: objectName
     objectName: "panel.settings"
 
@@ -83,6 +89,7 @@ Item {
                 visible: root.section === 2
             }
             DeviceSettings {
+                id: devices
                 Layout.fillWidth: true
                 visible: root.section === 3
             }

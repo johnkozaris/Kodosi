@@ -38,27 +38,39 @@ public struct ErrorNote: View {
 }
 
 public struct NoticePill: View {
+    public enum Sign: Equatable {
+        case caution
+        case status(StatusSign.Form)
+    }
+
     @Environment(\.theme) private var theme
     @State private var expanded = false
     public let message: String
     public var identifier = "notice"
-    public var retry: (() -> Void)?
+    public var sign: Sign
+    public var action: (() -> Void)?
     public var actionTitle: LocalizedStringKey
     public let dismiss: () -> Void
 
-    public init(message: String, identifier: String = "notice", retry: (() -> Void)? = nil,
+    public init(message: String, identifier: String = "notice", sign: Sign = .caution, action: (() -> Void)? = nil,
                 actionTitle: LocalizedStringKey = "Try again", dismiss: @escaping () -> Void)
     {
         self.message = message
         self.identifier = identifier
-        self.retry = retry
+        self.sign = sign
+        self.action = action
         self.actionTitle = actionTitle
         self.dismiss = dismiss
     }
 
     public var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(theme.colors.caution).frame(width: 7, height: 7).accessibilityHidden(true)
+            switch sign {
+            case .caution:
+                Circle().fill(theme.colors.caution).frame(width: 7, height: 7).accessibilityHidden(true)
+            case let .status(form):
+                StatusSign(form: form, size: 12)
+            }
             Button { expanded.toggle() } label: {
                 Text(message).appTextStyle(.footnote).lineLimit(1).truncationMode(.tail)
             }
@@ -67,13 +79,14 @@ public struct NoticePill: View {
                 Text(message).appTextStyle(.body).textSelection(.enabled).padding(16).frame(maxWidth: 380)
                     .fixedSize(horizontal: false, vertical: true).popoverSheet()
             }
-            if let retry {
-                Button(actionTitle, action: retry).buttonStyle(.kodosi(.tinted, size: .small))
+            if let action {
+                Button(actionTitle, action: action).buttonStyle(.kodosi(.secondary, size: .small))
+                    .accessibilityIdentifier("\(identifier).action")
             }
             IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(identifier).dismiss", size: 22, action: dismiss)
         }
         .foregroundStyle(theme.colors.ink)
-        .padding(.leading, 14).padding(.trailing, 6).frame(height: 36)
+        .padding(.leading, sign == .caution ? 14 : 10).padding(.trailing, 6).frame(height: 36)
         .frame(maxWidth: 520)
         .fixedSize(horizontal: true, vertical: false)
         .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)

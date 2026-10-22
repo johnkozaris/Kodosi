@@ -51,7 +51,7 @@ pub(super) fn sharing(session: &Value, users: &BTreeSet<String>, friends: &[Valu
 
 pub(super) fn link_code(event: &Value) -> String {
     format!(
-        "Type this code on a device that you already approved\n(Settings, then Devices, or `kodosi devices approve <code>`):\n\n    {}\n\nWaiting for approval. Press Ctrl-C to stop waiting.",
+        "Type this code on a device that you already approved\n(choose Approve in the app there, or run `kodosi devices approve <code>`):\n\n    {}\n\nWaiting for approval. Press Ctrl-C to stop waiting.",
         text(event, "code")
     )
 }

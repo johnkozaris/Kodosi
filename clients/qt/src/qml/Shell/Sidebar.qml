@@ -15,6 +15,7 @@ Item {
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
+    readonly property var approvalSign: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
     readonly property var roomWork: {
         const work = {}
         for (const session of Models.Sessions.sessions) {
@@ -370,8 +371,16 @@ Item {
                         height: 16
                         visible: Models.Account.signedIn && !root.accountReady
                         name: "lock"
-                        color: KodosiTheme.accentStrong
+                        color: KodosiTheme.inkMuted
                         strokeWidth: 2
+                    }
+                    StatusSign {
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        session: Models.Account.signedIn && (!root.accountReady || Models.Devices.requests.length > 0)
+                            ? root.approvalSign : null
+                        size: 9
+                        backing: KodosiTheme.ground
                     }
                 }
                 onClicked: root.accountReady ? root.accountSettingsRequested() : root.signIn()
@@ -1135,9 +1144,7 @@ Item {
                     background: Bezel {
                         quiet: true
                         pressed: signInButton.pressed
-                        fill: signInButton.approving
-                            ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, signInButton.hovered ? 0.14 : 0)
-                            : KodosiTheme.buttonFace(signInButton.hovered)
+                        fill: KodosiTheme.buttonFace(signInButton.hovered)
                     }
                     contentItem: RowLayout {
                         spacing: 9
@@ -1149,25 +1156,21 @@ Item {
                             tint: KodosiTheme.inkMuted
                             size: 20
                         }
-                        KIcon {
-                            Layout.leftMargin: 10
-                            Layout.preferredWidth: 16
-                            Layout.preferredHeight: 16
-                            visible: signInButton.approving
-                            name: "lock"
-                            color: KodosiTheme.accentStrong
-                            strokeWidth: 2
-                        }
                         ShimmerText {
                             id: signInLabel
 
                             Layout.fillWidth: true
+                            Layout.leftMargin: signInButton.approving ? 12 : 0
                             text: signInButton.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
                             active: Models.Account.signingIn
-                            color: signInButton.approving ? KodosiTheme.accentStrong : KodosiTheme.ink
+                            color: KodosiTheme.ink
                             font.pixelSize: KodosiTheme.fontBody
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
+                        }
+                        StatusSign {
+                            Layout.rightMargin: 8
+                            session: signInButton.approving ? root.approvalSign : null
                         }
                     }
                     onClicked: root.signIn()
@@ -1196,6 +1199,10 @@ Item {
                         spacing: 9
                         PersonAvatar { Layout.leftMargin: 5; name: Identity.selfName; size: 24; isSelf: true }
                         PlainLabel { Layout.fillWidth: true; text: Identity.selfName; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                        StatusSign {
+                            Layout.rightMargin: 6
+                            session: Models.Devices.requests.length > 0 ? root.approvalSign : null
+                        }
                     }
                     background: Rectangle {
                         radius: KodosiTheme.radiusMd

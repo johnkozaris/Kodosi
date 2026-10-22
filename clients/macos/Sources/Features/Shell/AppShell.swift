@@ -127,7 +127,7 @@ struct AppShell: View {
         ZStack {
             if deps.updateRequired {
                 NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
-                           identifier: "shell.update", retry: deps.updater.configured ? { deps.updater.check() } : nil,
+                           identifier: "shell.update", action: deps.updater.configured ? { deps.updater.check() } : nil,
                            actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -135,10 +135,39 @@ struct AppShell: View {
                 NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
+            } else if let device = deps.deviceNotice {
+                NoticePill(message: device.message, identifier: "shell.devices", sign: .status(.hand), action: deps.openDeviceNotice,
+                           actionTitle: device.actionTitle, dismiss: deps.dismissDeviceNotice)
+                    .padding(.top, Metrics.frameInset + 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.leading, deps.workbench.shownSidebarWidth)
         .animation(theme.motion.spring, value: deps.errorMessage)
         .animation(theme.motion.spring, value: deps.updateRequired)
+        .animation(theme.motion.spring, value: deps.deviceNotice)
+    }
+}
+
+private extension DeviceNotice {
+    var message: String {
+        switch self {
+        case let .requests(requests) where requests.count == 1:
+            String(localized: "\(requests[0].deviceLabel) wants to use your account.")
+        case let .requests(requests):
+            String(localized: "\(requests.count) devices want to use your account.")
+        case .approvalNeeded:
+            String(localized: "This Mac needs approval before it can share.")
+        case .approvalWaiting:
+            String(localized: "This Mac waits for approval from another of your devices.")
+        }
+    }
+
+    var actionTitle: LocalizedStringKey {
+        switch self {
+        case .requests: "Approve…"
+        case .approvalNeeded: "Open Settings"
+        case .approvalWaiting: "Show code"
+        }
     }
 }
