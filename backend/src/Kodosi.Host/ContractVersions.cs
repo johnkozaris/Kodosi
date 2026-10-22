@@ -6,8 +6,7 @@ internal static class ContractVersions
     public const int OldestApi = 29;
     public const int Auth = 1;
     public const int TerminalConnection = 23;
-    public const int OldestTerminalConnection = 22;
-    public const int Calls = 23;
+    public const int OldestTerminalConnection = 23;
 
     public static object Report() => new
     {

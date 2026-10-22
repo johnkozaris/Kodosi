@@ -1,12 +1,10 @@
 {
   "terminalConnectionProtocolVersion": 23,
-  "oldestTerminalConnectionProtocolVersion": 22,
+  "oldestTerminalConnectionProtocolVersion": 23,
   "channelProtocolVersion": 3,
-  "oldestChannelProtocolVersion": 2,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
-    "calls": "the server sends hosts and caller only to devices whose hello protocolVersion is 23 or newer",
-    "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a channel without a selected protocol has oldestChannelProtocolVersion. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
+    "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a side whose channel has no selected protocol closes the channel and shows that the other computer must update Kodosi. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
   },
   "routes": {
     "device": "/ws/device"
@@ -101,7 +99,7 @@
         "type": 4,
         "direction": "host",
         "body": "nextSequence:u64be, more:u8, part of the raw deflate of a terminal checkpoint; the viewer installs a complete keyframe in place of its terminal state",
-        "checkpoint": "schema:u32be, console:u8, snapshotLength:u32be, the Ghostty snapshot, then optional JSON terminal metadata; schema 6 on a channel of version 3, and schema 5 on a channel of version 2, whose snapshot has only the records of tags 1 to 7 and no images",
+        "checkpoint": "schema:u32be, console:u8, snapshotLength:u32be, the Ghostty snapshot, then optional JSON terminal metadata; the schema is 6",
         "partMaxBytes": 32768
       },
       "output": {

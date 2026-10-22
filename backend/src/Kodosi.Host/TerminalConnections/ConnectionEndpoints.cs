@@ -46,10 +46,10 @@ internal static partial class ConnectionEndpoints
             using (var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted))
             {
                 handshake.CancelAfter(Handshake);
-                (deviceId, var secret, var version, var hosts) = await HelloAsync(socket, reader, handshake.Token);
+                (deviceId, var secret, var hosts) = await HelloAsync(socket, reader, handshake.Token);
                 await RequireSessionAsync(socket, deviceSessions, user.Id, deviceId, secret, handshake.Token);
                 await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
-                connection = new DeviceConnection(socket, user.Id, deviceId, directory.Relays, clock, version, hosts);
+                connection = new DeviceConnection(socket, user.Id, deviceId, directory.Relays, clock, hosts);
                 connection.ExtendUntil(expires);
                 directory.Register(connection);
                 await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
@@ -81,7 +81,7 @@ internal static partial class ConnectionEndpoints
         }
     }
 
-    private static async Task<(string DeviceId, string? Session, int Version, bool Hosts)> HelloAsync(WebSocket socket, MessageReader reader, CancellationToken ct)
+    private static async Task<(string DeviceId, string? Session, bool Hosts)> HelloAsync(WebSocket socket, MessageReader reader, CancellationToken ct)
     {
         if (await reader.ReadAsync(ControlBytes, ct) != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
         using var hello = JsonDocument.Parse(reader.Memory, new JsonDocumentOptions { MaxDepth = 32 });
@@ -94,8 +94,8 @@ internal static partial class ConnectionEndpoints
                 WebSocketMessageType.Text, true, ct);
             throw ApiException.Invalid("Unsupported terminal connection protocol.");
         }
-        var hosts = version >= ContractVersions.Calls && root.TryGetProperty("hosts", out var flag) && flag.GetBoolean();
-        return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString(), version, hosts);
+        var hosts = root.TryGetProperty("hosts", out var flag) && flag.GetBoolean();
+        return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString(), hosts);
     }
 
     private static async Task RequireSessionAsync(WebSocket socket, DeviceSessions deviceSessions, Guid userId, string deviceId, string? secret,
