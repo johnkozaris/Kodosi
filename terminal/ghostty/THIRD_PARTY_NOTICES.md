@@ -36,19 +36,19 @@ or application/runtime dependencies.
 - GNU gettext/libintl 0.24 — LGPL-2.1-or-later (macOS archive only).
 - stb_image 2.28 and stb_image_resize 0.97 — MIT.
 - Wuffs `0.4.0-alpha.10+3966.20260623` — MIT (also offered under Apache-2.0).
-- libxev commit `9ce8e8e6ff89e583258a7f8e7adeeeaeae8611bf` — MIT.
-- vaxis 0.6.0 / commit `1dbbe575dff4586fe51e3217aa5c3fecdcbb6089` — MIT (macOS archive only).
-- z2d 0.12.1 / commit `7dbae85c81784dba9988320bf9543ed9a81350c8` — MPL-2.0,
+- libxev commit `819ffa180ca20e31c7eded74e2e1aceb1eab557f` — MIT.
+- vaxis 0.6.0 / commit `6fd944a27fb3d6f596e981076381a3131f2448b4` — MIT (macOS archive only).
+- z2d 0.12.2-pre / commit `f3cf28188dae39946964c81475ff234c008125a6` — MPL-2.0,
   including the additional upstream notices preserved in
   `ThirdPartyNotices/licenses/z2d-NOTICE.txt`.
-- zf 0.11.0 / commit `c35c421f84895193246db06c40683c1a30e616ef` — MIT (macOS archive only).
-- uucode 0.2.0 / commit `9d55524551411b493cca41ca06363625d90aff1e` — MIT,
+- zf 0.11.0 / commit `87153bb86b75d21fbac897b738f316d449f5d0c9` — MIT (macOS archive only).
+- uucode 0.2.0 / commit `ea62149739404a73c202b48a33bf6dd2af4bd9b0` — MIT,
   including Bjoern Hoehrmann's MIT-licensed UTF-8 decoder and Unicode data under the
   Unicode License v3.
-- zig-objc commit `c8de82ff80281215ad92900866dab7103a8efa8b` — MIT.
+- zig-objc commit `3352c12a868f8787ab71bf2ca6eab9fcfb635c52` — MIT.
 - JetBrains Mono 2.304 variable regular and italic fonts — SIL Open Font License 1.1.
 - Nerd Fonts Symbols Only 3.4.0 — MIT.
-- Zig 0.16.0 compiler runtime: Zig-authored MIT portions, LLVM-derived portions under
+- Zig 0.17.0 compiler runtime: Zig-authored MIT portions, LLVM-derived portions under
   Apache-2.0 WITH LLVM-exception and legacy permissive LLVM terms, and musl-derived
   math portions under musl's permissive notices.
 - Chromium-derived DOM keycode table data — BSD-3-Clause.
@@ -82,7 +82,7 @@ these materials and the required relinking means with their distribution.
 
 z2d is incorporated in executable form under MPL-2.0. Its exact corresponding source is
 retained at
-`ThirdPartyNotices/corresponding-source/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz`.
+`ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz`.
 `ThirdPartyNotices/inventory.json` records the upstream and mirror URLs, acquisition method
 and date, exact commit, byte size, and SHA-256. Binary distributors must make that source,
 including any modifications to MPL-covered files, available as required by MPL-2.0 section

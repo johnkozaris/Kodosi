@@ -1,10 +1,8 @@
 #include "terminal/TerminalImages.hpp"
 
-#include "terminal/TerminalPlaceholders.hpp"
-
 #include <algorithm>
-#include <climits>
 #include <iterator>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -69,44 +67,16 @@ QImage convert(
     return image;
 }
 
-TerminalImagePlacement::Layer layer(const std::int32_t z)
+TerminalImagePlacement::Layer layer(const GhosttyRenderStateImageLayer value)
 {
-    if (z < INT32_MIN / 2) {
+    switch (value) {
+    case GHOSTTY_RENDER_STATE_IMAGE_LAYER_BELOW_BACKGROUND:
         return TerminalImagePlacement::Layer::BelowBackground;
+    case GHOSTTY_RENDER_STATE_IMAGE_LAYER_BELOW_TEXT:
+        return TerminalImagePlacement::Layer::BelowText;
+    default:
+        return TerminalImagePlacement::Layer::AboveText;
     }
-    return z < 0 ? TerminalImagePlacement::Layer::BelowText
-                 : TerminalImagePlacement::Layer::AboveText;
-}
-
-constexpr std::int32_t placeholderZ = -1;
-
-struct Target {
-    std::uint32_t imageId = 0;
-    std::uint32_t placementId = 0;
-    std::uint32_t columns = 0;
-    std::uint32_t rows = 0;
-    bool isVirtual = false;
-};
-
-// The C interface hides whether a program chose a placement id, so virtual and then lowest id win.
-const Target* target(const std::vector<Target>& targets, const PlaceholderRun& run)
-{
-    const Target* best = nullptr;
-    for (const auto& candidate : targets) {
-        if (candidate.imageId != run.imageId) {
-            continue;
-        }
-        if (run.placementId != 0) {
-            if (candidate.placementId == run.placementId
-                && (best == nullptr || (candidate.isVirtual && !best->isVirtual))) {
-                best = &candidate;
-            }
-        } else if (candidate.isVirtual
-            && (best == nullptr || candidate.placementId < best->placementId)) {
-            best = &candidate;
-        }
-    }
-    return best;
 }
 
 }
@@ -115,7 +85,22 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
     const GhosttyTerminal terminal,
     const GhosttyRenderState renderState)
 {
+    std::uint64_t generation = 0;
+    if (ghostty_render_state_get(
+            renderState, GHOSTTY_RENDER_STATE_DATA_IMAGE_PLACEMENTS_GENERATION, &generation)
+            != GHOSTTY_SUCCESS
+        || generation == 0) {
+        m_pixels.clear();
+        m_placements.clear();
+        m_generation = 0;
+        return {};
+    }
+    if (generation == m_generation) {
+        return m_placements;
+    }
     auto previous = std::exchange(m_pixels, {});
+    m_placements.clear();
+    m_generation = 0;
     GhosttyKittyGraphics graphics = nullptr;
     std::uint16_t columns = 0;
     std::uint16_t rows = 0;
@@ -129,18 +114,26 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
         GHOSTTY_TERMINAL_DATA_HEIGHT_PX,
     };
     void* values[] {&graphics, &columns, &rows, &widthPixels, &heightPixels};
-    std::uint64_t generation = 0;
     if (ghostty_terminal_get_multi(terminal, std::size(keys), keys, values, nullptr)
             != GHOSTTY_SUCCESS
-        || graphics == nullptr || columns == 0 || rows == 0
-        || ghostty_kitty_graphics_get(graphics, GHOSTTY_KITTY_GRAPHICS_DATA_GENERATION, &generation)
-            != GHOSTTY_SUCCESS
-        || generation == 0) {
+        || graphics == nullptr || columns == 0 || rows == 0) {
         return {};
     }
-    const auto cellWidth = widthPixels / columns;
-    const auto cellHeight = heightPixels / rows;
-    if (cellWidth == 0 || cellHeight == 0 || !iteratePlacements(graphics)) {
+    const auto cellWidth = static_cast<qreal>(widthPixels / columns);
+    const auto cellHeight = static_cast<qreal>(heightPixels / rows);
+    if (cellWidth == 0 || cellHeight == 0) {
+        return {};
+    }
+    if (m_iterator == nullptr) {
+        GhosttyRenderStateImageIterator iterator = nullptr;
+        if (ghostty_render_state_image_iterator_new(nullptr, &iterator) != GHOSTTY_SUCCESS) {
+            return {};
+        }
+        m_iterator.reset(iterator);
+    }
+    auto* iterator = m_iterator.get();
+    if (ghostty_render_state_get(renderState, GHOSTTY_RENDER_STATE_DATA_IMAGE_ITERATOR, &iterator)
+        != GHOSTTY_SUCCESS) {
         return {};
     }
 
@@ -150,141 +143,100 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
         std::uint32_t imageId;
     };
     std::vector<Placed> placed;
-    std::vector<Target> targets;
-    auto hasVirtual = false;
-    while (ghostty_kitty_graphics_placement_next(m_iterator.get())) {
-        Target placement;
-        std::uint32_t xOffset = 0;
-        std::uint32_t yOffset = 0;
+    while (ghostty_render_state_image_iterator_next(iterator)) {
+        auto protocol = GHOSTTY_IMAGE_PROTOCOL_KITTY;
+        auto drawLayer = GHOSTTY_RENDER_STATE_IMAGE_LAYER_ABOVE_TEXT;
+        std::uint32_t imageId = 0;
         std::int32_t z = 0;
-        const GhosttyKittyGraphicsPlacementData placementKeys[] {
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IMAGE_ID,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_PLACEMENT_ID,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IS_VIRTUAL,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_COLUMNS,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_ROWS,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_X_OFFSET,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Y_OFFSET,
-            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Z,
+        std::int32_t column = 0;
+        std::int32_t row = 0;
+        std::uint32_t offsetX = 0;
+        std::uint32_t offsetY = 0;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        std::uint32_t sourceX = 0;
+        std::uint32_t sourceY = 0;
+        std::uint32_t sourceWidth = 0;
+        std::uint32_t sourceHeight = 0;
+        const GhosttyRenderStateImageData placementKeys[] {
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_PROTOCOL,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_IMAGE_ID,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_LAYER,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_Z,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_VIEWPORT_COL,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_VIEWPORT_ROW,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_CELL_OFFSET_X,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_CELL_OFFSET_Y,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_PIXEL_WIDTH,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_PIXEL_HEIGHT,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_SOURCE_X,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_SOURCE_Y,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_SOURCE_WIDTH,
+            GHOSTTY_RENDER_STATE_IMAGE_DATA_SOURCE_HEIGHT,
         };
         void* placementValues[] {
-            &placement.imageId,
-            &placement.placementId,
-            &placement.isVirtual,
-            &placement.columns,
-            &placement.rows,
-            &xOffset,
-            &yOffset,
+            &protocol,
+            &imageId,
+            &drawLayer,
             &z,
+            &column,
+            &row,
+            &offsetX,
+            &offsetY,
+            &width,
+            &height,
+            &sourceX,
+            &sourceY,
+            &sourceWidth,
+            &sourceHeight,
         };
-        if (ghostty_kitty_graphics_placement_get_multi(
-                m_iterator.get(),
+        if (ghostty_render_state_image_get_multi(
+                iterator,
                 std::size(placementKeys),
                 placementKeys,
                 placementValues,
                 nullptr)
-            != GHOSTTY_SUCCESS) {
-            continue;
-        }
-        targets.push_back(placement);
-        hasVirtual = hasVirtual || placement.isVirtual;
-        const auto imageId = placement.imageId;
-        if (placement.isVirtual) {
+                != GHOSTTY_SUCCESS
+            || protocol != GHOSTTY_IMAGE_PROTOCOL_KITTY || width == 0 || height == 0) {
             continue;
         }
         const auto image = ghostty_kitty_graphics_image(graphics, imageId);
-        GhosttyKittyGraphicsPlacementRenderInfo info =
-            GHOSTTY_INIT_SIZED(GhosttyKittyGraphicsPlacementRenderInfo);
-        if (image == nullptr
-            || ghostty_kitty_graphics_placement_render_info(m_iterator.get(), image, terminal, &info)
-                != GHOSTTY_SUCCESS
-            || !info.viewport_visible || info.pixel_width == 0 || info.pixel_height == 0) {
+        if (image == nullptr) {
             continue;
         }
         auto pixels = this->pixels(image, previous);
         if (pixels.isNull()) {
             continue;
         }
-        const auto left = std::min(xOffset, cellWidth - 1);
-        const auto top = std::min(yOffset, cellHeight - 1);
         placed.push_back({
             .placement = {
                 .pixels = std::move(pixels),
                 .source = QRect(
-                    static_cast<int>(info.source_x),
-                    static_cast<int>(info.source_y),
-                    static_cast<int>(info.source_width),
-                    static_cast<int>(info.source_height)),
+                    static_cast<int>(sourceX),
+                    static_cast<int>(sourceY),
+                    static_cast<int>(sourceWidth),
+                    static_cast<int>(sourceHeight)),
                 .bounds = QRectF(
-                    info.viewport_col + (static_cast<qreal>(left) / cellWidth),
-                    info.viewport_row + (static_cast<qreal>(top) / cellHeight),
-                    static_cast<qreal>(info.pixel_width) / cellWidth,
-                    static_cast<qreal>(info.pixel_height) / cellHeight),
-                .layer = layer(z),
+                    column + (offsetX / cellWidth),
+                    row + (offsetY / cellHeight),
+                    width / cellWidth,
+                    height / cellHeight),
+                .layer = layer(drawLayer),
             },
             .z = z,
             .imageId = imageId,
         });
     }
 
-    const auto runs = hasVirtual ? placeholderRuns(renderState) : std::vector<PlaceholderRun> {};
-    for (const auto& run : runs) {
-        const auto* placement = target(targets, run);
-        const auto image = ghostty_kitty_graphics_image(graphics, run.imageId);
-        if (placement == nullptr || image == nullptr) {
-            continue;
-        }
-        auto pixels = this->pixels(image, previous);
-        if (pixels.isNull()) {
-            continue;
-        }
-        const auto drawing = placeholderDrawing(
-            run, placement->columns, placement->rows, pixels.size(), cellWidth, cellHeight);
-        if (!drawing) {
-            continue;
-        }
-        placed.push_back({
-            .placement = {
-                .pixels = std::move(pixels),
-                .source = drawing->source,
-                .bounds = QRectF(
-                    run.column + (static_cast<qreal>(drawing->offset.x()) / cellWidth),
-                    run.row + (static_cast<qreal>(drawing->offset.y()) / cellHeight),
-                    static_cast<qreal>(drawing->size.width()) / cellWidth,
-                    static_cast<qreal>(drawing->size.height()) / cellHeight),
-                .layer = layer(placeholderZ),
-            },
-            .z = placeholderZ,
-            .imageId = run.imageId,
-        });
-    }
-
     std::ranges::stable_sort(placed, {}, [](const Placed& entry) {
-        return std::pair {entry.z, entry.imageId};
+        return std::tuple {entry.placement.layer, entry.z, entry.imageId};
     });
-    QVector<TerminalImagePlacement> placements;
-    placements.reserve(static_cast<qsizetype>(placed.size()));
+    m_placements.reserve(static_cast<qsizetype>(placed.size()));
     for (auto& entry : placed) {
-        placements.push_back(std::move(entry.placement));
+        m_placements.push_back(std::move(entry.placement));
     }
-    return placements;
-}
-
-bool TerminalImages::iteratePlacements(const GhosttyKittyGraphics graphics)
-{
-    if (m_iterator == nullptr) {
-        GhosttyKittyGraphicsPlacementIterator iterator = nullptr;
-        if (ghostty_kitty_graphics_placement_iterator_new(nullptr, &iterator) != GHOSTTY_SUCCESS) {
-            return false;
-        }
-        m_iterator.reset(iterator);
-    }
-    auto* iterator = m_iterator.get();
-    return ghostty_kitty_graphics_get(
-               graphics,
-               GHOSTTY_KITTY_GRAPHICS_DATA_PLACEMENT_ITERATOR,
-               &iterator)
-        == GHOSTTY_SUCCESS;
+    m_generation = generation;
+    return m_placements;
 }
 
 QImage TerminalImages::pixels(const GhosttyKittyGraphicsImage image, Cache& previous)

@@ -20,8 +20,8 @@ const SNAPSHOT_ENVELOPE: &[u8] = b"GHOSTSNP\x01\x00";
 const SNAPSHOT_RECORD_HEADER_BYTES: usize = 10;
 const SNAPSHOT_TERMINAL_TAG: u16 = 1;
 const SNAPSHOT_READY_TAG: u16 = 5;
-const SNAPSHOT_KITTY_STORAGE_TAG: u16 = 8;
-const SNAPSHOT_KITTY_TAGS: std::ops::RangeInclusive<u16> = SNAPSHOT_KITTY_STORAGE_TAG..=11;
+const SNAPSHOT_IMAGE_TAGS: std::ops::RangeInclusive<u16> = 8..=10;
+const SNAPSHOT_IMAGE_PAYLOAD_TAG: u16 = 9;
 const SNAPSHOT_TERMINAL_HEADER_BYTES: usize = 103;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,16 +192,38 @@ impl SnapshotHeader {
     }
 }
 
-fn snapshot_records(snapshot: &[u8]) -> impl Iterator<Item = (u16, &[u8])> {
-    let mut rest = snapshot.strip_prefix(SNAPSHOT_ENVELOPE).unwrap_or_default();
-    std::iter::from_fn(move || {
-        let header = rest.get(..SNAPSHOT_RECORD_HEADER_BYTES)?;
+fn snapshot_records(snapshot: &[u8]) -> Result<Vec<(u16, &[u8])>, Error> {
+    let mut rest = snapshot
+        .strip_prefix(SNAPSHOT_ENVELOPE)
+        .ok_or(Error::InvalidValue)?;
+    let mut records = Vec::new();
+    while !rest.is_empty() {
+        let header = rest
+            .get(..SNAPSHOT_RECORD_HEADER_BYTES)
+            .ok_or(Error::InvalidValue)?;
         let tag = u16::from_le_bytes([header[0], header[1]]);
-        let len = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
-        let payload = rest.get(SNAPSHOT_RECORD_HEADER_BYTES..SNAPSHOT_RECORD_HEADER_BYTES + len)?;
-        rest = &rest[SNAPSHOT_RECORD_HEADER_BYTES + len..];
-        Some((tag, payload))
-    })
+        let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
+        let record = SNAPSHOT_RECORD_HEADER_BYTES
+            .checked_add(payload)
+            .and_then(|len| rest.get(..len))
+            .ok_or(Error::InvalidValue)?;
+        records.push((tag, record));
+        rest = &rest[record.len()..];
+    }
+    Ok(records)
+}
+
+/// Kodosi 0.1.1 kept images in records of its own under the tags that Ghostty
+/// now gives its image records, so a snapshot passes between them without images.
+pub fn snapshot_without_images(snapshot: &[u8]) -> Result<Vec<u8>, Error> {
+    let mut kept = Vec::with_capacity(snapshot.len());
+    kept.extend_from_slice(SNAPSHOT_ENVELOPE);
+    for (tag, record) in snapshot_records(snapshot)? {
+        if tag < *SNAPSHOT_IMAGE_TAGS.start() {
+            kept.extend_from_slice(record);
+        }
+    }
+    Ok(kept)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,33 +287,25 @@ impl Terminal {
         Ok(terminal)
     }
 
-    /// Restores a terminal from a Ghostty snapshot. A snapshot that ends at READY
-    /// restores the screens without the history after them. The decoder keeps
-    /// history and images up to the limits the snapshot declares, so a snapshot
-    /// that declares more than these limits is refused before it is decoded.
+    /// Restores a terminal from a Ghostty snapshot. A snapshot that ends before its
+    /// history, after READY and the image pixels that follow it, restores the
+    /// screens without history. The decoder keeps history up to the limits the
+    /// snapshot declares, so a snapshot that declares more than these limits is
+    /// refused before it is decoded. Images over the image limit evict older ones.
     pub fn from_snapshot(snapshot: &[u8], limits: Limits) -> Result<Self, Error> {
         let Limits {
             continuation_max_bytes,
             scrollback_max_bytes,
             scrollback_max_lines,
-            ..
+            image_storage_max_bytes,
         } = limits;
         let header = SnapshotHeader::read(snapshot)?;
         let within = |declared: Option<u64>, limit: usize| {
             declared
                 .is_some_and(|declared| u64::try_from(limit).is_ok_and(|limit| declared <= limit))
         };
-        let images_within = snapshot_records(snapshot)
-            .filter(|(tag, _)| *tag == SNAPSHOT_KITTY_STORAGE_TAG)
-            .all(|(_, payload)| {
-                payload.get(1..9).is_some_and(|declared| {
-                    u64::from_le_bytes(declared.try_into().unwrap_or_default())
-                        <= limits.image_storage_max_bytes
-                })
-            });
         if !within(header.scrollback_max_bytes, scrollback_max_bytes)
             || !within(header.scrollback_max_lines, scrollback_max_lines)
-            || !images_within
         {
             return Err(Error::LimitExceeded);
         }
@@ -316,6 +330,10 @@ impl Terminal {
         decoder.set(
             GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_RETAIN_CONTINUATION,
             &true,
+        )?;
+        decoder.set(
+            GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_KITTY_IMAGE_STORAGE_LIMIT,
+            &image_storage_max_bytes,
         )?;
         let mut raw = ptr::null_mut();
         result(unsafe { ghostty_snapshot_decoder_ready(decoder.0, ptr::from_mut(&mut raw)) })?;
@@ -728,42 +746,30 @@ impl Terminal {
         Ok(config.value)
     }
 
-    /// Encodes a Ghostty snapshot. Without history it ends at READY: the screens,
-    /// their cursors and modes, their images, and the unfinished input.
+    /// Encodes a Ghostty snapshot. Without history it ends before the history,
+    /// after READY and the pixels of the images on screen: the screens, their
+    /// cursors and modes, their images, and the unfinished input. Pixels over the
+    /// image data limit stay out, and their images wait for a later snapshot.
     pub fn encode_snapshot(
         &mut self,
         history: bool,
         limits: SnapshotLimits,
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
-        let mut sink = SnapshotSink {
-            bytes: Vec::new(),
-            limits,
-            history,
-            scanned: 0,
-            text_bytes: 0,
-            ready: None,
-            exceeded: false,
-            unknown_format: false,
-        };
+        let mut sink = SnapshotSink::new(history, limits);
         let writer = GhosttyWriter {
             write: Some(write_snapshot),
             userdata: ptr::from_mut(&mut sink).cast::<c_void>(),
         };
 
-        let options = GhosttySnapshotEncodeOptions {
-            size: mem::size_of::<GhosttySnapshotEncodeOptions>(),
-            kitty_image_data_limit: limits.image_data_bytes,
-        };
-        let encoded =
-            unsafe { ghostty_snapshot_encode_options(self.raw, writer, ptr::from_ref(&options)) };
+        let encoded = unsafe { ghostty_snapshot_encode(self.raw, writer) };
         if sink.exceeded {
             return Err(Error::LimitExceeded);
         }
         if sink.unknown_format {
             return Err(Error::InvalidValue);
         }
-        match sink.ready {
+        match sink.visible_end {
             Some(end) if !history => sink.bytes.truncate(end),
             _ => {
                 result(encoded)?;
@@ -855,29 +861,32 @@ impl DecoderGuard {
         })
     }
 
-    fn source_offset(&self) -> Result<usize, Error> {
-        let mut offset = 0_usize;
+    fn get<T: Default>(&self, data: GhosttySnapshotDecoderData) -> Result<T, Error> {
+        let mut value = T::default();
 
         result(unsafe {
-            ghostty_snapshot_decoder_get(
-                self.0,
-                GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET,
-                ptr::from_mut(&mut offset).cast::<c_void>(),
-            )
+            ghostty_snapshot_decoder_get(self.0, data, ptr::from_mut(&mut value).cast::<c_void>())
         })?;
-        Ok(offset)
+        Ok(value)
     }
 
+    fn source_offset(&self) -> Result<usize, Error> {
+        self.get(GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET)
+    }
+
+    /// Once a history page arrived, the snapshot must end with FINISH.
     fn restore_history(&self, snapshot_len: usize) -> Result<(), Error> {
-        if self.source_offset()? == snapshot_len {
-            return Ok(());
-        }
-        loop {
+        let mut history = false;
+        while history || self.source_offset()? < snapshot_len {
             let next = unsafe { ghostty_snapshot_decoder_next(self.0) };
             if next == GhosttyResult_GHOSTTY_NO_VALUE {
                 break;
             }
             result(next)?;
+            history |= self.get::<GhosttySnapshotDecoderProgressKind>(
+                GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_KIND,
+            )?
+                == GhosttySnapshotDecoderProgressKind_GHOSTTY_SNAPSHOT_DECODER_PROGRESS_KIND_PAGE;
         }
         if self.source_offset()? == snapshot_len {
             Ok(())
@@ -893,63 +902,140 @@ impl Drop for DecoderGuard {
     }
 }
 
+struct SnapshotRecord {
+    tag: u16,
+    remaining: usize,
+    kept: bool,
+}
+
+/// Follows the documented record framing of snapshot format version 1.
 struct SnapshotSink {
     bytes: Vec<u8>,
     limits: SnapshotLimits,
     history: bool,
-    scanned: usize,
+    header: [u8; SNAPSHOT_RECORD_HEADER_BYTES],
+    header_len: usize,
+    enveloped: bool,
+    record: Option<SnapshotRecord>,
     text_bytes: usize,
-    ready: Option<usize>,
+    image_bytes: u64,
+    ready: bool,
+    visible_end: Option<usize>,
+    visible_complete: bool,
     exceeded: bool,
     unknown_format: bool,
 }
 
 impl SnapshotSink {
-    fn accept(&mut self, data: &[u8]) -> bool {
-        if data.len() > self.limits.total_bytes - self.bytes.len() {
-            self.exceeded = true;
-            return false;
+    const fn new(history: bool, limits: SnapshotLimits) -> Self {
+        Self {
+            bytes: Vec::new(),
+            limits,
+            history,
+            header: [0; SNAPSHOT_RECORD_HEADER_BYTES],
+            header_len: 0,
+            enveloped: false,
+            record: None,
+            text_bytes: 0,
+            image_bytes: 0,
+            ready: false,
+            visible_end: None,
+            visible_complete: false,
+            exceeded: false,
+            unknown_format: false,
         }
-        self.bytes.extend_from_slice(data);
-        self.scan();
-        let finished = !self.history && self.ready.is_some_and(|end| self.bytes.len() >= end);
-        !finished && !self.exceeded && !self.unknown_format
     }
 
-    /// Follows the documented record framing of snapshot format version 1.
-    fn scan(&mut self) {
-        if self.scanned == 0 {
-            let Some(envelope) = self.bytes.get(..SNAPSHOT_ENVELOPE.len()) else {
-                return;
-            };
-            if envelope != SNAPSHOT_ENVELOPE {
+    fn accept(&mut self, mut data: &[u8]) -> bool {
+        while !data.is_empty() && !self.stopped() {
+            if let Some(record) = &mut self.record {
+                let taken = record.remaining.min(data.len());
+                if record.kept {
+                    self.bytes.extend_from_slice(&data[..taken]);
+                }
+                record.remaining -= taken;
+                data = &data[taken..];
+                if record.remaining == 0 {
+                    self.finish_record();
+                }
+                continue;
+            }
+            let taken = (SNAPSHOT_RECORD_HEADER_BYTES - self.header_len).min(data.len());
+            self.header[self.header_len..self.header_len + taken].copy_from_slice(&data[..taken]);
+            self.header_len += taken;
+            data = &data[taken..];
+            if self.header_len == SNAPSHOT_RECORD_HEADER_BYTES {
+                self.header_len = 0;
+                self.begin_record();
+            }
+        }
+        !self.stopped()
+    }
+
+    const fn stopped(&self) -> bool {
+        self.exceeded || self.unknown_format || self.visible_complete
+    }
+
+    fn begin_record(&mut self) {
+        let header = self.header;
+        if !self.enveloped {
+            if header[..] != *SNAPSHOT_ENVELOPE {
                 self.unknown_format = true;
                 return;
             }
-            self.scanned = SNAPSHOT_ENVELOPE.len();
-            self.text_bytes = self.scanned;
+            self.enveloped = true;
+            self.keep(&header, header.len(), true);
+            return;
         }
-        while self.ready.is_none() || self.history {
-            let Some(header) = self
-                .bytes
-                .get(self.scanned..self.scanned + SNAPSHOT_RECORD_HEADER_BYTES)
-            else {
-                return;
-            };
-            let tag = u16::from_le_bytes([header[0], header[1]]);
-            let record = SNAPSHOT_RECORD_HEADER_BYTES
-                + u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
-            self.scanned += record;
-            if !SNAPSHOT_KITTY_TAGS.contains(&tag) {
-                self.text_bytes += record;
-                if self.text_bytes > self.limits.text_bytes {
-                    self.exceeded = true;
-                    return;
-                }
+        let tag = u16::from_le_bytes([header[0], header[1]]);
+        let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]);
+        let pixels = tag == SNAPSHOT_IMAGE_PAYLOAD_TAG;
+        if self.ready && !self.history && !pixels {
+            self.visible_complete = true;
+            return;
+        }
+        let kept = !pixels
+            || self
+                .image_bytes
+                .checked_add(u64::from(payload))
+                .is_some_and(|bytes| bytes <= self.limits.image_data_bytes);
+        if kept {
+            if pixels {
+                self.image_bytes += u64::from(payload);
             }
-            if tag == SNAPSHOT_READY_TAG {
-                self.ready = Some(self.scanned);
-            }
+            let size = SNAPSHOT_RECORD_HEADER_BYTES + payload as usize;
+            self.keep(&header, size, !SNAPSHOT_IMAGE_TAGS.contains(&tag));
+        }
+        self.record = Some(SnapshotRecord {
+            tag,
+            remaining: payload as usize,
+            kept,
+        });
+        if payload == 0 {
+            self.finish_record();
+        }
+    }
+
+    fn keep(&mut self, header: &[u8], size: usize, text: bool) {
+        if text {
+            self.text_bytes += size;
+        }
+        if self.text_bytes > self.limits.text_bytes
+            || size > self.limits.total_bytes - self.bytes.len()
+        {
+            self.exceeded = true;
+            return;
+        }
+        self.bytes.extend_from_slice(header);
+    }
+
+    const fn finish_record(&mut self) {
+        let Some(record) = self.record.take() else {
+            return;
+        };
+        self.ready |= record.tag == SNAPSHOT_READY_TAG;
+        if self.ready && record.kept {
+            self.visible_end = Some(self.bytes.len());
         }
     }
 }
@@ -1908,13 +1994,28 @@ mod tests {
 
     const IMAGE: &[u8] = b"\x1b_Ga=T,f=32,s=1,v=1,i=7;AQIDBA==\x1b\\";
     const PLACE_IMAGE_AGAIN: &[u8] = b"\x1b_Ga=p,i=7\x1b\\";
+    const KODOSI_0_1_1_IMAGE: &[u8] = include_bytes!("kodosi-0.1.1-image.snapshot");
+
+    fn record_bytes(snapshot: &[u8], tags: std::ops::RangeInclusive<u16>) -> usize {
+        snapshot_records(snapshot)
+            .expect("records")
+            .iter()
+            .filter(|(tag, _)| tags.contains(tag))
+            .map(|(_, record)| record.len())
+            .sum()
+    }
+
+    fn with_image() -> Terminal {
+        let mut terminal = terminal();
+        terminal.resize(20, 4, 2, 4).expect("pixels");
+        terminal.write(b"ab").expect("text");
+        terminal.write(IMAGE).expect("image");
+        terminal
+    }
 
     #[test]
     fn a_snapshot_keeps_images_and_their_pixels_within_the_limit() {
-        let mut source = terminal();
-        source.resize(20, 4, 2, 4).expect("pixels");
-        source.write(b"ab").expect("text");
-        source.write(IMAGE).expect("image");
+        let mut source = with_image();
         let complete = snapshot(&mut source, true);
         let without_pixels = source
             .encode_snapshot(
@@ -1929,7 +2030,12 @@ mod tests {
         source.write(PLACE_IMAGE_AGAIN).expect("place again");
         let placed_again = source.state().expect("state");
 
-        assert_eq!(without_pixels.len() + 5, complete.len());
+        let pixels = SNAPSHOT_IMAGE_PAYLOAD_TAG..=SNAPSHOT_IMAGE_PAYLOAD_TAG;
+        assert!(record_bytes(&complete, pixels.clone()) > 0);
+        assert_eq!(
+            without_pixels.len() + record_bytes(&complete, pixels),
+            complete.len()
+        );
         assert_ne!(placed_again, at_snapshot);
         for snapshot in [complete, without_pixels] {
             let mut restored = restore(&snapshot).expect("restore");
@@ -1940,15 +2046,27 @@ mod tests {
     }
 
     #[test]
+    fn a_visible_snapshot_carries_the_pixels_of_the_images_on_screen() {
+        let mut source = with_image();
+        let full = snapshot(&mut source, true);
+        let visible = snapshot(&mut source, false);
+
+        assert!(full.starts_with(&visible));
+        assert!(
+            record_bytes(
+                &visible,
+                SNAPSHOT_IMAGE_PAYLOAD_TAG..=SNAPSHOT_IMAGE_PAYLOAD_TAG
+            ) > 0
+        );
+        let mut restored = restore(&visible).expect("restore visible");
+        assert_eq!(snapshot(&mut restored, false), visible);
+    }
+
+    #[test]
     fn a_snapshot_limits_its_text_apart_from_its_images() {
-        let mut source = terminal();
-        source.resize(20, 4, 2, 4).expect("pixels");
-        source.write(IMAGE).expect("image");
+        let mut source = with_image();
         let complete = snapshot(&mut source, true);
-        let images: usize = snapshot_records(&complete)
-            .filter(|(tag, _)| SNAPSHOT_KITTY_TAGS.contains(tag))
-            .map(|(_, payload)| SNAPSHOT_RECORD_HEADER_BYTES + payload.len())
-            .sum();
+        let images = record_bytes(&complete, SNAPSHOT_IMAGE_TAGS);
         let text = |text_bytes| SnapshotLimits {
             text_bytes,
             ..UNLIMITED
@@ -1966,19 +2084,42 @@ mod tests {
     }
 
     #[test]
-    fn a_snapshot_that_stores_more_images_than_allowed_is_refused_before_decoding() {
-        let mut source = terminal();
-        source.write(IMAGE).expect("image");
-        let snapshot = snapshot(&mut source, true);
-        let viewer = |image_storage_max_bytes| Limits {
-            image_storage_max_bytes,
-            ..limits(8 * 1024 * 1024, 10_000)
+    fn a_viewer_keeps_only_the_images_that_fit_its_limit() {
+        let encoded = snapshot(&mut with_image(), true);
+        let images = |image_storage_max_bytes| {
+            let mut restored = Terminal::from_snapshot(
+                &encoded,
+                Limits {
+                    image_storage_max_bytes,
+                    ..limits(8 * 1024 * 1024, 10_000)
+                },
+            )
+            .expect("restore");
+            record_bytes(&snapshot(&mut restored, true), SNAPSHOT_IMAGE_TAGS)
         };
 
-        assert!(Terminal::from_snapshot(&snapshot, viewer(1024 * 1024)).is_ok());
         assert_eq!(
-            Terminal::from_snapshot(&snapshot, viewer(1024 * 1024 - 1)).err(),
-            Some(Error::LimitExceeded)
+            images(1024 * 1024),
+            record_bytes(&encoded, SNAPSHOT_IMAGE_TAGS)
+        );
+        assert_eq!(images(3), 0);
+    }
+
+    #[test]
+    fn a_snapshot_passes_between_versions_without_its_images() {
+        let mut source = with_image();
+        source.write(b"\r\ncd").expect("text");
+        let shared = snapshot_without_images(&snapshot(&mut source, true)).expect("shared");
+
+        assert_eq!(record_bytes(&shared, 8..=u16::MAX), 0);
+        assert_eq!(
+            snapshot_without_images(KODOSI_0_1_1_IMAGE).expect("0.1.1 shared"),
+            shared
+        );
+        assert_eq!(restore(&shared).expect("restore").state(), source.state());
+        assert_eq!(
+            snapshot_without_images(&KODOSI_0_1_1_IMAGE[..KODOSI_0_1_1_IMAGE.len() - 1]),
+            Err(Error::InvalidValue)
         );
     }
 

@@ -1,5 +1,5 @@
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index 626e558f9..c31c94648 100644
+index 51e0c3e6c..0a7a30210 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -18,7 +18,7 @@ const renderer = @import("../renderer.zig");
@@ -27,7 +27,7 @@ index 626e558f9..c31c94648 100644
          if (self.inspector) |v| {
              v.deinit();
              self.app.core_app.alloc.destroy(v);
-@@ -1266,7 +1268,7 @@ pub const Surface = struct {
+@@ -1306,7 +1308,7 @@ pub const Surface = struct {
  
  /// Inspector is the state required for the terminal inspector. A terminal
  /// inspector is 1:1 with a Surface.
@@ -36,7 +36,7 @@ index 626e558f9..c31c94648 100644
      const cimgui = @import("dcimgui");
  
      surface: *Surface,
-@@ -1513,6 +1515,12 @@ pub const Inspector = struct {
+@@ -1553,6 +1555,12 @@ pub const Inspector = struct {
          } else (1.0 / 60.0);
          self.instant = now;
      }
@@ -49,7 +49,7 @@ index 626e558f9..c31c94648 100644
  };
  
  // C API
-@@ -2363,10 +2371,12 @@ pub const CAPI = struct {
+@@ -2436,10 +2444,12 @@ pub const CAPI = struct {
      }
  
      export fn ghostty_inspector_set_size(ptr: *Inspector, w: u32, h: u32) void {
@@ -62,7 +62,7 @@ index 626e558f9..c31c94648 100644
          ptr.updateContentScale(x, y);
      }
  
-@@ -2376,6 +2386,7 @@ pub const CAPI = struct {
+@@ -2449,6 +2459,7 @@ pub const CAPI = struct {
          button: input.MouseButton,
          mods: c_int,
      ) void {
@@ -70,7 +70,7 @@ index 626e558f9..c31c94648 100644
          ptr.mouseButtonCallback(
              action,
              button,
-@@ -2387,6 +2398,7 @@ pub const CAPI = struct {
+@@ -2460,6 +2471,7 @@ pub const CAPI = struct {
      }
  
      export fn ghostty_inspector_mouse_pos(ptr: *Inspector, x: f64, y: f64) void {
@@ -78,7 +78,7 @@ index 626e558f9..c31c94648 100644
          ptr.cursorPosCallback(x, y);
      }
  
-@@ -2396,6 +2408,7 @@ pub const CAPI = struct {
+@@ -2469,6 +2481,7 @@ pub const CAPI = struct {
          y: f64,
          scroll_mods: c_int,
      ) void {
@@ -86,7 +86,7 @@ index 626e558f9..c31c94648 100644
          ptr.scrollCallback(
              x,
              y,
-@@ -2409,6 +2422,7 @@ pub const CAPI = struct {
+@@ -2482,6 +2495,7 @@ pub const CAPI = struct {
          key: input.Key,
          c_mods: c_int,
      ) void {
@@ -94,7 +94,7 @@ index 626e558f9..c31c94648 100644
          ptr.keyCallback(
              action,
              key,
-@@ -2426,10 +2440,12 @@ pub const CAPI = struct {
+@@ -2499,10 +2513,12 @@ pub const CAPI = struct {
          ptr: *Inspector,
          str: [*:0]const u8,
      ) void {
@@ -107,7 +107,7 @@ index 626e558f9..c31c94648 100644
          ptr.focusCallback(focused);
      }
  
-@@ -2558,6 +2574,7 @@ pub const CAPI = struct {
+@@ -2631,6 +2647,7 @@ pub const CAPI = struct {
          }
  
          export fn ghostty_inspector_metal_init(ptr: *Inspector, device: objc.c.id) bool {
@@ -115,7 +115,7 @@ index 626e558f9..c31c94648 100644
              return ptr.initMetal(.fromId(device));
          }
  
-@@ -2566,6 +2583,7 @@ pub const CAPI = struct {
+@@ -2639,6 +2656,7 @@ pub const CAPI = struct {
              command_buffer: objc.c.id,
              descriptor: objc.c.id,
          ) void {
@@ -123,7 +123,7 @@ index 626e558f9..c31c94648 100644
              return ptr.renderMetal(
                  .fromId(command_buffer),
                  .fromId(descriptor),
-@@ -2576,6 +2594,7 @@ pub const CAPI = struct {
+@@ -2649,6 +2667,7 @@ pub const CAPI = struct {
          }
  
          export fn ghostty_inspector_metal_shutdown(ptr: *Inspector) void {
@@ -132,7 +132,7 @@ index 626e558f9..c31c94648 100644
                  v.deinit();
                  ptr.backend = null;
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index 79ff82640..bed1cb50e 100644
+index b6c139472..f03664499 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
 @@ -32,6 +32,7 @@ x11: bool = false,
@@ -144,7 +144,7 @@ index 79ff82640..bed1cb50e 100644
  i18n: bool = true,
  wasm_shared: bool = true,
 diff --git a/src/input/key.zig b/src/input/key.zig
-index 1bf64919a..3b902adcb 100644
+index 3444fd6e2..db03fd890 100644
 --- a/src/input/key.zig
 +++ b/src/input/key.zig
 @@ -1,7 +1,8 @@

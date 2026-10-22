@@ -1,5 +1,5 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index c90f3781b..79ff82640 100644
+index c764f76af..b6c139472 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
 @@ -31,6 +31,7 @@ font_backend: FontBackend = .freetype,
@@ -29,7 +29,7 @@ index c90f3781b..79ff82640 100644
      config.simd = b.option(
          bool,
          "simd",
-@@ -663,6 +676,8 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
+@@ -664,6 +677,8 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
      step.addOption(bool, "x11", self.x11);
      step.addOption(bool, "wayland", self.wayland);
      step.addOption(bool, "sentry", self.sentry);
@@ -39,10 +39,10 @@ index c90f3781b..79ff82640 100644
      step.addOption(bool, "i18n", self.i18n);
      step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index 86cfecc05..d87062b57 100644
+index 8f4e23954..7de2b5146 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -362,44 +362,48 @@ pub fn add(
+@@ -353,44 +353,48 @@ pub fn add(
          }
      }
  
@@ -125,7 +125,7 @@ index 86cfecc05..d87062b57 100644
          }
      }
  
-@@ -593,8 +597,8 @@ pub fn add(
+@@ -595,8 +599,8 @@ pub fn add(
          }
      }
  
@@ -136,7 +136,7 @@ index 86cfecc05..d87062b57 100644
          .target = target,
          .optimize = optimize,
          .freetype = true,
-@@ -610,7 +614,7 @@ pub fn add(
+@@ -612,7 +616,7 @@ pub fn add(
              b.allocator,
              dep.artifact("dcimgui").getEmittedBin(),
          );
@@ -146,7 +146,7 @@ index 86cfecc05..d87062b57 100644
      // Fonts
      {
 diff --git a/src/build_config.zig b/src/build_config.zig
-index c19f7372b..9db41ad66 100644
+index e4bdd0c67..8a9503e5f 100644
 --- a/src/build_config.zig
 +++ b/src/build_config.zig
 @@ -5,6 +5,8 @@
@@ -159,7 +159,7 @@ index c19f7372b..9db41ad66 100644
  const apprt = @import("apprt.zig");
  const font = @import("font/main.zig");
 diff --git a/src/global.zig b/src/global.zig
-index 3312039a9..daf8b8ff3 100644
+index 8b0612ee7..055212f22 100644
 --- a/src/global.zig
 +++ b/src/global.zig
 @@ -5,7 +5,9 @@ const build_options = @import("build_options");
@@ -174,7 +174,7 @@ index 3312039a9..daf8b8ff3 100644
  const oni = @import("oniguruma");
  const crash = @import("crash/main.zig");
 diff --git a/src/renderer/shadertoy.zig b/src/renderer/shadertoy.zig
-index 6dee18b04..d65c51d58 100644
+index 18bbb0f39..409a3ec44 100644
 --- a/src/renderer/shadertoy.zig
 +++ b/src/renderer/shadertoy.zig
 @@ -2,6 +2,7 @@ const std = @import("std");

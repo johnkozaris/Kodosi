@@ -1,8 +1,8 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 726bd0336..04f4a2d4b 100644
+index 66b229be2..4947bc254 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -3527,7 +3527,7 @@ pub fn scrollCallback(
+@@ -3653,7 +3653,7 @@ pub fn scrollCallback(
          }
  
          // We scroll by the number of rows in the offset and save the remainder
@@ -11,7 +11,7 @@ index 726bd0336..04f4a2d4b 100644
          assert(@abs(amount) >= 1);
          self.mouse.pending_scroll_y = poff - (amount * cell_size);
  
-@@ -3552,7 +3552,7 @@ pub fn scrollCallback(
+@@ -3678,7 +3678,7 @@ pub fn scrollCallback(
              break :x .{};
          }
  

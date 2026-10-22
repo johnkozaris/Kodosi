@@ -1,5 +1,5 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index ae31b506a..c18b077ae 100644
+index d9c1e1e5d..c431b6345 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
 @@ -1213,17 +1213,24 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
@@ -34,10 +34,10 @@ index ae31b506a..c18b077ae 100644
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
 diff --git a/src/Surface.zig b/src/Surface.zig
-index a56e7a511..ae5d99d73 100644
+index 5371ad8c0..b139d81f0 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -2821,7 +2821,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
+@@ -2859,7 +2859,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
      while (app_mailbox.pop(testing.io)) |_| {}
  }
  
@@ -47,10 +47,10 @@ index a56e7a511..ae5d99d73 100644
  }
  
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index a8be74a00..3682a3393 100644
+index a7b1b14d4..4398193f8 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
-@@ -2003,7 +2003,7 @@ pub const CAPI = struct {
+@@ -2005,7 +2005,7 @@ pub const CAPI = struct {
                  }
              }.call,
          );
@@ -59,7 +59,7 @@ index a8be74a00..3682a3393 100644
          const restored = if (result == .success)
              core.checkpointRestoredMessage()
          else
-@@ -2020,6 +2020,34 @@ pub const CAPI = struct {
+@@ -2022,6 +2022,34 @@ pub const CAPI = struct {
          return result;
      }
  
@@ -95,7 +95,7 @@ index a8be74a00..3682a3393 100644
      /// must be externally serialized with ghostty_surface_write_buffer.
      export fn ghostty_surface_process_exit(
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 865aade38..230ffdddb 100644
+index f5bb20a4e..80f963130 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -527,19 +527,26 @@ pub fn resize(
@@ -127,7 +127,7 @@ index 865aade38..230ffdddb 100644
          // Update the size of our terminal state
          try self.terminal.resize(
              self.alloc,
-@@ -771,34 +778,10 @@ pub fn restoreCheckpointLocked(
+@@ -763,34 +770,10 @@ pub fn restoreCheckpointLocked(
      var new_stream_owned = true;
      defer if (new_stream_owned) new_stream.deinit();
  
@@ -164,7 +164,7 @@ index 865aade38..230ffdddb 100644
  
      preCommit(pre_commit_context);
      var old_terminal = self.terminal;
-@@ -826,6 +809,56 @@ pub fn restoreCheckpointLocked(
+@@ -818,6 +801,56 @@ pub fn restoreCheckpointLocked(
      return .success;
  }
  
@@ -221,7 +221,7 @@ index 865aade38..230ffdddb 100644
  fn snapshotResult(err: anyerror) Result {
      return switch (err) {
          error.OutOfMemory => .out_of_memory,
-@@ -1017,3 +1050,21 @@ pub const ThreadData = struct {
+@@ -1009,3 +1042,21 @@ pub const ThreadData = struct {
  pub fn getProcessInfo(self: *Termio, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
      return self.backend.getProcessInfo(info);
  }

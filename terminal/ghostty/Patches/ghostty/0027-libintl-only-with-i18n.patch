@@ -1,5 +1,5 @@
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index ff49e220e..c23041e01 100644
+index 0390ece7b..95684ec60 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
 @@ -592,7 +592,8 @@ pub fn add(

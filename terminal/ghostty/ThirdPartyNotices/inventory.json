@@ -136,6 +136,18 @@
       ]
     },
     {
+      "name": "bdf.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
+      "name": "cff.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
       "name": "ftbase.o",
       "owners": [
         "freetype"
@@ -160,7 +172,25 @@
       ]
     },
     {
+      "name": "ftbzip2.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
+      "name": "ftcache.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
       "name": "ftcid.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
+      "name": "ftdebug.o",
       "owners": [
         "freetype"
       ]
@@ -190,7 +220,19 @@
       ]
     },
     {
+      "name": "ftgzip.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
       "name": "ftinit.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
+      "name": "ftlzw.o",
       "owners": [
         "freetype"
       ]
@@ -232,6 +274,12 @@
       ]
     },
     {
+      "name": "ftsystem.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
       "name": "fttype1.o",
       "owners": [
         "freetype"
@@ -239,48 +287,6 @@
     },
     {
       "name": "ftwinfnt.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "bdf.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftbzip2.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftcache.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "cff.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "type1cid.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftgzip.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftlzw.o",
       "owners": [
         "freetype"
       ]
@@ -358,6 +364,12 @@
       ]
     },
     {
+      "name": "type1cid.o",
+      "owners": [
+        "freetype"
+      ]
+    },
+    {
       "name": "type42.o",
       "owners": [
         "freetype"
@@ -365,18 +377,6 @@
     },
     {
       "name": "winfnt.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftsystem.o",
-      "owners": [
-        "freetype"
-      ]
-    },
-    {
-      "name": "ftdebug.o",
       "owners": [
         "freetype"
       ]
@@ -520,25 +520,25 @@
       ]
     },
     {
-      "name": "inflate.o",
-      "owners": [
-        "zlib"
-      ]
-    },
-    {
       "name": "infback.o",
       "owners": [
         "zlib"
       ]
     },
     {
-      "name": "inftrees.o",
+      "name": "inffast.o",
       "owners": [
         "zlib"
       ]
     },
     {
-      "name": "inffast.o",
+      "name": "inflate.o",
+      "owners": [
+        "zlib"
+      ]
+    },
+    {
+      "name": "inftrees.o",
       "owners": [
         "zlib"
       ]
@@ -562,117 +562,19 @@
       ]
     },
     {
-      "name": "regerror.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regparse.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regext.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regcomp.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regexec.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "reggnu.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regenc.o",
-      "owners": [
-        "oniguruma",
-        "oniguruma-unicode-tables"
-      ]
-    },
-    {
-      "name": "regsyntax.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regtrav.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "regversion.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "st.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "onig_init.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "unicode.o",
-      "owners": [
-        "oniguruma",
-        "oniguruma-unicode-tables"
-      ]
-    },
-    {
       "name": "ascii.o",
       "owners": [
         "oniguruma"
       ]
     },
     {
-      "name": "utf8.o",
+      "name": "big5.o",
       "owners": [
         "oniguruma"
       ]
     },
     {
-      "name": "utf16_be.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "utf16_le.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "utf32_be.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "utf32_le.o",
+      "name": "cp1251.o",
       "owners": [
         "oniguruma"
       ]
@@ -684,13 +586,67 @@
       ]
     },
     {
-      "name": "sjis.o",
+      "name": "euc_jp_prop.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "euc_kr.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "euc_tw.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "gb18030.o",
       "owners": [
         "oniguruma"
       ]
     },
     {
       "name": "iso8859_1.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_10.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_11.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_13.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_14.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_15.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "iso8859_16.o",
       "owners": [
         "oniguruma"
       ]
@@ -744,79 +700,80 @@
       ]
     },
     {
-      "name": "iso8859_10.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "iso8859_11.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "iso8859_13.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "iso8859_14.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "iso8859_15.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "iso8859_16.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "euc_tw.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "euc_kr.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "big5.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
-      "name": "gb18030.o",
-      "owners": [
-        "oniguruma"
-      ]
-    },
-    {
       "name": "koi8_r.o",
       "owners": [
         "oniguruma"
       ]
     },
     {
-      "name": "cp1251.o",
+      "name": "onig_init.o",
       "owners": [
         "oniguruma"
       ]
     },
     {
-      "name": "euc_jp_prop.o",
+      "name": "regcomp.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regenc.o",
+      "owners": [
+        "oniguruma",
+        "oniguruma-unicode-tables"
+      ]
+    },
+    {
+      "name": "regerror.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regexec.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regext.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "reggnu.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regparse.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regsyntax.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regtrav.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "regversion.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "sjis.o",
       "owners": [
         "oniguruma"
       ]
@@ -828,7 +785,13 @@
       ]
     },
     {
-      "name": "unicode_unfold_key.o",
+      "name": "st.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "unicode.o",
       "owners": [
         "oniguruma",
         "oniguruma-unicode-tables"
@@ -856,6 +819,43 @@
       ]
     },
     {
+      "name": "unicode_unfold_key.o",
+      "owners": [
+        "oniguruma",
+        "oniguruma-unicode-tables"
+      ]
+    },
+    {
+      "name": "utf16_be.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "utf16_le.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "utf32_be.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "utf32_le.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
+      "name": "utf8.o",
+      "owners": [
+        "oniguruma"
+      ]
+    },
+    {
       "name": "simdutf.o",
       "owners": [
         "simdutf"
@@ -864,6 +864,13 @@
     {
       "name": "abort.o",
       "owners": [
+        "highway"
+      ]
+    },
+    {
+      "name": "highway_zcu.o",
+      "owners": [
+        "ghostty",
         "highway"
       ]
     },
@@ -880,10 +887,9 @@
       ]
     },
     {
-      "name": "libhighway_zcu.o",
+      "name": "ext.o",
       "owners": [
-        "ghostty",
-        "highway"
+        "ghostty"
       ]
     },
     {
@@ -893,13 +899,13 @@
       ]
     },
     {
-      "name": "ext.o",
+      "name": "bindtextdom.o",
       "owners": [
-        "ghostty"
+        "gettext-libintl"
       ]
     },
     {
-      "name": "bindtextdom.o",
+      "name": "compat.o",
       "owners": [
         "gettext-libintl"
       ]
@@ -947,6 +953,12 @@
       ]
     },
     {
+      "name": "getlocalename_l-unsafe.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
       "name": "gettext.o",
       "owners": [
         "gettext-libintl"
@@ -989,6 +1001,24 @@
       ]
     },
     {
+      "name": "localename-environ.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
+      "name": "localename-unsafe.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
+      "name": "localename.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
       "name": "log.o",
       "owners": [
         "gettext-libintl"
@@ -1013,7 +1043,25 @@
       ]
     },
     {
+      "name": "setlocale-lock.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
       "name": "setlocale.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
+      "name": "setlocale_null-unlocked.o",
+      "owners": [
+        "gettext-libintl"
+      ]
+    },
+    {
+      "name": "setlocale_null.o",
       "owners": [
         "gettext-libintl"
       ]
@@ -1026,54 +1074,6 @@
     },
     {
       "name": "version.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "compat.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "getlocalename_l-unsafe.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "localename.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "localename-environ.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "localename-unsafe.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "setlocale-lock.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "setlocale_null.o",
-      "owners": [
-        "gettext-libintl"
-      ]
-    },
-    {
-      "name": "setlocale_null-unlocked.o",
       "owners": [
         "gettext-libintl"
       ]
@@ -1096,35 +1096,15 @@
       ]
     },
     {
-      "name": "index_of.o",
+      "name": "compiler_rt.o",
       "owners": [
-        "ghostty",
-        "highway"
+        "zig-runtime",
+        "compiler-rt-llvm-derived",
+        "compiler-rt-musl-derived"
       ]
     },
     {
-      "name": "vt.o",
-      "owners": [
-        "ghostty",
-        "simdutf",
-        "highway"
-      ]
-    },
-    {
-      "name": "stb.o",
-      "owners": [
-        "stb-image",
-        "stb-image-resize"
-      ]
-    },
-    {
-      "name": "wuffs-v0.4.o",
-      "owners": [
-        "wuffs"
-      ]
-    },
-    {
-      "name": "libghostty_zcu.o",
+      "name": "ghostty_zcu.o",
       "owners": [
         "ghostty",
         "libxev",
@@ -1146,11 +1126,31 @@
       ]
     },
     {
-      "name": "compiler_rt.o",
+      "name": "index_of.o",
       "owners": [
-        "zig-runtime",
-        "compiler-rt-llvm-derived",
-        "compiler-rt-musl-derived"
+        "ghostty",
+        "highway"
+      ]
+    },
+    {
+      "name": "stb.o",
+      "owners": [
+        "stb-image",
+        "stb-image-resize"
+      ]
+    },
+    {
+      "name": "vt.o",
+      "owners": [
+        "ghostty",
+        "simdutf",
+        "highway"
+      ]
+    },
+    {
+      "name": "wuffs-v0.4.o",
+      "owners": [
+        "wuffs"
       ]
     }
   ],
@@ -1165,8 +1165,8 @@
     "ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json": {
       "sha256": "e897417237700d353327bedbe9dce12a5a8d2141a1c3f4a6022ecb3f823a4958"
     },
-    "ThirdPartyNotices/corresponding-source/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz": {
-      "sha256": "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8"
+    "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz": {
+      "sha256": "0d2ea2ef74e090ca152b88fadd7fed8b699df27d59c019656f1521fda2e36498"
     },
     "scripts/relink-libintl.sh": {
       "sha256": "b581144466d07a310d4c5c5321575ddaff98a602ac2ed2bbf44d91042b1ded13"
@@ -1175,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be;patch_set:cc3c023592712ea12514276b77f23959dddd5d34fd5ebb5d75976bad7f8f2daf;patch_application:8de870a411f4890514841a6fbde0aade7bd14aa3c6adb88950db3544f20870dd",
+      "identity": "ghostty:f54340ad77814fe319d136e5e915d6a48de8dd23;patch_set:29af92da01e9459e8e8db9f50a1ec670ef2449c93127acd37e907b8de1f689ac;patch_application:01365808f967e4205e3593ce270cc3951cfd6df630ab96bf340860bb546c7ee8",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"
@@ -1188,7 +1188,7 @@
         "pinned-source:pkg/wuffs/src/"
       ],
       "spdx": "MIT",
-      "version": "commit 22fa134a07f5749edd9e92c6bc17d8aaf61843be"
+      "version": "commit f54340ad77814fe319d136e5e915d6a48de8dd23"
     },
     {
       "id": "freetype",
@@ -1357,7 +1357,7 @@
     },
     {
       "id": "libxev",
-      "identity": "libxev-0.0.0-86vtcwIRFADbH4hk-EjROXxlrKIRPQdA41XiTSytYO-F",
+      "identity": "libxev-0.0.0-86vtc8QQFACz0sVc7U-VDiDIgH-XfBuEY5JpABLjHNpn",
       "name": "libxev",
       "notices": [
         "libxev.txt"
@@ -1365,14 +1365,14 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:zig-pkg/libxev-0.0.0-86vtcwIRFADbH4hk-EjROXxlrKIRPQdA41XiTSytYO-F/LICENSE"
+        "pinned-source:zig-pkg/libxev-0.0.0-86vtc8QQFACz0sVc7U-VDiDIgH-XfBuEY5JpABLjHNpn/LICENSE"
       ],
       "spdx": "MIT",
-      "version": "commit 9ce8e8e6ff89e583258a7f8e7adeeeaeae8611bf"
+      "version": "commit 819ffa180ca20e31c7eded74e2e1aceb1eab557f"
     },
     {
       "id": "vaxis",
-      "identity": "vaxis-0.6.0-BWNV_CrbCQCscGpzsAlR402rYQ_tV3aAl081c2iRRkka",
+      "identity": "vaxis-0.6.0-BWNV_MafDAAEzkVUvrW9NFUqnnMUoeHqrs2mecnD6D7w",
       "name": "vaxis",
       "notices": [
         "vaxis.txt"
@@ -1380,14 +1380,14 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:zig-pkg/vaxis-0.6.0-BWNV_CrbCQCscGpzsAlR402rYQ_tV3aAl081c2iRRkka/LICENSE"
+        "pinned-source:zig-pkg/vaxis-0.6.0-BWNV_MafDAAEzkVUvrW9NFUqnnMUoeHqrs2mecnD6D7w/LICENSE"
       ],
       "spdx": "MIT",
-      "version": "0.6.0 / 1dbbe575dff4586fe51e3217aa5c3fecdcbb6089"
+      "version": "0.6.0 / 6fd944a27fb3d6f596e981076381a3131f2448b4"
     },
     {
       "id": "z2d",
-      "identity": "z2d-0.12.1-j5P_Hsw8EQAKyZTQICCQnAH2xYkLDW8k9uefbsYdfPZ-",
+      "identity": "z2d-0.12.2-pre-j5P_HilCEQDH_2RC0PZqYQd4rHTl13b-VXpaDQ1sE4kZ",
       "name": "z2d",
       "notices": [
         "z2d-NOTICE.txt",
@@ -1395,16 +1395,16 @@
       ],
       "scope": "archive",
       "sourcePaths": [
-        "ThirdPartyNotices/corresponding-source/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz",
-        "pinned-source:https://deps.files.ghostty.org/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz",
-        "pinned-source:https://codeload.github.com/vancluever/z2d/tar.gz/7dbae85c81784dba9988320bf9543ed9a81350c8"
+        "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
+        "pinned-source:https://deps.files.ghostty.org/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
+        "pinned-source:https://codeload.github.com/vancluever/z2d/tar.gz/f3cf28188dae39946964c81475ff234c008125a6"
       ],
       "spdx": "MPL-2.0",
-      "version": "0.12.1 / 7dbae85c81784dba9988320bf9543ed9a81350c8"
+      "version": "0.12.2-pre / f3cf28188dae39946964c81475ff234c008125a6"
     },
     {
       "id": "zf",
-      "identity": "zf-0.11.0-OIRy8X-RAAAwaRXHMYpj2uvBnuGTZWEE_3V7acqHQNtW",
+      "identity": "zf-0.11.0-OIRy8XCRAAB6FiMwIrtD6FqlagnFwpI6YyOu7bXeYH5J",
       "name": "zf",
       "notices": [
         "zf.txt"
@@ -1412,14 +1412,14 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:zig-pkg/zf-0.11.0-OIRy8X-RAAAwaRXHMYpj2uvBnuGTZWEE_3V7acqHQNtW/LICENSE"
+        "pinned-source:zig-pkg/zf-0.11.0-OIRy8XCRAAB6FiMwIrtD6FqlagnFwpI6YyOu7bXeYH5J/LICENSE"
       ],
       "spdx": "MIT",
-      "version": "0.11.0 / c35c421f84895193246db06c40683c1a30e616ef"
+      "version": "0.11.0 / 87153bb86b75d21fbac897b738f316d449f5d0c9"
     },
     {
       "id": "uucode",
-      "identity": "uucode-0.2.0-ZZjBPuuFVgC8YZ8eld4fOKsZANLIhTFMzULQxhkLi1C7",
+      "identity": "uucode-0.2.0-ZZjBPoGFVgCiflJNFc6Io8xzC67B6PA5bUkk4LT0kCxg",
       "name": "uucode",
       "notices": [
         "uucode.txt",
@@ -1428,22 +1428,22 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:upstream commit 9d55524551411b493cca41ca06363625d90aff1e/LICENSE.md",
-        "pinned-source:upstream commit 9d55524551411b493cca41ca06363625d90aff1e/licenses/LICENSE_Bjoern_Hoehrmann"
+        "pinned-source:upstream commit ea62149739404a73c202b48a33bf6dd2af4bd9b0/LICENSE.md",
+        "pinned-source:upstream commit ea62149739404a73c202b48a33bf6dd2af4bd9b0/licenses/LICENSE_Bjoern_Hoehrmann"
       ],
       "spdx": "MIT",
-      "version": "0.2.0 / 9d55524551411b493cca41ca06363625d90aff1e"
+      "version": "0.2.0 / ea62149739404a73c202b48a33bf6dd2af4bd9b0"
     },
     {
       "id": "unicode-data",
-      "identity": "uucode:9d55524551411b493cca41ca06363625d90aff1e:ucd",
+      "identity": "uucode:ea62149739404a73c202b48a33bf6dd2af4bd9b0:ucd",
       "name": "Unicode Character Database data",
       "notices": [
         "unicode-data.txt"
       ],
       "scope": "archive",
       "sourcePaths": [
-        "pinned-source:uucode upstream commit 9d55524551411b493cca41ca06363625d90aff1e/licenses/LICENSE_unicode",
+        "pinned-source:uucode upstream commit ea62149739404a73c202b48a33bf6dd2af4bd9b0/licenses/LICENSE_unicode",
         "pinned-source:uucode/ucd/"
       ],
       "spdx": "Unicode-3.0",
@@ -1451,7 +1451,7 @@
     },
     {
       "id": "zig-objc",
-      "identity": "zig_objc-0.0.0-Ir_Sp9gsAQCPAJc0oF5xoWePHWP6Y6tCphDeyNUThJoi",
+      "identity": "zig_objc-0.0.0-Ir_Sp_4tAQDXtPi51nW_jD9LOEzBvU9lofwO9Pzi6IB4",
       "name": "zig-objc",
       "notices": [
         "zig-objc.txt"
@@ -1459,10 +1459,10 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:zig-pkg/zig_objc-0.0.0-Ir_Sp9gsAQCPAJc0oF5xoWePHWP6Y6tCphDeyNUThJoi/LICENSE"
+        "pinned-source:zig-pkg/zig_objc-0.0.0-Ir_Sp_4tAQDXtPi51nW_jD9LOEzBvU9lofwO9Pzi6IB4/LICENSE"
       ],
       "spdx": "MIT",
-      "version": "commit c8de82ff80281215ad92900866dab7103a8efa8b"
+      "version": "commit 3352c12a868f8787ab71bf2ca6eab9fcfb635c52"
     },
     {
       "id": "jetbrains-mono",
@@ -1496,7 +1496,7 @@
     },
     {
       "id": "zig-runtime",
-      "identity": "sha256:b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489",
+      "identity": "sha256:b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a",
       "name": "Zig compiler runtime (Zig-authored portions)",
       "notices": [
         "zig-compiler-runtime.txt"
@@ -1504,15 +1504,15 @@
       "scope": "archive",
       "sourcePaths": [
         "Toolchain.env",
-        "pinned-source:zig-0.16.0/lib/compiler_rt",
-        "pinned-source:zig-0.16.0/LICENSE"
+        "pinned-source:zig-0.17.0/lib/compiler_rt",
+        "pinned-source:zig-0.17.0/LICENSE"
       ],
       "spdx": "MIT",
-      "version": "0.16.0"
+      "version": "0.17.0"
     },
     {
       "id": "compiler-rt-llvm-derived",
-      "identity": "sha256:b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489",
+      "identity": "sha256:b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a",
       "name": "Zig compiler runtime LLVM-derived portions",
       "notices": [
         "compiler-rt-LLVM-derived.txt",
@@ -1529,11 +1529,11 @@
         "pinned-source:lib/compiler_rt/powiXf2.zig"
       ],
       "spdx": "Apache-2.0 WITH LLVM-exception AND NCSA AND MIT",
-      "version": "Zig 0.16.0 toolchain sources"
+      "version": "Zig 0.17.0 toolchain sources"
     },
     {
       "id": "compiler-rt-musl-derived",
-      "identity": "sha256:b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489",
+      "identity": "sha256:b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a",
       "name": "Zig compiler runtime musl-derived math portions",
       "notices": [
         "compiler-rt-musl-derived.txt",
@@ -1561,7 +1561,7 @@
         "pinned-source:lib/compiler_rt/trunc.zig"
       ],
       "spdx": "MIT AND permissive-source-notices",
-      "version": "Zig 0.16.0 toolchain sources"
+      "version": "Zig 0.17.0 toolchain sources"
     },
     {
       "id": "xorg-rgb-data",
@@ -1613,7 +1613,7 @@
     },
     {
       "id": "freetype-gl-atlas",
-      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be:Atlas.zig:af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
+      "identity": "ghostty:f54340ad77814fe319d136e5e915d6a48de8dd23:Atlas.zig:ae86d92e2af4b5ce7360855737833b80442d715dd0bdc1ad4c6a3eba6f8071e3;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
       "name": "Ghostty texture atlas derived from freetype-gl with RectangleBinPack lineage",
       "notices": [
         "freetype-gl-BSD-2-Clause.txt",
@@ -1621,7 +1621,7 @@
       ],
       "scope": "archive",
       "sourcePaths": [
-        "pinned-source:src/font/Atlas.zig#sha256=af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b",
+        "pinned-source:src/font/Atlas.zig#sha256=ae86d92e2af4b5ce7360855737833b80442d715dd0bdc1ad4c6a3eba6f8071e3",
         "pinned-source:https://raw.githubusercontent.com/rougier/freetype-gl/85d7850744465ac1dcd00b202787d72a4a3a1f5d/texture-atlas.c#sha256=559dbdc16e64a5dfd43bacb1aa2ddef7ea568344fedb99142962cc6d2d8a3064",
         "pinned-source:https://raw.githubusercontent.com/rougier/freetype-gl/85d7850744465ac1dcd00b202787d72a4a3a1f5d/LICENSE#sha256=68175b60f2a9738ff25c3dd05553e0626a3f74090bac84e48109cdab9fc60469",
         "provenance-only:https://raw.githubusercontent.com/juj/RectangleBinPack/a40fcaf3871da57b0f6a080655b3387374840877/SkylineBinPack.cpp#sha256=0a4d6f603526de960970f105e1cc7ddb6eed5f431632ddce03862bdc52a246e7"
@@ -1654,7 +1654,7 @@
       ],
       "scope": "archive",
       "sourcePaths": [
-        "pinned-source:src/terminal/kitty/graphics_unicode.zig#sha256=8e1bb778abad3cf7ae09434e4ed64748c1dbc69a7671c713e4e3ae5cf0590ed7",
+        "pinned-source:src/terminal/kitty/graphics_unicode.zig#sha256=360b03cdd44dda018f2869b3cfbfe61567b258a3e604d04823ff7ad7e0770149",
         "pinned-source:https://raw.githubusercontent.com/kovidgoyal/kitty/d63eeada73bacce2374c6b1f1523e0551dbbd5b6/rowcolumn-diacritics.txt#sha256=a80368b3272c41d8b50f3f640cf4305b6423e5a1aae6b72a405129bc29425f2c",
         "pinned-source:https://www.unicode.org/Public/6.0.0/ucd/UnicodeData.txt#sha256=90b45b777346bef027556f9c6cb3ea5d7d745bd60d6762855c08d8a22d34f771",
         "provenance-only:kitty GPL repository LICENSE sha256=3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
@@ -1663,7 +1663,7 @@
       "version": "Unicode 6.0.0 / Kitty d63eeada73bacce2374c6b1f1523e0551dbbd5b6 / Ghostty d29073d999e88f8a35cd3c368f97f6a3bfa8a0fc"
     }
   ],
-  "ghosttyCommit": "22fa134a07f5749edd9e92c6bc17d8aaf61843be",
+  "ghosttyCommit": "f54340ad77814fe319d136e5e915d6a48de8dd23",
   "notices": {
     "RectangleBinPack-Public-Domain.txt": {
       "path": "ThirdPartyNotices/licenses/RectangleBinPack-Public-Domain.txt",
@@ -1825,17 +1825,17 @@
   "schemaVersion": 2,
   "sourceAcquisitions": {
     "z2d": {
-      "acquiredOn": "2026-08-10",
-      "archivePath": "ThirdPartyNotices/corresponding-source/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz",
-      "byteSize": 1948432,
-      "commit": "7dbae85c81784dba9988320bf9543ed9a81350c8",
-      "corroboratingUrl": "https://codeload.github.com/vancluever/z2d/tar.gz/7dbae85c81784dba9988320bf9543ed9a81350c8",
+      "acquiredOn": "2026-10-22",
+      "archivePath": "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
+      "byteSize": 1947171,
+      "commit": "f3cf28188dae39946964c81475ff234c008125a6",
+      "corroboratingUrl": "https://codeload.github.com/vancluever/z2d/tar.gz/f3cf28188dae39946964c81475ff234c008125a6",
       "method": "HTTPS GET; both responses retained and compared byte-for-byte",
-      "primaryUrl": "https://deps.files.ghostty.org/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz",
-      "sha256": "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8",
-      "version": "0.12.1",
-      "zigIdentity": "z2d-0.12.1-j5P_Hsw8EQAKyZTQICCQnAH2xYkLDW8k9uefbsYdfPZ-"
+      "primaryUrl": "https://deps.files.ghostty.org/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
+      "sha256": "0d2ea2ef74e090ca152b88fadd7fed8b699df27d59c019656f1521fda2e36498",
+      "version": "0.12.2-pre",
+      "zigIdentity": "z2d-0.12.2-pre-j5P_HilCEQDH_2RC0PZqYQd4rHTl13b-VXpaDQ1sE4kZ"
     }
   },
-  "zigStoreSha256": "5dcaafe0b1db2fe4ef8837e0071d6dcf22160c53247a1eea59d26e97ebbb2350"
+  "zigStoreSha256": "597cde1a0800a9d27e876206038302c16fc02262334d82ab3633a9a1607f681c"
 }

@@ -30,6 +30,7 @@ namespace kodosi {
 namespace {
 
 constexpr std::chrono::seconds historyCompressionIdle {2};
+constexpr std::chrono::milliseconds imageAnimationFrameMinimum {8};
 constexpr char32_t powerlineRightSeparator = 0xE0B0;
 constexpr char32_t powerlineLeftCap = 0xE0B6;
 constexpr char32_t nerdFontLinux = 0xF31B;
@@ -210,6 +211,13 @@ TerminalView::TerminalView(QQuickItem* parent)
     connect(&m_historyCompressionTimer, &QTimer::timeout, this, [this] {
         if (m_registry != nullptr && m_registry->compressHistory(surfaceIdentity())) {
             m_historyCompressionTimer.start(0);
+        }
+    });
+    m_imageAnimationTimer.setObjectName(QStringLiteral("terminal.imageAnimationTimer"));
+    m_imageAnimationTimer.setSingleShot(true);
+    connect(&m_imageAnimationTimer, &QTimer::timeout, this, [this] {
+        if (m_registry != nullptr) {
+            (void)m_registry->advanceImageAnimations(surfaceIdentity());
         }
     });
     m_cursorBlinkTimer.setObjectName(QStringLiteral("terminal.cursorBlinkTimer"));
@@ -675,6 +683,7 @@ void TerminalView::detach()
     const auto epoch = m_attachmentEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
     m_frameMailbox.reset(epoch);
     m_historyCompressionTimer.stop();
+    m_imageAnimationTimer.stop();
     {
         std::scoped_lock lock(m_guiEventMutex);
         m_guiEvents.clear();
@@ -943,6 +952,14 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
     const auto priorAccessibleText = QAccessible::isActive() ? accessibleText() : QString {};
     m_frame = std::move(frame);
     m_historyCompressionTimer.start(historyCompressionIdle);
+    if (m_frame && m_frame->imageAnimationDue) {
+        m_imageAnimationTimer.start(std::max(
+            imageAnimationFrameMinimum,
+            std::chrono::ceil<std::chrono::milliseconds>(
+                *m_frame->imageAnimationDue - std::chrono::steady_clock::now())));
+    } else {
+        m_imageAnimationTimer.stop();
+    }
     m_pressedLink.reset();
     clearHoverLink();
     const auto wasReady = m_terminalReady;

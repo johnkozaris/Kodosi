@@ -24,18 +24,19 @@ private:
     using Cache = std::unordered_map<std::uint32_t, Pixels>;
 
     struct IteratorFree {
-        void operator()(GhosttyKittyGraphicsPlacementIterator iterator) const noexcept
+        void operator()(GhosttyRenderStateImageIterator iterator) const noexcept
         {
-            ghostty_kitty_graphics_placement_iterator_free(iterator);
+            ghostty_render_state_image_iterator_free(iterator);
         }
     };
 
-    [[nodiscard]] bool iteratePlacements(GhosttyKittyGraphics graphics);
     [[nodiscard]] QImage pixels(GhosttyKittyGraphicsImage image, Cache& previous);
 
     Cache m_pixels;
-    std::unique_ptr<std::remove_pointer_t<GhosttyKittyGraphicsPlacementIterator>, IteratorFree>
+    std::unique_ptr<std::remove_pointer_t<GhosttyRenderStateImageIterator>, IteratorFree>
         m_iterator;
+    std::uint64_t m_generation = 0;
+    QVector<TerminalImagePlacement> m_placements;
 };
 
 }

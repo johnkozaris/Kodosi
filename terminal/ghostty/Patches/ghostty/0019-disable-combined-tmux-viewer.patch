@@ -1,8 +1,8 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index adad12f5c..fb8adfe0f 100644
+index 20a9b1952..44e1522ef 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
-@@ -735,6 +735,7 @@ pub fn terminalOptions(
+@@ -738,6 +738,7 @@ pub fn terminalOptions(
          .artifact = artifact,
          .simd = self.simd,
          .oniguruma = true,
@@ -11,10 +11,10 @@ index adad12f5c..fb8adfe0f 100644
          // The application requires every feature; only lib artifacts
          // may trim them.
 diff --git a/src/build/GhosttyZig.zig b/src/build/GhosttyZig.zig
-index 46ab05d56..488d51597 100644
+index 9d987240b..ae30fac2e 100644
 --- a/src/build/GhosttyZig.zig
 +++ b/src/build/GhosttyZig.zig
-@@ -70,6 +70,7 @@ fn initInner(
+@@ -68,6 +68,7 @@ fn initInner(
      // We should expose this as a build option in the future so we can
      // conditionally do this.
      vt_options.oniguruma = false;
@@ -23,10 +23,10 @@ index 46ab05d56..488d51597 100644
      var simd_libs: SharedDeps.LazyPathList = .empty;
  
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index af12227dd..53d72e52a 100644
+index 51b0b14c7..0390ece7b 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -180,7 +180,10 @@ pub fn add(
+@@ -187,7 +187,10 @@ pub fn add(
  
      // Every exe needs the terminal options
      var terminal_options = self.config.terminalOptions(.ghostty, optimize);
@@ -39,7 +39,7 @@ index af12227dd..53d72e52a 100644
  
      // Every exe needs the uucode module
 diff --git a/src/terminal/build_options.zig b/src/terminal/build_options.zig
-index 725fccfd0..d2df1ead6 100644
+index 628ecbd3e..bd52136bc 100644
 --- a/src/terminal/build_options.zig
 +++ b/src/terminal/build_options.zig
 @@ -13,13 +13,12 @@ pub const Options = struct {
@@ -60,7 +60,7 @@ index 725fccfd0..d2df1ead6 100644
      oniguruma: bool,
  
      /// Whether to build SIMD-accelerated code paths. This pulls in more
-@@ -284,8 +283,7 @@ pub const Options = struct {
+@@ -292,8 +291,7 @@ pub const Options = struct {
          opts.addOption(bool, "simd", self.simd);
          opts.addOption(bool, "slow_runtime_safety", self.slow_runtime_safety);
  
@@ -70,7 +70,7 @@ index 725fccfd0..d2df1ead6 100644
  
          // Feature gates, emitted as flat bools (e.g. `options.snapshot`).
          const target = m.resolved_target.?.result;
-@@ -320,6 +318,22 @@ pub const Options = struct {
+@@ -328,6 +326,22 @@ pub const Options = struct {
      }
  };
  
@@ -94,10 +94,10 @@ index 725fccfd0..d2df1ead6 100644
      _ = Options.Features;
  }
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 745665677..fa596a80e 100644
+index 43656aa71..f79b24529 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -145,6 +145,7 @@ pub const StreamHandler = struct {
+@@ -151,6 +151,7 @@ pub const StreamHandler = struct {
      }
  
      inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {

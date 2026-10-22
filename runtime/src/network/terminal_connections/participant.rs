@@ -115,9 +115,9 @@ async fn open(
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            if accept.protocol_version != crate::protocol::CHANNEL_VERSION {
+            if accept.protocol_version != channel.version() {
                 return Err(Error::ChannelVersion {
-                    peer_newer: accept.protocol_version > crate::protocol::CHANNEL_VERSION,
+                    peer_newer: accept.protocol_version > channel.version(),
                 });
             }
             if (

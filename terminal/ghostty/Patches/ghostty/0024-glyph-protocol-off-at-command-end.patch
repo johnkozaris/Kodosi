@@ -1,8 +1,8 @@
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index 1261b4a52..8b5e5e502 100644
+index de92f86ca..826694595 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
-@@ -2281,6 +2281,9 @@ pub const Handler = struct {
+@@ -2294,6 +2294,9 @@ pub const Handler = struct {
              },
  
              .glyph => |*glyph_req| if (comptime build_options.glyph_protocol) {
@@ -12,7 +12,7 @@ index 1261b4a52..8b5e5e502 100644
                  const resp = self.terminal.glyphProtocol(alloc, glyph_req);
                  if (resp) |r| resp_block: {
                      // Don't waste time encoding if we can't write responses
-@@ -3297,6 +3300,21 @@ test "glyph protocol APC with write_pty callback" {
+@@ -3311,6 +3314,21 @@ test "glyph protocol APC with write_pty callback" {
      try testing.expect(t.glyph_glossary.contains(0xE0A0));
  }
  

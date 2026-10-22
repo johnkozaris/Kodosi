@@ -1,5 +1,5 @@
 diff --git a/pkg/macos/build.zig b/pkg/macos/build.zig
-index f6b6f2e52..97b68d6b5 100644
+index 63740550a..2fdf1a229 100644
 --- a/pkg/macos/build.zig
 +++ b/pkg/macos/build.zig
 @@ -74,6 +74,7 @@ pub fn build(b: *std.Build) !void {
@@ -11,7 +11,7 @@ index f6b6f2e52..97b68d6b5 100644
  
      const lib = b.addLibrary(.{
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index f7fec609d..6bf449099 100644
+index 44e1522ef..43d27b3ee 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
 @@ -139,7 +139,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
@@ -24,7 +24,7 @@ index f7fec609d..6bf449099 100644
                  "iOS is not a supported target for the full Ghostty build; " ++
                      "only libghostty-vt supports iOS (-Demit-lib-vt)",
 diff --git a/src/build/MetallibStep.zig b/src/build/MetallibStep.zig
-index 752cbbd53..309ba891e 100644
+index 877aab891..712deb127 100644
 --- a/src/build/MetallibStep.zig
 +++ b/src/build/MetallibStep.zig
 @@ -24,10 +24,15 @@ output: LazyPath,

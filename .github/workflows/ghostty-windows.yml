@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - scripts/windows-env.sh
-      - terminal/ghostty/Patches/ghostty/**
+      - terminal/ghostty/Patches/**
       - terminal/ghostty/Toolchain.env
       - terminal/ghostty/VERSION
       - terminal/ghostty/WindowsGhostty.ref

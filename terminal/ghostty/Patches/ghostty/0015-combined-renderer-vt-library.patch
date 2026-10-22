@@ -1,5 +1,5 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index bed1cb50e..adad12f5c 100644
+index f03664499..20a9b1952 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
 @@ -55,6 +55,7 @@ emit_docs: bool = false,
@@ -22,7 +22,7 @@ index bed1cb50e..adad12f5c 100644
      const target = target: {
          var result = b.standardTargetOptions(.{});
  
-@@ -438,6 +444,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+@@ -439,6 +445,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
      // Artifacts to Emit
  
      config.emit_lib_vt = emit_lib_vt;
@@ -30,7 +30,7 @@ index bed1cb50e..adad12f5c 100644
  
      config.vt_features = features: {
          const list = b.option(
-@@ -680,6 +687,7 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
+@@ -681,6 +688,7 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
      step.addOption(bool, "custom_shaders", self.custom_shaders);
      step.addOption(bool, "inspector", self.inspector);
      step.addOption(bool, "simd", self.simd);
@@ -39,10 +39,10 @@ index bed1cb50e..adad12f5c 100644
      step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
      step.addOption(FontBackend, "font_backend", self.font_backend);
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index d87062b57..af12227dd 100644
+index 7de2b5146..51b0b14c7 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -179,7 +179,9 @@ pub fn add(
+@@ -186,7 +186,9 @@ pub fn add(
      step.root_module.addOptions("build_options", self.options);
  
      // Every exe needs the terminal options
@@ -54,10 +54,10 @@ index d87062b57..af12227dd 100644
      // Every exe needs the uucode module
      step.root_module.addImport("uucode", self.uucode_mod);
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
-index 325f0e138..2bfd76794 100644
+index 06252080a..df875c088 100644
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -169,7 +169,7 @@ var msvc_fltused: c_int = 1;
+@@ -174,7 +174,7 @@ var msvc_fltused: c_int = 1;
  comptime {
      // If we're building the C library (vs. the Zig module) then
      // we want to reference the C API so that it gets exported.
@@ -65,9 +65,9 @@ index 325f0e138..2bfd76794 100644
 +    if (@import("root") == lib or @import("build_options").combined_c_api) {
          // MSVC requires this marker whenever floating-point code is present.
          // Zig's compiler_rt only provides it when libc is not linked.
-         if (builtin.os.tag == .windows and
+         if (builtin.target.os.tag == .windows and
 diff --git a/src/main_c.zig b/src/main_c.zig
-index 3e331e022..717961de9 100644
+index 9d926c316..76d617c57 100644
 --- a/src/main_c.zig
 +++ b/src/main_c.zig
 @@ -45,6 +45,8 @@ comptime {

@@ -1,5 +1,5 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 3629d7efb..5b2d56dc8 100644
+index 39f478712..9cadafc02 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
 @@ -538,6 +538,16 @@ typedef struct {
@@ -78,7 +78,7 @@ index 840dac6ec..03320b0a5 100644
  
      // Window was not found, it probably quit before we handled the message.
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 957bd4670..d8afebce6 100644
+index 4947bc254..61842f849 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -101,6 +101,9 @@ renderer_thread: rendererpkg.Thread,
@@ -91,7 +91,7 @@ index 957bd4670..d8afebce6 100644
  /// Mouse state.
  mouse: Mouse,
  
-@@ -847,6 +850,7 @@ pub fn deinit(self: *Surface) void {
+@@ -865,6 +868,7 @@ pub fn deinit(self: *Surface) void {
      self.io_thread.deinit();
      self.mouse.selection_gesture.deinit(&self.io.terminal);
      self.io.deinit();
@@ -99,7 +99,7 @@ index 957bd4670..d8afebce6 100644
  
      if (self.inspector) |v| {
          v.deinit(self.alloc);
-@@ -1008,6 +1012,8 @@ pub fn needsConfirmQuit(self: *Surface) bool {
+@@ -1026,6 +1030,8 @@ pub fn needsConfirmQuit(self: *Surface) bool {
  /// surface.
  pub fn handleMessage(self: *Surface, msg: Message) !void {
      switch (msg) {
@@ -108,7 +108,7 @@ index 957bd4670..d8afebce6 100644
          .change_config => |config| try self.updateConfig(config),
  
          .set_title => |*v| {
-@@ -2435,7 +2441,7 @@ fn copySelectionToClipboards(
+@@ -2459,7 +2465,7 @@ fn copySelectionToClipboards(
  /// also copy per `copy_on_select`, use `setSelectionAndCopy`.
  ///
  /// This must be called with the renderer mutex held.
@@ -117,7 +117,7 @@ index 957bd4670..d8afebce6 100644
      // Compute the transition before `select` below, which untracks (frees)
      // the previous selection's tracked pins; reading them after would be a
      // use-after-free.
-@@ -2459,6 +2465,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
+@@ -2483,6 +2489,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
      }
  }
  
@@ -128,7 +128,7 @@ index 957bd4670..d8afebce6 100644
  /// Set a selection and, per `copy_on_select`, copy it to the clipboard.
  /// For committing selection gestures (mouse release, select-all binding).
  ///
-@@ -2561,7 +2571,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
+@@ -2585,7 +2595,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
  /// This queues a render operation with the renderer thread. The render
  /// isn't guaranteed to happen immediately but it will happen as soon as
  /// practical.
@@ -137,7 +137,7 @@ index 957bd4670..d8afebce6 100644
      try self.renderer_thread.wakeup.notify();
  }
  
-@@ -2635,6 +2645,183 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
+@@ -2659,6 +2669,197 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
      };
  }
  
@@ -212,9 +212,11 @@ index 957bd4670..d8afebce6 100644
 +    if (restored.selection_changed) self.checkpointSelectionChanged();
 +    self.handleMessage(.{ .set_title = restored.title }) catch {};
 +    self.handleMessage(.{ .set_mouse_shape = restored.mouse_shape }) catch {};
-+    var stack = std.heap.stackFallback(256, self.alloc);
-+    const pwd_value = stack.get().dupeZ(u8, restored.pwd.slice()) catch return;
-+    defer stack.get().free(pwd_value);
++    var stack_buf: [256]u8 = undefined;
++    var stack: std.heap.BufferFirstAllocator = .init(&stack_buf, self.alloc);
++    const stack_alloc = stack.allocator();
++    const pwd_value = stack_alloc.dupeSentinel(u8, restored.pwd.slice(), 0) catch return;
++    defer stack_alloc.free(pwd_value);
 +    _ = self.rt_app.performAction(
 +        .{ .surface = self },
 +        .pwd,
@@ -257,6 +259,18 @@ index 957bd4670..d8afebce6 100644
 +    defer pending.deinit();
 +    var pushes: usize = 0;
 +
++    // A path longer than the inline buffer of a write request.
++    const long = struct {
++        fn path(comptime word: []const u8) *const [word.len * 64]u8 {
++            const repeated = comptime repeated: {
++                var out: [word.len * 64]u8 = undefined;
++                for (0..64) |i| @memcpy(out[i * word.len ..][0..word.len], word);
++                break :repeated out;
++            };
++            return &repeated;
++        }
++    }.path;
++
 +    var first_title: [256]u8 = @splat(0);
 +    @memcpy(first_title[0.."first".len], "first");
 +    pending.publish(FullMailbox{
@@ -266,7 +280,7 @@ index 957bd4670..d8afebce6 100644
 +        .title = first_title,
 +        .pwd = try apprt.surface.Message.WriteReq.init(
 +            testing.allocator,
-+            @as([]const u8, "first-" ** 64),
++            @as([]const u8, long("first-")),
 +        ),
 +        .mouse_shape = .text,
 +        .selection_changed = true,
@@ -281,7 +295,7 @@ index 957bd4670..d8afebce6 100644
 +        .title = latest_title,
 +        .pwd = try apprt.surface.Message.WriteReq.init(
 +            testing.allocator,
-+            @as([]const u8, "latest-" ** 64),
++            @as([]const u8, long("latest-")),
 +        ),
 +        .mouse_shape = .pointer,
 +        .selection_changed = true,
@@ -293,7 +307,7 @@ index 957bd4670..d8afebce6 100644
 +        "latest",
 +        std.mem.sliceTo(&latest.title, 0),
 +    );
-+    try testing.expectEqualStrings("latest-" ** 64, latest.pwd.slice());
++    try testing.expectEqualStrings(long("latest-"), latest.pwd.slice());
 +    try testing.expectEqual(terminal.MouseShape.pointer, latest.mouse_shape);
 +    try testing.expectEqual(@as(usize, 1), pushes);
 +
@@ -304,7 +318,7 @@ index 957bd4670..d8afebce6 100644
 +        .title = @splat(0),
 +        .pwd = try apprt.surface.Message.WriteReq.init(
 +            testing.allocator,
-+            @as([]const u8, "cleanup-" ** 64),
++            @as([]const u8, long("cleanup-")),
 +        ),
 +        .mouse_shape = .text,
 +        .selection_changed = true,
@@ -322,7 +336,7 @@ index 957bd4670..d8afebce6 100644
  fn balancePaddingIfNeeded(self: *Surface) void {
      if (self.config.window_padding_balance == .false) return;
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index 279ce2c5a..dffd0addb 100644
+index bfe84c4dd..2d1b0bee5 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -17,6 +17,7 @@ const internal_os = @import("../os/main.zig");
@@ -333,7 +347,7 @@ index 279ce2c5a..dffd0addb 100644
  const CoreApp = @import("../App.zig");
  const CoreInspector = if (@import("../build_config.zig").inspector) @import("../inspector/main.zig").Inspector else struct {};
  const CoreSurface = @import("../Surface.zig");
-@@ -1966,6 +1967,55 @@ pub const CAPI = struct {
+@@ -1968,6 +1969,55 @@ pub const CAPI = struct {
          surface.core_surface.io.processOutput(data[0..len]);
      }
  
@@ -490,7 +504,7 @@ index 3b1a04d8a..504212ad4 100644
  pub const NewSurfaceContext = enum(c_int) {
      window = 0,
 diff --git a/src/renderer/Thread.zig b/src/renderer/Thread.zig
-index 95e708344..efe826c34 100644
+index 19d43f514..724290c80 100644
 --- a/src/renderer/Thread.zig
 +++ b/src/renderer/Thread.zig
 @@ -379,21 +379,17 @@ fn drainMailbox(self: *Thread) !void {
@@ -559,10 +573,10 @@ index 95e708344..efe826c34 100644
      // Render immediately
      _ = renderCallback(t, undefined, undefined, {});
 diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
-index 5a021b087..3d9729f63 100644
+index df70aa3c7..c4af20c7f 100644
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
-@@ -1079,6 +1079,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+@@ -1085,6 +1085,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
              };
          }
  
@@ -637,7 +651,7 @@ index 28fced985..5058442ac 100644
 +    try testing.expectEqual(set.generation(.alternate) +% 1, replacement.generation(.alternate));
  }
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index b0e4cfc0b..0804d0086 100644
+index b0e4cfc0b..b4b30797b 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -13,6 +13,7 @@ const posix = std.posix;
@@ -648,7 +662,7 @@ index b0e4cfc0b..0804d0086 100644
  const global = @import("../global.zig");
  const xev = global.xev;
  const renderer = @import("../renderer.zig");
-@@ -692,6 +693,161 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+@@ -692,6 +693,164 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
      try self.backend.focusGained(td, focused);
  }
  
@@ -657,9 +671,9 @@ index b0e4cfc0b..0804d0086 100644
 +const checkpoint_continuation_max_bytes = 1024 * 1024;
 +
 +/// Transactionally replace the terminal of a host-managed surface with a
-+/// Ghostty snapshot. A snapshot that ends at READY carries the visible screen
-+/// without history. The terminal address and every callback/config pointer
-+/// remain stable.
++/// Ghostty snapshot. A snapshot that ends before its history, after READY and
++/// the pixels that follow it, carries the visible screen without history. The
++/// terminal address and every callback/config pointer remain stable.
 +pub fn restoreCheckpointLocked(
 +    self: *Termio,
 +    bytes: []const u8,
@@ -676,10 +690,13 @@ index b0e4cfc0b..0804d0086 100644
 +    var new_terminal = decoded.toOwned();
 +    var new_terminal_owned = true;
 +    defer if (new_terminal_owned) new_terminal.deinit(self.alloc);
-+    if (reader.bufferedLen() > 0) {
-+        while (decoder.next(self.alloc, &new_terminal) catch |err| return snapshotResult(err)) |_| {}
-+        if (reader.bufferedLen() > 0) return .invalid_value;
++    var history = false;
++    while (history or reader.bufferedLen() > 0) {
++        const progress = (decoder.next(self.alloc, &new_terminal) catch |err|
++            return snapshotResult(err)) orelse break;
++        if (progress == .page) history = true;
 +    }
++    if (reader.bufferedLen() > 0) return .invalid_value;
 +
 +    // Preserve visual configuration and safety policy, never source policy.
 +    new_terminal.colors.palette.changeDefault(
@@ -811,10 +828,10 @@ index b0e4cfc0b..0804d0086 100644
  /// call with pty data but it is also called by the read thread when using
  /// an exec subprocess.
 diff --git a/src/termio/Thread.zig b/src/termio/Thread.zig
-index de268350b..0f4d99ba3 100644
+index 79cdf8936..7f6405f4a 100644
 --- a/src/termio/Thread.zig
 +++ b/src/termio/Thread.zig
-@@ -336,6 +336,19 @@ fn drainMailbox(
+@@ -335,6 +335,19 @@ fn drainMailbox(
                  }
              },
              .jump_to_prompt => |v| try io.jumpToPrompt(v),
@@ -849,7 +866,7 @@ index 241687409..3cd602dff 100644
      /// start the timer so that the output mode is disabled after a
      /// period of time so that a bad actor can't hang the terminal.
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index e4a09ca64..b34d552b6 100644
+index 9b4123f5f..12383f6e9 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
 @@ -166,7 +166,11 @@ pub const StreamHandler = struct {
@@ -904,7 +921,7 @@ index e4a09ca64..b34d552b6 100644
      }
  
      pub fn vt(
-@@ -1979,6 +2013,110 @@ test "image storage enabled admits every image protocol" {
+@@ -1978,6 +2012,110 @@ test "image storage enabled admits every image protocol" {
      try testing.expect(imageProtocolAllowed(true, .glyph));
  }
  

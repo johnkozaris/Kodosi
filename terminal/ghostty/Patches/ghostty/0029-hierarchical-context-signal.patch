@@ -1,5 +1,5 @@
 diff --git a/include/ghostty/vt/terminal.h b/include/ghostty/vt/terminal.h
-index e115c8428..954294f7f 100644
+index 8b5f0fe73..c3389e0c0 100644
 --- a/include/ghostty/vt/terminal.h
 +++ b/include/ghostty/vt/terminal.h
 @@ -106,6 +106,7 @@ extern "C" {
@@ -10,7 +10,7 @@ index e115c8428..954294f7f 100644
   *
   * ### Defining a write_pty callback
   * @snippet c-vt-effects/src/main.c effects-write-pty
-@@ -1667,6 +1668,74 @@ typedef void (*GhosttyTerminalResizeWindowFn)(
+@@ -1905,6 +1906,74 @@ typedef void (*GhosttyTerminalResizeWindowFn)(
      void* userdata,
      const GhosttyTerminalResizeWindow* request);
  
@@ -85,7 +85,7 @@ index e115c8428..954294f7f 100644
  /**
   * Callback function type for color scheme queries (CSI ? 996 n).
   *
-@@ -2556,6 +2625,14 @@ typedef enum GHOSTTY_ENUM_TYPED {
+@@ -2794,6 +2863,14 @@ typedef enum GHOSTTY_ENUM_TYPED {
     * Input type: GhosttyTerminalResizeWindowFn
     */
    GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW = 47,
@@ -101,10 +101,10 @@ index e115c8428..954294f7f 100644
  } GhosttyTerminalOption;
  
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index f6bd34968..8c25f793f 100644
+index ee07fb71c..782ddfe5a 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
-@@ -224,6 +224,20 @@ pub const ProgramStatus = extern struct {
+@@ -225,6 +225,20 @@ pub const ProgramStatus = extern struct {
      message: lib.String,
  };
  
@@ -125,7 +125,7 @@ index f6bd34968..8c25f793f 100644
  /// C: GhosttySemanticPromptKind
  pub const SemanticPromptKind = Handler.SemanticPrompt.Kind;
  
-@@ -351,6 +365,7 @@ const Effects = struct {
+@@ -352,6 +366,7 @@ const Effects = struct {
      pwd_changed: ?PwdChangedFn = null,
      progress_report: ?ProgressReportFn = null,
      program_status: ?ProgramStatusFn = null,
@@ -133,7 +133,7 @@ index f6bd34968..8c25f793f 100644
      semantic_prompt: ?SemanticPromptFn = null,
      reset: ?ResetFn = null,
      size_cb: ?SizeFn = null,
-@@ -422,6 +437,10 @@ const Effects = struct {
+@@ -423,6 +438,10 @@ const Effects = struct {
      /// and its strings are borrowed for the callback duration.
      pub const ProgramStatusFn = *const fn (Terminal, ?*anyopaque, *const ProgramStatus) callconv(lib.calling_conv) void;
  
@@ -144,7 +144,7 @@ index f6bd34968..8c25f793f 100644
      /// C function pointer type for the semantic_prompt callback. The event
      /// and its strings are borrowed for the callback duration.
      pub const SemanticPromptFn = *const fn (Terminal, ?*anyopaque, *const SemanticPrompt) callconv(lib.calling_conv) void;
-@@ -765,6 +784,21 @@ const Effects = struct {
+@@ -768,6 +787,21 @@ const Effects = struct {
          func(@ptrCast(wrapper), wrapper.effects.userdata, &c_report);
      }
  
@@ -166,7 +166,7 @@ index f6bd34968..8c25f793f 100644
      fn semanticPromptTrampoline(
          handler: *Handler,
          event: Handler.SemanticPrompt,
-@@ -880,6 +914,7 @@ fn wrap(
+@@ -883,6 +917,7 @@ fn wrap(
          .clipboard_write = null,
          .clipboard_read = null,
          .program_status = null,
@@ -174,7 +174,7 @@ index f6bd34968..8c25f793f 100644
      };
  
      wrapper.* = .{
-@@ -1384,6 +1419,7 @@ pub const Option = enum(c_int) {
+@@ -1487,6 +1522,7 @@ pub const Option = enum(c_int) {
      xt_checksum_extension = 45,
      program_status = 46,
      resize_window = 47,
@@ -182,7 +182,7 @@ index f6bd34968..8c25f793f 100644
  
      /// Input type expected for setting the option.
      pub fn InType(comptime self: Option) type {
-@@ -1400,6 +1436,7 @@ pub const Option = enum(c_int) {
+@@ -1503,6 +1539,7 @@ pub const Option = enum(c_int) {
              .pwd_changed => ?Effects.PwdChangedFn,
              .progress_report => ?Effects.ProgressReportFn,
              .program_status => ?Effects.ProgramStatusFn,
@@ -190,7 +190,7 @@ index f6bd34968..8c25f793f 100644
              .size_cb => ?Effects.SizeFn,
              .clipboard_write => ?Effects.ClipboardWriteFn,
              .clipboard_read => ?Effects.ClipboardReadFn,
-@@ -1505,6 +1542,13 @@ fn setTyped(
+@@ -1608,6 +1645,13 @@ fn setTyped(
              else
                  null;
          },
@@ -204,7 +204,7 @@ index f6bd34968..8c25f793f 100644
          .unknown_sequence => {
              wrapper.effects.unknown_sequence = value;
              wrapper.stream.handler.unknown_sequence = if (value != null)
-@@ -5219,6 +5263,73 @@ test "set progress_report callback" {
+@@ -5708,6 +5752,73 @@ test "set progress_report callback" {
      try testing.expectEqual(@as(usize, cases.len), S.count);
  }
  
@@ -279,7 +279,7 @@ index f6bd34968..8c25f793f 100644
      var t: Terminal = null;
      try testing.expectEqual(Result.success, new(
 diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
-index 09b476fc3..ce83d2d17 100644
+index 74f882e1a..f1122542d 100644
 --- a/src/terminal/c/types.zig
 +++ b/src/terminal/c/types.zig
 @@ -224,6 +224,7 @@ const type_decls = [_]TypeDecl{
@@ -290,7 +290,7 @@ index 09b476fc3..ce83d2d17 100644
      .initStruct("GhosttyTerminalProgressReport", terminal.ProgressReport),
      .initTaggedStruct("GhosttyTerminalResizeWindow", terminal.ResizeWindow.C, "tag", "value", .generated),
      .initStruct("GhosttyTerminalResizeWindowGrid", terminal.ResizeWindowGrid),
-@@ -299,6 +300,7 @@ const type_decls = [_]TypeDecl{
+@@ -301,6 +302,7 @@ const type_decls = [_]TypeDecl{
      .initEnum("GhosttyPointTag", point.Tag, "GHOSTTY_POINT_TAG_"),
      .initEnum("GhosttyProgramStatusKind", terminal.ProgramStatusKind, "GHOSTTY_PROGRAM_STATUS_KIND_"),
      .initEnum("GhosttyProgramStatusState", terminal.ProgramStatusState, "GHOSTTY_PROGRAM_STATUS_STATE_"),
@@ -299,7 +299,7 @@ index 09b476fc3..ce83d2d17 100644
      .initEnum("GhosttyRenderStateData", render.Data, "GHOSTTY_RENDER_STATE_DATA_"),
      .initEnum("GhosttyRenderStateDirty", render.Dirty, "GHOSTTY_RENDER_STATE_DIRTY_"),
 diff --git a/src/terminal/stream.zig b/src/terminal/stream.zig
-index 22fe59b3b..9d4c20fbc 100644
+index 397bd1bb4..ae42c62e9 100644
 --- a/src/terminal/stream.zig
 +++ b/src/terminal/stream.zig
 @@ -138,6 +138,7 @@ pub const Action = union(Key) {
@@ -327,7 +327,7 @@ index 22fe59b3b..9d4c20fbc 100644
  };
  
  /// Returns a type that can process a stream of tty control characters.
-@@ -2818,6 +2822,10 @@ pub fn Stream(comptime H: type) type {
+@@ -2930,6 +2934,10 @@ pub fn Stream(comptime H: type) type {
                      self.handler.vt(.program_status, v);
                  },
  
@@ -338,7 +338,7 @@ index 22fe59b3b..9d4c20fbc 100644
                  .unknown => |v| {
                      @branchHint(.unlikely);
                      self.handler.vt(.osc_unknown, v);
-@@ -2834,7 +2842,6 @@ pub fn Stream(comptime H: type) type {
+@@ -2946,7 +2954,6 @@ pub fn Stream(comptime H: type) type {
                  .conemu_run_process,
                  .kitty_text_sizing,
                  .kitty_desktop_notification,
@@ -347,7 +347,7 @@ index 22fe59b3b..9d4c20fbc 100644
                      log.debug("unimplemented OSC callback: {}", .{cmd});
                  },
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index 34f2b65eb..bc4e901bf 100644
+index e1b8e51ee..aaa17ed1e 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
 @@ -228,6 +228,12 @@ pub const Handler = struct {
@@ -371,7 +371,7 @@ index 34f2b65eb..bc4e901bf 100644
              .reset = null,
              .semantic_prompt = null,
              .resize_window = null,
-@@ -780,6 +787,7 @@ pub const Handler = struct {
+@@ -774,6 +781,7 @@ pub const Handler = struct {
              .report_pwd => try self.reportPwd(value.url),
              .progress_report => self.progressReport(value),
              .program_status => self.programStatus(value),
@@ -380,10 +380,10 @@ index 34f2b65eb..bc4e901bf 100644
              .xtversion => self.reportXtversion(),
              .request_xt_checksum => self.reportXtChecksum(value),
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index c17fefd0a..e449d7666 100644
+index f79b24529..3e02dbc4b 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -429,6 +429,7 @@ pub const StreamHandler = struct {
+@@ -423,6 +423,7 @@ pub const StreamHandler = struct {
              .kitty_dnd,
              .osc_unknown,
              .program_status,

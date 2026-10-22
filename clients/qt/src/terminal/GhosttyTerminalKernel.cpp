@@ -390,9 +390,32 @@ std::expected<QString, GhosttyTerminalKernel::Failure> readGrapheme(
 struct CapturedView {
     GhosttyTerminalScrollbar scrollbar {};
     QVector<TerminalImagePlacement> images;
+    std::optional<std::chrono::steady_clock::time_point> imageAnimationDue;
 };
 
 using ViewCapture = std::expected<CapturedView, GhosttyTerminalKernel::Failure>;
+
+// The terminal keeps the frames of a Kitty animation but no timer: each tick shows the frame
+// that is due and tells when the next one is.
+std::optional<std::chrono::steady_clock::time_point> advanceImageAnimations(
+    const GhosttyTerminal terminal)
+{
+    using std::chrono::milliseconds;
+    using std::chrono::steady_clock;
+    GhosttyKittyGraphics graphics = nullptr;
+    const auto now = std::chrono::duration_cast<milliseconds>(
+        steady_clock::now().time_since_epoch());
+    std::uint64_t next = 0;
+    if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_KITTY_GRAPHICS, &graphics)
+            != GHOSTTY_SUCCESS
+        || graphics == nullptr
+        || ghostty_kitty_graphics_animation_tick(
+               graphics, static_cast<std::uint64_t>(now.count()), &next)
+            != GHOSTTY_SUCCESS) {
+        return std::nullopt;
+    }
+    return steady_clock::time_point {milliseconds {next}};
+}
 
 ViewCapture captureView(
     const GhosttyTerminal terminal,
@@ -411,7 +434,7 @@ ViewCapture captureView(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
     }
-    return CapturedView {scrollbar, images.capture(terminal, renderState)};
+    return CapturedView {scrollbar, images.capture(terminal, renderState), std::nullopt};
 }
 
 FrameResult buildFrame(
@@ -476,6 +499,7 @@ FrameResult buildFrame(
         .viewportRows = view.scrollbar.len,
     };
     frame->images = view.images;
+    frame->imageAnimationDue = view.imageAnimationDue;
     frame->cells.reserve(static_cast<qsizetype>(cellCount));
 
     RowIteratorHandle rowsIterator;
@@ -644,34 +668,47 @@ FrameResult extractFrame(
     const std::uint64_t viewportRevision,
     const std::uint64_t displayRevision)
 {
-    const auto view = captureView(terminal, renderState, images);
+    const auto imageAnimationDue = advanceImageAnimations(terminal);
+    auto view = captureView(terminal, renderState, images);
     if (!view) {
         return std::unexpected(view.error());
     }
+    view->imageAnimationDue = imageAnimationDue;
     return buildFrame(renderState, *view, nextSequence, viewportRevision, displayRevision);
 }
 
-// A snapshot that ends at READY holds the screens without history.
+// A snapshot may end before its history, after READY and the image pixels that follow it.
+// Once a history page arrived, the snapshot must end with FINISH.
 GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const std::size_t size)
 {
-    std::size_t consumed = 0;
-    auto result = ghostty_snapshot_decoder_get(
-        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
-    if (result != GHOSTTY_SUCCESS || consumed == size) {
-        return result;
-    }
-    do {
+    bool history = false;
+    while (true) {
+        std::size_t consumed = 0;
+        auto result = ghostty_snapshot_decoder_get(
+            decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+        if (result != GHOSTTY_SUCCESS || (!history && consumed == size)) {
+            return result;
+        }
         result = ghostty_snapshot_decoder_next(decoder);
-    } while (result == GHOSTTY_SUCCESS);
-    if (result != GHOSTTY_NO_VALUE) {
-        return result;
+        if (result == GHOSTTY_NO_VALUE) {
+            result = ghostty_snapshot_decoder_get(
+                decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+            if (result != GHOSTTY_SUCCESS) {
+                return result;
+            }
+            return consumed == size ? GHOSTTY_SUCCESS : GHOSTTY_INVALID_VALUE;
+        }
+        if (result != GHOSTTY_SUCCESS) {
+            return result;
+        }
+        GhosttySnapshotDecoderProgressKind kind {};
+        result = ghostty_snapshot_decoder_get(
+            decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_KIND, &kind);
+        if (result != GHOSTTY_SUCCESS) {
+            return result;
+        }
+        history = history || kind == GHOSTTY_SNAPSHOT_DECODER_PROGRESS_KIND_PAGE;
     }
-    result = ghostty_snapshot_decoder_get(
-        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
-    if (result != GHOSTTY_SUCCESS) {
-        return result;
-    }
-    return consumed == size ? GHOSTTY_SUCCESS : GHOSTTY_INVALID_VALUE;
 }
 
 GhosttyTerminalKernel::ConfigureResult applySettings(
@@ -1047,6 +1084,15 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("snapshot history compression"), result));
     }
+    const std::uint64_t imageStorageLimit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
+    result = ghostty_snapshot_decoder_set(
+        decoder.value,
+        GHOSTTY_SNAPSHOT_DECODER_OPT_KITTY_IMAGE_STORAGE_LIMIT,
+        &imageStorageLimit);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("snapshot image storage"), result));
+    }
     result = ghostty_snapshot_decoder_ready(decoder.value, &candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS || candidateTerminal.value == nullptr) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot restore"), result));
@@ -1055,7 +1101,6 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot history restore"), result));
     }
-    const std::uint64_t imageStorageLimit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
     result = ghostty_terminal_set(
         candidateTerminal.value,
         GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
@@ -1866,6 +1911,41 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::clearSelection(
     m_impl->selectionAnchor.reset();
     m_impl->selectionEndpoint.reset();
     m_impl->selectionRectangular = false;
+    ++m_impl->displayRevision;
+    auto nextFrame = m_impl->captureFrame();
+    if (!nextFrame) {
+        m_impl->failed = true;
+        return nextFrame;
+    }
+    m_impl->currentFrame = *nextFrame;
+    return m_impl->currentFrame;
+}
+
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::advanceImageAnimations(
+    const TerminalSubscription& subscription)
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (!m_impl->admitted || m_impl->failed) {
+        return std::unexpected(Failure {
+            Failure::Code::MissingCheckpoint,
+            QStringLiteral("Terminal images require an admitted checkpoint."),
+        });
+    }
+    if (subscription != m_impl->subscription) {
+        return std::unexpected(Failure {
+            Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal images belong to a stale subscription."),
+        });
+    }
+    if (m_impl->renderHeldSince) {
+        return m_impl->currentFrame;
+    }
+    if (m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
+        return std::unexpected(Failure {
+            Failure::Code::ResourceLimit,
+            QStringLiteral("Terminal display revision is exhausted."),
+        });
+    }
     ++m_impl->displayRevision;
     auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {

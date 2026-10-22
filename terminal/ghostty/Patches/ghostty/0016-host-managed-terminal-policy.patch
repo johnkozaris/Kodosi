@@ -1,5 +1,5 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 468cdff05..3629d7efb 100644
+index c7eaf194e..39f478712 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
 @@ -1256,6 +1256,7 @@ GHOSTTY_API void ghostty_surface_complete_clipboard_request(
@@ -11,10 +11,10 @@ index 468cdff05..3629d7efb 100644
  GHOSTTY_API bool ghostty_surface_read_selection(ghostty_surface_t, ghostty_text_s*);
  GHOSTTY_API bool ghostty_surface_read_text(ghostty_surface_t,
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index ae7ee52c9..279ce2c5a 100644
+index 0a7a30210..bfe84c4dd 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
-@@ -2430,6 +2430,13 @@ pub const CAPI = struct {
+@@ -2432,6 +2432,13 @@ pub const CAPI = struct {
          ptr.denyClipboardRequest(state);
      }
  
@@ -41,7 +41,7 @@ index 0a0549c12..b0e4cfc0b 100644
          .enquiry_response = opts.config.enquiry_response,
          .xt_checksum_report = opts.config.xt_checksum_report,
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 5d549d807..e4a09ca64 100644
+index c5c1169d9..9b4123f5f 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
 @@ -51,6 +51,9 @@ pub const StreamHandler = struct {
@@ -62,7 +62,7 @@ index 5d549d807..e4a09ca64 100644
          self.clipboard_write_limit = config.clipboard_write_limit;
          self.enquiry_response = config.enquiry_response;
          self.xt_checksum_report = config.xt_checksum_report;
-@@ -517,6 +521,7 @@ pub const StreamHandler = struct {
+@@ -511,6 +515,7 @@ pub const StreamHandler = struct {
          switch (result) {
              .unknown => return,
              .kitty => |*kitty_cmd| {
@@ -70,7 +70,7 @@ index 5d549d807..e4a09ca64 100644
                  if (self.terminal.kittyGraphics(global.io(), self.alloc, kitty_cmd)) |resp| {
                      var buf: [1024]u8 = undefined;
                      var writer: std.Io.Writer = .fixed(&buf);
-@@ -530,6 +535,7 @@ pub const StreamHandler = struct {
+@@ -524,6 +529,7 @@ pub const StreamHandler = struct {
              },
  
              .glyph => |*glyph_req| {
@@ -78,7 +78,7 @@ index 5d549d807..e4a09ca64 100644
                  const resp = self.terminal.glyphProtocol(self.alloc, glyph_req);
                  switch (glyph_req.*) {
                      .register, .clear => try self.queueRender(),
-@@ -1948,6 +1954,31 @@ pub const StreamHandler = struct {
+@@ -1947,6 +1953,31 @@ pub const StreamHandler = struct {
      }
  };
  

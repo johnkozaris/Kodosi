@@ -194,7 +194,7 @@ def verify_z2d_source_acquisition(manifest: dict) -> None:
         not isinstance(commit, str)
         or not re.fullmatch(r"[0-9a-f]{40}", commit)
         or not isinstance(version, str)
-        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)
+        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?", version)
         or record["primaryUrl"] != f"https://deps.files.ghostty.org/z2d-{commit}.tar.gz"
         or record["corroboratingUrl"] != f"https://codeload.github.com/vancluever/z2d/tar.gz/{commit}"
         or record["archivePath"] != f"ThirdPartyNotices/corresponding-source/z2d-{commit}.tar.gz"
@@ -429,7 +429,7 @@ def verify_evidence(
         component["id"] for component in manifest["components"] if component["scope"] == "archive"
     } - absent
     for record in manifest["archiveMembers"]:
-        if record["name"] not in {"__.SYMDEF SORTED", "libghostty_zcu.o"}:
+        if record["name"] not in {"__.SYMDEF SORTED", "ghostty_zcu.o"}:
             covered.update(set(record["owners"]) - absent)
     for evidence in manifest.get("archiveEvidence", []):
         if set(evidence) != {"component", "kind", "pattern"}:

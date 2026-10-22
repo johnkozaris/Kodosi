@@ -38,6 +38,7 @@ COMMON_KEYS = (
     "zig_version",
     "zig_target",
     "zig_sha256",
+    "zig_patches_sha256",
     "zig_store_sha256",
     "ghostty_build_options",
     "vt_target",
@@ -275,6 +276,8 @@ class Verifier:
         record.expect("zig_version", self.toolchain.value("ZIG_VERSION"), f"ZIG_VERSION in {self.toolchain.label}")
         zig_key = f"ZIG_{zig_target.upper().replace('-', '_')}_SHA256"
         record.expect("zig_sha256", self.toolchain.value(zig_key), f"{zig_key} in {self.toolchain.label}")
+        zig_patches = self.ghostty / "Patches" / "zig"
+        record.expect("zig_patches_sha256", measure_folder(zig_patches), f"the digest of {label(zig_patches)}")
 
     def verify_build_values(self, record: Record, build: Record, prefixes: tuple[str, ...], values: dict[str, str]) -> None:
         for prefix in prefixes:

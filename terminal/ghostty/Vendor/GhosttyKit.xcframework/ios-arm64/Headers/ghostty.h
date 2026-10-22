@@ -4,7 +4,7 @@
 // comprehensive, it is tailored to the needs of the macOS app and not designed
 // for external use, hence why most functions are undocumented and some are
 // macOS-specific (e.g. ones dealing with the Metal graphics API).
-//
+// 
 // External embedders should instead use `libghostty-vt` or other related
 // packages, which are extensively documented and designed from the ground up
 // to be used in other software. Header files for which can be found in

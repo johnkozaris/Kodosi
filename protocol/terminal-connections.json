@@ -1,11 +1,12 @@
 {
   "terminalConnectionProtocolVersion": 23,
   "oldestTerminalConnectionProtocolVersion": 22,
-  "channelProtocolVersion": 2,
+  "channelProtocolVersion": 3,
+  "oldestChannelProtocolVersion": 2,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "calls": "the server sends hosts and caller only to devices whose hello protocolVersion is 23 or newer",
-    "channel": "the accept frame carries channelProtocolVersion; a viewer with another channel version closes the channel and shows which side must update Kodosi"
+    "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a channel without a selected protocol has oldestChannelProtocolVersion. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
   },
   "routes": {
     "device": "/ws/device"
@@ -100,6 +101,7 @@
         "type": 4,
         "direction": "host",
         "body": "nextSequence:u64be, more:u8, part of the raw deflate of a terminal checkpoint; the viewer installs a complete keyframe in place of its terminal state",
+        "checkpoint": "schema:u32be, console:u8, snapshotLength:u32be, the Ghostty snapshot, then optional JSON terminal metadata; schema 6 on a channel of version 3, and schema 5 on a channel of version 2, whose snapshot has only the records of tags 1 to 7 and no images",
         "partMaxBytes": 32768
       },
       "output": {
@@ -195,7 +197,8 @@
     "speed": "the host measures the acknowledged bytes for 200 ms or more while output waits for the window, while a keyframe is in transit, or while the viewer is behind; all data that is acknowledged in full also shows a least speed, which can only increase the value",
     "behind": "when output that waits for one viewer is more than its window, the host drops it for that viewer and sends the current state when all sent data is acknowledged",
     "currentState": "an exact keyframe when the last exact keyframe was at most half of the window; if not, a visible keyframe",
-    "visibleKeyframe": "a checkpoint that ends at the snapshot's READY record: the exact visible rows, cursor, modes and styles of the primary and the alternate screen, and only the history rows that share the first memory page of a screen; a view starts with one",
+    "visibleKeyframe": "a checkpoint that ends before the history of the snapshot: the exact visible rows, cursor, modes, styles and images of the primary and the alternate screen, the pixels of the images in the viewport of the shown screen, and only the history rows that share the first memory page of a screen; a view starts with one",
+    "imagePixels": "a keyframe carries image pixels up to two seconds of the measured speed, from 4194304 to 16777216 bytes; an image whose pixels do not fit shows when a later keyframe carries them",
     "exactKeyframe": "a checkpoint with the history rows; the host sends one after a visible keyframe when the terminal made no output for 1 second",
     "keyframeSpacingMilliseconds": 500,
     "refresh": "a viewer can ask for the current state",
