@@ -3,6 +3,7 @@
 #include <QSettings>
 #include <QString>
 #include <memory>
+#include <optional>
 namespace kodosi {
 class DesktopSettings final : public QObject {
     Q_OBJECT
@@ -16,11 +17,13 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(QString effectiveWorkingDirectory READ effectiveWorkingDirectory NOTIFY settingsChanged)
     Q_PROPERTY(QString branchFolder READ branchFolder NOTIFY settingsChanged)
     Q_PROPERTY(QString lastComputer READ lastComputer WRITE setLastComputer NOTIFY settingsChanged)
+    Q_PROPERTY(bool keepRunning READ keepRunning WRITE setKeepRunning NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
 public:
     enum CursorStyle { Block, Bar, Underline };
     Q_ENUM(CursorStyle)
-    explicit DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
+    explicit DesktopSettings(
+        std::unique_ptr<QSettings> settings, bool keepRunningByDefault = true, QObject* parent = nullptr);
     QString fontFamily() const { return m_fontFamily; }
     int fontSize() const { return m_fontSize; }
     CursorStyle cursorStyle() const { return m_cursor; }
@@ -31,11 +34,15 @@ public:
     QString effectiveWorkingDirectory() const;
     QString branchFolder() const { return m_branchFolder; }
     QString lastComputer() const { return m_computer; }
+    bool keepRunning() const { return m_keepRunning.value_or(m_keepRunningByDefault); }
+    bool closeHintShown() const { return m_closeHintShown; }
     QString settingsError() const { return m_error; }
     Q_INVOKABLE bool apply(
         const QString& family, int size, int cursor, double lineHeight, int scrollback, bool blink);
     void setWorkingDirectory(const QString& path);
     void setLastComputer(const QString& computer);
+    void setKeepRunning(bool keep);
+    void setCloseHintShown();
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);
@@ -46,11 +53,14 @@ signals:
 
 private:
     std::unique_ptr<QSettings> m_settings;
+    bool m_keepRunningByDefault;
     QString m_fontFamily = QStringLiteral("monospace"), m_directory, m_branchFolder, m_computer, m_error;
     int m_fontSize = 13, m_scrollback = 10000;
     CursorStyle m_cursor = Block;
     double m_lineHeight = 1.0;
     bool m_blink = false;
+    std::optional<bool> m_keepRunning;
+    bool m_closeHintShown = false;
     bool persist();
     void clearError();
 };

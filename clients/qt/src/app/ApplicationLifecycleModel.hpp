@@ -18,6 +18,7 @@ class ApplicationLifecycleModel final : public QObject {
     Q_PROPERTY(bool hostOutdated READ hostOutdated NOTIFY stateChanged)
     Q_PROPERTY(bool hostForeground READ hostForeground NOTIFY hostForegroundChanged)
     Q_PROPERTY(int hostTerminals READ hostTerminals NOTIFY stateChanged)
+    Q_PROPERTY(bool updateInstalled READ updateInstalled NOTIFY updateInstalledChanged)
 
 public:
     enum class State {
@@ -47,16 +48,21 @@ public:
     [[nodiscard]] bool hostOutdated() const noexcept { return m_outdatedHost.has_value(); }
     [[nodiscard]] bool hostForeground() const noexcept;
     [[nodiscard]] int hostTerminals() const noexcept;
+    [[nodiscard]] bool updateInstalled() const noexcept { return m_updateInstalled; }
+    [[nodiscard]] bool restartRequested() const noexcept { return m_restartRequested; }
 
     void scheduleInitialStart();
     void stop() noexcept;
+    void setUpdateInstalled();
 
     Q_INVOKABLE void retry();
     Q_INVOKABLE void restartHost();
+    Q_INVOKABLE void restart();
 
 signals:
     void stateChanged();
     void hostForegroundChanged();
+    void updateInstalledChanged();
 
 private:
     static constexpr qsizetype MaximumErrorTextLength = 320;
@@ -73,6 +79,8 @@ private:
     bool m_initialStartScheduled = false;
     bool m_attemptInFlight = false;
     bool m_stopping = false;
+    bool m_updateInstalled = false;
+    bool m_restartRequested = false;
 
     void beginAttempt();
     void executeAttempt(std::uint64_t token);

@@ -143,3 +143,11 @@ import Testing
     #expect(app.inviteCopies == 1)
     #expect(app.people.friends.count == 2)
 }
+
+@Test @MainActor func `kodosi keeps running after its window closes until the person turns it off`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "KeepRunning"))
+    let settings = DesktopSettings(defaults: defaults)
+    #expect(settings.keepRunning)
+    settings.keepRunning = false
+    #expect(!DesktopSettings(defaults: defaults).keepRunning)
+}

@@ -58,6 +58,11 @@ final class DesktopSettings {
     var lastWorkingDir: String?
     var lastComputer: String?
     var branchFolder: String?
+    var keepRunning = true {
+        didSet { defaults.set(keepRunning, forKey: Self.keepRunningKey) }
+    }
+
+    private static let keepRunningKey = "app.keepRunning"
 
     enum CursorStyle: String, CaseIterable, Codable {
         case block, bar, underline
@@ -104,5 +109,6 @@ final class DesktopSettings {
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
         lastComputer = d.string(forKey: "session.lastComputer")
         branchFolder = d.string(forKey: "session.branchFolder")
+        keepRunning = d.object(forKey: Self.keepRunningKey) == nil || d.bool(forKey: Self.keepRunningKey)
     }
 }

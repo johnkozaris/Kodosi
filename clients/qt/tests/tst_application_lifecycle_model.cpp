@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTest>
 
 #include <functional>
@@ -43,6 +44,7 @@ private slots:
     void runtimeStopReturnsReadyLifecycleToFailure();
     void explicitStopInvalidatesCompletion();
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
+    void anInstalledUpdateAsksOnceForARestart();
 };
 
 void ApplicationLifecycleModelTest::
@@ -294,6 +296,21 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
     QCOMPARE(model.state(), State::Ready);
     QVERIFY(!model.hostOutdated());
     QCOMPARE(starts, 3);
+}
+
+void ApplicationLifecycleModelTest::anInstalledUpdateAsksOnceForARestart()
+{
+    kodosi::RuntimeBridge runtime;
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [] {});
+    QSignalSpy installed(&model, &kodosi::ApplicationLifecycleModel::updateInstalledChanged);
+
+    model.setUpdateInstalled();
+    model.setUpdateInstalled();
+    QVERIFY(model.updateInstalled());
+    QCOMPARE(installed.count(), 1);
+    QVERIFY(!model.restartRequested());
+    model.restart();
+    QVERIFY(model.restartRequested());
 }
 
 QTEST_GUILESS_MAIN(ApplicationLifecycleModelTest)

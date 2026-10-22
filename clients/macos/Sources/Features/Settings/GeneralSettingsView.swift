@@ -17,6 +17,12 @@ struct GeneralSettingsView: View {
             : "Kodosi asks before it downloads an update."
     }
 
+    private var closeFooter: LocalizedStringKey {
+        deps.settings.keepRunning
+            ? "Your terminals keep running, and Kodosi stays in the menu bar."
+            : "Closing the window quits Kodosi."
+    }
+
     private var commandFooter: LocalizedStringKey {
         guard let link = deps.commandLink else {
             return "Agents in Kodosi terminals always find the kodosi command."
@@ -29,6 +35,7 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         @Bindable var updater = deps.updater
+        @Bindable var settings = deps.settings
         VStack(alignment: .leading, spacing: 22) {
             ListGroup(footer: updatesFooter) {
                 ListRow(String(localized: "Version"), subtitle: version, symbol: "app.badge", tint: TileTint.blue) {
@@ -45,6 +52,16 @@ struct GeneralSettingsView: View {
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 .disabled(!updater.configured)
                 .accessibilityIdentifier("settings.updates.automatic")
+            }
+            ListGroup(footer: closeFooter) {
+                Toggle(isOn: $settings.keepRunning) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "macwindow", tint: TileTint.blue, size: 28)
+                        Text("Keep running when the window closes")
+                    }
+                }
+                .padding(.horizontal, 14).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.keepRunning")
             }
             ListGroup(footer: commandFooter) {
                 ListRow(String(localized: "Command line"),

@@ -5,7 +5,7 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     DesktopSettings& settings,
     DesktopStateModel& desktop, SessionCatalogModel& sessions, TerminalTilingLayoutModel& tiling,
     DesktopFileIntegration& files, ApplicationLifecycleModel& lifecycle,
-    TerminalSurfaceController& surfaces)
+    TerminalSurfaceController& surfaces, DesktopTray& tray)
 {
     AppStateForeign::instance = &workspace;
     AccountModelForeign::instance = &workspace.account();
@@ -25,5 +25,6 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     DesktopFileIntegrationForeign::instance = &files;
     ApplicationLifecycleModelForeign::instance = &lifecycle;
     TerminalSurfaceControllerForeign::instance = &surfaces;
+    DesktopTrayForeign::instance = &tray;
 }
 }

@@ -135,20 +135,41 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "window-restore"
+            tint: "#4f9bb0"
+            title: qsTr("Keep running when the window closes")
+            subtitle: !Models.DesktopSettings.keepRunning ? qsTr("Closing the window quits Kodosi.")
+                : Models.Tray.available ? qsTr("Your terminals keep running, and Kodosi stays in the system tray.")
+                : qsTr("Your terminals keep running. Open Kodosi again to see them.")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Keep running when the window closes")
+                checked: Models.DesktopSettings.keepRunning
+                objectName: "settings.keepRunning"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.DesktopSettings.keepRunning);
+                    Models.DesktopSettings.keepRunning = wanted;
+                }
+            }
+        }
+        ListRow {
             iconName: "minus"
             tint: "#54433a"
             title: qsTr("Quit Kodosi")
             subtitle: Models.ApplicationLifecycle.hostForeground
                 ? qsTr("Your terminals keep running in the kodosi host command.")
-                : qsTr("Closing the window keeps your terminals running. Quit stops them.")
+                : qsTr("Quit stops the terminals on this computer.")
 
             KButton {
                 Accessible.id: objectName
                 compact: true
                 objectName: "panel.settingsView.quit-kodosi"
-                text: qsTr("Quit…")
+                text: qsTr("Quit")
 
-                onClicked: quitConfirmation.open()
+                onClicked: quitConfirmation.request(false)
             }
         }
     }
@@ -177,23 +198,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
         }
     }
-    KDialog {
+    QuitDialog {
         id: quitConfirmation
-
-        destructive: !Models.ApplicationLifecycle.hostForeground
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        title: qsTr("Quit Kodosi?")
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Quit")
-
-        onAccepted: Qt.quit()
-
-        PlainLabel {
-            width: 340
-            color: KodosiTheme.inkMuted
-            text: Models.ApplicationLifecycle.hostForeground
-                ? qsTr("The terminals on this computer keep running in the kodosi host command.")
-                : qsTr("The terminals on this computer stop.")
-            wrapMode: Text.WordWrap
-        }
     }
 }
