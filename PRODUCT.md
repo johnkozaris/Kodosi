@@ -39,9 +39,11 @@ and conversations stay with the provider. Kodosi supplies the shared space.
 ## Terminal behavior
 
 Minimize hides a view and keeps its terminal running. Close ends the terminal and its
-programs. Closing a window leaves the host running. Quit stops the computer's host and
-its terminals, but not a host that runs in a terminal with `kodosi host`, and not
-terminals on other computers.
+programs. Closing the window leaves the app and the host running, with Kodosi's icon in
+the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
+can change what closing the window does. Quit stops the computer's host and its
+terminals, but not a host that runs in a terminal with `kodosi host`, and not terminals
+on other computers.
 
 The apps and the `kodosi` command are equal clients of the computer's host: what one
 does, the others show. A person's typing comes first: input from the command stops with
@@ -94,7 +96,8 @@ progress where work happens and give each failure a clear recovery action.
   `show` and `stop` reach it from a shell, and `kodosi dosi skill` lets another agent act
   as Dosi.
 - Apps update themselves in the background and never restart without asking, because a
-  restart ends the host's terminals. An app too old for the backend asks for an update.
+  restart ends the host's terminals. After a system update on Linux, the app offers to
+  restart. An app too old for the backend asks for an update.
 - Until it is approved, a new device says so and shares nothing. The person's approved
   computers show its request and lead to the approval.
 - Terminals show the state their programs report: working, waiting for a person, done

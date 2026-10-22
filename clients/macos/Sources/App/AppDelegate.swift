@@ -157,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        false
+        !dependencies.settings.keepRunning
     }
 
     func application(_: NSApplication, open urls: [URL]) {

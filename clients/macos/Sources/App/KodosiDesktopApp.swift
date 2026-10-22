@@ -15,7 +15,26 @@ struct KodosiDesktopApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 820)
+        .defaultLaunchBehavior(.presented)
         .commands { KodosiCommands(dependencies: appDelegate.dependencies) }
+        MenuBarExtra(isInserted: .constant(appDelegate.dependencies.settings.keepRunning)) {
+            MenuBarMenu()
+        } label: {
+            Image("MenuBarMark").accessibilityLabel(Text("Kodosi"))
+        }
+    }
+}
+
+private struct MenuBarMenu: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Open Kodosi") {
+            openWindow(id: "main")
+            MainWindowLocator.activate()
+        }
+        Divider()
+        Button("Quit Kodosi") { NSApp.terminate(nil) }
     }
 }
 

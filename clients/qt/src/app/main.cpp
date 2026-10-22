@@ -14,19 +14,23 @@
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
+#include "platform/DesktopTray.hpp"
 #include "platform/SystemNotificationDriver.hpp"
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
+#include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QSystemTrayIcon>
 #include <QWindow>
 #include <memory>
 #include <optional>
+#include <utility>
 #ifdef Q_OS_LINUX
 #include <QFile>
 #include <QFileSystemWatcher>
@@ -45,7 +49,16 @@ public:
     AppClaim() = default;
     AppClaim(const AppClaim&) = delete;
     AppClaim& operator=(const AppClaim&) = delete;
-    ~AppClaim() { kodosi_close_app(); }
+    ~AppClaim() { release(); }
+
+    void release()
+    {
+        if (!std::exchange(m_released, true))
+            kodosi_close_app();
+    }
+
+private:
+    bool m_released = false;
 };
 
 QString startFailure()
@@ -80,6 +93,7 @@ int main(int argc, char* argv[])
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
     QCoreApplication::setApplicationName(QStringLiteral("Kodosi"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KODOSI_VERSION));
+    const auto executable = QCoreApplication::applicationFilePath();
 #ifdef Q_OS_LINUX
     // Wayland names the window by this entry, so the desktop shows Kodosi's icon and name.
     QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
@@ -104,7 +118,7 @@ int main(int argc, char* argv[])
     }
 
     kodosi::AppActivations activations;
-    const AppClaim claim;
+    AppClaim claim;
     const char* preferences = nullptr;
     auto role = kodosi_prepare(&kodosi::AppActivations::receive, &activations, &preferences);
     if (role == KODOSI_APP_SECONDARY) {
@@ -133,7 +147,7 @@ int main(int argc, char* argv[])
     kodosi::SessionCatalogModel sessions;
     kodosi::DesktopStateModel desktop(settings());
     desktop.attachSessionCatalog(&sessions);
-    kodosi::DesktopSettings desktopSettings(settings());
+    kodosi::DesktopSettings desktopSettings(settings(), QSystemTrayIcon::isSystemTrayAvailable());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
@@ -152,6 +166,7 @@ int main(int argc, char* argv[])
     kodosi::SystemNotificationDriver notifications;
     kodosi::TerminalNotifications terminalNotifications(sessions, notifications);
     kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
+    kodosi::DesktopTray tray(desktopSettings);
     kodosi::installTerminalAccessibility();
 
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventReceived, &app, [&](const QJsonObject& event, quint64 accountEpoch, const QByteArray& payload) {
@@ -186,7 +201,7 @@ int main(int argc, char* argv[])
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
-        lifecycle, surfaces);
+        lifecycle, surfaces, tray);
     QQmlApplicationEngine engine;
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
@@ -231,21 +246,26 @@ int main(int argc, char* argv[])
         if (workspace.sessionActions().activate(id))
             raise({});
     });
+    QObject::connect(&tray, &kodosi::DesktopTray::openRequested, &app, [&] { raise({}); });
 #ifdef Q_OS_LINUX
-    const auto program = QFile::encodeName(QCoreApplication::applicationFilePath());
+    const auto program = QFile::encodeName(executable);
     struct stat running {};
     ::stat(program.constData(), &running);
-    QFileSystemWatcher update { QStringList { QCoreApplication::applicationFilePath() } };
-    QObject::connect(&update, &QFileSystemWatcher::fileChanged, &workspace, [&workspace, program, running] {
+    QFileSystemWatcher update { QStringList { executable } };
+    QObject::connect(&update, &QFileSystemWatcher::fileChanged, &lifecycle, [&lifecycle, program, running] {
         struct stat installed {};
         if (::stat(program.constData(), &installed) != 0 || installed.st_ino != running.st_ino)
-            workspace.setError(kodosi::Workspace::tr(
-                "Kodosi was updated. Quit Kodosi and open it again to use the new version."));
+            lifecycle.setUpdateInstalled();
     });
 #endif
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
     lifecycle.scheduleInitialStart();
-    return app.exec();
+    const auto code = app.exec();
+    if (lifecycle.restartRequested()) {
+        claim.release();
+        QProcess::startDetached(executable, {});
+    }
+    return code;
 }

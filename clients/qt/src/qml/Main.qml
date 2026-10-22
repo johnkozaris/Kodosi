@@ -11,6 +11,8 @@ ApplicationWindow {
 
     readonly property bool modalOpen: Models.DesktopState.modalOpen || Models.DesktopFiles.busy
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
+    readonly property bool updateNotice: Models.ApplicationLifecycle.updateInstalled && !updateNoticeDismissed
+    property bool updateNoticeDismissed: false
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
     readonly property string deviceNotice: {
@@ -61,7 +63,31 @@ ApplicationWindow {
 
     onClosing: close => {
         close.accepted = false;
-        window.hide();
+        if (Models.DesktopSettings.keepRunning) {
+            window.hide();
+            Models.Tray.noteHidden();
+        } else {
+            quitDialog.request(false);
+        }
+    }
+
+    Connections {
+        function onQuitRequested() {
+            quitDialog.request(false);
+        }
+
+        target: Models.Tray
+    }
+    QuitDialog {
+        id: quitDialog
+
+        objectName: "window.quit"
+
+        onAboutToShow: {
+            window.show();
+            window.raise();
+            window.requestActivate();
+        }
     }
 
     Binding {
@@ -201,20 +227,28 @@ ApplicationWindow {
             anchors.rightMargin: KodosiTheme.frameInset
         }
         NoticePill {
+            readonly property bool shown: window.updateNotice || window.notice.length > 0
+
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: window.notice.length > 0 ? 22 : -height
+            anchors.bottomMargin: shown ? 22 : -height
             width: Math.min(implicitWidth, parent.width - 80)
             height: implicitHeight
-            opacity: window.notice.length > 0 ? 1 : 0
+            opacity: shown ? 1 : 0
             visible: opacity > 0
             identifier: "window.error"
-            text: window.notice
+            text: window.updateNotice ? qsTr("Kodosi was updated. Restart it to use the new version.") : window.notice
+            actionText: window.updateNotice ? qsTr("Restart") : ""
 
             Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
+            onActionClicked: quitDialog.request(true)
             onDismissed: {
+                if (window.updateNotice) {
+                    window.updateNoticeDismissed = true;
+                    return;
+                }
                 Models.AppState.clearError();
                 Models.DesktopState.clearError();
                 Models.DesktopFiles.clearError();

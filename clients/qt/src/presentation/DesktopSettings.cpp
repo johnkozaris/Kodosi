@@ -18,9 +18,10 @@ const QList<KnownAgent>& knownAgents()
     return agents;
 }
 }
-DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent)
+DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepRunningByDefault, QObject* parent)
     : QObject(parent)
     , m_settings(std::move(settings))
+    , m_keepRunningByDefault(keepRunningByDefault)
 {
     const auto family
         = m_settings->value(QStringLiteral("terminal/fontFamily"), QStringLiteral("monospace")).toString();
@@ -37,6 +38,9 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
     m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
     m_computer = m_settings->value(QStringLiteral("terminal/computer")).toString();
+    if (const auto keep = m_settings->value(QStringLiteral("app/keepRunning")); keep.isValid())
+        m_keepRunning = keep.toBool();
+    m_closeHintShown = m_settings->value(QStringLiteral("app/closeHintShown"), false).toBool();
 }
 QString DesktopSettings::agentOf(const QString& text)
 {
@@ -102,6 +106,21 @@ void DesktopSettings::setLastComputer(const QString& computer)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setKeepRunning(bool keep)
+{
+    if (keep == keepRunning())
+        return;
+    m_keepRunning = keep;
+    persist();
+    emit settingsChanged();
+}
+void DesktopSettings::setCloseHintShown()
+{
+    if (m_closeHintShown)
+        return;
+    m_closeHintShown = true;
+    persist();
+}
 void DesktopSettings::setBranchFolder(const QString& path)
 {
     const QFileInfo info(path);
@@ -133,6 +152,9 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("terminal/directory"), m_directory);
     m_settings->setValue(QStringLiteral("terminal/branchFolder"), m_branchFolder);
     m_settings->setValue(QStringLiteral("terminal/computer"), m_computer);
+    if (m_keepRunning)
+        m_settings->setValue(QStringLiteral("app/keepRunning"), *m_keepRunning);
+    m_settings->setValue(QStringLiteral("app/closeHintShown"), m_closeHintShown);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Terminal settings could not be saved.");

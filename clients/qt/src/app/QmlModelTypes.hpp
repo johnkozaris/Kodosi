@@ -18,6 +18,7 @@
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
+#include "platform/DesktopTray.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include "terminal/TerminalView.hpp"
 #include <QJSEngine>
@@ -190,6 +191,16 @@ public:
     static kodosi::DesktopFileIntegration* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
+struct DesktopTrayForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::DesktopTray)
+    QML_NAMED_ELEMENT(Tray)
+    QML_SINGLETON
+public:
+    inline static kodosi::DesktopTray* instance = nullptr;
+    static kodosi::DesktopTray* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
 struct ApplicationLifecycleModelForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::ApplicationLifecycleModel)
@@ -230,5 +241,5 @@ struct KeyedListModelForeign {
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
-    ApplicationLifecycleModel&, TerminalSurfaceController&);
+    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&);
 }

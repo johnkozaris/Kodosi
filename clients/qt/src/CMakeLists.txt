@@ -100,6 +100,8 @@ qt_add_library(kodosi-desktop-integration STATIC
     platform/DesktopNotificationDriver.hpp
     platform/DesktopFileIntegration.cpp
     platform/DesktopFileIntegration.hpp
+    platform/DesktopTray.cpp
+    platform/DesktopTray.hpp
     platform/NotificationText.cpp
     platform/NotificationText.hpp
     platform/SystemNotificationDriver.hpp
@@ -119,6 +121,12 @@ target_link_libraries(kodosi-desktop-integration
     PRIVATE
         Qt6::Gui
         Qt6::Widgets
+)
+
+qt_add_resources(kodosi-desktop-integration "tray"
+    PREFIX "/kodosi"
+    BASE platform
+    FILES platform/kodosi-tray.svg
 )
 
 qt_add_library(kodosi-terminal-kernel STATIC
@@ -305,6 +313,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/Wordmark.qml
         qml/Shell/AboutDialog.qml
         qml/Shell/CommandPalette.qml
+        qml/Shell/QuitDialog.qml
         qml/Shell/Sidebar.qml
         qml/Shell/SidebarMenu.qml
         qml/Shell/SignOutDialog.qml

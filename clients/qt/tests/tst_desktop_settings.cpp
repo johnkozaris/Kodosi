@@ -52,6 +52,37 @@ private slots:
         QCOMPARE(settings.homeDirectory(), QDir::homePath());
         QCOMPARE(settings.effectiveWorkingDirectory(), settings.homeDirectory());
     }
+    void kodosiKeepsRunningAfterTheWindowClosesUntilThePersonTurnsItOff()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath(QStringLiteral("settings.ini"));
+        {
+            kodosi::DesktopSettings settings(std::make_unique<QSettings>(path, QSettings::IniFormat));
+            QVERIFY(settings.keepRunning());
+            QVERIFY(!settings.closeHintShown());
+            settings.setKeepRunning(false);
+            settings.setCloseHintShown();
+        }
+        kodosi::DesktopSettings restored(std::make_unique<QSettings>(path, QSettings::IniFormat));
+        QVERIFY(!restored.keepRunning());
+        QVERIFY(restored.closeHintShown());
+    }
+    void withoutASystemTrayClosingTheWindowQuitsUntilThePersonKeepsKodosiRunning()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath(QStringLiteral("settings.ini"));
+        const auto settings = [&path](bool tray) {
+            return std::make_unique<kodosi::DesktopSettings>(std::make_unique<QSettings>(path, QSettings::IniFormat), tray);
+        };
+        {
+            const auto withoutTray = settings(false);
+            QVERIFY(!withoutTray->keepRunning());
+            withoutTray->setLastComputer(QStringLiteral("studio"));
+        }
+        QVERIFY(settings(true)->keepRunning());
+        settings(false)->setKeepRunning(true);
+        QVERIFY(settings(false)->keepRunning());
+    }
     void oneRuleNamesTheAgentOfACommandOrAName()
     {
         using kodosi::DesktopSettings;

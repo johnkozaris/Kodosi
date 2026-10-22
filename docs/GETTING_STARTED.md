@@ -32,8 +32,10 @@ the shell of the new terminal.
   Settings › Terminal sets where these folders go.
 
 A terminal is a real shell on the computer that runs it. Minimize hides a terminal and
-keeps it running; Close ends it and its programs. When you close the window, your
-terminals keep running; when you quit Kodosi, they end.
+keeps it running; Close ends it and its programs. When you close the window, Kodosi and
+your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
+on a desktop without a system tray, closing the window quits Kodosi. When you quit
+Kodosi, your terminals end. In Settings, you can choose what closing the window does.
 
 ## 3. See which agent needs you
 

@@ -1,5 +1,6 @@
 #include "app/ApplicationLifecycleModel.hpp"
 
+#include <QCoreApplication>
 #include <QMetaObject>
 #include <QPointer>
 #include <QThread>
@@ -97,6 +98,21 @@ void ApplicationLifecycleModel::retry()
         return;
     }
     beginAttempt();
+}
+
+void ApplicationLifecycleModel::setUpdateInstalled()
+{
+    if (m_updateInstalled) {
+        return;
+    }
+    m_updateInstalled = true;
+    emit updateInstalledChanged();
+}
+
+void ApplicationLifecycleModel::restart()
+{
+    m_restartRequested = true;
+    QCoreApplication::quit();
 }
 
 void ApplicationLifecycleModel::restartHost()
