@@ -6,7 +6,9 @@
 #include <QString>
 #include <QVector>
 
+#include <chrono>
 #include <cstdint>
+#include <optional>
 
 namespace kodosi {
 
@@ -61,6 +63,7 @@ struct TerminalFrame {
     TerminalScrollState scroll;
     QVector<TerminalCell> cells;
     QVector<TerminalImagePlacement> images;
+    std::optional<std::chrono::steady_clock::time_point> imageAnimationDue;
 
     [[nodiscard]] const TerminalCell* cell(
         const std::uint16_t column,

@@ -15,7 +15,8 @@ case "$ZIG_TARGET" in
     *) ZIG_BIN="$TOOLCHAIN_ROOT/zig" ;;
 esac
 PROVENANCE_FILE="$TOOLCHAIN_ROOT/.provenance-key"
-PROVENANCE_KEY="$ZIG_VERSION:$ZIG_TARGET:$ZIG_SHA256"
+ZIG_PATCHES_SHA256=$(python3 "$PWD/scripts/digest.py" artifact Patches/zig)
+PROVENANCE_KEY="$ZIG_VERSION:$ZIG_TARGET:$ZIG_SHA256:$ZIG_PATCHES_SHA256"
 
 if [ -x "$ZIG_BIN" ] &&
     [ -f "$PROVENANCE_FILE" ] &&
@@ -48,6 +49,10 @@ case "$ARCHIVE" in
         ;;
     *) tar -xJf "$ARCHIVE" -C "$STAGE" --strip-components=1 ;;
 esac
+
+for patch_file in Patches/zig/*.patch; do
+    patch -p1 --quiet --forward -d "$STAGE" < "$patch_file"
+done
 
 if [ "$("$STAGE/${ZIG_BIN##*/}" version)" != "$ZIG_VERSION" ]; then
     echo "[!] isolated Zig toolchain failed validation" >&2

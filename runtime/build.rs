@@ -41,6 +41,11 @@ fn main() {
                     "u32",
                 ),
                 ("/channelProtocolVersion", "CHANNEL_VERSION", "u32"),
+                (
+                    "/oldestChannelProtocolVersion",
+                    "OLDEST_CHANNEL_VERSION",
+                    "u32",
+                ),
                 ("/pipes/viewersMax", "TERMINAL_VIEWERS_MOST", "usize"),
                 ("/pipes/callsMax", "CALLS_MOST", "usize"),
             ][..],

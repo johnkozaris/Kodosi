@@ -24,10 +24,11 @@ pub(crate) use session::TerminalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{
-    CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
-    TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
-    TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
-    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
+    CellPixels, Checkpoint, OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION,
+    TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES, TERMINAL_INPUT_MAX_BYTES,
+    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+    TERMINAL_SNAPSHOT_MAX_BYTES, TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata,
+    TerminalPixelGeometry, TerminalSize,
 };
 
 #[cfg(test)]

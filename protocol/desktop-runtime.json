@@ -9730,7 +9730,7 @@
   "protocolVersion": 68,
   "terminal": {
     "checkpointMaxBytes": 281018368,
-    "checkpointSchema": 5,
+    "checkpointSchema": 6,
     "imageStorageMaxBytes": 67108864,
     "rawInputMaxBytes": 1048576
   }

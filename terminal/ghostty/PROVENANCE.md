@@ -11,8 +11,9 @@ distribution.
 of each platform; iOS uses the macOS one. Root `Ghostty.lock` pins those commits and the
 archive digests of the artifacts in `Vendor/`, and each artifact's `.version` file
 records its inputs and outputs. The build options are in `NativeBuild.env` (Apple),
-`LinuxVtBuild.env` and `WindowsVtBuild.env`. `VERSION` names this package, not the
-Ghostty version.
+`LinuxVtBuild.env` and `WindowsVtBuild.env`. `Toolchain.env` pins Zig, and
+`scripts/install-zig.sh` applies `Patches/zig` to it. `VERSION` names this package, not
+the Ghostty version.
 
 `just ghostty-check` checks the pins, digests and notices without a build. The Windows
 Ghostty library workflow rebuilds the Windows x64 artifact from a clean checkout and

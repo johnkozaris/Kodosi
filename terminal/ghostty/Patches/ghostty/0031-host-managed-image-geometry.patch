@@ -1,74 +1,118 @@
+diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
+index c4af20c7f..836b32793 100644
+--- a/src/renderer/generic.zig
++++ b/src/renderer/generic.zig
+@@ -1530,6 +1530,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+                 if (self.images.kittyRequiresUpdate(
+                     state.terminal,
+                     &self.terminal_state,
++                    self.size.cell,
+                 )) {
+                     // We need to grab the draw mutex since this updates
+                     // our image state that drawFrame uses.
+@@ -1539,6 +1540,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+                         self.alloc,
+                         state.terminal,
+                         &self.terminal_state,
++                        self.size.cell,
+                     );
+                     self.images_rebuilt = true;
+                 }
 diff --git a/src/renderer/image.zig b/src/renderer/image.zig
-index ef0367bd1..e0347cdd0 100644
+index 4ffa63911..ffb6b2938 100644
 --- a/src/renderer/image.zig
 +++ b/src/renderer/image.zig
-@@ -385,6 +385,7 @@ pub const State = struct {
-             self.prepKittyPlacement(
-                 alloc,
-                 t,
-+                cell_size,
-                 top_y,
-                 bot_y,
-                 &image,
-@@ -478,6 +479,7 @@ pub const State = struct {
-                 self.appendKittyPlacement(
-                     alloc,
-                     t,
-+                    cell_size,
-                     &image,
-                     &pr.p,
-                     std.math.cast(i32, x) orelse continue,
-@@ -547,6 +549,7 @@ pub const State = struct {
-         self: *State,
-         alloc: Allocator,
-         t: *const terminal.Terminal,
-+        cell_size: CellSize,
-         top_y: u32,
-         bot_y: u32,
-         image: *const terminal.kitty.graphics.Image,
-@@ -588,7 +591,7 @@ pub const State = struct {
-         const y_pos = std.math.cast(i32, img_top_y - top_y) orelse return;
-         const x_pos = std.math.cast(i32, img_left_x) orelse return;
+@@ -8,6 +8,7 @@ const global = @import("../global.zig");
+ const Renderer = @import("../renderer.zig").Renderer;
+ const GraphicsAPI = Renderer.API;
+ const Texture = GraphicsAPI.Texture;
++const CellSize = @import("size.zig").CellSize;
+ const Overlay = @import("Overlay.zig");
  
--        try self.appendKittyPlacement(alloc, t, image, p, x_pos, y_pos);
-+        try self.appendKittyPlacement(alloc, t, cell_size, image, p, x_pos, y_pos);
+ const log = std.log.scoped(.renderer_image);
+@@ -44,6 +45,11 @@ pub const State = struct {
+     /// they were, but its texture must be unloaded.
+     kitty_storage_generation: u64,
+ 
++    /// The cell size that `kitty_placements` was last built for. A
++    /// terminal can take its cell size from another computer, so the
++    /// placements are scaled to the cells drawn here.
++    kitty_cell_size: CellSize,
++
+     /// Overlays
+     overlay_placements: std.ArrayListUnmanaged(Placement),
+ 
+@@ -54,6 +60,7 @@ pub const State = struct {
+         .kitty_text_end = 0,
+         .kitty_placements_generation = 0,
+         .kitty_storage_generation = 0,
++        .kitty_cell_size = .{ .width = 0, .height = 0 },
+         .overlay_placements = .empty,
+     };
+ 
+@@ -254,6 +261,7 @@ pub const State = struct {
+         self: *const State,
+         t: *const terminal.Terminal,
+         render_state: *const terminal.RenderState,
++        cell_size: CellSize,
+     ) bool {
+         // The placements changed.
+         if (render_state.imagePlacementsGeneration() != self.kitty_placements_generation) return true;
+@@ -262,13 +270,17 @@ pub const State = struct {
+         // placement, such as deleting an image with no placements.
+         if (t.screens.active.kitty_images.generation != self.kitty_storage_generation) return true;
+ 
++        // The cells drawn here changed size.
++        if (cell_size.width != self.kitty_cell_size.width or
++            cell_size.height != self.kitty_cell_size.height) return true;
++
+         return false;
      }
  
-     /// Compute the sizes for a native kitty placement positioned at the
-@@ -598,6 +601,7 @@ pub const State = struct {
-         self: *State,
+     /// Rebuild the Kitty placements from the render state, and prepare
+     /// or unload the textures they need. `render_state` must have just
+     /// been updated from `t`. The terminal is only read to look up
+-    /// images.
++    /// images and its cell size.
+     ///
+     /// This reads and writes state used by drawing.
+     pub fn kittyUpdate(
+@@ -276,6 +288,7 @@ pub const State = struct {
          alloc: Allocator,
          t: *const terminal.Terminal,
+         render_state: *const terminal.RenderState,
 +        cell_size: CellSize,
-         image: *const terminal.kitty.graphics.Image,
-         p: *const terminal.kitty.graphics.ImageStorage.Placement,
-         x: i32,
-@@ -609,9 +613,20 @@ pub const State = struct {
-         try self.prepKittyImage(alloc, image);
+     ) void {
+         const storage = &t.screens.active.kitty_images;
  
-         // Calculate the dimensions of our image, taking in to
--        // account the rows / columns specified by the placement.
--        const dest_size = p.pixelSize(image.*, t);
--        const cell_offset = p.cellOffset(t);
-+        // account the rows / columns specified by the placement. These are
-+        // in the terminal's pixels; a terminal can take its cell size from
-+        // another computer, so they are scaled to the cells drawn here.
+@@ -283,6 +296,10 @@ pub const State = struct {
+         // can tell when it changes.
+         self.kitty_placements_generation = render_state.imagePlacementsGeneration();
+         self.kitty_storage_generation = storage.generation;
++        self.kitty_cell_size = cell_size;
++
++        // The render state measures placements in the terminal's pixels.
 +        const scale: TerminalScale = .init(t, cell_size);
-+        const terminal_size = p.pixelSize(image.*, t);
-+        const terminal_offset = p.cellOffset(t);
-+        const dest_size: struct { width: u32, height: u32 } = .{
-+            .width = scale.x(terminal_size.width),
-+            .height = scale.y(terminal_size.height),
-+        };
-+        const cell_offset: struct { x: u32, y: u32 } = .{
-+            .x = scale.x(terminal_offset.x),
-+            .y = scale.y(terminal_offset.y),
-+        };
  
-         const source = p.sourceRect(image.*);
- 
-@@ -634,6 +649,38 @@ pub const State = struct {
-         }
+         // We always clear our previous placements no matter what because
+         // we rebuild them from scratch.
+@@ -336,10 +353,10 @@ pub const State = struct {
+                 .x = p.x,
+                 .y = p.y,
+                 .z = p.z,
+-                .width = p.width,
+-                .height = p.height,
+-                .cell_offset_x = p.offset_x,
+-                .cell_offset_y = p.offset_y,
++                .width = scale.x(p.width),
++                .height = scale.y(p.height),
++                .cell_offset_x = scale.x(p.offset_x),
++                .cell_offset_y = scale.y(p.offset_y),
+                 .source_x = p.source_x,
+                 .source_y = p.source_y,
+                 .source_width = p.source_width,
+@@ -389,6 +406,38 @@ pub const State = struct {
+         return @intCast(placements.len);
      }
  
 +    /// Converts the pixels of a terminal's cells to the pixels of the cells
@@ -103,10 +147,46 @@ index ef0367bd1..e0347cdd0 100644
 +        }
 +    };
 +
-     fn prepKittyVirtualPlacement(
-         self: *State,
-         alloc: Allocator,
-@@ -1213,6 +1260,54 @@ test "kitty renderer ignores pending payloads and removes replaced placements" {
+     const PrepImageError = error{
+         OutOfMemory,
+         ImageConversionError,
+@@ -858,6 +907,9 @@ pub const Image = union(enum) {
+     }
+ };
+ 
++/// The cell size of the terminals in these tests: 10x10 pixels.
++const test_cell: CellSize = .{ .width = 10, .height = 10 };
++
+ test "kitty renderer ignores pending payloads and removes replaced placements" {
+     const testing = std.testing;
+     const alloc = testing.allocator;
+@@ -892,7 +944,7 @@ test "kitty renderer ignores pending payloads and removes replaced placements" {
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 1), storage.placements.count());
+     try testing.expectEqual(@as(usize, 0), state.kitty_placements.items.len);
+     try testing.expect(state.images.get(.{ .kitty = 1 }) == null);
+@@ -900,7 +952,7 @@ test "kitty renderer ignores pending payloads and removes replaced placements" {
+     const pixels = try alloc.dupe(u8, "rgba");
+     try testing.expect(pending.complete(storage, io, pixels));
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 1), state.kitty_placements.items.len);
+     try testing.expectEqual(
+         storage.imageById(1).?.generation,
+@@ -917,13 +969,68 @@ test "kitty renderer ignores pending payloads and removes replaced placements" {
+         .data = .{ .pending = 4 },
+     });
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 0), storage.placements.count());
+     try testing.expectEqual(tracked, t.screens.active.pages.countTrackedPins());
+     try testing.expectEqual(@as(usize, 0), state.kitty_placements.items.len);
      try testing.expect(state.images.get(.{ .kitty = 1 }).?.image.isUnloading());
  }
  
@@ -124,6 +204,8 @@ index ef0367bd1..e0347cdd0 100644
 +
 +    var state: State = .empty;
 +    defer state.deinit(alloc);
++    var render_state: terminal.RenderState = .empty;
++    defer render_state.deinit(alloc);
 +
 +    const storage = &t.screens.active.kitty_images;
 +    try storage.addImage(io, alloc, t.screens.active, .{
@@ -143,17 +225,22 @@ index ef0367bd1..e0347cdd0 100644
 +    });
 +
 +    // The image covers the same cells: three columns and two rows.
-+    state.kittyUpdate(alloc, &t, .{ .width = 5, .height = 10 });
++    try render_state.update(alloc, &t);
++    const drawn: CellSize = .{ .width = 5, .height = 10 };
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, drawn));
++    state.kittyUpdate(alloc, &t, &render_state, drawn);
 +    const placement = state.kitty_placements.items[0];
 +    try testing.expectEqual(@as(u32, 10), placement.width);
 +    try testing.expectEqual(@as(u32, 10), placement.height);
 +    try testing.expectEqual(@as(u32, 2), placement.cell_offset_x);
 +    try testing.expectEqual(@as(u32, 3), placement.cell_offset_y);
 +    try testing.expectEqual(@as(u32, 20), placement.source_width);
++    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state, drawn));
 +
 +    // With the terminal's own cell size nothing changes.
-+    storage.dirty = true;
-+    state.kittyUpdate(alloc, &t, .{ .width = 10, .height = 20 });
++    const own: CellSize = .{ .width = 10, .height = 20 };
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, own));
++    state.kittyUpdate(alloc, &t, &render_state, own);
 +    try testing.expectEqual(@as(u32, 20), state.kitty_placements.items[0].width);
 +    try testing.expectEqual(@as(u32, 4), state.kitty_placements.items[0].cell_offset_x);
 +}
@@ -161,22 +248,187 @@ index ef0367bd1..e0347cdd0 100644
  test "kitty renderer uses the intersected source rectangle" {
      const testing = std.testing;
      const alloc = testing.allocator;
+@@ -959,7 +1066,7 @@ test "kitty renderer uses the intersected source rectangle" {
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 1), state.kitty_placements.items.len);
+ 
+     const placement = state.kitty_placements.items[0];
+@@ -1023,7 +1130,7 @@ test "kitty renderer positions relative placements from the parent pin" {
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 2), state.kitty_placements.items.len);
+ 
+     // Sorted by z: parent (z=0) first, child (z=1) second.
+@@ -1038,7 +1145,7 @@ test "kitty renderer positions relative placements from the parent pin" {
+     // needs another update.
+     try testing.expectEqual(render_state.imagePlacementsGeneration(), state.kitty_placements_generation);
+     try testing.expectEqual(storage.generation, state.kitty_storage_generation);
+-    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state));
++    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state, test_cell));
+ }
+ 
+ test "kitty renderer relative placement with negative offsets" {
+@@ -1107,7 +1214,7 @@ test "kitty renderer relative placement with negative offsets" {
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 2), state.kitty_placements.items.len);
+     const child = state.kitty_placements.items[1];
+     try testing.expectEqual(@as(i32, -1), child.x);
+@@ -1170,7 +1277,7 @@ test "kitty renderer positions relative placements from virtual parent placehold
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(render_state.imagePlacementsGeneration(), state.kitty_placements_generation);
+     try testing.expectEqual(storage.generation, state.kitty_storage_generation);
+ 
+@@ -1218,8 +1325,8 @@ test "kitty renderer skips updates for rows without placeholder cells" {
+     try t.setAttribute(.{ .unset = {} });
+ 
+     try render_state.update(alloc, &t);
+-    try testing.expect(state.kittyRequiresUpdate(&t, &render_state));
+-    state.kittyUpdate(alloc, &t, &render_state);
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, test_cell));
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(render_state.imagePlacementsGeneration(), state.kitty_placements_generation);
+     try testing.expectEqual(storage.generation, state.kitty_storage_generation);
+     try testing.expectEqual(@as(usize, 1), state.kitty_placements.items.len);
+@@ -1229,14 +1336,14 @@ test "kitty renderer skips updates for rows without placeholder cells" {
+     t.screens.active.pages.pin(.{ .active = .{ .y = 3 } }).?.markDirty();
+     try render_state.update(alloc, &t);
+     try testing.expect(render_state.dirty != .false);
+-    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state));
++    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state, test_cell));
+ 
+     // Overwriting the placeholder cells removes the image.
+     t.screens.active.cursorAbsolute(1, 1);
+     try t.printString("x");
+     try render_state.update(alloc, &t);
+-    try testing.expect(state.kittyRequiresUpdate(&t, &render_state));
+-    state.kittyUpdate(alloc, &t, &render_state);
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, test_cell));
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 0), state.kitty_placements.items.len);
+ }
+ 
+@@ -1287,8 +1394,8 @@ test "kitty renderer skips updates for rows without placeholder cells with fixed
+     try t.setAttribute(.{ .unset = {} });
+ 
+     try render_state.update(alloc, &t);
+-    try testing.expect(state.kittyRequiresUpdate(&t, &render_state));
+-    state.kittyUpdate(alloc, &t, &render_state);
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, test_cell));
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 2), state.kitty_placements.items.len);
+ 
+     // A row without placeholder cells changes. The render state is
+@@ -1296,7 +1403,7 @@ test "kitty renderer skips updates for rows without placeholder cells with fixed
+     t.screens.active.pages.pin(.{ .active = .{ .y = 3 } }).?.markDirty();
+     try render_state.update(alloc, &t);
+     try testing.expect(render_state.dirty != .false);
+-    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state));
++    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state, test_cell));
+ }
+ 
+ test "kitty renderer unloads the texture of a deleted image without placements" {
+@@ -1333,15 +1440,15 @@ test "kitty renderer unloads the texture of a deleted image without placements"
+         .rows = 1,
+     });
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 1), state.kitty_placements.items.len);
+ 
+     // Delete the placement but keep the image. The texture stays.
+     storage.delete(io, alloc, &t, .{ .id = .{ .image_id = 1, .placement_id = 1 } });
+     try testing.expect(storage.imageById(1) != null);
+     try render_state.update(alloc, &t);
+-    try testing.expect(state.kittyRequiresUpdate(&t, &render_state));
+-    state.kittyUpdate(alloc, &t, &render_state);
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, test_cell));
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expectEqual(@as(usize, 0), state.kitty_placements.items.len);
+     try testing.expect(!state.images.get(.{ .kitty = 1 }).?.image.isUnloading());
+ 
+@@ -1352,10 +1459,10 @@ test "kitty renderer unloads the texture of a deleted image without placements"
+     try testing.expect(storage.imageById(1) == null);
+     try render_state.update(alloc, &t);
+     try testing.expectEqual(placements_generation, render_state.imagePlacementsGeneration());
+-    try testing.expect(state.kittyRequiresUpdate(&t, &render_state));
+-    state.kittyUpdate(alloc, &t, &render_state);
++    try testing.expect(state.kittyRequiresUpdate(&t, &render_state, test_cell));
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     try testing.expect(state.images.get(.{ .kitty = 1 }).?.image.isUnloading());
+-    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state));
++    try testing.expect(!state.kittyRequiresUpdate(&t, &render_state, test_cell));
+ }
+ 
+ test "kitty renderer uploads the current animation frame" {
+@@ -1391,7 +1498,7 @@ test "kitty renderer uploads the current animation frame" {
+     });
+ 
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     const gen1 = state.images.get(.{ .kitty = 1 }).?.generation;
+     try testing.expectEqualSlices(
+         u8,
+@@ -1415,7 +1522,7 @@ test "kitty renderer uploads the current animation frame" {
+     // The renderer must pick up the frame's pixels under a fresh
+     // generation.
+     try render_state.update(alloc, &t);
+-    state.kittyUpdate(alloc, &t, &render_state);
++    state.kittyUpdate(alloc, &t, &render_state, test_cell);
+     const entry = state.images.get(.{ .kitty = 1 }).?;
+     try testing.expect(entry.generation > gen1);
+     try testing.expectEqualSlices(
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index e782bd143..865aade38 100644
+index 514b6c84d..f5bb20a4e 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -756,7 +756,9 @@ pub fn restoreCheckpointLocked(
-                 screen,
-                 self.config.image_storage_limit,
-             );
+@@ -719,6 +719,7 @@ pub fn restoreCheckpointLocked(
+     var decoder: terminalpkg.snapshot.Decoder = .init(&reader);
+     var decoded = decoder.ready(self.alloc, global.io(), .{
+         .max_continuation_bytes = checkpoint_continuation_max_bytes,
++        .kitty_image_storage_limit = self.config.image_storage_limit,
+     }) catch |err| return snapshotResult(err);
+     defer decoded.deinit(self.alloc);
+     var new_terminal = decoded.toOwned();
+@@ -749,19 +750,9 @@ pub fn restoreCheckpointLocked(
+     new_terminal.flags.focused = self.terminal.flags.focused;
+     new_terminal.flags.visible = self.terminal.flags.visible;
+     new_terminal.flags.resize_pull_scrollback = resize_pull_scrollback;
+-    if (comptime @hasField(terminalpkg.Screen, "kitty_images")) {
+-        var screens = new_terminal.screens.all.iterator();
+-        while (screens.next()) |entry| {
+-            const screen = entry.value.*;
+-            screen.kitty_images.setLimit(
+-                screen.io,
+-                screen.alloc,
+-                screen,
+-                self.config.image_storage_limit,
+-            );
 -            screen.kitty_images.image_limits = .allWithTempDir(global.tmpDirPath());
-+            // The output reaches every view, so images come only in it, and
-+            // never from this computer's files or shared memory.
-+            screen.kitty_images.image_limits = .direct;
-         }
-     }
+-        }
+-    }
++    // The output reaches every view, so images come only in it, and never
++    // from this computer's files or shared memory.
++    new_terminal.setKittyGraphicsLoadingLimits(.direct);
  
-@@ -795,8 +797,8 @@ pub fn restoreCheckpointLocked(
+     var handler = freshStreamHandler(self);
+     handler.terminal = &new_terminal;
+@@ -798,8 +789,8 @@ pub fn restoreCheckpointLocked(
          .cell = self.size.cell,
          .padding = self.size.padding,
      };

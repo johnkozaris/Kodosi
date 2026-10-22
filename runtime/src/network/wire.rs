@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use super::{Result, TerminalControl, TerminalStatus, invalid};
 use crate::terminal::{
-    TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
+    OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_CHECKPOINT_SCHEMA_VERSION,
+    TERMINAL_INPUT_MAX_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
 };
 
 mod frame;
@@ -253,9 +254,10 @@ pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec
 #[cfg(any(feature = "host", test))]
 pub(crate) fn snapshot_parts(
     checkpoint: &crate::terminal::Checkpoint,
+    channel: u32,
 ) -> Result<Vec<bytes::Bytes>> {
     let packed = bytes::Bytes::from(packing::pack(
-        &encode_checkpoint(checkpoint)?,
+        &encode_checkpoint(checkpoint, channel)?,
         SNAPSHOT_LEVEL,
     )?);
     Ok((0..packed.len())
@@ -291,17 +293,30 @@ fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> 
 }
 
 #[cfg(any(feature = "host", test))]
-fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>> {
-    let bytes = checkpoint.snapshot();
+fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint, channel: u32) -> Result<Vec<u8>> {
+    let (schema, bytes) = if channel < crate::protocol::CHANNEL_VERSION {
+        (
+            OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION,
+            std::borrow::Cow::Owned(
+                ghostty_vt::snapshot_without_images(checkpoint.snapshot())
+                    .map_err(|_| invalid("Invalid terminal snapshot."))?,
+            ),
+        )
+    } else {
+        (
+            TERMINAL_CHECKPOINT_SCHEMA_VERSION,
+            std::borrow::Cow::Borrowed(checkpoint.snapshot()),
+        )
+    };
     let mut encoded = Vec::with_capacity(bytes.len() + CHECKPOINT_HEADER);
-    encoded.extend_from_slice(&TERMINAL_CHECKPOINT_SCHEMA_VERSION.to_be_bytes());
+    encoded.extend_from_slice(&schema.to_be_bytes());
     encoded.push(u8::from(checkpoint.console));
     encoded.extend_from_slice(
         &u32::try_from(bytes.len())
             .map_err(|_| invalid("Checkpoint is too large."))?
             .to_be_bytes(),
     );
-    encoded.extend_from_slice(bytes);
+    encoded.extend_from_slice(&bytes);
     if let Some(metadata) = &checkpoint.metadata {
         encoded.extend_from_slice(&encode_metadata(metadata)?);
     }
@@ -313,11 +328,13 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     if encoded.len() < CHECKPOINT_HEADER || encoded.len() > SNAPSHOT_LIMIT {
         return Err(invalid("Checkpoint plaintext has invalid length."));
     }
-    if u32::from_be_bytes(
+    let schema = u32::from_be_bytes(
         encoded[..4]
             .try_into()
             .map_err(|_| invalid("Invalid schema."))?,
-    ) != TERMINAL_CHECKPOINT_SCHEMA_VERSION
+    );
+    if schema != TERMINAL_CHECKPOINT_SCHEMA_VERSION
+        && schema != OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION
     {
         return Err(invalid("Unsupported terminal checkpoint schema."));
     }
@@ -338,11 +355,15 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     {
         return Err(invalid("Checkpoint length disagrees with envelope."));
     }
-    let mut checkpoint = Checkpoint::new(
-        encoded[CHECKPOINT_HEADER..CHECKPOINT_HEADER + len].to_vec(),
-        console,
-    )
-    .map_err(|error| invalid(error.to_string()))?;
+    let snapshot = &encoded[CHECKPOINT_HEADER..CHECKPOINT_HEADER + len];
+    let snapshot = if schema == OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION {
+        ghostty_vt::snapshot_without_images(snapshot)
+            .map_err(|_| invalid("Invalid terminal snapshot."))?
+    } else {
+        snapshot.to_vec()
+    };
+    let mut checkpoint =
+        Checkpoint::new(snapshot, console).map_err(|error| invalid(error.to_string()))?;
     if encoded.len() > CHECKPOINT_HEADER + len {
         checkpoint.metadata = Some(Box::new(decode_metadata(
             &encoded[CHECKPOINT_HEADER + len..],
@@ -366,10 +387,63 @@ mod tests {
             (0..700_000u32).flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes()),
         );
         let checkpoint = Checkpoint::new(body, true).unwrap();
-        let parts = snapshot_parts(&checkpoint).unwrap();
+        let parts = snapshot_parts(&checkpoint, crate::protocol::CHANNEL_VERSION).unwrap();
         assert!(parts.len() > 1 && parts.iter().all(|part| part.len() <= KEYFRAME_PART));
         let restored = snapshot(&parts.concat()).unwrap();
         assert_eq!(restored, checkpoint);
         assert!(snapshot(&parts[0]).is_err());
+    }
+
+    #[test]
+    fn a_keyframe_passes_to_and_from_kodosi_0_1_1_without_images() {
+        use crate::terminal::Checkpoint;
+        let mut terminal =
+            ghostty_vt::Terminal::new(20, 4, ghostty_vt::TerminalPolicy::default()).unwrap();
+        terminal.resize(20, 4, 2, 4).unwrap();
+        terminal
+            .write(b"ab\x1b_Ga=T,f=32,s=1,v=1,i=7;AQIDBA==\x1b\\")
+            .unwrap();
+        let checkpoint = Checkpoint::new(
+            terminal
+                .snapshot(crate::terminal::snapshot_limits(u64::MAX))
+                .unwrap(),
+            false,
+        )
+        .unwrap();
+        let without_images = ghostty_vt::snapshot_without_images(checkpoint.snapshot()).unwrap();
+        assert!(without_images.len() < checkpoint.snapshot().len());
+
+        let current = snapshot_parts(&checkpoint, crate::protocol::CHANNEL_VERSION).unwrap();
+        assert_eq!(snapshot(&current.concat()).unwrap(), checkpoint);
+        let released =
+            snapshot_parts(&checkpoint, crate::protocol::OLDEST_CHANNEL_VERSION).unwrap();
+        let plain = packing::unpack(&released.concat(), SNAPSHOT_LIMIT).unwrap();
+        assert_eq!(
+            plain[..4],
+            OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION.to_be_bytes()
+        );
+        assert_eq!(&plain[CHECKPOINT_HEADER..], without_images);
+
+        let from_released =
+            include_bytes!("../../crates/ghostty-vt-sys/src/kodosi-0.1.1-image.snapshot");
+        let mut plain = OLDEST_TERMINAL_CHECKPOINT_SCHEMA_VERSION
+            .to_be_bytes()
+            .to_vec();
+        plain.push(0);
+        plain.extend_from_slice(&u32::try_from(from_released.len()).unwrap().to_be_bytes());
+        plain.extend_from_slice(from_released);
+        let received = snapshot(&packing::pack(&plain, SNAPSHOT_LEVEL).unwrap()).unwrap();
+        assert_eq!(
+            received.snapshot(),
+            ghostty_vt::snapshot_without_images(from_released).unwrap()
+        );
+        ghostty_vt::Terminal::from_snapshot(
+            received.snapshot(),
+            ghostty_vt::TerminalPolicy {
+                scrollback_max_lines: 10_000,
+                ..ghostty_vt::TerminalPolicy::default()
+            },
+        )
+        .unwrap();
     }
 }

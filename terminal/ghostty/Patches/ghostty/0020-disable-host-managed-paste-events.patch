@@ -1,7 +1,8 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
+index 81ca9abfe..5371ad8c0 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -6179,7 +6179,8 @@ fn startClipboardRequest(
+@@ -6442,7 +6442,8 @@ fn startClipboardRequest(
              // Event pastes request only a MIME listing, while ordinary
              // pastes request the text representation as before.
              self.renderer_state.mutex.lockUncancelable(global.io());

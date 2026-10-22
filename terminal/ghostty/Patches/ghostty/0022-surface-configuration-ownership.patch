@@ -1,5 +1,5 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 5b2d56dc8..ae31b506a 100644
+index 9cadafc02..d9c1e1e5d 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
 @@ -536,6 +536,7 @@ typedef struct {
@@ -11,7 +11,7 @@ index 5b2d56dc8..ae31b506a 100644
  
  typedef enum {
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index dffd0addb..a8be74a00 100644
+index 2d1b0bee5..a7b1b14d4 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -528,6 +528,7 @@ pub const Surface = struct {
@@ -35,7 +35,7 @@ index dffd0addb..a8be74a00 100644
  
          // If we have a working directory from the options then we set it.
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 935f9f3a0..e782bd143 100644
+index 53b0b64ad..514b6c84d 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -185,6 +185,8 @@ pub const DerivedConfig = struct {
@@ -65,8 +65,8 @@ index 935f9f3a0..e782bd143 100644
      self.terminal.setKittyGraphicsSizeLimit(self.alloc, config.image_storage_limit);
      self.terminal.setKittyGraphicsLoadingLimits(.allWithTempDir(global.tmpDirPath()));
  }
-@@ -724,6 +730,8 @@ pub fn restoreCheckpointLocked(
-     }
+@@ -727,6 +733,8 @@ pub fn restoreCheckpointLocked(
+     if (reader.bufferedLen() > 0) return .invalid_value;
  
      // Preserve visual configuration and safety policy, never source policy.
 +    new_terminal.setScrollbackMaxBytes(self.config.scrollback_max_bytes);

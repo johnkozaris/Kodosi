@@ -1,21 +1,23 @@
 diff --git a/src/build/MetallibStep.zig b/src/build/MetallibStep.zig
-index 81c7a4a9f..752cbbd53 100644
+index 81c7a4a9f..877aab891 100644
 --- a/src/build/MetallibStep.zig
 +++ b/src/build/MetallibStep.zig
-@@ -44,7 +44,11 @@ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
+@@ -44,7 +44,13 @@ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
          b,
          b.fmt("metal {s}", .{opts.name}),
      );
 -    run_ir.addArgs(&.{ "/usr/bin/xcrun", "-sdk", sdk, "metal", "-o" });
 +    if (b.graph.environ_map.get("GHOSTTY_METAL")) |metal| {
-+        run_ir.addArgs(&.{ metal, "-o" });
++        // The local toolchain compiles every target against the macOS
++        // sysroot, which Metal shaders do not use.
++        run_ir.addArgs(&.{ metal, "-Wno-incompatible-sysroot", "-o" });
 +    } else {
 +        run_ir.addArgs(&.{ "/usr/bin/xcrun", "-sdk", sdk, "metal", "-o" });
 +    }
      const output_ir = run_ir.addOutputFileArg(b.fmt("{s}.ir", .{opts.name}));
      run_ir.addArgs(&.{"-c"});
      for (opts.sources) |source| run_ir.addFileArg(source);
-@@ -59,7 +63,11 @@ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
+@@ -59,7 +65,11 @@ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
          b,
          b.fmt("metallib {s}", .{opts.name}),
      );

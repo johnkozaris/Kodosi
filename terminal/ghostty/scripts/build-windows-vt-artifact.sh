@@ -115,6 +115,7 @@ patch_application_sha256=$PATCH_APPLICATION_DIGEST
 zig_version=$ZIG_VERSION
 zig_target=$ZIG_TARGET
 zig_sha256=$ZIG_SHA256
+zig_patches_sha256=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/zig)
 zig_store_sha256=$ZIG_STORE_DIGEST
 ghostty_build_options=$(IFS=,; printf '%s' "${OPTIONS[*]}")
 vt_target=$GHOSTTY_WINDOWS_VT_TARGET

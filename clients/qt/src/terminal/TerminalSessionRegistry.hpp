@@ -105,6 +105,8 @@ public:
         std::uint16_t row);
     [[nodiscard]] GhosttyTerminalKernel::Result clearSelection(
         const TerminalSurfaceIdentity& identity);
+    [[nodiscard]] GhosttyTerminalKernel::Result advanceImageAnimations(
+        const TerminalSurfaceIdentity& identity);
     [[nodiscard]] std::expected<QString, GhosttyTerminalKernel::Failure> selectedText(
         const TerminalSurfaceIdentity& identity);
     [[nodiscard]] GhosttyTerminalKernel::ConfigureResult configure(

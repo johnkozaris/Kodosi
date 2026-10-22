@@ -22,7 +22,7 @@ use crate::{
     protocol::SessionKind, terminal,
 };
 
-const VERSION: u32 = 23;
+const VERSION: u32 = 24;
 const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;

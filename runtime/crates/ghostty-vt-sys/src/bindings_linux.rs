@@ -1086,9 +1086,18 @@ pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_RETAIN_CONTI
     GhosttySnapshotDecoderOption = 1;
 pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_COMPRESS_HISTORY:
     GhosttySnapshotDecoderOption = 2;
+pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_KITTY_IMAGE_STORAGE_LIMIT:
+    GhosttySnapshotDecoderOption = 3;
 pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_MAX_VALUE:
     GhosttySnapshotDecoderOption = 2147483647;
 pub type GhosttySnapshotDecoderOption = ::std::os::raw::c_int;
+pub const GhosttySnapshotDecoderProgressKind_GHOSTTY_SNAPSHOT_DECODER_PROGRESS_KIND_PAGE:
+    GhosttySnapshotDecoderProgressKind = 0;
+pub const GhosttySnapshotDecoderProgressKind_GHOSTTY_SNAPSHOT_DECODER_PROGRESS_KIND_IMAGE:
+    GhosttySnapshotDecoderProgressKind = 1;
+pub const GhosttySnapshotDecoderProgressKind_GHOSTTY_SNAPSHOT_DECODER_PROGRESS_KIND_MAX_VALUE:
+    GhosttySnapshotDecoderProgressKind = 2147483647;
+pub type GhosttySnapshotDecoderProgressKind = ::std::os::raw::c_int;
 pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_INVALID:
     GhosttySnapshotDecoderData = 0;
 pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_MAX_CONTINUATION_BYTES:
@@ -1109,6 +1118,24 @@ pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_RETAIN_CONTIN
     GhosttySnapshotDecoderData = 8;
 pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_COMPRESS_HISTORY:
     GhosttySnapshotDecoderData = 9;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_KITTY_IMAGE_STORAGE_LIMIT:
+    GhosttySnapshotDecoderData = 10;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_KIND:
+    GhosttySnapshotDecoderData = 11;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_IMAGE_ID:
+    GhosttySnapshotDecoderData = 12;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_IMAGE_FRAME:
+    GhosttySnapshotDecoderData = 13;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_IMAGE_BYTES:
+    GhosttySnapshotDecoderData = 14;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_KITTY_IMAGES_PRIMARY:
+    GhosttySnapshotDecoderData = 15;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_KITTY_IMAGES_ALTERNATE:
+    GhosttySnapshotDecoderData = 16;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_KITTY_PENDING_BYTES_PRIMARY:
+    GhosttySnapshotDecoderData = 17;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_KITTY_PENDING_BYTES_ALTERNATE:
+    GhosttySnapshotDecoderData = 18;
 pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_MAX_VALUE:
     GhosttySnapshotDecoderData = 2147483647;
 pub type GhosttySnapshotDecoderData = ::std::os::raw::c_int;
@@ -1116,30 +1143,6 @@ unsafe extern "C" {
     pub fn ghostty_snapshot_encode(
         terminal: GhosttyTerminal,
         writer: GhosttyWriter,
-    ) -> GhosttyResult;
-}
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttySnapshotEncodeOptions {
-    pub size: usize,
-    pub kitty_image_data_limit: u64,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttySnapshotEncodeOptions"]
-        [::std::mem::size_of::<GhosttySnapshotEncodeOptions>() - 16usize];
-    ["Alignment of GhosttySnapshotEncodeOptions"]
-        [::std::mem::align_of::<GhosttySnapshotEncodeOptions>() - 8usize];
-    ["Offset of field: GhosttySnapshotEncodeOptions::size"]
-        [::std::mem::offset_of!(GhosttySnapshotEncodeOptions, size) - 0usize];
-    ["Offset of field: GhosttySnapshotEncodeOptions::kitty_image_data_limit"]
-        [::std::mem::offset_of!(GhosttySnapshotEncodeOptions, kitty_image_data_limit) - 8usize];
-};
-unsafe extern "C" {
-    pub fn ghostty_snapshot_encode_options(
-        terminal: GhosttyTerminal,
-        writer: GhosttyWriter,
-        options: *const GhosttySnapshotEncodeOptions,
     ) -> GhosttyResult;
 }
 unsafe extern "C" {

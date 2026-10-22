@@ -1,8 +1,8 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 17a4ba282..623502230 100644
+index 61842f849..81ca9abfe 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -888,6 +888,9 @@ fn queueIo(
+@@ -921,6 +921,9 @@ fn queueIo(
              .write_small,
              .write_stable,
              .write_alloc,
@@ -12,7 +12,7 @@ index 17a4ba282..623502230 100644
              => {
                  msg.deinit();
                  return;
-@@ -1037,7 +1040,7 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
+@@ -1070,7 +1073,7 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
              // the length of the title and this isn't a performance critical
              // path.
              self.queueIo(.{
@@ -21,7 +21,7 @@ index 17a4ba282..623502230 100644
                      .alloc = self.alloc,
                      .data = data,
                  },
-@@ -6385,7 +6388,7 @@ fn completeClipboardReadOSC52(
+@@ -6648,7 +6651,7 @@ fn completeClipboardReadOSC52(
      const encoded = enc.encode(buf[prefix.len..], data);
      assert(encoded.len == size);
  
@@ -30,7 +30,7 @@ index 17a4ba282..623502230 100644
          .alloc = self.alloc,
          .data = buf,
      } }, .unlocked);
-@@ -6496,7 +6499,7 @@ fn kittyClipboardStatus(
+@@ -6759,7 +6762,7 @@ fn kittyClipboardStatus(
          .terminator = terminator,
      }).encode(&aw.writer);
  
@@ -39,7 +39,7 @@ index 17a4ba282..623502230 100644
          .alloc = self.alloc,
          .data = try aw.toOwnedSlice(),
      } }, .unlocked);
-@@ -6552,7 +6555,7 @@ fn completeKittyClipboardRead(
+@@ -6815,7 +6818,7 @@ fn completeKittyClipboardRead(
          .terminator = req.terminator,
      }).encode(&aw.writer);
  
@@ -99,10 +99,10 @@ index eb98d9c10..38464f80e 100644
          .{ .columns = 120, .rows = 40 },
          .{ .width = 1200, .height = 900 },
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 377d3ea9e..d655e9c9c 100644
+index b4b30797b..53b0b64ad 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -380,7 +380,7 @@ pub fn threadEnter(
+@@ -403,7 +403,7 @@ pub fn threadEnter(
  
      // If we have inputs, then queue them all up.
      for (inputs orelse &.{}) |input| switch (input) {
@@ -111,7 +111,7 @@ index 377d3ea9e..d655e9c9c 100644
              log.warn("failed to queue input string err={}", .{err});
              return error.InputFailed;
          },
-@@ -395,7 +395,7 @@ pub fn threadEnter(
+@@ -418,7 +418,7 @@ pub fn threadEnter(
              };
              defer self.alloc.free(contents);
  
@@ -120,7 +120,7 @@ index 377d3ea9e..d655e9c9c 100644
                  log.warn("failed to queue input file err={}", .{err});
                  return error.InputFailed;
              };
-@@ -437,8 +437,9 @@ pub inline fn queueWrite(
+@@ -460,8 +460,9 @@ pub inline fn queueWrite(
      td: *ThreadData,
      data: []const u8,
      linefeed: bool,
@@ -131,7 +131,7 @@ index 377d3ea9e..d655e9c9c 100644
  }
  
  /// Update the configuration.
-@@ -550,7 +551,7 @@ fn sizeReportLocked(self: *Termio, td: *ThreadData, style: termio.Message.SizeRe
+@@ -583,7 +584,7 @@ fn sizeReportLocked(self: *Termio, td: *ThreadData, style: termio.Message.SizeRe
          report_size,
      );
  
@@ -140,7 +140,7 @@ index 377d3ea9e..d655e9c9c 100644
  }
  
  /// Reset the synchronized output mode. This is usually called by timer
-@@ -615,7 +616,7 @@ pub fn clearScreen(self: *Termio, td: *ThreadData, history: bool) !void {
+@@ -648,7 +649,7 @@ pub fn clearScreen(self: *Termio, td: *ThreadData, history: bool) !void {
      }
  
      // If we reached here it means we're at a prompt, so we send a form-feed.
@@ -149,7 +149,7 @@ index 377d3ea9e..d655e9c9c 100644
  }
  
  /// Scroll the viewport
-@@ -653,7 +654,7 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+@@ -686,7 +687,7 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
              log.err("error encoding focus event err={}", .{err});
              return;
          };
@@ -158,7 +158,7 @@ index 377d3ea9e..d655e9c9c 100644
      }
  
      // We always notify our backend of focus changes.
-@@ -905,7 +906,7 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
+@@ -946,7 +947,7 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
      var buf: [terminalpkg.device_status.max_color_scheme_report_encode_size]u8 = undefined;
      var writer: std.Io.Writer = .fixed(&buf);
      try terminalpkg.device_status.encodeColorSchemeReport(&writer, scheme);
@@ -167,7 +167,7 @@ index 377d3ea9e..d655e9c9c 100644
  }
  
  /// Sends a visibility report to the pty. Unforced reports are only sent while
-@@ -929,7 +930,7 @@ pub fn visibilityReport(
+@@ -970,7 +971,7 @@ pub fn visibilityReport(
          &writer,
          if (visible) .potentially_visible else .not_visible,
      );
@@ -177,10 +177,10 @@ index 377d3ea9e..d655e9c9c 100644
  
  /// ThreadData is the data created and stored in the termio thread
 diff --git a/src/termio/Thread.zig b/src/termio/Thread.zig
-index 0f4d99ba3..6f813d413 100644
+index 7f6405f4a..d8f6f07f8 100644
 --- a/src/termio/Thread.zig
 +++ b/src/termio/Thread.zig
-@@ -364,11 +364,13 @@ fn drainMailbox(
+@@ -363,11 +363,13 @@ fn drainMailbox(
                  data,
                  v.data[0..v.len],
                  self.flags.linefeed_mode,
@@ -194,7 +194,7 @@ index 0f4d99ba3..6f813d413 100644
              ),
              .write_alloc => |v| {
                  defer v.alloc.free(v.data);
-@@ -376,6 +378,28 @@ fn drainMailbox(
+@@ -375,6 +377,28 @@ fn drainMailbox(
                      data,
                      v.data,
                      self.flags.linefeed_mode,
@@ -311,10 +311,10 @@ index 3cd602dff..b6e096205 100644
              .kitty_clipboard_grant_write,
              => |v| v.alloc.free(v.pw),
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index a5544036e..745665677 100644
+index 12383f6e9..43656aa71 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -145,7 +145,7 @@ pub const StreamHandler = struct {
+@@ -151,7 +151,7 @@ pub const StreamHandler = struct {
      }
  
      inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
@@ -323,7 +323,7 @@ index a5544036e..745665677 100644
          self.termio_messaged = true;
      }
  
-@@ -1988,7 +1988,7 @@ test "kitty clipboard write: oversized text replies EFBIG" {
+@@ -2179,7 +2179,7 @@ test "kitty clipboard write: oversized text replies EFBIG" {
      const msg = response.?;
      defer msg.deinit();
      switch (msg) {

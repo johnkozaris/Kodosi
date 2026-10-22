@@ -2,7 +2,6 @@
 #include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalLink.hpp"
 #include "terminal/TerminalAccessibility.hpp"
-#include "terminal/TerminalPlaceholders.hpp"
 #include "terminal/TerminalRasterizer.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
@@ -35,9 +34,9 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
-#include <limits>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -254,7 +253,7 @@ QByteArray checkpointFor(const QByteArray& bytes, const std::uint16_t columns, c
     return snapshot;
 }
 
-QByteArray imageCheckpoint(const std::uint64_t imageDataLimit)
+QByteArray imageCheckpoint()
 {
     GhosttyTerminal terminal = nullptr;
     if (ghostty_terminal_new(nullptr, &terminal, 10, 4) != GHOSTTY_SUCCESS) {
@@ -283,15 +282,64 @@ QByteArray imageCheckpoint(const std::uint64_t imageDataLimit)
         },
         &snapshot,
     };
-    GhosttySnapshotEncodeOptions options = GHOSTTY_INIT_SIZED(GhosttySnapshotEncodeOptions);
-    options.kitty_image_data_limit = imageDataLimit;
-    const auto result = ghostty_snapshot_encode_options(terminal, writer, &options);
+    const auto result = ghostty_snapshot_encode(terminal, writer);
     ghostty_terminal_free(terminal);
     if (result != GHOSTTY_SUCCESS) {
         QTest::qFail("failed to encode image snapshot", __FILE__, __LINE__);
         return {};
     }
     return snapshot;
+}
+
+constexpr std::uint16_t readyRecord = 5;
+constexpr std::uint16_t pixelsRecord = 9;
+
+struct SnapshotRecord {
+    std::uint16_t tag = 0;
+    QByteArray bytes;
+};
+
+std::vector<SnapshotRecord> snapshotRecords(const QByteArray& snapshot)
+{
+    std::vector<SnapshotRecord> records;
+    for (qsizetype at = 10; at + 10 <= snapshot.size();) {
+        const auto byte = [&](const qsizetype offset) {
+            return static_cast<std::uint32_t>(static_cast<std::uint8_t>(snapshot[at + offset]));
+        };
+        const auto length = static_cast<qsizetype>(
+            byte(2) | (byte(3) << 8) | (byte(4) << 16) | (byte(5) << 24));
+        records.push_back({
+            .tag = static_cast<std::uint16_t>(byte(0) | (byte(1) << 8)),
+            .bytes = snapshot.mid(at, 10 + length),
+        });
+        at += 10 + length;
+    }
+    return records;
+}
+
+QByteArray withoutPixels(const QByteArray& snapshot)
+{
+    auto kept = snapshot.left(10);
+    for (const auto& record : snapshotRecords(snapshot)) {
+        if (record.tag != pixelsRecord) {
+            kept += record.bytes;
+        }
+    }
+    return kept;
+}
+
+QByteArray visiblePart(const QByteArray& snapshot)
+{
+    auto visible = snapshot.left(10);
+    auto ready = false;
+    for (const auto& record : snapshotRecords(snapshot)) {
+        if (ready && record.tag != pixelsRecord) {
+            break;
+        }
+        visible += record.bytes;
+        ready = ready || record.tag == readyRecord;
+    }
+    return visible;
 }
 
 QString frameText(const kodosi::TerminalFrame& frame)
@@ -365,8 +413,8 @@ private slots:
     void synchronizedOutputShowsOnlyFinishedFrames();
     void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
     void kittyImagesCoverTheHostsCells();
+    void kittyAnimationsPlayTheirFrames();
     void checkpointsCarryImagesWithinTheirPixelBudget();
-    void placeholderImagesFitAndCropAsInGhostty();
     void placeholderCellsShowTheirPartOfTheImage();
     void promptJumpsMoveBetweenMarkedPrompts();
     void promptJumpKeysMoveTheViewWithoutTerminalInput();
@@ -3833,6 +3881,50 @@ void TerminalKernelTest::kittyImagesCoverTheHostsCells()
     QVERIFY((*scrolled)->images.isEmpty());
 }
 
+void TerminalKernelTest::kittyAnimationsPlayTheirFrames()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        10,
+        checkpointFor(QByteArrayLiteral("animation"), 10, 4),
+    }));
+    QVERIFY(kernel.applyResize(subscription, 1, 4, 10, 2, 4));
+    const auto pixels = [](const char* hex) {
+        QByteArray color;
+        for (auto pixel = 0; pixel < 4 * 8; ++pixel) {
+            color += QByteArray::fromHex(hex);
+        }
+        return color.toBase64();
+    };
+
+    const auto playing = kernel.applyData({
+        subscription,
+        1,
+        "\x1b_Ga=T,f=24,s=4,v=8,i=7,q=2;" + pixels("ff0000") + "\x1b\\"
+            + "\x1b_Ga=f,i=7,f=24,s=4,v=8,z=40,q=2;" + pixels("0000ff") + "\x1b\\"
+            + "\x1b_Ga=a,i=7,r=1,z=40,q=2\x1b\\\x1b_Ga=a,i=7,s=3,v=1,q=2\x1b\\",
+    });
+    QVERIFY(playing);
+    QCOMPARE((*playing)->images.size(), 1);
+    QCOMPARE((*playing)->images.front().pixels.pixelColor(0, 0), QColor(Qt::red));
+    QVERIFY((*playing)->imageAnimationDue);
+
+    QTest::qWait(60);
+    const auto next = kernel.advanceImageAnimations(subscription);
+    QVERIFY(next);
+    QCOMPARE((*next)->images.size(), 1);
+    QCOMPARE((*next)->images.front().pixels.pixelColor(0, 0), QColor(Qt::blue));
+    QVERIFY((*next)->imageAnimationDue);
+}
+
 void TerminalKernelTest::checkpointsCarryImagesWithinTheirPixelBudget()
 {
     const kodosi::TerminalSubscription subscription {
@@ -3840,51 +3932,27 @@ void TerminalKernelTest::checkpointsCarryImagesWithinTheirPixelBudget()
         QStringLiteral("subscription"),
         2,
     };
-    kodosi::GhosttyTerminalKernel complete;
-    const auto restored = complete.installCheckpoint({
-        subscription, 1, 4, 10, imageCheckpoint(std::numeric_limits<std::uint64_t>::max())});
-    QVERIFY(restored);
-    QCOMPARE((*restored)->images.size(), 1);
-    QCOMPARE((*restored)->images.front().bounds, QRectF(3, 1, 2, 2));
-    QCOMPARE((*restored)->images.front().pixels.pixelColor(0, 0), QColor(Qt::red));
+    const auto snapshot = imageCheckpoint();
+    const auto visible = visiblePart(snapshot);
+    QVERIFY(visible.size() < snapshot.size());
+    for (const auto& checkpoint : {snapshot, visible}) {
+        kodosi::GhosttyTerminalKernel complete;
+        const auto restored = complete.installCheckpoint({subscription, 1, 4, 10, checkpoint});
+        QVERIFY(restored);
+        QCOMPARE((*restored)->images.size(), 1);
+        QCOMPARE((*restored)->images.front().bounds, QRectF(3, 1, 2, 2));
+        QCOMPARE((*restored)->images.front().pixels.pixelColor(0, 0), QColor(Qt::red));
+    }
 
-    kodosi::GhosttyTerminalKernel withoutPixels;
-    const auto pending = withoutPixels.installCheckpoint({subscription, 1, 4, 10, imageCheckpoint(0)});
+    kodosi::GhosttyTerminalKernel complete;
+    const auto restored = complete.installCheckpoint({subscription, 1, 4, 10, snapshot});
+    QVERIFY(restored);
+    kodosi::GhosttyTerminalKernel pendingKernel;
+    const auto pending =
+        pendingKernel.installCheckpoint({subscription, 1, 4, 10, withoutPixels(snapshot)});
     QVERIFY(pending);
     QVERIFY((*pending)->images.isEmpty());
     QCOMPARE((*pending)->cursor.row, (*restored)->cursor.row);
-}
-
-void TerminalKernelTest::placeholderImagesFitAndCropAsInGhostty()
-{
-    const QSize image(500, 306);
-    const auto check = [&](
-                           const std::uint32_t columns,
-                           const std::uint32_t rows,
-                           const std::uint32_t imageRow,
-                           const QRect& source,
-                           const QPoint& offset,
-                           const QSize& size) {
-        const auto drawing = kodosi::placeholderDrawing(
-            {.imageRow = imageRow, .width = 4}, columns, rows, image, 36, 80);
-        QVERIFY(drawing);
-        QCOMPARE(drawing->source, source);
-        QCOMPARE(drawing->offset, offset);
-        QCOMPARE(drawing->size, size);
-    };
-    check(4, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 36), QSize(144, 44));
-    check(4, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(144, 44));
-    check(2, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 58), QSize(72, 22));
-    check(2, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(72, 22));
-    check(1, 1, 0, QRect(0, 0, 500, 306), QPoint(0, 29), QSize(36, 22));
-
-    const auto natural =
-        kodosi::placeholderDrawing({.width = 2}, 0, 0, QSize(72, 80), 36, 80);
-    QVERIFY(natural);
-    QCOMPARE(natural->source, QRect(0, 0, 72, 80));
-    QCOMPARE(natural->size, QSize(72, 80));
-
-    QVERIFY(!kodosi::placeholderDrawing({.imageColumn = 2, .width = 1}, 2, 2, image, 36, 80));
 }
 
 void TerminalKernelTest::placeholderCellsShowTheirPartOfTheImage()

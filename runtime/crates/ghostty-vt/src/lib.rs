@@ -9,7 +9,7 @@
 pub use ghostty_vt_sys::raw::{
     CompressionProgress, ContextAction, ContextSignal, Effect, Error, ProgramStatus,
     ProgramStatusKind, ProgramStatusState, ProgressState, Screen, SnapshotHeader, SnapshotLimits,
-    TerminalState,
+    TerminalState, snapshot_without_images,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Limits, Terminal as RawTerminal};
@@ -144,7 +144,8 @@ impl Terminal {
         self.raw.encode_snapshot(true, limits)
     }
 
-    /// Ends at READY. The first page of a screen can also hold some history rows.
+    /// Ends before the history, after READY and the pixels of the images on screen.
+    /// The first page of a screen can also hold some history rows.
     pub fn visible_snapshot(&mut self, limits: SnapshotLimits) -> Result<Vec<u8>, Error> {
         self.raw.encode_snapshot(false, limits)
     }

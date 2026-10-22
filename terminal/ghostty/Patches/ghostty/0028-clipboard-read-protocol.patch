@@ -1,8 +1,8 @@
 diff --git a/include/ghostty/vt/terminal.h b/include/ghostty/vt/terminal.h
-index 4af99161e..e115c8428 100644
+index def7803fc..8b5f0fe73 100644
 --- a/include/ghostty/vt/terminal.h
 +++ b/include/ghostty/vt/terminal.h
-@@ -699,6 +699,24 @@ typedef enum GHOSTTY_ENUM_TYPED {
+@@ -937,6 +937,24 @@ typedef enum GHOSTTY_ENUM_TYPED {
    GHOSTTY_CLIPBOARD_LOCATION_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
  } GhosttyClipboardLocation;
  
@@ -27,7 +27,7 @@ index 4af99161e..e115c8428 100644
  /**
   * One MIME representation in a clipboard write.
   *
-@@ -1034,6 +1052,9 @@ struct GhosttyClipboardRead {
+@@ -1272,6 +1290,9 @@ struct GhosttyClipboardRead {
  
    /** Answer the read; see the struct documentation. */
    GhosttyClipboardReadReplyFn reply;
@@ -38,10 +38,10 @@ index 4af99161e..e115c8428 100644
  
  /**
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index 06cab9b24..f6bd34968 100644
+index 5f047f489..ee07fb71c 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
-@@ -164,6 +164,7 @@ pub const ClipboardRead = extern struct {
+@@ -165,6 +165,7 @@ pub const ClipboardRead = extern struct {
      /// Terminal-owned reply state; opaque to the embedder.
      ctx: *const anyopaque,
      reply: ClipboardReadReplyFn,
@@ -49,7 +49,7 @@ index 06cab9b24..f6bd34968 100644
  };
  
  /// C function pointer type for replying to a clipboard read.
-@@ -572,6 +573,7 @@ const Effects = struct {
+@@ -574,6 +575,7 @@ const Effects = struct {
              .can_remember = read.can_remember,
              .ctx = &ctx,
              .reply = &clipboardReadReplyTrampoline,
@@ -57,7 +57,7 @@ index 06cab9b24..f6bd34968 100644
          };
          func(@ptrCast(wrapper), wrapper.effects.userdata, &request);
      }
-@@ -6010,6 +6012,7 @@ test "kitty clipboard write via C effects" {
+@@ -6499,6 +6501,7 @@ test "kitty clipboard write via C effects" {
          var last_name_len: usize = 0;
          var last_granted: bool = true;
          var last_can_remember: bool = true;
@@ -65,7 +65,7 @@ index 06cab9b24..f6bd34968 100644
  
          fn clipboardRead(
              _: Terminal,
-@@ -6017,6 +6020,7 @@ test "kitty clipboard write via C effects" {
+@@ -6506,6 +6509,7 @@ test "kitty clipboard write via C effects" {
              request: *const ClipboardRead,
          ) callconv(lib.calling_conv) void {
              count += 1;
@@ -73,7 +73,7 @@ index 06cab9b24..f6bd34968 100644
              last_mimes_len = request.mimes_len;
              last_mime_is_text = request.mimes_len > 0 and std.mem.eql(
                  u8,
-@@ -6052,6 +6056,7 @@ test "kitty clipboard write via C effects" {
+@@ -6541,6 +6545,7 @@ test "kitty clipboard write via C effects" {
      const read2 = "\x1B]5522;type=read:id=r2:name=YXBw;dGV4dC9wbGFpbg==\x1B\\";
      vt_write(t, read2, read2.len);
      try testing.expectEqual(@as(usize, 1), R.count);
@@ -81,7 +81,7 @@ index 06cab9b24..f6bd34968 100644
      try testing.expectEqual(@as(usize, 1), R.last_mimes_len);
      try testing.expect(R.last_mime_is_text);
      try testing.expect(!R.last_list);
-@@ -6172,6 +6177,7 @@ test "set clipboard_read callback" {
+@@ -6661,6 +6666,7 @@ test "set clipboard_read callback" {
          var last_name_len: usize = 1;
          var last_granted: bool = true;
          var last_can_remember: bool = true;
@@ -89,7 +89,7 @@ index 06cab9b24..f6bd34968 100644
          var result: clipboard.Read.Status = .success;
  
          fn deinit() void {
-@@ -6202,6 +6208,7 @@ test "set clipboard_read callback" {
+@@ -6691,6 +6697,7 @@ test "set clipboard_read callback" {
              last_name_len = request.name.len;
              last_granted = request.granted;
              last_can_remember = request.can_remember;
@@ -97,7 +97,7 @@ index 06cab9b24..f6bd34968 100644
  
              const mime: []const u8 = "text/plain";
              const data: []const u8 = "hello";
-@@ -6244,6 +6251,7 @@ test "set clipboard_read callback" {
+@@ -6733,6 +6740,7 @@ test "set clipboard_read callback" {
      try testing.expectEqual(0, S.last_name_len);
      try testing.expect(!S.last_granted);
      try testing.expect(!S.last_can_remember);
@@ -106,10 +106,10 @@ index 06cab9b24..f6bd34968 100644
  
      // Denied replies with an empty clipboard.
 diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
-index bed63799a..09b476fc3 100644
+index db75bfddf..74f882e1a 100644
 --- a/src/terminal/c/types.zig
 +++ b/src/terminal/c/types.zig
-@@ -262,6 +262,7 @@ const type_decls = [_]TypeDecl{
+@@ -263,6 +263,7 @@ const type_decls = [_]TypeDecl{
      .initEnum("GhosttyCellSemanticContent", cell.SemanticContent, "GHOSTTY_CELL_SEMANTIC_"),
      .initEnum("GhosttyCellWide", cell.Wide, "GHOSTTY_CELL_WIDE_"),
      .initEnum("GhosttyClipboardLocation", clipboard.Location, "GHOSTTY_CLIPBOARD_LOCATION_"),
@@ -151,10 +151,10 @@ index 0a1c5a7ae..2584e55c5 100644
      /// reply should carry every requested representation the clipboard
      /// has; unrequested ones are ignored. Protocols that only carry text
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index 8b5e5e502..34f2b65eb 100644
+index 826694595..e1b8e51ee 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
-@@ -1083,6 +1083,7 @@ pub const Handler = struct {
+@@ -1078,6 +1078,7 @@ pub const Handler = struct {
          };
          func(self, .{
              .location = location,
@@ -162,7 +162,7 @@ index 8b5e5e502..34f2b65eb 100644
              .mimes = &.{"text/plain"},
              .list = false,
              .name = "",
-@@ -1266,6 +1267,7 @@ pub const Handler = struct {
+@@ -1262,6 +1263,7 @@ pub const Handler = struct {
          };
          func(self, .{
              .location = meta.loc,

@@ -134,8 +134,6 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalFrame.hpp
     terminal/TerminalImages.cpp
     terminal/TerminalImages.hpp
-    terminal/TerminalPlaceholders.cpp
-    terminal/TerminalPlaceholders.hpp
     terminal/TerminalRasterizer.cpp
     terminal/TerminalRasterizer.hpp
     terminal/TerminalSessionRegistry.cpp

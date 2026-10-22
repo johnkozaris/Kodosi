@@ -567,6 +567,21 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::clearSelection(
     return result;
 }
 
+GhosttyTerminalKernel::Result TerminalSessionRegistry::advanceImageAnimations(
+    const TerminalSurfaceIdentity& identity)
+{
+    auto entry = m_impl->exact(identity);
+    if (!entry) {
+        return std::unexpected(GhosttyTerminalKernel::Failure {
+            GhosttyTerminalKernel::Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal images belong to an unregistered surface."),
+        });
+    }
+    auto result = entry->kernel.advanceImageAnimations(identity.subscription);
+    publishFrame(entry, result);
+    return result;
+}
+
 std::expected<QString, GhosttyTerminalKernel::Failure>
 TerminalSessionRegistry::selectedText(const TerminalSurfaceIdentity& identity)
 {

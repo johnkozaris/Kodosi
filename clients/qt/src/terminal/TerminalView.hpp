@@ -192,6 +192,7 @@ private:
     TerminalRasterizer::Palette m_palette;
     QTimer m_cursorBlinkTimer;
     QTimer m_historyCompressionTimer;
+    QTimer m_imageAnimationTimer;
     QMetaObject::Connection m_windowVisibilityConnection;
     bool m_cursorPhaseVisible = true;
     GhosttyTerminalKernel::Frame m_frame;

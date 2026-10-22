@@ -203,6 +203,7 @@ public:
         std::uint16_t column,
         std::uint16_t row);
     [[nodiscard]] Result clearSelection(const TerminalSubscription& subscription);
+    [[nodiscard]] Result advanceImageAnimations(const TerminalSubscription& subscription);
     [[nodiscard]] std::expected<QString, Failure> selectedText(
         const TerminalSubscription& subscription);
     [[nodiscard]] ConfigureResult configure(TerminalKernelSettings settings);
