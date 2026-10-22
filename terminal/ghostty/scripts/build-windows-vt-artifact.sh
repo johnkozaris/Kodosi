@@ -57,8 +57,6 @@ import subprocess
 import sys
 from pathlib import Path, PureWindowsPath
 
-SYSTEM_IMPORT_LIBRARIES = ["kernel32.lib", "ntdll.lib"]
-
 source, destination, object_root = (Path(argument) for argument in sys.argv[1:4])
 build_root = sys.argv[4]
 object_root.mkdir(parents=True)
@@ -70,7 +68,7 @@ members = [
 if len(members) != len(set(members)):
     raise SystemExit("[!] Ghostty VT archive contains duplicate member basenames")
 objects = sorted(member for member in members if member.endswith(".obj"))
-if sorted(set(members) - set(objects)) != SYSTEM_IMPORT_LIBRARIES:
+if len(objects) != len(members):
     raise SystemExit(f"[!] Ghostty VT archive contains unexpected members: {members}")
 
 subprocess.run(["llvm-ar", "x", source], cwd=object_root, check=True)
