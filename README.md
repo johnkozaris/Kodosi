@@ -4,15 +4,16 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
-  <a href="clients/macos/README.md"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
-  <a href="clients/qt/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
+  <a href="#get-kodosi"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
+  <a href="#get-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
+  <a href="#get-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 or later on x64"></a>
   <a href="clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 or later on iPhone and iPad"></a>
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Latest release"></a>
 </p>
 
-Kodosi is a terminal app for coding agents. It keeps the terminals of all your computers
-in one window, shows which agent needs you, and lets your friends work in the same
-terminals. Everything is end-to-end encrypted.
+Kodosi is a terminal app for coding agents on Mac, Linux and Windows. It keeps the
+terminals of all your computers in one window, shows which agent needs you, and lets your
+friends work in the same terminals. Everything is end-to-end encrypted.
 
 <p align="center">
   <picture>
@@ -23,9 +24,9 @@ terminals. Everything is end-to-end encrypted.
 
 ## What Kodosi does
 
-**Every terminal in one window.** The terminals of your Mac, your Linux computer and your
-friends' computers are in one sidebar. Each one is a real shell on its own computer, and
-you start a new one on any of your computers from the same window.
+**Every terminal in one window.** The terminals of your Mac, your Linux or Windows computer
+and your friends' computers are in one sidebar. Each one is a real shell on its own
+computer, and you start a new one on any of your computers from the same window.
 
 **Know which agent needs you.** Run Claude Code, Codex, Copilot CLI or any other terminal
 agent. Each terminal shows when its agent works, waits for your approval, is done or
@@ -62,18 +63,22 @@ them. [Security](docs/SECURITY.md)
 
 ## Get Kodosi
 
-- **Mac** (Apple silicon, macOS 26.4 or later):
-  [download Kodosi](https://updates.kodosi.com/download/macos), or
-  `brew install --cask johnkozaris/tap/kodosi`. The app updates itself.
-- **Linux** (x86-64, Ubuntu 24.04 or Debian 13 or later): install the
-  [Debian package](https://updates.kodosi.com/download/linux). It adds the Kodosi apt
-  repository, so system updates update Kodosi. The
+<p>
+  <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/Download-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Download Kodosi for Mac"></a>
+  <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/Download-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Download Kodosi for Linux"></a>
+  <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Download-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Download Kodosi for Windows"></a>
+</p>
+
+- **Mac** (Apple silicon, macOS 26.4 or later): open the disk image and move Kodosi to
+  Applications, or run `brew install --cask johnkozaris/tap/kodosi`. The app updates
+  itself.
+- **Linux** (x86-64, Ubuntu 24.04 or Debian 13 or later): install the Debian package. It
+  adds the Kodosi apt repository, so system updates update Kodosi. The
   [release](https://github.com/johnkozaris/Kodosi/releases/latest) also has an Arch
   package and a portable archive.
-- **Windows** (x64, Windows 11 24H2 or later): one time, as an administrator, add the
-  [Kodosi certificate](https://updates.kodosi.com/windows/Kodosi.cer) to Local Computer ›
-  Trusted People. Then [download Kodosi](https://updates.kodosi.com/download/windows) and
-  open it. The app updates itself.
+- **Windows** (x64, Windows 11 24H2 or later): before you open the download the first
+  time, add the [Kodosi certificate](https://updates.kodosi.com/windows/Kodosi.cer) to
+  Local Computer › Trusted People, as an administrator. The app updates itself.
 - **iPhone and iPad:** build Kodosi for your [iPhone or iPad](clients/ios/README.md).
 
 Then follow [Getting started](docs/GETTING_STARTED.md).
