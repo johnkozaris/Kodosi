@@ -133,7 +133,6 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
         }
     });
     let served = tokio::spawn(async move {
-        let version = channel.version();
         let mut stream = Stream::new(
             channel,
             output,
@@ -142,7 +141,6 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 connection: Uuid::now_v7(),
                 authorization: CancellationToken::new(),
             },
-            version,
         );
         let result = stream.serve().await;
         stream.channel.close().await;

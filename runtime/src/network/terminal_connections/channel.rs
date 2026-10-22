@@ -122,12 +122,12 @@ impl<T: Transport> Channel<T> {
         self.tls.handshake_kind() == Some(HandshakeKind::Resumed)
     }
 
-    /// Kodosi 0.1.1 offers no protocol, and its channels have the oldest version.
-    pub(super) fn version(&self) -> u32 {
+    /// A peer that does not choose the channel protocol has an older version of Kodosi.
+    pub(super) fn version(&self) -> Result<u32> {
         if self.tls.alpn_protocol() == Some(channel_protocol().as_slice()) {
-            crate::protocol::CHANNEL_VERSION
+            Ok(crate::protocol::CHANNEL_VERSION)
         } else {
-            crate::protocol::OLDEST_CHANNEL_VERSION
+            Err(Error::ChannelVersion { peer_newer: false })
         }
     }
 
@@ -593,9 +593,7 @@ pub(super) mod tests {
         assert!(near.receive().await.unwrap().is_none());
     }
 
-    pub(in crate::network::terminal_connections) fn released_channel_keys(
-        keys: &DeviceKeys,
-    ) -> ChannelKeys {
+    fn channel_keys_without_protocol(keys: &DeviceKeys) -> ChannelKeys {
         let keys = channel_keys(keys);
         let mut client = (*keys.client).clone();
         client.alpn_protocols.clear();
@@ -609,30 +607,35 @@ pub(super) mod tests {
     }
 
     #[tokio::test]
-    async fn a_channel_with_kodosi_0_1_1_has_the_oldest_version() {
+    async fn a_peer_without_the_channel_protocol_has_an_older_kodosi() {
         let (host, viewer) = (
             DeviceKeys::generate().unwrap(),
             DeviceKeys::generate().unwrap(),
         );
-        for (host_keys, viewer_keys, version) in [
+        let (near, far) = join(
+            &channel_keys(&host),
+            &channel_keys(&viewer),
+            host.signing_public(),
+        )
+        .await;
+        assert_eq!(
+            (near.version().unwrap(), far.version().unwrap()),
             (
-                channel_keys(&host),
-                channel_keys(&viewer),
                 crate::protocol::CHANNEL_VERSION,
-            ),
-            (
-                released_channel_keys(&host),
-                channel_keys(&viewer),
-                crate::protocol::OLDEST_CHANNEL_VERSION,
-            ),
-            (
-                channel_keys(&host),
-                released_channel_keys(&viewer),
-                crate::protocol::OLDEST_CHANNEL_VERSION,
-            ),
+                crate::protocol::CHANNEL_VERSION
+            )
+        );
+        for (host_keys, viewer_keys) in [
+            (channel_keys_without_protocol(&host), channel_keys(&viewer)),
+            (channel_keys(&host), channel_keys_without_protocol(&viewer)),
         ] {
             let (near, far) = join(&host_keys, &viewer_keys, host.signing_public()).await;
-            assert_eq!((near.version(), far.version()), (version, version));
+            for version in [near.version(), far.version()] {
+                assert!(matches!(
+                    version,
+                    Err(Error::ChannelVersion { peer_newer: false })
+                ));
+            }
         }
     }
 

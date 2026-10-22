@@ -280,7 +280,7 @@ public sealed class ConnectionDirectory
         var ready = devices.Values.Where(x => x.Ready).ToArray();
         var hosts = ready.Where(x => x.Connection.Hosts && x.Connection.IsOpen).Select(x => x.Connection.DeviceId).Order(StringComparer.Ordinal).ToArray();
         var notice = Wire.Encode(new HostsNotice(hosts));
-        foreach (var entry in ready.Where(x => x.Connection.KnowsCalls && (only is null || x.Connection == only))) entry.Connection.Send(notice);
+        foreach (var entry in ready.Where(x => only is null || x.Connection == only)) entry.Connection.Send(notice);
     }
 
     private void RemoveHostedLocked(Guid sessionId, Hosted live, Ending ending, int status = 404, string message = "This terminal is no longer available.")

@@ -349,7 +349,7 @@ async fn connect(
         viewers.insert(id, admitted);
     }
     let info = publication.info.read().await.clone();
-    let version = channel.version();
+    let version = channel.version()?;
     channel
         .send(&Frame::Accept(Accept {
             protocol_version: version,
@@ -376,7 +376,6 @@ async fn connect(
             connection: id,
             authorization,
         },
-        version,
     );
     let ended = stream.serve().await;
     if ended.is_ok() {
@@ -474,7 +473,6 @@ enum Captured {
 
 struct Stream<'a, T> {
     channel: Channel<T>,
-    version: u32,
     output: PublicationOutput,
     requests: &'a mpsc::Sender<HostRequest>,
     controller: Controller,
@@ -509,11 +507,9 @@ impl<'a, T: Transport> Stream<'a, T> {
         output: PublicationOutput,
         requests: &'a mpsc::Sender<HostRequest>,
         controller: Controller,
-        version: u32,
     ) -> Self {
         Self {
             channel,
-            version,
             output,
             requests,
             controller,
@@ -713,11 +709,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         let request = HostRequest::Bootstrap {
             request_id: marker,
             history: full,
-            image_data_bytes: if self.version < crate::protocol::CHANNEL_VERSION {
-                0
-            } else {
-                self.pacer.image_data_bytes()
-            },
+            image_data_bytes: self.pacer.image_data_bytes(),
             reply,
         };
         if self.requests.try_send(request).is_err() {
@@ -746,7 +738,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             Captured::Again => return Ok(None),
             Captured::Ended(end) => return Ok(Some(end)),
         };
-        self.parts = wire::snapshot_parts(&cut.checkpoint, self.version)?.into();
+        self.parts = wire::snapshot_parts(&cut.checkpoint)?.into();
         if full {
             self.keyframe_bytes = self.parts.iter().map(Bytes::len).sum();
         }

@@ -115,9 +115,10 @@ async fn open(
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            if accept.protocol_version != channel.version() {
+            let version = channel.version()?;
+            if accept.protocol_version != version {
                 return Err(Error::ChannelVersion {
-                    peer_newer: accept.protocol_version > channel.version(),
+                    peer_newer: accept.protocol_version > version,
                 });
             }
             if (

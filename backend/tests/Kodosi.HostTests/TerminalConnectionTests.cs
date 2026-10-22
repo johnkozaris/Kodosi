@@ -14,10 +14,10 @@ public sealed class TerminalConnectionTests
         new(socket, user, device, relays, TimeProvider.System);
 
     private static (DeviceConnection Connection, CapturingSocket Socket) Device(ConnectionDirectory directory, Guid? user = null, string device = "viewer",
-        bool hosts = false, int version = ContractVersions.TerminalConnection)
+        bool hosts = false)
     {
         var socket = new CapturingSocket();
-        return (new DeviceConnection(socket, user ?? Guid.CreateVersion7(), device, directory.Relays, TimeProvider.System, version, hosts), socket);
+        return (new DeviceConnection(socket, user ?? Guid.CreateVersion7(), device, directory.Relays, TimeProvider.System, hosts), socket);
     }
 
     private static async Task<JsonElement> MessageAsync(CapturingSocket socket, string type)
@@ -316,9 +316,8 @@ public sealed class TerminalConnectionTests
         var directory = new ConnectionDirectory(); var user = Guid.CreateVersion7();
         var (computer, _) = Device(directory, user, "computer", hosts: true);
         var (laptop, laptopSocket) = Device(directory, user, "laptop", hosts: true);
-        var (older, olderSocket) = Device(directory, user, "older", version: ContractVersions.OldestTerminalConnection);
-        await using var disposeComputer = computer; await using var disposeLaptop = laptop; await using var disposeOlder = older;
-        foreach (var device in new[] { computer, laptop, older }) { directory.Register(device); directory.Ready(device); }
+        await using var disposeComputer = computer; await using var disposeLaptop = laptop;
+        foreach (var device in new[] { computer, laptop }) { directory.Register(device); directory.Ready(device); }
         Assert.Equal(["computer", "laptop"], Hosts(await MessageAsync(laptopSocket, "hosts")));
         var calls = Enumerable.Range(0, ConnectionDirectory.MaximumCalls).Select(_ => Guid.CreateVersion7()).ToArray();
         foreach (var call in calls) directory.Call(laptop, call, "computer");
@@ -331,9 +330,7 @@ public sealed class TerminalConnectionTests
         var closed = await MessageAsync(laptopSocket, "closed");
         Assert.Equal(409, closed.GetProperty("status").GetInt32());
         Assert.Equal("That computer is not online.", closed.GetProperty("message").GetString());
-        Assert.Equal((2, 0, 0), directory.Counts());
-        while (olderSocket.Frames.Reader.TryRead(out var frame))
-            Assert.DoesNotContain("\"hosts\"", Encoding.UTF8.GetString(frame.Bytes), StringComparison.Ordinal);
+        Assert.Equal((1, 0, 0), directory.Counts());
     }
 
     [Fact]

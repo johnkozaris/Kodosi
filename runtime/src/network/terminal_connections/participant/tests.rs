@@ -41,7 +41,7 @@ async fn view() -> View {
 impl View {
     async fn keyframe(&mut self, next_sequence: u64, bytes: usize) -> u64 {
         let checkpoint = Checkpoint::new(stand_in_snapshot(bytes), false).unwrap();
-        let parts = wire::snapshot_parts(&checkpoint, crate::protocol::CHANNEL_VERSION).unwrap();
+        let parts = wire::snapshot_parts(&checkpoint).unwrap();
         let last = parts.len() - 1;
         let mut sent = 0;
         for (at, part) in parts.into_iter().enumerate() {

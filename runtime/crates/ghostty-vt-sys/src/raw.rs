@@ -192,40 +192,6 @@ impl SnapshotHeader {
     }
 }
 
-fn snapshot_records(snapshot: &[u8]) -> Result<Vec<(u16, &[u8])>, Error> {
-    let mut rest = snapshot
-        .strip_prefix(SNAPSHOT_ENVELOPE)
-        .ok_or(Error::InvalidValue)?;
-    let mut records = Vec::new();
-    while !rest.is_empty() {
-        let header = rest
-            .get(..SNAPSHOT_RECORD_HEADER_BYTES)
-            .ok_or(Error::InvalidValue)?;
-        let tag = u16::from_le_bytes([header[0], header[1]]);
-        let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
-        let record = SNAPSHOT_RECORD_HEADER_BYTES
-            .checked_add(payload)
-            .and_then(|len| rest.get(..len))
-            .ok_or(Error::InvalidValue)?;
-        records.push((tag, record));
-        rest = &rest[record.len()..];
-    }
-    Ok(records)
-}
-
-/// Kodosi 0.1.1 kept images in records of its own under the tags that Ghostty
-/// now gives its image records, so a snapshot passes between them without images.
-pub fn snapshot_without_images(snapshot: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut kept = Vec::with_capacity(snapshot.len());
-    kept.extend_from_slice(SNAPSHOT_ENVELOPE);
-    for (tag, record) in snapshot_records(snapshot)? {
-        if tag < *SNAPSHOT_IMAGE_TAGS.start() {
-            kept.extend_from_slice(record);
-        }
-    }
-    Ok(kept)
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotLimits {
     pub text_bytes: usize,
@@ -1994,15 +1960,22 @@ mod tests {
 
     const IMAGE: &[u8] = b"\x1b_Ga=T,f=32,s=1,v=1,i=7;AQIDBA==\x1b\\";
     const PLACE_IMAGE_AGAIN: &[u8] = b"\x1b_Ga=p,i=7\x1b\\";
-    const KODOSI_0_1_1_IMAGE: &[u8] = include_bytes!("kodosi-0.1.1-image.snapshot");
 
     fn record_bytes(snapshot: &[u8], tags: std::ops::RangeInclusive<u16>) -> usize {
-        snapshot_records(snapshot)
-            .expect("records")
-            .iter()
-            .filter(|(tag, _)| tags.contains(tag))
-            .map(|(_, record)| record.len())
-            .sum()
+        let mut rest = snapshot
+            .strip_prefix(SNAPSHOT_ENVELOPE)
+            .expect("snapshot envelope");
+        let mut bytes = 0;
+        while !rest.is_empty() {
+            let tag = u16::from_le_bytes([rest[0], rest[1]]);
+            let payload = u32::from_le_bytes([rest[2], rest[3], rest[4], rest[5]]) as usize;
+            let record = SNAPSHOT_RECORD_HEADER_BYTES + payload;
+            if tags.contains(&tag) {
+                bytes += record;
+            }
+            rest = &rest[record..];
+        }
+        bytes
     }
 
     fn with_image() -> Terminal {
@@ -2103,24 +2076,6 @@ mod tests {
             record_bytes(&encoded, SNAPSHOT_IMAGE_TAGS)
         );
         assert_eq!(images(3), 0);
-    }
-
-    #[test]
-    fn a_snapshot_passes_between_versions_without_its_images() {
-        let mut source = with_image();
-        source.write(b"\r\ncd").expect("text");
-        let shared = snapshot_without_images(&snapshot(&mut source, true)).expect("shared");
-
-        assert_eq!(record_bytes(&shared, 8..=u16::MAX), 0);
-        assert_eq!(
-            snapshot_without_images(KODOSI_0_1_1_IMAGE).expect("0.1.1 shared"),
-            shared
-        );
-        assert_eq!(restore(&shared).expect("restore").state(), source.state());
-        assert_eq!(
-            snapshot_without_images(&KODOSI_0_1_1_IMAGE[..KODOSI_0_1_1_IMAGE.len() - 1]),
-            Err(Error::InvalidValue)
-        );
     }
 
     #[test]

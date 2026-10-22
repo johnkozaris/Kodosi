@@ -70,8 +70,11 @@ them. [Security](docs/SECURITY.md)
   repository, so system updates update Kodosi. The
   [release](https://github.com/johnkozaris/Kodosi/releases/latest) also has an Arch
   package and a portable archive.
-- **Windows, iPhone and iPad:** build Kodosi for [Windows](clients/qt/README.md) or for
-  your [iPhone or iPad](clients/ios/README.md).
+- **Windows** (x64, Windows 11 24H2 or later): one time, as an administrator, add the
+  [Kodosi certificate](https://updates.kodosi.com/windows/Kodosi.cer) to Local Computer ›
+  Trusted People. Then [download Kodosi](https://updates.kodosi.com/download/windows) and
+  open it. The app updates itself.
+- **iPhone and iPad:** build Kodosi for your [iPhone or iPad](clients/ios/README.md).
 
 Then follow [Getting started](docs/GETTING_STARTED.md).
 
