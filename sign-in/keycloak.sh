@@ -8,7 +8,7 @@ mailbox=kodosi-signin-mailbox
 network=kodosi-signin
 port=${KODOSI_SIGN_IN_KEYCLOAK_PORT:-8284}
 mailbox_port=${KODOSI_SIGN_IN_MAILBOX_PORT:-8285}
-image=quay.io/keycloak/keycloak:26.7.5
+image=quay.io/keycloak/keycloak:26.8.1
 jar=dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar
 check_jar=dev/turnstile/build/kodosi-turnstile-stand-in.jar
 realm=kodosi
@@ -65,8 +65,10 @@ check() {
 }
 
 if [ "${1:-}" = code ]; then
+  challenge=$(openssl rand 32 | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
   answer=$(curl -fsS "http://localhost:$port/realms/$realm/protocol/openid-connect/auth/device" \
-    -d client_id=kodosi-app -d 'scope=openid profile offline_access')
+    -d client_id=kodosi-app -d 'scope=openid profile offline_access' \
+    -d "code_challenge=$challenge" -d code_challenge_method=S256)
   code=$(printf '%s' "$answer" | sed -E 's/.*"user_code":"([^"]+)".*/\1/')
   address=$(printf '%s' "$answer" | sed -E 's/.*"verification_uri":"([^"]+)".*/\1/')
   echo "The code:            $code"
@@ -105,7 +107,7 @@ fi
 admin=$(openssl rand -hex 16)
 docker network create "$network" >/dev/null
 docker run -d --name "$mailbox" --network "$network" -p "127.0.0.1:$mailbox_port:8025" \
-  axllent/mailpit:v1.27 >/dev/null
+  axllent/mailpit:v1.31.6 >/dev/null
 docker run -d --name "$name" --network "$network" -p "127.0.0.1:$port:8080" \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$admin" \
   -e KODOSI_TERMS_URL=https://kodosi.com/terms -e KODOSI_PRIVACY_URL=https://kodosi.com/privacy \
@@ -164,10 +166,11 @@ calm kc update users/profile -r $realm -b '{
 }'
 
 calm kc create clients -r $realm -s clientId=kodosi-app -s name=Kodosi -s publicClient=true \
-  -s standardFlowEnabled=true -s directAccessGrantsEnabled=false \
+  -s standardFlowEnabled=true -s directAccessGrantsEnabled=false -s fullScopeAllowed=false \
   -s 'redirectUris=["http://127.0.0.1/callback","com.kodosi:/auth"]' \
   -s 'attributes={"oauth2.device.authorization.grant.enabled":"true","use.refresh.tokens":"true","pkce.code.challenge.method":"S256"}' \
-  -s 'defaultClientScopes=["basic","profile"]' -s 'optionalClientScopes=["offline_access"]'
+  -s 'defaultClientScopes=["basic","profile"]' -s 'optionalClientScopes=["offline_access"]' \
+  -s 'protocolMappers=[{"name":"kodosi-app audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","config":{"included.client.audience":"kodosi-app","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]'
 
 # A built-in flow takes no new step, so the realm uses copies. A copy loses the place of the terms
 # step after the step that makes the account.
@@ -219,7 +222,7 @@ calm kc create identity-provider/instances -r $realm -s alias=apple -s providerI
 calm kc create realms -s realm=elsewhere -s enabled=true -s 'displayName=Stand-in for GitHub' \
   -s "attributes={\"frontendUrl\":\"http://localhost:$port\"}"
 secret=$(openssl rand -hex 16)
-calm kc create clients -r elsewhere -s clientId=kodosi -s publicClient=false \
+calm kc create clients -r elsewhere -s clientId=kodosi -s publicClient=false -s fullScopeAllowed=false \
   -s "secret=$secret" -s "redirectUris=[\"http://localhost:$port/realms/$realm/broker/github/endpoint\"]"
 outside="http://localhost:$port/realms/elsewhere/protocol/openid-connect"
 inside="http://$name:8080/realms/elsewhere/protocol/openid-connect"
