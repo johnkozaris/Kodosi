@@ -75,8 +75,8 @@ function(kodosi_install app)
         DESTINATION share/metainfo
     )
     install(
-        FILES "${PROJECT_SOURCE_DIR}/packaging/linux/com.kodosi.Kodosi.svg"
-        DESTINATION share/icons/hicolor/scalable/apps
+        DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/linux/icons/"
+        DESTINATION share/icons/hicolor
     )
     install(
         FILES "${PROJECT_SOURCE_DIR}/packaging/linux/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt"

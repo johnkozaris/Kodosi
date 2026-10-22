@@ -48,6 +48,12 @@ set(KODOSI_MSIX_PUBLISHER "CN=Kodosi Development, OID.2.25.311729368913984317654
 
 function(kodosi_install app)
     set_target_properties(${app} PROPERTIES WIN32_EXECUTABLE ON)
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/windows/Kodosi.rc.in"
+        "${PROJECT_BINARY_DIR}/Kodosi.rc"
+        @ONLY
+    )
+    target_sources(${app} PRIVATE "${PROJECT_BINARY_DIR}/Kodosi.rc")
     execute_process(
         COMMAND
             "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/install-conpty.py"

@@ -453,7 +453,7 @@ def check_files(root: Path, qt_version: str) -> None:
         f"{PRIVATE}/bin/qt.conf",
         DESKTOP,
         METAINFO,
-        "usr/share/icons/hicolor/scalable/apps/com.kodosi.Kodosi.svg",
+        "usr/share/icons/hicolor/256x256/apps/com.kodosi.Kodosi.png",
         *(f"{PRIVATE}/lib/libQt6{module}.so.{qt_version}" for module in ("Core", "DBus", "Widgets")),
         *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS),
     ):
