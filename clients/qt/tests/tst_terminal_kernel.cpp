@@ -1152,10 +1152,10 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
             before.lineHeight = lineHeight;
             for (auto [frame, options, mostRows] : {
                      Change {&earlier, Options {}, 0},
-                     Change {&typed, Options {}, 5},
-                     Change {&earlier, blink, 3},
-                     Change {&moved, Options {}, 7},
-                     Change {&scrolled, Options {}, 5},
+                     Change {&typed, Options {}, 4},
+                     Change {&earlier, blink, 1},
+                     Change {&moved, Options {}, 5},
+                     Change {&scrolled, Options {}, 4},
                      Change {&earlier, composing, 3},
                  }) {
                 options.lineHeight = lineHeight;
