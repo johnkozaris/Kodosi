@@ -375,7 +375,7 @@ target_compile_definitions(kodosi-runtime
 )
 target_compile_definitions(kodosi-qt PRIVATE KODOSI_VERSION="${PROJECT_VERSION}")
 foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
-    target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
+    target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KODOSI_COMPILE_OPTIONS}>")
 endforeach()
 
 add_custom_target(kodosi-qt-host-program ALL
