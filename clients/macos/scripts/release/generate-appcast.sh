@@ -29,6 +29,7 @@ if [[ -f ${dmg%.dmg}.md ]]; then
 fi
 arguments=(
     --download-url-prefix "https://github.com/johnkozaris/Kodosi/releases/download/v$version/"
+    --maximum-versions 1
     --phased-rollout-interval 86400
     --maximum-deltas 3
     --embed-release-notes
