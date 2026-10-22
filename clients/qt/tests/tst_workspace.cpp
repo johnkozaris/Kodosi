@@ -939,6 +939,33 @@ private slots:
         QVERIFY(f.workspace.devices().localDeviceEnrolled());
         QVERIFY(f.workspace.devices().notice().isEmpty());
     }
+    void dismissedDeviceRequestsStayHiddenUntilANewOneComes()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) } }, 1);
+        const auto request = [](const QString& id, const QString& label) {
+            return QJsonObject { { QStringLiteral("requestId"), id }, { QStringLiteral("deviceLabel"), label } };
+        };
+        const auto snapshot = [](const QJsonArray& requests) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("devices.link.snapshot") },
+                { QStringLiteral("requests"), requests } };
+        };
+        const auto laptop = request(test::id(70), QStringLiteral("Laptop"));
+        f.workspace.apply(snapshot({ laptop }), 1);
+        QCOMPARE(f.workspace.devices().waitingRequests().size(), 1);
+        f.workspace.devices().dismissRequests();
+        QVERIFY(f.workspace.devices().waitingRequests().isEmpty());
+        f.workspace.apply(snapshot({ laptop, request(test::id(71), QStringLiteral("Desktop")) }), 1);
+        const auto waiting = f.workspace.devices().waitingRequests();
+        QCOMPARE(waiting.size(), 1);
+        QCOMPARE(waiting.first().toMap().value(QStringLiteral("deviceLabel")).toString(), QStringLiteral("Desktop"));
+        f.workspace.devices().dismissApprovalNotice();
+        QVERIFY(f.workspace.devices().approvalNoticeDismissed());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
+        QVERIFY(f.workspace.devices().waitingRequests().isEmpty());
+        QVERIFY(!f.workspace.devices().approvalNoticeDismissed());
+    }
     void pendingSignInCanBeCancelled()
     {
         Fixture f;

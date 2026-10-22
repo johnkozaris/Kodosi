@@ -121,10 +121,7 @@ struct SessionTileView: View {
                         .buttonStyle(.kodosi(.primary))
                         .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).connect")
                 } else if session.connectionState == .blocked {
-                    Button("Open devices") {
-                        deps.workbench.settingsSection = .devices
-                        deps.workbench.section = .settings
-                    }
+                    Button("Open devices") { deps.workbench.showAccount() }
                 }
             }
         } else {

@@ -95,16 +95,42 @@ void DevicesModel::forgetNewRecoveryKey()
     emit changed();
 }
 
+QVariantList DevicesModel::waitingRequests() const
+{
+    QVariantList waiting;
+    for (const auto& request : m_requests) {
+        if (!m_dismissedRequests.contains(request.toMap().value(QStringLiteral("requestId")).toString()))
+            waiting.append(request);
+    }
+    return waiting;
+}
+
+void DevicesModel::dismissRequests()
+{
+    m_dismissedRequests.clear();
+    for (const auto& request : m_requests)
+        m_dismissedRequests.append(request.toMap().value(QStringLiteral("requestId")).toString());
+    emit changed();
+}
+
+void DevicesModel::dismissApprovalNotice()
+{
+    m_approvalNoticeDismissed = true;
+    emit changed();
+}
+
 void DevicesModel::reset()
 {
     m_devices.clear();
     m_requests.clear();
+    m_dismissedRequests.clear();
     m_hosts.clear();
     m_approvalCode.clear();
     m_newRecoveryKey.clear();
     m_notice.clear();
     m_selfDeviceId.clear();
     m_enrolled = false;
+    m_approvalNoticeDismissed = false;
     emit changed();
 }
 }

@@ -6,6 +6,7 @@ struct DeviceSettingsView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var code = ""
+    @FocusState private var codeFocused: Bool
     @State private var revoke: MyDeviceEntry?
     @State private var signingOut = false
     @State private var deletingAccount = false
@@ -33,20 +34,19 @@ struct DeviceSettingsView: View {
                     }
                     .padding(20).frame(maxWidth: .infinity)
                     .raised(Radius.xl)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.6), lineWidth: 1.5)
-                    }
                 }
-                ListGroup(title: "Your devices") {
-                    ForEach(deps.account.orderedDevices) { device in
-                        ListRow(device.title,
-                                subtitle: subtitle(device),
-                                symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-                                tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
-                        {
-                            if deps.account.canRemove(device) {
-                                Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))
-                                    .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
+                if !deps.account.orderedDevices.isEmpty {
+                    ListGroup(title: "Your devices") {
+                        ForEach(deps.account.orderedDevices) { device in
+                            ListRow(device.title,
+                                    subtitle: subtitle(device),
+                                    symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
+                                    tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
+                            {
+                                if deps.account.canRemove(device) {
+                                    Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))
+                                        .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
+                                }
                             }
                         }
                     }
@@ -54,13 +54,16 @@ struct DeviceSettingsView: View {
                 if deps.account.localDeviceEnrolled {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Add a device").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
-                        ForEach(deps.account.deviceRequests) { request in
-                            HStack(spacing: 10) {
-                                BreathingDot(color: theme.colors.accent)
-                                Text("\(request.deviceLabel) is waiting. Enter its code.").appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                        if !deps.account.deviceRequests.isEmpty {
+                            ListGroup {
+                                ForEach(deps.account.deviceRequests) { request in
+                                    ListRow(request.deviceLabel, subtitle: String(localized: "Waiting for approval"),
+                                            symbol: DeviceGlyph.symbol(for: request.deviceLabel), tint: TileTint.graphite)
+                                    {
+                                        StatusSign(form: .hand)
+                                    }
+                                }
                             }
-                            .padding(.horizontal, 14).frame(height: 40).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(theme.colors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
                             .transition(AnyTransition.rise)
                         }
                         HStack(spacing: 8) {
@@ -71,6 +74,7 @@ struct DeviceSettingsView: View {
                                 text: Binding(get: { code }, set: { code = DeviceCode.format($0) }),
                             )
                             .textFieldStyle(.plain).appTextStyle(.callout).onSubmit(approve)
+                            .focused($codeFocused)
                             .accessibilityIdentifier("settings.devices.code")
                             Button("Approve", action: approve)
                                 .buttonStyle(.kodosi(.primary))
@@ -153,6 +157,10 @@ struct DeviceSettingsView: View {
         .onAppear {
             if deps.account.userId != nil {
                 deps.perform("devices.refresh")
+            }
+            if deps.workbench.focusesDeviceCode {
+                codeFocused = true
+                deps.workbench.focusesDeviceCode = false
             }
         }
     }

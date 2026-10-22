@@ -39,6 +39,9 @@ final class WorkbenchState {
     var launcherDraft = LauncherDraft()
     var launcherFocus = 0
     var selectedMissionId: String?
+    var dismissedDeviceRequests: Set<String> = []
+    var approvalNoticeDismissed = false
+    var focusesDeviceCode = false
     var sidebarCollapsed = false {
         didSet {
             defaults.set(sidebarCollapsed, forKey: "sidebar.collapsed")
@@ -143,6 +146,12 @@ final class WorkbenchState {
         showsHistory = true
     }
 
+    func showAccount(focusingCode: Bool = false) {
+        settingsSection = .devices
+        section = .settings
+        focusesDeviceCode = focusingCode
+    }
+
     func showSession(_ id: String, inRoom roomId: String? = nil) {
         guard stagedSessionIds.contains(id) || stagedSessionIds.count < Self.maximumStagedSessions else { return }
         section = roomId == nil ? .sessions : .missions
@@ -206,6 +215,9 @@ final class WorkbenchState {
         showsNewRoom = false
         launcher = nil
         launcherDraft = LauncherDraft()
+        dismissedDeviceRequests = []
+        approvalNoticeDismissed = false
+        focusesDeviceCode = false
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {

@@ -145,7 +145,9 @@ struct SidebarView: View {
                 Button { deps.beginSignIn() } label: {
                     HStack(spacing: 9) {
                         Image(systemName: "person.2.wave.2").font(.system(size: 12, weight: .semibold)).frame(width: 22)
-                        Text("Sign in to work together").appTextStyle(.footnote)
+                        Text(deps.account.userId == nil
+                            ? String(localized: "Sign in to work together") : String(localized: "Trust this Mac to work together"))
+                            .appTextStyle(.footnote)
                         Spacer(minLength: 0)
                     }
                     .foregroundStyle(theme.colors.inkMuted)
@@ -277,23 +279,27 @@ struct AccountCapsule: View {
                         }
                     Text(prompt)
                     Spacer(minLength: 0)
+                    if approving {
+                        StatusSign(form: .hand)
+                    }
                 }
                 .padding(.horizontal, -6).frame(height: 34)
             }
-            .buttonStyle(.kodosi(approving ? .tinted : .secondary))
+            .buttonStyle(.kodosi(.secondary))
             .accessibilityIdentifier("header.signIn")
         } else {
-            Button {
-                deps.workbench.settingsSection = .devices
-                deps.workbench.section = .settings
-            } label: {
+            Button { deps.workbench.showAccount() } label: {
                 HStack(spacing: 9) {
                     PersonAvatar(name: deps.account.selfName, size: 24, isSelf: true)
                     Text(deps.account.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Spacer(minLength: 0)
+                    if !deps.account.deviceRequests.isEmpty {
+                        StatusSign(form: .hand).transition(AnyTransition.pop)
+                    }
                 }
                 .padding(.horizontal, 5).frame(height: 34)
                 .hoverRow()
+                .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty)
             }
             .buttonStyle(PressScaleStyle(scale: 0.98))
             .tip("Account").accessibilityLabel(Text("Account"))

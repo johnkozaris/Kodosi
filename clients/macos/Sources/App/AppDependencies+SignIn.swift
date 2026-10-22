@@ -1,12 +1,43 @@
 import Foundation
 import KodosiBridge
 
+enum DeviceNotice: Equatable {
+    case requests([DeviceLinkRequest])
+    case approvalNeeded
+    case approvalWaiting
+}
+
 extension AppDependencies {
     var deviceTrust: DeviceTrust {
         if case let .trustingDevice(trust) = account.stage {
             trust
         } else {
             .choose
+        }
+    }
+
+    var deviceNotice: DeviceNotice? {
+        guard !signInPresented, workbench.section != .settings || workbench.settingsSection != .devices else { return nil }
+        if account.isReady {
+            let waiting = account.deviceRequests.filter { !workbench.dismissedDeviceRequests.contains($0.id) }
+            return waiting.isEmpty ? nil : .requests(waiting)
+        }
+        guard account.userId != nil, account.authResolved, !workbench.approvalNoticeDismissed else { return nil }
+        if case .pendingApproval = deviceTrust {
+            return .approvalWaiting
+        }
+        return .approvalNeeded
+    }
+
+    func openDeviceNotice() {
+        workbench.showAccount(focusingCode: account.isReady)
+    }
+
+    func dismissDeviceNotice() {
+        if account.isReady {
+            workbench.dismissedDeviceRequests = Set(account.deviceRequests.map(\.id))
+        } else {
+            workbench.approvalNoticeDismissed = true
         }
     }
 

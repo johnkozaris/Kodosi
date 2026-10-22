@@ -75,10 +75,10 @@ question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi
 
 ## 5. Add your other computers
 
-Sign in on the new computer with the same account. It shows a code: enter the code in
-Settings › Account on a Mac, or Settings › Devices on Linux and Windows, on a computer
-that you already use. An iPhone or iPad joins the same way. Then each computer shows the
-terminals of all your computers.
+Sign in on the new computer with the same account. It shows a code, and the computers
+that you already use ask you to approve it: choose Approve on one of them and enter the
+code. An iPhone or iPad joins the same way. Then each computer shows the terminals of all
+your computers.
 
 To start a terminal on another of your computers, choose that computer at the right end
 of the launcher's band. The folder key then lists its recent folders, and Choose a

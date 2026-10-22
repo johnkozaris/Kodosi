@@ -87,7 +87,7 @@ public struct DeviceTrustChoices: View {
             ProgressCaption(text: String(localized: "Asking your other devices", bundle: .module))
         case let .pendingApproval(code):
             VStack(spacing: 18) {
-                Text("On a device you already use, open Settings, then Add a device, and enter this code.", bundle: .module)
+                Text("On a device you already use, choose Approve, then enter this code.", bundle: .module)
                     .appTextStyle(.callout)
                     .foregroundStyle(theme.colors.inkMuted)
                     .multilineTextAlignment(.center)
@@ -140,9 +140,6 @@ public struct DeviceTrustChoices: View {
         .padding(.trailing, 4)
         .frame(minHeight: 52)
         .raisedCapsule(elevation: keyFocused ? .lifted : .resting)
-        .overlay {
-            Capsule().strokeBorder(theme.colors.accent.opacity(keyFocused ? 0.5 : 0), lineWidth: 1.5)
-        }
         .animation(theme.motion.hover, value: keyFocused)
     }
 

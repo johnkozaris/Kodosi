@@ -12,6 +12,10 @@ ColumnLayout {
     property bool recovering: false
     property bool copied: false
 
+    function focusCode() {
+        code.forceActiveFocus();
+    }
+
     spacing: 18
 
     EmptyState {
@@ -69,7 +73,7 @@ ColumnLayout {
         EmptyState {
             Layout.fillWidth: true
             title: root.waiting ? qsTr("Type this code on a device that you use") : qsTr("Approve this computer")
-            message: root.waiting ? qsTr("Open Settings, then Devices, on that device.") : qsTr("A device that you use must approve this computer one time.")
+            message: root.waiting ? qsTr("Choose Approve on that device.") : qsTr("A device that you use must approve this computer one time.")
         }
         CodeKeys {
             Layout.alignment: Qt.AlignHCenter
@@ -115,7 +119,7 @@ ColumnLayout {
             spacing: 8
 
             KTextField {
-                id: recoveryKey
+                id: recoveryKeyField
 
                 Accessible.id: objectName
                 Accessible.name: qsTr("Recovery key")
@@ -132,11 +136,11 @@ ColumnLayout {
                 Accessible.id: objectName
                 compact: true
                 variant: KButton.Primary
-                enabled: recoveryKey.text.trim().length > 0
+                enabled: recoveryKeyField.text.trim().length > 0
                 objectName: "panel.settings.recover"
                 text: qsTr("Approve")
 
-                onClicked: Models.Devices.useRecoveryKey(recoveryKey.text.trim())
+                onClicked: Models.Devices.useRecoveryKey(recoveryKeyField.text.trim())
             }
         }
         PlainLabel {
@@ -201,8 +205,11 @@ ColumnLayout {
                 required property var modelData
 
                 iconName: "laptop"
-                tint: "#d9a441"
-                title: qsTr("%1 wants to use your account").arg(modelData.deviceLabel)
+                tint: "#4f9bb0"
+                title: modelData.deviceLabel
+                subtitle: qsTr("Waiting for approval")
+
+                StatusSign { session: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") }) }
             }
         }
         ListRow {
@@ -269,7 +276,7 @@ ColumnLayout {
             }
             if (Models.Devices.localDeviceEnrolled) {
                 root.recovering = false;
-                recoveryKey.clear();
+                recoveryKeyField.clear();
             }
         }
     }
