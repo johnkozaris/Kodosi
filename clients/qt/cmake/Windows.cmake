@@ -30,6 +30,8 @@ if(CMAKE_CXX_COMPILER_LINKER_ID STREQUAL "LLD")
     add_link_options(-lld-allow-duplicate-weak)
 endif()
 set(KODOSI_PLATFORM_SOURCES
+    platform/windows/PackageUpdate.cpp
+    platform/windows/PackageUpdate.hpp
     platform/windows/ToastNotificationDriver.cpp
     platform/windows/ToastNotificationDriver.hpp
     platform/windows/WindowFrame.cpp
