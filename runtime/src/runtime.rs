@@ -738,8 +738,7 @@ impl Activity {
             entry
                 .title
                 .as_deref()
-                .and_then(|title| title.chars().next())
-                .is_some_and(|first| ('\u{2800}'..='\u{28ff}').contains(&first))
+                .is_some_and(crate::terminal::title_spins)
         };
         let working = !closing
             && state.map_or_else(

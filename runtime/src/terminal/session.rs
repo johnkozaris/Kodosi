@@ -16,6 +16,7 @@ use super::context::{Contexts, LocalMachine, TerminalContext};
 use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
+use super::title::titles_look_same;
 use super::{
     CellPixels, ControlFrame, DataFrame, SOMEONE_TYPING, SessionChange, Subscription, TYPING,
     TerminalPixelGeometry, TerminalSize,
@@ -904,7 +905,7 @@ impl LocalActor {
         }
         self.publish_status();
         self.publish_context();
-        if self.title != self.published_title
+        if !titles_look_same(self.title.as_deref(), self.published_title.as_deref())
             && let Some(title) = &self.title
             && self
                 .changes
@@ -969,8 +970,8 @@ impl LocalActor {
                     self.set_working_directory(path);
                 }
                 TerminalEffect::Title(title) => {
-                    self.metadata_dirty |= self.title.as_ref() != Some(&title);
-                    self.title = Some(title.clone());
+                    self.metadata_dirty |= !titles_look_same(self.title.as_deref(), Some(&title));
+                    self.title = Some(title);
                 }
                 TerminalEffect::Bell => {
                     drop(self.changes.try_send(SessionChange::Bell { id: self.id }));

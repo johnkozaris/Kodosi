@@ -1106,6 +1106,32 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
     drop(local);
 }
 
+#[tokio::test]
+async fn spinner_frames_of_one_title_are_published_once() {
+    let (local, mut receiver, _root) = shell(
+        r"printf '\033]0;⠂ Task\007'; sleep 0.1; printf '\033]0;⠄ Task\007'; sleep 0.1; printf '\033]0;⠆ Task\007'; sleep 0.1; printf '\033]0;✳ Task\007'; exec /bin/cat",
+    )
+    .await;
+    let mut titles = Vec::new();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while titles.last().map(String::as_str) != Some("✳ Task") {
+            match receiver.recv().await {
+                Some(SessionChange::Title { title, .. }) => titles.push(title),
+                Some(_) => {}
+                None => break,
+            }
+        }
+    })
+    .await
+    .expect("the idle title");
+    assert_eq!(titles.len(), 2, "{titles:?}");
+    assert!(
+        crate::terminal::title_spins(&titles[0]) && titles[0].ends_with(" Task"),
+        "{titles:?}"
+    );
+    local.close().await.expect("closed");
+}
+
 #[test]
 fn start_commands_clear_the_line_the_way_the_shell_edits() {
     for shell in [

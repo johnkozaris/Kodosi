@@ -38,16 +38,17 @@ private final class TerminalSurfaceGenerationCell: @unchecked Sendable {
     }
 }
 
-private final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
+final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
     typealias Handler = @MainActor @Sendable () -> Bool
 
     private static let refreshAttempts = 40
     private static let refreshInterval = Duration.milliseconds(50)
 
     private let lock = NSLock()
-    private var signalGeneration: UInt64 = 0
+    private var signalled = false
     private var workerRunning = false
     private var handlers: [UUID: Handler] = [:]
+    @MainActor private var lastRefresh: ContinuousClock.Instant?
 
     func register(_ handler: @escaping Handler) -> UUID {
         let token = UUID()
@@ -65,7 +66,8 @@ private final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
 
     func signal() {
         let shouldStartWorker = lock.withLock {
-            signalGeneration &+= 1
+            guard !handlers.isEmpty else { return false }
+            signalled = true
             guard !workerRunning else { return false }
             workerRunning = true
             return true
@@ -79,59 +81,43 @@ private final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
 
     @MainActor
     private func runWorker() async {
-        var generation: UInt64?
         var attempt = 0
-
-        while !Task.isCancelled {
-            var state = currentState()
-            if generation != state.generation {
-                generation = state.generation
+        var wait = lastRefresh.map { Self.refreshInterval - $0.duration(to: .now) } ?? .zero
+        while true {
+            if wait > .zero, await (try? Task.sleep(for: wait)) == nil {
+                break
+            }
+            lastRefresh = .now
+            let (fresh, current) = takeSignal()
+            if fresh {
                 attempt = 0
             }
-            if state.handlers.isEmpty {
-                if stopWorker(ifCurrent: state.generation) {
-                    return
-                }
-                generation = nil
-                continue
-            }
-
-            if attempt > 0 {
-                try? await Task.sleep(for: Self.refreshInterval)
-                guard !Task.isCancelled else { return }
-                state = currentState()
-                if generation != state.generation {
-                    generation = state.generation
-                    attempt = 0
-                    continue
-                }
-            }
-
             var viewportChanged = false
-            for handler in state.handlers {
+            for handler in current {
                 viewportChanged = handler() || viewportChanged
             }
             attempt += 1
-            guard viewportChanged || attempt >= Self.refreshAttempts else {
-                continue
+            if current.isEmpty || viewportChanged || attempt >= Self.refreshAttempts {
+                if stopWorker() {
+                    return
+                }
+                attempt = 0
             }
-            if stopWorker(ifCurrent: state.generation) {
-                return
-            }
-            generation = nil
-            attempt = 0
+            wait = Self.refreshInterval
+        }
+        lock.withLock { workerRunning = false }
+    }
+
+    private func takeSignal() -> (fresh: Bool, handlers: [Handler]) {
+        lock.withLock {
+            defer { signalled = false }
+            return (signalled, Array(handlers.values))
         }
     }
 
-    private func currentState() -> (generation: UInt64, handlers: [Handler]) {
+    private func stopWorker() -> Bool {
         lock.withLock {
-            (signalGeneration, Array(handlers.values))
-        }
-    }
-
-    private func stopWorker(ifCurrent generation: UInt64) -> Bool {
-        lock.withLock {
-            guard signalGeneration == generation else { return false }
+            guard !signalled else { return false }
             workerRunning = false
             return true
         }
