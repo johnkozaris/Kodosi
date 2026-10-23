@@ -5,6 +5,7 @@ internal static class Limits
     public const int HttpBodyBytes = 8 * 1024 * 1024;
     public const int MaxDevicesPerUser = 16;
     public const int MaxSessionsPerUser = 128;
+    public const int MaxLiveSessionsPerUser = 2 * MaxSessionsPerUser;
     public const int MaxSessionMembers = 64;
     public const int MaxMissionsPerUser = 64;
     public const int MaxVisibleMissions = 256;
