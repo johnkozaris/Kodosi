@@ -25,6 +25,14 @@ import Testing
     #expect(copilot.spoken == "This month: 59% used")
 }
 
+@Test func `the nearest limit has the worst level, then the most use`() {
+    let limit = { (hours: Int, used: Int, level: UsageLevel) in UsageLimit(hours: hours, scope: nil, used: used, level: level, headline: true) }
+    #expect(UsageLimit.nearest(of: [limit(5, 79, .normal), limit(5, 70, .near)]) == limit(5, 70, .near))
+    #expect(UsageLimit.nearest(of: [limit(5, 100, .near), limit(5, 100, .reached)]) == limit(5, 100, .reached))
+    #expect(UsageLimit.nearest(of: [limit(5, 30, .normal), limit(168, 30, .normal)]) == limit(5, 30, .normal))
+    #expect(UsageLimit.nearest(of: []) == nil)
+}
+
 @Test func `account rows carry the headline limit of their account`() {
     let info = AgentInfo(
         agent: "claude", program: "claude", installed: true,

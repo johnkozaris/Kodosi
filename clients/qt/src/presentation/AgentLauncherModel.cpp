@@ -251,12 +251,16 @@ QVariantList AgentLauncherModel::usageSections() const
 
 QVariant AgentLauncherModel::usageNearest() const
 {
+    static const QStringList levels { QStringLiteral("normal"), QStringLiteral("near"), QStringLiteral("reached") };
+    const auto nearness = [](const QVariant& limit) {
+        const auto values = limit.toMap();
+        return std::pair(levels.indexOf(values.value(QStringLiteral("level")).toString()), values.value(QStringLiteral("used")).toInt());
+    };
     QVariant nearest;
     for (const auto& section : usageSections()) {
         for (const auto& row : section.toMap().value(QStringLiteral("rows")).toList()) {
             const auto headline = row.toMap().value(QStringLiteral("usage")).toMap().value(QStringLiteral("headline"));
-            if (headline.isValid()
-                && (!nearest.isValid() || headline.toMap().value(QStringLiteral("used")).toInt() > nearest.toMap().value(QStringLiteral("used")).toInt()))
+            if (headline.isValid() && (!nearest.isValid() || nearness(headline) > nearness(nearest)))
                 nearest = headline;
         }
     }

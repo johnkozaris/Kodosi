@@ -10,8 +10,7 @@ struct UsageMenuRow: View {
     @State private var hovered = false
 
     private var nearest: UsageLimit? {
-        launcher.usageAccounts.compactMap { launcher.usage(of: $0.info.agent, account: $0.account.name)?.headline }
-            .max { $0.used < $1.used }
+        UsageLimit.nearest(of: launcher.usageAccounts.compactMap { launcher.usage(of: $0.info.agent, account: $0.account.name)?.headline })
     }
 
     var body: some View {

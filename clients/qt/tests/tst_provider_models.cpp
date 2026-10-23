@@ -320,6 +320,15 @@ private slots:
         QCOMPARE(rows.size(), 1);
         QCOMPARE(rows.first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Work"));
         QCOMPARE(sections.first().toMap().value(QStringLiteral("windows")).toList().size(), 2);
+
+        auto fuller = work;
+        fuller.insert(QStringLiteral("account"), QStringLiteral("default"));
+        fuller.insert(QStringLiteral("limits"), QJsonArray { limit(5, 79, QStringLiteral("normal"), true) });
+        auto warned = renamed;
+        warned.insert(QStringLiteral("limits"), QJsonArray { limit(5, 70, QStringLiteral("near"), true) });
+        launcher.refreshUsage();
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { fuller, warned } } }));
+        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 70);
     }
     void aLauncherForAnotherComputerAsksThatComputerAndKeepsItsAnswers()
     {

@@ -494,13 +494,13 @@ fn scope_name(name: &str) -> Option<String> {
     .then(|| name.to_owned())
 }
 
-/// Marks the limit with the most use as the headline, the one that an account shows; the first one
-/// wins a tie.
+/// Marks the headline, the limit that an account shows: the worst level, then the most use; the
+/// first one wins a tie.
 pub(super) fn headlined(mut limits: Vec<UsageLimit>) -> Vec<UsageLimit> {
     let chosen = limits
         .iter()
         .enumerate()
-        .max_by_key(|(index, limit)| (limit.used, std::cmp::Reverse(*index)))
+        .max_by_key(|(index, limit)| (limit.level, limit.used, std::cmp::Reverse(*index)))
         .map(|(index, _)| index);
     for (index, limit) in limits.iter_mut().enumerate() {
         limit.headline = Some(index) == chosen;

@@ -132,10 +132,27 @@ struct UsageLimit: Decodable, Equatable, Identifiable {
         let name = scope.map { "\($0), \(window.lowercased())" } ?? window
         return String(localized: "\(name): \(used)% used")
     }
+
+    /// The limit nearest to stopping its account: the worst level, then the most use; the first one wins a tie.
+    static func nearest(of limits: [Self]) -> Self? {
+        limits.max { ($0.level, $0.used) < ($1.level, $1.used) }
+    }
 }
 
-enum UsageLevel: String, Decodable {
+enum UsageLevel: String, Decodable, Comparable {
     case normal, near, reached
+
+    private var rank: Int {
+        switch self {
+        case .normal: 0
+        case .near: 1
+        case .reached: 2
+        }
+    }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rank < rhs.rank
+    }
 }
 
 struct AgentStart: Equatable {
