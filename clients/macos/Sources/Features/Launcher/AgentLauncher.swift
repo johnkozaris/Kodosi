@@ -10,6 +10,7 @@ struct AgentLauncher: View {
     var centered = false
     var focus = 0
     var started: () -> Void = {}
+    var close: (() -> Void)?
     @State private var showsAll = false
     @State private var menu: LauncherMenu?
     @State private var adding = false
@@ -143,6 +144,10 @@ struct AgentLauncher: View {
                 }
                 Spacer(minLength: 8)
                 place
+                if let close {
+                    IconButton(title: "Close", symbol: "xmark", identifier: "launcher.close", size: 26, action: close)
+                        .padding(.bottom, 6)
+                }
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)

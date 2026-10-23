@@ -11,7 +11,7 @@ import Testing
     #expect(!ProductInput.validName("one\ntwo"))
 }
 
-@Test @MainActor func `a terminal that turns hidden leaves the list and the stage but stays in its room`() throws {
+@Test @MainActor func `a hidden terminal leaves the list and the stage until it is back but stays in its room`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "HiddenTerminal"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -19,12 +19,12 @@ import Testing
     app.commandSink.transport = { _ in 0 }
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
-    func snapshot(hidden: Bool) throws -> RuntimeEvent {
+    func snapshot(hidden: Bool, back: Bool = false) throws -> RuntimeEvent {
         try runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
             "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
             "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("minisforum"),
-            "status": .string("offline"), "attention": .bool(false), "hidden": .bool(hidden), "connectionState": .string("offline"),
-            "missionId": .string("room"), "sharedWith": .array([]),
+            "status": .string(back ? "running" : "offline"), "attention": .bool(false), "hidden": .bool(hidden),
+            "connectionState": .string(back ? "connected" : "offline"), "missionId": .string("room"), "sharedWith": .array([]),
         ])])])
     }
     try app.receive(snapshot(hidden: false))
@@ -36,6 +36,8 @@ import Testing
     #expect(app.workbench.stagedSessionIds.isEmpty)
     #expect(app.listedSessions.isEmpty)
     #expect(app.sessions.map(\.missionId) == ["room"])
+    try app.receive(snapshot(hidden: false, back: true))
+    #expect(app.listedSessions.map(\.id) == [id])
 }
 
 @Test @MainActor func `signed out startup and refresh only list local sessions`() throws {

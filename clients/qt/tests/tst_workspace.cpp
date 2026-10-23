@@ -263,7 +263,7 @@ private slots:
         }
         QVERIFY(f.sessions.presentationSession(test::id(1))->away);
     }
-    void aHiddenTerminalLeavesTheListsAndItsViewButStaysInItsRoom()
+    void aHiddenTerminalLeavesTheListsAndItsViewUntilItIsBackButStaysInItsRoom()
     {
         Fixture f;
         auto away = test::session(1, true, false);
@@ -287,6 +287,11 @@ private slots:
         QCOMPARE(f.sessions.listedSessions().size(), 1);
         QCOMPARE(f.sessions.sessions().size(), 2);
         QCOMPARE(f.sessions.folderGroups().first().toMap().value(QStringLiteral("sessions")).toList().size(), 1);
+        away.insert(QStringLiteral("hidden"), false);
+        away.insert(QStringLiteral("status"), QStringLiteral("running"));
+        f.workspace.apply(test::snapshot({ away, other }), 0);
+        QCOMPARE(f.sessions.listedSessions().size(), 2);
+        QCOMPARE(f.sessions.folderGroups().first().toMap().value(QStringLiteral("sessions")).toList().size(), 2);
         away.insert(QStringLiteral("hidden"), QStringLiteral("yes"));
         f.workspace.apply(test::snapshot({ away, other }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
