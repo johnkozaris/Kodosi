@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{Error, Result};
 use ghostty_vt::{
-    CompressionProgress, ContextSignal, Effect, ProgramStatusKind, ProgramStatusState,
+    Colors, CompressionProgress, ContextSignal, Effect, ProgramStatusKind, ProgramStatusState,
     ProgressState, Terminal, TerminalPolicy,
 };
 use tokio::{
@@ -190,6 +190,31 @@ impl SessionTerminalHandle {
     }
 }
 
+/// The colors that the apps draw terminals in.
+const TERMINAL_COLORS: Colors = Colors {
+    foreground: [0xe8, 0xe1, 0xd9],
+    background: [0x0d, 0x0b, 0x09],
+    cursor: [0xcc, 0x7a, 0x45],
+    ansi: [
+        [0x1a, 0x16, 0x13],
+        [0xc4, 0x40, 0x40],
+        [0x52, 0xb3, 0x6b],
+        [0xc4, 0x99, 0x3d],
+        [0x5d, 0x8e, 0xc7],
+        [0xb0, 0x6d, 0xba],
+        [0x5d, 0xaf, 0xa6],
+        [0xc4, 0xb8, 0xa8],
+        [0x8c, 0x7a, 0x6f],
+        [0xd6, 0x60, 0x60],
+        [0x6d, 0xcc, 0x85],
+        [0xd6, 0xb3, 0x5d],
+        [0x7d, 0xaa, 0xd9],
+        [0xc8, 0x8d, 0xd0],
+        [0x7d, 0xc7, 0xbe],
+        [0xe8, 0xe1, 0xd9],
+    ],
+};
+
 struct SessionTerminal {
     terminal: Terminal,
     applied: u64,
@@ -207,7 +232,10 @@ impl SessionTerminal {
         )
         .map_err(terminal_error)?;
         terminal
-            .report_version(concat!("Kodosi ", env!("KODOSI_VERSION")))
+            .report_version(kodosi_pty::XTVERSION)
+            .map_err(terminal_error)?;
+        terminal
+            .set_default_colors(&TERMINAL_COLORS)
             .map_err(terminal_error)?;
         Ok(Self {
             terminal,

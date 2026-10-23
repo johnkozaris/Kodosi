@@ -53,7 +53,7 @@ async fn launch_exposes_its_terminal_context_and_preserves_terminal_setup() {
     let (session, mut changes, root) = shell(
         r#"while [ ! -f ready ]; do sleep 0.01; done
 printf '%s' "${KODOSI_SESSION_ID-}" > session-id
-printf '%s %s' "$TERM" "${TERM_PROGRAM_VERSION-}" > term
+printf '%s %s %s %s' "$TERM" "${TERM_PROGRAM-}" "${TERM_PROGRAM_VERSION-}" "${KODOSI_VERSION-}" > term
 pwd -P > cwd
 stty size > size
 stty -echo
@@ -88,7 +88,10 @@ exec /bin/cat"#,
     assert_eq!(actual, ended);
     assert_eq!(
         std::fs::read_to_string(root.path().join("term")).expect("terminal type"),
-        format!("xterm-256color {}", env!("KODOSI_VERSION"))
+        format!(
+            "xterm-256color ghostty 1.3.2-dev {}",
+            env!("KODOSI_VERSION")
+        )
     );
     assert_eq!(
         std::fs::read_to_string(root.path().join("cwd")).expect("working directory"),

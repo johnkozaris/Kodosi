@@ -169,7 +169,8 @@ impl KodosiPty {
         }
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
-        command.env("TERM_PROGRAM", "Kodosi");
+        command.env("TERM_PROGRAM", crate::TERMINAL_PROGRAM);
+        command.env("TERM_PROGRAM_VERSION", crate::GHOSTTY_VERSION);
         command.env_remove("TERMINFO");
         if env::var_os("LANG").is_none() && env::var_os("LC_ALL").is_none() {
             command.env("LANG", "en_US.UTF-8");
@@ -914,7 +915,8 @@ mod tests {
             "CLAUDECODE=1",
             "TERM=xterm-256color",
             "COLORTERM=truecolor",
-            "TERM_PROGRAM=Kodosi",
+            "TERM_PROGRAM=ghostty",
+            "TERM_PROGRAM_VERSION=1.3.2-dev",
             "KODOSI_SESSION_ID=id",
         ] {
             assert!(variables.contains(&expected), "{expected}: {output}");

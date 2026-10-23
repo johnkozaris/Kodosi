@@ -29,9 +29,11 @@ compares its record and headers with the committed ones.
 4. If a VT header changed or the runtime needs a new symbol, add it to the allowlist of
    `runtime/crates/ghostty-vt-sys/generate-bindings.sh` and run the script on each
    platform; it needs network access, libclang and rustfmt.
-5. Update `Ghostty.lock` from the `.version` files, run `./scripts/test.sh`,
+5. Set `GHOSTTY_VERSION` and `XTVERSION` in `runtime/crates/kodosi-pty/src/lib.rs` to
+   the version in the new commit's `build.zig.zon`; terminals report it to programs.
+6. Update `Ghostty.lock` from the `.version` files, run `./scripts/test.sh`,
    `just ghostty-check` and `just rust-check`, and try terminals in the apps.
-6. Commit the patches, artifacts, notices, bindings and their users together.
+7. Commit the patches, artifacts, notices, bindings and their users together.
 
 Keep the licenses, corresponding source and relinking materials that the artifacts
 require.

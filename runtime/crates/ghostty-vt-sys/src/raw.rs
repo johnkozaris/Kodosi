@@ -207,6 +207,15 @@ pub struct Limits {
     pub image_storage_max_bytes: u64,
 }
 
+/// Red, green and blue of each default color; `ansi` holds the first 16 palette entries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Colors {
+    pub foreground: [u8; 3],
+    pub background: [u8; 3],
+    pub cursor: [u8; 3],
+    pub ansi: [[u8; 3]; 16],
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     OutOfMemory,
@@ -693,6 +702,39 @@ impl Terminal {
             active_screen: screen_from_raw(active_screen)?,
             vt_processing_error,
         })
+    }
+
+    /// Programs that ask for a color (OSC 4, 10, 11 and 12) get these, unless they set their own.
+    pub fn set_default_colors(&mut self, colors: &Colors) -> Result<(), Error> {
+        self.ensure_healthy()?;
+        let rgb = |[r, g, b]: [u8; 3]| GhosttyColorRgb { r, g, b };
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,
+            &rgb(colors.foreground),
+        )?;
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,
+            &rgb(colors.background),
+        )?;
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_CURSOR,
+            &rgb(colors.cursor),
+        )?;
+        let mut palette = [GhosttyColorRgb::default(); 256];
+        result(unsafe {
+            ghostty_terminal_get(
+                self.raw,
+                GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT,
+                palette.as_mut_ptr().cast::<c_void>(),
+            )
+        })?;
+        for (entry, color) in palette.iter_mut().zip(colors.ansi) {
+            *entry = rgb(color);
+        }
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_PALETTE,
+            &palette,
+        )
     }
 
     pub fn mode(&mut self, value: u16, ansi: bool) -> Result<bool, Error> {
