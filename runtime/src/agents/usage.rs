@@ -283,11 +283,16 @@ pub(super) fn claude(report: &Value) -> Vec<UsageLimit> {
                 (_, "monthly") => None,
                 _ => return None,
             };
-            let scope = row
-                .pointer("/scope/model/display_name")
-                .or_else(|| row.pointer("/scope/surface/display_name"))
-                .and_then(Value::as_str)
-                .and_then(scope);
+            let scope = match row.get("scope").filter(|scope| !scope.is_null()) {
+                Some(scope) => Some(
+                    scope
+                        .pointer("/model/display_name")
+                        .or_else(|| scope.pointer("/surface/display_name"))
+                        .and_then(Value::as_str)
+                        .and_then(scope_name)?,
+                ),
+                None => None,
+            };
             limit(
                 hours,
                 scope,
@@ -380,7 +385,7 @@ fn limit(
     })
 }
 
-fn scope(name: &str) -> Option<String> {
+fn scope_name(name: &str) -> Option<String> {
     let name = name.trim();
     (!name.is_empty()
         && name.chars().count() <= MAX_SCOPE_CHARS

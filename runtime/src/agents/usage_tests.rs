@@ -24,6 +24,7 @@ fn claude_rows_keep_the_provider_headline_and_severity() {
         {"kind": "session", "group": "session", "percent": 42.4, "resets_at": null, "scope": null, "severity": "normal", "is_active": false},
         {"kind": "weekly_all", "group": "weekly", "percent": 71, "resets_at": "2026-10-29T13:00:00+00:00", "scope": null, "severity": "warning", "is_active": true},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 100, "scope": {"model": {"display_name": "Fable"}, "surface": null}, "severity": "critical", "is_active": false},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 50, "scope": {"model": {}}, "severity": "normal", "is_active": false},
         {"kind": "credits", "group": "spend", "percent": 10, "severity": "normal", "is_active": false}
     ], "extra_usage": null}});
     assert_eq!(
@@ -122,10 +123,10 @@ fn without_a_provider_pick_the_most_used_limit_is_the_headline() {
 
 #[test]
 fn scope_names_are_short_plain_text() {
-    assert_eq!(scope(" Opus "), Some("Opus".to_owned()));
-    assert_eq!(scope(""), None);
-    assert_eq!(scope("a\u{7}b"), None);
-    assert_eq!(scope(&"x".repeat(33)), None);
+    assert_eq!(scope_name(" Opus "), Some("Opus".to_owned()));
+    assert_eq!(scope_name(""), None);
+    assert_eq!(scope_name("a\u{7}b"), None);
+    assert_eq!(scope_name(&"x".repeat(33)), None);
 }
 
 #[cfg(unix)]
