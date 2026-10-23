@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #endif
 #ifdef Q_OS_WIN
+#include "platform/windows/PackageUpdate.hpp"
 #include "platform/windows/WindowFrame.hpp"
 #include <QFont>
 #include <QQuickWindow>
@@ -258,6 +259,11 @@ int main(int argc, char* argv[])
             lifecycle.setUpdateInstalled();
     });
 #endif
+#ifdef Q_OS_WIN
+    kodosi::PackageUpdate update;
+    QObject::connect(&update, &kodosi::PackageUpdate::staged, &lifecycle,
+        &kodosi::ApplicationLifecycleModel::setUpdateInstalled);
+#endif
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
@@ -265,6 +271,10 @@ int main(int argc, char* argv[])
     const auto code = app.exec();
     if (lifecycle.restartRequested()) {
         claim.release();
+#ifdef Q_OS_WIN
+        if (kodosi::PackageUpdate::openAgainAfterExit())
+            return code;
+#endif
         QProcess::startDetached(executable, {});
     }
     return code;

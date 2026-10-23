@@ -13,6 +13,10 @@ ApplicationWindow {
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
     readonly property bool updateNotice: Models.ApplicationLifecycle.updateInstalled && !updateNoticeDismissed
     property bool updateNoticeDismissed: false
+    // Windows installs the update only when no program of Kodosi runs, and `kodosi host` in a terminal is one.
+    readonly property string updateText: Qt.platform.os === "windows" && Models.ApplicationLifecycle.hostForeground
+        ? qsTr("Kodosi was updated. Stop the kodosi host command, then restart Kodosi.")
+        : qsTr("Kodosi was updated. Restart it to use the new version.")
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
     readonly property string deviceNotice: {
@@ -237,7 +241,7 @@ ApplicationWindow {
             opacity: shown ? 1 : 0
             visible: opacity > 0
             identifier: "window.error"
-            text: window.updateNotice ? qsTr("Kodosi was updated. Restart it to use the new version.") : window.notice
+            text: window.updateNotice ? window.updateText : window.notice
             actionText: window.updateNotice ? qsTr("Restart") : ""
 
             Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }

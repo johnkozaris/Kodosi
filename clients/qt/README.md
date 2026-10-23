@@ -42,8 +42,9 @@ Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsi
 ```
 
 The package puts `kodosi` on the PATH, opens `kodosi://` links, keeps data in
-`%USERPROFILE%\.kodosi`, and updates itself from its
-[App Installer file](packaging/windows/Kodosi.appinstaller.in) when Kodosi is not in use.
+`%USERPROFILE%\.kodosi`, and gets updates from its
+[App Installer file](packaging/windows/Kodosi.appinstaller.in). Windows installs an
+update only when Kodosi starts, so a running Kodosi downloads it and offers to restart.
 The repository has the Ghostty library for x64 only, built by the Windows Ghostty
 library workflow, so ARM64 does not build yet.
 
