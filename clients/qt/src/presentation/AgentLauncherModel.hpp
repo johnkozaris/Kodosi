@@ -22,7 +22,7 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(QString accountError READ accountError NOTIFY accountErrorChanged)
     Q_PROPERTY(bool addingAccount READ addingAccount NOTIFY accountErrorChanged)
     Q_PROPERTY(QVariantMap usage READ usage NOTIFY usageChanged)
-    Q_PROPERTY(bool usageRead READ usageRead NOTIFY usageChanged)
+    Q_PROPERTY(bool usageAvailable READ usageAvailable NOTIFY usageChanged)
     Q_PROPERTY(QVariantList usageSections READ usageSections NOTIFY usageChanged)
     Q_PROPERTY(QVariant usageNearest READ usageNearest NOTIFY usageChanged)
     Q_PROPERTY(QVariantMap places READ places NOTIFY foldersChanged)
@@ -44,6 +44,7 @@ public:
     bool addingAccount() const;
     QVariantMap usage() const { return m_usage; }
     bool usageRead() const { return m_usageRead; }
+    bool usageAvailable() const;
     QVariantList usageSections() const;
     QVariant usageNearest() const;
     QVariantMap places() const { return m_places; }
@@ -53,6 +54,7 @@ public:
     Q_INVOKABLE void refresh(bool force = false);
     Q_INVOKABLE void loadModels(const QString& agent);
     Q_INVOKABLE void refreshUsage();
+    Q_INVOKABLE QString accountTitle(const QString& name, const QString& program) const;
     Q_INVOKABLE void addAccount(const QString& agent, const QString& name);
     Q_INVOKABLE void chooseAgent(const QString& agent);
     Q_INVOKABLE void choose(const QString& kind, const QString& agent, const QString& value);

@@ -97,18 +97,7 @@ ColumnLayout {
         }
     }
     function accountTitle(entry) {
-        if (!info || !entry)
-            return ""
-        if (entry.name === info.program)
-            return qsTr("Default")
-        let base = entry.name
-        for (const separator of ["-", "_"]) {
-            if (base.length > info.program.length + 1 && base.startsWith(info.program + separator)) {
-                base = base.slice(info.program.length + 1)
-                break
-            }
-        }
-        return base.charAt(0).toUpperCase() + base.slice(1)
+        return info && entry ? root.launcher.accountTitle(entry.name, info.program) : ""
     }
     function usageOf(entry) {
         const usage = entry.identity ? root.launcher.usage[info.agent + "/" + entry.name] : null

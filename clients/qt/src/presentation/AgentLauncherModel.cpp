@@ -22,20 +22,6 @@ QJsonValue nullable(const QString& value)
     return value.isEmpty() ? QJsonValue() : QJsonValue(value);
 }
 
-QString accountTitle(const QString& name, const QString& program)
-{
-    if (name == program)
-        return AgentLauncherModel::tr("Default");
-    auto base = name;
-    for (const auto separator : { u'-', u'_' }) {
-        if (base.size() > program.size() + 1 && base.startsWith(program + separator)) {
-            base = base.mid(program.size() + 1);
-            break;
-        }
-    }
-    return base.left(1).toUpper() + base.mid(1);
-}
-
 QVariantMap describedLimit(QVariantMap limit)
 {
     const auto scope = limit.value(QStringLiteral("scope")).toString();
@@ -197,6 +183,31 @@ void AgentLauncherModel::loadModels(const QString& agent)
         m_loading.append(agent);
         emit modelsChanged();
     }
+}
+
+QString AgentLauncherModel::accountTitle(const QString& name, const QString& program) const
+{
+    if (name == program)
+        return tr("Default");
+    auto base = name;
+    for (const auto separator : { u'-', u'_' }) {
+        if (base.size() > program.size() + 1 && base.startsWith(program + separator)) {
+            base = base.mid(program.size() + 1);
+            break;
+        }
+    }
+    return base.left(1).toUpper() + base.mid(1);
+}
+
+bool AgentLauncherModel::usageAvailable() const
+{
+    return std::ranges::any_of(m_agents, [](const QVariant& value) {
+        const auto info = value.toMap();
+        return info.value(QStringLiteral("installed")).toBool() && info.value(QStringLiteral("reportsUsage")).toBool()
+            && std::ranges::any_of(info.value(QStringLiteral("accounts")).toList(), [](const QVariant& account) {
+                   return !account.toMap().value(QStringLiteral("identity")).toString().isEmpty();
+               });
+    });
 }
 
 QVariantList AgentLauncherModel::usageSections() const

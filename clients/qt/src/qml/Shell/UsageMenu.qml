@@ -17,8 +17,7 @@ KMenu {
 
     title: qsTr("Usage")
     width: 284
-    available: sections.length > 0 || Models.Launcher.agents.some(info => info.installed && info.reportsUsage
-        && info.accounts.some(account => !!account.identity))
+    available: Models.Launcher.usageAvailable
     mark: Component {
         UsageRing {
             width: 14

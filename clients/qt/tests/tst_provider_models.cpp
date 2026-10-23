@@ -292,6 +292,7 @@ private slots:
         QCOMPARE(changed.size(), 1);
 
         QVERIFY(launcher.usageSections().isEmpty());
+        QVERIFY(!launcher.usageAvailable());
         const auto account = [](const QString& name, const QString& identity) {
             return QJsonObject { { QStringLiteral("name"), name }, { QStringLiteral("command"), QStringLiteral("claude") },
                 { QStringLiteral("identity"), identity.isEmpty() ? QJsonValue() : QJsonValue(identity) } };
@@ -304,6 +305,7 @@ private slots:
                 account(QStringLiteral("personal"), QString()) } } };
         launcher.refresh(true);
         launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }));
+        QVERIFY(launcher.usageAvailable());
         auto renamed = work;
         renamed.insert(QStringLiteral("account"), QStringLiteral("claude-work"));
         auto signedOut = work;
