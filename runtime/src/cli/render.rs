@@ -586,13 +586,13 @@ mod tests {
         }
         assert_eq!(
             usage(&json!({"accounts": [
-                {"agent": "claude", "account": "work", "readAt": 1, "limits": [
+                {"agent": "claude", "account": "work", "readAtMs": 1, "limits": [
                     limit(Some(5), None, 42, "normal"),
                     limit(Some(168), None, 85, "near"),
                     limit(Some(168), Some("Fable"), 100, "reached"),
                 ]},
-                {"agent": "codex", "account": "default", "readAt": 1, "limits": [limit(Some(72), None, 3, "normal")]},
-                {"agent": "copilot", "account": "default", "readAt": 1, "limits": [limit(None, None, 59, "normal")]},
+                {"agent": "codex", "account": "default", "readAtMs": 1, "limits": [limit(Some(72), None, 3, "normal")]},
+                {"agent": "copilot", "account": "default", "readAtMs": 1, "limits": [limit(None, None, 59, "normal")]},
             ]})),
             "claude  work: 5h 42%, week 85% (near the limit), Fable 100% (limit reached)\n\
              codex  default: 3d 3%\n\
