@@ -21,6 +21,7 @@ MenuItem {
     rightPadding: 12
 
     indicator: Item {}
+    arrow: Item {}
     contentItem: RowLayout {
         spacing: 9
 

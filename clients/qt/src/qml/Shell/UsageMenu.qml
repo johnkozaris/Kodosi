@@ -106,6 +106,8 @@ KMenu {
                                 text: modelData.window
                                 color: KodosiTheme.inkFaint
                                 font.pixelSize: KodosiTheme.fontCaption
+                                fontSizeMode: Text.HorizontalFit
+                                minimumPixelSize: Math.round(KodosiTheme.fontCaption * 0.8)
                                 elide: Text.ElideRight
                             }
                         }
