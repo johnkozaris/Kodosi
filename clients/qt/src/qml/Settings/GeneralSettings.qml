@@ -69,8 +69,19 @@ ColumnLayout {
         visible: !root.inBrowser
 
         ListRow {
-            title: Models.Account.signedIn ? Identity.selfName : qsTr("Not signed in")
-            subtitle: Models.Account.signedIn ? qsTr("Signed in") : qsTr("Your terminals work without an account.")
+            title: Models.Account.signedIn ? Identity.selfName
+                : Models.Account.restoring.length > 0 ? qsTr("Signing in again") : qsTr("Not signed in")
+            subtitle: {
+                if (Models.Account.signedIn)
+                    return qsTr("Signed in");
+                if (Models.Account.restoring === "offline")
+                    return qsTr("Kodosi signs you in when it reaches the server.");
+                if (Models.Account.restoring === "updateRequired")
+                    return qsTr("Update Kodosi to sign in.");
+                if (Models.Account.restoring === "unavailable")
+                    return qsTr("The Kodosi server does not answer. Kodosi tries again.");
+                return qsTr("Your terminals work without an account.");
+            }
             leading: Item {
                 implicitWidth: 32
                 implicitHeight: 32
@@ -84,7 +95,8 @@ ColumnLayout {
                 enabled: !Models.Account.signingIn
                 working: Models.Account.signingIn
                 objectName: "panel.settings.account"
-                text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
+                text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.signingIn ? qsTr("Signing in…")
+                    : Models.Account.restoring.length > 0 ? qsTr("Try again") : qsTr("Sign in")
 
                 onClicked: Models.Account.signedIn ? signOutConfirmation.open() : Models.Account.login()
             }

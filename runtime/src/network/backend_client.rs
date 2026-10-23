@@ -66,6 +66,7 @@ pub(crate) struct Inner {
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
     update_required: AtomicBool,
+    restoring: std::sync::Mutex<Option<crate::protocol::AuthRestoringReason>>,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     app_login: std::sync::Mutex<Option<AppLogin>>,
@@ -84,6 +85,8 @@ pub(crate) const SIGN_IN_LIFE: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
     tokens: Option<Tokens>,
+    unsaved_tokens: bool,
+    token_save_failing: bool,
     secrets: Secrets,
     pub(crate) pins: Arc<std::sync::Mutex<Pins>>,
     blocked_devices: BTreeSet<(String, String)>,
@@ -129,6 +132,8 @@ impl BackendClient {
                 credentials: RwLock::new(None),
                 state: Mutex::new(State {
                     tokens: None,
+                    unsaved_tokens: false,
+                    token_save_failing: false,
                     secrets,
                     pins: Arc::new(std::sync::Mutex::new(pins)),
                     blocked_devices,
@@ -156,6 +161,7 @@ impl BackendClient {
                 renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
                 update_required: AtomicBool::new(false),
+                restoring: std::sync::Mutex::new(None),
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 app_login: std::sync::Mutex::new(None),

@@ -1615,7 +1615,7 @@ impl Runtime {
             }
         } else {
             match kind {
-                "auth.finalizing" => {
+                "auth.finalizing" | "auth.restoring" => {
                     self.latest_auth = Some(event.event.clone());
                 }
                 "auth.ready" | "auth.required" | "auth.error" => self.latest_auth = None,

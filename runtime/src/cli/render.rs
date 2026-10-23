@@ -107,7 +107,12 @@ fn unapproved(context: &Context) -> bool {
 
 fn account(context: &Context) -> String {
     let Some(account) = &context.account else {
-        return "Not signed in. Terminals on this computer work without an account.\nSign in to use them from your other devices and to share them: kodosi auth login".to_owned();
+        return match context.restoring.as_deref() {
+            Some("offline") => "Signing in again when Kodosi reaches the server.".to_owned(),
+            Some("updateRequired") => "Signing in again needs a newer Kodosi. Update Kodosi.".to_owned(),
+            Some(_) => "Signing in again when the Kodosi server answers.".to_owned(),
+            None => "Not signed in. Terminals on this computer work without an account.\nSign in to use them from your other devices and to share them: kodosi auth login".to_owned(),
+        };
     };
     let name = text(account, "displayName");
     let signed_in = if name.is_empty() {
@@ -539,6 +544,17 @@ fn table<const N: usize>(rows: &[[String; N]]) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_saved_sign_in_that_comes_back_is_not_called_signed_out() {
+        let context = Context::from_events(&[
+            json!({"type":"auth.restoring","accountEpoch":0,"accountUserId":null,"reason":"offline"}),
+        ]);
+        assert_eq!(
+            account(&context),
+            "Signing in again when Kodosi reaches the server."
+        );
+    }
 
     #[test]
     fn a_terminal_list_names_the_place_the_state_and_the_friends() {

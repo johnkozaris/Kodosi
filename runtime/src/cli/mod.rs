@@ -1216,6 +1216,7 @@ struct Context {
     epoch: u64,
     sessions: Vec<Value>,
     account: Option<Value>,
+    restoring: Option<String>,
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
     rooms: BTreeMap<String, Value>,
@@ -1227,6 +1228,7 @@ impl Context {
             epoch: 0,
             sessions: vec![],
             account: None,
+            restoring: None,
             friends: vec![],
             latest: BTreeMap::new(),
             rooms: BTreeMap::new(),
@@ -1245,6 +1247,7 @@ impl Context {
                 self.sessions.clear();
                 self.friends.clear();
                 self.account = None;
+                self.restoring = None;
                 self.latest.clear();
                 self.rooms.clear();
             }
@@ -1273,8 +1276,17 @@ impl Context {
             Some("friends.snapshot") => {
                 self.friends = event["friends"].as_array().cloned().unwrap_or_default();
             }
-            Some("auth.ready") => self.account = Some(event.clone()),
-            Some("auth.required") => self.account = None,
+            Some("auth.ready") => {
+                self.account = Some(event.clone());
+                self.restoring = None;
+            }
+            Some("auth.required") => {
+                self.account = None;
+                self.restoring = None;
+            }
+            Some("auth.restoring") => {
+                self.restoring = event["reason"].as_str().map(str::to_owned);
+            }
             _ => {}
         }
         true

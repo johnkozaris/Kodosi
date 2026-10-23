@@ -1173,8 +1173,9 @@ Item {
 
                             Layout.fillWidth: true
                             Layout.leftMargin: signInButton.approving ? 12 : 0
-                            text: signInButton.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
-                            active: Models.Account.signingIn
+                            text: signInButton.approving ? qsTr("Approve this device")
+                                : Models.Account.signingIn || Models.Account.restoring.length > 0 ? qsTr("Signing in…") : qsTr("Sign in")
+                            active: Models.Account.signingIn || Models.Account.restoring.length > 0
                             color: KodosiTheme.ink
                             font.pixelSize: KodosiTheme.fontBody
                             font.weight: Font.DemiBold

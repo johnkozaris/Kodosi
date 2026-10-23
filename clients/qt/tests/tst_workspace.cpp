@@ -999,6 +999,19 @@ private slots:
         QVERIFY(f.workspace.devices().waitingRequests().isEmpty());
         QVERIFY(!f.workspace.devices().approvalNoticeDismissed());
     }
+    void aSavedSignInThatComesBackIsNotShownAsSignedOut()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("offline") } }, 1);
+        QCOMPARE(f.workspace.account().restoring(), QStringLiteral("offline"));
+        QVERIFY(!f.workspace.account().signedIn());
+        QVERIFY(!f.workspace.account().signingIn());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), QStringLiteral("user") } }, 1);
+        QVERIFY(f.workspace.account().restoring().isEmpty());
+        QVERIFY(f.workspace.account().signedIn());
+    }
     void pendingSignInCanBeCancelled()
     {
         Fixture f;

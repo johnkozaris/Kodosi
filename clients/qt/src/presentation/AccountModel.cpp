@@ -47,6 +47,7 @@ void AccountModel::reset()
     m_userId.clear();
     m_displayName.clear();
     m_signInPage.clear();
+    m_restoring.clear();
     m_epoch.reset();
     m_finalizing = true;
     endDeletion();

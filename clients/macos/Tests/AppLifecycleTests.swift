@@ -40,6 +40,21 @@ import Testing
     #expect(app.listedSessions.map(\.id) == [id])
 }
 
+@Test @MainActor func `a saved sign-in that comes back is not shown as signed out`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "RestoringSignIn"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    try app.receive(runtimeEvent("auth.restoring", epoch: 0, userId: nil, fields: ["reason": .string("offline")]))
+    #expect(app.account.restoring == "offline")
+    #expect(app.signInPrompt == String(localized: "Signing in…"))
+    try app.receive(runtimeEvent("auth.ready", epoch: 1, fields: ["userId": .string("owner")]))
+    #expect(app.account.restoring == nil)
+    #expect(app.account.userId == "owner")
+}
+
 @Test @MainActor func `signed out startup and refresh only list local sessions`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SignedOutRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

@@ -47,7 +47,9 @@ extension AppDependencies {
         case .signedIn: nil
         case .starting, .awaitingBrowser, .finalizing: String(localized: "Continue signing in")
         case .idle, .failed:
-            if account.userId == nil {
+            if account.userId == nil, account.restoring != nil {
+                String(localized: "Signing in…")
+            } else if account.userId == nil {
                 String(localized: "Sign in")
             } else {
                 account.localDeviceEnrolled ? nil : String(localized: "Trust this Mac")

@@ -963,6 +963,24 @@ async fn observation_retains_a_finishing_sign_in_until_its_answer() {
     assert_eq!(runtime.auth_event()["type"], "auth.required");
 }
 
+#[tokio::test]
+async fn an_app_that_connects_during_a_restore_hears_that_the_sign_in_is_coming_back() {
+    let (mut runtime, _root) = registry_fixture();
+    let restoring = json!({"type":"auth.restoring", "reason":"offline"});
+    runtime.network_event(BackendEvent {
+        generation: runtime.network.generation(),
+        user_id: None,
+        event: restoring.clone(),
+    });
+    assert_eq!(runtime.auth_event(), restoring);
+    runtime.network_event(BackendEvent {
+        generation: runtime.network.generation(),
+        user_id: None,
+        event: json!({"type":"auth.required", "reason":"expired"}),
+    });
+    assert_eq!(runtime.auth_event()["type"], "auth.required");
+}
+
 #[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_directory() {

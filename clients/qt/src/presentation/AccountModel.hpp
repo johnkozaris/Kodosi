@@ -13,6 +13,7 @@ class AccountModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool signedIn READ signedIn NOTIFY accountChanged)
     Q_PROPERTY(bool signingIn READ signingIn NOTIFY loginChanged)
+    Q_PROPERTY(QString restoring READ restoring NOTIFY loginChanged)
     Q_PROPERTY(QString userId READ userId NOTIFY accountChanged)
     Q_PROPERTY(QString displayName READ displayName NOTIFY accountChanged)
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY loginChanged)
@@ -25,6 +26,7 @@ public:
     bool signedIn() const { return !m_userId.isEmpty(); }
     bool signingIn() const { return m_finalizing || !m_signInPage.isEmpty(); }
     bool finalizing() const { return m_finalizing; }
+    QString restoring() const { return m_restoring; }
     QString userId() const { return m_userId; }
     QString displayName() const { return m_displayName; }
     QString signInPage() const { return m_signInPage; }
@@ -52,6 +54,7 @@ private:
     QString m_displayName;
     QString m_signInPage;
     QString m_deletionUri;
+    QString m_restoring;
     std::optional<std::uint64_t> m_epoch;
     bool m_finalizing = true;
     bool m_deleting = false;

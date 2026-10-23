@@ -700,3 +700,72 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
     assert!(finish(right).await.is_err());
     assert_eq!(server.await.unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn a_renewed_sign_in_that_cannot_be_saved_is_used_and_saved_later() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let discovery = json!({
+        "issuer": address,
+        "authorization_endpoint": format!("{address}/authorize"),
+        "token_endpoint": format!("{address}/token"),
+        "device_authorization_endpoint": format!("{address}/device"),
+    });
+    let renewed = json!({
+        "access_token": "renewed",
+        "refresh_token": "next",
+        "token_type": "Bearer",
+        "expires_in": 900,
+    });
+    let server = scripted_backend(listener, vec![(200, discovery), (200, renewed)]);
+    let (root, network, _user) = signed_in_at(&address).await;
+    network.inner.state.lock().await.tokens = Some(Tokens {
+        access_token: "old".into(),
+        refresh_token: Some("refresh".into()),
+        expires_at: 0,
+    });
+    let saved = root.path().join("secrets/kodosi.tokens");
+    std::fs::create_dir_all(&saved).unwrap();
+
+    network.renew_token().await.unwrap();
+    server.await.unwrap();
+    assert_eq!(network.credentials().unwrap().token.as_str(), "renewed");
+    assert!(network.inner.state.lock().await.unsaved_tokens);
+
+    std::fs::remove_dir(&saved).unwrap();
+    network.renew_token().await.unwrap();
+    assert!(!network.inner.state.lock().await.unsaved_tokens);
+    let stored: Value = serde_json::from_str(&std::fs::read_to_string(&saved).unwrap()).unwrap();
+    assert_eq!(stored["access_token"], "renewed");
+    assert_eq!(stored["refresh_token"], "next");
+}
+
+#[tokio::test]
+async fn a_saved_sign_in_that_cannot_reach_the_server_is_reported_once_as_coming_back() {
+    let (_root, network) = fixture();
+    let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;
+    network
+        .inner
+        .state
+        .lock()
+        .await
+        .secrets
+        .store("tokens", saved)
+        .unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    for _ in 0..2 {
+        let error = network
+            .restore_saved(network.generation())
+            .await
+            .unwrap_err();
+        assert!(error.unanswered(), "{error}");
+    }
+    let mut reasons = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        if event.event["type"] == "auth.restoring" {
+            reasons.push(event.event["reason"].clone());
+        }
+    }
+    assert_eq!(reasons, [json!("offline")]);
+}

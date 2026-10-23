@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 70;
+pub const VERSION: u32 = 71;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
@@ -743,6 +743,8 @@ pub enum EventBody {
     },
     #[serde(rename = "auth.required")]
     AuthRequired { reason: AuthRequiredReason },
+    #[serde(rename = "auth.restoring")]
+    AuthRestoring { reason: AuthRestoringReason },
     #[serde(rename = "auth.device_code")]
     AuthDeviceCode {
         request_id: String,
@@ -991,6 +993,14 @@ pub enum AuthRequiredReason {
     AccountDeleted,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthRestoringReason {
+    Offline,
+    Unavailable,
+    UpdateRequired,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum DeviceLinkOutcome {
@@ -1193,6 +1203,7 @@ impl EventBody {
             Self::SystemUpdateRequired {} => "system.updateRequired",
             Self::AuthReady { .. } => "auth.ready",
             Self::AuthRequired { .. } => "auth.required",
+            Self::AuthRestoring { .. } => "auth.restoring",
             Self::AuthDeviceCode { .. } => "auth.device_code",
             Self::AuthBrowser { .. } => "auth.browser",
             Self::AuthFinalizing {} => "auth.finalizing",

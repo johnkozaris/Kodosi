@@ -4699,6 +4699,48 @@
               }
             ]
           },
+          "reason": {
+            "oneOf": [
+              {
+                "const": "offline"
+              },
+              {
+                "const": "unavailable"
+              },
+              {
+                "const": "updateRequired"
+              }
+            ]
+          },
+          "type": {
+            "const": "auth.restoring"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "reason"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -9974,7 +10016,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 70,
+  "protocolVersion": 71,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

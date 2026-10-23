@@ -204,9 +204,16 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit hostReady();
         return;
     }
+    if (type == QStringLiteral("auth.restoring")) {
+        m_account.m_finalizing = false;
+        m_account.m_restoring = event.value(QStringLiteral("reason")).toString();
+        emit m_account.loginChanged();
+        return;
+    }
     if (type == QStringLiteral("auth.finalizing")) {
         const bool fromBrowser = !m_account.m_signInPage.isEmpty();
         m_account.m_finalizing = true;
+        m_account.m_restoring.clear();
         m_account.m_signInPage.clear();
         emit m_account.loginChanged();
         if (fromBrowser)
@@ -215,6 +222,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
         m_account.m_finalizing = false;
+        m_account.m_restoring.clear();
         m_account.endDeletion();
         const auto user = type == QStringLiteral("auth.ready")
             ? event.value(QStringLiteral("userId")).toString()
@@ -251,6 +259,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.browser")) {
         m_account.m_finalizing = false;
+        m_account.m_restoring.clear();
         m_account.m_signInPage = event.value(QStringLiteral("url")).toString();
         emit m_account.loginChanged();
         emit m_account.signInPageReady(m_account.m_signInPage);
