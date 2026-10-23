@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rustix::process::geteuid;
+use rustix::{io::Errno, process::geteuid};
 use tokio::net::{UnixListener, UnixStream};
 
 pub(super) type Stream = UnixStream;
@@ -26,11 +26,19 @@ impl Endpoint {
 
 pub(super) struct Listener {
     inner: UnixListener,
+    directory: PathBuf,
     path: PathBuf,
 }
 
 impl Listener {
     pub(super) async fn bind(endpoint: &Endpoint) -> io::Result<Self> {
+        match Self::bind_once(endpoint).await {
+            Err(error) if directory_removed(&error) => Self::bind_once(endpoint).await,
+            result => result,
+        }
+    }
+
+    async fn bind_once(endpoint: &Endpoint) -> io::Result<Self> {
         crate::fs::create_private_dir(&endpoint.directory)?;
         if existing_socket(&endpoint.path)? {
             match UnixStream::connect(&endpoint.path).await {
@@ -55,6 +63,7 @@ impl Listener {
         fs::set_permissions(&endpoint.path, Permissions::from_mode(0o600))?;
         Ok(Self {
             inner,
+            directory: endpoint.directory.clone(),
             path: endpoint.path.clone(),
         })
     }
@@ -81,6 +90,7 @@ impl Drop for Listener {
         if existing_socket(&self.path).unwrap_or(false) {
             drop(fs::remove_file(&self.path));
         }
+        drop(fs::remove_dir(&self.directory));
     }
 }
 
@@ -125,6 +135,10 @@ fn existing_socket(path: &Path) -> io::Result<bool> {
     }
 }
 
+fn directory_removed(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::NotFound || Errno::from_io_error(error) == Some(Errno::INVAL)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,5 +155,20 @@ mod tests {
         std::os::unix::fs::symlink("/dev/null", &endpoint.path).unwrap();
         assert!(connect(&endpoint).await.is_err());
         fs::remove_file(&endpoint.path).unwrap();
+        fs::remove_dir(&endpoint.directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_last_listener_removes_the_directory() {
+        let namespace = format!("last-{}", std::process::id());
+        let host = Endpoint::new(&namespace, "host").unwrap();
+        let app = Endpoint::new(&namespace, "app").unwrap();
+        let app_listener = Listener::bind(&app).await.unwrap();
+        drop(Listener::bind(&host).await.unwrap());
+        assert!(connect(&app).await.is_ok());
+        drop(app_listener);
+        assert!(!host.directory.exists());
+        drop(Listener::bind(&host).await.unwrap());
+        assert!(!host.directory.exists());
     }
 }
