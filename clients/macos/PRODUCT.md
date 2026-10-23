@@ -8,6 +8,10 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
   after the plain terminal, then one line with the folder, the account, the model with
   its effort, and the first prompt. With nothing open it sits in the middle of the main
   area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
+- A ring on the account key shows how much of the account's plan limit is used, and the
+  account list shows the percent. Usage in the sidebar menu opens a panel beside the
+  menu with a dial for each limit of each signed-in account. A click on an account opens
+  the launcher with it.
 - When another of your computers runs Kodosi, the launcher's band names the computer.
   Choosing another computer shows its agents and choices, and the folder key lists its
   recent folders and starts in the newest one. Choose a folder… opens its home: a click
