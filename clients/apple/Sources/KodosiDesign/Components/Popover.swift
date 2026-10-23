@@ -194,20 +194,21 @@ public extension View {
                     .fixedSize()
                     .clipShape(shape)
                     .background { RaisedBackground(shape: shape, fill: theme.colors.raised, elevation: .lifted) }
-                    .overlayPreferenceValue(KodosiFlyoutKey.self) { flyouts in
-                        GeometryReader { proxy in
-                            if let flyout = flyouts.last {
-                                KodosiFlyoutSurface(
-                                    content: flyout.content, row: proxy[flyout.anchor],
-                                    popover: CGRect(origin: place.origin, size: size), bounds: bounds,
-                                )
-                            }
-                        }
-                    }
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
                     .scaleEffect(visible || theme.motion.reduced ? 1 : item.closing ? 0.97 : 0.94, anchor: place.anchor)
                     .opacity(visible ? 1 : 0)
                     .offset(x: place.origin.x, y: place.origin.y)
+            }
+            .overlayPreferenceValue(KodosiFlyoutKey.self) { flyouts in
+                GeometryReader { proxy in
+                    if let flyout = flyouts.last {
+                        KodosiFlyoutSurface(
+                            content: flyout.content, row: proxy[flyout.anchor],
+                            popover: CGRect(origin: place.origin, size: size), bounds: bounds,
+                        )
+                        .opacity(visible ? 1 : 0)
+                    }
+                }
             }
             .allowsHitTesting(!item.closing)
             .animation(theme.motion.hover, value: item.closing)
@@ -256,8 +257,8 @@ public extension View {
                 let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                 let (gap, margin) = (KodosiPopoverSurface.gap, KodosiPopoverSurface.margin)
                 let trailing = popover.maxX + gap + size.width <= bounds.width - margin
-                let x = trailing ? popover.width + gap : -gap - size.width
-                let y = max(min(row.minY - 6, bounds.height - margin - popover.minY - size.height), margin - popover.minY)
+                let x = trailing ? popover.maxX + gap : popover.minX - gap - size.width
+                let y = max(min(row.minY - 6, bounds.height - margin - size.height), margin)
                 content
                     .fixedSize()
                     .clipShape(shape)

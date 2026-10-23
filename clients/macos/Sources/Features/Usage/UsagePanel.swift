@@ -191,6 +191,7 @@ private struct UsageAccountRow: View {
         .accessibilityLabel(Text(verbatim: ([title, info.kind.label] + (usage?.limits.map(\.spoken) ?? [])).joined(separator: ", ")))
         .accessibilityHint(Text("Opens the launcher with this account"))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { start() }
         .accessibilityIdentifier("sidebar.usage.\(info.agent).\(AccessibilityIdentifier.token(account.name))")
     }
 }
