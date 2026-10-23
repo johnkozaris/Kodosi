@@ -6,6 +6,7 @@ mod remote;
 mod session;
 mod status;
 mod subscribers;
+mod title;
 mod types;
 mod validation;
 
@@ -23,6 +24,7 @@ pub(crate) use remote::RemoteTerminal;
 pub(crate) use session::TerminalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
+pub(crate) use title::title_spins;
 pub use types::{
     CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
     TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
