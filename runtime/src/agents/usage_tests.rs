@@ -200,7 +200,7 @@ while IFS= read -r line; do
   case "$line" in
     *'"method":"initialize"'*) printf '%s\n' '{"id":0,"result":{"userAgent":"stand-in"}}' ;;
     *'"method":"account/rateLimits/read"'*)
-      printf '%s\n' '{"method":"account/updated","params":{}}' \
+      printf '%s\n' '{"method":"account/updated","params":{}}' '{"id":1,"method":"item/tool/requestUserInput","params":{}}' \
         '{"id":1,"result":{"rateLimits":{"primary":{"usedPercent":42,"windowDurationMins":300},"secondary":{"usedPercent":18,"windowDurationMins":10080}}}}' ;;
   esac
 done

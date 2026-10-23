@@ -257,7 +257,7 @@ fn ended(agent: Agent) -> String {
 }
 
 fn answer(message: &Value, id: u64) -> Result<Option<Value>, String> {
-    if message.get("id").and_then(Value::as_u64) != Some(id) {
+    if message.get("method").is_some() || message.get("id").and_then(Value::as_u64) != Some(id) {
         return Ok(None);
     }
     if let Some(error) = message.get("error") {

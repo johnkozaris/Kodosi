@@ -50,7 +50,7 @@ struct UsageMenuRow: View {
 }
 
 /// How much of each signed-in account's plan limits is used, one dial for each limit. A click on an
-/// account starts a terminal with it.
+/// account opens the launcher with it.
 struct UsagePanel: View {
     @Environment(\.theme) private var theme
     let launcher: LauncherState
@@ -122,11 +122,13 @@ struct UsagePanel: View {
             AgentMark(kind: section.info.kind, size: 15, activity: .awake)
             Text(verbatim: section.info.kind.label).appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
             Spacer(minLength: 8)
-            ForEach(section.windows) { limit in
-                Text(verbatim: limit.window)
-                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                    .lineLimit(1).minimumScaleFactor(0.8)
-                    .frame(width: Self.dial + 6)
+            HStack(spacing: 0) {
+                ForEach(section.windows) { limit in
+                    Text(verbatim: limit.window)
+                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(width: Self.dial + 6)
+                }
             }
         }
         .padding(.horizontal, 8).frame(height: 24)
@@ -153,22 +155,24 @@ private struct UsageAccountRow: View {
                     .font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 10)
-                ForEach(windows) { window in
-                    Group {
-                        if let usage {
-                            if let limit = usage.limits.first(where: { $0.id == window.id }) {
-                                UsageDial(limit: limit, size: dial)
+                HStack(spacing: 0) {
+                    ForEach(windows) { window in
+                        Group {
+                            if let usage {
+                                if let limit = usage.limits.first(where: { $0.id == window.id }) {
+                                    UsageDial(limit: limit, size: dial)
+                                } else {
+                                    Color.clear.frame(width: dial, height: dial)
+                                }
                             } else {
-                                Color.clear.frame(width: dial, height: dial)
+                                UsageDial(limit: nil, size: dial)
                             }
-                        } else {
-                            UsageDial(limit: nil, size: dial)
                         }
+                        .frame(width: dial + 6)
                     }
-                    .frame(width: dial + 6)
-                }
-                if windows.isEmpty {
-                    UsageDial(limit: nil, size: dial).frame(width: dial + 6)
+                    if windows.isEmpty {
+                        UsageDial(limit: nil, size: dial).frame(width: dial + 6)
+                    }
                 }
             }
             .opacity(usage?.stale == true ? 0.55 : 1)
@@ -185,7 +189,7 @@ private struct UsageAccountRow: View {
         .tip(verbatim: account.identity ?? title)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: ([title, info.kind.label] + (usage?.limits.map(\.spoken) ?? [])).joined(separator: ", ")))
-        .accessibilityHint(Text("Starts a terminal with this account"))
+        .accessibilityHint(Text("Opens the launcher with this account"))
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("sidebar.usage.\(info.agent).\(AccessibilityIdentifier.token(account.name))")
     }

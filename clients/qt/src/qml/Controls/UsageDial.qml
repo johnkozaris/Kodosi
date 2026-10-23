@@ -16,7 +16,7 @@ Item {
     transform: Scale { id: dialScale; origin.x: root.width / 2; origin.y: root.height / 2 }
 
     onLevelChanged: {
-        if (!KodosiTheme.reduceMotion && level.length > 0)
+        if (!KodosiTheme.reduceMotion && (level === "near" || level === "reached"))
             squash.restart()
     }
 

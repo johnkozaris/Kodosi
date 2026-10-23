@@ -744,6 +744,7 @@ ColumnLayout {
                         ToolTip.delay: Tip.delay
                         glyph: AccountMark {
                             size: root.accountUsage ? 20 : 16
+                            Behavior on size { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                             initial: accountKey.title.charAt(0)
                             key: root.account ? root.account.folder || root.account.command : ""
                             signedIn: !!root.account && !!root.account.identity

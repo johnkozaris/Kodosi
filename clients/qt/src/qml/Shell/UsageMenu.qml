@@ -6,7 +6,7 @@ import QtQuick.Controls
 import Kodosi.Models 1.0 as Models
 
 // How much of each signed-in account's plan limits is used, one dial for each limit, as a submenu of
-// the sidebar menu. A click on an account starts a terminal with it.
+// the sidebar menu. A click on an account opens the launcher with it.
 KMenu {
     id: root
 
@@ -129,7 +129,7 @@ KMenu {
                         Accessible.role: Accessible.Button
                         Accessible.name: [modelData.title, Models.DesktopSettings.agentLabel(section.modelData.agent)]
                             .concat(usage ? usage.limits.map(limit => limit.spoken) : []).join(", ")
-                        Accessible.description: qsTr("Starts a terminal with this account")
+                        Accessible.description: qsTr("Opens the launcher with this account")
                         ToolTip.visible: hovered
                         ToolTip.text: modelData.identity
                         ToolTip.delay: Tip.delay

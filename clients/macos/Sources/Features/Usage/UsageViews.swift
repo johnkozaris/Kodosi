@@ -68,7 +68,7 @@ struct UsageDial: View {
             }
         }
         .frame(width: size, height: size)
-        .squash(trigger: limit?.level)
+        .squash(trigger: limit?.level, when: limit.map { $0.level != .normal } ?? false)
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: limit?.spoken ?? String(localized: "Not read yet")))
     }

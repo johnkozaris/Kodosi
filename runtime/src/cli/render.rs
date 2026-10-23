@@ -580,6 +580,31 @@ mod tests {
     }
 
     #[test]
+    fn usage_names_each_window_and_says_when_a_limit_is_near() {
+        fn limit(hours: Option<u32>, scope: Option<&str>, used: u8, level: &str) -> Value {
+            json!({"hours": hours, "scope": scope, "used": used, "level": level, "headline": false})
+        }
+        assert_eq!(
+            usage(&json!({"accounts": [
+                {"agent": "claude", "account": "work", "readAt": 1, "limits": [
+                    limit(Some(5), None, 42, "normal"),
+                    limit(Some(168), None, 85, "near"),
+                    limit(Some(168), Some("Fable"), 100, "reached"),
+                ]},
+                {"agent": "codex", "account": "default", "readAt": 1, "limits": [limit(Some(72), None, 3, "normal")]},
+                {"agent": "copilot", "account": "default", "readAt": 1, "limits": [limit(None, None, 59, "normal")]},
+            ]})),
+            "claude  work: 5h 42%, week 85% (near the limit), Fable 100% (limit reached)\n\
+             codex  default: 3d 3%\n\
+             copilot  default: month 59%"
+        );
+        assert_eq!(
+            usage(&json!({"accounts": []})),
+            "No signed-in account reports plan limits."
+        );
+    }
+
+    #[test]
     fn a_room_list_names_the_rooms_and_the_command_that_accepts_an_invitation() {
         assert_eq!(
             missions(

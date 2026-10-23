@@ -98,6 +98,7 @@ struct AgentLauncher: View {
         }
         .animation(theme.motion.spring, value: choice)
         .animation(theme.motion.spring, value: launcher.catalog)
+        .animation(theme.motion.spring, value: launcher.usageRead)
         .task(id: computer ?? "") {
             await launcher.refresh()
             if computer != nil {
