@@ -40,6 +40,7 @@ public:
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
+    Q_INVOKABLE bool hide(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);

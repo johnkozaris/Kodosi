@@ -219,6 +219,10 @@ final class AppDependencies {
         sessions.first { $0.id == id }
     }
 
+    var listedSessions: [RuntimeSession] {
+        sessions.filter { !$0.hidden }
+    }
+
     func refresh() {
         Task { await launcher.refresh(force: true) }
         commandSink.perform("session.list")

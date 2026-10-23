@@ -21,7 +21,7 @@ KPopover {
     signal resumeRequested
 
     function terminals() {
-        return Models.Sessions.sessions.map(session => ({
+        return Models.Sessions.listedSessions.map(session => ({
             id: "terminal." + session.id, group: qsTr("Terminals"), title: session.name, kind: "terminal", key: session.id,
             program: session.program, working: session.working, sign: session.sign, asks: session.asks, progress: session.progress,
             detail: [session.folderName, session.kind === "remote" ? session.hostLabel : ""].filter(part => !!part).join(" · ")

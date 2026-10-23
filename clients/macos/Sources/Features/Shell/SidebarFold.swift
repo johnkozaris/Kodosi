@@ -122,7 +122,7 @@ struct FoldFlights: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(deps.sessions) { session in
+            ForEach(deps.listedSessions) { session in
                 if let flight = flights[.terminal(session.id)] {
                     copy(AgentMark(session: session, size: flight.size, activity: deps.activity(of: session)), flight,
                          lane: lanes[.terminal(session.id)])
@@ -167,7 +167,7 @@ struct FoldFlights: View {
         guard let frames, !theme.motion.reduced else { return }
         flight += 1
         let current = flight
-        let marks = deps.sessions.map { FoldMark.terminal($0.id) } + deps.missions.map { FoldMark.room($0.id) }
+        let marks = deps.listedSessions.map { FoldMark.terminal($0.id) } + deps.missions.map { FoldMark.room($0.id) }
         var start = flights
         var starts = lanes
         var fresh: Set<FoldMark> = []

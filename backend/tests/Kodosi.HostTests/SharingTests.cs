@@ -28,7 +28,7 @@ public sealed class SharingTests(PostgresFixture postgres)
             }
         }
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var catalog = await store.Sessions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken);
+        var catalog = await store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, TestContext.Current.CancellationToken);
         Assert.Equal(550, catalog.Count);
         Assert.All(catalog, session => Assert.Equal(new[] { viewer.User.Id }, session.SharedWith));
     }
@@ -130,7 +130,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         foreach (var person in new[] { owner, friend, member, invitee, stranger })
         {
             var mine = expected.Where(x => x.Value.Contains(person.User.Id)).Select(x => x.Key).Order().ToArray();
-            Assert.Equal(mine, (await store.Sessions.ListAsync(person.User.Id, ct)).Select(x => x.Id).Order().ToArray());
+            Assert.Equal(mine, (await store.Sessions.ListAsync(person.User.Id, person.Device.Id, ct)).Select(x => x.Id).Order().ToArray());
             foreach (var terminal in expected.Keys)
             {
                 var allowed = true;
@@ -152,15 +152,15 @@ public sealed class SharingTests(PostgresFixture postgres)
         store.Db.Missions.Add(mission); store.Db.MissionMembers.Add(new MissionMember { MissionId = mission.Id, UserId = friend.User.Id }); await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", mission.Id), TestContext.Current.CancellationToken);
-        Assert.Single(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
+        Assert.Single(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken));
         Assert.Equal(id, (await store.Sessions.AuthorizedAsync(id, friend.User.Id, TestContext.Current.CancellationToken)).Id);
         var privateId = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(privateId, Guid.CreateVersion7(), "Private", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AuthorizedAsync(privateId, friend.User.Id, TestContext.Current.CancellationToken));
         await store.Missions.RemoveMemberAsync(mission.Id, owner.User.Id, friend.User.Id, TestContext.Current.CancellationToken);
         store.Db.ChangeTracker.Clear();
-        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
-        Assert.Equal(2, (await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken)).Count);
+        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken));
+        Assert.Equal(2, (await store.Sessions.ListAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken)).Count);
 
     }
 
@@ -176,7 +176,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Equal(2, shared.AuthorizationRevision);
         await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, shared.AuthorizationRevision, []), TestContext.Current.CancellationToken);
         var error = await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken));
-        Assert.Equal(409, error.Status); Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
+        Assert.Equal(409, error.Status); Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken));
         await store.Sessions.EndAsync(id, owner.User.Id, owner.Device.Id, incarnation, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ApiException>(() => store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, Guid.CreateVersion7(), "Other", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken));
     }
@@ -237,7 +237,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(() => Attach(null, owner.RoomChoice(id, incarnation, null, 6)))).Status);
         await store.Missions.DeleteAsync(room, owner.User.Id, ct);
         store.Db.ChangeTracker.Clear();
-        var left = Assert.Single(await store.Sessions.ListAsync(owner.User.Id, ct));
+        var left = Assert.Single(await store.Sessions.ListAsync(owner.User.Id, owner.Device.Id, ct));
         Assert.Equal((null, 6L, null), (left.MissionId, left.RoomSequence, left.RoomChoice));
     }
 
@@ -255,7 +255,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         async Task AssertNoAccessAsync()
         {
             Assert.Empty(await store.Db.SessionMembers.AsNoTracking().ToListAsync(ct));
-            Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, ct));
+            Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, ct));
         }
 
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
@@ -301,8 +301,8 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "remove", TestContext.Current.CancellationToken);
-        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
-        Assert.Single(await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken));
+        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken));
+        Assert.Single(await store.Sessions.ListAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken));
         Assert.Equal(3, (await store.Db.Sessions.SingleAsync(TestContext.Current.CancellationToken)).AuthorizationRevision);
     }
 }

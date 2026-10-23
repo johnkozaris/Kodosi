@@ -13,6 +13,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
+    public DbSet<HiddenSession> HiddenSessions => Set<HiddenSession>();
     public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<MissionMember> MissionMembers => Set<MissionMember>();
     public DbSet<MissionInvitation> MissionInvitations => Set<MissionInvitation>();
@@ -85,6 +86,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.HostName).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(128);
             e.Property(x => x.RoomDeviceId).HasMaxLength(256);
+            e.Property(x => x.CloseDeviceId).HasMaxLength(256);
             e.Property(x => x.AuthorizationRevision).IsConcurrencyToken();
             e.HasIndex(x => x.IncarnationId).IsUnique();
             e.HasIndex(x => new { x.Ended, x.ExpiresAt });
@@ -98,6 +100,13 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.ToTable("session_members"); e.HasKey(x => new { x.SessionId, x.UserId });
             e.HasOne<Session>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<HiddenSession>(e =>
+        {
+            e.ToTable("hidden_sessions"); e.HasKey(x => new { x.UserId, x.SessionId });
+            e.HasIndex(x => x.SessionId);
+            e.HasOne<Session>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<Mission>(e =>
         {

@@ -28,25 +28,32 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         return session.HostDeviceId == deviceId ? session : throw ApiException.Forbidden("Only the computer that hosts this terminal can change it.");
     }
 
-    public async Task<SessionDto> DescribeAsync(Session session, CancellationToken ct) =>
-        (await DescribeAsync(db.Sessions.Where(x => x.Id == session.Id), 1, ct)).Single();
+    public async Task<SessionDto> DescribeAsync(Session session, Guid viewer, CancellationToken ct) =>
+        (await DescribeAsync(db.Sessions.Where(x => x.Id == session.Id), viewer, 1, ct)).Single();
 
-    public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, CancellationToken ct)
+    // A terminal that someone asked to close leaves every list but that of the computer that closes it.
+    public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, string deviceId, CancellationToken ct)
     {
         var usable = TerminalAccess.People(db).Where(x => x.UserId == userId).Select(x => x.SessionId);
-        var sessions = await DescribeAsync(db.Sessions.Where(x => !x.Ended && usable.Contains(x.Id)), Limits.SessionCatalog + 1, ct);
+        var listed = db.Sessions.Where(x => !x.Ended && usable.Contains(x.Id)
+            && (x.CloseSignature == null || (x.OwnerUserId == userId && x.HostDeviceId == deviceId)));
+        var sessions = await DescribeAsync(listed, userId, Limits.SessionCatalog + 1, ct);
         if (sessions.Count > Limits.SessionCatalog) throw ApiException.Conflict("There are too many terminals to list.");
         return sessions;
     }
 
-    private async Task<List<SessionDto>> DescribeAsync(IQueryable<Session> sessions, int most, CancellationToken ct)
+    private async Task<List<SessionDto>> DescribeAsync(IQueryable<Session> sessions, Guid viewer, int most, CancellationToken ct)
     {
         var rows = await (from session in sessions.AsNoTracking()
                           join owner in db.Users on session.OwnerUserId equals owner.Id
                           join room in db.Missions on session.MissionId equals (Guid?)room.Id into rooms
                           from room in rooms.DefaultIfEmpty()
                           orderby session.CreatedAt, session.Id
-                          select new { Session = session, OwnerName = owner.DisplayName, MissionName = room == null ? null : room.Name })
+                          select new
+                          {
+                              Session = session, OwnerName = owner.DisplayName, MissionName = room == null ? null : room.Name,
+                              Hidden = db.HiddenSessions.Any(x => x.SessionId == session.Id && x.UserId == viewer),
+                          })
             .Take(most).ToListAsync(ct);
         var people = await TerminalAccess.PeopleAsync(db, rows.Select(x => x.Session.Id).ToArray(), ct);
         return rows.Select(row =>
@@ -56,7 +63,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, row.OwnerName, session.HostDeviceId,
                 session.HostName, session.MissionId, row.MissionName, people[session.Id].Where(user => user != session.OwnerUserId).ToArray(),
                 session.AuthorizationRevision, online, status, session.RoomSequence,
-                session.RoomSignature is { } signature ? new RoomChoice(session.RoomDeviceId!, Convert.ToBase64String(signature)) : null);
+                session.RoomSignature is { } signature ? new RoomChoice(session.RoomDeviceId!, Convert.ToBase64String(signature)) : null,
+                row.Hidden && !online,
+                session.CloseSignature is { } closing ? new CloseRequest(session.CloseUserId!.Value, session.CloseDeviceId!, Convert.ToBase64String(closing)) : null);
         }).ToList();
     }
 
@@ -69,9 +78,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         {
             if (existing.Ended || existing.OwnerUserId != userId || existing.HostDeviceId != device.Id || existing.IncarnationId != body.IncarnationId)
                 throw ApiException.Conflict("This terminal ID is already in use.");
-            return await DescribeAsync(existing, ct);
+            return await DescribeAsync(existing, userId, ct);
         }
-        if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended, ct) >= Limits.MaxSessionsPerUser)
+        if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended && x.CloseSignature == null, ct) >= Limits.MaxSessionsPerUser)
             throw ApiException.Conflict("You have too many terminals.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId)
@@ -121,7 +130,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         await TerminalAccess.RevokeAsync(db, connections, [session], ct);
-        var described = await DescribeAsync(session, ct);
+        var described = await DescribeAsync(session, userId, ct);
         connections.Notify(before.Concat(described.SharedWith).Append(userId), "sessions");
         return described;
     }
@@ -138,7 +147,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Share a terminal only with accepted friends.");
         var existing = await db.SessionMembers.Where(x => x.SessionId == id).ToListAsync(ct);
-        if (selected.SetEquals(existing.Select(x => x.UserId))) return await DescribeAsync(session, ct);
+        if (selected.SetEquals(existing.Select(x => x.UserId))) return await DescribeAsync(session, userId, ct);
         var affected = existing.Select(x => x.UserId).Union(selected).Append(userId).ToArray();
         db.SessionMembers.RemoveRange(existing.Where(x => !selected.Contains(x.UserId)));
         foreach (var recipient in selected.Except(existing.Select(x => x.UserId))) db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = recipient });
@@ -146,7 +155,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         await TerminalAccess.RevokeAsync(db, connections, [session], ct);
         connections.Notify(affected, "sessions");
-        return await DescribeAsync(session, ct);
+        return await DescribeAsync(session, userId, ct);
     }
 
     public async Task LeaveAsync(Guid id, Guid userId, LeaveSession body, CancellationToken ct)
@@ -176,6 +185,50 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
     }
 
+    public async Task HideAsync(Guid id, Guid userId, HideSession body, CancellationToken ct)
+    {
+        var session = await AuthorizedAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
+        var hidden = db.HiddenSessions.Where(x => x.SessionId == id && x.UserId == userId);
+        if (connections.Live(id).Online || await hidden.AnyAsync(ct)) return;
+        db.HiddenSessions.Add(new HiddenSession { UserId = userId, SessionId = id });
+        await db.SaveChangesAsync(ct);
+        // A host that came back before the write showed the terminal without this mark.
+        if (connections.Live(id).Online) await hidden.ExecuteDeleteAsync(ct);
+        else connections.Notify([userId], "sessions");
+    }
+
+    public async Task ShowAgainAsync(Guid id, CancellationToken ct)
+    {
+        var hidden = db.HiddenSessions.Where(x => x.SessionId == id);
+        var users = await hidden.Select(x => x.UserId).ToListAsync(ct);
+        if (users.Count == 0) return;
+        await hidden.ExecuteDeleteAsync(ct);
+        connections.Notify(users, "sessions");
+    }
+
+    public async Task RequestCloseAsync(Guid id, Guid userId, ApprovedDevice device, RequestClose body, CancellationToken ct)
+    {
+        var session = await AuthorizedAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
+        if (body.DeviceId != device.Id) throw ApiException.Forbidden("The device that asks to close a terminal must sign it.");
+        var signature = Limits.Base64(body.Signature, "Close signature", IdentityWireFormat.MlDsa65SignatureLength);
+        var signed = Proofs.TerminalClose(session.OwnerUserId, session.Id, session.IncarnationId, userId, device.Id);
+        if (!SignatureVerifier.Verify(device.SigningPublicKey, signed, signature)) throw ApiException.Forbidden("Invalid close signature.");
+        var asked = await db.Sessions.Where(x => x.Id == id && x.CloseSignature == null).ExecuteUpdateAsync(x => x
+            .SetProperty(s => s.CloseUserId, userId).SetProperty(s => s.CloseDeviceId, device.Id).SetProperty(s => s.CloseSignature, signature), ct);
+        if (asked == 0) return;
+        connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
+        connections.TellHost(id);
+    }
+
+    public async Task RefuseCloseAsync(Guid id, Guid userId, string deviceId, Guid incarnationId, CancellationToken ct)
+    {
+        var session = await HostAsync(id, userId, deviceId, ct); Incarnation(session, incarnationId);
+        if (session.CloseSignature is null) return;
+        session.CloseUserId = null; session.CloseDeviceId = null; session.CloseSignature = null;
+        await db.SaveChangesAsync(ct);
+        connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
+    }
+
     // FOR SHARE: an unfriend at the same time waits, and then removes this share too.
     private async Task<List<Guid>> LockFriendshipsAsync(Guid userId, Guid[] people, CancellationToken ct) =>
         (await db.Friendships.FromSqlInterpolated($"""
@@ -186,7 +239,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
 
     private async Task<SessionDto> DescribeAndNotifyAsync(Session session, CancellationToken ct)
     {
-        var described = await DescribeAsync(session, ct);
+        var described = await DescribeAsync(session, session.OwnerUserId, ct);
         connections.Notify(described.SharedWith.Append(described.OwnerUserId), "sessions");
         return described;
     }
@@ -221,12 +274,15 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
         string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
-        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice);
+        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice, bool Hidden, CloseRequest? CloseRequest);
     public sealed record RoomChoice(string DeviceId, string Signature);
+    public sealed record CloseRequest(Guid UserId, string DeviceId, string Signature);
     public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
     public sealed record AttachSession(Guid IncarnationId, Guid? MissionId, RoomChoiceWrite Choice);
     public sealed record RoomChoiceWrite(string DeviceId, long Sequence, string Signature);
     public sealed record ShareSession(Guid IncarnationId, long ExpectedRevision, Guid[] UserIds);
     public sealed record LeaveSession(Guid IncarnationId, long ExpectedRevision);
+    public sealed record HideSession(Guid IncarnationId);
+    public sealed record RequestClose(Guid IncarnationId, string DeviceId, string Signature);
 }

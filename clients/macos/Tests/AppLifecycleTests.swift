@@ -11,6 +11,33 @@ import Testing
     #expect(!ProductInput.validName("one\ntwo"))
 }
 
+@Test @MainActor func `a terminal that turns hidden leaves the list and the stage but stays in its room`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "HiddenTerminal"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
+    func snapshot(hidden: Bool) throws -> RuntimeEvent {
+        try runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
+            "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
+            "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("minisforum"),
+            "status": .string("offline"), "attention": .bool(false), "hidden": .bool(hidden), "connectionState": .string("offline"),
+            "missionId": .string("room"), "sharedWith": .array([]),
+        ])])])
+    }
+    try app.receive(snapshot(hidden: false))
+    let away = try #require(app.session(id))
+    #expect(away.hostOffline && away.canClose && !away.canControl)
+    app.workbench.showSession(id)
+    #expect(app.workbench.stagedSessionIds == [id])
+    try app.receive(snapshot(hidden: true))
+    #expect(app.workbench.stagedSessionIds.isEmpty)
+    #expect(app.listedSessions.isEmpty)
+    #expect(app.sessions.map(\.missionId) == ["room"])
+}
+
 @Test @MainActor func `signed out startup and refresh only list local sessions`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SignedOutRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -68,7 +95,7 @@ import Testing
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
-        "status": .string("running"), "attention": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
     try app.receive(runtimeEvent("session.result", fields: [

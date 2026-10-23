@@ -43,10 +43,10 @@ struct SidebarRail: View {
                                 .animation(theme.motion.snappy, value: mission.unread)
                         }
                     }
-                    if !deps.missions.isEmpty, !deps.sessions.isEmpty {
+                    if !deps.missions.isEmpty, !deps.listedSessions.isEmpty {
                         Capsule().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.3)).frame(width: 18, height: 1).padding(.vertical, 4)
                     }
-                    ForEach(deps.sessions) { session in
+                    ForEach(deps.listedSessions) { session in
                         railItem(selected: selection == .terminal(session.id), help: session.name,
                                  identifier: AccessibilityIdentifier.sidebarSession(session.id))
                         {

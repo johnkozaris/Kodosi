@@ -168,6 +168,8 @@ pub struct RemoteSession {
     pub shared_with: Vec<String>,
     pub online: bool,
     pub status: Option<TerminalStatus>,
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 /// The server reads it, so it never carries the program's text.

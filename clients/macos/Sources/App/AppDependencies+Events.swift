@@ -194,6 +194,9 @@ extension AppDependencies {
         for id in Set(previous.keys).subtracting(received.map(\.id)) {
             terminalFocus.releaseSession(sessionId: id)
         }
+        for value in received where value.hidden && previous[value.id]?.hidden == false {
+            dismissSession(value.id)
+        }
         reconcileTerminals()
         for id in workbench.reconcile(received) {
             activateSession(id)

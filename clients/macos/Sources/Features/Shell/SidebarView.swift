@@ -76,9 +76,9 @@ struct SidebarView: View {
         .animation(theme.motion.soft, value: workbench.dosiOpen)
         .animation(theme.motion.soft, value: workbench.sidebarCollapsed)
         .animation(theme.motion.snappy, value: selection)
-        .animation(theme.motion.spring, value: deps.sessions.map(\.id))
+        .animation(theme.motion.spring, value: deps.listedSessions.map(\.id))
         .animation(theme.motion.spring, value: deps.missions.map(\.id))
-        .animation(theme.motion.spring, value: deps.sessions.map(\.attention))
+        .animation(theme.motion.spring, value: deps.listedSessions.map(\.attention))
     }
 
     private var header: some View {
@@ -177,7 +177,7 @@ struct SidebarView: View {
             } add: {
                 deps.openLauncher()
             }
-            ForEach(SessionFolderGroup.groups(deps.sessions)) { group in
+            ForEach(SessionFolderGroup.groups(deps.listedSessions)) { group in
                 let collapsed = collapsedFolders.contains(group.id)
                 SidebarFolderHeader(group: group, collapsed: collapsed) {
                     withAnimation(theme.motion.spring) {

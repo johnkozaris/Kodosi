@@ -77,15 +77,15 @@ struct TerminalMenu: View {
                 Button("Interrupt", systemImage: "stop.circle", action: interrupt)
                     .accessibilityIdentifier("terminal.menu.interrupt")
             }
-            if session.canLeave || session.canControl {
+            if session.canLeave || session.canClose {
                 Divider()
             }
             if session.canLeave {
                 Button("Leave", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { prompt = .leave(session) }
                     .accessibilityIdentifier("terminal.menu.leave")
             }
-            if session.canControl {
-                Button("Close terminal", systemImage: "xmark.circle", role: .destructive) { prompt = .close(session) }
+            if session.canClose {
+                Button("Close terminal", systemImage: "xmark.circle", role: .destructive) { prompt = .closing(session) }
                     .accessibilityIdentifier("terminal.menu.close")
             }
         } label: {

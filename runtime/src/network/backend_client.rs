@@ -613,40 +613,55 @@ impl BackendClient {
             }
             "session.leave" => {
                 let credentials = self.credentials()?;
-                let id = wire::id(&args, "sessionId")?;
-                let current: SessionDto = self
-                    .inner
-                    .http
-                    .device(
-                        Method::GET,
-                        &format!("api/sessions/{id}"),
-                        &credentials,
-                        None,
-                    )
-                    .await?;
-                if current.incarnation_id != wire::id(&args, "expectedRuntimeIncarnationId")? {
-                    return Err(Error::Stale);
-                }
-                let _response:Value=self.inner.http.device(Method::DELETE,&format!("api/sessions/{id}/members/me"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision}))).await?;
+                let current = self.current_session(&credentials, &args).await?;
+                let _response:Value=self.inner.http.device(Method::DELETE,&format!("api/sessions/{}/members/me",current.id),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision}))).await?;
                 events.push(self.session_event().await?);
                 events.push(session_result(operation, &args));
             }
-            "session.rename" | "session.attachMission" => {
+            "session.hide" => {
                 let credentials = self.credentials()?;
-                let id = wire::id(&args, "sessionId")?;
-                let current: SessionDto = self
+                let current = self.current_session(&credentials, &args).await?;
+                let _response: Value = self
                     .inner
                     .http
                     .device(
-                        Method::GET,
-                        &format!("api/sessions/{id}"),
+                        Method::PUT,
+                        &format!("api/sessions/{}/hidden", current.id),
                         &credentials,
-                        None,
+                        Some(json!({"incarnationId":current.incarnation_id})),
                     )
                     .await?;
-                if current.incarnation_id != wire::id(&args, "expectedRuntimeIncarnationId")? {
-                    return Err(Error::Stale);
+                events.push(self.session_event().await?);
+                events.push(session_result(operation, &args));
+            }
+            "session.close" => {
+                let credentials = self.credentials()?;
+                let current = self.current_session(&credentials, &args).await?;
+                let request = Self::close_request(&credentials, &current)?;
+                let _response: Value = self
+                    .inner
+                    .http
+                    .device(
+                        Method::PUT,
+                        &format!("api/sessions/{}/close-request", current.id),
+                        &credentials,
+                        Some(request),
+                    )
+                    .await?;
+                events.push(self.session_event().await?);
+                let mut result = session_result(operation, &args);
+                if !current.host_online {
+                    result["text"] = json!(format!(
+                        "{} is offline. The terminal closes when it is back.",
+                        current.host_name
+                    ));
                 }
+                events.push(result);
+            }
+            "session.rename" | "session.attachMission" => {
+                let credentials = self.credentials()?;
+                let current = self.current_session(&credentials, &args).await?;
+                let id = current.id;
                 if operation == "session.rename" {
                     let _response:Value=self.inner.http.device(Method::PATCH,&format!("api/sessions/{id}"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision,"name":wire::text(&args,"name")?}))).await?;
                 } else {
@@ -748,6 +763,24 @@ impl BackendClient {
         Ok(credentials)
     }
 
+    async fn current_session(&self, credentials: &Credentials, args: &Value) -> Result<SessionDto> {
+        let id = wire::id(args, "sessionId")?;
+        let current: SessionDto = self
+            .inner
+            .http
+            .device(
+                Method::GET,
+                &format!("api/sessions/{id}"),
+                credentials,
+                None,
+            )
+            .await?;
+        if current.incarnation_id != wire::id(args, "expectedRuntimeIncarnationId")? {
+            return Err(Error::Stale);
+        }
+        Ok(current)
+    }
+
     async fn session_event(&self) -> Result<Value> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
@@ -808,7 +841,10 @@ impl BackendClient {
                 drop(info);
                 let previous = publication.dto.read().await.clone();
                 *publication.dto.write().await = dto.clone();
-                if removed || previous.authorization_revision != dto.authorization_revision {
+                if removed
+                    || previous.authorization_revision != dto.authorization_revision
+                    || previous.close_request != dto.close_request
+                {
                     publication.invalidate();
                 }
                 self.emit_for(
@@ -1297,6 +1333,9 @@ mod friends;
 mod notifications;
 mod recovery;
 mod rooms;
+mod terminal_close;
+#[cfg(feature = "host")]
+pub(crate) use terminal_close::close_signature_holds;
 mod terminal_rooms;
 #[cfg(test)]
 mod tests;

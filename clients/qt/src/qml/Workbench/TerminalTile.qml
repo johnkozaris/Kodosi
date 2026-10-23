@@ -274,7 +274,7 @@ Item {
                         onTerminal: true
                         destructive: true
                         objectName: root.objectName + ".close"
-                        onClicked: closeConfirmation.open()
+                        onClicked: closeConfirmation.ask(root.sessionId, root.sessionName)
                     }
                 }
             }
@@ -522,7 +522,5 @@ Item {
     CloseTerminalDialog {
         id: closeConfirmation
         objectName: root.objectName + ".closeConfirmation"
-        sessionId: root.sessionId
-        sessionName: root.sessionName
     }
 }

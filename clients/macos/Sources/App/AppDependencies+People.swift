@@ -52,6 +52,22 @@ extension AppDependencies {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    func close(_ sessions: [RuntimeSession]) {
+        for session in sessions {
+            Task { @MainActor in await close(session) }
+        }
+    }
+
+    func hide(_ sessions: [RuntimeSession]) {
+        for session in sessions {
+            Task { @MainActor in
+                do {
+                    try await mutateSession("session.hide", session: session)
+                } catch { errorMessage = error.localizedDescription }
+            }
+        }
+    }
+
     func showRooms() {
         missionTask?.cancel(); missionTask = nil; missionRequestId = nil
         workbench.selectedMissionId = nil

@@ -136,7 +136,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         await Assert.ThrowsAsync<ApiException>(async () => await attaching);
         store.Db.ChangeTracker.Clear();
         Assert.Null((await store.Db.Sessions.SingleAsync(ct)).MissionId);
-        Assert.Single(await store.Sessions.ListAsync(bob.User.Id,ct));
+        Assert.Single(await store.Sessions.ListAsync(bob.User.Id, bob.Device.Id, ct));
     }
 
     private sealed class PauseSave : SaveChangesInterceptor

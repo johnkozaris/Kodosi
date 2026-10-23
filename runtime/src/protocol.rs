@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 69;
+pub const VERSION: u32 = 70;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
@@ -318,6 +318,15 @@ pub enum Command {
     },
     #[serde(rename = "session.leave")]
     LeaveSession {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+    },
+    #[serde(rename = "session.hide")]
+    HideSession {
         #[serde(rename = "requestId")]
         request_id: String,
         #[serde(rename = "sessionId")]
@@ -665,6 +674,8 @@ pub struct SessionEntry {
     pub is_owner: bool,
     pub status: SessionStatus,
     pub connection_state: ConnectionState,
+    #[serde(default)]
+    pub hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1309,6 +1320,7 @@ impl Command {
             Self::DisconnectRemote { .. } => "session.disconnect",
             Self::ShareSession { .. } => "session.share",
             Self::LeaveSession { .. } => "session.leave",
+            Self::HideSession { .. } => "session.hide",
             Self::AttachSession { .. } => "session.attachMission",
             Self::Room { .. } => "room.command",
             Self::ShowMission { .. } => "mission.show",
@@ -1417,6 +1429,7 @@ impl Command {
             | Self::DisconnectRemote { request_id, .. }
             | Self::ShareSession { request_id, .. }
             | Self::LeaveSession { request_id, .. }
+            | Self::HideSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
             | Self::Room { request_id, .. }
             | Self::ListMissions { request_id }
@@ -1467,6 +1480,7 @@ impl Command {
             | Self::DisconnectRemote { session_id, .. }
             | Self::ShareSession { session_id, .. }
             | Self::LeaveSession { session_id, .. }
+            | Self::HideSession { session_id, .. }
             | Self::AttachSession { session_id, .. }
             | Self::Resize { session_id, .. }
             | Self::Focus { session_id, .. }
@@ -1505,6 +1519,10 @@ impl Command {
                 ..
             }
             | Self::LeaveSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::HideSession {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -2058,6 +2076,7 @@ mod tests {
             json!({"type":"session.disconnect","requestId":ID,"sessionId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"missionId":null}),
+            json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
             json!({"type":"mission.create","requestId":ID,"name":"Release"}),
             json!({"type":"mission.rename","requestId":ID,"missionId":ID,"name":"Renamed"}),
             json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":DIRECTORY}),
@@ -2137,7 +2156,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 62);
+        assert_eq!(kinds.len(), 63);
     }
 
     #[test]

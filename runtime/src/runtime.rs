@@ -1893,6 +1893,8 @@ impl Runtime {
         let returned = notice.online && !listed.online;
         listed.online = notice.online;
         listed.status = notice.status;
+        listed.hidden &= !notice.online;
+        let hidden = listed.hidden;
         self.started_remotes();
         let status = self.remote_status(id, notice.online);
         let Some(entry) = self
@@ -1903,6 +1905,7 @@ impl Runtime {
             return;
         };
         entry.status = status;
+        entry.hidden = hidden;
         if !notice.online {
             entry.program_status = None;
         }
@@ -2064,6 +2067,7 @@ impl Runtime {
             is_owner,
             status: self.remote_status(remote.id, remote.online),
             connection_state,
+            hidden: remote.hidden && !remote.online,
             message: self
                 .remotes
                 .get(&remote.id)

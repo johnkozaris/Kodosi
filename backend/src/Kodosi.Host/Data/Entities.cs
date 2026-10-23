@@ -86,6 +86,9 @@ public sealed class Session
     public long RoomSequence { get; set; }
     public string? RoomDeviceId { get; set; }
     public byte[]? RoomSignature { get; set; }
+    public Guid? CloseUserId { get; set; }
+    public string? CloseDeviceId { get; set; }
+    public byte[]? CloseSignature { get; set; }
     public long AuthorizationRevision { get; set; } = 1;
     public bool Ended { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
@@ -96,6 +99,12 @@ public sealed class SessionMember
 {
     public Guid SessionId { get; set; }
     public Guid UserId { get; set; }
+}
+
+public sealed class HiddenSession
+{
+    public Guid UserId { get; set; }
+    public Guid SessionId { get; set; }
 }
 
 public sealed class Mission

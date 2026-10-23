@@ -129,6 +129,25 @@ pub(crate) fn terminal_room_preimage(
     )
 }
 
+pub(crate) fn terminal_close_preimage(
+    owner_id: &str,
+    terminal: Uuid,
+    incarnation: Uuid,
+    user_id: &str,
+    device_id: &str,
+) -> Result<Vec<u8>> {
+    signed_fields(
+        b"kodosi-terminal-close-v1",
+        &[
+            owner_id.as_bytes(),
+            terminal.to_string().as_bytes(),
+            incarnation.to_string().as_bytes(),
+            user_id.as_bytes(),
+            device_id.as_bytes(),
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,6 +201,22 @@ mod tests {
             id("incarnationId"),
             Some(id("roomId")),
             vector["sequence"].as_u64().unwrap(),
+            &text("deviceId"),
+        )
+        .unwrap();
+        assert_eq!(bytes, hex(&text("preimageHex")));
+    }
+
+    #[test]
+    fn the_terminal_close_vector_matches_the_current_manifest() {
+        let vector = vector("terminalCloseV1");
+        let text = |key: &str| vector[key].as_str().unwrap().to_owned();
+        let id = |key: &str| Uuid::parse_str(&text(key)).unwrap();
+        let bytes = terminal_close_preimage(
+            &text("ownerId"),
+            id("terminalId"),
+            id("incarnationId"),
+            &text("userId"),
             &text("deviceId"),
         )
         .unwrap();

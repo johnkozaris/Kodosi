@@ -70,6 +70,7 @@ pub(super) async fn run(
     check_generation(network, generation)?;
     let credentials = network.credentials()?;
     let current = current_publication(network, publication, &credentials).await?;
+    close_when_asked(network, publication, &credentials).await?;
     let mut hosted = network.inner.link.host(current.id, current.incarnation_id);
     check_generation(network, generation)?;
     drop(
@@ -273,6 +274,82 @@ async fn review(
             Err(_) => viewer.cancel.cancel(),
         }
     }
+    close_when_asked(network, publication, credentials).await
+}
+
+// A person who can use the terminal asked one of their devices to close it while this computer was away.
+async fn close_when_asked(
+    network: &BackendClient,
+    publication: &Publication,
+    credentials: &Credentials,
+) -> Result<()> {
+    let dto = publication.dto.read().await.clone();
+    let Some(request) = &dto.close_request else {
+        return Ok(());
+    };
+    if publication.closing.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    if allowed(publication, credentials, &request.user_id).await
+        && !crate::identity::recovery::is_recovery_device(&request.device_id)
+    {
+        let room = publication.info.read().await.mission_id;
+        let key = |identity: &crate::identity::pins::VerifiedIdentity| {
+            identity
+                .devices
+                .get(&request.device_id)
+                .map(|certificate| certificate.sig_public_key.clone())
+        };
+        let mut identity = match room.filter(|_| request.user_id != credentials.user_id) {
+            Some(room) => {
+                network
+                    .room_identity(credentials, room, &request.user_id)
+                    .await
+            }
+            None => network.known_identity(credentials, &request.user_id).await,
+        };
+        if room.is_none()
+            && identity
+                .as_ref()
+                .is_ok_and(|identity| key(identity).is_none())
+        {
+            identity = network
+                .fetch_identity_with(credentials, &request.user_id)
+                .await;
+        }
+        match identity {
+            Ok(identity) => {
+                if key(&identity).is_some_and(|public| {
+                    crate::network::backend_client::close_signature_holds(&dto, &public)
+                }) {
+                    return close(publication).await;
+                }
+            }
+            Err(error) if error.unanswered() => return Ok(()),
+            Err(Error::Stale | Error::SignedOut | Error::Closed) => return Err(Error::Stale),
+            Err(_) => {}
+        }
+    }
+    tracing::warn!(terminal = %dto.id, "a request to close this terminal did not hold; it was removed");
+    network.refuse_close(credentials, &dto).await
+}
+
+async fn close(publication: &Publication) -> Result<()> {
+    let (reply, response) = oneshot::channel();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        publication.requests.send(HostRequest::Control {
+            connection_id: Uuid::nil(),
+            control: TerminalControl::Close,
+            authorization: CancellationToken::new(),
+            reply,
+        }),
+    )
+    .await
+    .map_err(|_| Error::Busy)?
+    .map_err(|_| Error::Closed)?;
+    publication.closing.store(true, Ordering::Release);
+    tokio::spawn(tokio::time::timeout(CONTROL_TIMEOUT, response));
     Ok(())
 }
 

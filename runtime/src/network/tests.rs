@@ -14,6 +14,7 @@ fn session() -> RemoteSession {
         shared_with: vec![],
         online: true,
         status: None,
+        hidden: false,
     }
 }
 

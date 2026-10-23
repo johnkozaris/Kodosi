@@ -13,7 +13,7 @@ struct TerminalsHome: View {
     }
 
     var body: some View {
-        let sessions = TerminalCatalog.matching(store.sessions, query: query)
+        let sessions = TerminalCatalog.matching(store.sessions.filter { !$0.hidden }, query: query)
         let groups = TerminalCatalog.groups(sessions)
         List {
             ForEach(groups) { group in
@@ -71,8 +71,8 @@ struct TerminalsHome: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if session.isOwner {
-                Button("Close", systemImage: "xmark", role: .destructive) { prompt = .close(session) }
-                    .disabled(!session.canControl)
+                Button("Close", systemImage: "xmark", role: .destructive) { prompt = .closing(session) }
+                    .disabled(!session.canClose)
                     .accessibilityIdentifier("\(identifier).close")
             } else if session.canLeave {
                 Button("Leave", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { prompt = .leave(session) }
@@ -94,8 +94,8 @@ struct TerminalsHome: View {
         if session.canLeave {
             Button("Leave", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { prompt = .leave(session) }
         }
-        if session.canControl {
-            Button("Close terminal", systemImage: "xmark.circle", role: .destructive) { prompt = .close(session) }
+        if session.canClose {
+            Button("Close terminal", systemImage: "xmark.circle", role: .destructive) { prompt = .closing(session) }
         }
     }
 

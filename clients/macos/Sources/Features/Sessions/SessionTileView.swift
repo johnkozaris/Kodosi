@@ -15,6 +15,7 @@ struct SessionTileView: View {
     var roomEmbedded = false
     @State private var surfaceId = UUID()
     @State private var confirmingClose = false
+    @State private var choosingOffline = false
     @State private var isClosing = false
     @State private var hovered = false
     @State private var born = true
@@ -36,12 +37,18 @@ struct SessionTileView: View {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
                 showsActions: hovered || isSelected, viewers: viewers, isClosing: isClosing,
-            ) { confirmingClose = true }
-                .background {
-                    UnevenRoundedRectangle(topLeadingRadius: Self.radius, topTrailingRadius: Self.radius, style: .continuous)
-                        .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
+            ) {
+                if session.hostOffline {
+                    choosingOffline = true
+                } else {
+                    confirmingClose = true
                 }
-                .contentShape(Rectangle()).onTapGesture(perform: select)
+            }
+            .background {
+                UnevenRoundedRectangle(topLeadingRadius: Self.radius, topTrailingRadius: Self.radius, style: .continuous)
+                    .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
+            }
+            .contentShape(Rectangle()).onTapGesture(perform: select)
             terminal.frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 3).padding([.horizontal, .bottom], 5)
         }
@@ -104,6 +111,7 @@ struct SessionTileView: View {
         } message: {
             Text("Its programs stop.")
         }
+        .offlineChoice($choosingOffline, for: [session])
     }
 
     @ViewBuilder

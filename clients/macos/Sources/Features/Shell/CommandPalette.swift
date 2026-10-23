@@ -143,7 +143,7 @@ struct CommandPalette: View {
     }
 
     private var terminalItems: [Item] {
-        deps.sessions.map { session in
+        deps.listedSessions.map { session in
             Item(
                 id: "terminal.\(session.id)", group: String(localized: "Terminals"), title: session.name,
                 detail: [session.folderName, session.kind == .remote ? session.hostLabel : nil].compactMap(\.self).joined(separator: " · "),

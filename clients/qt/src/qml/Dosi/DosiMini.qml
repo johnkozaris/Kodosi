@@ -10,7 +10,7 @@ Item {
     property var tool: ({})
     readonly property string kind: tool.targetKind || ""
     readonly property var session: kind === "terminal" && tool.sessionId ? Models.Sessions.presentationForSession(tool.sessionId) : null
-    readonly property var stack: kind === "terminals" ? Models.Sessions.sessions.slice(0, 3)
+    readonly property var stack: kind === "terminals" ? Models.Sessions.listedSessions.slice(0, 3)
         : kind === "rooms" ? Models.Missions.missions.slice(0, 3) : []
     readonly property string glyph: kind === "terminal" ? "terminal" : kind === "url" ? "link" : kind === "file" ? "document"
         : kind === "query" ? "search" : kind === "command" ? "prompt" : tool.icon || "cube"

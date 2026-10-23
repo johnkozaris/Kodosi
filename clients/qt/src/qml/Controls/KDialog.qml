@@ -65,7 +65,8 @@ Dialog {
         alignment: Qt.AlignRight
         background: Item {}
         delegate: KButton {
-            variant: DialogButtonBox.buttonRole === DialogButtonBox.AcceptRole
+            variant: DialogButtonBox.buttonRole === DialogButtonBox.DestructiveRole ? KButton.Danger
+                : DialogButtonBox.buttonRole === DialogButtonBox.AcceptRole
                 ? (root.destructive ? KButton.Danger : KButton.Primary)
                 : KButton.Ghost
         }

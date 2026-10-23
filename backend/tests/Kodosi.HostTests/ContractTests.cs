@@ -80,6 +80,15 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public void TheTerminalCloseProofHasTheBytesOfTheSharedVector()
+    {
+        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalCloseV1");
+        Guid Id(string name) => Guid.Parse(vector.GetProperty(name).GetString()!);
+        var bytes = Proofs.TerminalClose(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("userId"), vector.GetProperty("deviceId").GetString()!);
+        Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
+    }
+
+    [Fact]
     public async Task EachRequestProvesAnApprovedDeviceExceptTheRequestsThatSetUpADevice()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));

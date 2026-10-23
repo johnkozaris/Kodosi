@@ -263,6 +263,34 @@ private slots:
         }
         QVERIFY(f.sessions.presentationSession(test::id(1))->away);
     }
+    void aHiddenTerminalLeavesTheListsAndItsViewButStaysInItsRoom()
+    {
+        Fixture f;
+        auto away = test::session(1, true, false);
+        away.insert(QStringLiteral("status"), QStringLiteral("offline"));
+        away.insert(QStringLiteral("hostName"), QStringLiteral("minisforum"));
+        away.insert(QStringLiteral("missionId"), test::id(10));
+        auto other = away;
+        other.insert(QStringLiteral("id"), test::id(2));
+        other.insert(QStringLiteral("incarnationId"), test::id(102));
+        f.workspace.apply(test::snapshot({ away, other }), 0);
+        const auto group = f.sessions.folderGroups().first().toMap();
+        QVERIFY(group.value(QStringLiteral("offline")).toBool());
+        QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("canClose")).toBool());
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().hide(test::id(1)));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.hide"));
+
+        away.insert(QStringLiteral("hidden"), true);
+        f.workspace.apply(test::snapshot({ away, other }), 0);
+        QVERIFY(!f.desktop.stagedSessionIds().contains(test::id(1)));
+        QCOMPARE(f.sessions.listedSessions().size(), 1);
+        QCOMPARE(f.sessions.sessions().size(), 2);
+        QCOMPARE(f.sessions.folderGroups().first().toMap().value(QStringLiteral("sessions")).toList().size(), 1);
+        away.insert(QStringLiteral("hidden"), QStringLiteral("yes"));
+        f.workspace.apply(test::snapshot({ away, other }), 0);
+        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
     void folderGroupsKeepNamesAndRemoteDirectoriesPresentationOnly()
     {
         Fixture f;

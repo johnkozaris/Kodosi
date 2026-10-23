@@ -146,9 +146,14 @@ struct SidebarFolderHeader: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
     @State private var branching = false
+    @State private var choosingOffline = false
     let group: SessionFolderGroup
     let collapsed: Bool
     let toggle: () -> Void
+
+    private var away: Bool {
+        group.host != nil && !group.sessions.isEmpty && group.sessions.allSatisfy(\.hostOffline)
+    }
 
     var body: some View {
         HStack(spacing: 2) {
@@ -182,6 +187,17 @@ struct SidebarFolderHeader: View {
                         Button("New terminal on a new branch…") { branching = true }
                     }
                 }
+                if away {
+                    Button("Close terminals", role: .destructive) { choosingOffline = true }
+                }
+            }
+            if away {
+                IconButton(title: "Close terminals", symbol: "xmark",
+                           identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).close", size: 20, destructive: true)
+                {
+                    choosingOffline = true
+                }
+                .opacity(hovered || choosingOffline ? 1 : 0)
             }
             if group.host == nil, let directory = group.directory {
                 if group.sessions.contains(where: { $0.repository == true }) {
@@ -204,6 +220,7 @@ struct SidebarFolderHeader: View {
         .padding(.top, 6)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
+        .offlineChoice($choosingOffline, for: group.sessions)
     }
 }
 
@@ -215,6 +232,7 @@ struct SidebarTerminalRow: View {
     let pill: Namespace.ID
     @State private var hovered = false
     @State private var confirmingClose = false
+    @State private var choosingOffline = false
     @State private var renaming = false
     @State private var draft = ""
     @FocusState private var nameFocused: Bool
@@ -251,6 +269,15 @@ struct SidebarTerminalRow: View {
             Button("Close", role: .destructive) { Task { await deps.close(session) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Its programs stop.") }
+        .offlineChoice($choosingOffline, for: [session])
+    }
+
+    private func askToClose() {
+        if session.hostOffline {
+            choosingOffline = true
+        } else {
+            confirmingClose = true
+        }
     }
 
     private var label: some View {
@@ -312,8 +339,8 @@ struct SidebarTerminalRow: View {
                 IconButton(title: "Close terminal", symbol: "xmark",
                            identifier: "\(AccessibilityIdentifier.sidebarSession(session.id)).close", size: 22, destructive: true)
                 {
-                    confirmingClose = true
-                }.disabled(!session.canControl)
+                    askToClose()
+                }.disabled(!session.canClose)
             }
             .transition(.opacity)
         } else {
@@ -354,6 +381,6 @@ struct SidebarTerminalRow: View {
             Button("Minimize") { deps.dismissSession(session.id) }
         }
         Divider()
-        Button("Close terminal", role: .destructive) { confirmingClose = true }.disabled(!session.canControl)
+        Button("Close terminal", role: .destructive) { askToClose() }.disabled(!session.canClose)
     }
 }

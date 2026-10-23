@@ -156,7 +156,7 @@ private struct FriendCard: View {
     }
 
     private var shared: [RuntimeSession] {
-        deps.sessions.filter { $0.ownerUserId == friend.userId }
+        deps.listedSessions.filter { $0.ownerUserId == friend.userId }
     }
 
     var body: some View {

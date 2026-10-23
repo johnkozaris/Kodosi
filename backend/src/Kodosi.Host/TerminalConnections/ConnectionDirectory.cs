@@ -238,6 +238,17 @@ public sealed class ConnectionDirectory
         host.Send(Wire.Encode(new AccessChangedNotice(sessionId)));
     }
 
+    public void TellHost(Guid sessionId)
+    {
+        DeviceConnection host;
+        lock (sync)
+        {
+            if (!hosted.TryGetValue(sessionId, out var live)) return;
+            host = live.Host.Connection;
+        }
+        host.Send(Wire.Encode(new AccessChangedNotice(sessionId)));
+    }
+
     public void Renew(Guid userId, string deviceId, DateTimeOffset expires)
     {
         lock (sync) accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId)?.Connection.ExtendUntil(expires);

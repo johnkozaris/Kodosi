@@ -73,6 +73,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let connectedUsers: [String]?
     public let sharedWith: [String]
     public let attention: Bool
+    public let hidden: Bool
 
     public var activity: String? {
         if let caption = programStatus?.caption {
@@ -133,6 +134,14 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var canControl: Bool {
         isConnected && status == .running
+    }
+
+    public var hostOffline: Bool {
+        kind == .remote && status == .offline
+    }
+
+    public var canClose: Bool {
+        canControl || hostOffline
     }
 
     public var canOpen: Bool {

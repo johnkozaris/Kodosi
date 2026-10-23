@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 29,
+  "apiContractVersion": 30,
   "oldestApiContractVersion": 29,
   "authContractVersion": 1,
   "compatibility": {
@@ -73,6 +73,12 @@
     "read": "GET /api/sessions and GET /api/sessions/{id} give roomSequence and roomChoice {deviceId, signature}: the last signed choice, or null when the terminal got its room at its start or the server took it out of its room",
     "host": "the hosting device takes a room for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took; it takes the terminal out of a room without one"
   },
+  "offlineTerminal": {
+    "hide": "PUT /api/sessions/{id}/hidden takes {incarnationId}; while the host is not connected, the lists of that person give the terminal with hidden: true; the server does nothing while the host is connected, and removes the marks of a terminal when its host connects again",
+    "closeRequest": "PUT /api/sessions/{id}/close-request takes {incarnationId, deviceId, signature}: a device of a person who can use the terminal signs with ML-DSA-65 kodosi-terminal-close-v1 and the length-prefixed owner account id, terminal id, incarnation id, its own account id and its own device id; the first request stays",
+    "read": "GET /api/sessions leaves out a terminal with a close request, except in the list of its hosting device, which gets closeRequest {userId, deviceId, signature}; such a terminal does not count toward the terminals of its owner",
+    "host": "the hosting device closes the terminal only for a valid signature of an approved device, not the recovery key, of a person who can use the terminal; it removes any other request with DELETE /api/sessions/{id}/close-request?incarnationId="
+  },
   "deviceLink": {
     "code": "12 random symbols of Crockford base 32 (60 bits) that the new device makes and shows; the server never gets it",
     "key": "PBKDF2-HMAC-SHA512, 1048576 rounds, password = the code as shown, salt = kodosi-device-link-v2 and the 16-byte nonce of the request, 32 bytes",
@@ -145,7 +151,10 @@
       "DELETE /api/sessions/{id}",
       "PUT /api/sessions/{id}/mission",
       "PUT /api/sessions/{id}/members",
-      "DELETE /api/sessions/{id}/members/me"
+      "DELETE /api/sessions/{id}/members/me",
+      "PUT /api/sessions/{id}/hidden",
+      "PUT /api/sessions/{id}/close-request",
+      "DELETE /api/sessions/{id}/close-request"
     ],
     "missions": [
       "GET /api/missions",
