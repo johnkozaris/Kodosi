@@ -10,6 +10,7 @@
 #include <QRandomGenerator>
 #include <QUuid>
 
+#include <algorithm>
 #include <ranges>
 
 namespace kodosi {
@@ -29,7 +30,10 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
 
 bool SessionActionsModel::busy() const
 {
-    return m_workspace.hasPending(Workspace::PendingDomain::Session);
+    return std::ranges::any_of(m_workspace.m_pending, [](const Workspace::Pending& pending) {
+        return pending.domain == Workspace::PendingDomain::Session
+            && pending.operation != QStringLiteral("session.close");
+    });
 }
 
 void SessionActionsModel::refresh()

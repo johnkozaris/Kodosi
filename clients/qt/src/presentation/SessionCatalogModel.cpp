@@ -33,7 +33,7 @@ QVariantList SessionCatalogModel::folderGroups() const
         return *m_groupsCache;
     QMap<QString, QVariantMap> groups;
     for (const auto& session : m_sessions) {
-        if (session.hidden)
+        if (session.hidden || session.status == QStringLiteral("closing"))
             continue;
         const auto local = session.kind == QStringLiteral("local");
         const auto key = (local ? QStringLiteral("0:") : QStringLiteral("1:") + session.ownerUserId + QLatin1Char(':') + session.hostName)
@@ -75,7 +75,7 @@ QVariantList SessionCatalogModel::listedSessions() const
         return *m_listedCache;
     QVariantList result;
     for (const auto& session : m_sessions) {
-        if (!session.hidden)
+        if (!session.hidden && session.status != QStringLiteral("closing"))
             result.append(fields(session));
     }
     m_listedCache = result;
@@ -245,7 +245,8 @@ SessionCatalogModel::PresentationSession SessionCatalogModel::presentation(const
     const bool live = s.status == QStringLiteral("running")
         || s.status == QStringLiteral("reconnecting") || away;
     const bool ready = live && (local || s.connectionState == QStringLiteral("connected")) && !blocked;
-    return { s.id, s.kind, !blocked, !local && !blocked && live, ready,
+    const bool closing = s.status == QStringLiteral("closing");
+    return { s.id, s.kind, !blocked && !closing, !local && !blocked && live, ready,
         ready && s.status == QStringLiteral("running"), away };
 }
 std::optional<SessionCatalogModel::PresentationSession> SessionCatalogModel::presentationSession(

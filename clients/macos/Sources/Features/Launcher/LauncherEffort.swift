@@ -14,7 +14,7 @@ struct EffortBars: View {
                 RoundedRectangle(cornerRadius: width * 0.4, style: .continuous)
                     .fill(level.map { index <= $0 } == true ? theme.colors.accent : theme.colors.ink.opacity(0.2))
                     .frame(width: width, height: height * (0.35 + 0.65 * CGFloat(index) / CGFloat(max(count - 1, 1))))
-                    .animation(theme.motion.snappy?.delay(Double(index) * 0.035), value: level)
+                    .animation(theme.motion.snappy, value: level)
             }
         }
         .frame(height: height, alignment: .bottom)
@@ -58,7 +58,7 @@ struct EffortMeter: View {
                             .fill(level.map { index <= $0 } == true ? theme.colors.accent : theme.colors.ink.opacity(0.22))
                             .frame(width: 6, height: 5 + 11 * CGFloat(index) / CGFloat(max(levels.count - 1, 1)))
                             .frame(height: 18, alignment: .bottom)
-                            .animation(theme.motion.snappy?.delay(Double(index) * 0.035), value: level)
+                            .animation(theme.motion.snappy, value: level)
                     }
                 }
             }

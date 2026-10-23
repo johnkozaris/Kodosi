@@ -134,12 +134,7 @@ Item {
                             radius: 1.5
                             color: segment.index - 1 <= root.level ? KodosiTheme.accent : KodosiTheme.alpha(KodosiTheme.ink, 0.22)
 
-                            Behavior on color {
-                                SequentialAnimation {
-                                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : Math.max(0, segment.index - 1) * 35 }
-                                    ColorAnimation { duration: KodosiTheme.motionSnappy }
-                                }
-                            }
+                            Behavior on color { ColorAnimation { duration: KodosiTheme.motionSnappy } }
                         }
                     }
                     background: Rectangle {

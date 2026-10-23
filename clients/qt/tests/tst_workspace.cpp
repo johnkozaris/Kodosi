@@ -584,7 +584,7 @@ private slots:
         QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
         QVERIFY(f.workspace.sessionActions().close(test::id(1)));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.close"));
-        QVERIFY(f.workspace.sessionActions().busy());
+        QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(f.sessions.containsSession(test::id(1)));
         QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
         const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
@@ -609,6 +609,30 @@ private slots:
         closing.insert(QStringLiteral("status"), QStringLiteral("stopping"));
         f.workspace.apply(test::snapshot({ closing }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
+    void aClosingTerminalLeavesTheStageAndTheSidebarAtOnce()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
+        auto closing = test::session(1);
+        closing.insert(QStringLiteral("status"), QStringLiteral("closing"));
+        f.workspace.apply(test::snapshot({ closing }), 0);
+        QVERIFY(f.sessions.containsSession(test::id(1)));
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(f.sessions.listedSessions().isEmpty());
+        QVERIFY(f.sessions.folderGroups().isEmpty());
+    }
+    void aTerminalThatWaitsForItsProgramsToStopDoesNotHoldUpANewOne()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        QVERIFY(f.workspace.sessionActions().close(test::id(1)));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.close"));
+        QVERIFY(!f.workspace.sessionActions().busy());
+        QVERIFY(f.workspace.sessionActions().create(QStringLiteral("Work"), QStringLiteral("/repo")));
+        QVERIFY(f.workspace.sessionActions().busy());
     }
     void aCreatedTerminalOpensWhenItsResultArrives()
     {

@@ -99,10 +99,12 @@ struct TerminalSettingsView: View {
                         Button("Beside the repository") { setBranchFolder(nil) }.buttonStyle(.kodosi(.ghost, size: .small))
                     }
                     Button("Choose…") {
-                        if let folder = pickWorkingDirectory(initialDirectory: deps.settings.branchFolder,
-                                                             message: String(localized: "Choose a folder for new branches"))
-                        {
-                            setBranchFolder(folder)
+                        Task { @MainActor in
+                            if let folder = await pickWorkingDirectory(initialDirectory: deps.settings.branchFolder,
+                                                                       message: String(localized: "Choose a folder for new branches"))
+                            {
+                                setBranchFolder(folder)
+                            }
                         }
                     }
                     .buttonStyle(.kodosi(.secondary, size: .small)).accessibilityIdentifier("settings.terminal.branchFolder")

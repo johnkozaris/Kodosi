@@ -89,7 +89,6 @@ struct PickerList: View {
     let close: () -> Void
     @State private var highlighted: String?
     @State private var filter = ""
-    @State private var shown = 0
     @FocusState private var focused: Bool
 
     private static let visibleRows = 7
@@ -117,10 +116,8 @@ struct PickerList: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     VStack(spacing: 2) {
-                        ForEach(Array(matches.enumerated()), id: \.element.id) { index, row in
+                        ForEach(matches, id: \.id) { row in
                             item(row)
-                                .opacity(index < shown ? 1 : 0)
-                                .offset(y: index < shown ? 0 : -5)
                                 .id(row.id)
                         }
                         if matches.isEmpty {
@@ -174,7 +171,6 @@ struct PickerList: View {
                 close()
             }
         }
-        .task(id: identifier) { await reveal() }
         .onAppear {
             focused = true
             highlighted = (rows.first(where: \.current) ?? rows.first { $0.kind != .note })?.id
@@ -268,20 +264,6 @@ struct PickerList: View {
         let index = choices.firstIndex { $0.id == highlighted } ?? (step > 0 ? -1 : 0)
         highlighted = choices[(index + step + choices.count) % choices.count].id
         return .handled
-    }
-
-    private func reveal() async {
-        guard !theme.motion.reduced else {
-            shown = .max
-            return
-        }
-        shown = 0
-        for index in 1 ... max(rows.count, 1) {
-            withAnimation(theme.motion.fade) { shown = index }
-            try? await Task.sleep(for: .milliseconds(18))
-            guard !Task.isCancelled else { return }
-        }
-        shown = .max
     }
 }
 

@@ -428,11 +428,8 @@ Item {
 
         ParallelAnimation {
             id: birth
-            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
-            SequentialAnimation {
-                NumberAnimation { target: veil; property: "opacity"; from: 0.85; to: 0.85; duration: 80 }
-                NumberAnimation { target: veil; property: "opacity"; to: 0; duration: KodosiTheme.motionSoft; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
-            }
+            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: KodosiTheme.motionSnappy; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+            NumberAnimation { target: veil; property: "opacity"; from: 0.6; to: 0; duration: KodosiTheme.motionFade; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
         }
     }
     Item {

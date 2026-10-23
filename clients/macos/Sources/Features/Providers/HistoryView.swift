@@ -43,9 +43,11 @@ struct HistoryView: View {
                     SegmentOption(value: $0, title: $0.name)
                 }, compact: true, identifier: "panel.resume.provider")
                 Button {
-                    if let directory = pickWorkingDirectory(initialDirectory: browser.directory) {
-                        browser.directory = directory
-                        browser.load()
+                    Task { @MainActor in
+                        if let directory = await pickWorkingDirectory(initialDirectory: browser.directory) {
+                            browser.directory = directory
+                            browser.load()
+                        }
                     }
                 } label: {
                     Label(browser.directory.isEmpty ? String(localized: "All projects") : HostPath.folderName(browser.directory),

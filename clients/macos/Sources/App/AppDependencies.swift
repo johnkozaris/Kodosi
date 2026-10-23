@@ -223,7 +223,7 @@ final class AppDependencies {
     }
 
     var listedSessions: [RuntimeSession] {
-        sessions.filter { !$0.hidden }
+        sessions.filter { !$0.hidden && $0.status != .closing }
     }
 
     func refresh() {

@@ -218,6 +218,7 @@ struct SidebarFolderHeader: View {
             }
         }
         .padding(.top, 6)
+        .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .offlineChoice($choosingOffline, for: group.sessions)

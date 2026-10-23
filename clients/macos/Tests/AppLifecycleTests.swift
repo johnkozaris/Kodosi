@@ -55,6 +55,29 @@ import Testing
     #expect(app.account.userId == "owner")
 }
 
+@Test @MainActor func `a closing terminal leaves the listed terminals at once`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "ClosingTerminal"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b2a"
+    func snapshot(_ status: String) throws -> RuntimeEvent {
+        try runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object([
+            "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b2b"),
+            "kind": .string("local"), "name": .string("Quartz Puma"), "isOwner": .bool(true),
+            "status": .string(status), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
+        ])])])
+    }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    try app.receive(snapshot("running"))
+    #expect(app.listedSessions.map(\.id) == [id])
+    try app.receive(snapshot("closing"))
+    #expect(app.listedSessions.isEmpty)
+    #expect(app.session(id)?.status == .closing)
+}
+
 @Test @MainActor func `signed out startup and refresh only list local sessions`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SignedOutRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
