@@ -106,6 +106,15 @@ pub(super) fn end_group(leader: u32, force: bool) {
     let _ = rustix::process::kill_process_group(leader, signal);
 }
 
+pub(super) fn end_process(pid: u32) {
+    if let Some(pid) = i32::try_from(pid)
+        .ok()
+        .and_then(rustix::process::Pid::from_raw)
+    {
+        let _ = rustix::process::kill_process(pid, rustix::process::Signal::TERM);
+    }
+}
+
 pub(super) fn is_running(pid: u32) -> bool {
     let Some(pid) = i32::try_from(pid)
         .ok()

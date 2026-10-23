@@ -144,6 +144,9 @@ final class AppDependencies {
         }
         if failure.code == .hostOutdated {
             present(.hostOutdated(failure))
+            if failure.restartsWithoutAsking {
+                restartOutdatedHost()
+            }
         } else {
             failRuntime(failure.message)
         }
@@ -202,9 +205,9 @@ final class AppDependencies {
         commandSink.transport = nil
         otherLaunchers.removeAll()
         inbox.close()
-        runtimeHandle.stop(completion: completion)
         eventTask?.cancel()
         eventTask = nil
+        runtimeHandle.stop(completion: completion)
     }
 
     private func failRuntime(_ message: String) {

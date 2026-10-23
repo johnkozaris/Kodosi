@@ -82,6 +82,13 @@ ApplicationWindow {
 
         target: Models.Tray
     }
+    Connections {
+        function onRestartOffered() {
+            quitDialog.request(true);
+        }
+
+        target: Models.ApplicationLifecycle
+    }
     QuitDialog {
         id: quitDialog
 

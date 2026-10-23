@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QThread>
 #include <QTimer>
+#include <QVersionNumber>
 
 #include <utility>
 
@@ -109,6 +110,14 @@ void ApplicationLifecycleModel::setUpdateInstalled()
     emit updateInstalledChanged();
 }
 
+void ApplicationLifecycleModel::offerRestart(const QString& launched, const QString& running)
+{
+    if (QVersionNumber::fromString(launched) > QVersionNumber::fromString(running))
+        setUpdateInstalled();
+    if (m_updateInstalled)
+        emit restartOffered();
+}
+
 void ApplicationLifecycleModel::restart()
 {
     m_restartRequested = true;
@@ -206,6 +215,8 @@ void ApplicationLifecycleModel::completeAttempt(
     setOutdatedHost(result ? std::nullopt : result.error().outdatedHost);
     if (!result) {
         fail(m_outdatedHost ? describe(*m_outdatedHost) : result.error().message);
+        if (m_outdatedHost && !m_outdatedHost->foreground && m_outdatedHost->terminals == 0)
+            restartHost();
         return;
     }
 
@@ -239,6 +250,10 @@ QString ApplicationLifecycleModel::describe(const OutdatedHost& host)
         return tr("The `kodosi host` command (process %1) runs the earlier version. "
                   "Stop it in its terminal and start it again.")
             .arg(host.pid);
+    }
+    if (host.terminals == 1) {
+        return tr("The earlier version of Kodosi still runs 1 terminal in the background. "
+                  "Restart it to use the update. The terminal ends.");
     }
     return tr("The earlier version of Kodosi still runs %n terminals in the background. "
               "Restart it to use the update. Its terminals end.",

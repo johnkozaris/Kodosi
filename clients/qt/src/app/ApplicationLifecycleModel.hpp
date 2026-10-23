@@ -54,6 +54,7 @@ public:
     void scheduleInitialStart();
     void stop() noexcept;
     void setUpdateInstalled();
+    void offerRestart(const QString& launched, const QString& running);
 
     Q_INVOKABLE void retry();
     Q_INVOKABLE void restartHost();
@@ -63,6 +64,7 @@ signals:
     void stateChanged();
     void hostForegroundChanged();
     void updateInstalledChanged();
+    void restartOffered();
 
 private:
     static constexpr qsizetype MaximumErrorTextLength = 320;

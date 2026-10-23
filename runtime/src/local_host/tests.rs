@@ -412,15 +412,55 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
     assert!(claim_app(root.path()).unwrap().is_none());
     let (server, mut received) = serve_into(claim, true).await;
     let activation = json!({ "route": "kodosi://room/abc", "token": "xdg-token" });
+    let mut delivered = activation.clone();
+    delivered["appVersion"] = json!(env!("KODOSI_VERSION"));
     for _ in 0..2 {
         let forwarded = forward_activation(root.path(), &activation, Duration::from_secs(5))
             .await
             .unwrap();
-        assert!(matches!(forwarded, Forwarded::Delivered));
-        assert_eq!(received.recv().await.unwrap(), activation);
+        let Forwarded::Delivered(running) = forwarded else {
+            panic!("the launch claimed a folder that an app owns");
+        };
+        assert_eq!(running.version.as_deref(), Some(env!("KODOSI_VERSION")));
+        assert_eq!(running.pid, Some(std::process::id()));
+        assert_eq!(received.recv().await.unwrap(), delivered);
     }
     server.shutdown().await;
     assert!(claim_released(root.path()).await);
+}
+
+#[tokio::test]
+async fn a_launch_learns_that_the_running_app_is_an_earlier_one() {
+    let root = tempfile::tempdir().unwrap();
+    let claim = claim_app(root.path()).unwrap().unwrap();
+    let endpoint =
+        role_endpoint(&kodosi_os::fs::canonicalize(root.path()).unwrap(), "app").unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint).await.unwrap();
+    let earlier = tokio::spawn(async move {
+        let stream = listener.accept().await.unwrap();
+        let mut reader = FrameReader::new(stream);
+        let request: Value = read_json(&mut reader).await.unwrap();
+        write_json(
+            &mut reader.input,
+            &json!({ "version": 1, "accepted": true }),
+        )
+        .await
+        .unwrap();
+        request
+    });
+    let forwarded = forward_activation(root.path(), &json!({}), Duration::from_secs(5))
+        .await
+        .unwrap();
+    let Forwarded::Delivered(running) = forwarded else {
+        panic!("the launch claimed a folder that an app owns");
+    };
+    assert_eq!(running.version, None);
+    assert_eq!(running.pid, Some(std::process::id()));
+    assert_eq!(
+        earlier.await.unwrap()["activation"]["appVersion"],
+        env!("KODOSI_VERSION")
+    );
+    drop(claim);
 }
 
 #[tokio::test]
@@ -462,7 +502,10 @@ async fn a_closing_owner_leaves_requests_unanswered_until_its_claim_passes_on() 
             forward_activation(&root, &json!({ "route": null }), Duration::from_secs(5)).await
         })
     };
-    assert_eq!(received.recv().await.unwrap(), json!({ "route": null }));
+    assert_eq!(
+        received.recv().await.unwrap(),
+        json!({ "route": null, "appVersion": env!("KODOSI_VERSION") })
+    );
     server.shutdown().await;
     assert!(matches!(
         launch.await.unwrap().unwrap(),
@@ -483,7 +526,10 @@ async fn activations_from_another_version_or_of_another_shape_are_refused() {
         let mut stream = kodosi_os::ipc::connect(&endpoint).await.unwrap();
         write_json(&mut stream, &request).await.unwrap();
         let reply: Value = read_json(&mut FrameReader::new(stream)).await.unwrap();
-        assert_eq!(reply, json!({ "version": 1, "accepted": false }));
+        assert_eq!(
+            reply,
+            json!({ "version": 1, "accepted": false, "appVersion": env!("KODOSI_VERSION") })
+        );
     }
     for activation in [
         json!("kodosi://room/abc"),

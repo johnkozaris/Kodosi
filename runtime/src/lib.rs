@@ -41,6 +41,8 @@ pub use config::{Config, HostKind};
 pub use protocol::{Command, CommandEnvelope, Event, EventBody};
 pub use runtime::{RuntimeHandle, start};
 
+pub const PRODUCT_VERSION: &str = env!("KODOSI_VERSION");
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]

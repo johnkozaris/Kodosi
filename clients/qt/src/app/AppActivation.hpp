@@ -17,6 +17,7 @@ namespace kodosi {
 struct AppActivation {
     std::optional<DeepLinkParseResult> route;
     QString token;
+    QString appVersion;
 
     [[nodiscard]] QByteArray toJson() const;
     [[nodiscard]] static AppActivation fromJson(const QByteArray& json);
