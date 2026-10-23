@@ -166,6 +166,7 @@ impl Runtime {
             | Command::InspectProvider { .. }
             | Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
+            | Command::InspectUsage { .. }
             | Command::AddAgentAccount { .. }
             | Command::ChooseAgent { .. } => self.provider(command)?,
             #[cfg(not(feature = "host"))]
@@ -179,6 +180,7 @@ impl Runtime {
             #[cfg(not(feature = "host"))]
             Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
+            | Command::InspectUsage { .. }
             | Command::AddAgentAccount { .. }
             | Command::ChooseAgent { .. }
             | Command::ListFolders { .. } => {
@@ -1475,6 +1477,11 @@ async fn provider_reply(
         }
         Command::InspectAgentModels { agent, .. } => {
             return Ok(serde_json::to_value(launcher.models(*agent).await)?);
+        }
+        Command::InspectUsage { .. } => {
+            return Ok(serde_json::to_value(
+                launcher.usage().await.map_err(Error::Invalid)?,
+            )?);
         }
         Command::AddAgentAccount { agent, name, .. } => {
             return Ok(serde_json::to_value(

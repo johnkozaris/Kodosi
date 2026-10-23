@@ -551,6 +551,7 @@ fn claude_with_accounts() -> AgentInfo {
             .collect(),
         install: String::new(),
         adds_accounts: true,
+        reports_usage: true,
     }
 }
 

@@ -21,6 +21,10 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(QVariantMap plans READ plans NOTIFY plansChanged)
     Q_PROPERTY(QString accountError READ accountError NOTIFY accountErrorChanged)
     Q_PROPERTY(bool addingAccount READ addingAccount NOTIFY accountErrorChanged)
+    Q_PROPERTY(QVariantMap usage READ usage NOTIFY usageChanged)
+    Q_PROPERTY(bool usageRead READ usageRead NOTIFY usageChanged)
+    Q_PROPERTY(QVariantList usageSections READ usageSections NOTIFY usageChanged)
+    Q_PROPERTY(QVariant usageNearest READ usageNearest NOTIFY usageChanged)
     Q_PROPERTY(QVariantMap places READ places NOTIFY foldersChanged)
     Q_PROPERTY(QVariantMap listing READ listing NOTIFY foldersChanged)
     Q_PROPERTY(QString folderError READ folderError NOTIFY foldersChanged)
@@ -38,12 +42,17 @@ public:
     QVariantMap plans() const;
     QString accountError() const { return m_accountError; }
     bool addingAccount() const;
+    QVariantMap usage() const { return m_usage; }
+    bool usageRead() const { return m_usageRead; }
+    QVariantList usageSections() const;
+    QVariant usageNearest() const;
     QVariantMap places() const { return m_places; }
     QVariantMap listing() const { return m_listing; }
     QString folderError() const { return m_folderError; }
 
     Q_INVOKABLE void refresh(bool force = false);
     Q_INVOKABLE void loadModels(const QString& agent);
+    Q_INVOKABLE void refreshUsage();
     Q_INVOKABLE void addAccount(const QString& agent, const QString& name);
     Q_INVOKABLE void chooseAgent(const QString& agent);
     Q_INVOKABLE void choose(const QString& kind, const QString& agent, const QString& value);
@@ -61,10 +70,11 @@ signals:
     void plansChanged();
     void accountErrorChanged();
     void foldersChanged();
+    void usageChanged();
     void accountAdded(QString agent, QString name);
 
 private:
-    enum class Request { Agents, Models, Account, Choose, Folders };
+    enum class Request { Agents, Models, Account, Choose, Folders, Usage };
     struct Pending {
         Request request;
         QString agent;
@@ -81,6 +91,8 @@ private:
     QStringList m_loading;
     QVariantMap m_choice;
     QString m_accountError;
+    QVariantMap m_usage;
+    bool m_usageRead = false;
     QVariantMap m_places;
     QVariantMap m_listing;
     QString m_folderError;

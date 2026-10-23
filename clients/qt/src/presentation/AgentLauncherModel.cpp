@@ -21,6 +21,45 @@ QJsonValue nullable(const QString& value)
 {
     return value.isEmpty() ? QJsonValue() : QJsonValue(value);
 }
+
+QString accountTitle(const QString& name, const QString& program)
+{
+    if (name == program)
+        return AgentLauncherModel::tr("Default");
+    auto base = name;
+    for (const auto separator : { u'-', u'_' }) {
+        if (base.size() > program.size() + 1 && base.startsWith(program + separator)) {
+            base = base.mid(program.size() + 1);
+            break;
+        }
+    }
+    return base.left(1).toUpper() + base.mid(1);
+}
+
+QVariantMap describedLimit(QVariantMap limit)
+{
+    const auto scope = limit.value(QStringLiteral("scope")).toString();
+    const auto hours = limit.value(QStringLiteral("hours"));
+    const bool monthly = hours.isNull() || !hours.isValid();
+    const int count = hours.toInt();
+    auto window = scope;
+    if (window.isEmpty()) {
+        window = monthly ? AgentLauncherModel::tr("month")
+            : count == 24 ? AgentLauncherModel::tr("day")
+            : count == 168 ? AgentLauncherModel::tr("week")
+            : count % 24 == 0 ? AgentLauncherModel::tr("%1d").arg(count / 24)
+                              : AgentLauncherModel::tr("%1h").arg(count);
+    }
+    const auto span = monthly ? AgentLauncherModel::tr("This month")
+        : count == 168 ? AgentLauncherModel::tr("This week")
+                       : AgentLauncherModel::tr("Last %1 hours").arg(count);
+    const auto name = scope.isEmpty() ? span : AgentLauncherModel::tr("%1, %2").arg(scope, span.toLower());
+    limit.insert(QStringLiteral("id"), !scope.isEmpty() ? QStringLiteral("scope:") + scope
+            : monthly ? QStringLiteral("month") : QStringLiteral("hours:") + QString::number(count));
+    limit.insert(QStringLiteral("window"), window);
+    limit.insert(QStringLiteral("spoken"), AgentLauncherModel::tr("%1: %2% used").arg(name).arg(limit.value(QStringLiteral("used")).toInt()));
+    return limit;
+}
 }
 
 AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent, bool remote)
@@ -30,6 +69,7 @@ AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* par
     for (const auto signal : { &AgentLauncherModel::agentsChanged, &AgentLauncherModel::modelsChanged,
              &AgentLauncherModel::choiceChanged })
         connect(this, signal, this, &AgentLauncherModel::plansChanged);
+    connect(this, &AgentLauncherModel::agentsChanged, this, &AgentLauncherModel::usageChanged);
     if (!remote)
         m_remote = new AgentLauncherModel(commands, this, true);
 }
@@ -47,11 +87,14 @@ void AgentLauncherModel::setComputer(const QString& computer)
     m_listing.clear();
     m_folderError.clear();
     m_browsing.clear();
+    m_usage.clear();
+    m_usageRead = false;
     m_refreshedAt = 0;
     emit computerChanged();
     emit agentsChanged();
     emit choiceChanged();
     emit foldersChanged();
+    emit usageChanged();
     if (!m_computer.isEmpty())
         refresh(true);
 }
@@ -154,6 +197,62 @@ void AgentLauncherModel::loadModels(const QString& agent)
         m_loading.append(agent);
         emit modelsChanged();
     }
+}
+
+QVariantList AgentLauncherModel::usageSections() const
+{
+    QVariantList sections;
+    for (const auto& value : m_agents) {
+        const auto info = value.toMap();
+        if (!info.value(QStringLiteral("installed")).toBool() || !info.value(QStringLiteral("reportsUsage")).toBool())
+            continue;
+        const auto agent = info.value(QStringLiteral("agent")).toString();
+        const auto program = info.value(QStringLiteral("program")).toString();
+        QVariantList rows;
+        QVariantList windows;
+        QStringList seen;
+        for (const auto& entry : info.value(QStringLiteral("accounts")).toList()) {
+            const auto account = entry.toMap();
+            const auto name = account.value(QStringLiteral("name")).toString();
+            const auto identity = account.value(QStringLiteral("identity")).toString();
+            const auto usage = m_usage.value(agent + u'/' + name);
+            if (identity.isEmpty() || (!usage.isValid() && m_usageRead))
+                continue;
+            for (const auto& limit : usage.toMap().value(QStringLiteral("limits")).toList()) {
+                const auto id = limit.toMap().value(QStringLiteral("id")).toString();
+                if (!seen.contains(id)) {
+                    seen.append(id);
+                    windows.append(limit);
+                }
+            }
+            const auto title = accountTitle(name, program);
+            const auto folder = account.value(QStringLiteral("folder")).toString();
+            rows.append(QVariantMap { { QStringLiteral("name"), name }, { QStringLiteral("title"), title },
+                { QStringLiteral("key"), folder.isEmpty() ? account.value(QStringLiteral("command")) : folder },
+                { QStringLiteral("identity"), identity }, { QStringLiteral("usage"), usage } });
+        }
+        if (!rows.isEmpty())
+            sections.append(QVariantMap { { QStringLiteral("agent"), agent }, { QStringLiteral("rows"), rows },
+                { QStringLiteral("windows"), windows } });
+    }
+    return sections;
+}
+
+QVariant AgentLauncherModel::usageNearest() const
+{
+    QVariant nearest;
+    for (const auto& value : m_usage) {
+        const auto headline = value.toMap().value(QStringLiteral("headline"));
+        if (!nearest.isValid() || headline.toMap().value(QStringLiteral("used")).toInt() > nearest.toMap().value(QStringLiteral("used")).toInt())
+            nearest = headline;
+    }
+    return nearest;
+}
+
+void AgentLauncherModel::refreshUsage()
+{
+    if (std::ranges::none_of(m_pending, [](const Pending& pending) { return pending.request == Request::Usage; }))
+        send(Request::Usage, {}, { { QStringLiteral("type"), QStringLiteral("provider.usage") } });
 }
 
 void AgentLauncherModel::addAccount(const QString& agent, const QString& name)
@@ -284,6 +383,26 @@ void AgentLauncherModel::apply(const QJsonObject& event)
     case Request::Choose:
         if (!failed)
             adopt(result, pending.asOf);
+        break;
+    case Request::Usage:
+        if (!failed) {
+            QVariantMap usage;
+            for (const auto& value : result.value(QStringLiteral("accounts")).toArray()) {
+                auto account = value.toObject().toVariantMap();
+                QVariantList limits;
+                for (const auto& limit : account.value(QStringLiteral("limits")).toList())
+                    limits.append(describedLimit(limit.toMap()));
+                account.insert(QStringLiteral("limits"), limits);
+                const auto headline = std::ranges::find_if(limits, [](const QVariant& limit) { return limit.toMap().value(QStringLiteral("headline")).toBool(); });
+                account.insert(QStringLiteral("headline"), headline == limits.end() ? limits.value(0) : *headline);
+                usage.insert(account.value(QStringLiteral("agent")).toString() + u'/' + account.value(QStringLiteral("account")).toString(), account);
+            }
+            if (usage != m_usage || !m_usageRead) {
+                m_usage = std::move(usage);
+                m_usageRead = true;
+                emit usageChanged();
+            }
+        }
         break;
     }
 }

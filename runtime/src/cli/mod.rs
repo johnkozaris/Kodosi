@@ -230,6 +230,8 @@ enum AgentAction {
     List,
     /// List the models and efforts of an agent.
     Models { agent: String },
+    /// Show how much of the plan limits each signed-in account has used.
+    Usage,
 }
 #[derive(Subcommand)]
 enum AuthAction {
@@ -527,6 +529,7 @@ async fn command(
         Action::Agent(AgentAction::Models { agent }) => {
             json!({"type":"provider.agentModels","requestId":request,"agent":agent_name(&agent)?})
         }
+        Action::Agent(AgentAction::Usage) => json!({"type":"provider.usage","requestId":request}),
         Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
         Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
         Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),

@@ -6,7 +6,9 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::Value;
 
-use super::{Agent, AgentAccount, AgentCatalog, AgentChoice, AgentInfo, shell::Facts, shell_word};
+use super::{
+    Agent, AgentAccount, AgentCatalog, AgentChoice, AgentInfo, shell::Facts, shell_word, usage,
+};
 
 const MAX_ACCOUNT_FILE: u64 = 8 * 1024 * 1024;
 const MAX_HOME_ENTRIES: usize = 8_192;
@@ -30,6 +32,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     },
                     install: install(agent).to_owned(),
                     adds_accounts: cfg!(unix) && agent.home().is_some(),
+                    reports_usage: usage::reports(agent),
                 }
             })
             .collect(),

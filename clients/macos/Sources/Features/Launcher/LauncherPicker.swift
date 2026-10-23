@@ -19,6 +19,7 @@ struct PickerRow: Identifiable, Equatable {
     var subtitle: String?
     var detail: String?
     var icon = Icon.none
+    var usage: UsageLimit?
     var current = false
 }
 
@@ -200,7 +201,7 @@ struct PickerList: View {
     private func item(_ row: PickerRow) -> some View {
         let lit = row.id == highlighted && row.kind != .note
         return HStack(spacing: 10) {
-            PickerIcon(icon: row.icon)
+            PickerIcon(icon: row.icon, usage: row.usage)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: row.title)
                     .appTextStyle(.body).fontWeight(.medium)
@@ -215,6 +216,9 @@ struct PickerList: View {
             }
             .lineLimit(1)
             Spacer(minLength: 8)
+            if let usage = row.usage {
+                UsagePercent(limit: usage)
+            }
             if let detail = row.detail {
                 Text(verbatim: detail)
                     .appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkFaint)
@@ -247,7 +251,8 @@ struct PickerList: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: [row.title, row.subtitle, row.detail].compactMap(\.self).joined(separator: ", ")))
+        .accessibilityLabel(Text(verbatim: [row.title, row.subtitle, row.detail, row.usage?.spoken].compactMap(\.self)
+                .joined(separator: ", ")))
         .accessibilityAddTraits(row.kind == .note ? .isStaticText : row.current ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction {
             if row.kind != .note {
@@ -282,6 +287,7 @@ struct PickerList: View {
 
 struct PickerIcon: View {
     let icon: PickerRow.Icon
+    var usage: UsageLimit?
 
     var body: some View {
         switch icon {
@@ -290,7 +296,7 @@ struct PickerIcon: View {
         case .folder:
             IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 26)
         case let .account(initial, key, signedIn):
-            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26)
+            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage)
         case let .device(label):
             IconTile(symbol: DeviceGlyph.symbol(for: label), tint: TileTint.graphite, size: 26)
         case let .slot(symbol):
@@ -299,25 +305,34 @@ struct PickerIcon: View {
     }
 }
 
+/// A person mark for an account. With a usage limit, the ring of that limit circles the mark inside the
+/// same size.
 struct AccountMark: View {
     let initial: String
     let key: String
     let signedIn: Bool
     var size: CGFloat = 26
+    var usage: UsageLimit?
 
     var body: some View {
-        Group {
+        let ring = max(1.5, size * 0.075)
+        let face = usage == nil ? size : size - 2 * (ring + max(1.25, size * 0.06))
+        ZStack {
             if signedIn {
-                PersonAvatar(name: initial, key: key, size: size)
+                PersonAvatar(name: initial, key: key, size: face)
             } else {
                 let tint = PersonTint.color(for: key)
                 Text(verbatim: initial.uppercased())
-                    .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
+                    .font(.system(size: face * 0.4, weight: .semibold, design: .rounded))
                     .foregroundStyle(tint)
-                    .frame(width: size, height: size)
+                    .frame(width: face, height: face)
                     .overlay { Circle().strokeBorder(tint, style: StrokeStyle(lineWidth: 1.2, dash: [2.6, 2.2])) }
             }
+            if let usage {
+                UsageRing(limit: usage, lineWidth: ring)
+            }
         }
+        .frame(width: size, height: size)
         .accessibilityHidden(true)
     }
 }

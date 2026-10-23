@@ -6,6 +6,8 @@ mod launch;
 mod models;
 #[cfg(feature = "host")]
 mod shell;
+#[cfg(feature = "host")]
+mod usage;
 
 #[cfg(feature = "host")]
 pub use launch::Launcher;
@@ -110,6 +112,7 @@ pub struct AgentInfo {
     pub accounts: Vec<AgentAccount>,
     pub install: String,
     pub adds_accounts: bool,
+    pub reports_usage: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -185,6 +188,40 @@ pub struct AgentStart {
 pub enum AgentChoiceChange {
     Tab { agent: Option<Agent> },
     Pick(AgentPick),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentUsageReply {
+    pub accounts: Vec<AccountUsage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountUsage {
+    pub agent: Agent,
+    pub account: String,
+    pub limits: Vec<UsageLimit>,
+    pub read_at: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageLimit {
+    /// The length of a rolling window; none for a calendar month.
+    pub hours: Option<u32>,
+    pub scope: Option<String>,
+    pub used: u8,
+    pub level: UsageLevel,
+    pub headline: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum UsageLevel {
+    Normal,
+    Near,
+    Reached,
 }
 
 #[cfg(feature = "host")]

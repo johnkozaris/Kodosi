@@ -105,6 +105,7 @@ struct AgentLauncher: View {
             }
         }
         .onChange(of: computer) { closeMenu() }
+        .task(id: "usage|\(computer ?? "")") { await launcher.refreshUsage() }
         .task(id: "\(computer ?? "")|\(choice.agent ?? "")|\(info?.installed == true)") {
             if let agent = choice.agent {
                 await launcher.loadModels(agent)
@@ -233,66 +234,6 @@ struct AgentLauncher: View {
         }
     }
 
-    private func accountKey(_ info: AgentInfo) -> some View {
-        let account = plan.account
-        let title = account?.title(program: info.program) ?? ""
-        return PickerKey(
-            title: title, open: menu == .account, identifier: "launcher.account",
-            label: String(localized: "Account"), help: account?.identity,
-        ) {
-            AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 16)
-        } action: {
-            toggle(.account)
-        }
-        .kodosiPopover(isPresented: presented(.account), alignment: .leading) {
-            if adding {
-                NewAccountForm(
-                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving,
-                ) { add($0, to: info) }
-            } else {
-                PickerList(
-                    rows: LauncherMenu.account.rows(plan, recents: [], directory: directory, loading: false),
-                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu,
-                )
-            }
-        }
-    }
-
-    private func modelKey(_ info: AgentInfo) -> some View {
-        let named = plan.model?.label ?? plan.modelId
-        let level = plan.efforts.firstIndex { $0.id == plan.effortId }
-        return PickerKey(
-            title: named ?? String(localized: "Model"), quiet: named == nil,
-            loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
-            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort"),
-        ) {
-            Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
-        } accessory: {
-            if let level {
-                EffortBars(level: level, count: plan.efforts.count, height: 10)
-                    .transition(AnyTransition.pop)
-            }
-        } action: {
-            toggle(.model)
-        }
-        .kodosiPopover(isPresented: presented(.model), alignment: .leading) {
-            VStack(spacing: 0) {
-                PickerList(
-                    rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
-                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu,
-                )
-                if !plan.efforts.isEmpty {
-                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
-                    EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
-                        choosePick { $0.effort = effort }
-                        closeMenu()
-                    }
-                }
-            }
-            .frame(width: 290)
-        }
-    }
-
     private func presented(_ kind: LauncherMenu) -> Binding<Bool> {
         Binding {
             menu == kind
@@ -305,6 +246,9 @@ struct AgentLauncher: View {
 
     private func toggle(_ kind: LauncherMenu) {
         guard menu != kind else { return closeMenu() }
+        if kind == .account {
+            Task { await launcher.refreshUsage() }
+        }
         withAnimation(theme.motion.snappy) {
             menu = kind
             adding = false
@@ -433,6 +377,73 @@ struct AgentLauncher: View {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
                 await launcher.refresh(force: true)
             }
+        }
+    }
+}
+
+private extension AgentLauncher {
+    func accountKey(_ info: AgentInfo) -> some View {
+        let account = plan.account
+        let title = account?.title(program: info.program) ?? ""
+        let usage = plan.usage(of: account)
+        let help = [account?.identity, usage?.spoken].compactMap(\.self).joined(separator: "\n")
+        return PickerKey(
+            title: title, open: menu == .account, identifier: "launcher.account",
+            label: String(localized: "Account"), help: help.isEmpty ? nil : help,
+        ) {
+            AccountMark(
+                initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil,
+                size: usage == nil ? 16 : 20, usage: usage,
+            )
+        } action: {
+            toggle(.account)
+        }
+        .kodosiPopover(isPresented: presented(.account), alignment: .leading) {
+            if adding {
+                NewAccountForm(
+                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving,
+                ) { add($0, to: info) }
+            } else {
+                PickerList(
+                    rows: LauncherMenu.account.rows(plan, recents: [], directory: directory, loading: false),
+                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu,
+                )
+            }
+        }
+    }
+
+    func modelKey(_ info: AgentInfo) -> some View {
+        let named = plan.model?.label ?? plan.modelId
+        let level = plan.efforts.firstIndex { $0.id == plan.effortId }
+        return PickerKey(
+            title: named ?? String(localized: "Model"), quiet: named == nil,
+            loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
+            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort"),
+        ) {
+            Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
+        } accessory: {
+            if let level {
+                EffortBars(level: level, count: plan.efforts.count, height: 10)
+                    .transition(AnyTransition.pop)
+            }
+        } action: {
+            toggle(.model)
+        }
+        .kodosiPopover(isPresented: presented(.model), alignment: .leading) {
+            VStack(spacing: 0) {
+                PickerList(
+                    rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
+                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu,
+                )
+                if !plan.efforts.isEmpty {
+                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                    EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
+                        choosePick { $0.effort = effort }
+                        closeMenu()
+                    }
+                }
+            }
+            .frame(width: 290)
         }
     }
 }

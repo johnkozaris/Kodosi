@@ -23,7 +23,7 @@ import Testing
                          folder: "~/.claude-work"),
             AgentAccount(name: "personal", command: "env CLAUDE_CONFIG_DIR=/h/.claude-personal claude", folder: "~/.claude-personal"),
         ],
-        install: "", addsAccounts: true,
+        install: "", addsAccounts: true, reportsUsage: true,
     )
     let rows = LauncherMenu.accounts(info, current: "work")
     #expect(rows.map(\.title) == ["Default", "Work", "Personal", "Add an account"])

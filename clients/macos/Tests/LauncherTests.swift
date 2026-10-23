@@ -30,7 +30,7 @@ private let catalog: JSONValue = .object([
     "agents": .array([
         .object([
             "agent": .string("claude"), "program": .string("claude"), "installed": .bool(true), "install": .string(""),
-            "addsAccounts": .bool(true),
+            "addsAccounts": .bool(true), "reportsUsage": .bool(true),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
@@ -41,6 +41,7 @@ private let catalog: JSONValue = .object([
         .object([
             "agent": .string("codex"), "program": .string("codex"), "installed": .bool(false),
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
+            "reportsUsage": .bool(true),
             "accounts": .array([]),
         ]),
     ]),

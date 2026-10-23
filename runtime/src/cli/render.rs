@@ -82,6 +82,7 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
+        ("provider.result", "provider.usage") => usage(&event["result"]),
         ("dosi.result", "dosi.stop") => "Dosi stops.".to_owned(),
         ("dosi.result", "dosi.ask") => {
             "The person sees the question. End your turn; the answer comes as the next message."
@@ -234,6 +235,53 @@ fn agent_models(result: &Value) -> String {
         }
     };
     format!("Models: {}\nEfforts: {}", list(models), list(efforts))
+}
+
+fn usage(result: &Value) -> String {
+    let lines = result["accounts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|account| {
+            let limits = account["limits"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|limit| {
+                    let level = match limit["level"].as_str() {
+                        Some("near") => " (near the limit)",
+                        Some("reached") => " (limit reached)",
+                        _ => "",
+                    };
+                    format!("{} {}%{level}", window(limit), limit["used"])
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "{}  {}: {limits}",
+                text(account, "agent"),
+                text(account, "account")
+            )
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        "No signed-in account reports plan limits.".to_owned()
+    } else {
+        lines.join("\n")
+    }
+}
+
+fn window(limit: &Value) -> String {
+    if let Some(scope) = limit["scope"].as_str() {
+        return scope.to_owned();
+    }
+    match limit["hours"].as_u64() {
+        None => "month".to_owned(),
+        Some(24) => "day".to_owned(),
+        Some(168) => "week".to_owned(),
+        Some(hours) if hours % 24 == 0 => format!("{}d", hours / 24),
+        Some(hours) => format!("{hours}h"),
+    }
 }
 
 fn devices(event: &Value, hosts: &Value) -> String {

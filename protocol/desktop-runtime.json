@@ -3278,6 +3278,48 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "provider.usage"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "agent": {
             "oneOf": [
               {
@@ -7270,6 +7312,9 @@
                         },
                         "program": {
                           "type": "string"
+                        },
+                        "reportsUsage": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -7278,7 +7323,8 @@
                         "installed",
                         "accounts",
                         "install",
-                        "addsAccounts"
+                        "addsAccounts",
+                        "reportsUsage"
                       ],
                       "type": "object"
                     },
@@ -7608,6 +7654,153 @@
                   "models",
                   "efforts",
                   "choice"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "provider.result"
+              }
+            },
+            "required": [
+              "accountUserId",
+              "accountEpoch",
+              "type",
+              "requestId",
+              "operation",
+              "result"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "accountEpoch": {
+                "format": "u64",
+                "type": "integer"
+              },
+              "accountUserId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operation": {
+                "const": "provider.usage"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "accounts": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {
+                          "type": "string"
+                        },
+                        "agent": {
+                          "oneOf": [
+                            {
+                              "const": "claude"
+                            },
+                            {
+                              "const": "codex"
+                            },
+                            {
+                              "const": "copilot"
+                            },
+                            {
+                              "const": "cursor"
+                            },
+                            {
+                              "const": "gemini"
+                            },
+                            {
+                              "const": "opencode"
+                            }
+                          ]
+                        },
+                        "limits": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "headline": {
+                                "type": "boolean"
+                              },
+                              "hours": {
+                                "anyOf": [
+                                  {
+                                    "format": "u32",
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "level": {
+                                "oneOf": [
+                                  {
+                                    "const": "normal"
+                                  },
+                                  {
+                                    "const": "near"
+                                  },
+                                  {
+                                    "const": "reached"
+                                  }
+                                ]
+                              },
+                              "scope": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "used": {
+                                "format": "u8",
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "hours",
+                              "scope",
+                              "used",
+                              "level",
+                              "headline"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "readAt": {
+                          "format": "u64",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "agent",
+                        "account",
+                        "limits",
+                        "readAt"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "accounts"
                 ],
                 "type": "object"
               },
@@ -9727,7 +9920,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 68,
+  "protocolVersion": 69,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

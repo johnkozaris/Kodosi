@@ -31,7 +31,7 @@ enum LauncherMenu: String, Equatable {
         case .folder:
             Self.folders(recents, current: directory)
         case .account:
-            plan.info.map { Self.accounts($0, current: plan.account?.name ?? "") } ?? []
+            plan.info.map { Self.accounts($0, current: plan.account?.name ?? "") { plan.usage(of: $0) } } ?? []
         case .model:
             Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelId)
         }
@@ -43,13 +43,16 @@ enum LauncherMenu: String, Equatable {
             + computers.map { PickerRow(id: $0.deviceId, title: $0.label, icon: .device($0.label), current: $0.deviceId == current) }
     }
 
-    static func accounts(_ info: AgentInfo, current: String) -> [PickerRow] {
+    static func accounts(
+        _ info: AgentInfo, current: String, usage: (AgentAccount) -> UsageLimit? = { _ in nil },
+    ) -> [PickerRow] {
         var rows = info.accounts.map { account in
             let title = account.title(program: info.program)
             return PickerRow(
                 id: account.name, title: title,
                 subtitle: account.identity ?? String(localized: "Signs in when it starts"),
                 icon: .account(initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil),
+                usage: usage(account),
                 current: account.name == current,
             )
         }
