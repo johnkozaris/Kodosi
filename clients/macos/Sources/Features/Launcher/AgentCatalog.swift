@@ -169,7 +169,7 @@ struct LaunchPlan {
     }
 
     func usage(of account: AgentAccount?) -> UsageLimit? {
-        guard let info, let account else { return nil }
+        guard let info, let account, account.identity != nil else { return nil }
         return usage[AccountUsage.key(info.agent, account.name)]?.headline
     }
 

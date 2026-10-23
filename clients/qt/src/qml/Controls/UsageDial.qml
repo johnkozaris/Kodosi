@@ -13,7 +13,7 @@ Item {
     implicitHeight: size
     Accessible.role: Accessible.StaticText
     Accessible.name: limit ? limit.spoken : qsTr("Not read yet")
-    transform: Scale { id: shape; origin.x: root.width / 2; origin.y: root.height / 2 }
+    transform: Scale { id: dialScale; origin.x: root.width / 2; origin.y: root.height / 2 }
 
     onLevelChanged: {
         if (!KodosiTheme.reduceMotion && level.length > 0)
@@ -22,7 +22,7 @@ Item {
 
     Squash {
         id: squash
-        shape: shape
+        shape: dialScale
     }
     UsageRing {
         anchors.fill: parent

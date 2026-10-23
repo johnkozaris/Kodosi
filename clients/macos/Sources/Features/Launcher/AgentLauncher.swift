@@ -105,7 +105,9 @@ struct AgentLauncher: View {
             }
         }
         .onChange(of: computer) { closeMenu() }
-        .task(id: "usage|\(computer ?? "")") { await launcher.refreshUsage() }
+        .task(id: [computer ?? ""] + launcher.usageAccounts.map { AccountUsage.key($0.info.agent, $0.account.name) }) {
+            await launcher.refreshUsage()
+        }
         .task(id: "\(computer ?? "")|\(choice.agent ?? "")|\(info?.installed == true)") {
             if let agent = choice.agent {
                 await launcher.loadModels(agent)

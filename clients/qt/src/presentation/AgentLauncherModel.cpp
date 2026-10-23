@@ -241,10 +241,13 @@ QVariantList AgentLauncherModel::usageSections() const
 QVariant AgentLauncherModel::usageNearest() const
 {
     QVariant nearest;
-    for (const auto& value : m_usage) {
-        const auto headline = value.toMap().value(QStringLiteral("headline"));
-        if (!nearest.isValid() || headline.toMap().value(QStringLiteral("used")).toInt() > nearest.toMap().value(QStringLiteral("used")).toInt())
-            nearest = headline;
+    for (const auto& section : usageSections()) {
+        for (const auto& row : section.toMap().value(QStringLiteral("rows")).toList()) {
+            const auto headline = row.toMap().value(QStringLiteral("usage")).toMap().value(QStringLiteral("headline"));
+            if (headline.isValid()
+                && (!nearest.isValid() || headline.toMap().value(QStringLiteral("used")).toInt() > nearest.toMap().value(QStringLiteral("used")).toInt()))
+                nearest = headline;
+        }
     }
     return nearest;
 }

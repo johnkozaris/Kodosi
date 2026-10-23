@@ -111,7 +111,7 @@ ColumnLayout {
         return base.charAt(0).toUpperCase() + base.slice(1)
     }
     function usageOf(entry) {
-        const usage = root.launcher.usage[info.agent + "/" + entry.name]
+        const usage = entry.identity ? root.launcher.usage[info.agent + "/" + entry.name] : null
         return usage ? usage.headline : null
     }
     function accountRows() {
@@ -282,7 +282,11 @@ ColumnLayout {
         root.launcher.loadModels(agentId)
         promptInput.forceActiveFocus()
     }
-    onInfoChanged: root.launcher.loadModels(agentId)
+    onInfoChanged: {
+        root.launcher.loadModels(agentId)
+        if (visible)
+            root.launcher.refreshUsage()
+    }
 
     Connections {
         target: root.launcher

@@ -285,7 +285,6 @@ private slots:
         QCOMPARE(limits.first().toMap().value(QStringLiteral("window")).toString(), QStringLiteral("5h"));
         QCOMPARE(limits.last().toMap().value(QStringLiteral("spoken")).toString(), QStringLiteral("This week: 85% used"));
         QCOMPARE(headline(QStringLiteral("copilot/default")).value(QStringLiteral("window")).toString(), QStringLiteral("month"));
-        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 85);
 
         launcher.refreshUsage();
         QCOMPARE(commands.values.size(), 2);
@@ -307,8 +306,12 @@ private slots:
         launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }));
         auto renamed = work;
         renamed.insert(QStringLiteral("account"), QStringLiteral("claude-work"));
+        auto signedOut = work;
+        signedOut.insert(QStringLiteral("account"), QStringLiteral("personal"));
+        signedOut.insert(QStringLiteral("limits"), QJsonArray { limit(5, 97, QStringLiteral("near"), true) });
         launcher.refreshUsage();
-        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { renamed } } }));
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { renamed, signedOut } } }));
+        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 85);
         const auto sections = launcher.usageSections();
         QCOMPARE(sections.size(), 1);
         const auto rows = sections.first().toMap().value(QStringLiteral("rows")).toList();

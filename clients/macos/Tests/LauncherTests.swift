@@ -161,6 +161,32 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(LaunchPlan(launcher: app.launcher).account?.name == "default")
 }
 
+@Test @MainActor func `usage shows only on accounts that are signed in`() async throws {
+    let (app, sent) = try launcherApp("LauncherUsage")
+    defer { app.shutdownProcess() }
+    try await answerAgentRequests(app, sent: sent)
+    #expect(app.launcher.usageAccounts.map(\.account.name) == ["default"])
+    let reading = Task { await app.launcher.refreshUsage() }
+    var asked: String?
+    for _ in 0 ..< 200 where asked == nil {
+        await Task.yield()
+        asked = sent().last { $0["type"] == .string("provider.usage") }?["requestId"]?.stringValue
+    }
+    let limit: JSONValue = .object(["hours": .int(5), "scope": .null, "used": .int(91), "level": .string("near"), "headline": .bool(true)])
+    let accounts = ["default", "work"].map { name -> JSONValue in
+        .object(["agent": .string("claude"), "account": .string(name), "readAt": .int(1_792_716_922), "limits": .array([limit])])
+    }
+    try app.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(asked)), "operation": .string("provider.usage"),
+        "result": .object(["accounts": .array(accounts)]),
+    ]))
+    await reading.value
+    let plan = LaunchPlan(launcher: app.launcher)
+    #expect(plan.account?.name == "work")
+    #expect(plan.usage(of: plan.account) == nil)
+    #expect(plan.usage(of: plan.info?.accounts.first)?.used == 91)
+}
+
 @Test @MainActor func `a choice made here outlives an answer asked before it`() async throws {
     let (app, sent) = try launcherApp("LauncherChoice")
     defer { app.shutdownProcess() }
