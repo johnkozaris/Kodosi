@@ -19,7 +19,7 @@ fn limit(
 }
 
 #[test]
-fn claude_rows_keep_the_provider_headline_and_severity() {
+fn claude_rows_keep_their_severity_and_the_most_used_one_leads() {
     let report = json!({"rate_limits": {"limits": [
         {"kind": "session", "group": "session", "percent": 42.4, "resets_at": null, "scope": null, "severity": "normal", "is_active": false},
         {"kind": "weekly_all", "group": "weekly", "percent": 71, "resets_at": "2026-10-29T13:00:00+00:00", "scope": null, "severity": "warning", "is_active": true},
@@ -31,8 +31,8 @@ fn claude_rows_keep_the_provider_headline_and_severity() {
         headlined(claude(&report)),
         vec![
             limit(Some(5), None, 42, UsageLevel::Normal, false),
-            limit(Some(168), None, 71, UsageLevel::Near, true),
-            limit(Some(168), Some("Fable"), 100, UsageLevel::Reached, false),
+            limit(Some(168), None, 71, UsageLevel::Near, false),
+            limit(Some(168), Some("Fable"), 100, UsageLevel::Reached, true),
         ]
     );
 }
@@ -83,42 +83,34 @@ fn copilot_counts_the_premium_requests_of_the_month() {
     };
     assert_eq!(
         copilot(&quota(41.4, false, false)),
-        vec![limit(None, None, 59, UsageLevel::Normal, true)]
+        vec![limit(None, None, 59, UsageLevel::Normal, false)]
     );
     assert_eq!(
         copilot(&quota(0.0, false, true)),
-        vec![limit(None, None, 100, UsageLevel::Near, true)]
+        vec![limit(None, None, 100, UsageLevel::Near, false)]
     );
     assert_eq!(
         copilot(&quota(0.0, false, false)),
-        vec![limit(None, None, 100, UsageLevel::Reached, true)]
+        vec![limit(None, None, 100, UsageLevel::Reached, false)]
     );
     assert_eq!(copilot(&quota(0.0, true, false)), Vec::new());
 }
 
 #[test]
-fn without_a_provider_pick_the_most_used_limit_is_the_headline() {
-    let headlines = |limits| {
-        headlined(limits)
-            .iter()
-            .map(|limit| limit.headline)
-            .collect::<Vec<_>>()
+fn the_most_used_limit_is_the_headline_and_the_first_wins_a_tie() {
+    let headlines = |used: &[u8]| {
+        headlined(
+            used.iter()
+                .map(|used| limit(Some(5), None, *used, UsageLevel::Normal, false))
+                .collect(),
+        )
+        .iter()
+        .map(|limit| limit.headline)
+        .collect::<Vec<_>>()
     };
-    assert_eq!(
-        headlines(vec![
-            limit(Some(5), None, 30, UsageLevel::Normal, false),
-            limit(Some(168), None, 30, UsageLevel::Normal, false),
-            limit(None, None, 10, UsageLevel::Normal, false),
-        ]),
-        [true, false, false]
-    );
-    assert_eq!(
-        headlines(vec![
-            limit(Some(5), None, 90, UsageLevel::Near, false),
-            limit(Some(168), None, 10, UsageLevel::Normal, true),
-        ]),
-        [false, true]
-    );
+    assert_eq!(headlines(&[30, 30, 10]), [true, false, false]);
+    assert_eq!(headlines(&[10, 90]), [false, true]);
+    assert_eq!(headlines(&[]), Vec::<bool>::new());
 }
 
 #[test]

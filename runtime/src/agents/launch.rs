@@ -5,19 +5,16 @@ use std::{
         Arc, Mutex, MutexGuard, PoisonError,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use super::{
-    AccountUsage, Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo,
-    AgentModel, AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply,
-    UsageLimit, usage,
+    Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo, AgentModel,
+    AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, usage,
 };
 
 const FILE: &str = "launcher.json";
 const CATALOG_LIFE: Duration = Duration::from_secs(30);
-const USAGE_LIFE: Duration = Duration::from_secs(60);
-const USAGE_READS: usize = 3;
 
 pub struct Launcher {
     file: PathBuf,
@@ -26,12 +23,7 @@ pub struct Launcher {
     state: Mutex<State>,
     writing: Mutex<()>,
     unsaved: AtomicBool,
-    usage: tokio::sync::Mutex<HashMap<(Agent, String), Reading>>,
-}
-
-struct Reading {
-    tried: Instant,
-    usage: Option<AccountUsage>,
+    usage: usage::Readings,
 }
 
 #[derive(Default)]
@@ -58,7 +50,7 @@ impl Launcher {
             }),
             writing: Mutex::new(()),
             unsaved: AtomicBool::new(false),
-            usage: tokio::sync::Mutex::default(),
+            usage: usage::Readings::default(),
         }
     }
 
@@ -106,84 +98,10 @@ impl Launcher {
         self.state().resolved()
     }
 
-    /// Reads the plan usage of each signed-in account whose last reading is older than a minute.
-    /// One refresh runs at a time, so a second caller gets the first one's fresh readings.
+    /// The plan usage of each signed-in account, read again when the last try is older than a minute.
     pub async fn usage(&self) -> Result<AgentUsageReply, String> {
-        let mut readings = self.usage.lock().await;
         let catalog = self.known_catalog(false).await?;
-        let accounts = catalog
-            .agents
-            .iter()
-            .filter(|info| info.installed && info.reports_usage)
-            .flat_map(|info| {
-                info.accounts
-                    .iter()
-                    .filter(|account| account.identity.is_some())
-                    .map(move |account| (info.agent, account.clone()))
-            })
-            .collect::<Vec<_>>();
-        let mut stale = accounts
-            .iter()
-            .filter(|(agent, account)| {
-                readings
-                    .get(&(*agent, account.name.clone()))
-                    .is_none_or(|reading| reading.tried.elapsed() >= USAGE_LIFE)
-            })
-            .cloned()
-            .collect::<Vec<_>>()
-            .into_iter();
-        let mut reads = tokio::task::JoinSet::new();
-        loop {
-            while reads.len() < USAGE_READS
-                && let Some((agent, account)) = stale.next()
-            {
-                let (home, shell) = (self.home.clone(), self.shell.clone());
-                reads.spawn(async move {
-                    let limits = read_account(&shell, &home, agent, &account).await;
-                    (agent, account.name, limits)
-                });
-            }
-            let Some(read) = reads.join_next().await else {
-                break;
-            };
-            let Ok((agent, account, limits)) = read else {
-                continue;
-            };
-            let reading = readings
-                .entry((agent, account.clone()))
-                .or_insert_with(|| Reading {
-                    tried: Instant::now(),
-                    usage: None,
-                });
-            reading.tried = Instant::now();
-            match limits {
-                Ok(limits) => {
-                    reading.usage = Some(AccountUsage {
-                        agent,
-                        account,
-                        limits,
-                        read_at: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map_or(0, |since| since.as_secs()),
-                    });
-                }
-                Err(error) => tracing::debug!(%error, agent = agent.name(), "plan usage not read"),
-            }
-        }
-        readings.retain(|(agent, name), _| {
-            accounts
-                .iter()
-                .any(|(known, account)| known == agent && &account.name == name)
-        });
-        let accounts = accounts
-            .iter()
-            .filter_map(|(agent, account)| {
-                readings.get(&(*agent, account.name.clone()))?.usage.clone()
-            })
-            .filter(|usage| !usage.limits.is_empty())
-            .collect();
-        drop(readings);
-        Ok(AgentUsageReply { accounts })
+        Ok(self.usage.refresh(&catalog, &self.shell, &self.home).await)
     }
 
     pub fn choose(&self, change: &AgentChoiceChange) {
@@ -354,18 +272,6 @@ impl State {
 
 fn agent_info(catalog: &AgentCatalog, agent: Agent) -> Option<&AgentInfo> {
     catalog.agents.iter().find(|info| info.agent == agent)
-}
-
-async fn read_account(
-    shell: &Path,
-    home: &Path,
-    agent: Agent,
-    account: &AgentAccount,
-) -> Result<Vec<UsageLimit>, String> {
-    let runner = super::runner(shell, home, agent, account)
-        .await
-        .ok_or_else(|| format!("{} is not installed.", agent.label()))?;
-    usage::read(agent, &runner, home).await
 }
 
 fn efforts<'a>(

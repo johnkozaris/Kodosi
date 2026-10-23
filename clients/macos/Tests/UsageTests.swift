@@ -5,11 +5,11 @@ import Testing
 @Test func `limits are named by their window and spoken in full`() throws {
     let answer = """
     {"accounts": [
-      {"agent": "claude", "account": "work", "readAt": 1792716922, "limits": [
+      {"agent": "claude", "account": "work", "readAtMs": 1792716922000, "limits": [
         {"hours": 5, "scope": null, "used": 42, "level": "normal", "headline": false},
         {"hours": 168, "scope": null, "used": 85, "level": "near", "headline": true},
         {"hours": 168, "scope": "Fable", "used": 100, "level": "reached", "headline": false}]},
-      {"agent": "copilot", "account": "default", "readAt": 1792716922, "limits": [
+      {"agent": "copilot", "account": "default", "readAtMs": 1792716922000, "limits": [
         {"hours": null, "scope": null, "used": 59, "level": "normal", "headline": true}]}]}
     """
     let reply = try JSONDecoder().decode(AgentUsageReply.self, from: Data(answer.utf8))

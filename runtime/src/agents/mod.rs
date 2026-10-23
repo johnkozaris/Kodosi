@@ -115,7 +115,7 @@ pub struct AgentInfo {
     pub reports_usage: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentAccount {
     pub name: String,
@@ -202,7 +202,7 @@ pub struct AccountUsage {
     pub agent: Agent,
     pub account: String,
     pub limits: Vec<UsageLimit>,
-    pub read_at: u64,
+    pub read_at_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

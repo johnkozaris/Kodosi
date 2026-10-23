@@ -1,13 +1,24 @@
-use std::{path::Path, process::Stdio, time::Duration};
+use std::{
+    collections::HashMap,
+    path::Path,
+    process::Stdio,
+    time::{Duration, Instant},
+};
 
+use futures_util::{StreamExt as _, stream};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _, BufReader},
     process::{Child, ChildStdin, ChildStdout},
 };
 
-use super::{Agent, Runner, UsageLevel, UsageLimit};
+use super::{
+    AccountUsage, Agent, AgentAccount, AgentCatalog, AgentUsageReply, Runner, UsageLevel,
+    UsageLimit,
+};
 
+const READING_LIFE: Duration = Duration::from_secs(60);
+const READS_AT_ONCE: usize = 3;
 const READ_TIME: Duration = Duration::from_secs(20);
 const END_GRACE: Duration = Duration::from_secs(2);
 const MAX_MESSAGE: usize = 1024 * 1024;
@@ -19,6 +30,100 @@ const WEEK_HOURS: u32 = 7 * 24;
 
 pub(super) const fn reports(agent: Agent) -> bool {
     matches!(agent, Agent::Claude | Agent::Codex | Agent::Copilot)
+}
+
+/// The last reading of each signed-in account. One refresh runs at a time, so a second caller gets
+/// the readings of the first.
+#[derive(Default)]
+pub(super) struct Readings(tokio::sync::Mutex<HashMap<(Agent, AgentAccount), Reading>>);
+
+struct Reading {
+    tried: Instant,
+    usage: Option<AccountUsage>,
+}
+
+impl Readings {
+    /// Reads each signed-in account whose last try is older than a minute, a few at a time, and
+    /// answers with the accounts that have plan limits. A failed read keeps the last reading.
+    pub(super) async fn refresh(
+        &self,
+        catalog: &AgentCatalog,
+        shell: &Path,
+        home: &Path,
+    ) -> AgentUsageReply {
+        let mut readings = self.0.lock().await;
+        let accounts = catalog
+            .agents
+            .iter()
+            .filter(|info| info.installed && info.reports_usage)
+            .flat_map(|info| {
+                info.accounts
+                    .iter()
+                    .filter(|account| account.identity.is_some())
+                    .map(|account| (info.agent, account.clone()))
+            })
+            .collect::<Vec<_>>();
+        let stale = accounts
+            .iter()
+            .filter(|key| {
+                readings
+                    .get(*key)
+                    .is_none_or(|reading| reading.tried.elapsed() >= READING_LIFE)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let read = stream::iter(stale)
+            .map(|(agent, account)| async move {
+                let limits = read_account(agent, &account, shell, home).await;
+                (agent, account, limits)
+            })
+            .buffer_unordered(READS_AT_ONCE)
+            .collect::<Vec<_>>()
+            .await;
+        for (agent, account, limits) in read {
+            let usage = match limits {
+                Ok(limits) => Some(AccountUsage {
+                    agent,
+                    account: account.name.clone(),
+                    limits,
+                    read_at_ms: crate::identity::now_ms(),
+                }),
+                Err(error) => {
+                    tracing::debug!(%error, agent = agent.name(), "plan usage not read");
+                    readings
+                        .get(&(agent, account.clone()))
+                        .and_then(|reading| reading.usage.clone())
+                }
+            };
+            readings.insert(
+                (agent, account),
+                Reading {
+                    tried: Instant::now(),
+                    usage,
+                },
+            );
+        }
+        readings.retain(|key, _| accounts.contains(key));
+        let accounts = accounts
+            .iter()
+            .filter_map(|key| readings.get(key)?.usage.clone())
+            .filter(|usage| !usage.limits.is_empty())
+            .collect();
+        drop(readings);
+        AgentUsageReply { accounts }
+    }
+}
+
+async fn read_account(
+    agent: Agent,
+    account: &AgentAccount,
+    shell: &Path,
+    home: &Path,
+) -> Result<Vec<UsageLimit>, String> {
+    let runner = super::runner(shell, home, agent, account)
+        .await
+        .ok_or_else(|| format!("{} is not installed.", agent.label()))?;
+    read(agent, &runner, home).await
 }
 
 /// Asks the agent's own program for the plan usage of one account. An empty list means that the
@@ -299,7 +404,6 @@ pub(super) fn claude(report: &Value) -> Vec<UsageLimit> {
                 row.get("percent")?.as_f64()?,
                 matches!(text("severity"), "warning" | "critical"),
                 false,
-                row.get("is_active").and_then(Value::as_bool) == Some(true),
             )
         })
         .collect()
@@ -319,7 +423,6 @@ pub(super) fn codex(result: &Value) -> Vec<UsageLimit> {
                 Some(hours),
                 None,
                 window.get("usedPercent")?.as_f64()?,
-                false,
                 false,
                 false,
             )
@@ -345,7 +448,6 @@ pub(super) fn copilot(result: &Value) -> Vec<UsageLimit> {
                 100.0 - remaining,
                 false,
                 flag("usageAllowedWithExhaustedQuota"),
-                true,
             )
         })
         .into_iter()
@@ -363,7 +465,6 @@ fn limit(
     percent: f64,
     warned: bool,
     continues: bool,
-    headline: bool,
 ) -> Option<UsageLimit> {
     if !percent.is_finite() || hours == Some(0) {
         return None;
@@ -381,7 +482,7 @@ fn limit(
         scope,
         used,
         level,
-        headline,
+        headline: false,
     })
 }
 
@@ -393,15 +494,14 @@ fn scope_name(name: &str) -> Option<String> {
     .then(|| name.to_owned())
 }
 
-/// Keeps one headline: the provider's own pick, or else the limit with the most use.
+/// Marks the limit with the most use as the headline, the one that an account shows; the first one
+/// wins a tie.
 pub(super) fn headlined(mut limits: Vec<UsageLimit>) -> Vec<UsageLimit> {
-    let chosen = limits.iter().position(|limit| limit.headline).or_else(|| {
-        limits
-            .iter()
-            .enumerate()
-            .max_by_key(|(index, limit)| (limit.used, std::cmp::Reverse(*index)))
-            .map(|(index, _)| index)
-    });
+    let chosen = limits
+        .iter()
+        .enumerate()
+        .max_by_key(|(index, limit)| (limit.used, std::cmp::Reverse(*index)))
+        .map(|(index, _)| index);
     for (index, limit) in limits.iter_mut().enumerate() {
         limit.headline = Some(index) == chosen;
     }

@@ -174,7 +174,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     }
     let limit: JSONValue = .object(["hours": .int(5), "scope": .null, "used": .int(91), "level": .string("near"), "headline": .bool(true)])
     let accounts = ["default", "work"].map { name -> JSONValue in
-        .object(["agent": .string("claude"), "account": .string(name), "readAt": .int(1_792_716_922), "limits": .array([limit])])
+        .object(["agent": .string("claude"), "account": .string(name), "readAtMs": .int(1_792_716_922_000), "limits": .array([limit])])
     }
     try app.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
         "requestId": .string(#require(asked)), "operation": .string("provider.usage"),

@@ -84,14 +84,14 @@ struct AccountUsage: Decodable, Equatable {
     var agent: String
     var account: String
     var limits: [UsageLimit]
-    var readAt: TimeInterval
+    var readAtMs: UInt64
 
     var headline: UsageLimit? {
         limits.first(where: \.headline) ?? limits.first
     }
 
     var stale: Bool {
-        Date().timeIntervalSince1970 - readAt > 600
+        Date().timeIntervalSince1970 - Double(readAtMs) / 1000 > 600
     }
 
     static func key(_ agent: String, _ account: String) -> String {

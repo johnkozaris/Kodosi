@@ -267,10 +267,10 @@ private slots:
                 { QStringLiteral("used"), used }, { QStringLiteral("level"), level }, { QStringLiteral("headline"), headline } };
         };
         const QJsonObject work { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), QStringLiteral("work") },
-            { QStringLiteral("readAt"), 1792716922 },
+            { QStringLiteral("readAtMs"), qint64(1792716922000) },
             { QStringLiteral("limits"), QJsonArray { limit(5, 42, QStringLiteral("normal"), false), limit(168, 85, QStringLiteral("near"), true) } } };
         const QJsonObject copilot { { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("account"), QStringLiteral("default") },
-            { QStringLiteral("readAt"), 1792716922 }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal"), true) } } };
+            { QStringLiteral("readAtMs"), qint64(1792716922000) }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal"), true) } } };
         QVERIFY(!launcher.usageRead());
         launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
         QVERIFY(launcher.usageRead());
