@@ -84,7 +84,6 @@ impl Process {
         for (name, value) in &runner.variables {
             command.env(name, value);
         }
-        #[cfg(unix)]
         kodosi_os::process::without_terminal(command.as_std_mut());
         let mut child = command
             .spawn()

@@ -85,7 +85,6 @@ pub(super) fn spawn(
     for (name, value) in &spawn.variables {
         command.env(name, value);
     }
-    #[cfg(unix)]
     kodosi_os::process::without_terminal(command.as_std_mut());
     let mut child = command.spawn()?;
     let pid = child.id();

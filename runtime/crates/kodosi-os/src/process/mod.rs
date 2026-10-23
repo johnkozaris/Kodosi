@@ -36,7 +36,8 @@ pub fn detach(command: &mut std::process::Command) {
     imp::detach(command);
 }
 
-#[cfg(unix)]
+/// Starts the command in a session of its own with no controlling terminal; on Windows, without a
+/// console window.
 pub fn without_terminal(command: &mut std::process::Command) {
     imp::without_terminal(command);
 }

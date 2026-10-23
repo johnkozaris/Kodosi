@@ -22,8 +22,8 @@ use windows_sys::Win32::{
         Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock},
         SystemInformation::{ComputerNameDnsHostname, GetComputerNameExW},
         Threading::{
-            CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, GetCurrentProcess, OpenProcess,
-            OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+            CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW, DETACHED_PROCESS, GetCurrentProcess,
+            OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
             WaitForSingleObject,
         },
     },
@@ -123,6 +123,10 @@ pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     }
     unsafe { DestroyEnvironmentBlock(block) };
     Some(variables)
+}
+
+pub(super) fn without_terminal(command: &mut std::process::Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
 }
 
 pub(super) fn detach(command: &mut std::process::Command) {
