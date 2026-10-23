@@ -7,6 +7,7 @@
 #include <QByteArray>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <chrono>
 #include <iterator>
@@ -501,6 +502,7 @@ FrameResult buildFrame(
     frame->images = view.images;
     frame->imageAnimationDue = view.imageAnimationDue;
     frame->cells.reserve(static_cast<qsizetype>(cellCount));
+    frame->wrappedRows.reserve(rows);
 
     RowIteratorHandle rowsIterator;
     auto result = ghostty_render_state_row_iterator_new(nullptr, &rowsIterator.value);
@@ -540,6 +542,20 @@ FrameResult buildFrame(
             return std::unexpected(
                 ghosttyFailure(QStringLiteral("row selection"), selectionResult));
         }
+
+        GhosttyRow rawRow = 0;
+        bool wrapped = false;
+        result = ghostty_render_state_row_get(
+            rowsIterator.value,
+            GHOSTTY_RENDER_STATE_ROW_DATA_RAW,
+            &rawRow);
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_row_get(rawRow, GHOSTTY_ROW_DATA_WRAP, &wrapped);
+        }
+        if (result != GHOSTTY_SUCCESS) {
+            return std::unexpected(ghosttyFailure(QStringLiteral("row wrap"), result));
+        }
+        frame->wrappedRows.push_back(wrapped);
 
         result = ghostty_render_state_row_get(
             rowsIterator.value,
@@ -711,6 +727,36 @@ GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const
     }
 }
 
+constexpr GhosttyColorRgb terminalForeground {0xe8, 0xe1, 0xd9};
+constexpr GhosttyColorRgb terminalBackground {0x0d, 0x0b, 0x09};
+constexpr GhosttyColorRgb terminalCursor {0xcc, 0x7a, 0x45};
+constexpr std::array<GhosttyColorRgb, 16> terminalAnsiColors {{
+    {0x1a, 0x16, 0x13}, {0xc4, 0x40, 0x40}, {0x52, 0xb3, 0x6b}, {0xc4, 0x99, 0x3d},
+    {0x5d, 0x8e, 0xc7}, {0xb0, 0x6d, 0xba}, {0x5d, 0xaf, 0xa6}, {0xc4, 0xb8, 0xa8},
+    {0x8c, 0x7a, 0x6f}, {0xd6, 0x60, 0x60}, {0x6d, 0xcc, 0x85}, {0xd6, 0xb3, 0x5d},
+    {0x7d, 0xaa, 0xd9}, {0xc8, 0x8d, 0xd0}, {0x7d, 0xc7, 0xbe}, {0xe8, 0xe1, 0xd9},
+}};
+
+GhosttyResult applyColors(const GhosttyTerminal terminal)
+{
+    auto result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &terminalForeground);
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &terminalBackground);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &terminalCursor);
+    }
+    std::array<GhosttyColorRgb, 256> palette {};
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT, palette.data());
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        std::ranges::copy(terminalAnsiColors, palette.begin());
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette.data());
+    }
+    return result;
+}
+
 GhosttyTerminalKernel::ConfigureResult applySettings(
     const GhosttyTerminal terminal,
     const TerminalKernelSettings& settings)
@@ -759,6 +805,10 @@ GhosttyTerminalKernel::ConfigureResult applySettings(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("scrollback line limit"), result));
+    }
+    result = applyColors(terminal);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("terminal colors"), result));
     }
     return {};
 }
@@ -999,10 +1049,18 @@ public:
             selectionAnchor.reset();
             selectionEndpoint.reset();
             selectionRectangular = false;
+            selectionPending = false;
             return clearResult;
         }
         if (result != GHOSTTY_SUCCESS) {
             return result;
+        }
+        if (selectionPending) {
+            if (selection.start.node == selection.end.node && selection.start.x == selection.end.x
+                && selection.start.y == selection.end.y) {
+                return ghostty_terminal_set(terminal.value, GHOSTTY_TERMINAL_OPT_SELECTION, nullptr);
+            }
+            selectionPending = false;
         }
         selection.rectangle = selectionRectangular;
         return ghostty_terminal_set(
@@ -1029,6 +1087,7 @@ public:
     TerminalKernelSettings settings;
     TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
+    bool selectionPending = false;
     bool admitted = false;
     bool failed = false;
 };
@@ -1190,6 +1249,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->heldView.reset();
     m_impl->clipboard.clear();
     m_impl->selectionRectangular = false;
+    m_impl->selectionPending = false;
     m_impl->admitted = true;
     m_impl->failed = false;
     return m_impl->currentFrame;
@@ -1796,11 +1856,13 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::beginSelection(
     m_impl->selectionAnchor.reset(std::exchange(anchor.value, nullptr));
     m_impl->selectionEndpoint.reset(std::exchange(endpoint.value, nullptr));
     m_impl->selectionRectangular = rectangular;
+    m_impl->selectionPending = true;
     result = m_impl->refreshSelection();
     if (result != GHOSTTY_SUCCESS) {
         m_impl->selectionAnchor.reset();
         m_impl->selectionEndpoint.reset();
         m_impl->selectionRectangular = false;
+        m_impl->selectionPending = false;
         return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
     }
     ++m_impl->displayRevision;
@@ -1911,6 +1973,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::clearSelection(
     m_impl->selectionAnchor.reset();
     m_impl->selectionEndpoint.reset();
     m_impl->selectionRectangular = false;
+    m_impl->selectionPending = false;
     ++m_impl->displayRevision;
     auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {

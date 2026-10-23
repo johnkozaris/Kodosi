@@ -478,8 +478,9 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         QQuickItem::mousePressEvent(event);
         return;
     }
-    if (m_canSendInput && event->modifiers() == Qt::NoModifier) {
-        if (auto link = linkAtCell(*cell, true)) {
+    const auto modifiers = event->modifiers();
+    if (m_canSendInput && (modifiers == Qt::NoModifier || modifiers == Qt::ControlModifier)) {
+        if (auto link = linkAtCell(*cell, true, modifiers == Qt::ControlModifier)) {
             m_pressedLink = std::move(*link);
             m_selecting = false;
             event->accept();
@@ -539,7 +540,7 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         const auto cell = terminalCellAt(
             event->position(),
             CellHitTest::Strict);
-        const auto released = cell ? linkAtCell(*cell, true) : std::nullopt;
+        const auto released = cell ? linkAtCell(*cell, true, true) : std::nullopt;
         if (released && *released == *pressed
             && !QDesktopServices::openUrl(*released)) {
             emit operationError(QStringLiteral("The terminal link could not be opened."));
@@ -573,7 +574,7 @@ void TerminalView::hoverMoveEvent(QHoverEvent* event)
         event->accept();
         return;
     }
-    updateHoverLink(event->position());
+    updateHoverLink(event->position(), event->modifiers());
     event->accept();
 }
 
@@ -899,7 +900,8 @@ std::optional<QPoint> TerminalView::terminalCellAt(
 
 std::optional<QUrl> TerminalView::linkAtCell(
     const QPoint& cell,
-    const bool reportFailure)
+    const bool reportFailure,
+    const bool text)
 {
     if (m_registry == nullptr || !m_terminalReady) {
         return std::nullopt;
@@ -917,13 +919,19 @@ std::optional<QUrl> TerminalView::linkAtCell(
         }
         return std::nullopt;
     }
+    if (value->isEmpty() && text) {
+        return terminalTextLinkAt(
+            *m_frame,
+            static_cast<std::uint16_t>(cell.x()),
+            static_cast<std::uint16_t>(cell.y()));
+    }
     return validatedTerminalLink(*value);
 }
 
-void TerminalView::updateHoverLink(const QPointF& position)
+void TerminalView::updateHoverLink(const QPointF& position, const Qt::KeyboardModifiers modifiers)
 {
     const auto cell = terminalCellAt(position, CellHitTest::Strict);
-    if (cell && linkAtCell(*cell, false)) {
+    if (cell && linkAtCell(*cell, false, modifiers == Qt::ControlModifier)) {
         setCursor(Qt::PointingHandCursor);
     } else {
         unsetCursor();

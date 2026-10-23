@@ -448,6 +448,9 @@ private slots:
     void pasteEncodingUsesRestoredTerminalModes();
     void wheelScrollsGhosttyViewportWithoutChangingSequence();
     void selectionUsesGhosttyTrackedStateAndFormatting();
+    void aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell();
+    void framesDrawTheKodosiTerminalColors();
+    void aWebAddressInTheTextIsALinkThatEndsBeforePunctuation();
     void scrolledSelectionUsesVisibleViewportCoordinates();
     void selectionEndpointsTrackIncomingOutput();
     void terminalViewExposesNativeAccessibleTextInterface();
@@ -465,6 +468,7 @@ private slots:
     void terminalViewMailboxRejectsReversedDisplayRevisions();
     void terminalLinkValidationRejectsMalformedValues();
     void terminalViewActivatesGhosttyLinks();
+    void terminalViewOpensAWebAddressInTheTextWithControlClick();
     void terminalViewCannotActivateLinkFromUndisplayedFrame();
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
@@ -1310,6 +1314,11 @@ void TerminalKernelTest::scrollbackReconfigurationPublishesReplacementFrame()
         topFrame->viewportRevision,
         0,
         0));
+    QVERIFY(registry.updateSelection(
+        kodosi::TerminalSurfaceIdentity {subscription, 1},
+        topFrame->viewportRevision,
+        3,
+        0));
     const auto selectedBeforeConfigure = registry.selectedText(kodosi::TerminalSurfaceIdentity {subscription, 1});
     QVERIFY(selectedBeforeConfigure);
     QVERIFY(!selectedBeforeConfigure->isEmpty());
@@ -1754,6 +1763,81 @@ void TerminalKernelTest::selectionUsesGhosttyTrackedStateAndFormatting()
     const auto cleared = kernel.clearSelection(subscription);
     QVERIFY(cleared);
     QVERIFY(!(*cleared)->cell(0, 0)->selected);
+}
+
+void TerminalKernelTest::aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        11,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    const auto initial = kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("hello world"), 20, 2),
+    });
+    QVERIFY(initial);
+    const auto pressed = kernel.beginSelection(subscription, (*initial)->viewportRevision, 2, 0);
+    QVERIFY(pressed);
+    QVERIFY(!(*pressed)->cell(2, 0)->selected);
+    QVERIFY(kernel.updateSelection(subscription, (*initial)->viewportRevision, 2, 0));
+    QCOMPARE(*kernel.selectedText(subscription), QString());
+
+    const auto dragged = kernel.updateSelection(subscription, (*initial)->viewportRevision, 4, 0);
+    QVERIFY(dragged);
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("llo"));
+    const auto back = kernel.updateSelection(subscription, (*initial)->viewportRevision, 2, 0);
+    QVERIFY(back);
+    QVERIFY((*back)->cell(2, 0)->selected);
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("l"));
+}
+
+void TerminalKernelTest::framesDrawTheKodosiTerminalColors()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        11,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    const auto frame = kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("\x1b[31mred"), 20, 2),
+    });
+    QVERIFY(frame);
+    QCOMPARE((*frame)->background, QColor(0x0d, 0x0b, 0x09));
+    QCOMPARE((*frame)->foreground, QColor(0xe8, 0xe1, 0xd9));
+    QCOMPARE((*frame)->cursorColor, QColor(0xcc, 0x7a, 0x45));
+    QCOMPARE((*frame)->cell(0, 0)->foreground, QColor(0xc4, 0x40, 0x40));
+}
+
+void TerminalKernelTest::aWebAddressInTheTextIsALinkThatEndsBeforePunctuation()
+{
+    kodosi::TerminalFrame frame;
+    frame.columns = 16;
+    frame.rows = 3;
+    const QString text = QStringLiteral("see https://exam"
+                                        "ple.com/a_(b)). "
+                                        "plain text here ");
+    for (const auto character : text) {
+        frame.cells.push_back({.grapheme = character == u' ' ? QString() : QString(character)});
+    }
+    frame.wrappedRows = {true, false, false};
+    const QUrl expected(QStringLiteral("https://example.com/a_(b)"));
+    QCOMPARE(kodosi::terminalTextLinkAt(frame, 6, 0), expected);
+    QCOMPARE(kodosi::terminalTextLinkAt(frame, 3, 1), expected);
+    QVERIFY(!kodosi::terminalTextLinkAt(frame, 13, 1));
+    QVERIFY(!kodosi::terminalTextLinkAt(frame, 1, 0));
+    QVERIFY(!kodosi::terminalTextLinkAt(frame, 2, 2));
+    frame.wrappedRows = {false, false, false};
+    QVERIFY(!kodosi::terminalTextLinkAt(frame, 3, 1));
 }
 
 void TerminalKernelTest::scrolledSelectionUsesVisibleViewportCoordinates()
@@ -2782,6 +2866,56 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
         QUrl(QStringLiteral("file:///home/user/secret")));
     QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
     QDesktopServices::unsetUrlHandler(QStringLiteral("file"));
+}
+
+void TerminalKernelTest::terminalViewOpensAWebAddressInTheTextWithControlClick()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("text-link"),
+        QStringLiteral("text-link-subscription"),
+        23,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("text-link-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        4,
+        40,
+        checkpointFor(QByteArrayLiteral("go https://example.com/page now"), 40, 4),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+
+    UrlCapture capture;
+    QDesktopServices::setUrlHandler(QStringLiteral("https"), &capture, "capture");
+    const auto cell = kodosi::TerminalRasterizer::cellSize(
+        QFontDatabase::systemFont(QFontDatabase::FixedFont),
+        view.lineHeight());
+    const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
+    const auto click = [&](const Qt::KeyboardModifiers modifiers) {
+        QMouseEvent press(QEvent::MouseButtonPress, point, point, Qt::LeftButton, Qt::LeftButton, modifiers);
+        QMouseEvent release(QEvent::MouseButtonRelease, point, point, Qt::LeftButton, Qt::NoButton, modifiers);
+        QCoreApplication::sendEvent(&view, &press);
+        QCoreApplication::sendEvent(&view, &release);
+    };
+    click(Qt::NoModifier);
+    QTest::qWait(20);
+    QVERIFY(capture.values.isEmpty());
+    QCOMPARE(*registry.selectedText(kodosi::TerminalSurfaceIdentity {subscription, 1}), QString());
+
+    QHoverEvent hover(QEvent::HoverMove, point, point, point, Qt::ControlModifier);
+    QCoreApplication::sendEvent(&view, &hover);
+    QCOMPARE(view.cursor().shape(), Qt::PointingHandCursor);
+    click(Qt::ControlModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(capture.values.size(), 1, 250);
+    QCOMPARE(capture.values.constFirst(), QUrl(QStringLiteral("https://example.com/page")));
+    QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
 }
 
 void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()

@@ -278,8 +278,9 @@ private:
         CellHitTest hitTest = CellHitTest::Strict) const;
     [[nodiscard]] std::optional<QUrl> linkAtCell(
         const QPoint& cell,
-        bool reportFailure);
-    void updateHoverLink(const QPointF& position);
+        bool reportFailure,
+        bool text);
+    void updateHoverLink(const QPointF& position, Qt::KeyboardModifiers modifiers);
     void clearHoverLink();
     [[nodiscard]] int wheelRows(QWheelEvent* event);
     void beginSelection(const QPoint& anchor);
