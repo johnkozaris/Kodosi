@@ -681,3 +681,13 @@ async fn the_launch_choice_survives_a_restart() {
     assert_eq!(choice.agent, Some(Agent::Codex));
     assert_eq!(choice.pick(Agent::Codex), pick);
 }
+
+#[test]
+fn an_agent_from_a_computer_without_plan_usage_reports_none() {
+    let info: AgentInfo = serde_json::from_value(serde_json::json!({
+        "agent": "claude", "program": "claude", "installed": true, "accounts": [],
+        "install": "npm install -g @anthropic-ai/claude-code", "addsAccounts": true
+    }))
+    .unwrap();
+    assert!(!info.reports_usage);
+}

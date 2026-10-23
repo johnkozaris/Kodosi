@@ -112,6 +112,7 @@ pub struct AgentInfo {
     pub accounts: Vec<AgentAccount>,
     pub install: String,
     pub adds_accounts: bool,
+    #[serde(default)]
     pub reports_usage: bool,
 }
 
