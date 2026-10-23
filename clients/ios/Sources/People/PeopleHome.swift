@@ -139,7 +139,7 @@ struct PeopleHome: View {
         if !people.friends.isEmpty {
             Section {
                 ForEach(people.friends) { friend in
-                    FriendListItem(friend: friend, terminals: model.terminals.sessions.filter { $0.ownerUserId == friend.userId })
+                    FriendListItem(friend: friend, terminals: model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden })
                 }
             } header: {
                 GroupedListHeader(title: "Friends", count: people.friends.count)

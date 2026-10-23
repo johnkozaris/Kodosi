@@ -30,14 +30,14 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Missions.RenameAsync(missionId, owner.User.Id, "After", TestContext.Current.CancellationToken);
         var renamedSurfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
         Assert.Contains("missions", renamedSurfaces); Assert.Contains("sessions", renamedSurfaces);
-        Assert.Equal("After", (await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken)).Single().MissionName);
+        Assert.Equal("After", (await store.Sessions.ListAsync(invitee.User.Id, invitee.Device.Id, TestContext.Current.CancellationToken)).Single().MissionName);
         await store.Missions.DeleteAsync(missionId, owner.User.Id, TestContext.Current.CancellationToken);
         var surfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
         Assert.Contains("missions", surfaces); Assert.Contains("sessions", surfaces);
         var listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken), TestJson.Options);
         Assert.Empty(listed.GetProperty("invitations").EnumerateArray());
-        Assert.Empty(await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken));
-        Assert.Null((await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken)).Single().MissionId);
+        Assert.Empty(await store.Sessions.ListAsync(invitee.User.Id, invitee.Device.Id, TestContext.Current.CancellationToken));
+        Assert.Null((await store.Sessions.ListAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken)).Single().MissionId);
         Assert.Single(await store.Db.Sessions.ToListAsync(TestContext.Current.CancellationToken));
     }
 

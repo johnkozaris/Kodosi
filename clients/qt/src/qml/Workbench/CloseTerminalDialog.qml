@@ -10,9 +10,17 @@ KDialog {
     property string sessionName: ""
 
     function ask(id, name) {
+        const session = Models.Sessions.presentationForSession(id);
+        if (session.kind === "remote" && session.status === "offline") {
+            offline.ask([id], session.hostLabel || "");
+            return;
+        }
         sessionId = id;
         sessionName = name;
         open();
+    }
+    function askOffline(ids, host) {
+        offline.ask(ids, host);
     }
 
     destructive: true
@@ -26,5 +34,8 @@ KDialog {
         text: qsTr("Its programs stop.")
         color: KodosiTheme.inkMuted
         wrapMode: Text.WordWrap
+    }
+    OfflineTerminalDialog {
+        id: offline
     }
 }

@@ -114,7 +114,7 @@ struct AppModelTests {
         [
             "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
             "programStatus": ["state": state], "name": id, "isOwner": true, "status": "running",
-            "attention": false, "connectionState": "connected", "sharedWith": [],
+            "attention": false, "hidden": false, "connectionState": "connected", "sharedWith": [],
         ]
     }
 }

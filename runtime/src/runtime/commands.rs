@@ -159,7 +159,8 @@ impl Runtime {
             }
             Command::ShareSession { .. }
             | Command::AttachSession { .. }
-            | Command::LeaveSession { .. } => self.change_membership(command)?,
+            | Command::LeaveSession { .. }
+            | Command::HideSession { .. } => self.change_membership(command)?,
             #[cfg(feature = "host")]
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
@@ -392,6 +393,11 @@ impl Runtime {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
             ..
+        }
+        | Command::HideSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
         }) = command
         else {
             return Err(Error::Invalid(
@@ -467,6 +473,10 @@ impl Runtime {
 
     fn end_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
+        let closing = matches!(command, Command::CloseSession { .. });
+        if closing && !self.hosts(&id) && !self.host_online(id) {
+            return self.administer(id, command.clone());
+        }
         self.reachable(id)?;
         if !self.hosts(&id)
             && self
@@ -477,7 +487,6 @@ impl Runtime {
             return self.open_remote(id, command.clone());
         }
         self.job_capacity()?;
-        let closing = matches!(command, Command::CloseSession { .. });
         let response = self.target(id)?.end(closing);
         if closing {
             #[cfg(feature = "host")]
@@ -531,6 +540,14 @@ impl Runtime {
                 return Err(Error::Invalid(
                     "You cannot leave your own terminal.".to_owned(),
                 ));
+            }
+            Command::HideSession { .. } if self.hosts(&id) => {
+                return Err(Error::Invalid(
+                    "This terminal runs on this computer.".to_owned(),
+                ));
+            }
+            Command::HideSession { .. } if self.host_online(id) => {
+                return Err(Error::Invalid(self.computer_is(id, "online")));
             }
             _ => {}
         }
@@ -706,15 +723,17 @@ impl Runtime {
     }
 
     fn offline(&self, id: Uuid) -> Error {
-        Error::Other(
-            self.remotes
-                .get(&id)
-                .and_then(|entry| entry.host_name.as_deref())
-                .map_or_else(
-                    || "Its computer is offline.".to_owned(),
-                    |host| format!("{host} is offline."),
-                ),
-        )
+        Error::Other(self.computer_is(id, "offline"))
+    }
+
+    fn computer_is(&self, id: Uuid, state: &str) -> String {
+        self.remotes
+            .get(&id)
+            .and_then(|entry| entry.host_name.as_deref())
+            .map_or_else(
+                || format!("Its computer is {state}."),
+                |host| format!("{host} is {state}."),
+            )
     }
 
     fn disconnect_remote(&mut self, id: Uuid) {
@@ -1020,6 +1039,7 @@ impl Runtime {
                     is_owner: true,
                     status: SessionStatus::Running,
                     connection_state: ConnectionState::Local,
+                    hidden: false,
                     message: None,
                     mission_id: mission_id.clone(),
                     mission_name: None,
@@ -1269,9 +1289,17 @@ impl Runtime {
                 _ => {}
             }
         }
-        if matches!(command, Command::LeaveSession { .. }) {
-            self.disconnect_remote(id);
-            self.remotes.remove(&id);
+        match command {
+            Command::LeaveSession { .. } | Command::CloseSession { .. } => {
+                self.disconnect_remote(id);
+                self.remotes.remove(&id);
+            }
+            Command::HideSession { .. } => {
+                if let Some(entry) = self.remotes.get_mut(&id) {
+                    entry.hidden = true;
+                }
+            }
+            _ => {}
         }
         self.publish_catalog();
     }

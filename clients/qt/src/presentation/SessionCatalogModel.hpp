@@ -14,6 +14,7 @@ class SessionCatalogModel final : public QAbstractListModel {
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(QVariantList folderGroups READ folderGroups NOTIFY folderGroupsChanged)
     Q_PROPERTY(QVariantList sessions READ sessions NOTIFY folderGroupsChanged)
+    Q_PROPERTY(QVariantList listedSessions READ listedSessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QStringList attention READ attention NOTIFY attentionChanged)
     Q_PROPERTY(AuthorityState authorityState READ authorityState NOTIFY authorityStateChanged)
     Q_PROPERTY(QString authorityError READ authorityError NOTIFY authorityStateChanged)
@@ -50,6 +51,7 @@ public:
         QStringList sharedWith;
         bool isOwner = false;
         bool attention = false;
+        bool hidden = false;
     };
     struct PresentationSession {
         QString id;
@@ -67,6 +69,8 @@ public:
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
+    // The terminals that the person did not hide; a room still shows its hidden terminals.
+    [[nodiscard]] QVariantList listedSessions() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
     [[nodiscard]] QStringList visible() const;
     Q_INVOKABLE void setVisible(const QString& id, bool visible);
@@ -97,10 +101,12 @@ signals:
     void attentionChanged();
     void visibleChanged();
     void alertChanged(const QString& sessionId, const QString& text);
+    void sessionsHidden(const QStringList& sessionIds);
 
 private:
     QVector<Session> m_sessions;
     mutable std::optional<QVariantList> m_sessionsCache;
+    mutable std::optional<QVariantList> m_listedCache;
     mutable std::optional<QVariantList> m_groupsCache;
     QStringList m_attention;
     QHash<QString, int> m_views;

@@ -53,7 +53,10 @@ Reconnecting restores the current state without disturbing other viewers or repe
 input whose delivery is uncertain. A stale connection never controls a replacement
 terminal. A lost connection does not change sharing. When the computer of a terminal is
 offline, the terminal says so, keeps its last screen and takes no input; it opens again
-when that computer is back.
+when that computer is back. Its X asks what to do: Hide until it's back takes it out of
+that person's lists until the computer is back, and Close forever takes it out of
+everyone's lists and closes it when the computer is back. A room still shows its hidden
+terminals.
 
 ## Encryption
 

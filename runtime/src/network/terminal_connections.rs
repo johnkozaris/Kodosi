@@ -67,6 +67,7 @@ pub(crate) struct Publication {
     pub refresh: Notify,
     pub changing: AtomicBool,
     pub(super) pending_shares: Mutex<Option<BTreeSet<String>>>,
+    closing: AtomicBool,
     requests: mpsc::Sender<HostRequest>,
     output: Mutex<Option<PublicationOutput>>,
 }
@@ -86,6 +87,7 @@ impl Publication {
             changing: AtomicBool::new(false),
             drained: CancellationToken::new(),
             pending_shares: Mutex::new(None),
+            closing: AtomicBool::new(false),
             requests,
             output: Mutex::new(Some(output)),
         }

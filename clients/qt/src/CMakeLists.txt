@@ -333,6 +333,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/LauncherDropdown.qml
         qml/Workbench/LauncherPrompt.qml
         qml/Workbench/LauncherSheet.qml
+        qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
         qml/Workbench/SessionDetails.qml

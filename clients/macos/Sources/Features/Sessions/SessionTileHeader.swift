@@ -136,7 +136,7 @@ struct SessionTileHeader: View {
                 }
             }
             IconButton(title: "Close terminal", symbol: "xmark", identifier: "\(stageId).close", size: 26, destructive: true, action: close)
-                .disabled(!session.canControl || isClosing)
+                .disabled(!session.canClose || isClosing)
         }
         .opacity(showsActions ? 1 : 0.28)
         .animation(theme.motion.snappy, value: session.atPrompt)

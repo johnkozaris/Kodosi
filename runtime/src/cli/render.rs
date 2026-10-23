@@ -4,11 +4,16 @@ use std::collections::BTreeSet;
 
 pub(super) fn status(context: &Context) -> String {
     let mut lines = vec![account(context)];
-    if context.sessions.is_empty() {
+    let listed = context
+        .sessions
+        .iter()
+        .filter(|session| session["hidden"] != true)
+        .collect::<Vec<_>>();
+    if listed.is_empty() {
         lines.push("No terminals. Start one: kodosi terminal start".to_owned());
     } else {
         let mut rows = vec![["NAME", "WHERE", "STATE", "SHARED WITH", "ID"].map(str::to_owned)];
-        rows.extend(context.sessions.iter().map(|session| {
+        rows.extend(listed.into_iter().map(|session| {
             [
                 text(session, "name"),
                 place(session),
@@ -138,7 +143,10 @@ fn session_result(event: &Value, context: &Context) -> String {
         "session.input" => "Sent to the terminal.".to_owned(),
         "session.read" => text(event, "text"),
         "session.show" => "The Kodosi app shows the terminal when it is open.".to_owned(),
-        "session.close" => "The terminal is closed.".to_owned(),
+        "session.close" => event["text"]
+            .as_str()
+            .unwrap_or("The terminal is closed.")
+            .to_owned(),
         "session.leave" => "You left the terminal.".to_owned(),
         _ => "Done.".to_owned(),
     }
@@ -545,6 +553,7 @@ mod tests {
                 {"id":"01a10d06-92a7-7367-8536-000000000005","name":"shell","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"idle"}},
                 {"id":"01a10d06-92a7-7367-8536-000000000006","name":"away","kind":"remote","status":"offline","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
                 {"id":"01a10d06-92a7-7367-8536-000000000007","name":"tv","kind":"remote","status":"offline","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[]},
+                {"id":"01a10d06-92a7-7367-8536-000000000008","name":"old","kind":"remote","status":"offline","connectionState":"offline","isOwner":true,"hostName":"Studio","sharedWith":[],"hidden":true},
             ]}),
         ]);
         assert_eq!(

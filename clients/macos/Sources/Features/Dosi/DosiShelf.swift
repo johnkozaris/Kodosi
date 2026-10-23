@@ -35,7 +35,7 @@ struct DosiShelf: View {
     @Environment(\.theme) private var theme
 
     private var terminals: [RuntimeSession] {
-        deps.sessions.enumerated().sorted { left, right in
+        deps.listedSessions.enumerated().sorted { left, right in
             let ranks = (need(left.element), need(right.element))
             return ranks.0 == ranks.1 ? left.offset < right.offset : ranks.0 < ranks.1
         }

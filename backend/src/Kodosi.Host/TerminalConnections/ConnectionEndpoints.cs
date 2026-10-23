@@ -145,6 +145,7 @@ internal static partial class ConnectionEndpoints
                         directory.Host(connection, session);
                     });
                     if (refusal is not null) connection.Send(Wire.Encode(new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
+                    else await AdmitAsync(scopes, ct, (sessions, admission) => sessions.ShowAgainAsync(host.SessionId, admission));
                     break;
                 }
                 case UnhostMessage unhost:

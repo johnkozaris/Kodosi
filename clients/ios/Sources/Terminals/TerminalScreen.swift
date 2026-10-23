@@ -88,7 +88,7 @@ private struct TerminalScreenContent: View {
         .onDisappear { controller.disappear() }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
-        .onChange(of: session == nil) { _, gone in
+        .onChange(of: session == nil || session?.hidden == true) { _, gone in
             if gone, controller.ending {
                 dismiss()
             }

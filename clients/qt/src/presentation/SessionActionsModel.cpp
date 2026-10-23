@@ -22,6 +22,9 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
 {
     connect(
         &sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &SessionActionsModel::activatePendingLink);
+    connect(&sessions, &SessionCatalogModel::sessionsHidden, this, [this](const QStringList& ids) {
+        for (const auto& id : ids) minimize(id);
+    });
 }
 
 bool SessionActionsModel::busy() const
@@ -254,6 +257,11 @@ bool SessionActionsModel::command(
 bool SessionActionsModel::close(const QString& id)
 {
     return command(QStringLiteral("session.close"), id);
+}
+
+bool SessionActionsModel::hide(const QString& id)
+{
+    return command(QStringLiteral("session.hide"), id);
 }
 
 bool SessionActionsModel::rename(const QString& id, const QString& name)

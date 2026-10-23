@@ -284,16 +284,16 @@ Item {
                     height: 1
                     radius: 0.5
                     color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7)
-                    visible: root.rooms.length > 0 && Models.Sessions.count > 0
+                    visible: root.rooms.length > 0 && Models.Sessions.listedSessions.length > 0
                 }
                 Repeater {
-                    model: Models.Sessions.count
+                    model: Models.Sessions.listedSessions.length
 
                     RailItem {
                         id: mark
 
                         required property int index
-                        readonly property var session: Models.Sessions.sessions[index] || ({})
+                        readonly property var session: Models.Sessions.listedSessions[index] || ({})
                         readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
 
                         selected: root.selection === "terminal:" + session.id
@@ -861,6 +861,17 @@ Item {
                                     Accessible.name: qsTr("New terminal in %1").arg(folder.group.name)
                                     onClicked: root.newTerminalRequested(folder.group.directory)
                                 }
+                                KIconButton {
+                                    Layout.rightMargin: 2
+                                    size: 20
+                                    glyph: "close"
+                                    destructive: true
+                                    visible: folder.group.offline === true && folderHover.hovered
+                                    objectName: "sidebar.folder.close." + folder.group.key
+                                    Accessible.id: objectName
+                                    Accessible.name: qsTr("Close terminals")
+                                    onClicked: closeDialog.askOffline((folder.group.sessions || []).map(session => session.id), folder.group.host || "")
+                                }
                             }
                             HoverHandler { id: folderHover }
                             onClicked: {
@@ -1063,7 +1074,7 @@ Item {
                                             size: 24
                                             glyph: "close"
                                             destructive: true
-                                            enabled: row.session.canControl === true
+                                            enabled: row.session.canClose === true
                                             objectName: row.objectName + ".close"
                                             Accessible.id: objectName
                                             Accessible.name: qsTr("Close terminal")
@@ -1260,7 +1271,7 @@ Item {
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
         KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
-        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canControl === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
+        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canClose === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
     }
     KPopover {
         id: branchPopover

@@ -13,6 +13,7 @@ internal static class DomainTags
     public static ReadOnlySpan<byte> RoomContentV1 => "kodosi-room-content-v1"u8;
     public static ReadOnlySpan<byte> RoomRecipientV1 => "kodosi-room-recipient-v1"u8;
     public static ReadOnlySpan<byte> TerminalRoomV1 => "kodosi-terminal-room-v1"u8;
+    public static ReadOnlySpan<byte> TerminalCloseV1 => "kodosi-terminal-close-v1"u8;
 }
 
 internal static class Proofs
@@ -57,6 +58,18 @@ internal static class Proofs
         Span<byte> number = stackalloc byte[sizeof(long)];
         BinaryPrimitives.WriteInt64BigEndian(number, sequence);
         Write(stream, number);
+        Write(stream, device);
+        return stream.ToArray();
+    }
+
+    public static byte[] TerminalClose(Guid owner, Guid terminal, Guid incarnation, Guid user, string device)
+    {
+        using var stream = new MemoryStream();
+        stream.Write(DomainTags.TerminalCloseV1);
+        Write(stream, owner.ToString("D"));
+        Write(stream, terminal.ToString("D"));
+        Write(stream, incarnation.ToString("D"));
+        Write(stream, user.ToString("D"));
         Write(stream, device);
         return stream.ToArray();
     }

@@ -112,12 +112,13 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `interrupt and leave name the current incarnation`() async throws {
+    @Test func `interrupt, leave and hide name the current incarnation`() async throws {
         let session = try #require(model.terminals.session("s1"))
         model.terminals.interrupt(session)
         model.terminals.leave(session)
-        await log.waitFor("session.leave")
-        for type in ["session.interrupt", "session.leave"] {
+        model.terminals.hide(session)
+        await log.waitFor("session.hide")
+        for type in ["session.interrupt", "session.leave", "session.hide"] {
             let fields = try #require(log.fields(of: type).first)
             #expect(fields["sessionId"] as? String == "s1")
             #expect(fields["expectedRuntimeIncarnationId"] as? String == "s1-1")
@@ -157,7 +158,7 @@ func terminalEntry(
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
         "programStatus": ["state": state], "name": id, "isOwner": owner, "status": "running",
-        "attention": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
+        "attention": false, "hidden": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
         "ownerName": owner ? "Me" : "Maria",
     ]
     if let room {

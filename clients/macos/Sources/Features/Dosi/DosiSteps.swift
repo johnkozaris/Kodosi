@@ -80,9 +80,9 @@ struct DosiMini: View {
             }
         case .room:
             RoomSigil(key: target.map { deps.room(named: $0.value)?.id ?? $0.value } ?? "", size: 14)
-        case .terminals where !deps.sessions.isEmpty:
+        case .terminals where !deps.listedSessions.isEmpty:
             HStack(spacing: -5) {
-                ForEach(deps.sessions.prefix(3)) { session in
+                ForEach(deps.listedSessions.prefix(3)) { session in
                     AgentMark(session: session, size: 14)
                         .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                 }

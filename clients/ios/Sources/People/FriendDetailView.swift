@@ -44,7 +44,7 @@ private struct FriendDetailList: View {
     }
 
     private var terminals: [RuntimeSession] {
-        model.terminals.sessions.filter { $0.ownerUserId == friend.userId }
+        model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden }
     }
 
     private var rooms: [MissionEntry] {

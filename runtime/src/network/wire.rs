@@ -43,12 +43,26 @@ pub(crate) struct SessionDto {
     pub room_sequence: u64,
     #[cfg(feature = "host")]
     pub room_choice: Option<RoomChoice>,
+    #[serde(default)]
+    pub hidden: bool,
+    #[cfg(feature = "host")]
+    #[serde(default)]
+    pub close_request: Option<CloseRequest>,
 }
 
 #[cfg(feature = "host")]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RoomChoice {
+    pub device_id: String,
+    pub signature: String,
+}
+
+#[cfg(feature = "host")]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CloseRequest {
+    pub user_id: String,
     pub device_id: String,
     pub signature: String,
 }
@@ -68,6 +82,7 @@ impl From<SessionDto> for super::RemoteSession {
             shared_with: dto.shared_with,
             online: dto.host_online,
             status: dto.status.filter(TerminalStatus::is_valid),
+            hidden: dto.hidden,
         }
     }
 }

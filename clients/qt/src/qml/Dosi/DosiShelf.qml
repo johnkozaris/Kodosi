@@ -9,7 +9,7 @@ Item {
     id: root
 
     readonly property var terminals: {
-        const ranked = Models.Sessions.sessions.map((session, index) => ({ session: session, index: index, need: need(session) }))
+        const ranked = Models.Sessions.listedSessions.map((session, index) => ({ session: session, index: index, need: need(session) }))
         ranked.sort((a, b) => a.need - b.need || a.index - b.index)
         return ranked.map(entry => entry.session)
     }

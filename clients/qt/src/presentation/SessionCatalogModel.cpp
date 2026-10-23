@@ -22,6 +22,7 @@ SessionCatalogModel::SessionCatalogModel(QObject* parent)
 {
     connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this] {
         m_sessionsCache.reset();
+        m_listedCache.reset();
         m_groupsCache.reset();
     });
     connect(this, &QAbstractItemModel::modelReset, this, &SessionCatalogModel::folderGroupsChanged);
@@ -32,10 +33,14 @@ QVariantList SessionCatalogModel::folderGroups() const
         return *m_groupsCache;
     QMap<QString, QVariantMap> groups;
     for (const auto& session : m_sessions) {
+        if (session.hidden)
+            continue;
         const auto local = session.kind == QStringLiteral("local");
         const auto key = (local ? QStringLiteral("0:") : QStringLiteral("1:") + session.ownerUserId + QLatin1Char(':') + session.hostName)
             + QLatin1Char(':') + session.workingDirectory;
         auto& group = groups[key];
+        const bool away = presentation(session).away && !local;
+        group.insert(QStringLiteral("offline"), away && group.value(QStringLiteral("offline"), true).toBool());
         group.insert(QStringLiteral("key"), key);
         group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : QString {});
         group.insert(QStringLiteral("name"),
@@ -61,6 +66,19 @@ QVariantList SessionCatalogModel::sessions() const
     QVariantList result;
     for (const auto& session : m_sessions) result.append(fields(session));
     m_sessionsCache = result;
+    return result;
+}
+
+QVariantList SessionCatalogModel::listedSessions() const
+{
+    if (m_listedCache)
+        return *m_listedCache;
+    QVariantList result;
+    for (const auto& session : m_sessions) {
+        if (!session.hidden)
+            result.append(fields(session));
+    }
+    m_listedCache = result;
     return result;
 }
 
@@ -271,7 +289,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
         { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
-        { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType } };
+        { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
+        { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden } };
 }
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJsonObject& o)
 {
@@ -302,6 +321,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (o.value(QStringLiteral("sharedWith")).toArray().size()>256) return std::nullopt;
     s.isOwner = o.value(QStringLiteral("isOwner")).toBool();
     s.attention = o.value(QStringLiteral("attention")).toBool();
+    const auto hidden = o.value(QStringLiteral("hidden"));
+    if (!hidden.isUndefined() && !hidden.isBool())
+        return std::nullopt;
+    s.hidden = hidden.toBool();
     s.workingDirectory = text("workingDir");
     s.title = text("title");
     s.program = text("program");
@@ -395,9 +418,12 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         result.append(*s);
     }
     QStringList attention;
+    QStringList hidden;
     for (const auto& next : result) {
         if (next.attention)
             attention.append(next.id);
+        if (const auto before = session(next.id); next.hidden && before && !before->hidden)
+            hidden.append(next.id);
     }
     const bool attentionMoved = attention != m_attention;
     // A program that animates its title sends a snapshot for each frame. When nothing
@@ -420,6 +446,8 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         emit countChanged();
     emit authorityStateChanged();
     emit authoritativeSnapshotApplied();
+    if (!hidden.isEmpty())
+        emit sessionsHidden(hidden);
 }
 bool SessionCatalogModel::samePresentation(const QVector<Session>& before, const QVector<Session>& after) const
 {

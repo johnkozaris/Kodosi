@@ -19,7 +19,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string(directory),
-        "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "connectionState": .string(connection),
+        "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]))
 }
@@ -205,7 +205,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     let session = try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("Green Gecko"), "title": .string("GitHub Copilot"),
-        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+        "connectionState": .string("local"), "sharedWith": .array([]),
     ]))
     #expect(session.name == "Green Gecko")
     #expect(session.activity == "GitHub Copilot")
@@ -217,7 +218,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
         ]
         if let title {
             fields["title"] = .string(title)
@@ -241,7 +243,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
             "programStatus": .object(status),
         ]
         if let title {
@@ -296,7 +299,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string("remote"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(false), "status": .string("running"), "attention": .bool(false), "connectionState": .string("offline"), "sharedWith": .array([]),
+            "isOwner": .bool(false), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("offline"), "sharedWith": .array([]),
         ]
         fields["title"] = title.map(JSONValue.string)
         fields["programStatus"] = status.map(JSONValue.object)
@@ -316,7 +320,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string("local"), "name": .string("Amber Wren"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
         ]
         fields["context"] = context.map(JSONValue.object)
         return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))

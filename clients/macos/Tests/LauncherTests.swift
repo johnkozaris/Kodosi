@@ -223,7 +223,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()), "kind": .string(kind),
             "name": .string("Terminal"), "isOwner": .bool(true), "status": .string("running"),
-            "attention": .bool(false), "connectionState": .string(kind == "local" ? "local" : "connected"), "sharedWith": .array([]),
+            "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(kind == "local" ? "local" : "connected"), "sharedWith": .array([]),
         ]
         if let prompt {
             fields["prompt"] = .bool(prompt)

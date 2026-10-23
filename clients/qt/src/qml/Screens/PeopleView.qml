@@ -232,7 +232,7 @@ Item {
 
                         readonly property bool changed: modelData.identityState === "changed"
                         readonly property string fullName: modelData.displayName || modelData.handle
-                        readonly property var shared: Models.Sessions.sessions.filter(session => session.ownerUserId === modelData.userId && session.isOwner === false)
+                        readonly property var shared: Models.Sessions.listedSessions.filter(session => session.ownerUserId === modelData.userId && session.isOwner === false)
                         required property var modelData
                         property bool verifying: false
 

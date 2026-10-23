@@ -4,19 +4,25 @@ import SwiftUI
 enum TerminalPrompt: Identifiable, Equatable {
     case rename(RuntimeSession)
     case close(RuntimeSession)
+    case offline(RuntimeSession)
     case leave(RuntimeSession)
+
+    static func closing(_ session: RuntimeSession) -> Self {
+        session.hostOffline ? .offline(session) : .close(session)
+    }
 
     var id: String {
         switch self {
         case let .rename(session): "rename.\(session.id)"
         case let .close(session): "close.\(session.id)"
+        case let .offline(session): "offline.\(session.id)"
         case let .leave(session): "leave.\(session.id)"
         }
     }
 
     var session: RuntimeSession {
         switch self {
-        case let .rename(session), let .close(session), let .leave(session): session
+        case let .rename(session), let .close(session), let .offline(session), let .leave(session): session
         }
     }
 }
@@ -68,6 +74,16 @@ private struct TerminalPrompts: ViewModifier {
         }
     }
 
+    private var away: Binding<Bool> {
+        presenting {
+            if case .offline = $0 {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     func body(content: Content) -> some View {
         content
             .onChange(of: prompt) { _, next in
@@ -97,6 +113,23 @@ private struct TerminalPrompts: ViewModifier {
                 .accessibilityIdentifier("terminal.close.confirm")
             } message: { _ in
                 Text("Its programs stop.")
+            }
+            .confirmationDialog(
+                prompt.map { String(localized: "\($0.session.hostLabel) is offline") } ?? "",
+                isPresented: away,
+                titleVisibility: .visible,
+                presenting: prompt,
+            ) { current in
+                Button("Hide until it's back") {
+                    model.terminals.hide(current.session)
+                    onEnd()
+                }
+                .accessibilityIdentifier("terminal.offline.hide")
+                Button("Close forever", role: .destructive) {
+                    model.terminals.close(current.session)
+                    onEnd()
+                }
+                .accessibilityIdentifier("terminal.offline.close")
             }
             .confirmationDialog("Leave this terminal?", isPresented: leaving, titleVisibility: .visible, presenting: prompt) { current in
                 Button("Leave", role: .destructive) {

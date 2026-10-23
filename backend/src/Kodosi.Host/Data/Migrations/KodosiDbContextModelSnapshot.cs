@@ -17,7 +17,7 @@ namespace Kodosi.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -219,6 +219,21 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("friendships", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.HiddenSession", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId", "SessionId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("hidden_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.Mission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -412,6 +427,16 @@ namespace Kodosi.Data.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
 
+                    b.Property<string>("CloseDeviceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<byte[]>("CloseSignature")
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid?>("CloseUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -578,6 +603,21 @@ namespace Kodosi.Data.Migrations
                         .WithMany()
                         .HasForeignKey("SecondUserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.HiddenSession", b =>
+                {
+                    b.HasOne("Kodosi.Data.Session", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

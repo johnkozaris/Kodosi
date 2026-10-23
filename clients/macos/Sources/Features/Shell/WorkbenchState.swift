@@ -225,7 +225,8 @@ final class WorkbenchState {
         for id in stagedSessionIds where !available.contains(id) {
             dismissSession(id)
         }
-        let restore = Array(restoredIds.filter { available.contains($0) }.prefix(max(0, Self.maximumStagedSessions - stagedSessionIds.count)))
+        let listed = Set(sessions.filter { !$0.hidden }.map(\.id))
+        let restore = Array(restoredIds.filter { listed.contains($0) }.prefix(max(0, Self.maximumStagedSessions - stagedSessionIds.count)))
         restoredIds.removeAll { available.contains($0) }
         for id in restore where !stagedSessionIds.contains(id) {
             stagedSessionIds.append(id)

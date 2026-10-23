@@ -700,6 +700,7 @@ fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
         shared_with: vec![],
         online: true,
         status: None,
+        hidden: false,
     }
 }
 
@@ -1365,13 +1366,13 @@ async fn opening_a_terminal_whose_computer_is_offline_waits_for_the_computer() {
         .unwrap();
     assert!(!runtime.opening.contains_key(&id));
     assert!(runtime.reconnect.contains_key(&id));
-    let close = Command::CloseSession {
+    let interrupt = Command::InterruptSession {
         request_id: Uuid::now_v7().to_string(),
         session_id: id.to_string(),
         expected_runtime_incarnation_id: remote.incarnation_id.to_string(),
     };
     assert_eq!(
-        runtime.apply(&close).unwrap_err().to_string(),
+        runtime.apply(&interrupt).unwrap_err().to_string(),
         "Other computer is offline."
     );
 
@@ -1383,6 +1384,56 @@ async fn opening_a_terminal_whose_computer_is_offline_waits_for_the_computer() {
     );
     runtime.reconnect_views();
     assert!(runtime.opening.contains_key(&id));
+}
+
+#[tokio::test]
+async fn a_terminal_whose_computer_is_away_hides_or_closes_through_the_server() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut hidden = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let mut closed = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let command = |remote: &RemoteSession, hide: bool| {
+        let (request_id, session_id, expected_runtime_incarnation_id) = (
+            Uuid::now_v7().to_string(),
+            remote.id.to_string(),
+            remote.incarnation_id.to_string(),
+        );
+        if hide {
+            Command::HideSession {
+                request_id,
+                session_id,
+                expected_runtime_incarnation_id,
+            }
+        } else {
+            Command::CloseSession {
+                request_id,
+                session_id,
+                expected_runtime_incarnation_id,
+            }
+        }
+    };
+    runtime.replace_remotes(vec![hidden.clone(), closed.clone()]);
+    assert_eq!(
+        runtime
+            .apply(&command(&hidden, true))
+            .unwrap_err()
+            .to_string(),
+        "Other computer is online."
+    );
+
+    hidden.online = false;
+    hidden.hidden = true;
+    closed.online = false;
+    runtime.replace_remotes(vec![hidden.clone(), closed.clone()]);
+    assert!(runtime.remotes[&hidden.id].hidden);
+    host_notice(&mut runtime, &hidden, true);
+    assert!(!runtime.remotes[&hidden.id].hidden);
+    host_notice(&mut runtime, &hidden, false);
+    assert!(!runtime.remotes[&hidden.id].hidden);
+
+    runtime.apply(&command(&hidden, true)).unwrap();
+    runtime.apply(&command(&closed, false)).unwrap();
+    assert!(runtime.administering.contains(&hidden.id));
+    assert!(runtime.administering.contains(&closed.id));
 }
 
 #[tokio::test]

@@ -95,7 +95,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"),
         "name": .string("Quiet terminal"), "isOwner": .bool(true), "status": .string("running"),
-        "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+        "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
@@ -136,7 +136,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         .object([
             "id": .string(id), "incarnationId": .string(id), "kind": .string(id == own ? "local" : "remote"),
             "name": .string(name), "isOwner": .bool(id == own), "status": .string("running"),
-            "attention": .bool(attention), "connectionState": .string(connection), "sharedWith": .array([]),
+            "attention": .bool(attention), "hidden": .bool(false), "connectionState": .string(connection), "sharedWith": .array([]),
             "programStatus": .object(status),
         ])
     }
@@ -176,7 +176,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
             "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string(kind), "name": .string("Review"), "isOwner": .bool(owner), "status": .string("running"),
-            "attention": .bool(false), "connectionState": .string(connection), "sharedWith": .array([]),
+            "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection), "sharedWith": .array([]),
             "programStatus": .object(["state": .string("done")]),
         ]))
     }
@@ -250,7 +250,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let replacement = try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(session.id), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("Replacement"), "isOwner": .bool(true),
-        "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
     ]))
     notifications.reconcile(sessions: [replacement], accountEpoch: 1)
     #expect(notifications.sessionToOpen(identifier: old) == nil)

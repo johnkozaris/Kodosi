@@ -210,6 +210,8 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             status: None,
             room_sequence: 0,
             room_choice: None,
+            hidden: false,
+            close_request: None,
         },
     ));
     network
@@ -267,6 +269,8 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             status: None,
             room_sequence: 0,
             room_choice: None,
+            hidden: false,
+            close_request: None,
         },
     ));
     *publication.pending_shares.lock().await = Some(BTreeSet::from([friend]));

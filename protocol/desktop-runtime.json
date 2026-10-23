@@ -2046,6 +2046,56 @@
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.hide"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
           "missionId": {
             "anyOf": [
               {
@@ -5500,6 +5550,9 @@
                     }
                   ]
                 },
+                "hidden": {
+                  "type": "boolean"
+                },
                 "hostDeviceId": {
                   "anyOf": [
                     {
@@ -5749,6 +5802,7 @@
                 "isOwner",
                 "status",
                 "connectionState",
+                "hidden",
                 "sharedWith"
               ],
               "type": "object"
@@ -9920,7 +9974,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 69,
+  "protocolVersion": 70,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

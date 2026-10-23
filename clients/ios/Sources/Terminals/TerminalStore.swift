@@ -138,6 +138,10 @@ final class TerminalStore {
         act("session.close", on: session)
     }
 
+    func hide(_ session: RuntimeSession) {
+        act("session.hide", on: session)
+    }
+
     func interrupt(_ session: RuntimeSession) {
         act("session.interrupt", on: session)
     }
