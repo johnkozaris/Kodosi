@@ -20,7 +20,7 @@ struct UsageMenuRow: View {
                 UsageRing(limit: nearest, lineWidth: 1.75)
                     .frame(width: 14, height: 14)
                     .frame(width: 18)
-                Text("Usage").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
+                Text("Provider Usage").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .bold))
@@ -41,7 +41,7 @@ struct UsageMenuRow: View {
             }
         }
         .animation(theme.motion.hover, value: lit)
-        .accessibilityLabel(Text("Usage"))
+        .accessibilityLabel(Text("Provider Usage"))
         .accessibilityValue(Text(verbatim: nearest.map { String(localized: "Up to \($0.used)% used") } ?? ""))
         .accessibilityAddTraits(open ? .isSelected : [])
         .accessibilityIdentifier("sidebar.usage")
@@ -112,7 +112,7 @@ struct UsagePanel: View {
         .frame(width: 272)
         .animation(theme.motion.spring, value: sections.map(\.id))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Usage"))
+        .accessibilityLabel(Text("Provider Usage"))
         .accessibilityIdentifier("sidebar.usage.panel")
     }
 

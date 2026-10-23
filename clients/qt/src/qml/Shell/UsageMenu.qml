@@ -15,7 +15,7 @@ KMenu {
 
     signal startRequested(string agent, string account)
 
-    title: qsTr("Usage")
+    title: qsTr("Provider Usage")
     width: 284
     available: Models.Launcher.usageAvailable
     mark: Component {
@@ -31,7 +31,7 @@ KMenu {
         width: root.availableWidth
         objectName: "sidebar.usage.panel"
         Accessible.role: Accessible.Grouping
-        Accessible.name: qsTr("Usage")
+        Accessible.name: qsTr("Provider Usage")
 
         PlainLabel {
             visible: root.sections.length === 0

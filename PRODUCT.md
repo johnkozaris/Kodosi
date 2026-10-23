@@ -116,7 +116,7 @@ progress where work happens and give each failure a clear recovery action.
   approved devices can ask, and the requests and answers stay end-to-end encrypted.
   `kodosi terminal start --computer` does the same.
 - The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
-  account has used. Usage in the menu beside the person's name shows each signed-in
+  account has used. Provider Usage in the menu beside the person's name shows each signed-in
   account with a dial for each limit, and a click opens the launcher with that account.
   The agent's own program reads the numbers when the person opens these, at most once a
   minute. Kodosi reads no credentials, and the numbers do not go to the backend; those
