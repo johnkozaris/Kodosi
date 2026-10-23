@@ -15,7 +15,7 @@ ApplicationWindow {
     property bool updateNoticeDismissed: false
     // Windows installs the update only when no program of Kodosi runs, and `kodosi host` in a terminal is one.
     readonly property string updateText: Qt.platform.os === "windows" && Models.ApplicationLifecycle.hostForeground
-        ? qsTr("Kodosi was updated. Stop `kodosi host`, then restart Kodosi.")
+        ? qsTr("Kodosi was updated. Stop the kodosi host command, then restart Kodosi.")
         : qsTr("Kodosi was updated. Restart it to use the new version.")
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
