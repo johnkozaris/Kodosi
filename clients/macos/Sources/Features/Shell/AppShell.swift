@@ -114,19 +114,11 @@ struct AppShell: View {
             SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
         case .launcher:
             SheetLayer(close: { workbench.launcher = nil }, content: {
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("New terminal").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                        Spacer()
-                        IconButton(title: "Close", symbol: "xmark", identifier: "launcher.close") { workbench.launcher = nil }
-                    }
-                    .padding(.leading, 24).padding(.trailing, 14).frame(height: 60)
-                    AgentLauncher(
-                        roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
-                        started: { workbench.launcher = nil },
-                    )
-                    .padding([.horizontal, .bottom], 24)
-                }
+                AgentLauncher(
+                    roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
+                    started: { workbench.launcher = nil }, close: { workbench.launcher = nil },
+                )
+                .padding(24)
             })
         }
     }

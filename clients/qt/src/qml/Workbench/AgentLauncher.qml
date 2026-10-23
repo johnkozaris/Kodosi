@@ -52,6 +52,7 @@ ColumnLayout {
     readonly property string hint: !info ? qsTr("Type a command") : qsTr("Type a task")
     readonly property string roomName: (Models.Missions.missions.find(room => room.id === roomId) || {}).name || ""
 
+    signal closeRequested
     signal resumeRequested
     signal started
 
@@ -545,7 +546,7 @@ ColumnLayout {
             }
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: root.computers.length > 0 ? 6 : 12
+                anchors.rightMargin: root.computers.length > 0 || root.inSheet ? 6 : 12
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.verticalCenterOffset: 2
                 spacing: 5
@@ -636,6 +637,18 @@ ColumnLayout {
                     elide: Text.ElideRight
                     color: KodosiTheme.terminalInkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
+                }
+                KIconButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.inSheet
+                    glyph: "close"
+                    onTerminal: true
+                    size: 26
+                    objectName: "launcher.close"
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Close")
+
+                    onClicked: root.closeRequested()
                 }
             }
         }
