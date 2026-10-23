@@ -76,7 +76,7 @@
   "offlineTerminal": {
     "hide": "PUT /api/sessions/{id}/hidden takes {incarnationId}; while the host is not connected, the lists of that person give the terminal with hidden: true; the server does nothing while the host is connected, and removes the marks of a terminal when its host connects again",
     "closeRequest": "PUT /api/sessions/{id}/close-request takes {incarnationId, deviceId, signature}: a device of a person who can use the terminal signs with ML-DSA-65 kodosi-terminal-close-v1 and the length-prefixed owner account id, terminal id, incarnation id, its own account id and its own device id; the first request stays",
-    "read": "GET /api/sessions leaves out a terminal with a close request, except in the list of its hosting device, which gets closeRequest {userId, deviceId, signature}; such a terminal does not count toward the terminals of its owner",
+    "read": "GET /api/sessions leaves out a terminal with a close request, except in the list of its hosting device, which gets closeRequest {userId, deviceId, signature}; such a terminal does not count toward the open terminals of its owner, but an owner has at most 256 terminals that did not end",
     "host": "the hosting device closes the terminal only for a valid signature of an approved device, not the recovery key, of a person who can use the terminal; it removes any other request with DELETE /api/sessions/{id}/close-request?incarnationId="
   },
   "deviceLink": {

@@ -48,6 +48,30 @@ public sealed class OfflineTerminalTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task TerminalsThatWaitToCloseCountTowardTheLimitOfLiveTerminals()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner");
+        var now = DateTimeOffset.UtcNow;
+        var closing = Enumerable.Range(0, Limits.MaxLiveSessionsPerUser).Select(_ => new Session
+        {
+            Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), OwnerUserId = owner.User.Id, HostDeviceId = owner.Device.Id,
+            HostName = "Host", Name = "Terminal", CreatedAt = now, ExpiresAt = now.AddMinutes(2),
+            CloseUserId = owner.User.Id, CloseDeviceId = owner.Device.Id, CloseSignature = [1],
+        }).ToList();
+        store.Db.Sessions.AddRange(closing);
+        await store.Db.SaveChangesAsync(ct);
+        Task CreateAsync() => store.Sessions.CreateAsync(owner.User.Id, owner.Approved,
+            new(Guid.CreateVersion7(), Guid.CreateVersion7(), "Another", owner.Device.Id, "Host", null), ct);
+
+        Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(CreateAsync)).Status);
+        closing[0].Ended = true;
+        await store.Db.SaveChangesAsync(ct);
+        await CreateAsync();
+    }
+
+    [Fact]
     public async Task OnlyASignedCloseRequestTakesATerminalOutOfEveryListButThatOfItsHost()
     {
         var ct = TestContext.Current.CancellationToken;

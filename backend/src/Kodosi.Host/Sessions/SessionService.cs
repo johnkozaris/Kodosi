@@ -80,8 +80,11 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
                 throw ApiException.Conflict("This terminal ID is already in use.");
             return await DescribeAsync(existing, userId, ct);
         }
-        if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended && x.CloseSignature == null, ct) >= Limits.MaxSessionsPerUser)
+        var live = db.Sessions.Where(x => x.OwnerUserId == userId && !x.Ended);
+        if (await live.CountAsync(x => x.CloseSignature == null, ct) >= Limits.MaxSessionsPerUser)
             throw ApiException.Conflict("You have too many terminals.");
+        if (await live.CountAsync(ct) >= Limits.MaxLiveSessionsPerUser)
+            throw ApiException.Conflict("Too many of your terminals wait to close on offline computers. Remove the computers that do not come back.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId)
         {
