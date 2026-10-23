@@ -114,6 +114,36 @@
     }
 
     @MainActor
+    @Test func `accessibility refresh leaves the main actor free while output continues`() async {
+        let relay = TerminalAccessibilityUpdateRelay()
+        let refreshes = AccessibilityUpdateRecorder()
+        let token = relay.register {
+            refreshes.record()
+            let busy = ContinuousClock.now + .milliseconds(2)
+            while ContinuousClock.now < busy {}
+            return true
+        }
+        let output = Task.detached {
+            let end = ContinuousClock.now + .milliseconds(500)
+            while ContinuousClock.now < end {
+                relay.signal()
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+        }
+        var beats = 0
+        let end = ContinuousClock.now + .milliseconds(500)
+        while ContinuousClock.now < end {
+            beats += 1
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        await output.value
+        relay.unregister(token)
+
+        #expect(beats >= 20)
+        #expect(refreshes.count <= 15)
+    }
+
+    @MainActor
     @Test func `native surface generation identifies first and replacement attachments`() {
         let session = TerminalRendererSession(
             write: { _ in },
