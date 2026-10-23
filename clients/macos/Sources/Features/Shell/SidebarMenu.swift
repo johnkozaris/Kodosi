@@ -40,6 +40,13 @@ struct SidebarMenu: View {
         .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: alignment) {
             SidebarMenuList { signingOut = true }
         }
+        .onChange(of: open) { _, open in
+            guard open else { return }
+            Task {
+                await deps.launcher.refresh()
+                await deps.launcher.refreshUsage()
+            }
+        }
         .confirmationDialog("Sign out?", isPresented: $signingOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { deps.account.signOut() }
         } message: {
@@ -51,6 +58,8 @@ struct SidebarMenu: View {
 private struct SidebarMenuList: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
+    @Environment(\.closePanel) private var close
+    @State private var usage = false
     let signOut: () -> Void
 
     var body: some View {
@@ -60,12 +69,21 @@ private struct SidebarMenuList: View {
             } trailing: {
                 Text(verbatim: "⌘,").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
             }
+            .closesFlyout($usage)
             PanelMenuRow(Text("Friends"), icon: .symbol("person.2"), identifier: "header.people") {
                 deps.workbench.section = .people
             } trailing: {
                 if !deps.people.incoming.isEmpty {
                     CountBadge(count: deps.people.incoming.count)
                 }
+            }
+            .closesFlyout($usage)
+            if !deps.launcher.usageAccounts.isEmpty {
+                UsageMenuRow(launcher: deps.launcher, open: $usage)
+                    .kodosiFlyout(isPresented: usage) {
+                        UsagePanel(launcher: deps.launcher, start: start)
+                    }
+                    .transition(.opacity)
             }
             PanelMenuDivider()
             PanelMenuHeader(title: "Resume")
@@ -75,23 +93,51 @@ private struct SidebarMenuList: View {
                 {
                     deps.workbench.resume(provider)
                 }
+                .closesFlyout($usage)
             }
             PanelMenuDivider()
             PanelMenuRow(Text("About Kodosi"), icon: .symbol("info.circle"), identifier: "sidebar.about") {
                 NSApp.orderFrontStandardAboutPanel(nil)
             }
+            .closesFlyout($usage)
             PanelMenuRow(Text("Check for Updates…"), icon: .symbol("arrow.down.circle"), identifier: "sidebar.updates") {
                 deps.updater.check()
             }
             .disabled(!deps.updater.configured)
+            .closesFlyout($usage)
             if deps.account.userId != nil {
                 PanelMenuDivider()
                 PanelMenuRow(Text("Sign out…"), icon: .symbol("rectangle.portrait.and.arrow.right"), identifier: "sidebar.signOut",
                              action: signOut)
+                    .closesFlyout($usage)
             }
         }
         .padding(6)
         .frame(width: 224)
+        .animation(theme.motion.fade, value: deps.launcher.usageAccounts.isEmpty)
+    }
+
+    private func start(_ info: AgentInfo, _ account: AgentAccount) {
+        close()
+        if deps.settings.lastComputer != nil {
+            deps.settings.lastComputer = nil
+            deps.settings.save()
+        }
+        var pick = deps.launcher.choice.pick(info.agent)
+        pick.account = account.name
+        deps.launcher.choose(.tab(info.agent))
+        deps.launcher.choose(.pick(pick))
+        deps.openLauncher()
+    }
+}
+
+private extension View {
+    func closesFlyout(_ flyout: Binding<Bool>) -> some View {
+        onHover { inside in
+            if inside {
+                flyout.wrappedValue = false
+            }
+        }
     }
 }
 

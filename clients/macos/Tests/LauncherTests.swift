@@ -30,7 +30,7 @@ private let catalog: JSONValue = .object([
     "agents": .array([
         .object([
             "agent": .string("claude"), "program": .string("claude"), "installed": .bool(true), "install": .string(""),
-            "addsAccounts": .bool(true),
+            "addsAccounts": .bool(true), "reportsUsage": .bool(true),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
@@ -41,6 +41,7 @@ private let catalog: JSONValue = .object([
         .object([
             "agent": .string("codex"), "program": .string("codex"), "installed": .bool(false),
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
+            "reportsUsage": .bool(true),
             "accounts": .array([]),
         ]),
     ]),
@@ -158,6 +159,32 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(LaunchPlan(launcher: app.launcher, agent: "codex").start == nil)
     app.launcher.choose(.pick(AgentPick(agent: "claude", account: "gone")))
     #expect(LaunchPlan(launcher: app.launcher).account?.name == "default")
+}
+
+@Test @MainActor func `usage shows only on accounts that are signed in`() async throws {
+    let (app, sent) = try launcherApp("LauncherUsage")
+    defer { app.shutdownProcess() }
+    try await answerAgentRequests(app, sent: sent)
+    #expect(app.launcher.usageAccounts.map(\.account.name) == ["default"])
+    let reading = Task { await app.launcher.refreshUsage() }
+    var asked: String?
+    for _ in 0 ..< 200 where asked == nil {
+        await Task.yield()
+        asked = sent().last { $0["type"] == .string("provider.usage") }?["requestId"]?.stringValue
+    }
+    let limit: JSONValue = .object(["hours": .int(5), "scope": .null, "used": .int(91), "level": .string("near"), "headline": .bool(true)])
+    let accounts = ["default", "work"].map { name -> JSONValue in
+        .object(["agent": .string("claude"), "account": .string(name), "readAtMs": .int(1_792_716_922_000), "limits": .array([limit])])
+    }
+    try app.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(asked)), "operation": .string("provider.usage"),
+        "result": .object(["accounts": .array(accounts)]),
+    ]))
+    await reading.value
+    let plan = LaunchPlan(launcher: app.launcher)
+    #expect(plan.account?.name == "work")
+    #expect(plan.usage(of: plan.account) == nil)
+    #expect(plan.usage(of: plan.info?.accounts.first)?.used == 91)
 }
 
 @Test @MainActor func `a choice made here outlives an answer asked before it`() async throws {

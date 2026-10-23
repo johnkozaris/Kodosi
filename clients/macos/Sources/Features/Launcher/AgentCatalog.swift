@@ -14,6 +14,7 @@ struct AgentInfo: Decodable, Equatable, Identifiable {
     var accounts: [AgentAccount]
     var install: String
     var addsAccounts: Bool
+    var reportsUsage: Bool
 
     var id: String {
         agent
@@ -75,6 +76,85 @@ struct AgentOption: Decodable, Equatable, Identifiable {
     }
 }
 
+struct AgentUsageReply: Decodable {
+    var accounts: [AccountUsage]
+}
+
+struct AccountUsage: Decodable, Equatable {
+    var agent: String
+    var account: String
+    var limits: [UsageLimit]
+    var readAtMs: UInt64
+
+    var headline: UsageLimit? {
+        limits.first(where: \.headline) ?? limits.first
+    }
+
+    var stale: Bool {
+        Date().timeIntervalSince1970 - Double(readAtMs) / 1000 > 600
+    }
+
+    static func key(_ agent: String, _ account: String) -> String {
+        "\(agent)/\(account)"
+    }
+}
+
+struct UsageLimit: Decodable, Equatable, Identifiable {
+    var hours: Int?
+    var scope: String?
+    var used: Int
+    var level: UsageLevel
+    var headline: Bool
+
+    var id: String {
+        scope.map { "scope:\($0)" } ?? hours.map { "hours:\($0)" } ?? "month"
+    }
+
+    var window: String {
+        if let scope {
+            return scope
+        }
+        switch hours {
+        case nil: return String(localized: "month")
+        case 24: return String(localized: "day")
+        case 168: return String(localized: "week")
+        case let hours? where hours % 24 == 0: return String(localized: "\(hours / 24)d")
+        case let hours?: return String(localized: "\(hours)h")
+        }
+    }
+
+    var spoken: String {
+        let window = switch hours {
+        case nil: String(localized: "This month")
+        case 168: String(localized: "This week")
+        case let hours?: String(localized: "Last \(hours) hours")
+        }
+        let name = scope.map { "\($0), \(window.lowercased())" } ?? window
+        return String(localized: "\(name): \(used)% used")
+    }
+
+    /// The limit nearest to stopping its account: the worst level, then the most use; the first one wins a tie.
+    static func nearest(of limits: [Self]) -> Self? {
+        limits.max { ($0.level, $0.used) < ($1.level, $1.used) }
+    }
+}
+
+enum UsageLevel: String, Decodable, Comparable {
+    case normal, near, reached
+
+    private var rank: Int {
+        switch self {
+        case .normal: 0
+        case .near: 1
+        case .reached: 2
+        }
+    }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rank < rhs.rank
+    }
+}
+
 struct AgentStart: Equatable {
     var agent: String
     var account: String?
@@ -95,12 +175,19 @@ struct LaunchPlan {
     let info: AgentInfo?
     let pick: AgentPick?
     let models: AgentModels?
+    private let usage: [String: AccountUsage]
 
     init(launcher: LauncherState, agent: String? = nil) {
         let agent = agent ?? launcher.choice.agent
         info = launcher.agent(agent)
         pick = agent.map(launcher.choice.pick)
         models = agent.flatMap { launcher.models[$0] }
+        usage = launcher.usage
+    }
+
+    func usage(of account: AgentAccount?) -> UsageLimit? {
+        guard let info, let account, account.identity != nil else { return nil }
+        return usage[AccountUsage.key(info.agent, account.name)]?.headline
     }
 
     var account: AgentAccount? {

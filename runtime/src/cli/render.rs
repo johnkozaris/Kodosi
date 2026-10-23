@@ -82,6 +82,7 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
+        ("provider.result", "provider.usage") => usage(&event["result"]),
         ("dosi.result", "dosi.stop") => "Dosi stops.".to_owned(),
         ("dosi.result", "dosi.ask") => {
             "The person sees the question. End your turn; the answer comes as the next message."
@@ -234,6 +235,53 @@ fn agent_models(result: &Value) -> String {
         }
     };
     format!("Models: {}\nEfforts: {}", list(models), list(efforts))
+}
+
+fn usage(result: &Value) -> String {
+    let lines = result["accounts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|account| {
+            let limits = account["limits"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|limit| {
+                    let level = match limit["level"].as_str() {
+                        Some("near") => " (near the limit)",
+                        Some("reached") => " (limit reached)",
+                        _ => "",
+                    };
+                    format!("{} {}%{level}", window(limit), limit["used"])
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "{}  {}: {limits}",
+                text(account, "agent"),
+                text(account, "account")
+            )
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        "No signed-in account reports plan limits.".to_owned()
+    } else {
+        lines.join("\n")
+    }
+}
+
+fn window(limit: &Value) -> String {
+    if let Some(scope) = limit["scope"].as_str() {
+        return scope.to_owned();
+    }
+    match limit["hours"].as_u64() {
+        None => "month".to_owned(),
+        Some(24) => "day".to_owned(),
+        Some(168) => "week".to_owned(),
+        Some(hours) if hours % 24 == 0 => format!("{}d", hours / 24),
+        Some(hours) => format!("{hours}h"),
+    }
 }
 
 fn devices(event: &Value, hosts: &Value) -> String {
@@ -529,6 +577,31 @@ mod tests {
             "This device is not approved. Approve this device from one of your existing devices."
         ));
         assert!(listed.contains("kodosi devices link"));
+    }
+
+    #[test]
+    fn usage_names_each_window_and_says_when_a_limit_is_near() {
+        fn limit(hours: Option<u32>, scope: Option<&str>, used: u8, level: &str) -> Value {
+            json!({"hours": hours, "scope": scope, "used": used, "level": level, "headline": false})
+        }
+        assert_eq!(
+            usage(&json!({"accounts": [
+                {"agent": "claude", "account": "work", "readAtMs": 1, "limits": [
+                    limit(Some(5), None, 42, "normal"),
+                    limit(Some(168), None, 85, "near"),
+                    limit(Some(168), Some("Fable"), 100, "reached"),
+                ]},
+                {"agent": "codex", "account": "default", "readAtMs": 1, "limits": [limit(Some(72), None, 3, "normal")]},
+                {"agent": "copilot", "account": "default", "readAtMs": 1, "limits": [limit(None, None, 59, "normal")]},
+            ]})),
+            "claude  work: 5h 42%, week 85% (near the limit), Fable 100% (limit reached)\n\
+             codex  default: 3d 3%\n\
+             copilot  default: month 59%"
+        );
+        assert_eq!(
+            usage(&json!({"accounts": []})),
+            "No signed-in account reports plan limits."
+        );
     }
 
     #[test]

@@ -131,6 +131,7 @@ does.
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
+| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
 | `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |

@@ -391,6 +391,7 @@ Item {
                 selected: root.selection === "people" || root.selection === "settings"
                 onAboutRequested: root.aboutRequested()
                 onResumeRequested: provider => root.resumeRequested(provider)
+                onStartRequested: root.newTerminalRequested("")
             }
         }
     }
@@ -1216,6 +1217,7 @@ Item {
                     selected: root.selection === "people" || root.selection === "settings"
                     onAboutRequested: root.aboutRequested()
                     onResumeRequested: provider => root.resumeRequested(provider)
+                    onStartRequested: root.newTerminalRequested("")
                 }
             }
         }

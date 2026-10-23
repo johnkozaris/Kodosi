@@ -309,6 +309,8 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
+        qml/Controls/UsageDial.qml
+        qml/Controls/UsageRing.qml
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml
         qml/Shell/AboutDialog.qml
@@ -318,6 +320,7 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/SidebarMenu.qml
         qml/Shell/SignOutDialog.qml
         qml/Shell/StartupOverlay.qml
+        qml/Shell/UsageMenu.qml
         qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml

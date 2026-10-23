@@ -79,6 +79,30 @@ public extension View {
 #endif
 
 #if os(macOS)
+    public extension View {
+        /// Shows `content` beside the popover that holds this view, level with this view.
+        func kodosiFlyout(isPresented: Bool, @ViewBuilder content: @escaping () -> some View) -> some View {
+            anchorPreference(key: KodosiFlyoutKey.self, value: .bounds) { anchor in
+                isPresented ? [KodosiFlyoutItem(anchor: anchor, content: AnyView(content()))] : []
+            }
+        }
+    }
+
+    struct KodosiFlyoutItem {
+        let anchor: Anchor<CGRect>
+        let content: AnyView
+    }
+
+    struct KodosiFlyoutKey: PreferenceKey {
+        static var defaultValue: [KodosiFlyoutItem] {
+            []
+        }
+
+        static func reduce(value: inout [KodosiFlyoutItem], nextValue: () -> [KodosiFlyoutItem]) {
+            value += nextValue()
+        }
+    }
+
     private struct KodosiPopoverSource<Popover: View>: ViewModifier {
         @Environment(\.theme) private var theme
         @Binding var isPresented: Bool
@@ -175,6 +199,17 @@ public extension View {
                     .opacity(visible ? 1 : 0)
                     .offset(x: place.origin.x, y: place.origin.y)
             }
+            .overlayPreferenceValue(KodosiFlyoutKey.self) { flyouts in
+                GeometryReader { proxy in
+                    if let flyout = flyouts.last {
+                        KodosiFlyoutSurface(
+                            content: flyout.content, row: proxy[flyout.anchor],
+                            popover: CGRect(origin: place.origin, size: size), bounds: bounds,
+                        )
+                        .opacity(visible ? 1 : 0)
+                    }
+                }
+            }
             .allowsHitTesting(!item.closing)
             .animation(theme.motion.hover, value: item.closing)
             .onAppear {
@@ -207,6 +242,34 @@ public extension View {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
             KodosiPopoverState.add(-1)
+        }
+
+        private struct KodosiFlyoutSurface: View {
+            @Environment(\.theme) private var theme
+            let content: AnyView
+            let row: CGRect
+            let popover: CGRect
+            let bounds: CGSize
+            @State private var size = CGSize.zero
+            @State private var shown = false
+
+            var body: some View {
+                let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                let (gap, margin) = (KodosiPopoverSurface.gap, KodosiPopoverSurface.margin)
+                let trailing = popover.maxX + gap + size.width <= bounds.width - margin
+                let x = trailing ? popover.maxX + gap : popover.minX - gap - size.width
+                let y = max(min(row.minY - 6, bounds.height - margin - size.height), margin)
+                content
+                    .fixedSize()
+                    .clipShape(shape)
+                    .background { RaisedBackground(shape: shape, fill: theme.colors.raised, elevation: .lifted) }
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+                    .opacity(shown ? 1 : 0)
+                    .offset(x: x + (shown || theme.motion.reduced ? 0 : trailing ? -8 : 8), y: y)
+                    .onAppear {
+                        withAnimation(theme.motion.snappy) { shown = true }
+                    }
+            }
         }
 
         private var place: (origin: CGPoint, anchor: UnitPoint) {

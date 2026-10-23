@@ -80,7 +80,6 @@ pub(super) async fn run(
     if let Some(path) = &facts.path {
         command.env("PATH", path);
     }
-    #[cfg(unix)]
     kodosi_os::process::without_terminal(command.as_std_mut());
     let mut child = command.spawn().ok()?;
     let stdout = child.stdout.take()?;

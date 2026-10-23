@@ -15,16 +15,18 @@ MenuItem {
     property bool destructive: false
     readonly property color tone: !enabled ? KodosiTheme.inkFaint : destructive ? KodosiTheme.danger : KodosiTheme.ink
 
-    implicitHeight: 32
+    visible: !subMenu || (subMenu as KMenu)?.available !== false
+    implicitHeight: visible ? 32 : 0
     leftPadding: 8
     rightPadding: 12
 
     indicator: Item {}
+    arrow: Item {}
     contentItem: RowLayout {
         spacing: 9
 
         Item {
-            visible: root.iconName.length > 0 || root.agent.length > 0
+            visible: root.iconName.length > 0 || root.agent.length > 0 || mark.active
             Layout.preferredWidth: 18
             Layout.preferredHeight: 18
 
@@ -43,6 +45,13 @@ MenuItem {
                     program: root.agent
                     size: 18
                 }
+            }
+            Loader {
+                id: mark
+
+                anchors.centerIn: parent
+                active: !!root.subMenu && !!(root.subMenu as KMenu)?.mark
+                sourceComponent: active ? (root.subMenu as KMenu).mark : null
             }
         }
         PlainLabel {
@@ -68,6 +77,14 @@ MenuItem {
             name: "check"
             strokeWidth: 2.4
             color: KodosiTheme.accentStrong
+        }
+        KIcon {
+            visible: !!root.subMenu
+            Layout.preferredWidth: 9
+            Layout.preferredHeight: 9
+            name: "chevron-right"
+            strokeWidth: 2.6
+            color: root.highlighted ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
         }
     }
     background: Rectangle {

@@ -10,7 +10,7 @@ use std::{
 
 use super::{
     Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo, AgentModel,
-    AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart,
+    AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, usage,
 };
 
 const FILE: &str = "launcher.json";
@@ -23,6 +23,7 @@ pub struct Launcher {
     state: Mutex<State>,
     writing: Mutex<()>,
     unsaved: AtomicBool,
+    usage: usage::Readings,
 }
 
 #[derive(Default)]
@@ -49,6 +50,7 @@ impl Launcher {
             }),
             writing: Mutex::new(()),
             unsaved: AtomicBool::new(false),
+            usage: usage::Readings::default(),
         }
     }
 
@@ -94,6 +96,12 @@ impl Launcher {
 
     pub fn choice(&self) -> AgentChoice {
         self.state().resolved()
+    }
+
+    /// The plan usage of each signed-in account, read again when the last try is older than a minute.
+    pub async fn usage(&self) -> Result<AgentUsageReply, String> {
+        let catalog = self.known_catalog(false).await?;
+        Ok(self.usage.refresh(&catalog, &self.shell, &self.home).await)
     }
 
     pub fn choose(&self, change: &AgentChoiceChange) {

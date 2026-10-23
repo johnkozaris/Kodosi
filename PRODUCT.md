@@ -115,6 +115,12 @@ progress where work happens and give each failure a clear recovery action.
   folders, and the folders in its home, one level at a time. Only the person's own
   approved devices can ask, and the requests and answers stay end-to-end encrypted.
   `kodosi terminal start --computer` does the same.
+- The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
+  account has used. Provider Usage in the menu beside the person's name shows each signed-in
+  account with a dial for each limit, and a click opens the launcher with that account.
+  The agent's own program reads the numbers when the person opens these, at most once a
+  minute. Kodosi reads no credentials, and the numbers do not go to the backend; those
+  of another computer come end-to-end encrypted. `kodosi agent usage` prints them.
 - A terminal at its prompt offers a mark for each installed agent, which starts it with
   the person's last choice. Kodosi types the command into the shell and does no more.
 - Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard

@@ -35,6 +35,7 @@ ColumnLayout {
     readonly property bool loadingModels: info !== null && root.launcher.loadingModels.indexOf(info.agent) >= 0
     readonly property var plan: info ? root.launcher.plans[info.agent] || null : null
     readonly property var account: plan ? plan.account || null : null
+    readonly property var accountUsage: info && account ? usageOf(account) : null
     readonly property string modelId: plan ? plan.modelId : ""
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
@@ -96,18 +97,11 @@ ColumnLayout {
         }
     }
     function accountTitle(entry) {
-        if (!info || !entry)
-            return ""
-        if (entry.name === info.program)
-            return qsTr("Default")
-        let base = entry.name
-        for (const separator of ["-", "_"]) {
-            if (base.length > info.program.length + 1 && base.startsWith(info.program + separator)) {
-                base = base.slice(info.program.length + 1)
-                break
-            }
-        }
-        return base.charAt(0).toUpperCase() + base.slice(1)
+        return info && entry ? root.launcher.accountTitle(entry.name, info.program) : ""
+    }
+    function usageOf(entry) {
+        const usage = entry.identity ? root.launcher.usage[info.agent + "/" + entry.name] : null
+        return usage ? usage.headline : null
     }
     function accountRows() {
         if (!info)
@@ -117,7 +111,7 @@ ColumnLayout {
             return { id: entry.name, kind: "choice", title: title,
                 subtitle: entry.identity || qsTr("Signs in when it starts"),
                 icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
-                current: account !== null && entry.name === account.name }
+                usage: usageOf(entry), current: account !== null && entry.name === account.name }
         })
         if (info.addsAccounts)
             rows.push({ id: "menu.add", kind: "action", title: qsTr("Add an account"),
@@ -183,6 +177,8 @@ ColumnLayout {
         }
         adding = false
         menuKind = kind
+        if (kind === "account")
+            root.launcher.refreshUsage()
         popover(kind).open()
     }
     function closeMenu() {
@@ -252,6 +248,7 @@ ColumnLayout {
         showDraft()
         askComputer()
         root.launcher.refresh(false)
+        root.launcher.refreshUsage()
         root.launcher.loadModels(agentId)
     }
     onComputerChanged: {
@@ -259,11 +256,13 @@ ColumnLayout {
         if (menuKind.length > 0)
             closeMenu()
         root.launcher.refresh(false)
+        root.launcher.refreshUsage()
     }
     onVisibleChanged: {
         if (visible) {
             askComputer()
             root.launcher.refresh(false)
+            root.launcher.refreshUsage()
             promptInput.forceActiveFocus()
         }
     }
@@ -272,7 +271,11 @@ ColumnLayout {
         root.launcher.loadModels(agentId)
         promptInput.forceActiveFocus()
     }
-    onInfoChanged: root.launcher.loadModels(agentId)
+    onInfoChanged: {
+        root.launcher.loadModels(agentId)
+        if (visible)
+            root.launcher.refreshUsage()
+    }
 
     Connections {
         target: root.launcher
@@ -724,14 +727,18 @@ ColumnLayout {
                         objectName: "launcher.account"
                         Accessible.id: objectName
                         Accessible.name: qsTr("Account")
-                        ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
-                        ToolTip.text: root.account ? root.account.identity || "" : ""
+                        ToolTip.visible: hovered && !open && ToolTip.text.length > 0
+                        ToolTip.text: [root.account ? root.account.identity || "" : "", root.accountUsage ? root.accountUsage.spoken : ""]
+                            .filter(part => part.length > 0).join("\n")
                         ToolTip.delay: Tip.delay
                         glyph: AccountMark {
-                            size: 16
+                            size: root.accountUsage ? 20 : 16
+                            Behavior on size { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                             initial: accountKey.title.charAt(0)
                             key: root.account ? root.account.folder || root.account.command : ""
                             signedIn: !!root.account && !!root.account.identity
+                            usage: root.accountUsage
+                            onTerminal: true
                         }
                         onClicked: root.toggleMenu("account")
                     }

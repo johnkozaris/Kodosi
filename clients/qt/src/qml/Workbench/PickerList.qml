@@ -189,7 +189,8 @@ FocusScope {
             opacity: index < root.shown ? 1 : 0
             transform: Translate { y: row.index < root.shown ? 0 : -5 }
             Accessible.role: note ? Accessible.StaticText : Accessible.ListItem
-            Accessible.name: [modelData.title, modelData.subtitle || "", modelData.detail || ""].filter(part => part.length > 0).join(", ")
+            Accessible.name: [modelData.title, modelData.subtitle || "", modelData.detail || "", modelData.usage ? modelData.usage.spoken : ""]
+                .filter(part => part.length > 0).join(", ")
             Accessible.selected: modelData.current === true
             Accessible.onPressAction: {
                 if (!row.note)
@@ -223,6 +224,7 @@ FocusScope {
                     initial: row.modelData.initial || ""
                     key: row.modelData.key || ""
                     signedIn: row.modelData.signedIn === true
+                    usage: row.modelData.usage ?? null
                     size: 26
                 }
                 SlotMark {
@@ -235,6 +237,7 @@ FocusScope {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: list.width - 20 - (row.modelData.icon ? 36 : 0) - (row.modelData.current ? 22 : 0) - (detail.visible ? detail.width + 8 : 0)
+                        - (percent.visible ? percent.width + 8 : 0)
                     spacing: 1
 
                     ShimmerText {
@@ -256,6 +259,20 @@ FocusScope {
                         elide: Text.ElideMiddle
                     }
                 }
+            }
+            PlainLabel {
+                id: percent
+
+                readonly property string level: row.modelData.usage ? row.modelData.usage.level : ""
+
+                anchors.right: check.visible ? check.left : parent.right
+                anchors.rightMargin: check.visible ? 8 : 10
+                anchors.verticalCenter: parent.verticalCenter
+                visible: !!row.modelData.usage
+                text: row.modelData.usage ? row.modelData.usage.used + "%" : ""
+                color: level === "reached" ? KodosiTheme.danger : level === "near" ? KodosiTheme.caution : KodosiTheme.inkFaint
+                font.family: "monospace"
+                font.pixelSize: KodosiTheme.fontCaption
             }
             PlainLabel {
                 id: detail

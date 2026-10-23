@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 68;
+pub const VERSION: u32 = 69;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
@@ -479,6 +479,11 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
         agent: Agent,
+    },
+    #[serde(rename = "provider.usage")]
+    InspectUsage {
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "provider.addAccount")]
     AddAgentAccount {
@@ -951,6 +956,8 @@ pub enum ProviderReply {
     Agents(crate::agents::AgentCatalog),
     #[serde(rename = "provider.agentModels")]
     AgentModels(crate::agents::AgentModelsReply),
+    #[serde(rename = "provider.usage")]
+    Usage(crate::agents::AgentUsageReply),
     #[serde(rename = "provider.addAccount")]
     AddAccount(crate::agents::AgentAccount),
     #[serde(rename = "provider.choose")]
@@ -1321,6 +1328,7 @@ impl Command {
             Self::InspectProvider { .. } => "provider.inspect",
             Self::InspectAgents { .. } => "provider.agents",
             Self::InspectAgentModels { .. } => "provider.agentModels",
+            Self::InspectUsage { .. } => "provider.usage",
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
             Self::ListFolders { .. } => "folders.list",
@@ -1360,6 +1368,7 @@ impl Command {
             self,
             Self::InspectAgents { .. }
                 | Self::InspectAgentModels { .. }
+                | Self::InspectUsage { .. }
                 | Self::AddAgentAccount { .. }
                 | Self::ChooseAgent { .. }
                 | Self::ListFolders { .. }
@@ -1427,6 +1436,7 @@ impl Command {
             | Self::InspectProvider { request_id, .. }
             | Self::InspectAgents { request_id }
             | Self::InspectAgentModels { request_id, .. }
+            | Self::InspectUsage { request_id }
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
             | Self::ListFolders { request_id, .. }

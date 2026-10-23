@@ -13,6 +13,9 @@ final class LauncherState {
     private(set) var models: [String: AgentModels] = [:]
     private(set) var loadingModels: Set<String> = []
     private(set) var places: FolderList?
+    private(set) var usage: [String: AccountUsage] = [:]
+    private(set) var usageRead = false
+    private var readingUsage = false
     private var refreshing = false
     private var refreshesAgain = false
     private var refreshedAt: Date?
@@ -61,6 +64,34 @@ final class LauncherState {
                 Logger.app.warning("Agents of a computer unknown: \(error.localizedDescription, privacy: .public)")
             }
         } while refreshesAgain
+    }
+
+    /// The signed-in accounts of the agents that report plan usage, in the catalog's order.
+    var usageAccounts: [(info: AgentInfo, account: AgentAccount)] {
+        installed.filter(\.reportsUsage).flatMap { info in
+            info.accounts.filter { $0.identity != nil }.map { (info, $0) }
+        }
+    }
+
+    func usage(of agent: String, account: String) -> AccountUsage? {
+        usage[AccountUsage.key(agent, account)]
+    }
+
+    func refreshUsage() async {
+        guard !readingUsage else { return }
+        readingUsage = true
+        defer { readingUsage = false }
+        do {
+            let reply = try await commands.request("provider.usage", fields())
+            let answer: AgentUsageReply = try reply.value("result")
+            let read = Dictionary(answer.accounts.map { (AccountUsage.key($0.agent, $0.account), $0) }) { first, _ in first }
+            if read != usage {
+                usage = read
+            }
+            usageRead = true
+        } catch {
+            Logger.app.warning("Plan usage unknown: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func loadModels(_ agent: String) async {

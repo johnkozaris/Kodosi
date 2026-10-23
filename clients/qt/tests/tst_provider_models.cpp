@@ -253,6 +253,83 @@ private slots:
                 { QStringLiteral("account"), QStringLiteral("default") }, { QStringLiteral("model"), QStringLiteral("opus") },
                 { QStringLiteral("effort"), QStringLiteral("high") } }));
     }
+    void usageAsksOnceAtATimeAndKeepsTheHeadlineOfEachAccount()
+    {
+        ProviderCommands commands;
+        kodosi::AgentLauncherModel launcher(commands);
+        QSignalSpy changed(&launcher, &kodosi::AgentLauncherModel::usageChanged);
+        launcher.refreshUsage();
+        launcher.refreshUsage();
+        QCOMPARE(commands.values.size(), 1);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.usage"));
+        const auto limit = [](QJsonValue hours, int used, const QString& level, bool headline) {
+            return QJsonObject { { QStringLiteral("hours"), hours }, { QStringLiteral("scope"), QJsonValue() },
+                { QStringLiteral("used"), used }, { QStringLiteral("level"), level }, { QStringLiteral("headline"), headline } };
+        };
+        const QJsonObject work { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), QStringLiteral("work") },
+            { QStringLiteral("readAtMs"), qint64(1792716922000) },
+            { QStringLiteral("limits"), QJsonArray { limit(5, 42, QStringLiteral("normal"), false), limit(168, 85, QStringLiteral("near"), true) } } };
+        const QJsonObject copilot { { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("account"), QStringLiteral("default") },
+            { QStringLiteral("readAtMs"), qint64(1792716922000) }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal"), true) } } };
+        QVERIFY(!launcher.usageRead());
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
+        QVERIFY(launcher.usageRead());
+        QCOMPARE(changed.size(), 1);
+        const auto headline = [&](const QString& key) {
+            return launcher.usage().value(key).toMap().value(QStringLiteral("headline")).toMap();
+        };
+        QCOMPARE(headline(QStringLiteral("claude/work")).value(QStringLiteral("used")).toInt(), 85);
+        QCOMPARE(headline(QStringLiteral("copilot/default")).value(QStringLiteral("level")).toString(), QStringLiteral("normal"));
+
+        const auto limits = launcher.usage().value(QStringLiteral("claude/work")).toMap().value(QStringLiteral("limits")).toList();
+        QCOMPARE(limits.first().toMap().value(QStringLiteral("window")).toString(), QStringLiteral("5h"));
+        QCOMPARE(limits.last().toMap().value(QStringLiteral("spoken")).toString(), QStringLiteral("This week: 85% used"));
+        QCOMPARE(headline(QStringLiteral("copilot/default")).value(QStringLiteral("window")).toString(), QStringLiteral("month"));
+
+        launcher.refreshUsage();
+        QCOMPARE(commands.values.size(), 2);
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
+        QCOMPARE(changed.size(), 1);
+
+        QVERIFY(launcher.usageSections().isEmpty());
+        QVERIFY(!launcher.usageAvailable());
+        const auto account = [](const QString& name, const QString& identity) {
+            return QJsonObject { { QStringLiteral("name"), name }, { QStringLiteral("command"), QStringLiteral("claude") },
+                { QStringLiteral("identity"), identity.isEmpty() ? QJsonValue() : QJsonValue(identity) } };
+        };
+        const QJsonObject claude { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("program"), QStringLiteral("claude") },
+            { QStringLiteral("installed"), true }, { QStringLiteral("install"), QString() }, { QStringLiteral("addsAccounts"), true },
+            { QStringLiteral("reportsUsage"), true },
+            { QStringLiteral("accounts"), QJsonArray { account(QStringLiteral("default"), QStringLiteral("ada@example.com")),
+                account(QStringLiteral("claude-work"), QStringLiteral("ada@work.example")),
+                account(QStringLiteral("personal"), QString()) } } };
+        launcher.refresh(true);
+        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }));
+        QVERIFY(launcher.usageAvailable());
+        auto renamed = work;
+        renamed.insert(QStringLiteral("account"), QStringLiteral("claude-work"));
+        auto signedOut = work;
+        signedOut.insert(QStringLiteral("account"), QStringLiteral("personal"));
+        signedOut.insert(QStringLiteral("limits"), QJsonArray { limit(5, 97, QStringLiteral("near"), true) });
+        launcher.refreshUsage();
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { renamed, signedOut } } }));
+        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 85);
+        const auto sections = launcher.usageSections();
+        QCOMPARE(sections.size(), 1);
+        const auto rows = sections.first().toMap().value(QStringLiteral("rows")).toList();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Work"));
+        QCOMPARE(sections.first().toMap().value(QStringLiteral("windows")).toList().size(), 2);
+
+        auto fuller = work;
+        fuller.insert(QStringLiteral("account"), QStringLiteral("default"));
+        fuller.insert(QStringLiteral("limits"), QJsonArray { limit(5, 79, QStringLiteral("normal"), true) });
+        auto warned = renamed;
+        warned.insert(QStringLiteral("limits"), QJsonArray { limit(5, 70, QStringLiteral("near"), true) });
+        launcher.refreshUsage();
+        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { fuller, warned } } }));
+        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 70);
+    }
     void aLauncherForAnotherComputerAsksThatComputerAndKeepsItsAnswers()
     {
         ProviderCommands commands;
