@@ -144,3 +144,25 @@ async fn disconnect_fails_uncertain_input_without_replaying() {
     drop(request);
     assert!(requests.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn a_connection_that_drops_during_a_request_has_a_clear_text() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0; 1024];
+        drop(tokio::io::AsyncReadExt::read(&mut socket, &mut request).await);
+    });
+    let error = Error::from(
+        reqwest::Client::new()
+            .get(format!("http://{address}/v1/sessions"))
+            .send()
+            .await
+            .unwrap_err(),
+    );
+    server.await.unwrap();
+    assert!(matches!(error, Error::Dropped), "{error}");
+    assert!(error.unanswered());
+    assert!(!error.to_string().contains("http"));
+}

@@ -62,7 +62,9 @@ impl BackendClient {
     fn restoring(&self, generation: u64, error: &Error) {
         let reason = match error {
             Error::UpdateRequired => AuthRestoringReason::UpdateRequired,
-            Error::Dns | Error::Unreachable | Error::Timeout => AuthRestoringReason::Offline,
+            Error::Dns | Error::Unreachable | Error::Timeout | Error::Dropped => {
+                AuthRestoringReason::Offline
+            }
             Error::SignedOut | Error::AccountDeleted | Error::Stale | Error::Closed => return,
             _ => AuthRestoringReason::Unavailable,
         };
