@@ -15,7 +15,6 @@ use crate::{
     protocol::CredentialStore,
 };
 
-/// Names the place that a data folder chose on Linux.
 const LOCATION_FILE: &str = "location";
 const IN_KEYCHAIN: &str = "keychain";
 const IN_FILES: &str = "files";
@@ -35,7 +34,6 @@ pub struct Secrets {
     place: Arc<std::sync::Mutex<Option<Place>>>,
 }
 
-/// Where a data folder keeps its sign-in, once it keeps one.
 #[derive(Clone)]
 pub struct CredentialLocation {
     place: Arc<std::sync::Mutex<Option<Place>>>,
@@ -43,7 +41,6 @@ pub struct CredentialLocation {
 }
 
 impl CredentialLocation {
-    /// The kind of store, and the folder when the store keeps files.
     pub fn get(&self) -> Option<(CredentialStore, Option<PathBuf>)> {
         Some(match self.place.lock().ok()?.as_ref()? {
             Place::Files => (CredentialStore::PrivateFile, Some(self.folder.clone())),
@@ -144,7 +141,7 @@ impl Secrets {
         let location = self.root.join(LOCATION_FILE);
         match fs::read_to_string(&location) {
             Ok(value) => match value.trim() {
-                IN_KEYCHAIN => Ok(Some(self.system())),
+                IN_KEYCHAIN => Ok(Some(Place::System(self.system()))),
                 IN_FILES => Ok(Some(Place::Files)),
                 _ => Err(invalid(format!(
                     "Kodosi cannot read where this computer keeps the sign-in: {}",
@@ -156,19 +153,32 @@ impl Secrets {
         }
     }
 
-    fn system(&self) -> Place {
-        Place::System(Arc::new(SecretStore::new(&self.service, &self.root)))
+    fn system(&self) -> Arc<SecretStore> {
+        Arc::new(SecretStore::new(&self.service, &self.root))
     }
 
     pub fn load(&self, key: &str) -> Result<Option<Zeroizing<String>>> {
-        let label = Self::label(key)?;
+        self.load_from(&Self::label(key)?, system_store_available)
+    }
+
+    fn load_from(
+        &self,
+        label: &str,
+        keychain: impl FnOnce() -> bool,
+    ) -> Result<Option<Zeroizing<String>>> {
         match self.place()? {
+            None if keychain() => {
+                let system = self.system();
+                let value = Self::load_system(&system, label)?;
+                if value.is_some() {
+                    self.remember(Place::System(system))?;
+                }
+                Ok(value)
+            }
             None => Ok(None),
-            Some(Place::System(system)) => system.load(&label).map_err(|error| {
-                invalid(format!("{error}; the existing identity was not replaced"))
-            }),
+            Some(Place::System(system)) => Self::load_system(&system, label),
             Some(Place::Files) => {
-                let Some(bytes) = read_private(&self.root.join(&label))? else {
+                let Some(bytes) = read_private(&self.root.join(label))? else {
                     return Ok(None);
                 };
                 String::from_utf8(bytes.to_vec())
@@ -178,17 +188,30 @@ impl Secrets {
         }
     }
 
+    fn load_system(system: &SecretStore, label: &str) -> Result<Option<Zeroizing<String>>> {
+        system
+            .load(label)
+            .map_err(|error| invalid(format!("{error}; the existing identity was not replaced")))
+    }
+
+    fn remember(&self, place: Place) -> Result<()> {
+        let name = match place {
+            Place::System(_) => IN_KEYCHAIN,
+            Place::Files => IN_FILES,
+        };
+        write_private(&self.root.join(LOCATION_FILE), name.as_bytes())?;
+        *self.lock_place()? = Some(place);
+        Ok(())
+    }
+
     pub fn store(&self, key: &str, value: &str) -> Result<()> {
         self.keep(&Self::label(key)?, value, system_store_available)
     }
 
-    /// A Linux data folder chooses its place when it first keeps a secret: the Secret
-    /// Service when the computer has one, or else files that only the user can read. It
-    /// remembers the place once the first secret is there.
     fn keep(&self, label: &str, value: &str, keychain: impl FnOnce() -> bool) -> Result<()> {
         let (place, first) = match self.place()? {
             Some(place) => (place, false),
-            None if keychain() => (self.system(), true),
+            None if keychain() => (Place::System(self.system()), true),
             None => (Place::Files, true),
         };
         match &place {
@@ -198,12 +221,7 @@ impl Secrets {
             Place::Files => write_private(&self.root.join(label), value.as_bytes())?,
         }
         if first {
-            let name = match place {
-                Place::System(_) => IN_KEYCHAIN,
-                Place::Files => IN_FILES,
-            };
-            write_private(&self.root.join(LOCATION_FILE), name.as_bytes())?;
-            *self.lock_place()? = Some(place);
+            self.remember(place)?;
         }
         Ok(())
     }
@@ -288,7 +306,12 @@ mod tests {
         let root = data.path().join("secrets");
         let store = Secrets::new(root.clone(), "test", true);
         *store.place.lock().unwrap() = None;
-        assert!(store.load("tokens").unwrap().is_none());
+        assert!(
+            store
+                .load_from("kodosi.tokens", || false)
+                .unwrap()
+                .is_none()
+        );
         store.delete("tokens").unwrap();
         assert!(store.location().get().is_none());
         assert!(!root.join(LOCATION_FILE).exists());
