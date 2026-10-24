@@ -343,6 +343,7 @@ impl Runtime {
             session_id,
             expected_runtime_incarnation_id,
             text,
+            enter,
             ..
         } = command
         else {
@@ -352,9 +353,12 @@ impl Runtime {
         self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
         self.reachable(id)?;
         self.job_capacity()?;
-        let input = self
-            .target(id)?
-            .send_input(Bytes::from(text.clone().into_bytes()));
+        let target = self.target(id)?;
+        let input = if *enter {
+            target.type_line(text.clone())
+        } else {
+            target.send_input(Bytes::from(text.clone().into_bytes()))
+        };
         let command = command.clone();
         self.spawn(async move {
             Completion::Terminal {
@@ -912,6 +916,12 @@ impl Runtime {
                 refused,
                 result,
             } => self.published(id, incarnation, refused, result, current),
+            #[cfg(feature = "host")]
+            Completion::Told {
+                id,
+                mentions,
+                result,
+            } => self.told(id, mentions, result, current),
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {

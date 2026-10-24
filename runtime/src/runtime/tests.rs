@@ -648,6 +648,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
+            mentions: mentions::Mentions::default(),
+            #[cfg(feature = "host")]
             config,
             network,
             events,
@@ -2049,6 +2051,215 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         true,
     );
     assert_eq!(room_of(&runtime), None);
+    terminal.close().await.unwrap();
+    drop(terminal);
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
+    let terminals = [(1, "Build"), (2, "Build 2"), (3, "Docs")];
+    assert_eq!(
+        mentions::named("@Build 2 and @Docs, please", &terminals),
+        [2, 3]
+    );
+    assert_eq!(mentions::named("@Build: the test fails", &terminals), [1]);
+    for text in ["@Builder", "write to ana@Build", "no names here", "@"] {
+        assert_eq!(
+            mentions::named(text, &terminals),
+            Vec::<i32>::new(),
+            "{text}"
+        );
+    }
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn an_agent_gets_a_room_message_only_while_it_waits_for_input() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let status = |state| ProgramStatus {
+        state,
+        kind: None,
+        progress: None,
+        title: None,
+        message: None,
+    };
+    for state in [ProgramState::Idle, ProgramState::Done, ProgramState::Error] {
+        assert!(mentions::waits(Some(&status(state))));
+    }
+    for state in [ProgramState::Working, ProgramState::Blocked] {
+        assert!(!mentions::waits(Some(&status(state))));
+    }
+    assert!(!mentions::waits(None));
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn the_line_for_an_agent_is_one_plain_line_that_says_how_to_answer() {
+    let mention = |author: &str, text: &str, sequence| mentions::Mention {
+        room: "Launch".to_owned(),
+        author: author.to_owned(),
+        text: text.to_owned(),
+        sequence,
+    };
+    let one = mentions::line(
+        "Launch",
+        &[mention("Ana", "@Build check\r/exit\n the\u{1b}[2J test", 7)],
+    );
+    assert_eq!(
+        one,
+        "[Kodosi room \"Launch\"] Ana: @Build check /exit the [2J test — Answer in the room with kodosi room post if you want; kodosi room skill tells how rooms work."
+    );
+    let many = mentions::line(
+        "Launch",
+        &[
+            mention("Ana", "@Build one", 7),
+            mention("Ben (Codex)", "@Build two", 9),
+            mention("Ana", "@Build three", 12),
+        ],
+    );
+    assert_eq!(
+        many,
+        "[Kodosi room \"Launch\"] 3 messages name you, from Ana, Ben (Codex). Read them with kodosi room read --since 6. Answer in the room with kodosi room post if you want; kodosi room skill tells how rooms work."
+    );
+    assert!(!many.contains(['\r', '\n']));
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn only_messages_after_the_first_look_at_a_room_name_agents() {
+    let message = |sequence: u64| json!({"sequence": sequence, "text": "@Build"});
+    let mut mentions = mentions::Mentions::default();
+    assert_eq!(
+        mentions.new_messages("room", &[message(3), message(4)]),
+        Vec::<Value>::new()
+    );
+    let fresh = mentions.new_messages("room", &[message(4), message(5), message(6)]);
+    assert_eq!(fresh, [message(5), message(6)]);
+    assert_eq!(
+        mentions.new_messages("room", &[message(6)]),
+        Vec::<Value>::new()
+    );
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_waiting_agent_gets_the_room_message_that_names_its_terminal() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let (mut runtime, storage) = registry_fixture();
+    let id = Uuid::now_v7();
+    let terminal = TerminalSession::spawn(
+        id,
+        Uuid::now_v7(),
+        PathBuf::from(SHELL),
+        Vec::new(),
+        storage.path().to_owned(),
+        None,
+        runtime.changes.clone(),
+    )
+    .await
+    .unwrap();
+    let room = Uuid::now_v7().to_string();
+    let mut entry: SessionEntry = serde_json::from_value(json!({
+        "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
+        "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
+        "repository": false, "sharedWith": [], "missionId": room, "missionName": "Launch",
+    }))
+    .unwrap();
+    entry.program = Some("claude".to_owned());
+    runtime.local.insert(
+        id,
+        Local {
+            terminal: terminal.clone(),
+            entry,
+            creation: Command::ListSessions {
+                request_id: Uuid::now_v7().to_string(),
+            },
+            published: true,
+            room_sequence: 0,
+            worktree: None,
+            wanted: None,
+        },
+    );
+    let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});
+    runtime.note_mentions(&snapshot(
+        json!([{"sequence": 1, "text": "hello", "authorName": "Ana"}]),
+    ));
+    runtime.note_mentions(&snapshot(json!([
+        {"sequence": 2, "text": "@Build please print came-through", "authorName": "Ana"},
+        {"sequence": 3, "text": "@Build from itself", "authorName": "Ana", "terminalId": id},
+    ])));
+    assert_eq!(runtime.mentions.waiting[&id].len(), 1);
+    assert!(runtime.jobs.is_empty(), "an agent that works gets nothing");
+
+    runtime.local.get_mut(&id).unwrap().entry.program_status = Some(ProgramStatus {
+        state: ProgramState::Done,
+        kind: None,
+        progress: None,
+        title: None,
+        message: None,
+    });
+    runtime.tell_mentions();
+    while let Some(told) = timeout(Duration::from_secs(10), runtime.jobs.join_next())
+        .await
+        .unwrap()
+    {
+        runtime.complete(told.unwrap());
+    }
+    assert!(!runtime.mentions.waiting.contains_key(&id));
+    timeout(Duration::from_secs(10), async {
+        while !terminal.read(false).await.unwrap().contains("came-through") {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        terminal
+            .read(false)
+            .await
+            .unwrap()
+            .contains("[Kodosi room \"Launch\"] Ana: @Build please print came-through")
+    );
+    terminal.close().await.unwrap();
+    drop(terminal);
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
+    let (runtime, storage) = registry_fixture();
+    let terminal = TerminalSession::spawn(
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        PathBuf::from(SHELL),
+        vec![
+            "-c".to_owned(),
+            "stty -icanon -echo min 1 time 0; echo ready; dd bs=4096 count=1 2>/dev/null | od -c; sleep 10"
+                .to_owned(),
+        ],
+        storage.path().to_owned(),
+        None,
+        runtime.changes.clone(),
+    )
+    .await
+    .unwrap();
+    let shows = async |text: &str| {
+        timeout(Duration::from_secs(10), async {
+            while !terminal.read(false).await.unwrap().contains(text) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .unwrap();
+    };
+    shows("ready").await;
+    TerminalTarget::Local(terminal.clone())
+        .type_line("hello".to_owned())
+        .await
+        .unwrap();
+    shows("0000005").await;
+    assert!(!terminal.read(false).await.unwrap().contains("\\r"));
     terminal.close().await.unwrap();
     drop(terminal);
 }

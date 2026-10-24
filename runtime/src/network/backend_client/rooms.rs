@@ -1447,9 +1447,18 @@ impl BackendClient {
                     .cloned()
                     .ok_or_else(|| invalid("This task is unavailable."))?;
                 match change {
-                    rooms::TaskChange::Claim => task
-                        .claim(&credentials.user_id, name, terminal_id)
-                        .map_err(invalid)?,
+                    rooms::TaskChange::Claim => {
+                        let live = |id: &str| {
+                            Uuid::parse_str(id).is_ok_and(|id| {
+                                self.inner
+                                    .sessions
+                                    .lock()
+                                    .is_ok_and(|sessions| sessions.contains_key(&id))
+                            })
+                        };
+                        task.claim(&credentials.user_id, name, terminal_id, live)
+                            .map_err(invalid)?;
+                    }
                     rooms::TaskChange::Release => {
                         task.assigned_to = None;
                         task.assigned_name = None;

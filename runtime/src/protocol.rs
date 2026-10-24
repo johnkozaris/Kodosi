@@ -264,6 +264,8 @@ pub enum Command {
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
         text: String,
+        #[serde(default)]
+        enter: bool,
     },
     #[serde(rename = "session.read")]
     Read {

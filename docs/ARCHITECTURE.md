@@ -74,6 +74,10 @@ changed; each device fetches the newer items. Issue actions run on the participa
 computer with its own credentials. See [Security](SECURITY.md) and the
 [encryption design](CRYPTOGRAPHY.md).
 
+A host keeps the new room messages that name one of its terminals with `@` until the
+agent in that terminal reports that it waits for input, then types them into the agent
+as one line. That line is the only thing that a room sends into a terminal.
+
 ## Contracts
 
 The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)

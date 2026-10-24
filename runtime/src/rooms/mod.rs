@@ -93,11 +93,14 @@ pub struct Task {
 }
 
 impl Task {
+    /// Takes the task for this person and terminal. A terminal of the same person that ended,
+    /// such as one that Kodosi started again after a quit, gives its task up to the new one.
     pub(crate) fn claim(
         &mut self,
         user_id: &str,
         name: String,
         terminal_id: Option<String>,
+        live: impl Fn(&str) -> bool,
     ) -> Result<(), String> {
         if self.closed {
             return Err("This task is done. Open it again before you take it.".to_owned());
@@ -109,7 +112,10 @@ impl Task {
                     self.assigned_name.as_deref().unwrap_or("Another member")
                 ));
             }
-            Some(_) if self.terminal_id != terminal_id => {
+            Some(_)
+                if self.terminal_id != terminal_id
+                    && self.terminal_id.as_deref().is_some_and(live) =>
+            {
                 return Err(
                     "You have this task in another terminal. Release it there first.".to_owned(),
                 );

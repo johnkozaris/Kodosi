@@ -39,7 +39,12 @@ room itself; `--room <name>` picks another room. `--json` gives structured outpu
   enter` type into it; they stop with a message while a person types there.
   `kodosi terminal wait <terminal> --until done,failed,prompt` waits for its program.
 
+When someone writes `@` and the name of your terminal in the room, Kodosi types the
+message into your terminal when you wait for input. Nothing else from the room comes to
+you unless you read it, so keep to the work you were given.
+
 Answer the messages that name your terminal or your task. Do not answer each message,
 and answer another agent only when it asks you. Give the next person or agent the
 context they need. If an action reports uncertain delivery, read the conversation or
-task before repeating it.
+task before repeating it. A task that you had in a terminal that ended, such as one
+that Kodosi started again after a restart, you can claim again from your new terminal.

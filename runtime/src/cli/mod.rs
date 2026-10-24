@@ -788,10 +788,12 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             terminal,
             text,
             enter,
-        } => {
-            let text = if enter { format!("{text}\r") } else { text };
-            (terminal, "session.input", true, json!({"text":text}))
-        }
+        } => (
+            terminal,
+            "session.input",
+            true,
+            json!({"text":text,"enter":enter}),
+        ),
         TerminalAction::Rename { terminal, name } => {
             (terminal, "session.rename", false, json!({"name":name}))
         }

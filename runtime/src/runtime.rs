@@ -36,6 +36,8 @@ mod commands;
 #[cfg(feature = "host")]
 mod dosi;
 #[cfg(feature = "host")]
+mod mentions;
+#[cfg(feature = "host")]
 mod restore;
 #[cfg(test)]
 mod tests;
@@ -63,6 +65,7 @@ const MAX_ANSWERS: usize = 256;
 const CALL_ANSWER: Duration = Duration::from_secs(20);
 #[cfg(feature = "host")]
 const AGENT_ANSWER: Duration = Duration::from_secs(2);
+const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
@@ -575,6 +578,12 @@ enum Completion {
         refused: bool,
         result: Result<()>,
     },
+    #[cfg(feature = "host")]
+    Told {
+        id: Uuid,
+        mentions: Vec<mentions::Mention>,
+        result: Result<()>,
+    },
     Unpublished {
         id: Uuid,
         result: Result<()>,
@@ -680,6 +689,22 @@ impl TerminalTarget {
             Self::Local(terminal) => Box::pin(terminal.send_input(bytes)),
             Self::Remote(terminal) => Box::pin(terminal.send_input(bytes)),
         }
+    }
+
+    /// Types the text and then presses Enter as a key of its own, as a person does: agents keep
+    /// text and Enter that arrive together as a paste. When a person types in the pause, the
+    /// text stays in the terminal for them.
+    fn type_line(&self, text: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let typed = self.send_input(Bytes::from(text));
+        let target = self.clone();
+        Box::pin(async move {
+            typed.await?;
+            tokio::time::sleep(ENTER_PAUSE).await;
+            if let Err(error) = target.send_input(Bytes::from_static(b"\r")).await {
+                tracing::debug!(%error, "the typed text waits for Enter");
+            }
+            Ok(())
+        })
     }
 
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -815,6 +840,8 @@ struct Runtime {
     recent: crate::folders::Recent,
     #[cfg(feature = "host")]
     restore: restore::Restore,
+    #[cfg(feature = "host")]
+    mentions: mentions::Mentions,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -934,6 +961,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
         restore: restore::Restore::load(&config.data_root),
+        #[cfg(feature = "host")]
+        mentions: mentions::Mentions::default(),
         #[cfg(feature = "host")]
         config,
         #[cfg(feature = "host")]
@@ -1266,7 +1295,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); } self.reconnect_views(); self.started_remotes(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
             }
         }
         requests.close();
@@ -1418,6 +1447,156 @@ impl Runtime {
                 }
                 Err(error) => {
                     tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
+                }
+            }
+        }
+    }
+
+    /// Keeps the new messages of a room that name terminals of this computer for their agents.
+    #[cfg(feature = "host")]
+    fn note_mentions(&mut self, room: &Value) {
+        let Some(id) = room["roomId"].as_str() else {
+            return;
+        };
+        let messages = room["messages"].as_array().map_or(&[][..], Vec::as_slice);
+        let fresh = self.mentions.new_messages(id, messages);
+        if fresh.is_empty() {
+            return;
+        }
+        let in_room = |entry: &SessionEntry| entry.mission_id.as_deref() == Some(id);
+        let terminals = self
+            .local
+            .iter()
+            .filter(|(_, local)| in_room(&local.entry))
+            .map(|(terminal, local)| (Some(*terminal), local.entry.name.as_str()))
+            .chain(
+                self.remotes
+                    .iter()
+                    .filter(|(remote, entry)| !self.local.contains_key(remote) && in_room(entry))
+                    .map(|(_, entry)| (None, entry.name.as_str())),
+            )
+            .collect::<Vec<_>>();
+        let mut kept = Vec::new();
+        for message in &fresh {
+            let from = message["terminalId"]
+                .as_str()
+                .and_then(|terminal| Uuid::parse_str(terminal).ok());
+            let person = message["authorName"].as_str().unwrap_or("Someone");
+            let author = message["agent"]
+                .as_str()
+                .map_or_else(|| person.to_owned(), |agent| format!("{person} ({agent})"));
+            let text = message["text"].as_str().unwrap_or_default();
+            for terminal in mentions::named(text, &terminals).into_iter().flatten() {
+                if Some(terminal) != from {
+                    kept.push((
+                        terminal,
+                        author.clone(),
+                        text.to_owned(),
+                        message["sequence"].as_u64().unwrap_or_default(),
+                    ));
+                }
+            }
+        }
+        for (terminal, author, text, sequence) in kept {
+            let room = self.local[&terminal]
+                .entry
+                .mission_name
+                .clone()
+                .or_else(|| self.room_name(id))
+                .unwrap_or_else(|| "room".to_owned());
+            self.mentions.keep(
+                terminal,
+                mentions::Mention {
+                    room,
+                    author,
+                    text,
+                    sequence,
+                },
+            );
+        }
+        self.tell_mentions();
+    }
+
+    #[cfg(feature = "host")]
+    fn room_name(&self, id: &str) -> Option<String> {
+        self.cached_events
+            .get("missions.snapshot")?
+            .get("missions")?
+            .as_array()?
+            .iter()
+            .find(|mission| mission["id"] == id)?
+            .get("name")?
+            .as_str()
+            .map(str::to_owned)
+    }
+
+    /// Types the messages that name a terminal into its agent once it waits for input, one line
+    /// for each room, and not more often than every few seconds.
+    #[cfg(feature = "host")]
+    fn tell_mentions(&mut self) {
+        let now = tokio::time::Instant::now();
+        let ready = self
+            .mentions
+            .waiting
+            .keys()
+            .copied()
+            .filter(|id| {
+                !self.mentions.telling.contains(id)
+                    && self
+                        .mentions
+                        .told
+                        .get(id)
+                        .is_none_or(|at| now.duration_since(*at) >= mentions::SPACING)
+                    && self.local.get(id).is_some_and(|local| {
+                        local.comes_back()
+                            && local
+                                .entry
+                                .program
+                                .as_deref()
+                                .is_some_and(crate::agents::is_agent_name)
+                            && mentions::waits(local.entry.program_status.as_ref())
+                    })
+            })
+            .collect::<Vec<_>>();
+        for id in ready {
+            let Some(waiting) = self.mentions.waiting.remove(&id) else {
+                continue;
+            };
+            let room = waiting[0].room.clone();
+            let (now_told, later): (Vec<_>, Vec<_>) = waiting
+                .into_iter()
+                .partition(|mention| mention.room == room);
+            if !later.is_empty() {
+                self.mentions.waiting.insert(id, later);
+            }
+            let line = mentions::line(&room, &now_told);
+            let terminal = TerminalTarget::Local(self.local[&id].terminal.clone());
+            self.mentions.telling.insert(id);
+            self.spawn(async move {
+                let result = terminal.type_line(line).await;
+                Completion::Told {
+                    id,
+                    mentions: now_told,
+                    result,
+                }
+            });
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn told(&mut self, id: Uuid, told: Vec<mentions::Mention>, result: Result<()>, current: bool) {
+        self.mentions.telling.remove(&id);
+        if !current {
+            return;
+        }
+        match result {
+            Ok(()) => {
+                self.mentions.told.insert(id, tokio::time::Instant::now());
+            }
+            Err(error) => {
+                tracing::debug!(%id, %error, "a room message waits for the agent");
+                for mention in told {
+                    self.mentions.keep(id, mention);
                 }
             }
         }
@@ -1675,6 +1854,8 @@ impl Runtime {
         self.cached_events.clear();
         self.room_latest.clear();
         self.room_seen = None;
+        #[cfg(feature = "host")]
+        self.mentions.clear();
         self.latest_auth = None;
         self.administering.clear();
         #[cfg(feature = "host")]
@@ -1776,6 +1957,8 @@ impl Runtime {
             let room = (kind == "room.snapshot").then(|| event["room"].clone());
             self.emit(event);
             if let Some(room) = room {
+                #[cfg(feature = "host")]
+                self.note_mentions(&room);
                 self.room_changed(&room);
             }
         }
@@ -2216,6 +2399,7 @@ impl Runtime {
 
     #[cfg(feature = "host")]
     fn ended(&mut self, id: Uuid) {
+        self.mentions.forget(id);
         let (published, worktree) = self
             .local
             .remove(&id)
@@ -2323,6 +2507,7 @@ impl Runtime {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program_status = status;
                     self.publish_catalog();
+                    self.tell_mentions();
                 }
             }
             #[cfg(feature = "host")]

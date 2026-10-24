@@ -22,7 +22,12 @@ operating-system privileges.
 ## People and agents
 
 Humans and agents read and write the same room conversation. Agents take part through
-the `kodosi` command and its room skill.
+the `kodosi` command and its room skill, when they choose to. Kodosi pushes nothing from
+a room into an agent, with one exception: a message that names a terminal with `@` and
+its name goes to the agent in that terminal, typed as one line when the agent says that
+it waits for input. It says who wrote it and how to answer, and messages that arrive
+while the agent works go together later. Dosi knows rooms, terminals and agents, and
+reads a room to tell the person what its work is and what needs them.
 
 New members get the full history. Anyone can post messages, put tasks up for grabs,
 claim, release, close and reopen them. A task can carry context, repositories, and a
