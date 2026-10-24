@@ -467,6 +467,7 @@ private slots:
     void terminalViewSelectionAnchorSurvivesPresentedScroll();
     void terminalViewSelectsAWordOnADoubleClickAndALineOnATripleClick();
     void shiftPageKeysMoveThroughTheHistoryWithoutTerminalInput();
+    void aHistoryKeyReleasedElsewhereDoesNotHideALaterRelease();
     void terminalViewCancelsSelectionAgainstStaleDisplayedViewport();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
     void terminalLinkValidationRejectsMalformedValues();
@@ -2792,6 +2793,46 @@ void TerminalKernelTest::shiftPageKeysMoveThroughTheHistoryWithoutTerminalInput(
     press(Qt::Key_End);
     QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("line-36")), 250);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
+}
+
+void TerminalKernelTest::aHistoryKeyReleasedElsewhereDoesNotHideALaterRelease()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("history-release"),
+        QStringLiteral("history-release-subscription"),
+        31,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("history-release-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        5,
+        20,
+        checkpointFor(QByteArrayLiteral("\x1b[>10u"), 20, 5),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+
+    QKeyEvent history(QEvent::KeyPress, Qt::Key_PageUp, Qt::ShiftModifier);
+    QCoreApplication::sendEvent(&view, &history);
+    QFocusEvent focusOut(QEvent::FocusOut);
+    QCoreApplication::sendEvent(&view, &focusOut);
+    QKeyEvent press(QEvent::KeyPress, Qt::Key_PageUp, Qt::NoModifier);
+    QCoreApplication::sendEvent(&view, &press);
+    QKeyEvent release(QEvent::KeyRelease, Qt::Key_PageUp, Qt::NoModifier);
+    QCoreApplication::sendEvent(&view, &release);
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+    QVERIFY(dispatcher.inputCommands.constLast() != dispatcher.inputCommands.constFirst());
 }
 
 void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewport()

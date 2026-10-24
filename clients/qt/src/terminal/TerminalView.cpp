@@ -530,6 +530,7 @@ void TerminalView::setTerminalInteraction(
         clearPendingInput();
         m_preedit.clear();
         m_pasteShortcutKey.reset();
+        m_historyKey.reset();
         if (auto* inputMethod = QGuiApplication::inputMethod()) {
             inputMethod->reset();
             inputMethod->update(Qt::ImEnabled | Qt::ImCursorRectangle);
@@ -711,6 +712,7 @@ void TerminalView::detach()
     m_reportedMouseButton = Qt::NoButton;
     m_copyShortcutActive = false;
     m_pasteShortcutKey.reset();
+    m_historyKey.reset();
     m_pressedLink.reset();
     m_wheelAngleRemainder = 0;
     m_wheelPixelRemainder = 0.0;
@@ -761,6 +763,7 @@ void TerminalView::focusOutEvent(QFocusEvent* event)
     sendFocus(false);
     m_copyShortcutActive = false;
     m_pasteShortcutKey.reset();
+    m_historyKey.reset();
     m_preedit.clear();
     updateBlinkTimer();
     update();
@@ -825,6 +828,7 @@ void TerminalView::synchronizeInteraction()
     const bool ownsComposition = hasActiveFocus() && !m_preedit.isEmpty();
     m_preedit.clear();
     m_pasteShortcutKey.reset();
+    m_historyKey.reset();
     m_copyShortcutActive = false;
     m_pressedLink.reset();
     m_selecting = false;
