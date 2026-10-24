@@ -61,6 +61,11 @@ enum class TerminalKeyAction {
     Release,
 };
 
+enum class TerminalSelectionUnit {
+    Word,
+    Line,
+};
+
 struct TerminalModifiers {
     bool shift = false;
     bool control = false;
@@ -183,6 +188,8 @@ public:
         int rows);
     [[nodiscard]] Result scrollViewportToBottom(
         const TerminalSubscription& subscription);
+    [[nodiscard]] Result scrollViewportToTop(
+        const TerminalSubscription& subscription);
     [[nodiscard]] Result jumpToPrompt(
         const TerminalSubscription& subscription,
         int prompts);
@@ -202,6 +209,13 @@ public:
         std::uint64_t viewportRevision,
         std::uint16_t column,
         std::uint16_t row);
+    // Selects the word or line at a cell; a later updateSelection extends it by words or lines.
+    [[nodiscard]] Result selectUnit(
+        const TerminalSubscription& subscription,
+        std::uint64_t viewportRevision,
+        std::uint16_t column,
+        std::uint16_t row,
+        TerminalSelectionUnit unit);
     [[nodiscard]] Result clearSelection(const TerminalSubscription& subscription);
     [[nodiscard]] Result advanceImageAnimations(const TerminalSubscription& subscription);
     [[nodiscard]] std::expected<QString, Failure> selectedText(

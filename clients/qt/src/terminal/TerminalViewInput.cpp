@@ -14,6 +14,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QQuickWindow>
+#include <QStyleHints>
 #include <QTimer>
 #include <QWheelEvent>
 
@@ -249,6 +250,32 @@ std::optional<TerminalKey> terminalKey(const QKeyEvent* event)
     }
 }
 
+enum class HistoryMove {
+    PageUp,
+    PageDown,
+    Top,
+    Bottom,
+};
+
+std::optional<HistoryMove> historyMove(const QKeyEvent* event)
+{
+    if (event->modifiers() != Qt::ShiftModifier) {
+        return std::nullopt;
+    }
+    switch (event->key()) {
+    case Qt::Key_PageUp:
+        return HistoryMove::PageUp;
+    case Qt::Key_PageDown:
+        return HistoryMove::PageDown;
+    case Qt::Key_Home:
+        return HistoryMove::Top;
+    case Qt::Key_End:
+        return HistoryMove::Bottom;
+    default:
+        return std::nullopt;
+    }
+}
+
 int promptJump(const QKeyEvent* event)
 {
     if (event->modifiers() != (Qt::ControlModifier | Qt::ShiftModifier)) {
@@ -307,6 +334,22 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
     if (const auto prompts = promptJump(event); prompts != 0) {
         if (auto jumped = m_registry->jumpToPrompt(surfaceIdentity(), prompts); !jumped) {
             emit operationError(jumped.error().message);
+        }
+        event->accept();
+        return;
+    }
+    if (const auto move = historyMove(event)) {
+        if (!event->isAutoRepeat()) {
+            m_historyKey = event->key();
+        }
+        const auto page = m_frame == nullptr ? 1 : std::max(1, static_cast<int>(m_frame->rows));
+        auto moved = *move == HistoryMove::Top ? m_registry->scrollViewportToTop(surfaceIdentity())
+            : *move == HistoryMove::Bottom    ? m_registry->scrollViewportToBottom(surfaceIdentity())
+                                              : m_registry->scrollViewport(
+                                                    surfaceIdentity(),
+                                                    *move == HistoryMove::PageUp ? -page : page);
+        if (!moved) {
+            emit operationError(moved.error().message);
         }
         event->accept();
         return;
@@ -377,7 +420,17 @@ void TerminalView::keyReleaseEvent(QKeyEvent* event)
         return;
     }
     if (m_pasteShortcutKey && event->key() == *m_pasteShortcutKey) {
-        m_pasteShortcutKey.reset();
+        // X11 repeats a held key as releases and presses; only the last release ends it.
+        if (!event->isAutoRepeat()) {
+            m_pasteShortcutKey.reset();
+        }
+        event->accept();
+        return;
+    }
+    if (m_historyKey && event->key() == *m_historyKey) {
+        if (!event->isAutoRepeat()) {
+            m_historyKey.reset();
+        }
         event->accept();
         return;
     }
@@ -443,6 +496,7 @@ QVariant TerminalView::inputMethodQuery(const Qt::InputMethodQuery query) const
 
 void TerminalView::mousePressEvent(QMouseEvent* event)
 {
+    m_pressedAt = event->timestamp();
     if (!interactionAvailable() || !m_terminalReady) {
         QQuickItem::mousePressEvent(event);
         return;
@@ -488,8 +542,28 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         }
     }
     m_pressedLink.reset();
-    beginSelection(*cell);
+    switch (countClick(event)) {
+    case 1:
+        beginSelection(*cell);
+        break;
+    case 2:
+        selectUnit(*cell, TerminalSelectionUnit::Word);
+        break;
+    default:
+        selectUnit(*cell, TerminalSelectionUnit::Line);
+        break;
+    }
     event->accept();
+}
+
+void TerminalView::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    // Qt sends the second press before this event, and that press counted the click.
+    if (event->timestamp() == m_pressedAt) {
+        event->accept();
+        return;
+    }
+    mousePressEvent(event);
 }
 
 void TerminalView::mouseMoveEvent(QMouseEvent* event)
@@ -973,6 +1047,37 @@ int TerminalView::wheelRows(QWheelEvent* event)
         return -rows;
     }
     return 0;
+}
+
+int TerminalView::countClick(const QMouseEvent* event)
+{
+    const auto* hints = QGuiApplication::styleHints();
+    const auto at = event->timestamp();
+    const bool repeated = m_clicks > 0 && at >= m_clickedAt
+        && at - m_clickedAt <= static_cast<quint64>(hints->mouseDoubleClickInterval())
+        && (event->position() - m_clickedPosition).manhattanLength()
+            <= hints->mouseDoubleClickDistance();
+    m_clicks = repeated ? m_clicks % 3 + 1 : 1;
+    m_clickedAt = at;
+    m_clickedPosition = event->position();
+    return m_clicks;
+}
+
+void TerminalView::selectUnit(const QPoint& cell, const TerminalSelectionUnit unit)
+{
+    if (m_registry == nullptr || m_frame == nullptr) {
+        return;
+    }
+    auto selected = m_registry->selectUnit(
+        surfaceIdentity(),
+        m_frame->viewportRevision,
+        static_cast<std::uint16_t>(cell.x()),
+        static_cast<std::uint16_t>(cell.y()),
+        unit);
+    m_selecting = selected.has_value();
+    if (!selected && !selected.error().isRecoverableHitTestRace()) {
+        emit operationError(selected.error().message);
+    }
 }
 
 void TerminalView::beginSelection(const QPoint& anchor)

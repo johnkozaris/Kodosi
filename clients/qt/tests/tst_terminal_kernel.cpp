@@ -449,6 +449,7 @@ private slots:
     void wheelScrollsGhosttyViewportWithoutChangingSequence();
     void selectionUsesGhosttyTrackedStateAndFormatting();
     void aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell();
+    void doubleAndTripleClicksSelectWordsAndLines();
     void framesDrawTheKodosiTerminalColors();
     void aWebAddressInTheTextIsALinkThatEndsBeforePunctuation();
     void scrolledSelectionUsesVisibleViewportCoordinates();
@@ -464,6 +465,8 @@ private slots:
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
     void terminalViewAcceptedInputReturnsViewportToBottom();
     void terminalViewSelectionAnchorSurvivesPresentedScroll();
+    void terminalViewSelectsAWordOnADoubleClickAndALineOnATripleClick();
+    void shiftPageKeysMoveThroughTheHistoryWithoutTerminalInput();
     void terminalViewCancelsSelectionAgainstStaleDisplayedViewport();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
     void terminalLinkValidationRejectsMalformedValues();
@@ -1796,6 +1799,44 @@ void TerminalKernelTest::aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell()
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("l"));
 }
 
+void TerminalKernelTest::doubleAndTripleClicksSelectWordsAndLines()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        11,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    const auto initial = kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("hello brave world"), 20, 2),
+    });
+    QVERIFY(initial);
+    const auto revision = (*initial)->viewportRevision;
+
+    const auto word = kernel.selectUnit(subscription, revision, 8, 0, kodosi::TerminalSelectionUnit::Word);
+    QVERIFY(word);
+    QVERIFY((*word)->cell(6, 0)->selected);
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave"));
+    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 13, 0));
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave world"));
+    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 5, 1));
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave world"));
+    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 1, 0));
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("hello brave"));
+
+    const auto line = kernel.selectUnit(subscription, revision, 2, 0, kodosi::TerminalSelectionUnit::Line);
+    QVERIFY(line);
+    QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("hello brave world"));
+
+    const auto empty = kernel.selectUnit(subscription, revision, 4, 1, kodosi::TerminalSelectionUnit::Word);
+    QVERIFY(!empty);
+    QVERIFY(empty.error().isRecoverableHitTestRace());
+}
+
 void TerminalKernelTest::framesDrawTheKodosiTerminalColors()
 {
     const kodosi::TerminalSubscription subscription {
@@ -2637,6 +2678,120 @@ void TerminalKernelTest::terminalViewSelectionAnchorSurvivesPresentedScroll()
     QVERIFY(text);
     QVERIFY(text->contains(QStringLiteral("row-00")));
     QVERIFY(text->contains(QStringLiteral("\nrow-")));
+}
+
+void TerminalKernelTest::terminalViewSelectsAWordOnADoubleClickAndALineOnATripleClick()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("selection-clicks"),
+        QStringLiteral("selection-clicks-subscription"),
+        29,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(false, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("selection-clicks-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        5,
+        30,
+        checkpointFor(QByteArrayLiteral("first line\r\nhello brave world"), 30, 5),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+
+    const auto cell = kodosi::TerminalRasterizer::cellSize(
+        QFontDatabase::systemFont(QFontDatabase::FixedFont),
+        view.lineHeight());
+    const QPointF onBrave(cell.width() * 8.5, cell.height() * 1.5);
+    const auto send = [&](const QEvent::Type type, const quint64 at) {
+        const bool down = type != QEvent::MouseButtonRelease;
+        QMouseEvent event(
+            type,
+            onBrave,
+            onBrave,
+            Qt::LeftButton,
+            down ? Qt::LeftButton : Qt::NoButton,
+            Qt::NoModifier);
+        event.setTimestamp(at);
+        QCoreApplication::sendEvent(&view, &event);
+    };
+    const kodosi::TerminalSurfaceIdentity identity {subscription, 1};
+
+    send(QEvent::MouseButtonPress, 1000);
+    send(QEvent::MouseButtonRelease, 1010);
+    QCOMPARE(*registry.selectedText(identity), QString());
+    send(QEvent::MouseButtonPress, 1100);
+    send(QEvent::MouseButtonDblClick, 1100);
+    send(QEvent::MouseButtonRelease, 1110);
+    QCOMPARE(*registry.selectedText(identity), QStringLiteral("brave"));
+    send(QEvent::MouseButtonPress, 1200);
+    send(QEvent::MouseButtonRelease, 1210);
+    QCOMPARE(*registry.selectedText(identity), QStringLiteral("hello brave world"));
+    send(QEvent::MouseButtonPress, 5000);
+    send(QEvent::MouseButtonDblClick, 5100);
+    send(QEvent::MouseButtonRelease, 5110);
+    QCOMPARE(*registry.selectedText(identity), QStringLiteral("brave"));
+}
+
+void TerminalKernelTest::shiftPageKeysMoveThroughTheHistoryWithoutTerminalInput()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("history-keys"),
+        QStringLiteral("history-keys-subscription"),
+        30,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("history-keys-incarnation")));
+    QByteArray output;
+    for (int line = 0; line < 40; ++line) {
+        output += QByteArrayLiteral("line-");
+        output += QByteArray::number(line).rightJustified(2, '0');
+        output += QByteArrayLiteral("\r\n");
+    }
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        5,
+        20,
+        checkpointFor(output, 20, 5),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+    QVERIFY(view.accessibleText().startsWith(QStringLiteral("line-36")));
+
+    const auto press = [&](const Qt::Key key) {
+        QKeyEvent pressed(QEvent::KeyPress, key, Qt::ShiftModifier);
+        QCoreApplication::sendEvent(&view, &pressed);
+        QKeyEvent released(QEvent::KeyRelease, key, Qt::ShiftModifier);
+        QCoreApplication::sendEvent(&view, &released);
+    };
+    press(Qt::Key_PageUp);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("line-31")), 250);
+    press(Qt::Key_Home);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("line-00")), 250);
+    press(Qt::Key_PageDown);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("line-05")), 250);
+    press(Qt::Key_End);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("line-36")), 250);
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
 }
 
 void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewport()

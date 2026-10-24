@@ -153,6 +153,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void hoverMoveEvent(QHoverEvent* event) override;
     void hoverLeaveEvent(QHoverEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
@@ -238,6 +239,11 @@ private:
     bool m_guiOverflow = false;
     std::uint64_t m_inputGeneration = 0;
     bool m_selecting = false;
+    int m_clicks = 0;
+    quint64 m_clickedAt = 0;
+    quint64 m_pressedAt = 0;
+    QPointF m_clickedPosition;
+    std::optional<int> m_historyKey;
     Qt::MouseButton m_reportedMouseButton = Qt::NoButton;
     bool m_copyShortcutActive = false;
     std::optional<int> m_pasteShortcutKey;
@@ -283,7 +289,9 @@ private:
     void updateHoverLink(const QPointF& position, Qt::KeyboardModifiers modifiers);
     void clearHoverLink();
     [[nodiscard]] int wheelRows(QWheelEvent* event);
+    [[nodiscard]] int countClick(const QMouseEvent* event);
     void beginSelection(const QPoint& anchor);
+    void selectUnit(const QPoint& cell, TerminalSelectionUnit unit);
     void updateSelection(const QPoint& endpoint);
     [[nodiscard]] bool copySelection();
     [[nodiscard]] bool sendMouseEvent(

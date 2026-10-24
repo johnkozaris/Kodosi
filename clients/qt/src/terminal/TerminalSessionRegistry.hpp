@@ -87,6 +87,8 @@ public:
         int prompts);
     [[nodiscard]] GhosttyTerminalKernel::Result scrollViewportToBottom(
         const TerminalSurfaceIdentity& identity);
+    [[nodiscard]] GhosttyTerminalKernel::Result scrollViewportToTop(
+        const TerminalSurfaceIdentity& identity);
     [[nodiscard]] std::expected<QString, GhosttyTerminalKernel::Failure> linkAt(
         const TerminalSurfaceIdentity& identity,
         std::uint64_t viewportRevision,
@@ -103,6 +105,12 @@ public:
         std::uint64_t viewportRevision,
         std::uint16_t column,
         std::uint16_t row);
+    [[nodiscard]] GhosttyTerminalKernel::Result selectUnit(
+        const TerminalSurfaceIdentity& identity,
+        std::uint64_t viewportRevision,
+        std::uint16_t column,
+        std::uint16_t row,
+        TerminalSelectionUnit unit);
     [[nodiscard]] GhosttyTerminalKernel::Result clearSelection(
         const TerminalSurfaceIdentity& identity);
     [[nodiscard]] GhosttyTerminalKernel::Result advanceImageAnimations(

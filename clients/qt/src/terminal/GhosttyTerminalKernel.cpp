@@ -1027,6 +1027,126 @@ public:
             &synchronizedOutput);
     }
 
+    void dropSelection()
+    {
+        selectionAnchor.reset();
+        selectionEndpoint.reset();
+        unitStart.reset();
+        unitEnd.reset();
+        selectionUnit.reset();
+        selectionRectangular = false;
+        selectionPending = false;
+    }
+
+    using Span = std::pair<GhosttyPointCoordinate, GhosttyPointCoordinate>;
+
+    std::optional<GhosttyGridRef> viewportRef(const GhosttyPointCoordinate cell) const
+    {
+        GhosttyPoint point {};
+        point.tag = GHOSTTY_POINT_TAG_VIEWPORT;
+        point.value.coordinate = cell;
+        GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+        if (ghostty_terminal_grid_ref(terminal.value, point, &ref) != GHOSTTY_SUCCESS) {
+            return std::nullopt;
+        }
+        return ref;
+    }
+
+    // The word or line at a cell, in screen coordinates.
+    std::optional<Span> unitAt(const GhosttyGridRef& ref, const TerminalSelectionUnit unit) const
+    {
+        GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+        GhosttyResult result = GHOSTTY_SUCCESS;
+        if (unit == TerminalSelectionUnit::Word) {
+            GhosttyTerminalSelectWordOptions options = GHOSTTY_INIT_SIZED(GhosttyTerminalSelectWordOptions);
+            options.ref = ref;
+            result = ghostty_terminal_select_word(terminal.value, &options, &selection);
+        } else {
+            GhosttyTerminalSelectLineOptions options = GHOSTTY_INIT_SIZED(GhosttyTerminalSelectLineOptions);
+            options.ref = ref;
+            options.semantic_prompt_boundary = true;
+            result = ghostty_terminal_select_line(terminal.value, &options, &selection);
+        }
+        return result == GHOSTTY_SUCCESS ? span(selection) : std::nullopt;
+    }
+
+    // The first word from one cell toward another: a word drag over empty cells keeps
+    // the nearest word, as in Ghostty.
+    std::optional<Span> wordBetween(const GhosttyGridRef& from, const GhosttyGridRef& toward) const
+    {
+        GhosttyTerminalSelectWordBetweenOptions options
+            = GHOSTTY_INIT_SIZED(GhosttyTerminalSelectWordBetweenOptions);
+        options.start = from;
+        options.end = toward;
+        GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+        if (ghostty_terminal_select_word_between(terminal.value, &options, &selection)
+            != GHOSTTY_SUCCESS) {
+            return std::nullopt;
+        }
+        return span(selection);
+    }
+
+    std::optional<Span> span(const GhosttySelection& selection) const
+    {
+        auto start = screenPoint(selection.start);
+        auto end = screenPoint(selection.end);
+        if (!start || !end) {
+            return std::nullopt;
+        }
+        if (before(*end, *start)) {
+            std::swap(*start, *end);
+        }
+        return Span {*start, *end};
+    }
+
+    static bool before(const GhosttyPointCoordinate a, const GhosttyPointCoordinate b)
+    {
+        return a.y < b.y || (a.y == b.y && a.x < b.x);
+    }
+
+    std::optional<GhosttyPointCoordinate> screenPoint(const GhosttyGridRef& ref) const
+    {
+        GhosttyPointCoordinate point {};
+        if (ghostty_terminal_point_from_grid_ref(
+                terminal.value, &ref, GHOSTTY_POINT_TAG_SCREEN, &point)
+            != GHOSTTY_SUCCESS) {
+            return std::nullopt;
+        }
+        return point;
+    }
+
+    std::optional<GhosttyPointCoordinate> screenPoint(const TrackedGridRefHandle& handle) const
+    {
+        GhosttyPointCoordinate point {};
+        if (handle.value == nullptr
+            || ghostty_tracked_grid_ref_point(handle.value, GHOSTTY_POINT_TAG_SCREEN, &point)
+                != GHOSTTY_SUCCESS) {
+            return std::nullopt;
+        }
+        return point;
+    }
+
+    std::optional<GhosttyGridRef> snapshot(const TrackedGridRefHandle& handle) const
+    {
+        GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+        if (handle.value == nullptr
+            || ghostty_tracked_grid_ref_snapshot(handle.value, &ref) != GHOSTTY_SUCCESS) {
+            return std::nullopt;
+        }
+        return ref;
+    }
+
+    GhosttyResult track(TrackedGridRefHandle& handle, const GhosttyPointCoordinate screen)
+    {
+        GhosttyPoint point {};
+        point.tag = GHOSTTY_POINT_TAG_SCREEN;
+        point.value.coordinate = screen;
+        if (handle.value != nullptr) {
+            return ghostty_tracked_grid_ref_set(handle.value, terminal.value, point);
+        }
+        return ghostty_terminal_grid_ref_track(terminal.value, point, &handle.value);
+    }
+
     GhosttyResult refreshSelection()
     {
         if (selectionAnchor.value == nullptr || selectionEndpoint.value == nullptr) {
@@ -1046,10 +1166,7 @@ public:
                 terminal.value,
                 GHOSTTY_TERMINAL_OPT_SELECTION,
                 nullptr);
-            selectionAnchor.reset();
-            selectionEndpoint.reset();
-            selectionRectangular = false;
-            selectionPending = false;
+            dropSelection();
             return clearResult;
         }
         if (result != GHOSTTY_SUCCESS) {
@@ -1077,6 +1194,9 @@ public:
     MouseEncoderHandle mouseEncoder;
     TrackedGridRefHandle selectionAnchor;
     TrackedGridRefHandle selectionEndpoint;
+    TrackedGridRefHandle unitStart;
+    TrackedGridRefHandle unitEnd;
+    std::optional<TerminalSelectionUnit> selectionUnit;
     TerminalSubscription subscription;
     std::uint64_t nextSequence = 0;
     std::uint64_t viewportRevision = 0;
@@ -1238,8 +1358,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     std::swap(m_impl->images, candidateImages);
     std::swap(m_impl->keyEncoder.value, candidateKeyEncoder.value);
     std::swap(m_impl->mouseEncoder.value, candidateMouseEncoder.value);
-    m_impl->selectionAnchor.reset();
-    m_impl->selectionEndpoint.reset();
+    m_impl->dropSelection();
     m_impl->subscription = checkpoint.subscription;
     m_impl->nextSequence = checkpoint.nextSequence;
     m_impl->viewportRevision = viewportRevision;
@@ -1248,8 +1367,6 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->renderHeldSince.reset();
     m_impl->heldView.reset();
     m_impl->clipboard.clear();
-    m_impl->selectionRectangular = false;
-    m_impl->selectionPending = false;
     m_impl->admitted = true;
     m_impl->failed = false;
     return m_impl->currentFrame;
@@ -1696,6 +1813,19 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
     });
 }
 
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToTop(
+    const TerminalSubscription& subscription)
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
+    }
+    return m_impl->moveViewport({
+        .tag = GHOSTTY_SCROLL_VIEWPORT_TOP,
+        .value = {},
+    });
+}
+
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::jumpToPrompt(
     const TerminalSubscription& subscription,
     const int prompts)
@@ -1853,16 +1983,14 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::beginSelection(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("selection endpoint"), result));
     }
+    m_impl->dropSelection();
     m_impl->selectionAnchor.reset(std::exchange(anchor.value, nullptr));
     m_impl->selectionEndpoint.reset(std::exchange(endpoint.value, nullptr));
     m_impl->selectionRectangular = rectangular;
     m_impl->selectionPending = true;
     result = m_impl->refreshSelection();
     if (result != GHOSTTY_SUCCESS) {
-        m_impl->selectionAnchor.reset();
-        m_impl->selectionEndpoint.reset();
-        m_impl->selectionRectangular = false;
-        m_impl->selectionPending = false;
+        m_impl->dropSelection();
         return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
     }
     ++m_impl->displayRevision;
@@ -1916,19 +2044,123 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::updateSelection(
         });
     }
 
-    GhosttyPoint endpoint {};
-    endpoint.tag = GHOSTTY_POINT_TAG_VIEWPORT;
-    endpoint.value.coordinate = {column, row};
-    auto result = ghostty_tracked_grid_ref_set(
-        m_impl->selectionEndpoint.value,
-        m_impl->terminal.value,
-        endpoint);
+    GhosttyResult result = GHOSTTY_SUCCESS;
+    if (m_impl->selectionUnit) {
+        const auto dragged = m_impl->viewportRef({column, row});
+        const auto draggedPoint = dragged ? m_impl->screenPoint(*dragged) : std::nullopt;
+        const auto start = m_impl->screenPoint(m_impl->unitStart);
+        const auto end = m_impl->screenPoint(m_impl->unitEnd);
+        const bool backwards = draggedPoint && start && Impl::before(*draggedPoint, *start);
+        const auto toward = m_impl->snapshot(backwards ? m_impl->unitStart : m_impl->unitEnd);
+        std::optional<Impl::Span> current;
+        if (dragged && toward) {
+            current = *m_impl->selectionUnit == TerminalSelectionUnit::Word
+                ? m_impl->wordBetween(*dragged, *toward)
+                : m_impl->unitAt(*dragged, TerminalSelectionUnit::Line);
+        }
+        if (!current || !start || !end) {
+            return std::unexpected(Failure {
+                Failure::Code::HitTestRace,
+                QStringLiteral("Terminal selection point or anchor is no longer available."),
+            });
+        }
+        result = m_impl->track(m_impl->selectionAnchor, backwards ? *end : *start);
+        if (result == GHOSTTY_SUCCESS) {
+            result = m_impl->track(
+                m_impl->selectionEndpoint,
+                backwards ? current->first : current->second);
+        }
+    } else {
+        GhosttyPoint endpoint {};
+        endpoint.tag = GHOSTTY_POINT_TAG_VIEWPORT;
+        endpoint.value.coordinate = {column, row};
+        result = ghostty_tracked_grid_ref_set(
+            m_impl->selectionEndpoint.value,
+            m_impl->terminal.value,
+            endpoint);
+    }
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("selection grid reference"), result));
     }
     result = m_impl->refreshSelection();
     if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
+    }
+    ++m_impl->displayRevision;
+    auto nextFrame = m_impl->captureFrame();
+    if (!nextFrame) {
+        m_impl->failed = true;
+        return nextFrame;
+    }
+    m_impl->currentFrame = *nextFrame;
+    return m_impl->currentFrame;
+}
+
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::selectUnit(
+    const TerminalSubscription& subscription,
+    const std::uint64_t viewportRevision,
+    const std::uint16_t column,
+    const std::uint16_t row,
+    const TerminalSelectionUnit unit)
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (!m_impl->admitted || m_impl->failed) {
+        return std::unexpected(Failure {
+            Failure::Code::MissingCheckpoint,
+            QStringLiteral("Terminal selection requires an admitted checkpoint."),
+        });
+    }
+    if (subscription != m_impl->subscription) {
+        return std::unexpected(Failure {
+            Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal selection belongs to a stale subscription."),
+        });
+    }
+    const auto* frame = m_impl->currentFrame.get();
+    if (frame == nullptr || frame->viewportRevision != viewportRevision) {
+        return std::unexpected(Failure {
+            Failure::Code::StaleFrame,
+            QStringLiteral("Terminal selection does not match the displayed frame."),
+        });
+    }
+    if (column >= frame->columns || row >= frame->rows) {
+        return std::unexpected(Failure {
+            Failure::Code::HitTestRace,
+            QStringLiteral("Terminal selection point no longer matches the viewport."),
+        });
+    }
+    if (m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
+        return std::unexpected(Failure {
+            Failure::Code::ResourceLimit,
+            QStringLiteral("Terminal display revision is exhausted."),
+        });
+    }
+    const auto cell = m_impl->viewportRef({column, row});
+    const auto selected = cell ? m_impl->unitAt(*cell, unit) : std::nullopt;
+    if (!selected) {
+        return std::unexpected(Failure {
+            Failure::Code::HitTestRace,
+            QStringLiteral("Terminal selection point no longer matches the viewport."),
+        });
+    }
+    m_impl->dropSelection();
+    auto result = m_impl->track(m_impl->unitStart, selected->first);
+    if (result == GHOSTTY_SUCCESS) {
+        result = m_impl->track(m_impl->unitEnd, selected->second);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = m_impl->track(m_impl->selectionAnchor, selected->first);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = m_impl->track(m_impl->selectionEndpoint, selected->second);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        m_impl->selectionUnit = unit;
+        result = m_impl->refreshSelection();
+    }
+    if (result != GHOSTTY_SUCCESS) {
+        m_impl->dropSelection();
         return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
     }
     ++m_impl->displayRevision;
@@ -1970,10 +2202,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::clearSelection(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("selection clear"), result));
     }
-    m_impl->selectionAnchor.reset();
-    m_impl->selectionEndpoint.reset();
-    m_impl->selectionRectangular = false;
-    m_impl->selectionPending = false;
+    m_impl->dropSelection();
     ++m_impl->displayRevision;
     auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {
