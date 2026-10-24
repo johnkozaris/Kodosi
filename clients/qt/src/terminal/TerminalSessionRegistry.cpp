@@ -520,12 +520,10 @@ TerminalSessionRegistry::linkAt(
         row);
 }
 
-GhosttyTerminalKernel::Result TerminalSessionRegistry::beginSelection(
+GhosttyTerminalKernel::Result TerminalSessionRegistry::pressSelection(
     const TerminalSurfaceIdentity& identity,
     const std::uint64_t viewportRevision,
-    const std::uint16_t column,
-    const std::uint16_t row,
-    const bool rectangular)
+    const TerminalSelectionPress& press)
 {
     auto entry = m_impl->exact(identity);
     if (!entry) {
@@ -534,23 +532,17 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::beginSelection(
             QStringLiteral("Terminal selection belongs to an unregistered surface."),
         });
     }
-    auto result = entry->kernel.beginSelection(
-        identity.subscription,
-        viewportRevision,
-        column,
-        row,
-        rectangular);
+    auto result = entry->kernel.pressSelection(identity.subscription, viewportRevision, press);
     if (result || !result.error().isRecoverableHitTestRace()) {
         publishFrame(entry, result);
     }
     return result;
 }
 
-GhosttyTerminalKernel::Result TerminalSessionRegistry::updateSelection(
+GhosttyTerminalKernel::Result TerminalSessionRegistry::dragSelection(
     const TerminalSurfaceIdentity& identity,
     const std::uint64_t viewportRevision,
-    const std::uint16_t column,
-    const std::uint16_t row)
+    const TerminalSelectionDrag& drag)
 {
     auto entry = m_impl->exact(identity);
     if (!entry) {
@@ -559,41 +551,18 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::updateSelection(
             QStringLiteral("Terminal selection belongs to an unregistered surface."),
         });
     }
-    auto result = entry->kernel.updateSelection(
-        identity.subscription,
-        viewportRevision,
-        column,
-        row);
+    auto result = entry->kernel.dragSelection(identity.subscription, viewportRevision, drag);
     if (result || !result.error().isRecoverableHitTestRace()) {
         publishFrame(entry, result);
     }
     return result;
 }
 
-GhosttyTerminalKernel::Result TerminalSessionRegistry::selectUnit(
-    const TerminalSurfaceIdentity& identity,
-    const std::uint64_t viewportRevision,
-    const std::uint16_t column,
-    const std::uint16_t row,
-    const TerminalSelectionUnit unit)
+void TerminalSessionRegistry::releaseSelection(const TerminalSurfaceIdentity& identity)
 {
-    auto entry = m_impl->exact(identity);
-    if (!entry) {
-        return std::unexpected(GhosttyTerminalKernel::Failure {
-            GhosttyTerminalKernel::Failure::Code::StaleSubscription,
-            QStringLiteral("Terminal selection belongs to an unregistered surface."),
-        });
+    if (auto entry = m_impl->exact(identity)) {
+        entry->kernel.releaseSelection(identity.subscription);
     }
-    auto result = entry->kernel.selectUnit(
-        identity.subscription,
-        viewportRevision,
-        column,
-        row,
-        unit);
-    if (result || !result.error().isRecoverableHitTestRace()) {
-        publishFrame(entry, result);
-    }
-    return result;
 }
 
 GhosttyTerminalKernel::Result TerminalSessionRegistry::clearSelection(

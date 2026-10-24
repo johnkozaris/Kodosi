@@ -342,6 +342,35 @@ QByteArray visiblePart(const QByteArray& snapshot)
     return visible;
 }
 
+constexpr std::uint32_t testCellWidth = 10;
+
+kodosi::TerminalSelectionPress pressAt(
+    const std::uint16_t column,
+    const std::uint16_t row,
+    const std::uint64_t timeNs = 0)
+{
+    return {
+        .pointer = {column, row, (column + 0.2) * testCellWidth, (row + 0.5) * 20.0},
+        .timeNs = timeNs,
+        .repeatIntervalNs = 500'000'000,
+        .repeatDistance = testCellWidth,
+        .output = false,
+    };
+}
+
+kodosi::TerminalSelectionDrag dragTo(
+    const std::uint16_t column,
+    const std::uint16_t row,
+    const double within = 0.8)
+{
+    return {
+        .pointer = {column, row, (column + within) * testCellWidth, (row + 0.5) * 20.0},
+        .cellWidth = testCellWidth,
+        .screenHeight = 10'000,
+        .rectangle = false,
+    };
+}
+
 QString frameText(const kodosi::TerminalFrame& frame)
 {
     QString text;
@@ -1313,16 +1342,14 @@ void TerminalKernelTest::scrollbackReconfigurationPublishesReplacementFrame()
     QVERIFY(registry.scrollViewport(kodosi::TerminalSurfaceIdentity {subscription, 1}, -100'000));
     const auto topFrame = frames.constLast();
     QVERIFY(topFrame->scroll.viewportOffset == 0);
-    QVERIFY(registry.beginSelection(
+    QVERIFY(registry.pressSelection(
         kodosi::TerminalSurfaceIdentity {subscription, 1},
         topFrame->viewportRevision,
-        0,
-        0));
-    QVERIFY(registry.updateSelection(
+        pressAt(0, 0)));
+    QVERIFY(registry.dragSelection(
         kodosi::TerminalSurfaceIdentity {subscription, 1},
         topFrame->viewportRevision,
-        3,
-        0));
+        dragTo(3, 0)));
     const auto selectedBeforeConfigure = registry.selectedText(kodosi::TerminalSurfaceIdentity {subscription, 1});
     QVERIFY(selectedBeforeConfigure);
     QVERIFY(!selectedBeforeConfigure->isEmpty());
@@ -1746,16 +1773,8 @@ void TerminalKernelTest::selectionUsesGhosttyTrackedStateAndFormatting()
     });
     QVERIFY(initial);
 
-    QVERIFY(kernel.beginSelection(
-        subscription,
-        (*initial)->viewportRevision,
-        0,
-        0));
-    const auto selected = kernel.updateSelection(
-        subscription,
-        (*initial)->viewportRevision,
-        4,
-        0);
+    QVERIFY(kernel.pressSelection(subscription, (*initial)->viewportRevision, pressAt(0, 0)));
+    const auto selected = kernel.dragSelection(subscription, (*initial)->viewportRevision, dragTo(4, 0));
     QVERIFY(selected);
     for (std::uint16_t column = 0; column <= 4; ++column) {
         QVERIFY((*selected)->cell(column, 0)->selected);
@@ -1785,16 +1804,16 @@ void TerminalKernelTest::aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell()
         checkpointFor(QByteArrayLiteral("hello world"), 20, 2),
     });
     QVERIFY(initial);
-    const auto pressed = kernel.beginSelection(subscription, (*initial)->viewportRevision, 2, 0);
+    const auto pressed = kernel.pressSelection(subscription, (*initial)->viewportRevision, pressAt(2, 0));
     QVERIFY(pressed);
     QVERIFY(!(*pressed)->cell(2, 0)->selected);
-    QVERIFY(kernel.updateSelection(subscription, (*initial)->viewportRevision, 2, 0));
+    QVERIFY(kernel.dragSelection(subscription, (*initial)->viewportRevision, dragTo(2, 0, 0.4)));
     QCOMPARE(*kernel.selectedText(subscription), QString());
 
-    const auto dragged = kernel.updateSelection(subscription, (*initial)->viewportRevision, 4, 0);
+    const auto dragged = kernel.dragSelection(subscription, (*initial)->viewportRevision, dragTo(4, 0, 0.6));
     QVERIFY(dragged);
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("llo"));
-    const auto back = kernel.updateSelection(subscription, (*initial)->viewportRevision, 2, 0);
+    const auto back = kernel.dragSelection(subscription, (*initial)->viewportRevision, dragTo(2, 0, 0.7));
     QVERIFY(back);
     QVERIFY((*back)->cell(2, 0)->selected);
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("l"));
@@ -1817,25 +1836,33 @@ void TerminalKernelTest::doubleAndTripleClicksSelectWordsAndLines()
     });
     QVERIFY(initial);
     const auto revision = (*initial)->viewportRevision;
+    const auto click = [&](const std::uint16_t column, const std::uint16_t row, const std::uint64_t at) {
+        const auto pressed = kernel.pressSelection(subscription, revision, pressAt(column, row, at));
+        kernel.releaseSelection(subscription);
+        return pressed;
+    };
 
-    const auto word = kernel.selectUnit(subscription, revision, 8, 0, kodosi::TerminalSelectionUnit::Word);
-    QVERIFY(word);
-    QVERIFY((*word)->cell(6, 0)->selected);
+    QVERIFY(click(8, 0, 1'000'000'000));
+    QCOMPARE(*kernel.selectedText(subscription), QString());
+    QVERIFY(kernel.pressSelection(subscription, revision, pressAt(8, 0, 1'100'000'000)));
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave"));
-    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 13, 0));
+    QVERIFY(kernel.dragSelection(subscription, revision, dragTo(13, 0)));
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave world"));
-    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 5, 1));
+    QVERIFY(kernel.dragSelection(subscription, revision, dragTo(5, 1)));
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("brave world"));
-    QVERIFY(kernel.updateSelection(subscription, (*word)->viewportRevision, 1, 0));
+    QVERIFY(kernel.dragSelection(subscription, revision, dragTo(1, 0)));
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("hello brave"));
+    kernel.releaseSelection(subscription);
 
-    const auto line = kernel.selectUnit(subscription, revision, 2, 0, kodosi::TerminalSelectionUnit::Line);
-    QVERIFY(line);
+    QVERIFY(click(8, 0, 1'200'000'000));
     QCOMPARE(*kernel.selectedText(subscription), QStringLiteral("hello brave world"));
+    QVERIFY(click(2, 0, 5'000'000'000));
+    QCOMPARE(*kernel.selectedText(subscription), QString());
 
-    const auto empty = kernel.selectUnit(subscription, revision, 4, 1, kodosi::TerminalSelectionUnit::Word);
-    QVERIFY(!empty);
-    QVERIFY(empty.error().isRecoverableHitTestRace());
+    QVERIFY(!kernel.dragSelection(subscription, revision, dragTo(4, 0)));
+    QVERIFY(click(4, 1, 9'000'000'000));
+    QVERIFY(click(4, 1, 9'100'000'000));
+    QCOMPARE(*kernel.selectedText(subscription), QString());
 }
 
 void TerminalKernelTest::framesDrawTheKodosiTerminalColors()
@@ -1907,16 +1934,8 @@ void TerminalKernelTest::scrolledSelectionUsesVisibleViewportCoordinates()
     QVERIFY(scrolled);
     QVERIFY(frameText(**scrolled).startsWith(QStringLiteral("row-00")));
 
-    QVERIFY(kernel.beginSelection(
-        subscription,
-        (*scrolled)->viewportRevision,
-        0,
-        0));
-    const auto selected = kernel.updateSelection(
-        subscription,
-        (*scrolled)->viewportRevision,
-        5,
-        0);
+    QVERIFY(kernel.pressSelection(subscription, (*scrolled)->viewportRevision, pressAt(0, 0)));
+    const auto selected = kernel.dragSelection(subscription, (*scrolled)->viewportRevision, dragTo(5, 0));
     QVERIFY(selected);
     const auto text = kernel.selectedText(subscription);
     QVERIFY(text);
@@ -1947,11 +1966,7 @@ void TerminalKernelTest::selectionEndpointsTrackIncomingOutput()
     QVERIFY(initial);
     const auto anchorText = frameText(**initial).left(6);
     QVERIFY(anchorText.startsWith(QStringLiteral("row-")));
-    QVERIFY(kernel.beginSelection(
-        subscription,
-        (*initial)->viewportRevision,
-        0,
-        0));
+    QVERIFY(kernel.pressSelection(subscription, (*initial)->viewportRevision, pressAt(0, 0)));
 
     const auto advanced = kernel.applyData({
         subscription,
@@ -1962,11 +1977,7 @@ void TerminalKernelTest::selectionEndpointsTrackIncomingOutput()
     const auto endpointText = frameText(**advanced).left(6);
     QVERIFY(endpointText.startsWith(QStringLiteral("row-")));
     QVERIFY(endpointText != anchorText);
-    QVERIFY(kernel.updateSelection(
-        subscription,
-        (*advanced)->viewportRevision,
-        5,
-        0));
+    QVERIFY(kernel.dragSelection(subscription, (*advanced)->viewportRevision, dragTo(5, 0)));
 
     const auto text = kernel.selectedText(subscription);
     QVERIFY(text);
@@ -2903,21 +2914,19 @@ void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewpo
     QVERIFY(text);
     QVERIFY(text->isEmpty());
 
-    const auto outside = registry.beginSelection(
+    const auto outside = registry.pressSelection(
         kodosi::TerminalSurfaceIdentity {subscription, 1},
         (*advanced)->viewportRevision,
-        (*advanced)->columns,
-        0);
+        pressAt((*advanced)->columns, 0));
     QVERIFY(!outside);
     QCOMPARE(
         outside.error().code,
         kodosi::GhosttyTerminalKernel::Failure::Code::HitTestRace);
 
-    const auto missingAnchor = registry.updateSelection(
+    const auto missingAnchor = registry.dragSelection(
         kodosi::TerminalSurfaceIdentity {subscription, 1},
         (*advanced)->viewportRevision,
-        0,
-        0);
+        dragTo(0, 0));
     QVERIFY(!missingAnchor);
     QCOMPARE(
         missingAnchor.error().code,
@@ -3265,9 +3274,9 @@ void TerminalKernelTest::terminalViewCopySelectionStillUsesHostClipboard()
         QStringLiteral("copy-incarnation")));
     makeTerminalReady(registry, subscription);
     const QSizeF scaledCell(view.gridSize().width() / 80, view.gridSize().height() / 24);
-    const QPointF anchor(scaledCell.width() * view.viewportScale() * 0.5,
+    const QPointF anchor(scaledCell.width() * view.viewportScale() * 0.2,
         scaledCell.height() * view.viewportScale() * 0.5);
-    const QPointF endpoint(scaledCell.width() * view.viewportScale() * 4.5,
+    const QPointF endpoint(scaledCell.width() * view.viewportScale() * 4.8,
         scaledCell.height() * view.viewportScale() * 0.5);
     QMouseEvent press(
         QEvent::MouseButtonPress,

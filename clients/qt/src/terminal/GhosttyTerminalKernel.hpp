@@ -61,9 +61,26 @@ enum class TerminalKeyAction {
     Release,
 };
 
-enum class TerminalSelectionUnit {
-    Word,
-    Line,
+struct TerminalSelectionPointer {
+    std::uint16_t column = 0;
+    std::uint16_t row = 0;
+    double x = 0;
+    double y = 0;
+};
+
+struct TerminalSelectionPress {
+    TerminalSelectionPointer pointer;
+    std::uint64_t timeNs = 0;
+    std::uint64_t repeatIntervalNs = 0;
+    double repeatDistance = 0;
+    bool output = false;
+};
+
+struct TerminalSelectionDrag {
+    TerminalSelectionPointer pointer;
+    std::uint32_t cellWidth = 0;
+    std::uint32_t screenHeight = 0;
+    bool rectangle = false;
 };
 
 struct TerminalModifiers {
@@ -198,24 +215,15 @@ public:
         std::uint64_t viewportRevision,
         std::uint16_t column,
         std::uint16_t row);
-    [[nodiscard]] Result beginSelection(
+    [[nodiscard]] Result pressSelection(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row,
-        bool rectangular = false);
-    [[nodiscard]] Result updateSelection(
+        const TerminalSelectionPress& press);
+    [[nodiscard]] Result dragSelection(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row);
-    // Selects the word or line at a cell; a later updateSelection extends it by words or lines.
-    [[nodiscard]] Result selectUnit(
-        const TerminalSubscription& subscription,
-        std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row,
-        TerminalSelectionUnit unit);
+        const TerminalSelectionDrag& drag);
+    void releaseSelection(const TerminalSubscription& subscription);
     [[nodiscard]] Result clearSelection(const TerminalSubscription& subscription);
     [[nodiscard]] Result advanceImageAnimations(const TerminalSubscription& subscription);
     [[nodiscard]] std::expected<QString, Failure> selectedText(
