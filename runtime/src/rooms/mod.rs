@@ -92,6 +92,37 @@ pub struct Task {
     pub issue: Option<Issue>,
 }
 
+impl Task {
+    pub(crate) fn claim(
+        &mut self,
+        user_id: &str,
+        name: String,
+        terminal_id: Option<String>,
+    ) -> Result<(), String> {
+        if self.closed {
+            return Err("This task is done. Open it again before you take it.".to_owned());
+        }
+        match &self.assigned_to {
+            Some(holder) if holder != user_id => {
+                return Err(format!(
+                    "{} has this task. Take another task, or ask them to release it.",
+                    self.assigned_name.as_deref().unwrap_or("Another member")
+                ));
+            }
+            Some(_) if self.terminal_id != terminal_id => {
+                return Err(
+                    "You have this task in another terminal. Release it there first.".to_owned(),
+                );
+            }
+            _ => {}
+        }
+        self.assigned_to = Some(user_id.to_owned());
+        self.assigned_name = Some(name);
+        self.terminal_id = terminal_id;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Repository {
