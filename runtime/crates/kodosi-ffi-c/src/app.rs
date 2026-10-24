@@ -280,7 +280,7 @@ fn replace_earlier() -> Outcome {
     }
 }
 
-#[cfg(all(feature = "host", unix))]
+#[cfg(feature = "host")]
 fn end_earlier(root: &std::path::Path, pid: u32) {
     let owner = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -291,9 +291,6 @@ fn end_earlier(root: &std::path::Path, pid: u32) {
         kodosi_os::process::end_process(pid);
     }
 }
-
-#[cfg(all(feature = "host", not(unix)))]
-const fn end_earlier(_root: &std::path::Path, _pid: u32) {}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_log(level: i32, utf8: *const u8, length: usize) -> i32 {

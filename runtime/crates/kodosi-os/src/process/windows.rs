@@ -24,7 +24,7 @@ use windows_sys::Win32::{
         Threading::{
             CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW, DETACHED_PROCESS, GetCurrentProcess,
             OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
-            WaitForSingleObject,
+            PROCESS_TERMINATE, TerminateProcess, WaitForSingleObject,
         },
     },
     UI::WindowsAndMessaging::AllowSetForegroundWindow,
@@ -177,6 +177,15 @@ pub(super) fn is_running(pid: u32) -> bool {
     unsafe { WaitForSingleObject(handle.as_raw_handle(), 0) == WAIT_TIMEOUT }
 }
 
+pub(super) fn end_process(pid: u32) {
+    let handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
+    if handle.is_null() {
+        return;
+    }
+    let handle = unsafe { OwnedHandle::from_raw_handle(handle) };
+    unsafe { TerminateProcess(handle.as_raw_handle(), 1) };
+}
+
 pub(super) fn computer_name() -> Option<String> {
     let mut length = 0u32;
     unsafe {
@@ -217,6 +226,20 @@ mod tests {
         process::{Command, Stdio},
         time::{Duration, Instant},
     };
+
+    #[test]
+    fn an_ended_process_stops() {
+        let system = std::env::var_os("SystemRoot").unwrap();
+        let mut program = Command::new(Path::new(&system).join(r"System32\PING.EXE"))
+            .args(["-n", "60", "127.0.0.1"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        super::end_process(program.id());
+        assert_eq!(program.wait().unwrap().code(), Some(1));
+    }
 
     #[test]
     fn a_detached_program_leaves_the_callers_output_alone() {
