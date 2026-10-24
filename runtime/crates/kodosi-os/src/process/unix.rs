@@ -49,6 +49,18 @@ pub(super) const fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     None
 }
 
+pub(super) struct EndRequest(tokio::signal::unix::Signal);
+
+impl EndRequest {
+    pub(super) fn new() -> std::io::Result<Self> {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map(Self)
+    }
+
+    pub(super) async fn received(&mut self) {
+        self.0.recv().await;
+    }
+}
+
 pub(super) fn detach(command: &mut std::process::Command) {
     use std::os::unix::process::CommandExt as _;
     command.process_group(0);

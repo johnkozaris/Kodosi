@@ -129,6 +129,22 @@ pub(super) fn without_terminal(command: &mut std::process::Command) {
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
+pub(super) struct EndRequest;
+
+impl EndRequest {
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "the Unix form installs a signal handler, and both forms share one signature"
+    )]
+    pub(super) const fn new() -> std::io::Result<Self> {
+        Ok(Self)
+    }
+
+    pub(super) async fn received(&mut self) {
+        std::future::pending::<()>().await;
+    }
+}
+
 pub(super) fn detach(command: &mut std::process::Command) {
     command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
     // A child inherits every inheritable handle of its parent, so it would

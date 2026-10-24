@@ -1038,6 +1038,7 @@ impl IdleWatch {
 
 async fn run_host(config: Config, json_output: bool) -> Result<()> {
     let mut idle = IdleWatch::new(config.host == HostKind::Background);
+    let mut end = kodosi_os::process::EndRequest::new()?;
     crate::diagnostics::install(&config.data_root, crate::diagnostics::Role::Host);
     let runtime = crate::start(config).await?;
     let result = async {
@@ -1048,6 +1049,7 @@ async fn run_host(config: Config, json_output: bool) -> Result<()> {
             let deadline = idle.deadline(local_sessions, *clients.borrow(), tokio::time::Instant::now());
             tokio::select! {
                 result=tokio::signal::ctrl_c()=>{result?;break;}
+                ()=end.received()=>break,
                 ()=runtime.stopped()=>break,
                 ()=async{match deadline{Some(at)=>tokio::time::sleep_until(at).await,None=>std::future::pending().await}}=>break,
                 changed=clients.changed()=>{if changed.is_err(){break;}}

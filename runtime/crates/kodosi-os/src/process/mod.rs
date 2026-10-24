@@ -51,6 +51,20 @@ pub fn reset_signals() {
     imp::reset_signals();
 }
 
+/// The request of the system that this process ends: SIGTERM on Unix, which the system sends
+/// at logout and at shutdown. Windows has none here.
+pub struct EndRequest(imp::EndRequest);
+
+impl EndRequest {
+    pub fn new() -> std::io::Result<Self> {
+        imp::EndRequest::new().map(Self)
+    }
+
+    pub async fn received(&mut self) {
+        self.0.received().await;
+    }
+}
+
 #[cfg(unix)]
 pub fn end_group(leader: u32, force: bool) {
     imp::end_group(leader, force);
