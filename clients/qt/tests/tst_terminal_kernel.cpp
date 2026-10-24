@@ -438,6 +438,7 @@ private slots:
     void checkpointPrecedesContiguousRawData();
     void failedCheckpointPreservesPriorFrame();
     void resizeRequiresExactSequenceBoundary();
+    void aClickedEmptyRowDoesNotPushTheScreenIntoHistoryOnShrink();
     void consoleCheckpointKeepsHistoryOnResize();
     void synchronizedOutputShowsOnlyFinishedFrames();
     void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
@@ -4258,6 +4259,31 @@ void TerminalKernelTest::resizeRequiresExactSequenceBoundary()
     QCOMPARE((*resized)->rows, 4);
     QCOMPARE((*resized)->columns, 24);
     QCOMPARE((*resized)->nextSequence, 5);
+}
+
+void TerminalKernelTest::aClickedEmptyRowDoesNotPushTheScreenIntoHistoryOnShrink()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    const auto initial = kernel.installCheckpoint({
+        subscription,
+        1,
+        20,
+        40,
+        checkpointFor(QByteArrayLiteral("first\r\nsecond\r\nthird\r\n$ "), 40, 20),
+    });
+    QVERIFY(initial);
+    QVERIFY(kernel.pressSelection(subscription, (*initial)->viewportRevision, pressAt(5, 12)));
+    kernel.releaseSelection(subscription);
+
+    const auto shrunk = kernel.applyResize(subscription, 1, 12, 40, testCellWidth, 20);
+    QVERIFY(shrunk);
+    QCOMPARE((*shrunk)->scroll.totalRows, std::uint64_t {12});
+    QVERIFY(frameText(**shrunk).startsWith(QStringLiteral("first")));
 }
 
 void TerminalKernelTest::synchronizedOutputShowsOnlyFinishedFrames()

@@ -1530,6 +1530,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
         });
     }
 
+    m_impl->resetGesture();
     const auto result = ghostty_terminal_resize(
         m_impl->terminal.value,
         columns,
