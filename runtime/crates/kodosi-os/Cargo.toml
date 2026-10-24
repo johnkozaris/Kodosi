@@ -20,8 +20,9 @@ tokio = { workspace = true, features = ["signal"] }
 security-framework = { version = "3.7", features = ["OSX_10_15"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+keyring-core = "1.0.1"
 zbus = "5.19.0"
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
 
 [target.'cfg(windows)'.dependencies]
 dunce = "1.0.5"
