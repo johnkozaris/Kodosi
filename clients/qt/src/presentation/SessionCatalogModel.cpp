@@ -237,6 +237,12 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const Q
         = std::find_if(m_sessions.cbegin(), m_sessions.cend(), [&](const auto& s) { return s.id == id; });
     return found == m_sessions.cend() ? std::nullopt : std::optional(*found);
 }
+QString SessionCatalogModel::current(const QString& id) const
+{
+    const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(),
+        [&](const auto& s) { return s.restoredFrom == id; });
+    return found == m_sessions.cend() ? id : found->id;
+}
 bool SessionCatalogModel::containsSession(const QString& id) const
 {
     return session(id).has_value();
@@ -324,7 +330,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerName", "hostName", "missionName", "message", "workingDir", "title", "program"}) {
+    for (const auto* key : {"ownerName", "hostName", "missionName", "message", "workingDir", "title", "program", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -400,6 +406,9 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.missionId = text("missionId");
     s.missionName = text("missionName");
     s.message = text("message");
+    s.restoredFrom = text("restoredFrom");
+    if (!s.restoredFrom.isEmpty() && QUuid(s.restoredFrom).isNull())
+        return std::nullopt;
     for (const auto& v : o.value(QStringLiteral("sharedWith")).toArray()) {
         if (!v.isString() || QUuid(v.toString()).isNull())
             return std::nullopt;

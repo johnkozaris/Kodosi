@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 71;
+pub const VERSION: u32 = 72;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
@@ -184,6 +184,11 @@ pub enum Command {
     },
     #[serde(rename = "session.list")]
     ListSessions {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "session.restore")]
+    RestoreSessions {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -683,6 +688,8 @@ pub struct SessionEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restored_from: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -1337,6 +1344,7 @@ impl Command {
             Self::VerifyFriend { .. } => "friends.verify",
             Self::FriendInvite { .. } => "friends.invite",
             Self::ListSessions { .. } => "session.list",
+            Self::RestoreSessions { .. } => "session.restore",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
@@ -1446,6 +1454,7 @@ impl Command {
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
             | Self::ListSessions { request_id }
+            | Self::RestoreSessions { request_id }
             | Self::CreateSession { request_id, .. }
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
@@ -2086,6 +2095,7 @@ mod tests {
             "friends.refresh",
             "friends.invite",
             "session.list",
+            "session.restore",
             "mission.list",
         ]
         .into_iter()
@@ -2186,7 +2196,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 63);
+        assert_eq!(kinds.len(), 64);
     }
 
     #[test]

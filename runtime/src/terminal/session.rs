@@ -74,6 +74,17 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Start(String),
+    Foreground {
+        variable: &'static str,
+        reply: oneshot::Sender<Result<Foreground>>,
+    },
+}
+
+/// The process group in front of a terminal's shell, and one variable of its leader.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct Foreground {
+    pub group: Option<u32>,
+    pub variable: Option<String>,
 }
 
 #[derive(Clone)]
@@ -304,6 +315,14 @@ impl TerminalSession {
 
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
+    }
+
+    pub(crate) fn foreground(
+        &self,
+        variable: &'static str,
+    ) -> impl Future<Output = Result<Foreground>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::Foreground { variable, reply }), response)
     }
 
     pub(crate) fn close(&self) -> impl Future<Output = Result<()>> + Send + use<> {
@@ -1164,6 +1183,12 @@ impl LocalActor {
             }
             Request::Start(line) => {
                 self.start = Some((line, tokio::time::Instant::now()));
+            }
+            Request::Foreground { variable, reply } => {
+                drop(reply.send(Ok(Foreground {
+                    group: self.pty.foreground_process_group(),
+                    variable: self.pty.foreground_variable(variable),
+                })));
             }
         }
         None

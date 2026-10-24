@@ -29,6 +29,7 @@ final class AppDependencies {
     var roomViews: [String: RoomViewState] = [:]
     var roomSeen: [String: UInt64] = [:]
     var reportedVisible: [String]?
+    var restoreAsked = false
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []

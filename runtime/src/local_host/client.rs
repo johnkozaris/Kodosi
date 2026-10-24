@@ -219,7 +219,7 @@ fn finalizing(events: &[Value]) -> bool {
         .rev()
         .find_map(|event| match event["type"].as_str() {
             Some("auth.finalizing") => Some(true),
-            Some("auth.ready" | "auth.required") => Some(false),
+            Some("auth.ready" | "auth.required" | "auth.restoring") => Some(false),
             _ => None,
         })
         == Some(true)

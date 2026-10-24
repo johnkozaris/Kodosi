@@ -64,6 +64,13 @@ bool Workspace::sendUntracked(QString type, QJsonObject values)
     return !sendRequest(std::move(type), std::move(values)).isEmpty();
 }
 
+// The host starts the terminals of its last run again only when an app asks.
+void Workspace::askRestore()
+{
+    if (!m_restoreAsked)
+        m_restoreAsked = sendUntracked(QStringLiteral("session.restore"));
+}
+
 bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject values,
     QString sessionId, QString missionId)
 {
@@ -199,12 +206,19 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("system.ready")) {
         m_hostReady = true;
+        m_restoreAsked = false;
         m_reportedVisible = QStringList {};
         reportVisible();
         emit hostReady();
         return;
     }
     if (type == QStringLiteral("auth.restoring")) {
+        if (accountEpoch != m_account.m_epoch) {
+            clearAccountData(false, {});
+            m_account.m_epoch = accountEpoch;
+            m_account.m_userId.clear();
+        }
+        askRestore();
         m_account.m_finalizing = false;
         m_account.m_restoring = event.value(QStringLiteral("reason")).toString();
         m_account.receivePlace(event);
@@ -249,6 +263,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             setError(tr("Your sign-in has ended. Sign in again."));
         else if (reason == QStringLiteral("accountDeleted"))
             setError(tr("Your Kodosi account is deleted."));
+        askRestore();
         m_sessionActions.refresh();
         m_sessionActions.activatePendingLink();
         return;

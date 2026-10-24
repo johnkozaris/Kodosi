@@ -166,7 +166,7 @@ ColumnLayout {
             iconName: "window-restore"
             tint: "#4f9bb0"
             title: qsTr("Keep running when the window closes")
-            subtitle: !Models.DesktopSettings.keepRunning ? qsTr("Closing the window quits Kodosi. Your terminals keep running.")
+            subtitle: !Models.DesktopSettings.keepRunning ? qsTr("Closing the window quits Kodosi.")
                 : Models.Tray.available ? qsTr("Your terminals keep running, and Kodosi stays in the system tray.")
                 : qsTr("Your terminals keep running. Open Kodosi again to see them.")
 
@@ -189,7 +189,7 @@ ColumnLayout {
             title: qsTr("Quit Kodosi")
             subtitle: Models.ApplicationLifecycle.hostForeground
                 ? qsTr("Your terminals keep running in the kodosi host command.")
-                : qsTr("Your terminals keep running while Kodosi is closed.")
+                : qsTr("Terminals stop. They start again when Kodosi opens.")
 
             KButton {
                 Accessible.id: objectName
@@ -197,7 +197,7 @@ ColumnLayout {
                 objectName: "panel.settingsView.quit-kodosi"
                 text: qsTr("Quit")
 
-                onClicked: Qt.quit()
+                onClicked: quitConfirmation.request(false)
             }
         }
     }
@@ -225,5 +225,8 @@ ColumnLayout {
             width: 380
             wrapMode: Text.WordWrap
         }
+    }
+    QuitDialog {
+        id: quitConfirmation
     }
 }

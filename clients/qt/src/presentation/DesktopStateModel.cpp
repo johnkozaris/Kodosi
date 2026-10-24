@@ -187,6 +187,7 @@ void DesktopStateModel::switchAccount(const QString& userId)
                             : QString::fromLatin1(userId.toUtf8().toBase64(
                                   QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     m_restoring = m_settings->value(m_stageKey).toStringList();
+    m_savedStage = m_restoring;
 }
 void DesktopStateModel::saveStage()
 {
@@ -238,15 +239,22 @@ void DesktopStateModel::reconcile()
         if (!session || !session->canRetainPresentation)
             unstageSession(id);
     }
+    const auto rank = [this](const QString& id) {
+        const auto found = std::ranges::find_if(
+            m_savedStage, [&](const QString& saved) { return m_sessions->current(saved) == id; });
+        return found == m_savedStage.end() ? -1 : int(found - m_savedStage.begin());
+    };
     QStringList restored;
-    for (const auto& id : QStringList(m_restoring)) {
+    for (const auto& saved : QStringList(m_restoring)) {
+        const auto id = m_sessions->current(saved);
         const auto session = m_sessions->presentationSession(id);
         if (!session)
             continue;
-        m_restoring.removeOne(id);
+        m_restoring.removeOne(saved);
         if (session->canRetainPresentation && !m_sessions->session(id)->hidden && !m_staged.contains(id)
             && m_staged.size() < 6) {
-            m_staged.append(id);
+            m_staged.insert(std::ranges::find_if(m_staged, [&](const QString& staged) { return rank(staged) > rank(id); }),
+                id);
             restored.append(id);
         }
     }

@@ -95,6 +95,16 @@ pub(crate) fn is_agent_name(name: &str) -> bool {
     Agent::ALL.iter().any(|agent| agent.name() == name)
 }
 
+/// The command that starts `agent` with the account in `folder`, as the launcher types it.
+#[cfg(feature = "host")]
+pub(crate) fn account_command(agent: Agent, home: &Path, folder: &Path) -> String {
+    agent
+        .home()
+        .filter(|(usual, _)| folder != home.join(usual))
+        .and_then(|(_, variable)| accounts::home_command(variable, folder, agent.program()))
+        .unwrap_or_else(|| agent.program().to_owned())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentCatalog {

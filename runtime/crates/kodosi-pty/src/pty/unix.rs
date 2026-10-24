@@ -240,6 +240,11 @@ impl KodosiPty {
         program_identity(&arguments).map(str::to_owned)
     }
 
+    pub fn foreground_variable(&self, name: &str) -> Option<String> {
+        let pid = foreground_process_group(self.master_fd)?;
+        variable(&process_environment(pid)?, name)
+    }
+
     pub fn resize(
         &self,
         rows: u16,
@@ -571,6 +576,13 @@ fn process_arguments(pid: u32) -> Option<Vec<String>> {
 }
 
 #[cfg(target_os = "linux")]
+fn process_environment(pid: u32) -> Option<Vec<String>> {
+    Some(strings(
+        &std::fs::read(format!("/proc/{pid}/environ")).ok()?,
+    ))
+}
+
+#[cfg(target_os = "linux")]
 fn strings(bytes: &[u8]) -> Vec<String> {
     bytes
         .split(|byte| *byte == 0)
@@ -581,6 +593,16 @@ fn strings(bytes: &[u8]) -> Vec<String> {
 
 #[cfg(target_os = "macos")]
 fn process_arguments(pid: u32) -> Option<Vec<String>> {
+    process_strings(pid).map(|(arguments, _)| arguments)
+}
+
+#[cfg(target_os = "macos")]
+fn process_environment(pid: u32) -> Option<Vec<String>> {
+    process_strings(pid).map(|(_, environment)| environment)
+}
+
+#[cfg(target_os = "macos")]
+fn process_strings(pid: u32) -> Option<(Vec<String>, Vec<String>)> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as i32];
     let mut bytes = vec![0_u8; 256 * 1024];
     let mut length = bytes.len();
@@ -612,7 +634,33 @@ fn process_arguments(pid: u32) -> Option<Vec<String>> {
         arguments.push(String::from_utf8_lossy(&bytes[cursor..end]).into_owned());
         cursor = end + 1;
     }
-    Some(arguments)
+    let mut environment = Vec::new();
+    while let Some(rest) = bytes.get(cursor..) {
+        let length = rest
+            .iter()
+            .position(|byte| *byte == 0)
+            .unwrap_or(rest.len());
+        if length == 0 {
+            break;
+        }
+        environment.push(String::from_utf8_lossy(&rest[..length]).into_owned());
+        cursor += length + 1;
+    }
+    Some((arguments, environment))
+}
+
+fn variable(environment: &[String], name: &str) -> Option<String> {
+    environment
+        .iter()
+        .find_map(|entry| entry.strip_prefix(name)?.strip_prefix('='))
+        .map(str::to_owned)
+}
+
+/// The process group of another process, or `None` when it has ended.
+pub fn process_group(pid: u32) -> Option<u32> {
+    nix::unistd::getpgid(Some(Pid::from_raw(i32::try_from(pid).ok()?)))
+        .ok()
+        .and_then(|group| u32::try_from(group.as_raw()).ok())
 }
 
 fn foreground_process_group(fd: RawFd) -> Option<u32> {
@@ -790,6 +838,59 @@ mod tests {
             assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped));
             assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
+    }
+
+    #[test]
+    fn the_program_in_front_shows_its_variables_and_process_group() {
+        const NAME: &str =
+            "pty::unix::tests::the_program_in_front_shows_its_variables_and_process_group";
+        if env::var_os("KODOSI_TEST_HOME").is_some() {
+            std::thread::sleep(Duration::from_secs(30));
+            return;
+        }
+        let line = format!(
+            "KODOSI_TEST_HOME=/agent/home '{}' --exact {NAME} --test-threads=1\n",
+            env::current_exe().unwrap().display()
+        );
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (mut pty, mut reader) = KodosiPty::spawn_program(
+                    Path::new("/bin/sh"),
+                    &["-i".to_owned()],
+                    None,
+                    24,
+                    80,
+                    &[],
+                    None,
+                )
+                .unwrap();
+                type_line(&mut reader, line.as_bytes()).await;
+                let mut buffer = [0; 4096];
+                let home = tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        if let Some(home) = pty.foreground_variable("KODOSI_TEST_HOME") {
+                            break home;
+                        }
+                        let _ = tokio::time::timeout(
+                            Duration::from_millis(10),
+                            reader.read(&mut buffer),
+                        )
+                        .await;
+                    }
+                })
+                .await
+                .unwrap();
+                assert_eq!(home, "/agent/home");
+                assert_eq!(pty.foreground_variable("KODOSI_TEST_MISSING"), None);
+                let group = pty.foreground_process_group().unwrap();
+                assert_ne!(group, pty.child_pid);
+                assert_eq!(super::process_group(group), Some(group));
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+            });
     }
 
     #[test]

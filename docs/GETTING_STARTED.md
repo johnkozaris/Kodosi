@@ -35,9 +35,10 @@ A terminal is a real shell on the computer that runs it. Minimize hides a termin
 keeps it running; Close ends it and its programs. When you close the window, Kodosi and
 your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
 on a desktop without a system tray, closing the window quits Kodosi. When you quit
-Kodosi, your terminals keep running, and Kodosi shows them again when you open it. A
-restart to install an update ends them. In Settings, you can choose what closing the
-window does.
+Kodosi, your terminals stop. When you open Kodosi again, they start again in their
+folders, rooms and places on the stage. Claude Code continues its conversation, and Codex
+and Copilot CLI show their conversations so that you can continue one. In Settings, you
+can choose what closing the window does.
 
 ## 3. See which agent needs you
 
@@ -141,7 +142,7 @@ does.
 | `kodosi terminal show <terminal>` | Shows the terminal in the app. |
 | `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
-| `kodosi host` | Runs the host in this terminal; an app update does not stop it. `kodosi host stop` stops a host that runs in the background. |
+| `kodosi host` | Keeps your terminals running after you quit the app. `kodosi host stop` stops a host that runs in the background. |
 
 `input` and `keys` stop with a message while you type in that terminal.
 

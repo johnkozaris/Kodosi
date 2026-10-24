@@ -110,6 +110,13 @@ impl Runtime {
             }
             #[cfg(feature = "host")]
             Command::CreateSession { .. } => self.create(command.clone())?,
+            #[cfg(feature = "host")]
+            Command::RestoreSessions { .. } => {
+                self.restore_saved();
+                self.result(command);
+            }
+            #[cfg(not(feature = "host"))]
+            Command::RestoreSessions { .. } => self.result(command),
             #[cfg(not(feature = "host"))]
             Command::CreateSession { .. } => {
                 return Err(Error::Invalid(
@@ -594,15 +601,20 @@ impl Runtime {
             self.emit(json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"}));
             return Ok(());
         }
-        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
-            return Err(Error::Busy);
-        }
-        self.job_capacity()?;
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
                 return Err(Error::Invalid("This provider conversation is already running in Kodosi.".to_owned()));
             }
+        self.begin_creation(command).map(drop)
+    }
+
+    #[cfg(feature = "host")]
+    pub(super) fn begin_creation(&mut self, command: Command) -> Result<Uuid> {
+        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
+            return Err(Error::Busy);
+        }
+        self.job_capacity()?;
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
@@ -612,7 +624,7 @@ impl Runtime {
             let result = create_session(id, config, &launcher, &command, changes).await;
             Completion::Created { id, result }
         });
-        Ok(())
+        Ok(id)
     }
 
     pub(super) fn open_remote(&mut self, id: Uuid, command: Command) -> Result<()> {
@@ -897,8 +909,9 @@ impl Runtime {
             Completion::Published {
                 id,
                 incarnation,
+                refused,
                 result,
-            } => self.published(id, incarnation, result, current),
+            } => self.published(id, incarnation, refused, result, current),
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {
@@ -992,9 +1005,14 @@ impl Runtime {
         let Some(command) = self.creating.remove(&id) else {
             return;
         };
-        if !current {
-            self.error(&command, &Error::Stale);
-            return;
+        let restored = self.restore.starting.remove(&id);
+        let result = if current || restored.is_some() {
+            result
+        } else {
+            Err(Error::Stale)
+        };
+        if let (Some(saved), Err(error)) = (&restored, &result) {
+            tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
         }
         match result {
             Ok(mut started) => {
@@ -1046,11 +1064,20 @@ impl Runtime {
                     mission_id: mission_id.clone(),
                     mission_name: None,
                     shared_with: vec![],
+                    restored_from: restored.as_ref().map(|saved| saved.id.to_string()),
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 if let Some(folder) = &entry.working_dir {
                     self.recent.remember(folder);
                 }
+                let (kept, wanted) = restored.map_or((None, None), |saved| {
+                    (
+                        saved
+                            .worktree
+                            .filter(|worktree| started.directory.starts_with(&worktree.path)),
+                        saved.sharing,
+                    )
+                });
                 self.local.insert(
                     id,
                     Local {
@@ -1059,9 +1086,11 @@ impl Runtime {
                         creation: command,
                         published: false,
                         room_sequence: 0,
-                        worktree: started.worktree.take(),
+                        worktree: started.worktree.take().or(kept),
+                        wanted,
                     },
                 );
+                self.apply_wanted();
                 self.publish_catalog();
                 self.emit(created);
                 self.publish_locals();
@@ -1252,7 +1281,14 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn published(&mut self, id: Uuid, incarnation: Uuid, result: Result<()>, current: bool) {
+    pub(super) fn published(
+        &mut self,
+        id: Uuid,
+        incarnation: Uuid,
+        refused: bool,
+        result: Result<()>,
+        current: bool,
+    ) {
         if !current {
             return;
         }
@@ -1276,6 +1312,16 @@ impl Runtime {
             }
             Err(error) => {
                 tracing::debug!(%id, %error, "local session publication deferred");
+                if let Some(local) = self.local.get_mut(&id).filter(|local| {
+                    refused
+                        && (local.entry.mission_id.is_some() || !local.entry.shared_with.is_empty())
+                }) {
+                    tracing::warn!(%id, %error, "the terminal is private now: the server refused its room or people");
+                    local.entry.mission_id = None;
+                    local.entry.mission_name = None;
+                    local.entry.shared_with.clear();
+                    self.publish_catalog();
+                }
             }
         }
     }
@@ -1290,10 +1336,12 @@ impl Runtime {
                 Command::RenameSession { name, .. } => local.entry.name.clone_from(name),
                 Command::ShareSession { user_ids, .. } => {
                     local.entry.shared_with.clone_from(user_ids);
+                    local.wanted = None;
                 }
                 Command::AttachSession { mission_id, .. } => {
                     local.entry.mission_id.clone_from(mission_id);
                     local.entry.mission_name = None;
+                    local.wanted = None;
                 }
                 _ => {}
             }

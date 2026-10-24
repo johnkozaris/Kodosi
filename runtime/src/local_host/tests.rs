@@ -247,6 +247,34 @@ async fn a_client_hears_why_the_host_could_not_read_the_saved_sign_in() {
     drop(host.await.unwrap());
 }
 
+#[tokio::test]
+async fn a_client_does_not_wait_for_a_saved_sign_in_that_comes_back_later() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let host = tokio::spawn(async move {
+        let mut offline = scoped("auth.restoring", None, 1);
+        offline["reason"] = json!("offline");
+        welcome_client(
+            &mut listener,
+            vec![
+                scoped("system.ready", None, 1),
+                scoped("auth.finalizing", None, 1),
+            ],
+            vec![offline],
+        )
+        .await
+    });
+    let client = tokio::time::timeout(Duration::from_secs(5), connect_or_start(&root))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(client.initial_events.last().unwrap()["reason"], "offline");
+    drop(host.await.unwrap());
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn a_terminal_connection_answers_its_controls_and_refreshes() {

@@ -7,11 +7,17 @@ mod prompt_marks;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::{KodosiPty, PtyReader};
+pub use unix::{KodosiPty, PtyReader, process_group};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
 pub use windows::{KodosiPty, PtyReader};
+
+/// Windows has no process groups; its foreground observation names the agent's process.
+#[cfg(windows)]
+pub const fn process_group(_pid: u32) -> Option<u32> {
+    None
+}
 
 pub const CONSOLE_HOST: bool = cfg!(windows);
 

@@ -93,6 +93,7 @@ private:
     QStringList m_staged;
     QString m_stageKey;
     QStringList m_restoring;
+    QStringList m_savedStage;
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;

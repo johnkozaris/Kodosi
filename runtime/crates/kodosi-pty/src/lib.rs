@@ -53,7 +53,9 @@ pub enum KodosiError {
     Spawn(String),
 }
 
-pub use pty::{CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
+pub use pty::{
+    CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, process_group,
+};
 
 macro_rules! ghostty_version {
     () => {

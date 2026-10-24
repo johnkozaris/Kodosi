@@ -66,9 +66,9 @@ ApplicationWindow {
         aboutLoader.active = true;
         return aboutLoader.item as AboutDialog;
     }
-    function restartDialog() {
-        restartLoader.active = true;
-        return restartLoader.item as RestartDialog;
+    function quitDialog() {
+        quitLoader.active = true;
+        return quitLoader.item as QuitDialog;
     }
     function missionsView() {
         missionsLoader.active = true;
@@ -107,29 +107,29 @@ ApplicationWindow {
             window.hide();
             Models.Tray.noteHidden();
         } else {
-            Qt.quit();
+            window.quitDialog().request(false);
         }
     }
 
     Connections {
         function onQuitRequested() {
-            Qt.quit();
+            window.quitDialog().request(false);
         }
 
         target: Models.Tray
     }
     Connections {
         function onRestartOffered() {
-            window.restartDialog().request();
+            window.quitDialog().request(true);
         }
 
         target: Models.ApplicationLifecycle
     }
     Loader {
-        id: restartLoader
+        id: quitLoader
         active: false
-        sourceComponent: RestartDialog {
-            objectName: "window.restart"
+        sourceComponent: QuitDialog {
+            objectName: "window.quit"
 
             onAboutToShow: {
                 window.show();
@@ -271,7 +271,7 @@ ApplicationWindow {
                     Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
-                    onActionClicked: window.restartDialog().request()
+                    onActionClicked: window.quitDialog().request(true)
                     onDismissed: {
                         if (window.updateNotice) {
                             window.updateNoticeDismissed = true;

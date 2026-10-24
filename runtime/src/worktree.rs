@@ -10,7 +10,7 @@ use crate::{Error, Result};
 const REMOVAL_LIMIT: Duration = Duration::from_secs(5);
 
 #[cfg(feature = "host")]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Worktree {
     pub path: PathBuf,
     repository: PathBuf,

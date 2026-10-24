@@ -125,7 +125,7 @@ async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8>
 
 #[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_unchanged() {
+async fn a_terminal_on_a_new_branch_keeps_its_folder_until_it_closes_unchanged() {
     async fn start(runtime: &TestRuntime, folder: &Path, branch: &str) -> Value {
         let (_, mut events) = runtime.handle.observe().await.unwrap();
         let request = Uuid::now_v7().to_string();
@@ -201,7 +201,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
     let open_folder = folder.with_file_name("Project-open");
     assert!(open_folder.exists());
     runtime.shutdown().await;
-    assert!(!open_folder.exists());
+    assert!(open_folder.exists());
     drop(runtime);
 }
 
@@ -645,6 +645,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             launcher,
             #[cfg(feature = "host")]
             recent: crate::folders::Recent::load(&config.data_root),
+            #[cfg(feature = "host")]
+            restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
             config,
             network,
@@ -1732,4 +1734,321 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     runtime.network_event(notice(false, "done"));
     assert_eq!(shown(&runtime), (None, None, None));
     assert_eq!(runtime.remotes[&id].status, SessionStatus::Offline);
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_restored_agent_continues_its_conversation_or_lists_them() {
+    use crate::agents::Agent;
+    let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+    let line = |agent, command, conversation| restore::resume_line(agent, command, conversation);
+    assert_eq!(
+        line(Agent::Claude, "claude", Some(id)).unwrap(),
+        format!("claude --resume {id}")
+    );
+    assert_eq!(
+        line(Agent::Copilot, "copilot", Some(id)).unwrap(),
+        format!("copilot --resume={id}")
+    );
+    assert_eq!(
+        line(Agent::Codex, "env CODEX_HOME=/w codex", None).unwrap(),
+        "env CODEX_HOME=/w codex resume"
+    );
+    assert_eq!(
+        line(Agent::Claude, "claude", None).unwrap(),
+        "claude --resume"
+    );
+    assert_eq!(line(Agent::Gemini, "gemini", Some(id)), None);
+    assert_eq!(restore::usual_line("copilot").unwrap(), "copilot --resume");
+    assert_eq!(restore::usual_line("vim"), None);
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
+    let root = tempfile::tempdir().unwrap();
+    let saved = |name: &str| restore::Saved {
+        id: Uuid::now_v7(),
+        name: name.to_owned(),
+        folder: None,
+        sharing: None,
+        line: None,
+        worktree: None,
+    };
+    let (first, second) = (saved("first"), saved("second"));
+    restore::Restore::load(root.path()).save(vec![first.clone()]);
+    restore::Restore::load(root.path()).save(vec![second.clone()]);
+    let mut opened_by_an_app = restore::Restore::load(root.path());
+    assert_eq!(opened_by_an_app.take(), vec![first, second]);
+    assert_eq!(opened_by_an_app.take(), Vec::new());
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_restored_terminal_opens_in_the_nearest_folder_that_is_still_there() {
+    let root = tempfile::tempdir().unwrap();
+    let kept = root.path().join("kept");
+    std::fs::create_dir(&kept).unwrap();
+    let gone = kept.join("gone/deeper");
+    assert_eq!(
+        restore::nearest_folder(gone.to_str()).as_deref(),
+        kept.to_str()
+    );
+    assert_eq!(restore::nearest_folder(None), None);
+}
+
+#[cfg(all(unix, feature = "host"))]
+async fn send_to(handle: &RuntimeHandle, command: Command) {
+    let events = handle.snapshot().await.unwrap();
+    let event = events.first().unwrap();
+    handle
+        .try_send(CommandEnvelope {
+            account_user_id: event.account_user_id.clone(),
+            account_epoch: event.account_epoch,
+            computer: None,
+            command,
+        })
+        .unwrap();
+}
+
+#[cfg(all(unix, feature = "host"))]
+async fn create_named(
+    handle: &RuntimeHandle,
+    name: &str,
+    folder: &Path,
+    line: Option<String>,
+) -> String {
+    let (_, mut events) = handle.observe().await.unwrap();
+    let request = Uuid::now_v7().to_string();
+    let command = Command::CreateSession {
+        request_id: request.clone(),
+        name: name.to_owned(),
+        working_dir: Some(folder.to_string_lossy().into_owned()),
+        mission_id: None,
+        resume: None,
+        branch: None,
+        worktrees: None,
+        command: line,
+        agent: None,
+        prompt: None,
+    };
+    send_to(handle, command).await;
+    created(&mut events, &request).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[cfg(all(unix, feature = "host"))]
+async fn sessions_where(
+    events: &mut broadcast::Receiver<Event>,
+    wanted: impl Fn(&[Value]) -> bool + Send + Sync,
+) -> Vec<Value> {
+    timeout(Duration::from_secs(20), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["type"] == "sessions.snapshot" {
+                let sessions = event["sessions"].as_array().unwrap().clone();
+                if wanted(&sessions) {
+                    return sessions;
+                }
+            }
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[cfg(all(unix, feature = "host"))]
+async fn screen_shows(handle: &RuntimeHandle, entry: &Value, text: &str) {
+    let (_, mut events) = handle.observe().await.unwrap();
+    timeout(Duration::from_secs(20), async {
+        loop {
+            let request = Uuid::now_v7().to_string();
+            let read = Command::Read {
+                request_id: request.clone(),
+                session_id: entry["id"].as_str().unwrap().to_owned(),
+                expected_runtime_incarnation_id: entry["incarnationId"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned(),
+                history: false,
+            };
+            send_to(handle, read).await;
+            let screen = loop {
+                let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+                if event["requestId"] == request.as_str() {
+                    break event["text"].as_str().unwrap_or_default().to_owned();
+                }
+            };
+            if screen.contains(text) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
+    const NAME: &str =
+        "runtime::tests::terminals_come_back_after_the_host_stopped_once_an_app_asks";
+    const RECORDS: &str = "KODOSI_TEST_CLAUDE_RECORDS";
+    const CONVERSATION: &str = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+    if let Some(records) = std::env::var_os(RECORDS) {
+        let record = json!({"sessionId": CONVERSATION, "pid": std::process::id(), "cwd": "/"});
+        std::fs::write(Path::new(&records).join("agent.json"), record.to_string()).unwrap();
+        std::thread::sleep(Duration::from_secs(60));
+        return;
+    }
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let config = || {
+        let mut config = Config::isolated(&root).unwrap();
+        config.initial_shell = Some(SHELL.to_owned());
+        config
+    };
+    let (work, claude, agent) = (
+        root.join("work"),
+        root.join("claude"),
+        root.join("bin/claude"),
+    );
+    let gone = work.join("gone");
+    for folder in [&gone, &claude.join("sessions"), &root.join("bin")] {
+        std::fs::create_dir_all(folder).unwrap();
+    }
+    std::os::unix::fs::symlink(std::env::current_exe().unwrap(), &agent).unwrap();
+
+    let first = start(config()).await.unwrap();
+    let (_, mut events) = first.observe().await.unwrap();
+    let start_agent = format!(
+        "env CLAUDE_CONFIG_DIR={} {RECORDS}={} {} --exact {NAME} --test-threads=1",
+        claude.display(),
+        claude.join("sessions").display(),
+        agent.display()
+    );
+    let build = create_named(&first, "Build", &work, Some(start_agent)).await;
+    let notes = create_named(&first, "Notes", &gone, None).await;
+    sessions_where(&mut events, |sessions| {
+        sessions
+            .iter()
+            .any(|entry| entry["id"] == build && entry["program"] == "claude")
+    })
+    .await;
+    first.shutdown().await;
+    drop(first);
+
+    let file = root.join("core/terminals.json");
+    let mut saved: Vec<Value> = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let names = saved
+        .iter()
+        .map(|entry| entry["name"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(names, [json!("Build"), json!("Notes")]);
+    let command =
+        crate::agents::account_command(crate::agents::Agent::Claude, &root.join("home"), &claude);
+    assert!(command.starts_with("env CLAUDE_CONFIG_DIR="), "{command}");
+    assert_eq!(
+        saved[0]["line"],
+        format!("{command} --resume {CONVERSATION}")
+    );
+    assert!(saved[1].get("line").is_none());
+
+    saved[0]["line"] = json!("echo came$((1+1))back");
+    std::fs::write(&file, serde_json::to_vec(&saved).unwrap()).unwrap();
+    std::fs::remove_dir(&gone).unwrap();
+    let second = start(config()).await.unwrap();
+    let (_, mut events) = second.observe().await.unwrap();
+    let request_id = Uuid::now_v7().to_string();
+    send_to(&second, Command::RestoreSessions { request_id }).await;
+    let sessions = sessions_where(&mut events, |sessions| sessions.len() == 2).await;
+    let restored = |from: &str| {
+        sessions
+            .iter()
+            .find(|entry| entry["restoredFrom"] == from)
+            .cloned()
+            .unwrap()
+    };
+    let (build_again, notes_again) = (restored(&build), restored(&notes));
+    assert_eq!(build_again["name"], "Build");
+    assert_eq!(notes_again["name"], "Notes");
+    assert_ne!(build_again["id"], build);
+    for entry in [&build_again, &notes_again] {
+        assert_eq!(entry["workingDir"], work.to_str().unwrap());
+    }
+    screen_shows(&second, &build_again, "came2back").await;
+    second.shutdown().await;
+    drop(second);
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refused_room() {
+    let (mut runtime, storage) = registry_fixture();
+    let id = Uuid::now_v7();
+    let terminal = TerminalSession::spawn(
+        id,
+        Uuid::now_v7(),
+        PathBuf::from(SHELL),
+        Vec::new(),
+        storage.path().to_owned(),
+        None,
+        runtime.changes.clone(),
+    )
+    .await
+    .unwrap();
+    let entry = serde_json::from_value(json!({
+        "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
+        "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
+        "repository": false, "sharedWith": [],
+    }))
+    .unwrap();
+    let chosen = Uuid::now_v7().to_string();
+    let incarnation = terminal.incarnation_id;
+    runtime.local.insert(
+        id,
+        Local {
+            terminal: terminal.clone(),
+            entry,
+            creation: Command::ListSessions {
+                request_id: Uuid::now_v7().to_string(),
+            },
+            published: false,
+            room_sequence: 0,
+            worktree: None,
+            wanted: restore::Sharing::of(Some(&"owner".to_owned()), Some(&chosen), &[]),
+        },
+    );
+    let room_of = |runtime: &Runtime| runtime.local[&id].entry.mission_id.clone();
+    for user in [None, Some("someone else")] {
+        runtime.scope.user = user.map(str::to_owned);
+        runtime.apply_wanted();
+        assert_eq!(room_of(&runtime), None);
+    }
+    runtime.scope.user = Some("owner".to_owned());
+    runtime.apply_wanted();
+    assert_eq!(room_of(&runtime), Some(chosen.clone()));
+    assert!(runtime.local[&id].wanted.is_none());
+
+    runtime.published(
+        id,
+        incarnation,
+        false,
+        Err(Error::Other("offline".to_owned())),
+        true,
+    );
+    assert_eq!(room_of(&runtime), Some(chosen));
+    runtime.published(
+        id,
+        incarnation,
+        true,
+        Err(Error::Invalid("gone".to_owned())),
+        true,
+    );
+    assert_eq!(room_of(&runtime), None);
+    terminal.close().await.unwrap();
+    drop(terminal);
 }

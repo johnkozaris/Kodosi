@@ -41,10 +41,11 @@ and conversations stay with the provider. Kodosi supplies the shared space.
 Minimize hides a view and keeps its terminal running. Close ends the terminal and its
 programs. Closing the window leaves the app and the host running, with Kodosi's icon in
 the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
-can change what closing the window does. Quit leaves the computer's host and its
-terminals running, and the apps show them again when they open. A restart to update
-stops a background host and its terminals after a warning, but not a host that runs in a
-terminal with `kodosi host`.
+can change what closing the window does. Quit stops the computer's host and its
+terminals, but not a host that runs in a terminal with `kodosi host`, and not terminals
+on other computers. When the app opens again, the host starts those terminals again with
+their names, folders, rooms and sharing, and agents continue their conversations. The
+`kodosi` command starts a host but never starts the earlier terminals.
 
 The apps and the `kodosi` command are equal clients of the computer's host: what one
 does, the others show. A person's typing comes first: input from the command stops with

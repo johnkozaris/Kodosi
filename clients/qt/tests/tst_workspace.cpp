@@ -4,6 +4,7 @@
 #include "presentation/Workspace.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include <QJsonArray>
+#include <algorithm>
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QFileInfo>
@@ -816,6 +817,66 @@ private slots:
         again.workspace.apply(accountEvent({}, 1), 1);
         again.workspace.apply(both, 1);
         QVERIFY(again.desktop.stagedSessionIds().isEmpty());
+    }
+    void aTerminalThatTheHostStartedAgainTakesThePlaceOfTheOneBefore()
+    {
+        QTemporaryDir dir;
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent({}, 1), 1);
+            first.workspace.apply(test::snapshot({ test::session(1) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent({}, 1), 1);
+        restarted.workspace.apply(accountEvent(test::id(50), 2), 2);
+        const auto restores = std::ranges::count_if(restarted.commands.values, [](const QJsonObject& command) {
+            return command.value(QStringLiteral("type")).toString() == QStringLiteral("session.restore");
+        });
+        QCOMPARE(restores, 1);
+        restarted.workspace.apply(accountEvent({}, 3), 3);
+        auto again = test::session(2);
+        again.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ again }), 3);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+    }
+    void restoredTerminalsKeepTheirOrderOnTheStage()
+    {
+        QTemporaryDir dir;
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent({}, 1), 1);
+            first.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+            QVERIFY(first.workspace.sessionActions().activate(test::id(2)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent({}, 1), 1);
+        auto second = test::session(4);
+        second.insert(QStringLiteral("restoredFrom"), test::id(2));
+        restarted.workspace.apply(test::snapshot({ second }), 1);
+        auto first = test::session(3);
+        first.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ first, second }), 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(4) }));
+    }
+    void theStageComesBackWhileASavedSignInWaitsForTheServer()
+    {
+        QTemporaryDir dir;
+        const QJsonObject restoring { { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("offline") }, { QStringLiteral("accountEpoch"), 1 } };
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(restoring, 1);
+            first.workspace.apply(test::snapshot({ test::session(1) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(restoring, 1);
+        auto again = test::session(2);
+        again.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ again }), 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
     }
     void aRestoredRemoteTerminalOpensAgain()
     {

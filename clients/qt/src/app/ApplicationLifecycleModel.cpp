@@ -19,7 +19,7 @@ ApplicationLifecycleModel::ApplicationLifecycleModel(
           [&runtime](Completion completion) {
               runtime.startAsync(std::move(completion));
           },
-          [&runtime](bool endHost) { runtime.quit(endHost); },
+          [&runtime] { runtime.quit(); },
           [&runtime](std::function<void(HostStop)> completion) {
               runtime.stopHostAsync(std::move(completion));
           },
@@ -89,7 +89,7 @@ void ApplicationLifecycleModel::stop() noexcept
     m_stopping = true;
     ++m_attemptToken;
     m_attemptInFlight = false;
-    m_stopOperation(m_restartRequested);
+    m_stopOperation();
 }
 
 void ApplicationLifecycleModel::retry()

@@ -147,9 +147,9 @@ void RuntimeBridge::stop() noexcept
     emit runningChanged(false);
 }
 
-void RuntimeBridge::quit(const bool endHost) noexcept
+void RuntimeBridge::quit() noexcept
 {
-    const bool stopsHost = endHost && isRunning() && !m_hostForeground;
+    const bool stopsHost = isRunning() && !m_hostForeground;
     stop();
     if (stopsHost)
         kodosi_host_stop(1);

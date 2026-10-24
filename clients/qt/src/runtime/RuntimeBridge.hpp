@@ -91,7 +91,7 @@ class RuntimeBridge : public QObject, public TerminalCommandDispatcher {
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
-    static constexpr std::uint32_t protocolVersion = 71;
+    static constexpr std::uint32_t protocolVersion = 72;
 
     explicit RuntimeBridge(QObject* parent = nullptr);
     RuntimeBridge(TerminalEventSink& terminalSink, QObject* parent = nullptr);
@@ -103,7 +103,7 @@ public:
     [[nodiscard]] bool hostForeground() const noexcept { return m_hostForeground; }
     void startAsync(std::function<void(Result)> completion);
     void stop() noexcept;
-    void quit(bool endHost) noexcept;
+    void quit() noexcept;
     void stopHostAsync(std::function<void(HostStop)> completion);
     [[nodiscard]] Result send(QByteArrayView json) override;
     [[nodiscard]] Result connectTerminal(const TerminalSubscription& subscription) override;

@@ -136,9 +136,17 @@ extension AppDependencies {
             throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         appState = .ready
+        restoreAsked = false
         refresh()
         reportedVisible = []
         reportVisible()
+    }
+
+    /// The host starts the terminals of its last run again only when an app asks.
+    private func askRestore() {
+        guard !restoreAsked else { return }
+        restoreAsked = true
+        commandSink.perform("session.restore")
     }
 
     private func receiveAuth(_ event: RuntimeEvent) throws {
@@ -146,6 +154,7 @@ extension AppDependencies {
         try account.receiveAuth(event)
         switch event.type {
         case "auth.ready":
+            askRestore()
             if !account.localDeviceEnrolled, stage.isPending {
                 signInPresented = true
             }
@@ -153,7 +162,10 @@ extension AppDependencies {
             commandSink.perform("devices.refresh"); commandSink.perform("mission.list")
             consumeDeepLink()
         case "auth.required":
+            askRestore()
             commandSink.perform("session.list")
+        case "auth.restoring":
+            askRestore()
         case "auth.deletion_pending":
             if let page = account.deletionPage {
                 openExternalURL(page)

@@ -99,7 +99,7 @@ import Testing
     #expect(sent == ["session.list", "session.list"])
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     app.refresh()
-    #expect(sent.allSatisfy { $0 == "session.list" })
+    #expect(sent.filter { $0 != "session.list" } == ["session.restore"])
     #expect(app.errorMessage == nil)
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     sent.removeAll()

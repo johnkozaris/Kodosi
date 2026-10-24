@@ -303,6 +303,11 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
+    /// Windows cannot read another process's environment.
+    pub const fn foreground_variable(&self, _name: &str) -> Option<String> {
+        None
+    }
+
     pub fn resize(
         &self,
         rows: u16,

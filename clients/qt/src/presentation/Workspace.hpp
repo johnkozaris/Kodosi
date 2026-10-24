@@ -71,6 +71,7 @@ private:
     QHash<QString, Pending> m_pending;
     std::optional<QStringList> m_reportedVisible;
     bool m_hostReady = false;
+    bool m_restoreAsked = false;
     QString m_error;
     AccountModel m_account;
     PeopleModel m_people;
@@ -86,6 +87,7 @@ private:
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();
+    void askRestore();
     void receiveResult(const QString& type, const QJsonObject& event);
     void clearAccountData(bool clearLinks, const QString& userId);
     static bool validName(const QString& name);
