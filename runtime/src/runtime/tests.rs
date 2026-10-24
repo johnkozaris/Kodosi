@@ -1511,6 +1511,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
             failures: 0,
             next: Instant::now(),
             connected: None,
+            failure: crate::diagnostics::Repeats::new(),
         },
     );
     runtime.reconnect_views();
@@ -1526,6 +1527,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
             failures: 0,
             next: Instant::now(),
             connected: None,
+            failure: crate::diagnostics::Repeats::new(),
         },
     );
     runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
@@ -1565,6 +1567,7 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
             failures: 0,
             next: Instant::now(),
             connected: None,
+            failure: crate::diagnostics::Repeats::new(),
         },
     );
     runtime.reconnect_views();

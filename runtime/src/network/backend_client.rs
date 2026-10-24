@@ -244,6 +244,7 @@ impl BackendClient {
             let mut tick = tokio::time::interval(Duration::from_secs(10));
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             tick.tick().await;
+            let mut failure = crate::diagnostics::Repeats::new();
             loop {
                 tokio::select! {
                     ()=this.inner.shutdown.cancelled()=>break,
@@ -256,10 +257,12 @@ impl BackendClient {
                         }else{
                             Ok(())
                         };
-                        if let Err(error)=this.sign_in_kept(result).await
-                            && error.user_facing()
-                        {
-                            tracing::warn!(%error, "the account was not refreshed; it will be tried again");
+                        match this.sign_in_kept(result).await {
+                            Ok(()) => failure.worked(),
+                            Err(error) if error.user_facing() && failure.new_failure(&error) => {
+                                tracing::warn!(%error, "the account was not refreshed; it will be tried again");
+                            }
+                            Err(_) => {}
                         }
                     }
                 }

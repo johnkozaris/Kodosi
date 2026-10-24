@@ -53,6 +53,33 @@ pub fn client(level: Level, message: &[u8]) {
     }
 }
 
+/// Lets a loop that tries again write a failure once: the first one, and then only a
+/// different one, until it works again.
+#[derive(Default)]
+pub(crate) struct Repeats {
+    last: Option<String>,
+}
+
+impl Repeats {
+    pub(crate) const fn new() -> Self {
+        Self { last: None }
+    }
+
+    /// Whether the log does not have this failure yet.
+    pub(crate) fn new_failure(&mut self, error: &impl std::fmt::Display) -> bool {
+        let error = error.to_string();
+        if self.last.as_ref() == Some(&error) {
+            return false;
+        }
+        self.last = Some(error);
+        true
+    }
+
+    pub(crate) fn worked(&mut self) {
+        self.last = None;
+    }
+}
+
 struct Log {
     path: PathBuf,
     home: Vec<String>,
@@ -214,6 +241,16 @@ mod tests {
         assert!(lines[1].ends_with(" [TRUNCATED]"));
         assert!(!lines[1].contains(&"s".repeat(64)));
         assert!(lines[1].len() < 1024);
+    }
+
+    #[test]
+    fn a_repeated_failure_is_written_once_until_it_works_again() {
+        let mut failure = Repeats::new();
+        assert!(failure.new_failure(&"The host is offline."));
+        assert!(!failure.new_failure(&"The host is offline."));
+        assert!(failure.new_failure(&"Unauthorized"));
+        failure.worked();
+        assert!(failure.new_failure(&"Unauthorized"));
     }
 
     #[test]

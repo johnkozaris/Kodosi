@@ -113,6 +113,7 @@ impl BackendClient {
         let network = self.clone();
         tokio::spawn(async move {
             let mut delay = 1;
+            let mut failure = crate::diagnostics::Repeats::new();
             loop {
                 if cancel.is_cancelled()
                     || network.check_credentials(&credentials).is_err()
@@ -127,11 +128,14 @@ impl BackendClient {
                     ()=network.inner.shutdown.cancelled()=>break,
                     result=network.notification_connection(&credentials,&cancel)=>result,
                 };
-                if let Err(error) = result {
-                    tracing::warn!(%error, "notification stream interrupted");
-                }
                 if started.elapsed() >= terminal_connections::STABLE_CONNECTION {
                     delay = 1;
+                    failure.worked();
+                }
+                if let Err(error) = result
+                    && failure.new_failure(&error)
+                {
+                    tracing::warn!(%error, "notification stream interrupted");
                 }
                 tokio::select! {
                     ()=cancel.cancelled()=>break,

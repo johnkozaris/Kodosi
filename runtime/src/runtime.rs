@@ -770,6 +770,7 @@ struct Reconnect {
     failures: u32,
     next: tokio::time::Instant,
     connected: Option<tokio::time::Instant>,
+    failure: crate::diagnostics::Repeats,
 }
 
 struct Starting {
@@ -2273,6 +2274,7 @@ impl Runtime {
                     failures,
                     next: tokio::time::Instant::now() + Reconnect::delay(failures),
                     connected: None,
+                    failure: crate::diagnostics::Repeats::new(),
                 },
             );
         } else if let Some(connection) = self.connections.remove(&id) {

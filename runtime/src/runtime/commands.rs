@@ -665,6 +665,7 @@ impl Runtime {
                     failures: 0,
                     next: tokio::time::Instant::now() + Duration::from_secs(2),
                     connected: None,
+                    failure: crate::diagnostics::Repeats::new(),
                 });
             }
             if !recovering {
@@ -708,6 +709,7 @@ impl Runtime {
                 failures: 0,
                 next: tokio::time::Instant::now(),
                 connected: None,
+                failure: crate::diagnostics::Repeats::new(),
             });
         }
         self.result(command);
@@ -1160,6 +1162,7 @@ impl Runtime {
                             failures,
                             next: tokio::time::Instant::now() + Duration::from_secs(2),
                             connected: Some(tokio::time::Instant::now()),
+                            failure: crate::diagnostics::Repeats::new(),
                         },
                     );
                 }
@@ -1199,7 +1202,13 @@ impl Runtime {
     }
 
     fn connection_failed(&mut self, id: Uuid, commands: Vec<Command>, error: Error) {
-        tracing::warn!(%id, %error, "remote terminal connection failed");
+        if self
+            .reconnect
+            .get_mut(&id)
+            .is_none_or(|retry| retry.failure.new_failure(&error))
+        {
+            tracing::warn!(%id, %error, "remote terminal connection failed");
+        }
         let blocked = matches!(error, Error::Invalid(_));
         if blocked {
             self.reconnect.remove(&id);

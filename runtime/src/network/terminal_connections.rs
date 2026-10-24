@@ -57,6 +57,8 @@ pub(crate) const INPUT_NOT_SENT: &str = "Some of your last input was not sent.";
 const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
 const CHANNEL_SILENCE: Duration = Duration::from_secs(45);
+static CONNECTION_FAILURE: std::sync::Mutex<crate::diagnostics::Repeats> =
+    std::sync::Mutex::new(crate::diagnostics::Repeats::new());
 
 #[cfg(feature = "host")]
 pub(crate) struct Publication {
@@ -229,9 +231,17 @@ async fn admitted(
     .await
     .map_err(|_| invalid("Terminal connection timed out."))?
     .map_err(|error| {
-        tracing::warn!(%error, "terminal connection failed");
+        if CONNECTION_FAILURE
+            .lock()
+            .is_ok_and(|mut failure| failure.new_failure(&error))
+        {
+            tracing::warn!(%error, "terminal connection failed");
+        }
         invalid("Kodosi could not reach the terminal connection service.")
     })?;
+    if let Ok(mut failure) = CONNECTION_FAILURE.lock() {
+        failure.worked();
+    }
     send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session,"hosts":cfg!(feature = "host")})).await?;
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
