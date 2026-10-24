@@ -317,8 +317,17 @@ private slots:
         local.insert(QStringLiteral("title"), QStringLiteral("GitHub Copilot"));
         auto remote = test::session(2, true, false);
         remote.insert(QStringLiteral("workingDir"), QStringLiteral("/host/project"));
-        f.sessions.apply(test::snapshot({ local, remote }));
-        QCOMPARE(f.sessions.folderGroups().size(), 2);
+        remote.insert(QStringLiteral("ownerName"), QStringLiteral("Ana"));
+        remote.insert(QStringLiteral("hostName"), QStringLiteral("Studio"));
+        auto unopened = remote;
+        unopened.insert(QStringLiteral("id"), test::id(3));
+        unopened.insert(QStringLiteral("incarnationId"), test::id(103));
+        unopened.remove(QStringLiteral("workingDir"));
+        f.sessions.apply(test::snapshot({ local, remote, unopened }));
+        QStringList labels;
+        for (const auto& group : f.sessions.folderGroups())
+            labels.append(group.toMap().value(QStringLiteral("label")).toString());
+        QCOMPARE(labels, (QStringList { QStringLiteral("project"), QStringLiteral("Ana · Studio"), QStringLiteral("project · Ana · Studio") }));
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
         QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));
@@ -807,6 +816,24 @@ private slots:
         again.workspace.apply(accountEvent({}, 1), 1);
         again.workspace.apply(both, 1);
         QVERIFY(again.desktop.stagedSessionIds().isEmpty());
+    }
+    void aRestoredRemoteTerminalOpensAgain()
+    {
+        QTemporaryDir dir;
+        const auto remote = test::snapshot({ test::session(4, true, false) });
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(remote, 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(4)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        restarted.workspace.apply(remote, 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(4) });
+        const auto command = restarted.commands.values.last();
+        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
+        QCOMPARE(command.value(QStringLiteral("sessionId")).toString(), test::id(4));
     }
     void boundedStageAndInvalidSnapshot()
     {

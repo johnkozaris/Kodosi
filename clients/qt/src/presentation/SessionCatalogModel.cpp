@@ -40,13 +40,22 @@ QVariantList SessionCatalogModel::folderGroups() const
             + QLatin1Char(':') + session.workingDirectory;
         auto& group = groups[key];
         const bool away = presentation(session).away && !local;
+        const auto folder = session.workingDirectory.isEmpty() ? QString {} : folderName(session.workingDirectory);
+        const auto name = folder.isEmpty() ? tr("Terminals") : folder;
+        const auto host = local ? QString {} : session.hostName;
+        const auto owner = local || session.isOwner ? QString {} : session.ownerName;
+        QStringList label;
+        for (const auto& part : { local ? QString {} : folder, owner, host }) {
+            if (!part.isEmpty())
+                label.append(part);
+        }
         group.insert(QStringLiteral("offline"), away && group.value(QStringLiteral("offline"), true).toBool());
         group.insert(QStringLiteral("key"), key);
         group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : QString {});
-        group.insert(QStringLiteral("name"),
-            session.workingDirectory.isEmpty() ? tr("Terminals") : folderName(session.workingDirectory));
-        group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
-        group.insert(QStringLiteral("owner"), local || session.isOwner ? QString {} : session.ownerName);
+        group.insert(QStringLiteral("name"), name);
+        group.insert(QStringLiteral("label"), label.isEmpty() ? name : label.join(QStringLiteral(" · ")));
+        group.insert(QStringLiteral("host"), host);
+        group.insert(QStringLiteral("owner"), owner);
         if (local && session.repository)
             group.insert(QStringLiteral("repository"), true);
         auto entries = group.value(QStringLiteral("sessions")).toList();

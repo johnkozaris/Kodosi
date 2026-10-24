@@ -79,6 +79,7 @@ signals:
     void lastErrorChanged();
     void modalOpenChanged();
     void launcherDraftChanged();
+    void restored(const QStringList& sessionIds);
 
 protected:
     bool eventFilter(QObject*, QEvent*) override;

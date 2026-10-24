@@ -26,6 +26,26 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
     connect(&sessions, &SessionCatalogModel::sessionsHidden, this, [this](const QStringList& ids) {
         for (const auto& id : ids) minimize(id);
     });
+    connect(&desktop, &DesktopStateModel::restored, this, [this](const QStringList& ids) {
+        for (const auto& id : ids) {
+            const auto session = m_sessions.session(id);
+            if (session && session->kind == QStringLiteral("remote") && !opening(id))
+                openRemote(id);
+        }
+    });
+}
+
+bool SessionActionsModel::opening(const QString& id) const
+{
+    return std::ranges::any_of(m_workspace.m_pending, [&id](const Workspace::Pending& pending) {
+        return pending.operation == QStringLiteral("session.openRemote") && pending.sessionId == id;
+    });
+}
+
+bool SessionActionsModel::openRemote(const QString& id)
+{
+    return m_workspace.sendTracked(Workspace::PendingDomain::Session, QStringLiteral("session.openRemote"),
+        { { QStringLiteral("sessionId"), id } }, id);
 }
 
 bool SessionActionsModel::busy() const
@@ -59,17 +79,14 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
 {
     const auto session = m_sessions.session(id);
     if (!session && m_workspace.account().signedIn()) {
-        for (const auto& pending : m_workspace.m_pending) {
-            if (pending.operation == QStringLiteral("session.openRemote") && pending.sessionId == id)
-                return true;
-        }
+        if (opening(id))
+            return true;
         if (QUuid(id).isNull()) {
             m_workspace.setError(tr("The terminal link is invalid."));
             return false;
         }
         m_activeLink = DeepLinkDestination { id };
-        if (m_workspace.sendTracked(Workspace::PendingDomain::Session,
-                QStringLiteral("session.openRemote"), { { QStringLiteral("sessionId"), id } }, id))
+        if (openRemote(id))
             return true;
         m_activeLink.reset();
         return false;
@@ -82,19 +99,8 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
     }
     if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6)
         return m_desktop.stageSession(id, !inRoom);
-    if (session->kind == QStringLiteral("remote")) {
-        for (const auto& pending : m_workspace.m_pending) {
-            if (pending.operation == QStringLiteral("session.openRemote") && pending.sessionId == id) {
-                if (!m_desktop.stageSession(id, !inRoom))
-                    return false;
-                emit activated(id);
-                return true;
-            }
-        }
-        if (!m_workspace.sendTracked(Workspace::PendingDomain::Session,
-                QStringLiteral("session.openRemote"), { { QStringLiteral("sessionId"), id } }, id))
-            return false;
-    }
+    if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id))
+        return false;
     if (!m_desktop.stageSession(id, !inRoom))
         return false;
     emit activated(id);

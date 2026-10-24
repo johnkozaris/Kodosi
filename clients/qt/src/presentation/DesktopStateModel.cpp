@@ -238,7 +238,7 @@ void DesktopStateModel::reconcile()
         if (!session || !session->canRetainPresentation)
             unstageSession(id);
     }
-    auto restored = false;
+    QStringList restored;
     for (const auto& id : QStringList(m_restoring)) {
         const auto session = m_sessions->presentationSession(id);
         if (!session)
@@ -247,15 +247,16 @@ void DesktopStateModel::reconcile()
         if (session->canRetainPresentation && !m_sessions->session(id)->hidden && !m_staged.contains(id)
             && m_staged.size() < 6) {
             m_staged.append(id);
-            restored = true;
+            restored.append(id);
         }
     }
-    if (restored) {
+    if (!restored.isEmpty()) {
         emit stagedSessionIdsChanged();
         if (m_selected.isEmpty()) {
             m_selected = m_staged.first();
             emit selectedSessionIdChanged();
         }
+        emit this->restored(restored);
     }
     saveStage();
 }

@@ -818,7 +818,7 @@ Item {
                                 PlainLabel {
                                     id: folderLabel
                                     Layout.fillWidth: true
-                                    text: folder.group.host ? (folder.group.owner ? folder.group.owner + " · " + folder.group.host : folder.group.host) : (folder.group.name || "")
+                                    text: folder.group.label || ""
                                     color: folderHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
                                     font.weight: Font.Medium
@@ -1100,8 +1100,8 @@ Item {
                                 TapHandler {
                                     acceptedButtons: Qt.RightButton
                                     onTapped: {
-                                        menu.sessionId = row.sessionId
-                                        menu.popup()
+                                        terminalMenu.sessionId = row.sessionId
+                                        terminalMenu.popup()
                                     }
                                 }
                             }
@@ -1261,18 +1261,18 @@ Item {
         z: 10
     }
     KMenu {
-        id: menu
+        id: terminalMenu
 
         property string sessionId: ""
         readonly property var session: Models.Sessions.presentationForSession(sessionId)
 
-        KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(menu.sessionId) }
-        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: menu.session.isOwner === true; onTriggered: root.renamingId = menu.sessionId }
-        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: menu.session.kind === "local" && menu.session.isOwner === true; onTriggered: root.shareRequested(menu.sessionId) }
-        KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
+        KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: terminalMenu.session.isOwner === true; onTriggered: root.renamingId = terminalMenu.sessionId }
+        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: terminalMenu.session.kind === "local" && terminalMenu.session.isOwner === true; onTriggered: root.shareRequested(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(terminalMenu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-        KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
-        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canClose === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
+        KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(terminalMenu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: terminalMenu.session.canClose === true; onTriggered: closeDialog.ask(terminalMenu.sessionId, terminalMenu.session.name || "") }
     }
     KPopover {
         id: branchPopover
