@@ -425,8 +425,10 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
         assert_eq!(running.pid, Some(std::process::id()));
         assert_eq!(received.recv().await.unwrap(), delivered);
     }
+    assert_eq!(app_owner(root.path()).await, Some(std::process::id()));
     server.shutdown().await;
     assert!(claim_released(root.path()).await);
+    assert_eq!(app_owner(root.path()).await, None);
 }
 
 #[tokio::test]

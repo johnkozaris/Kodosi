@@ -170,6 +170,16 @@ pub async fn forward_activation(
     }
 }
 
+pub async fn app_owner(root: &Path) -> Option<u32> {
+    let root = kodosi_os::fs::canonicalize(root).ok()?;
+    let endpoint = role_endpoint(&root, "app").ok()?;
+    tokio::time::timeout(HELLO_TIMEOUT, kodosi_os::ipc::connect(&endpoint))
+        .await
+        .ok()?
+        .ok()?
+        .peer_pid()
+}
+
 async fn send(
     endpoint: &kodosi_os::ipc::Endpoint,
     activation: &Value,

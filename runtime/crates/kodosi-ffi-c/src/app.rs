@@ -228,7 +228,6 @@ unsafe fn forward(json: *const u8, length: usize) -> Outcome {
     Ok(KODOSI_APP_OWNER)
 }
 
-/// Ends the earlier app that `kodosi_forward_activation` found and claims its data folder.
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_replace_earlier_app() -> i32 {
     settle(replace_earlier)
@@ -254,8 +253,7 @@ fn replace_earlier() -> Outcome {
             }
         },
     };
-    #[cfg(unix)]
-    kodosi_os::process::end_process(pid);
+    end_earlier(&root, pid);
     let deadline = std::time::Instant::now() + REPLACE_WAIT;
     loop {
         if let Some(claim) = local_host::claim_app(&root)
@@ -281,6 +279,21 @@ fn replace_earlier() -> Outcome {
         std::thread::sleep(Duration::from_millis(50));
     }
 }
+
+#[cfg(all(feature = "host", unix))]
+fn end_earlier(root: &std::path::Path, pid: u32) {
+    let owner = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .ok()
+        .and_then(|runtime| runtime.block_on(local_host::app_owner(root)));
+    if owner == Some(pid) {
+        kodosi_os::process::end_process(pid);
+    }
+}
+
+#[cfg(all(feature = "host", not(unix)))]
+const fn end_earlier(_root: &std::path::Path, _pid: u32) {}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_log(level: i32, utf8: *const u8, length: usize) -> i32 {
