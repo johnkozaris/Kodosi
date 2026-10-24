@@ -25,17 +25,30 @@ public:
 };
 struct Fixture {
     QTemporaryDir dir;
+    QString root;
     Commands commands;
     kodosi::SessionCatalogModel sessions;
     kodosi::DesktopStateModel desktop {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
+        std::make_unique<QSettings>(root + QStringLiteral("/ui.ini"), QSettings::IniFormat)
     };
     kodosi::DesktopSettings settings {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("terminal.ini")), QSettings::IniFormat)
+        std::make_unique<QSettings>(root + QStringLiteral("/terminal.ini"), QSettings::IniFormat)
     };
     kodosi::Workspace workspace { commands, sessions, desktop, settings };
-    Fixture() { desktop.attachSessionCatalog(&sessions); }
+    explicit Fixture(const QString& place = {})
+        : root(place.isEmpty() ? dir.path() : place)
+    {
+        desktop.attachSessionCatalog(&sessions);
+    }
 };
+QJsonObject accountEvent(const QString& userId, int epoch)
+{
+    QJsonObject event { { QStringLiteral("type"), userId.isEmpty() ? QStringLiteral("auth.required") : QStringLiteral("auth.ready") },
+        { QStringLiteral("accountEpoch"), epoch } };
+    if (!userId.isEmpty())
+        event.insert(QStringLiteral("userId"), userId);
+    return event;
+}
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
@@ -757,6 +770,43 @@ private slots:
         QVERIFY(f.desktop.launcherRemoteFolders().isEmpty());
         QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(!f.workspace.account().signedIn());
+    }
+    void theStageComesBackForItsAccountAfterARestart()
+    {
+        QTemporaryDir dir;
+        const auto both = test::snapshot({ test::session(1), test::session(2) });
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(both, 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(2)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        restarted.workspace.apply(test::snapshot({}), 1);
+        QVERIFY(restarted.desktop.stagedSessionIds().isEmpty());
+        restarted.workspace.apply(both, 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+        QCOMPARE(restarted.desktop.selectedSessionId(), test::id(2));
+
+        restarted.workspace.apply(accountEvent({}, 2), 2);
+        restarted.workspace.apply(both, 2);
+        QVERIFY(restarted.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(restarted.workspace.sessionActions().activate(test::id(1)));
+        restarted.workspace.apply(accountEvent(test::id(50), 3), 3);
+        restarted.workspace.apply(both, 3);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+
+        Fixture signedOut(dir.path());
+        signedOut.workspace.apply(accountEvent({}, 1), 1);
+        signedOut.workspace.apply(both, 1);
+        QCOMPARE(signedOut.desktop.stagedSessionIds(), QStringList { test::id(1) });
+        QVERIFY(signedOut.workspace.sessionActions().close(test::id(1)));
+        signedOut.workspace.apply(test::snapshot({ test::session(2) }), 1);
+        Fixture again(dir.path());
+        again.workspace.apply(accountEvent({}, 1), 1);
+        again.workspace.apply(both, 1);
+        QVERIFY(again.desktop.stagedSessionIds().isEmpty());
     }
     void boundedStageAndInvalidSnapshot()
     {

@@ -6,6 +6,7 @@
 #include <QSignalSpy>
 #include <limits>
 #include <optional>
+#include <tuple>
 #include <QtTest/QTest>
 
 namespace {
@@ -161,16 +162,17 @@ private slots:
         QVERIFY(!result->error().outdatedHost->foreground);
         QCOMPARE(result->error().outdatedHost->terminals, 3u);
     }
-    void quitStopsABackgroundHostButNotAForegroundOne()
+    void onlyARestartStopsABackgroundHost()
     {
-        for (const auto& [host, stops] : { std::pair { "background", 1 }, std::pair { "foreground", 0 } }) {
+        for (const auto& [host, endHost, stops] : { std::tuple { "background", true, 1 },
+                 std::tuple { "background", false, 0 }, std::tuple { "foreground", true, 0 } }) {
             runtime_fixture::hostStops = 0;
             kodosi::RuntimeBridge bridge;
             QVERIFY(started(bridge));
             runtime_fixture::sendEvent(QByteArrayLiteral("{\"type\":\"system.ready\",\"host\":\"") + host
                 + QByteArrayLiteral("\",\"accountEpoch\":0,\"accountUserId\":null}"));
-            QTRY_COMPARE(bridge.hostForeground(), stops == 0);
-            bridge.quit();
+            QTRY_COMPARE(bridge.hostForeground(), qstrcmp(host, "foreground") == 0);
+            bridge.quit(endHost);
             QVERIFY(!bridge.isRunning());
             QCOMPARE(runtime_fixture::hostStops, stops);
         }

@@ -6,30 +6,22 @@ import Kodosi.Models 1.0 as Models
 KDialog {
     id: root
 
-    property bool restart: false
     property int terminals: 0
 
-    function request(restarting) {
-        restart = restarting;
+    function request() {
         terminals = Models.Sessions.sessions.filter(session => session.kind === "local").length;
         if (terminals === 0 || Models.ApplicationLifecycle.hostForeground)
-            finish();
-        else
-            open();
-    }
-    function finish() {
-        if (restart)
             Models.ApplicationLifecycle.restart();
         else
-            Qt.quit();
+            open();
     }
 
     destructive: true
     standardButtons: Dialog.Ok | Dialog.Cancel
-    title: restart ? qsTr("Restart Kodosi?") : qsTr("Quit Kodosi?")
+    title: qsTr("Restart Kodosi to update?")
 
-    onAccepted: finish()
-    onOpened: standardButton(Dialog.Ok).text = restart ? qsTr("Restart") : qsTr("Quit")
+    onAccepted: Models.ApplicationLifecycle.restart()
+    onOpened: standardButton(Dialog.Ok).text = qsTr("Restart")
 
     PlainLabel {
         color: KodosiTheme.inkMuted

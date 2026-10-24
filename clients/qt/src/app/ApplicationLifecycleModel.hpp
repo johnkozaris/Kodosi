@@ -30,7 +30,7 @@ public:
 
     using Completion = std::function<void(RuntimeBridge::Result)>;
     using StartOperation = std::function<void(Completion)>;
-    using StopOperation = std::function<void()>;
+    using StopOperation = std::function<void(bool endHost)>;
     using StopHostOperation = std::function<void(std::function<void(HostStop)>)>;
 
     explicit ApplicationLifecycleModel(

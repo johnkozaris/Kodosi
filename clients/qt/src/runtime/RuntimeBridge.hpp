@@ -103,7 +103,7 @@ public:
     [[nodiscard]] bool hostForeground() const noexcept { return m_hostForeground; }
     void startAsync(std::function<void(Result)> completion);
     void stop() noexcept;
-    void quit() noexcept;
+    void quit(bool endHost) noexcept;
     void stopHostAsync(std::function<void(HostStop)> completion);
     [[nodiscard]] Result send(QByteArrayView json) override;
     [[nodiscard]] Result connectTerminal(const TerminalSubscription& subscription) override;

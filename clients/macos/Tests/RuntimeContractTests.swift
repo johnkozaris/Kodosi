@@ -108,6 +108,19 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(restarted.reconcile([session]).isEmpty)
 }
 
+@Test @MainActor func `the signed out stage comes back after a restart`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSignedOut"))
+    let session = try runtimeSession()
+    let first = WorkbenchState(defaults: defaults)
+    first.switchAccount(nil)
+    first.showSession(session.id)
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount(nil)
+    #expect(restarted.reconcile([session]) == [session.id])
+    restarted.switchAccount("owner")
+    #expect(restarted.reconcile([session]).isEmpty)
+}
+
 @Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "offline")

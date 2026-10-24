@@ -315,7 +315,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/Wordmark.qml
         qml/Shell/AboutDialog.qml
         qml/Shell/CommandPalette.qml
-        qml/Shell/QuitDialog.qml
+        qml/Shell/RestartDialog.qml
         qml/Shell/Sidebar.qml
         qml/Shell/SidebarMenu.qml
         qml/Shell/SignOutDialog.qml

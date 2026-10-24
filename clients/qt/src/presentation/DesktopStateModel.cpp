@@ -110,6 +110,7 @@ bool DesktopStateModel::stageSession(const QString& id, bool revealStage)
         }
         m_staged.append(id);
         emit stagedSessionIdsChanged();
+        saveStage();
     }
     if (m_selected != id) {
         m_selected = id;
@@ -128,6 +129,7 @@ bool DesktopStateModel::unstageSession(const QString& id)
     if (!m_staged.removeOne(id))
         return false;
     emit stagedSessionIdsChanged();
+    saveStage();
     if (m_selected == id) {
         m_selected = m_staged.isEmpty() ? QString {} : m_staged.first();
         emit selectedSessionIdChanged();
@@ -171,14 +173,31 @@ void DesktopStateModel::clearError()
         emit lastErrorChanged();
     }
 }
-void DesktopStateModel::clearSessions()
+void DesktopStateModel::switchAccount(const QString& userId)
 {
+    saveStage();
     m_staged.clear();
     m_selected.clear();
     m_mode = Grid;
     emit stagedSessionIdsChanged();
     emit selectedSessionIdChanged();
     emit stageLayoutModeChanged();
+    m_stageKey = QStringLiteral("stage/")
+        + (userId.isEmpty() ? QStringLiteral("local")
+                            : QString::fromLatin1(userId.toUtf8().toBase64(
+                                  QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
+    m_restoring = m_settings->value(m_stageKey).toStringList();
+}
+void DesktopStateModel::saveStage()
+{
+    if (m_stageKey.isEmpty())
+        return;
+    auto kept = m_staged;
+    for (const auto& id : std::as_const(m_restoring)) {
+        if (!kept.contains(id))
+            kept.append(id);
+    }
+    m_settings->setValue(m_stageKey, kept.mid(0, 64));
 }
 void DesktopStateModel::setLauncherPrompt(const QString& value)
 {
@@ -219,6 +238,26 @@ void DesktopStateModel::reconcile()
         if (!session || !session->canRetainPresentation)
             unstageSession(id);
     }
+    auto restored = false;
+    for (const auto& id : QStringList(m_restoring)) {
+        const auto session = m_sessions->presentationSession(id);
+        if (!session)
+            continue;
+        m_restoring.removeOne(id);
+        if (session->canRetainPresentation && !m_sessions->session(id)->hidden && !m_staged.contains(id)
+            && m_staged.size() < 6) {
+            m_staged.append(id);
+            restored = true;
+        }
+    }
+    if (restored) {
+        emit stagedSessionIdsChanged();
+        if (m_selected.isEmpty()) {
+            m_selected = m_staged.first();
+            emit selectedSessionIdChanged();
+        }
+    }
+    saveStage();
 }
 void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overrideSize)
 {

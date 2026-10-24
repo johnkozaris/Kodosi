@@ -59,7 +59,7 @@ public:
     bool modalOpen() const { return !m_modals.isEmpty(); }
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
     Q_INVOKABLE void clearError();
-    void clearSessions();
+    void switchAccount(const QString& userId);
     QString launcherPrompt() const { return m_launcherPrompt; }
     QString launcherFolder() const { return m_launcherFolder; }
     QVariantMap launcherRemoteFolders() const { return m_launcherRemoteFolders; }
@@ -90,6 +90,8 @@ private:
     QHash<QObject*, QMetaObject::Connection> m_modals;
     QString m_selected;
     QStringList m_staged;
+    QString m_stageKey;
+    QStringList m_restoring;
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;
@@ -103,6 +105,7 @@ private:
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
     void reconcile();
+    void saveStage();
     void saveWindow();
 };
 }

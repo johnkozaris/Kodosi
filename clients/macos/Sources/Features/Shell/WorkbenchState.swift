@@ -202,7 +202,7 @@ final class WorkbenchState {
 
     func switchAccount(_ userId: String?) {
         save()
-        accountKey = userId.map { "stage.\(Data($0.utf8).base64EncodedString())" }
+        accountKey = "stage." + (userId.map { Data($0.utf8).base64EncodedString() } ?? "local")
         restoredIds = accountKey.flatMap { defaults.stringArray(forKey: $0) } ?? []
         stagedSessionIds.removeAll()
         selectedSessionId = nil

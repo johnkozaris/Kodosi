@@ -87,7 +87,7 @@ private:
     void notifyBusy();
     void reportVisible();
     void receiveResult(const QString& type, const QJsonObject& event);
-    void clearAccountData(bool clearLinks);
+    void clearAccountData(bool clearLinks, const QString& userId);
     static bool validName(const QString& name);
 };
 }

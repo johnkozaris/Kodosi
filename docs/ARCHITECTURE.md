@@ -21,8 +21,9 @@ what one client does, the others show. The host keeps terminal state with Ghostt
 terminal library, and the apps draw it with Ghostty. The iPhone and iPad app embeds the
 viewer build of the runtime and hosts no terminals.
 
-Quit in a desktop app stops a background host and its terminals. A host that runs in a
-terminal with `kodosi host` stops only there. An app that finds a host of an earlier
+Quit in a desktop app leaves the host and its terminals running; a restart to update
+stops a background host. A host that runs in a terminal with `kodosi host` stops only
+there. An app that finds a host of an earlier
 version offers to restart it.
 
 ## Terminals

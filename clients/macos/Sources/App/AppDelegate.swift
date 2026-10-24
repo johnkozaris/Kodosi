@@ -101,18 +101,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if terminating {
             return .terminateLater
         }
-        let stopsHost = !dependencies.hostForeground
+        let stopsHost = dependencies.updater.restarting && !dependencies.hostForeground
         let local = dependencies.sessions.count(where: { $0.kind == .local })
         if !storageBootstrap.isIsolated, stopsHost, local > 0 {
-            let restarting = dependencies.updater.restarting
             let alert = NSAlert()
-            alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
+            alert.messageText = String(localized: "Restart Kodosi to update?")
             alert.informativeText = local == 1
                 ? String(localized: "1 terminal on this Mac will close.")
                 : String(localized: "\(local) terminals on this Mac will close.")
             alert.alertStyle = .warning
             alert.addButton(withTitle: String(localized: "Cancel"))
-            alert.addButton(withTitle: restarting ? String(localized: "Restart") : String(localized: "Quit"))
+            alert.addButton(withTitle: String(localized: "Restart"))
             guard alert.runModal() == .alertSecondButtonReturn else {
                 dependencies.updater.restartCancelled()
                 return .terminateCancel

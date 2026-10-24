@@ -122,7 +122,7 @@ void Workspace::setError(QString error)
     emit errorChanged();
 }
 
-void Workspace::clearAccountData(bool clearLinks)
+void Workspace::clearAccountData(bool clearLinks, const QString& userId)
 {
     m_pending.clear();
     m_people.reset();
@@ -130,7 +130,7 @@ void Workspace::clearAccountData(bool clearLinks)
     m_missions.reset();
     m_dosi.reset();
     m_sessionActions.reset(clearLinks);
-    m_desktop.clearSessions();
+    m_desktop.switchAccount(userId);
     m_desktop.clearLauncherDraft();
     m_sessions.resetRuntimeAuthority();
     notifyBusy();
@@ -140,7 +140,7 @@ void Workspace::reset()
 {
     m_hostReady = false;
     m_reportedVisible.reset();
-    clearAccountData(m_account.signedIn());
+    clearAccountData(m_account.signedIn(), m_account.m_userId);
     m_account.reset();
 }
 
@@ -229,7 +229,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             ? event.value(QStringLiteral("userId")).toString()
             : QString {};
         if (accountEpoch != m_account.m_epoch || user != m_account.m_userId) {
-            clearAccountData(m_account.signedIn());
+            clearAccountData(m_account.signedIn(), user);
             m_account.m_epoch = accountEpoch;
             m_account.m_userId = user;
             m_account.m_displayName.clear();
