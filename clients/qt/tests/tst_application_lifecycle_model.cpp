@@ -45,6 +45,7 @@ private slots:
     void explicitStopInvalidatesCompletion();
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
     void anOutdatedHostWithNoTerminalsRestartsWithoutAsking();
+    void anOutdatedHostThatComesBackIsRestartedOnlyOnce();
     void anInstalledUpdateAsksOnceForARestart();
     void aLaunchOfANewerVersionOffersTheRestart();
 };
@@ -327,6 +328,33 @@ void ApplicationLifecycleModelTest::anOutdatedHostWithNoTerminalsRestartsWithout
     QTRY_COMPARE(model.state(), State::Ready);
     QCOMPARE(stops, 1);
     QVERIFY(!model.hostOutdated());
+}
+
+void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOnce()
+{
+    using State = kodosi::ApplicationLifecycleModel::State;
+    kodosi::RuntimeBridge runtime;
+    const kodosi::OutdatedHost outdated { .foreground = false, .pid = 7, .terminals = 0 };
+    auto starts = 0;
+    auto stops = 0;
+    kodosi::ApplicationLifecycleModel model(
+        runtime,
+        [&](kodosi::ApplicationLifecycleModel::Completion completion) {
+            ++starts;
+            completion(std::unexpected(
+                kodosi::RuntimeFailure { .ffiResult = -1, .message = QStringLiteral("old"), .outdatedHost = outdated }));
+        },
+        [] {},
+        [&](std::function<void(kodosi::HostStop)> completion) {
+            ++stops;
+            completion(kodosi::HostStop::Stopped);
+        });
+
+    model.scheduleInitialStart();
+    QTRY_COMPARE(starts, 2);
+    QCOMPARE(model.state(), State::Failed);
+    QVERIFY(model.hostOutdated());
+    QCOMPARE(stops, 1);
 }
 
 void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()

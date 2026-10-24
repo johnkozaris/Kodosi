@@ -215,7 +215,8 @@ void ApplicationLifecycleModel::completeAttempt(
     setOutdatedHost(result ? std::nullopt : result.error().outdatedHost);
     if (!result) {
         fail(m_outdatedHost ? describe(*m_outdatedHost) : result.error().message);
-        if (m_outdatedHost && !m_outdatedHost->foreground && m_outdatedHost->terminals == 0)
+        if (m_outdatedHost && !m_outdatedHost->foreground && m_outdatedHost->terminals == 0
+            && !std::exchange(m_outdatedHostRestarted, true))
             restartHost();
         return;
     }

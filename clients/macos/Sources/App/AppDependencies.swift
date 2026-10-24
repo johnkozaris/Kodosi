@@ -55,6 +55,7 @@ final class AppDependencies {
     var accountEpoch: UInt64 = 0
     var accountKnown = false
     @ObservationIgnored private var otherLaunchers: [String: LauncherState] = [:]
+    @ObservationIgnored private var outdatedHostRestarted = false
     private var eventTask: Task<Void, Never>?
     var activationTasks: [String: Task<Void, Never>] = [:]
     var missionTask: Task<Void, Never>?
@@ -144,7 +145,8 @@ final class AppDependencies {
         }
         if failure.code == .hostOutdated {
             present(.hostOutdated(failure))
-            if failure.restartsWithoutAsking {
+            if failure.restartsWithoutAsking, !outdatedHostRestarted {
+                outdatedHostRestarted = true
                 restartOutdatedHost()
             }
         } else {

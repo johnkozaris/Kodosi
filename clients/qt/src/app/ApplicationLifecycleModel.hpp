@@ -83,6 +83,7 @@ private:
     bool m_stopping = false;
     bool m_updateInstalled = false;
     bool m_restartRequested = false;
+    bool m_outdatedHostRestarted = false;
 
     void beginAttempt();
     void executeAttempt(std::uint64_t token);
