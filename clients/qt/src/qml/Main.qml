@@ -21,7 +21,7 @@ ApplicationWindow {
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
     readonly property string deviceNotice: {
         if (!Models.Account.signedIn
-            || (Models.DesktopState.activeView === Models.DesktopState.Settings && settings.section === 3))
+            || (Models.DesktopState.activeView === Models.DesktopState.Settings && (settingsLoader.item as SettingsView)?.section === 3))
             return "";
         if (accountReady) {
             const requests = Models.Devices.waitingRequests;
@@ -40,11 +40,47 @@ ApplicationWindow {
         const stage = stageLoader.item as TerminalStage;
         if (!roomId && stage && stage.focusLauncher())
             return;
-        launcherSheet.openFor(roomId || "");
+        window.launcherSheet().openFor(roomId || "");
+    }
+    function sessionDetails() {
+        detailsLoader.active = true;
+        return detailsLoader.item as SessionDetails;
+    }
+    function shareSheet() {
+        shareLoader.active = true;
+        return shareLoader.item as ShareSheet;
+    }
+    function historyView() {
+        historyLoader.active = true;
+        return historyLoader.item as HistoryView;
+    }
+    function launcherSheet() {
+        launcherLoader.active = true;
+        return launcherLoader.item as LauncherSheet;
+    }
+    function commandPalette() {
+        paletteLoader.active = true;
+        return paletteLoader.item as CommandPalette;
+    }
+    function aboutDialog() {
+        aboutLoader.active = true;
+        return aboutLoader.item as AboutDialog;
+    }
+    function quitDialog() {
+        quitLoader.active = true;
+        return quitLoader.item as QuitDialog;
+    }
+    function missionsView() {
+        missionsLoader.active = true;
+        return missionsLoader.item as MissionsView;
+    }
+    function settingsView() {
+        settingsLoader.active = true;
+        return settingsLoader.item as SettingsView;
     }
     function openNewRoom() {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
-        missions.openCreate();
+        window.missionsView().openCreate();
     }
     function openAdjacentTerminal(offset) {
         const staged = Models.DesktopState.stagedSessionIds;
@@ -71,33 +107,35 @@ ApplicationWindow {
             window.hide();
             Models.Tray.noteHidden();
         } else {
-            quitDialog.request(false);
+            window.quitDialog().request(false);
         }
     }
 
     Connections {
         function onQuitRequested() {
-            quitDialog.request(false);
+            window.quitDialog().request(false);
         }
 
         target: Models.Tray
     }
     Connections {
         function onRestartOffered() {
-            quitDialog.request(true);
+            window.quitDialog().request(true);
         }
 
         target: Models.ApplicationLifecycle
     }
-    QuitDialog {
-        id: quitDialog
+    Loader {
+        id: quitLoader
+        active: false
+        sourceComponent: QuitDialog {
+            objectName: "window.quit"
 
-        objectName: "window.quit"
-
-        onAboutToShow: {
-            window.show();
-            window.raise();
-            window.requestActivate();
+            onAboutToShow: {
+                window.show();
+                window.raise();
+                window.requestActivate();
+            }
         }
     }
 
@@ -141,24 +179,24 @@ ApplicationWindow {
                 Layout.preferredWidth: implicitWidth
                 titleBar: window.drawsTitleBar
 
-                onDetailsRequested: sessionId => details.openSession(sessionId)
-                onShareRequested: sessionId => share.openSession(sessionId)
+                onDetailsRequested: sessionId => window.sessionDetails().openSession(sessionId)
+                onShareRequested: sessionId => window.shareSheet().openSession(sessionId)
                 onNewTerminalRequested: window.openLauncher()
-                onResumeRequested: provider => history.openModal(provider)
-                onPaletteRequested: palette.open()
+                onResumeRequested: provider => window.historyView().openModal(provider)
+                onPaletteRequested: window.commandPalette().open()
                 onNewRoomRequested: window.openNewRoom()
                 onDosiSettingsRequested: {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
-                    settings.section = 4
+                    window.settingsView().section = 4
                 }
                 onAccountSettingsRequested: {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
                     if (Models.Devices.requests.length > 0)
-                        settings.showDevices(true)
+                        window.settingsView().showDevices(true)
                     else
-                        settings.section = 2
+                        window.settingsView().section = 2
                 }
-                onAboutRequested: about.open()
+                onAboutRequested: window.aboutDialog().open()
             }
             Item {
                 Layout.fillHeight: true
@@ -182,20 +220,37 @@ ApplicationWindow {
                         active: Models.DesktopState.activeView === Models.DesktopState.Sessions
                         sourceComponent: TerminalStage {
                             interactionEnabled: !window.modalOpen
-                            onInspectSessionRequested: id => details.openSession(id)
-                            onResumeRequested: history.openModal()
-                            onShareSessionRequested: id => share.openSession(id)
+                            onInspectSessionRequested: id => window.sessionDetails().openSession(id)
+                            onResumeRequested: window.historyView().openModal()
+                            onShareSessionRequested: id => window.shareSheet().openSession(id)
                         }
                     }
-                    MissionsView {
-                        id: missions
-                        onNewTerminalRequested: roomId => window.openLauncher(roomId)
-                        onInspectSessionRequested: id => details.openSession(id)
-                        onShareSessionRequested: id => share.openSession(id)
+                    Loader {
+                        id: missionsLoader
+                        readonly property bool current: Models.DesktopState.activeView === Models.DesktopState.Missions
+                        active: false
+                        onCurrentChanged: if (current) active = true
+                        Component.onCompleted: if (current) active = true
+                        sourceComponent: MissionsView {
+                            onNewTerminalRequested: roomId => window.openLauncher(roomId)
+                            onInspectSessionRequested: id => window.sessionDetails().openSession(id)
+                            onShareSessionRequested: id => window.shareSheet().openSession(id)
+                        }
                     }
-                    PeopleView {}
-                    SettingsView {
-                        id: settings
+                    Loader {
+                        readonly property bool current: Models.DesktopState.activeView === Models.DesktopState.People
+                        active: false
+                        onCurrentChanged: if (current) active = true
+                        Component.onCompleted: if (current) active = true
+                        sourceComponent: PeopleView {}
+                    }
+                    Loader {
+                        id: settingsLoader
+                        readonly property bool current: Models.DesktopState.activeView === Models.DesktopState.Settings
+                        active: false
+                        onCurrentChanged: if (current) active = true
+                        Component.onCompleted: if (current) active = true
+                        sourceComponent: SettingsView {}
                     }
                 }
                 NoticePill {
@@ -219,7 +274,7 @@ ApplicationWindow {
 
                     onActionClicked: {
                         Models.DesktopState.activeView = Models.DesktopState.Settings;
-                        settings.showDevices(window.accountReady);
+                        window.settingsView().showDevices(window.accountReady);
                     }
                     onDismissed: {
                         if (window.accountReady)
@@ -254,7 +309,7 @@ ApplicationWindow {
             Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
-            onActionClicked: quitDialog.request(true)
+            onActionClicked: window.quitDialog().request(true)
             onDismissed: {
                 if (window.updateNotice) {
                     window.updateNoticeDismissed = true;
@@ -332,28 +387,43 @@ ApplicationWindow {
 
         target: Models.SessionActions
     }
-    SessionDetails {
-        id: details
-        onShareRequested: sessionId => share.openSession(sessionId)
+    Loader {
+        id: detailsLoader
+        active: false
+        sourceComponent: SessionDetails {
+            onShareRequested: sessionId => window.shareSheet().openSession(sessionId)
+        }
     }
-    ShareSheet {
-        id: share
+    Loader {
+        id: shareLoader
+        active: false
+        sourceComponent: ShareSheet {}
     }
-    HistoryView {
-        id: history
+    Loader {
+        id: historyLoader
+        active: false
+        sourceComponent: HistoryView {}
     }
-    LauncherSheet {
-        id: launcherSheet
-        onResumeRequested: history.openModal()
+    Loader {
+        id: launcherLoader
+        active: false
+        sourceComponent: LauncherSheet {
+            onResumeRequested: window.historyView().openModal()
+        }
     }
-    CommandPalette {
-        id: palette
-        onNewTerminalRequested: window.openLauncher()
-        onNewRoomRequested: window.openNewRoom()
-        onResumeRequested: history.openModal()
+    Loader {
+        id: paletteLoader
+        active: false
+        sourceComponent: CommandPalette {
+            onNewTerminalRequested: window.openLauncher()
+            onNewRoomRequested: window.openNewRoom()
+            onResumeRequested: window.historyView().openModal()
+        }
     }
-    AboutDialog {
-        id: about
+    Loader {
+        id: aboutLoader
+        active: false
+        sourceComponent: AboutDialog {}
     }
     StartupOverlay {}
     Shortcut {
@@ -366,13 +436,13 @@ ApplicationWindow {
         enabled: !window.modalOpen
         sequences: ["Ctrl+Shift+K", "Ctrl+K"]
 
-        onActivated: palette.open()
+        onActivated: window.commandPalette().open()
     }
     Shortcut {
         enabled: !window.modalOpen
         sequence: "Ctrl+Shift+R"
 
-        onActivated: history.openModal()
+        onActivated: window.historyView().openModal()
     }
     Shortcut {
         enabled: !window.modalOpen
@@ -385,7 +455,7 @@ ApplicationWindow {
             && Models.DesktopState.selectedSessionId.length > 0
         sequence: "Ctrl+Shift+I"
 
-        onActivated: details.openSession(Models.DesktopState.selectedSessionId)
+        onActivated: window.sessionDetails().openSession(Models.DesktopState.selectedSessionId)
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions

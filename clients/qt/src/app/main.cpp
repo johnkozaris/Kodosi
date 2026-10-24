@@ -236,6 +236,7 @@ int main(int argc, char* argv[])
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(EXIT_FAILURE); }, Qt::QueuedConnection);
+    lifecycle.beginInitialStart();
     engine.loadFromModule(QStringLiteral("Kodosi"), QStringLiteral("Main"));
     if (engine.rootObjects().isEmpty())
         return EXIT_FAILURE;
@@ -298,7 +299,6 @@ int main(int argc, char* argv[])
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
-    lifecycle.scheduleInitialStart();
     const auto code = app.exec();
     if (lifecycle.restartRequested()) {
         claim.release();

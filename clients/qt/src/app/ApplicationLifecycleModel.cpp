@@ -70,14 +70,14 @@ int ApplicationLifecycleModel::hostTerminals() const noexcept
     return m_outdatedHost ? static_cast<int>(m_outdatedHost->terminals) : 0;
 }
 
-void ApplicationLifecycleModel::scheduleInitialStart()
+void ApplicationLifecycleModel::beginInitialStart()
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    if (m_initialStartScheduled || m_stopping) {
+    if (m_initialStartBegun || m_stopping) {
         return;
     }
-    m_initialStartScheduled = true;
-    beginAttempt();
+    m_initialStartBegun = true;
+    executeAttempt(beginAttempt());
 }
 
 void ApplicationLifecycleModel::stop() noexcept
@@ -98,7 +98,10 @@ void ApplicationLifecycleModel::retry()
     if (m_state != State::Failed || m_attemptInFlight || m_stopping) {
         return;
     }
-    beginAttempt();
+    QTimer::singleShot(
+        StartDelayMilliseconds,
+        this,
+        [this, token = beginAttempt()] { executeAttempt(token); });
 }
 
 void ApplicationLifecycleModel::setUpdateInstalled()
@@ -159,7 +162,7 @@ void ApplicationLifecycleModel::completeHostStop(const std::uint64_t token, cons
                                      : tr("Kodosi could not reach the earlier Kodosi."));
 }
 
-void ApplicationLifecycleModel::beginAttempt()
+std::uint64_t ApplicationLifecycleModel::beginAttempt()
 {
     ++m_attemptToken;
     const auto token = m_attemptToken;
@@ -169,10 +172,7 @@ void ApplicationLifecycleModel::beginAttempt()
         m_errorText.clear();
         emit stateChanged();
     }
-    QTimer::singleShot(
-        StartDelayMilliseconds,
-        this,
-        [this, token] { executeAttempt(token); });
+    return token;
 }
 
 void ApplicationLifecycleModel::executeAttempt(const std::uint64_t token)

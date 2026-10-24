@@ -37,7 +37,7 @@ class ApplicationLifecycleModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void schedulesInitialStartAndReportsReadyOnce();
+    void startsAtOnceAndReportsReadyOnce();
     void rejectsConcurrentRetryAndDoubleClick();
     void ignoresStaleCompletionAfterRuntimeReset();
     void boundsAndSanitizesSynchronousFailure();
@@ -51,7 +51,7 @@ private slots:
 };
 
 void ApplicationLifecycleModelTest::
-    schedulesInitialStartAndReportsReadyOnce()
+    startsAtOnceAndReportsReadyOnce()
 {
     kodosi::RuntimeBridge runtime;
     auto startCalls = 0;
@@ -66,17 +66,13 @@ void ApplicationLifecycleModelTest::
         [&stopCalls] { ++stopCalls; });
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
-    model.scheduleInitialStart();
+    model.beginInitialStart();
+    model.beginInitialStart();
 
+    QCOMPARE(startCalls, 1);
     QCOMPARE(
         model.state(),
-        kodosi::ApplicationLifecycleModel::State::Starting);
-    QCOMPARE(startCalls, 0);
-    QTRY_COMPARE(
-        model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
-    QCOMPARE(startCalls, 1);
     QCOMPARE(ready.count, 1);
     QCOMPARE(stopCalls, 0);
 }
@@ -101,7 +97,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Failed);
@@ -139,7 +135,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(completions.size(), std::size_t {1});
     QVERIFY(QMetaObject::invokeMethod(
         &runtime,
@@ -180,7 +176,7 @@ void ApplicationLifecycleModelTest::
         },
         [] {});
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Failed);
@@ -203,7 +199,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
@@ -238,7 +234,7 @@ void ApplicationLifecycleModelTest::explicitStopInvalidatesCompletion()
         [&stopCalls] { ++stopCalls; });
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_VERIFY(completion);
     model.stop();
     model.stop();
@@ -272,7 +268,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
         [] {},
         [&](std::function<void(kodosi::HostStop)> completion) { stopping = std::move(completion); });
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(model.state(), State::Failed);
     QVERIFY(model.hostOutdated());
     QVERIFY(model.hostForeground());
@@ -324,7 +320,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostWithNoTerminalsRestartsWithout
             completion(kodosi::HostStop::Stopped);
         });
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(model.state(), State::Ready);
     QCOMPARE(stops, 1);
     QVERIFY(!model.hostOutdated());
@@ -350,7 +346,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOn
             completion(kodosi::HostStop::Stopped);
         });
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(starts, 2);
     QCOMPARE(model.state(), State::Failed);
     QVERIFY(model.hostOutdated());
