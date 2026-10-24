@@ -34,6 +34,9 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const START_PATIENCE: Duration = Duration::from_secs(3);
 const START_LIMIT: Duration = Duration::from_secs(15);
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
+const BUSY_UPKEEP: Duration = Duration::from_millis(20);
+const IDLE_UPKEEP: Duration = Duration::from_millis(250);
+const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -844,6 +847,17 @@ impl LocalActor {
         }
     }
 
+    /// Output in the last second, a start line, waiting input or a viewer that missed
+    /// output: the upkeep runs every 20 ms. An idle terminal runs it every 250 ms.
+    fn busy(&self) -> bool {
+        self.start.is_some()
+            || !self.queue.is_empty()
+            || self.subscribers.behind()
+            || self
+                .output_at
+                .is_some_and(|output| output.elapsed() < BUSY_AFTER_OUTPUT)
+    }
+
     async fn maintain(&mut self) {
         self.subscribers.prune();
         self.type_start_line();
@@ -1397,33 +1411,44 @@ impl LocalActor {
 
     async fn run(mut self) {
         let mut buffer = vec![0_u8; READ_BYTES];
-        let mut tick = tokio::time::interval(Duration::from_millis(20));
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut upkeep = tokio::time::Instant::now() + BUSY_UPKEEP;
         let mut host_open = true;
         let reason = loop {
             if self.cancellation.is_cancelled() {
                 break "The terminal stopped.".to_owned();
             }
             let input = self.pending_input();
-            tokio::select! {
+            let kept_up = tokio::select! {
                 () = self.cancellation.cancelled() => break "The terminal stopped.".to_owned(),
                 command = self.commands.recv() => match command {
-                    Some(command) => { if let Some(reason) = self.command(command).await { break reason; } }
+                    Some(command) => { if let Some(reason) = self.command(command).await { break reason; } false }
                     None => break "Kodosi stopped.".to_owned(),
                 },
-                request = self.host.recv(), if host_open => match request {
-                    Some(request) => { if let Some(reason) = self.host_request(request).await { break reason; } }
-                    None => host_open = false,
+                request = self.host.recv(), if host_open => {
+                    if let Some(request) = request {
+                        if let Some(reason) = self.host_request(request).await { break reason; }
+                    } else {
+                        host_open = false;
+                    }
+                    false
                 },
                 transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
                     Ok(Transfer::Read(0)) => break "The terminal ended.".to_owned(),
-                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } }
-                    Ok(Transfer::Wrote(count)) => self.wrote(count),
+                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } false }
+                    Ok(Transfer::Wrote(count)) => { self.wrote(count); false }
                     Err(error) if error.raw_os_error() == Some(5) => break "The terminal ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },
-                _ = tick.tick() => self.maintain().await,
-            }
+                () = tokio::time::sleep_until(upkeep) => { self.maintain().await; true }
+            };
+            let now = tokio::time::Instant::now();
+            upkeep = if !kept_up {
+                upkeep.min(now + BUSY_UPKEEP)
+            } else if self.busy() {
+                now + BUSY_UPKEEP
+            } else {
+                now + IDLE_UPKEEP
+            };
         };
         self.cancellation.cancel();
         self.commands.close();
