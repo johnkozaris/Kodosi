@@ -108,9 +108,11 @@ Item {
                         visible: !root.renaming
                         KIcon { Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "lock"; strokeWidth: 2.4; color: KodosiTheme.inkFaint }
                         RollingText {
+                            Layout.fillWidth: true
                             text: Identity.count(root.members.length, qsTr("1 person"), qsTr("%1 people")) + " · " + Identity.count(root.sessionIds.length, qsTr("1 terminal"), qsTr("%1 terminals"))
                             color: KodosiTheme.inkMuted
                             font.pixelSize: KodosiTheme.fontCaption
+                            elide: Text.ElideRight
                         }
                     }
                 }

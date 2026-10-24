@@ -254,7 +254,36 @@ ApplicationWindow {
                     }
                 }
                 NoticePill {
-                    readonly property bool shown: window.deviceNotice.length > 0
+                    id: appNotice
+                    readonly property bool shown: window.updateNotice || window.notice.length > 0
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: shown ? 10 : -height
+                    width: Math.min(implicitWidth, parent.width - 80)
+                    height: implicitHeight
+                    opacity: shown ? 1 : 0
+                    visible: opacity > 0
+                    identifier: "window.error"
+                    text: window.updateNotice ? window.updateText : window.notice
+                    actionText: window.updateNotice ? qsTr("Restart") : ""
+
+                    Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                    onActionClicked: window.restartDialog().request()
+                    onDismissed: {
+                        if (window.updateNotice) {
+                            window.updateNoticeDismissed = true;
+                            return;
+                        }
+                        Models.AppState.clearError();
+                        Models.DesktopState.clearError();
+                        Models.DesktopFiles.clearError();
+                    }
+                }
+                NoticePill {
+                    readonly property bool shown: window.deviceNotice.length > 0 && !appNotice.shown
 
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
@@ -292,34 +321,6 @@ ApplicationWindow {
             anchors.topMargin: (KodosiTheme.titleBarHeight - height) / 2
             anchors.rightMargin: KodosiTheme.frameInset
         }
-        NoticePill {
-            readonly property bool shown: window.updateNotice || window.notice.length > 0
-
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: shown ? 22 : -height
-            width: Math.min(implicitWidth, parent.width - 80)
-            height: implicitHeight
-            opacity: shown ? 1 : 0
-            visible: opacity > 0
-            identifier: "window.error"
-            text: window.updateNotice ? window.updateText : window.notice
-            actionText: window.updateNotice ? qsTr("Restart") : ""
-
-            Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
-            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
-
-            onActionClicked: window.restartDialog().request()
-            onDismissed: {
-                if (window.updateNotice) {
-                    window.updateNoticeDismissed = true;
-                    return;
-                }
-                Models.AppState.clearError();
-                Models.DesktopState.clearError();
-                Models.DesktopFiles.clearError();
-            }
-        }
     }
     Component {
         id: tipBackground
@@ -355,8 +356,8 @@ ApplicationWindow {
     Component.onCompleted: {
         const tip = glow.ToolTip.toolTip;
         tip.padding = 7;
-        const surface = tipBackground.createObject(glow);
-        const label = tipContent.createObject(glow);
+        const surface = tipBackground.createObject(glow) as Raised;
+        const label = tipContent.createObject(glow) as PlainLabel;
         surface.parent = null;
         label.parent = null;
         label.text = Qt.binding(() => tip.text);

@@ -86,7 +86,7 @@ AbstractButton {
         KMenuItem {
             text: qsTr("Settings")
             iconName: "gear"
-            hint: qsTr("Ctrl+,")
+            hint: qsTr("Ctrl+Shift+,")
             objectName: "sidebar.settings"
             onTriggered: Models.DesktopState.activeView = Models.DesktopState.Settings
         }
