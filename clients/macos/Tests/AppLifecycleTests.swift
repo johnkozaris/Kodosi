@@ -50,9 +50,12 @@ import Testing
     try app.receive(runtimeEvent("auth.restoring", epoch: 0, userId: nil, fields: ["reason": .string("offline")]))
     #expect(app.account.restoring == "offline")
     #expect(app.signInPrompt == String(localized: "Signing in…"))
-    try app.receive(runtimeEvent("auth.ready", epoch: 1, fields: ["userId": .string("owner")]))
+    try app.receive(runtimeEvent("auth.ready", epoch: 1, fields: ["userId": .string("owner"), "credentialStore": .string("keychain")]))
     #expect(app.account.restoring == nil)
     #expect(app.account.userId == "owner")
+    #expect(app.account.credentialStore == "keychain")
+    try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("signedOut")]))
+    #expect(app.account.credentialStore == nil)
 }
 
 @Test @MainActor func `a closing terminal leaves the listed terminals at once`() throws {

@@ -1,7 +1,16 @@
-use std::{io, path::Path};
+use std::{io, path::Path, time::Duration};
 
 use keyring::{Entry, Error};
 use zeroize::Zeroizing;
+
+/// The keyring library opens a session with a Secret Service, which the session bus can
+/// start. The library does this once for each process and keeps the result.
+pub(super) fn available() -> bool {
+    crate::session_bus::within(Duration::from_secs(10), || {
+        Some(Entry::store_status().is_ok())
+    })
+    .unwrap_or(false)
+}
 
 pub(super) struct Store {
     service: String,

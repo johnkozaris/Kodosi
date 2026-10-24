@@ -136,6 +136,25 @@ pub(super) fn open_private(path: &Path) -> io::Result<File> {
     Ok(file)
 }
 
+pub(super) fn read_private(path: &Path) -> io::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
+    let mut file = match OpenOptions::new()
+        .read(true)
+        .custom_flags(OFlags::NOFOLLOW.bits().cast_signed())
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || !owned(&metadata) || metadata.mode() & 0o077 != 0 {
+        return Err(invalid(format!("unsafe private file: {}", path.display())));
+    }
+    let mut bytes = zeroize::Zeroizing::new(Vec::new());
+    io::Read::read_to_end(&mut file, &mut bytes)?;
+    Ok(Some(bytes))
+}
+
 pub(super) fn append_private(path: &Path) -> io::Result<File> {
     OpenOptions::new()
         .create(true)

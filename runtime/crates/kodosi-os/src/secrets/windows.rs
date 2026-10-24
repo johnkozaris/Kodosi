@@ -13,6 +13,10 @@ use zeroize::Zeroizing;
 
 use crate::win::Local;
 
+pub(super) const fn available() -> bool {
+    true
+}
+
 pub(super) struct Store {
     directory: PathBuf,
 }

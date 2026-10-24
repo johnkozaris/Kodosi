@@ -1036,6 +1036,24 @@ private slots:
         QVERIFY(f.workspace.account().restoring().isEmpty());
         QVERIFY(f.workspace.account().signedIn());
     }
+    void theAccountSaysWhereTheSignInIsKept()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("unreadable") },
+            { QStringLiteral("credentialStore"), QStringLiteral("keychain") } }, 1);
+        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("keychain"));
+        QVERIFY(f.workspace.account().credentialFolder().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), QStringLiteral("user") },
+            { QStringLiteral("credentialStore"), QStringLiteral("privateFile") },
+            { QStringLiteral("credentialFolder"), QStringLiteral("/home/user/.config/kodosi/secrets") } }, 1);
+        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("privateFile"));
+        QCOMPARE(f.workspace.account().credentialFolder(), QStringLiteral("/home/user/.config/kodosi/secrets"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
+        QVERIFY(f.workspace.account().credentialStore().isEmpty());
+        QVERIFY(f.workspace.account().credentialFolder().isEmpty());
+    }
     void pendingSignInCanBeCancelled()
     {
         Fixture f;

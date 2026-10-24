@@ -1216,7 +1216,7 @@ struct Context {
     epoch: u64,
     sessions: Vec<Value>,
     account: Option<Value>,
-    restoring: Option<String>,
+    restoring: Option<Value>,
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
     rooms: BTreeMap<String, Value>,
@@ -1285,7 +1285,7 @@ impl Context {
                 self.restoring = None;
             }
             Some("auth.restoring") => {
-                self.restoring = event["reason"].as_str().map(str::to_owned);
+                self.restoring = Some(event.clone());
             }
             _ => {}
         }

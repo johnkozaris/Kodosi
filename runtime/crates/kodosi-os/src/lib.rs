@@ -6,5 +6,8 @@ pub mod ipc;
 pub mod process;
 pub mod secrets;
 
+#[cfg(target_os = "linux")]
+mod session_bus;
+
 #[cfg(windows)]
 mod win;

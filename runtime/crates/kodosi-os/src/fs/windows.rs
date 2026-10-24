@@ -191,6 +191,14 @@ pub(super) fn open_private(path: &Path) -> io::Result<File> {
     Ok(file)
 }
 
+pub(super) fn read_private(path: &Path) -> io::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
+    match fs::read(path) {
+        Ok(bytes) => Ok(Some(zeroize::Zeroizing::new(bytes))),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
 pub(super) fn append_private(path: &Path) -> io::Result<File> {
     checked_file(
         OpenOptions::new()

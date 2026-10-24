@@ -37,6 +37,12 @@ void AccountModel::endDeletion()
     emit deletionChanged();
 }
 
+void AccountModel::receivePlace(const QJsonObject& event)
+{
+    m_credentialStore = event.value(QStringLiteral("credentialStore")).toString();
+    m_credentialFolder = event.value(QStringLiteral("credentialFolder")).toString();
+}
+
 void AccountModel::logout()
 {
     m_workspace.sendUntracked(QStringLiteral("auth.logout"));
@@ -48,6 +54,8 @@ void AccountModel::reset()
     m_displayName.clear();
     m_signInPage.clear();
     m_restoring.clear();
+    m_credentialStore.clear();
+    m_credentialFolder.clear();
     m_epoch.reset();
     m_finalizing = true;
     endDeletion();

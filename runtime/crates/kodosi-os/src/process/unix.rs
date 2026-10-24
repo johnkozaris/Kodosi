@@ -22,22 +22,19 @@ pub(super) fn default_shell() -> PathBuf {
 pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     use zbus::{blocking, proxy::CacheProperties};
 
-    let connection = blocking::connection::Builder::session()
-        .ok()?
-        .method_timeout(std::time::Duration::from_secs(2))
-        .build()
-        .ok()?;
-    let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(&connection)
-        .destination("org.freedesktop.systemd1")
-        .ok()?
-        .path("/org/freedesktop/systemd1")
-        .ok()?
-        .interface("org.freedesktop.systemd1.Manager")
-        .ok()?
-        .cache_properties(CacheProperties::No)
-        .build()
-        .ok()?;
-    let variables: Vec<String> = manager.get_property("Environment").ok()?;
+    let variables: Vec<String> = crate::session_bus::ask(|connection| {
+        let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(connection)
+            .destination("org.freedesktop.systemd1")
+            .ok()?
+            .path("/org/freedesktop/systemd1")
+            .ok()?
+            .interface("org.freedesktop.systemd1.Manager")
+            .ok()?
+            .cache_properties(CacheProperties::No)
+            .build()
+            .ok()?;
+        manager.get_property("Environment").ok()
+    })?;
     Some(
         variables
             .iter()

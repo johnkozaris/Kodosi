@@ -740,11 +740,21 @@ pub enum EventBody {
         display_name: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enrolled: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_store: Option<CredentialStore>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_folder: Option<String>,
     },
     #[serde(rename = "auth.required")]
     AuthRequired { reason: AuthRequiredReason },
     #[serde(rename = "auth.restoring")]
-    AuthRestoring { reason: AuthRestoringReason },
+    AuthRestoring {
+        reason: AuthRestoringReason,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_store: Option<CredentialStore>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_folder: Option<String>,
+    },
     #[serde(rename = "auth.device_code")]
     AuthDeviceCode {
         request_id: String,
@@ -999,6 +1009,20 @@ pub enum AuthRestoringReason {
     Offline,
     Unavailable,
     UpdateRequired,
+    /// The keychain or the files that keep the sign-in cannot be read now.
+    Unreadable,
+}
+
+/// Where this computer keeps the sign-in and the device keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CredentialStore {
+    /// The Keychain on Apple systems, the Secret Service on Linux.
+    Keychain,
+    /// Files that Windows data protection seals for the user.
+    ProtectedFile,
+    /// Files that only the user can read, on a Linux computer without a Secret Service.
+    PrivateFile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]

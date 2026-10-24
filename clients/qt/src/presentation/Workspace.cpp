@@ -207,6 +207,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("auth.restoring")) {
         m_account.m_finalizing = false;
         m_account.m_restoring = event.value(QStringLiteral("reason")).toString();
+        m_account.receivePlace(event);
         emit m_account.loginChanged();
         return;
     }
@@ -235,6 +236,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         }
         if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
             m_account.m_displayName = name;
+        m_account.receivePlace(event);
         m_account.m_signInPage.clear();
         m_devices.m_enrolled = !user.isEmpty() && event.value(QStringLiteral("enrolled")).toBool(true);
         if (m_devices.m_enrolled)

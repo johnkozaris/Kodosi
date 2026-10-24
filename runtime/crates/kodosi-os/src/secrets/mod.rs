@@ -15,6 +15,12 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
+/// Whether the system store opens. Only Linux can lack one: a server, an SSH or WSL
+/// session, or a minimal desktop can have no working Secret Service.
+pub fn system_store_available() -> bool {
+    imp::available()
+}
+
 pub struct SecretStore(imp::Store);
 
 impl SecretStore {

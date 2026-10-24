@@ -26,6 +26,7 @@ struct SignInView: View {
         case "offline": "Kodosi signs you in when it reaches the server."
         case "updateRequired": "Update Kodosi to sign in."
         case "unavailable": "The Kodosi server does not answer. Kodosi tries again."
+        case "unreadable": "Kodosi cannot open the Keychain, where it keeps your sign-in. Kodosi tries again."
         default: nil
         }
     }

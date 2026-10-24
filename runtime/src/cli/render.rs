@@ -107,19 +107,20 @@ fn unapproved(context: &Context) -> bool {
 
 fn account(context: &Context) -> String {
     let Some(account) = &context.account else {
-        return match context.restoring.as_deref() {
-            Some("offline") => "Signing in again when Kodosi reaches the server.".to_owned(),
-            Some("updateRequired") => "Signing in again needs a newer Kodosi. Update Kodosi.".to_owned(),
-            Some(_) => "Signing in again when the Kodosi server answers.".to_owned(),
-            None => "Not signed in. Terminals on this computer work without an account.\nSign in to use them from your other devices and to share them: kodosi auth login".to_owned(),
-        };
+        return context.restoring.as_ref().map_or_else(
+            || "Not signed in. Terminals on this computer work without an account.\nSign in to use them from your other devices and to share them: kodosi auth login".to_owned(),
+            restoring,
+        );
     };
     let name = text(account, "displayName");
-    let signed_in = if name.is_empty() {
+    let mut signed_in = if name.is_empty() {
         "Signed in.".to_owned()
     } else {
         format!("Signed in as {name}.")
     };
+    if let Some(kept) = kept(account) {
+        signed_in = format!("{signed_in}\n{kept}");
+    }
     if unapproved(context) {
         format!(
             "{signed_in}\nThis device is not approved. Run `kodosi devices link`, `kodosi devices recover`, or `kodosi devices reset` to start fresh."
@@ -127,6 +128,49 @@ fn account(context: &Context) -> String {
     } else {
         signed_in
     }
+}
+
+fn restoring(event: &Value) -> String {
+    match event["reason"].as_str() {
+        Some("offline") => "Signing in again when Kodosi reaches the server.".to_owned(),
+        Some("updateRequired") => {
+            "Signing in again needs a newer Kodosi. Update Kodosi.".to_owned()
+        }
+        Some("unreadable") => match event["credentialStore"].as_str() {
+            Some("keychain") => format!(
+                "Kodosi cannot open the {KEYCHAIN}, where it keeps your sign-in.\nUnlock the {KEYCHAIN}, or open Kodosi in your desktop session."
+            ),
+            Some(_) => format!(
+                "Kodosi cannot read your sign-in in {}.",
+                text(event, "credentialFolder")
+            ),
+            None => "Kodosi cannot read your saved sign-in.".to_owned(),
+        },
+        _ => "Signing in again when the Kodosi server answers.".to_owned(),
+    }
+}
+
+const KEYCHAIN: &str = if cfg!(target_os = "linux") {
+    "keychain"
+} else {
+    "Keychain"
+};
+
+fn kept(account: &Value) -> Option<String> {
+    let folder = text(account, "credentialFolder");
+    Some(match account["credentialStore"].as_str()? {
+        "keychain" if cfg!(target_os = "linux") => {
+            "Kodosi keeps your sign-in in the keychain (Secret Service).".to_owned()
+        }
+        "keychain" => "Kodosi keeps your sign-in in the Keychain.".to_owned(),
+        "protectedFile" => {
+            format!(
+                "Kodosi keeps your sign-in in files that Windows protects for you, in {folder}."
+            )
+        }
+        "privateFile" => format!("Kodosi keeps your sign-in in private files in {folder}."),
+        _ => return None,
+    })
 }
 
 fn session_result(event: &Value, context: &Context) -> String {
@@ -553,6 +597,30 @@ mod tests {
         assert_eq!(
             account(&context),
             "Signing in again when Kodosi reaches the server."
+        );
+    }
+
+    #[test]
+    fn the_account_says_where_the_sign_in_is_kept() {
+        let context = Context::from_events(&[json!({
+            "type":"auth.ready","accountEpoch":1,"accountUserId":"me","displayName":"alice","enrolled":true,
+            "credentialStore":"privateFile","credentialFolder":"/home/alice/.config/kodosi/secrets",
+        })]);
+        assert_eq!(
+            account(&context),
+            "Signed in as alice.\nKodosi keeps your sign-in in private files in /home/alice/.config/kodosi/secrets."
+        );
+        let locked = Context::from_events(&[json!({
+            "type":"auth.restoring","accountEpoch":0,"accountUserId":null,"reason":"unreadable","credentialStore":"keychain",
+        })]);
+        assert!(account(&locked).starts_with(&format!("Kodosi cannot open the {KEYCHAIN}, where")));
+        let unreadable = Context::from_events(&[json!({
+            "type":"auth.restoring","accountEpoch":0,"accountUserId":null,"reason":"unreadable",
+            "credentialStore":"privateFile","credentialFolder":"/home/alice/.config/kodosi/secrets",
+        })]);
+        assert_eq!(
+            account(&unreadable),
+            "Kodosi cannot read your sign-in in /home/alice/.config/kodosi/secrets."
         );
     }
 

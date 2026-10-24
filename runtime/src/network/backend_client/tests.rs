@@ -769,3 +769,39 @@ async fn a_saved_sign_in_that_cannot_reach_the_server_is_reported_once_as_coming
     }
     assert_eq!(reasons, [json!("offline")]);
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_saved_sign_in_that_cannot_be_read_says_where_it_is_kept() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (root, network) = fixture();
+    let tokens = root.path().join("secrets/kodosi.tokens");
+    std::fs::create_dir_all(root.path().join("secrets")).unwrap();
+    std::fs::write(&tokens, "{}").unwrap();
+    std::fs::set_permissions(&tokens, std::fs::Permissions::from_mode(0o644)).unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    assert!(network.restore_saved(network.generation()).await.is_err());
+    let restoring: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| event.event["type"] == "auth.restoring")
+        .map(|event| event.event)
+        .collect();
+    assert_eq!(restoring.len(), 1);
+    assert_eq!(restoring[0]["reason"], "unreadable");
+    assert_eq!(restoring[0]["credentialStore"], "privateFile");
+    assert_eq!(
+        restoring[0]["credentialFolder"],
+        root.path().join("secrets").display().to_string()
+    );
+}
+
+#[tokio::test]
+async fn the_ready_event_says_where_the_sign_in_is_kept() {
+    let (root, network) = fixture();
+    let event = network.ready_event("01992e43-53db-7040-8e02-f6ebf4149b28", true);
+    assert_eq!(event["credentialStore"], "privateFile");
+    assert_eq!(
+        event["credentialFolder"],
+        root.path().join("secrets").display().to_string()
+    );
+}

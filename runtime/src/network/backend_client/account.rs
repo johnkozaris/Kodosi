@@ -24,7 +24,15 @@ impl BackendClient {
             .lock()
             .map_err(|_| Error::Closed)?
             .clone();
-        let saved = secrets.run(cancel, |store| store.load("tokens")).await?;
+        let saved = match secrets.run(cancel, |store| store.load("tokens")).await {
+            Ok(saved) => saved,
+            Err(error) => {
+                if !matches!(error, Error::Busy | Error::Stale | Error::Closed) {
+                    self.announce_restoring(generation, AuthRestoringReason::Unreadable);
+                }
+                return Err(error);
+            }
+        };
         if let Some(saved) = saved {
             let restored = async {
                 let mut tokens: Tokens = serde_json::from_str(&saved)?;
@@ -40,6 +48,7 @@ impl BackendClient {
             restored?;
             self.stop_restoring();
         } else {
+            self.stop_restoring();
             self.emit_for(
                 generation,
                 None,
@@ -57,6 +66,10 @@ impl BackendClient {
             Error::SignedOut | Error::AccountDeleted | Error::Stale | Error::Closed => return,
             _ => AuthRestoringReason::Unavailable,
         };
+        self.announce_restoring(generation, reason);
+    }
+
+    fn announce_restoring(&self, generation: u64, reason: AuthRestoringReason) {
         if reason == AuthRestoringReason::UpdateRequired {
             self.update_required();
         }
@@ -65,11 +78,9 @@ impl BackendClient {
         };
         if restoring.replace(reason) != Some(reason) {
             drop(restoring);
-            self.emit_for(
-                generation,
-                None,
-                json!({"type":"auth.restoring","reason":reason}),
-            );
+            let mut event = json!({"type":"auth.restoring","reason":reason});
+            self.credential_fields(&mut event);
+            self.emit_for(generation, None, event);
         }
     }
 

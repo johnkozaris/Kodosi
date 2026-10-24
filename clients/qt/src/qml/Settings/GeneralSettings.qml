@@ -67,6 +67,19 @@ ColumnLayout {
     ListGroup {
         Layout.fillWidth: true
         visible: !root.inBrowser
+        footer: {
+            const folder = Models.Account.credentialFolder;
+            switch (Models.Account.credentialStore) {
+            case "keychain":
+                return qsTr("Kodosi keeps your sign-in in the keychain (Secret Service).");
+            case "privateFile":
+                return qsTr("Kodosi keeps your sign-in in private files in %1.").arg(folder);
+            case "protectedFile":
+                return qsTr("Kodosi keeps your sign-in in files that Windows protects for you, in %1.").arg(folder);
+            default:
+                return "";
+            }
+        }
 
         ListRow {
             title: Models.Account.signedIn ? Identity.selfName
@@ -80,6 +93,9 @@ ColumnLayout {
                     return qsTr("Update Kodosi to sign in.");
                 if (Models.Account.restoring === "unavailable")
                     return qsTr("The Kodosi server does not answer. Kodosi tries again.");
+                if (Models.Account.restoring === "unreadable")
+                    return Models.Account.credentialStore === "keychain" ? qsTr("Unlock the keychain. Kodosi tries again.")
+                        : qsTr("Kodosi cannot read your sign-in. Kodosi tries again.");
                 return qsTr("Your terminals work without an account.");
             }
             leading: Item {

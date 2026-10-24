@@ -4602,6 +4602,36 @@
               }
             ]
           },
+          "credentialFolder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialStore": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "keychain"
+                  },
+                  {
+                    "const": "protectedFile"
+                  },
+                  {
+                    "const": "privateFile"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "displayName": {
             "anyOf": [
               {
@@ -4699,6 +4729,36 @@
               }
             ]
           },
+          "credentialFolder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialStore": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "keychain"
+                  },
+                  {
+                    "const": "protectedFile"
+                  },
+                  {
+                    "const": "privateFile"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reason": {
             "oneOf": [
               {
@@ -4709,6 +4769,9 @@
               },
               {
                 "const": "updateRequired"
+              },
+              {
+                "const": "unreadable"
               }
             ]
           },

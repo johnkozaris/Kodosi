@@ -17,16 +17,23 @@ struct DeviceSettingsView: View {
             if deps.account.userId == nil {
                 SignInView().frame(height: 380)
             } else {
-                HStack(spacing: 14) {
-                    PersonAvatar(name: deps.account.selfName, size: 52, isSelf: true)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(deps.account.selfName).appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                        Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 14) {
+                        PersonAvatar(name: deps.account.selfName, size: 52, isSelf: true)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(deps.account.selfName).appTextStyle(.title).foregroundStyle(theme.colors.ink)
+                            Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        }
+                        Spacer()
+                        Button("Sign out…") { signingOut = true }.accessibilityIdentifier("settings.account.signOut")
                     }
-                    Spacer()
-                    Button("Sign out…") { signingOut = true }.accessibilityIdentifier("settings.account.signOut")
+                    .padding(16).raised(Radius.xl)
+                    if let kept {
+                        Text(kept).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+                            .padding(.leading, 4).fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("settings.account.kept")
+                    }
                 }
-                .padding(16).raised(Radius.xl)
                 if !deps.account.localDeviceEnrolled {
                     VStack(spacing: 14) {
                         Text("Trust this Mac").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
@@ -162,6 +169,14 @@ struct DeviceSettingsView: View {
                 codeFocused = true
                 deps.workbench.focusesDeviceCode = false
             }
+        }
+    }
+
+    private var kept: String? {
+        switch deps.account.credentialStore {
+        case "keychain": String(localized: "Kodosi keeps your sign-in in the Keychain.")
+        case "privateFile": deps.account.credentialFolder.map { String(localized: "Kodosi keeps your sign-in in private files in \($0).") }
+        default: nil
         }
     }
 
