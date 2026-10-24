@@ -847,8 +847,6 @@ impl LocalActor {
         }
     }
 
-    /// Output in the last second, a start line, waiting input or a viewer that missed
-    /// output: the upkeep runs every 20 ms. An idle terminal runs it every 250 ms.
     fn busy(&self) -> bool {
         self.start.is_some()
             || !self.queue.is_empty()

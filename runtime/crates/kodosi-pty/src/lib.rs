@@ -55,17 +55,12 @@ pub enum KodosiError {
 
 pub use pty::{CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
 
-pub const TERMINAL_PROGRAM: &str = "ghostty";
-pub const GHOSTTY_VERSION: &str = "1.3.2-dev";
-pub const XTVERSION: &str = "ghostty 1.3.2-dev";
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn the_version_report_names_the_terminal_program_and_its_version() {
-        assert_eq!(
-            super::XTVERSION,
-            format!("{} {}", super::TERMINAL_PROGRAM, super::GHOSTTY_VERSION)
-        );
-    }
+macro_rules! ghostty_version {
+    () => {
+        "1.3.2-dev"
+    };
 }
+
+pub const TERMINAL_PROGRAM: &str = "ghostty";
+pub const GHOSTTY_VERSION: &str = ghostty_version!();
+pub const XTVERSION: &str = concat!("ghostty ", ghostty_version!());

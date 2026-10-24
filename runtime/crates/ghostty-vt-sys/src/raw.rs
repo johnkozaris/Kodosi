@@ -207,7 +207,6 @@ pub struct Limits {
     pub image_storage_max_bytes: u64,
 }
 
-/// Red, green and blue of each default color; `ansi` holds the first 16 palette entries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Colors {
     pub foreground: [u8; 3],
@@ -704,7 +703,6 @@ impl Terminal {
         })
     }
 
-    /// Programs that ask for a color (OSC 4, 10, 11 and 12) get these, unless they set their own.
     pub fn set_default_colors(&mut self, colors: &Colors) -> Result<(), Error> {
         self.ensure_healthy()?;
         let rgb = |[r, g, b]: [u8; 3]| GhosttyColorRgb { r, g, b };

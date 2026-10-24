@@ -420,7 +420,6 @@ void TerminalView::keyReleaseEvent(QKeyEvent* event)
         return;
     }
     if (m_pasteShortcutKey && event->key() == *m_pasteShortcutKey) {
-        // X11 repeats a held key as releases and presses; only the last release ends it.
         if (!event->isAutoRepeat()) {
             m_pasteShortcutKey.reset();
         }

@@ -4,7 +4,6 @@ use zbus::blocking::{Connection, connection::Builder};
 
 const LIMIT: Duration = Duration::from_secs(3);
 
-/// Asks the session bus and gives up after a few seconds.
 pub(crate) fn ask<T: Send + 'static>(
     question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
 ) -> Option<T> {
@@ -18,9 +17,6 @@ pub(crate) fn ask<T: Send + 'static>(
     })
 }
 
-/// Runs work that talks to the session bus on a thread of its own and gives up after
-/// `limit`. zbus limits method calls but not the connection handshake, so a bus that
-/// accepts a connection and never answers would otherwise block the caller for good.
 fn within<T: Send + 'static>(
     limit: Duration,
     work: impl FnOnce() -> Option<T> + Send + 'static,

@@ -322,7 +322,6 @@ impl Subscribers {
         self.entries.values().any(Subscriber::caught_up)
     }
 
-    /// A viewer missed output and waits for a fresh snapshot.
     #[cfg(feature = "host")]
     pub(crate) fn behind(&self) -> bool {
         self.entries

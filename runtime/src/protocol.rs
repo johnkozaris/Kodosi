@@ -1009,19 +1009,14 @@ pub enum AuthRestoringReason {
     Offline,
     Unavailable,
     UpdateRequired,
-    /// The keychain or the files that keep the sign-in cannot be read now.
     Unreadable,
 }
 
-/// Where this computer keeps the sign-in and the device keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CredentialStore {
-    /// The Keychain on Apple systems, the Secret Service on Linux.
     Keychain,
-    /// Files that Windows data protection seals for the user.
     ProtectedFile,
-    /// Files that only the user can read, on a Linux computer without a Secret Service.
     PrivateFile,
 }
 

@@ -51,8 +51,6 @@ pub fn reset_signals() {
     imp::reset_signals();
 }
 
-/// The request of the system that this process ends: SIGTERM on Unix, which the system sends
-/// at logout and at shutdown. Windows has none here.
 pub struct EndRequest(imp::EndRequest);
 
 impl EndRequest {

@@ -12,12 +12,8 @@ use zeroize::Zeroizing;
 
 const OPENING: Duration = Duration::from_secs(10);
 
-/// One session with the Secret Service for this process. It opens again after a failure
-/// or a lost connection, so a Secret Service that starts after Kodosi works once it
-/// answers.
 static SECRET_SERVICE: Session<SecretService> = Session::new();
 
-/// The Secret Service opens a session, after the session bus starts it when it can.
 pub(super) fn available() -> bool {
     secret_service().is_ok()
 }
@@ -84,8 +80,6 @@ fn unavailable(error: &dyn std::fmt::Display) -> io::Error {
     io::Error::other(format!("Secret Service is unavailable: {error}"))
 }
 
-/// A platform failure can mean that the Secret Service went away, so the next call opens
-/// a new session.
 fn failed(session: &Arc<SecretService>, what: &str, error: &Error) -> io::Error {
     if matches!(error, Error::PlatformFailure(_)) {
         SECRET_SERVICE.close(session);
@@ -110,8 +104,6 @@ impl<T: Send + Sync + 'static> Session<T> {
         }
     }
 
-    /// The open session, or one that opens within `wait`. Only one opening runs at a
-    /// time: a slow one goes on, and a later call takes its result.
     fn get(
         &self,
         wait: Duration,

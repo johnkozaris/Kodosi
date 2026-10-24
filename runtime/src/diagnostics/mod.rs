@@ -53,9 +53,6 @@ pub fn client(level: Level, message: &[u8]) {
     }
 }
 
-/// Lets a loop that tries again write a failure once: the first one, and then only a
-/// different one, until it works again.
-#[derive(Default)]
 pub(crate) struct Repeats {
     last: Option<String>,
 }
@@ -65,7 +62,6 @@ impl Repeats {
         Self { last: None }
     }
 
-    /// Whether the log does not have this failure yet.
     pub(crate) fn new_failure(&mut self, error: &impl std::fmt::Display) -> bool {
         let error = error.to_string();
         if self.last.as_ref() == Some(&error) {

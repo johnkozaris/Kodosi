@@ -36,7 +36,6 @@ public struct RuntimeStartFailure: Equatable, Sendable {
     public let hostTerminals: UInt32
     public let message: String
 
-    /// An earlier background host with no terminals can restart without losing anything.
     public var restartsWithoutAsking: Bool {
         code == .hostOutdated && hostKind == .background && hostTerminals == 0
     }

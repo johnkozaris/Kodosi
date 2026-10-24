@@ -51,8 +51,6 @@ pub fn open_private(path: &Path) -> io::Result<File> {
     imp::open_private(path)
 }
 
-/// Reads a file that `write_private` wrote, or `None` when there is none. On Unix it
-/// refuses a link, a file of another user, and a file that others can read or write.
 pub fn read_private(path: &Path) -> io::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
     imp::read_private(path)
 }

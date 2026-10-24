@@ -190,7 +190,6 @@ impl SessionTerminalHandle {
     }
 }
 
-/// The colors that the apps draw terminals in.
 const TERMINAL_COLORS: Colors = Colors {
     foreground: [0xe8, 0xe1, 0xd9],
     background: [0x0d, 0x0b, 0x09],
