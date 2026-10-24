@@ -138,7 +138,8 @@ enum TerminalAction {
     },
     /// Start a terminal on this computer, or on another computer of yours with --computer.
     Start {
-        /// The name of the terminal. The default is Terminal, or the name of the new branch.
+        /// The name of the terminal. The default is the name of the new branch, or the agent's
+        /// name or Terminal, with a number when another terminal has that name.
         #[arg(long)]
         name: Option<String>,
         /// The folder to start in. The default is your home folder.
@@ -564,6 +565,7 @@ async fn start_command(
     } else {
         None
     };
+    let chosen = name.is_some() || branch.is_some();
     let name = name.or_else(|| {
         agent.as_ref().and_then(|agent| {
             crate::agents::Agent::ALL
@@ -581,7 +583,10 @@ async fn start_command(
             "Give --directory, the repository on that computer, for a new branch there.".into(),
         ));
     }
-    let (name, directory) = start_defaults(name, directory, branch.as_deref());
+    let (mut name, directory) = start_defaults(name, directory, branch.as_deref());
+    if !chosen {
+        name = unused_name(name, &context.sessions);
+    }
     let directory = match &computer {
         Some(computer) => remote_folder(client, context, computer, directory).await?,
         None => path(directory)?,
@@ -1193,6 +1198,16 @@ fn start_defaults(
         directory.or_else(|| branch.map(|_| PathBuf::from("."))),
     )
 }
+fn unused_name(name: String, sessions: &[Value]) -> String {
+    let used = |candidate: &str| sessions.iter().any(|session| session["name"] == candidate);
+    if !used(&name) {
+        return name;
+    }
+    (2..=sessions.len() + 1)
+        .map(|number| format!("{name} {number}"))
+        .find(|candidate| !used(candidate))
+        .unwrap_or(name)
+}
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
@@ -1663,6 +1678,17 @@ mod tests {
             start_defaults(None, None, None),
             ("Terminal".to_owned(), None)
         );
+        let sessions = [
+            json!({"name":"Terminal"}),
+            json!({"name":"Terminal 2"}),
+            json!({"name":"Claude Code"}),
+        ];
+        assert_eq!(unused_name("Terminal".into(), &sessions), "Terminal 3");
+        assert_eq!(
+            unused_name("Claude Code".into(), &sessions),
+            "Claude Code 2"
+        );
+        assert_eq!(unused_name("Codex".into(), &sessions), "Codex");
     }
     #[test]
     fn older_account_events_cannot_restore_old_sessions() {

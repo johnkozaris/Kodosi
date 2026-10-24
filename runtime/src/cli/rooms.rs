@@ -37,7 +37,7 @@ enum RoomAction {
     Leave,
     /// Print the skill that lets an agent take part in a room.
     Skill,
-    /// Show the room, its members and its terminals.
+    /// Show the room, its members, terminals, tasks and repositories.
     Context,
     /// Open the room in the Kodosi app.
     Show,
@@ -293,14 +293,18 @@ async fn show_context(
         false,
     )
     .await?;
+    let read = call(client, context, room, Action::Read { before: None }).await?;
+    let snapshot: Snapshot = serde_json::from_value(read["room"].clone())?;
     let terminals = context
         .sessions
         .iter()
         .filter(|session| session["missionId"].as_str() == Some(room))
         .collect::<Vec<_>>();
-    print_json(
-        &json!({"room":event["mission"],"members":event["members"],"terminals":terminals,"currentTerminalId":terminal()}),
-    )
+    print_json(&json!({
+        "room":event["mission"],"members":event["members"],"terminals":terminals,
+        "currentTerminalId":terminal(),"tasks":snapshot.tasks,
+        "repositories":snapshot.repositories,"sequence":snapshot.sequence
+    }))
 }
 
 async fn share_terminal(
