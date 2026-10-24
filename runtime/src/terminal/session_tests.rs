@@ -1151,16 +1151,19 @@ fn start_commands_clear_the_line_the_way_the_shell_edits() {
 }
 
 #[test]
-fn terminals_find_the_kodosi_command_of_the_running_app() {
+fn terminals_find_the_kodosi_command_of_the_running_app_first() {
     let app = tempfile::tempdir().expect("app folder");
     let folder = app.path().to_path_buf();
     let path = std::ffi::OsString::from("/usr/bin:/bin");
-    assert_eq!(path_with_command(&path, folder.clone()), None);
+    assert_eq!(path_with_command(&path, &folder), None);
     std::fs::write(folder.join("kodosi"), b"").expect("command");
-    assert_eq!(
-        path_with_command(&path, folder.clone()),
-        Some(format!("/usr/bin:/bin:{}", folder.display()))
-    );
-    let present = std::env::join_paths([PathBuf::from("/usr/bin"), folder.clone()]).expect("path");
-    assert_eq!(path_with_command(&present, folder), None);
+    let first = Some(format!("{}:/usr/bin:/bin", folder.display()));
+    assert_eq!(path_with_command(&path, &folder), first);
+    let later = std::env::join_paths([
+        PathBuf::from("/usr/bin"),
+        folder.clone(),
+        PathBuf::from("/bin"),
+    ])
+    .expect("path");
+    assert_eq!(path_with_command(&later, &folder), first);
 }

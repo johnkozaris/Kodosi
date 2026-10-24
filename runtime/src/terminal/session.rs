@@ -470,20 +470,22 @@ fn command_path() -> Option<String> {
     if cfg!(windows) {
         return None;
     }
-    let folder = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    path_with_command(&std::env::var_os("PATH").unwrap_or_default(), folder)
+    let program = std::env::current_exe().ok()?;
+    path_with_command(
+        &std::env::var_os("PATH").unwrap_or_default(),
+        program.parent()?,
+    )
 }
 
-fn path_with_command(path: &std::ffi::OsStr, folder: PathBuf) -> Option<String> {
+fn path_with_command(path: &std::ffi::OsStr, folder: &Path) -> Option<String> {
     if !folder.join("kodosi").is_file() {
         return None;
     }
-    let mut folders: Vec<PathBuf> = std::env::split_paths(path).collect();
-    if folders.contains(&folder) {
-        return None;
-    }
-    folders.push(folder);
-    std::env::join_paths(folders).ok()?.into_string().ok()
+    let others = std::env::split_paths(path).filter(|other| other.as_path() != folder);
+    std::env::join_paths(std::iter::once(folder.to_path_buf()).chain(others))
+        .ok()?
+        .into_string()
+        .ok()
 }
 
 /// `PowerShell` and `cmd` cancel a line with Ctrl+C; Unix line editors clear it
