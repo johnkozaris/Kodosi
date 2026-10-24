@@ -16,7 +16,7 @@ KPopover {
     }
     property int index: 0
 
-    signal newTerminalRequested(string folder)
+    signal newTerminalRequested
     signal newRoomRequested
     signal resumeRequested
 
@@ -64,7 +64,7 @@ KPopover {
             Models.DesktopState.activeView = Models.DesktopState.People
             break
         default:
-            if (item.id === "action.terminal") root.newTerminalRequested("")
+            if (item.id === "action.terminal") root.newTerminalRequested()
             else if (item.id === "action.resume") root.resumeRequested()
             else if (item.id === "action.room") root.newRoomRequested()
             else if (item.id === "action.people") Models.DesktopState.activeView = Models.DesktopState.People

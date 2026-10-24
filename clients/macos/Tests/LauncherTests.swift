@@ -67,9 +67,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     app.openLauncher()
     #expect(app.workbench.launcher == nil)
     #expect(app.workbench.launcherFocus == 1)
-    app.openLauncher(folder: "/work/atlas")
-    #expect(app.workbench.launcher == nil)
-    #expect(app.workbench.launcherDraft.folder == "/work/atlas")
+    app.workbench.launcherDraft.folder = "/work/atlas"
     app.openLauncher(roomId: "room")
     #expect(app.workbench.launcher == LauncherRequest(roomId: "room"))
     app.workbench.launcherDraft.prompt = "fix the build"
@@ -104,6 +102,32 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
         "requestId": .string(request), "sessionId": .string(created), "operation": .string("session.create"),
     ]))
     try await creating.value
+    #expect(app.freshTerminals.contains(created))
+}
+
+@Test @MainActor func `a folder's plus starts a plain terminal there without the launcher`() async throws {
+    let (app, sent) = try launcherApp("LauncherFolder")
+    defer { app.shutdownProcess() }
+    app.openTerminal(in: "/work/atlas")
+    var create: [String: JSONValue]?
+    for _ in 0 ..< 200 where create == nil {
+        await Task.yield()
+        create = sent().last { $0["type"] == .string("session.create") }
+    }
+    let fields = try #require(create)
+    #expect(fields["workingDir"] == .string("/work/atlas"))
+    #expect(fields["agent"] == nil)
+    #expect(fields["command"] == nil)
+    #expect(app.workbench.launcher == nil)
+    #expect(app.workbench.launcherFocus == 0)
+    let created = UUIDv7.generate()
+    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(fields["requestId"]?.stringValue)), "sessionId": .string(created),
+        "operation": .string("session.create"),
+    ]))
+    for _ in 0 ..< 200 where !app.freshTerminals.contains(created) {
+        await Task.yield()
+    }
     #expect(app.freshTerminals.contains(created))
 }
 

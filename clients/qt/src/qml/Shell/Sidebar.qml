@@ -40,7 +40,7 @@ Item {
     property Item pillTarget: null
     property var collapsedFolders: ({})
 
-    signal newTerminalRequested(string folder)
+    signal newTerminalRequested
     signal detailsRequested(string sessionId)
     signal shareRequested(string sessionId)
     signal resumeRequested(string provider)
@@ -223,7 +223,7 @@ Item {
                 contentItem: Item {
                     KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6; opacity: railNewSpot.hidden ? 0 : 1 }
                 }
-                onClicked: root.newTerminalRequested("")
+                onClicked: root.newTerminalRequested()
             }
         }
         Flickable {
@@ -391,7 +391,7 @@ Item {
                 selected: root.selection === "people" || root.selection === "settings"
                 onAboutRequested: root.aboutRequested()
                 onResumeRequested: provider => root.resumeRequested(provider)
-                onStartRequested: root.newTerminalRequested("")
+                onStartRequested: root.newTerminalRequested()
             }
         }
     }
@@ -514,14 +514,14 @@ Item {
                     PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
                     PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
-                onClicked: root.newTerminalRequested("")
+                onClicked: root.newTerminalRequested()
             }
         }
         DosiPanel {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.dosi
-            onNewTerminalRequested: root.newTerminalRequested("")
+            onNewTerminalRequested: root.newTerminalRequested()
             onNewRoomRequested: root.accountReady ? root.newRoomRequested() : root.signIn()
             onSettingsRequested: root.dosiSettingsRequested()
         }
@@ -773,7 +773,7 @@ Item {
                     addName: qsTr("New terminal")
                     identifier: "sidebar.terminals"
                     onClicked: Models.DesktopState.activeView = Models.DesktopState.Sessions
-                    onAddClicked: root.newTerminalRequested("")
+                    onAddClicked: root.newTerminalRequested()
                 }
                 Repeater {
                     model: root.groups.length
@@ -859,7 +859,7 @@ Item {
                                     objectName: "sidebar.folder.new." + folder.group.key
                                     Accessible.id: objectName
                                     Accessible.name: qsTr("New terminal in %1").arg(folder.group.name)
-                                    onClicked: root.newTerminalRequested(folder.group.directory)
+                                    onClicked: Models.SessionActions.create("", folder.group.directory)
                                 }
                                 KIconButton {
                                     Layout.rightMargin: 2
@@ -1229,7 +1229,7 @@ Item {
                     selected: root.selection === "people" || root.selection === "settings"
                     onAboutRequested: root.aboutRequested()
                     onResumeRequested: provider => root.resumeRequested(provider)
-                    onStartRequested: root.newTerminalRequested("")
+                    onStartRequested: root.newTerminalRequested()
                 }
             }
         }

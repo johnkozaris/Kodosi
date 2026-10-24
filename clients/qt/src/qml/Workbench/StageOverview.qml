@@ -11,10 +11,10 @@ Item {
 
     signal resumeRequested
 
-    function focusLauncher(folder) {
+    function focusLauncher() {
         if (!launcher.visible)
             return false
-        launcher.focusPrompt(folder)
+        launcher.focusPrompt()
         return true
     }
 

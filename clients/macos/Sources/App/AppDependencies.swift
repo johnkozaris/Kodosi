@@ -307,15 +307,22 @@ final class AppDependencies {
         workbench.selectedSessionId.flatMap(session)?.localDirectory
     }
 
-    func openLauncher(folder: String? = nil, roomId: String? = nil) {
-        if let folder {
-            workbench.launcherDraft.folder = folder
-        }
+    func openLauncher(roomId: String? = nil) {
         let onHome = workbench.section == .sessions && !workbench.stagedSessionIds.contains { session($0) != nil }
         if onHome, roomId == nil {
             workbench.launcherFocus += 1
         } else {
             workbench.launcher = LauncherRequest(roomId: roomId)
+        }
+    }
+
+    func openTerminal(in directory: String) {
+        Task { @MainActor [weak self] in
+            do {
+                try await self?.createSession(name: generateSessionName(), directory: directory)
+            } catch {
+                self?.errorMessage = error.localizedDescription
+            }
         }
     }
 

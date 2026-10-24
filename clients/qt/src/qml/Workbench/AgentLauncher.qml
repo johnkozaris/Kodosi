@@ -74,9 +74,7 @@ ColumnLayout {
     function folderName(path) {
         return shown(path) === "~" ? "~" : Models.Sessions.folderName(path)
     }
-    function focusPrompt(path) {
-        if (path)
-            Models.DesktopState.launcherFolder = path
+    function focusPrompt() {
         promptInput.forceActiveFocus()
     }
     function showDraft() {

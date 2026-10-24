@@ -36,11 +36,11 @@ ApplicationWindow {
             : qsTr("This computer needs approval before it can share.");
     }
 
-    function openLauncher(folder, roomId) {
+    function openLauncher(roomId) {
         const stage = stageLoader.item as TerminalStage;
-        if (!roomId && stage && stage.focusLauncher(folder || ""))
+        if (!roomId && stage && stage.focusLauncher())
             return;
-        launcherSheet.openFor(folder || "", roomId || "");
+        launcherSheet.openFor(roomId || "");
     }
     function openNewRoom() {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
@@ -143,7 +143,7 @@ ApplicationWindow {
 
                 onDetailsRequested: sessionId => details.openSession(sessionId)
                 onShareRequested: sessionId => share.openSession(sessionId)
-                onNewTerminalRequested: folder => window.openLauncher(folder)
+                onNewTerminalRequested: window.openLauncher()
                 onResumeRequested: provider => history.openModal(provider)
                 onPaletteRequested: palette.open()
                 onNewRoomRequested: window.openNewRoom()
@@ -189,7 +189,7 @@ ApplicationWindow {
                     }
                     MissionsView {
                         id: missions
-                        onNewTerminalRequested: roomId => window.openLauncher("", roomId)
+                        onNewTerminalRequested: roomId => window.openLauncher(roomId)
                         onInspectSessionRequested: id => details.openSession(id)
                         onShareSessionRequested: id => share.openSession(id)
                     }
@@ -348,7 +348,7 @@ ApplicationWindow {
     }
     CommandPalette {
         id: palette
-        onNewTerminalRequested: folder => window.openLauncher(folder)
+        onNewTerminalRequested: window.openLauncher()
         onNewRoomRequested: window.openNewRoom()
         onResumeRequested: history.openModal()
     }
