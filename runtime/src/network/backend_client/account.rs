@@ -35,7 +35,10 @@ impl BackendClient {
         };
         if let Some(saved) = saved {
             let restored = async {
-                let mut tokens: Tokens = serde_json::from_str(&saved)?;
+                let mut tokens: Tokens = serde_json::from_str(&saved).map_err(|_| {
+                    tracing::warn!("the saved sign-in is damaged; a new sign-in replaces it");
+                    Error::SignedOut
+                })?;
                 if tokens.expires_at <= identity::now_ms() + 60_000 {
                     tokens = self.oidc()?.refresh(&tokens).await?;
                 }

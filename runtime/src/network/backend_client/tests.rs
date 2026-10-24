@@ -741,6 +741,27 @@ async fn a_renewed_sign_in_that_cannot_be_saved_is_used_and_saved_later() {
 }
 
 #[tokio::test]
+async fn a_damaged_saved_sign_in_ends_so_a_new_sign_in_can_start() {
+    let (_root, network) = fixture();
+    let secrets = network.inner.state.lock().await.secrets.clone();
+    secrets.store("tokens", "not a sign-in").unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    let error = network
+        .execute("auth.login.start", request())
+        .await
+        .unwrap_err();
+    assert!(error.unanswered(), "{error}");
+    assert!(secrets.load("tokens").unwrap().is_none());
+    assert!(!network.inner.restore_pending.load(Ordering::Acquire));
+    let auth: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| event.event)
+        .filter(|event| event["type"] == "auth.required" || event["type"] == "auth.restoring")
+        .collect();
+    assert_eq!(auth, [json!({"type":"auth.required","reason":"expired"})]);
+}
+
+#[tokio::test]
 async fn a_saved_sign_in_that_cannot_reach_the_server_is_reported_once_as_coming_back() {
     let (_root, network) = fixture();
     let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;

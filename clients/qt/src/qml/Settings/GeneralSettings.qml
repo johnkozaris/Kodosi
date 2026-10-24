@@ -95,7 +95,7 @@ ColumnLayout {
                     return qsTr("The Kodosi server does not answer. Kodosi tries again.");
                 if (Models.Account.restoring === "unreadable")
                     return Models.Account.credentialStore === "keychain" ? qsTr("Unlock the keychain. Kodosi tries again.")
-                        : qsTr("Kodosi cannot read your sign-in. Kodosi tries again.");
+                        : qsTr("Kodosi cannot read your sign-in in %1.").arg(Models.Account.credentialFolder);
                 return qsTr("Your terminals work without an account.");
             }
             leading: Item {
