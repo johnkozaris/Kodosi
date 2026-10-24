@@ -15,7 +15,7 @@ struct RoomConversationView: View {
     }
 
     private var targets: [RoomMention] {
-        RoomMentions.targets(members: detail.members, sessions: deps.sessions.filter { $0.missionId == roomId }, userId: deps.account.userId)
+        RoomMentions.targets(members: detail.members, sessions: deps.roomSessions(roomId), userId: deps.account.userId)
     }
 
     var body: some View {
@@ -107,7 +107,7 @@ struct RoomConversationView: View {
                         RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
                                          done: detail.members.count > 1) { state.peopleVisible = true },
                         RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
-                                         done: deps.sessions.contains { $0.missionId == roomId }) { deps.openLauncher(roomId: roomId) },
+                                         done: !deps.roomSessions(roomId).isEmpty) { deps.openLauncher(roomId: roomId) },
                         RoomWelcome.Step(title: copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles",
                                          tint: TileTint.orange, done: copied, action: copyInvite),
                     ])

@@ -73,7 +73,7 @@ struct SidebarRoomRow: View {
     let pill: Namespace.ID
 
     private var live: [RuntimeSession] {
-        deps.sessions.filter { $0.missionId == mission.id }
+        deps.roomSessions(mission.id)
     }
 
     var body: some View {

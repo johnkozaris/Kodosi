@@ -70,8 +70,10 @@ QStringList MissionsModel::sessionIds() const
         return result;
     for (int row = 0; row < m_sessions.rowCount(); ++row) {
         const auto index = m_sessions.index(row, 0);
-        if (m_sessions.data(index, SessionCatalogModel::MissionIdRole).toString() == m_selectedId)
-            result.append(m_sessions.data(index, SessionCatalogModel::SessionIdRole).toString());
+        const auto id = m_sessions.data(index, SessionCatalogModel::SessionIdRole).toString();
+        const auto session = m_sessions.session(id);
+        if (session && session->missionId == m_selectedId && session->status != QStringLiteral("closing"))
+            result.append(id);
     }
     return result;
 }

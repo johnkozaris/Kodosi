@@ -228,6 +228,10 @@ final class AppDependencies {
         sessions.filter { !$0.hidden && $0.status != .closing }
     }
 
+    func roomSessions(_ roomId: String) -> [RuntimeSession] {
+        sessions.filter { $0.missionId == roomId && $0.status != .closing }
+    }
+
     func refresh() {
         Task { await launcher.refresh(force: true) }
         commandSink.perform("session.list")

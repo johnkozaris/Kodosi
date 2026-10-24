@@ -624,6 +624,18 @@ private slots:
         QVERIFY(f.sessions.listedSessions().isEmpty());
         QVERIFY(f.sessions.folderGroups().isEmpty());
     }
+    void aClosingTerminalLeavesItsRoomAtOnce()
+    {
+        Fixture f;
+        auto session = test::session(1);
+        session.insert(QStringLiteral("missionId"), test::id(10));
+        f.workspace.apply(test::snapshot({ session }), 0);
+        f.workspace.missions().open(test::id(10));
+        QCOMPARE(f.workspace.missions().sessionIds(), QStringList { test::id(1) });
+        session.insert(QStringLiteral("status"), QStringLiteral("closing"));
+        f.workspace.apply(test::snapshot({ session }), 0);
+        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
+    }
     void aTerminalThatWaitsForItsProgramsToStopDoesNotHoldUpANewOne()
     {
         Fixture f;

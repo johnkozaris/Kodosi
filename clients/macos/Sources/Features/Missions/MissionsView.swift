@@ -64,7 +64,7 @@ struct RoomsLobby: View {
 
     private var facts: String? {
         guard !deps.missions.isEmpty else { return String(localized: "A room keeps people, agents and terminals in one place.") }
-        let shared = deps.sessions.filter { $0.missionId != nil }.count
+        let shared = deps.sessions.count { $0.missionId != nil && $0.status != .closing }
         return "\(Counted.rooms(deps.missions.count)) · " + String(localized: "\(shared) shared terminals")
     }
 }
@@ -76,7 +76,7 @@ private struct RoomCard: View {
     let mission: MissionEntry
 
     private var sessions: [RuntimeSession] {
-        deps.sessions.filter { $0.missionId == mission.id }
+        deps.roomSessions(mission.id)
     }
 
     var body: some View {
