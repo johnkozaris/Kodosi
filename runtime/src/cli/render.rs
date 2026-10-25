@@ -3,28 +3,29 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 pub(super) fn status(context: &Context) -> String {
-    let mut lines = vec![account(context)];
+    format!("{}\n{}", account(context), terminals(context))
+}
+
+pub(super) fn terminals(context: &Context) -> String {
     let listed = context
         .sessions
         .iter()
         .filter(|session| session["hidden"] != true)
         .collect::<Vec<_>>();
     if listed.is_empty() {
-        lines.push("No terminals. Start one: kodosi terminal start".to_owned());
-    } else {
-        let mut rows = vec![["NAME", "WHERE", "STATE", "SHARED WITH", "ID"].map(str::to_owned)];
-        rows.extend(listed.into_iter().map(|session| {
-            [
-                text(session, "name"),
-                place(session),
-                state(session),
-                names(&users(session), &context.friends),
-                short(session, "id"),
-            ]
-        }));
-        lines.push(table(&rows));
+        return "No terminals. Start one: kodosi terminal start".to_owned();
     }
-    lines.join("\n")
+    let mut rows = vec![["NAME", "WHERE", "STATE", "SHARED WITH", "ID"].map(str::to_owned)];
+    rows.extend(listed.into_iter().map(|session| {
+        [
+            text(session, "name"),
+            place(session),
+            state(session),
+            names(&users(session), &context.friends),
+            short(session, "id"),
+        ]
+    }));
+    table(&rows)
 }
 
 pub(super) fn session(session: &Value, context: &Context) -> String {
@@ -83,7 +84,10 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ("friends.result" | "mission.result", _) if unapproved(context) => account(context),
         ("friends.result", "friends.invite") => text(event, "text"),
         ("friends.result", _) => friends(&latest("friends.snapshot")),
-        ("mission.result", "mission.list") => missions(&latest("missions.snapshot")),
+        ("mission.result", "mission.show") => {
+            "The Kodosi app shows the room when it is open.".to_owned()
+        }
+        ("mission.result", _) => "Done.".to_owned(),
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
@@ -93,7 +97,6 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
             "The person sees the question. End your turn; the answer comes as the next message."
                 .to_owned()
         }
-        ("mission.result", "mission.show") => "The room is open in Kodosi.".to_owned(),
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
 }
@@ -185,7 +188,7 @@ fn session_result(event: &Value, context: &Context) -> String {
                     || "the terminal".to_owned(),
                     |session| text(session, "name"),
                 );
-            let reference = &id[id.len().saturating_sub(6)..];
+            let reference = crate::protocol::short_id(&id);
             format!("Started {name} ({reference}). Open it: kodosi terminal attach {reference}")
         }
         "session.run" => "The agent is starting in the terminal.".to_owned(),
@@ -203,10 +206,7 @@ fn session_result(event: &Value, context: &Context) -> String {
 }
 
 fn label(agent: &str) -> &'static str {
-    crate::agents::Agent::ALL
-        .into_iter()
-        .find(|known| known.name() == agent)
-        .map_or("Agent", crate::agents::Agent::label)
+    crate::agents::Agent::named(agent).map_or("Agent", crate::agents::Agent::label)
 }
 
 fn pick<'a>(result: &'a Value, agent: &str) -> &'a Value {
@@ -435,14 +435,27 @@ fn friends(event: &Value) -> String {
 pub(super) fn missions(event: &Value) -> String {
     let list = |key: &str| event[key].as_array().cloned().unwrap_or_default();
     let mut lines = Vec::new();
-    let names = list("missions")
+    let rows = list("missions")
         .iter()
-        .map(|mission| text(mission, "name"))
+        .map(|mission| {
+            let unread = if mission["unread"] == true {
+                "new messages"
+            } else {
+                ""
+            };
+            [
+                text(mission, "name"),
+                unread.to_owned(),
+                short(mission, "id"),
+            ]
+        })
         .collect::<Vec<_>>();
-    if names.is_empty() {
+    if rows.is_empty() {
         lines.push("No rooms. Make one: kodosi room create <name>".to_owned());
     } else {
-        lines.push(format!("Rooms: {}", names.join(", ")));
+        let mut all = vec![["ROOM", "", "ID"].map(str::to_owned)];
+        all.extend(rows);
+        lines.push(table(&all));
     }
     for invitation in list("invitations") {
         lines.push(format!(
@@ -560,8 +573,7 @@ fn text(value: &Value, key: &str) -> String {
 }
 
 fn short(value: &Value, key: &str) -> String {
-    let id = text(value, key);
-    id[id.len().saturating_sub(6)..].to_owned()
+    crate::protocol::short_id(value[key].as_str().unwrap_or_default()).to_owned()
 }
 
 fn table<const N: usize>(rows: &[[String; N]]) -> String {
@@ -701,10 +713,17 @@ mod tests {
     #[test]
     fn a_room_list_names_the_rooms_and_the_command_that_accepts_an_invitation() {
         assert_eq!(
-            missions(
-                &json!({"missions":[{"name":"Work"}],"invitations":[{"inviterName":"bob","missionName":"Launch"}]})
-            ),
-            "Rooms: Work\nbob invited you to Launch: kodosi room accept \"Launch\""
+            missions(&json!({
+                "missions":[
+                    {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Work","unread":true},
+                    {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Design"},
+                ],
+                "invitations":[{"inviterName":"bob","missionName":"Launch"}]
+            })),
+            "ROOM                  ID\n\
+             Work    new messages  00a1b2\n\
+             Design                00c3d4\n\
+             bob invited you to Launch: kodosi room accept \"Launch\""
         );
         assert_eq!(
             missions(&json!({})),

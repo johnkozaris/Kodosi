@@ -69,6 +69,19 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(dosi.items.isEmpty)
 }
 
+@Test @MainActor func `a question names its terminal by its ID, the end of its ID or its name`() throws {
+    let dosi = DosiStore(commands: CommandSink())
+    let terminal = try runtimeSession()
+    for (reference, found) in [(terminal.id, true), ("149b28", true), ("terminal", true), ("01992e43", false), ("28", false)] {
+        let question = item("q", [
+            "kind": .string("question"), "question": .string("Continue?"), "options": .array([.string("y")]),
+            "multiple": .bool(false), "terminal": .string(reference), "answer": .null,
+        ])
+        try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(items: [question])))
+        #expect((dosi.question(forTerminal: terminal) != nil) == found, "\(reference)")
+    }
+}
+
 @Test @MainActor func `a terminal finds its question and the face follows the turn`() throws {
     let dosi = DosiStore(commands: CommandSink())
     let question = item("q", [

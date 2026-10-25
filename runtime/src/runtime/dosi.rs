@@ -213,33 +213,13 @@ impl Runtime {
 
     fn find_terminal(&self, reference: &str) -> Option<Uuid> {
         let entries = self.entries();
-        let only = |matches: Vec<&crate::protocol::SessionEntry>| {
-            (matches.len() == 1)
-                .then(|| Uuid::parse_str(&matches[0].id).ok())
-                .flatten()
-        };
-        only(
-            entries
-                .iter()
-                .filter(|entry| entry.id == reference)
-                .collect(),
-        )
-        .or_else(|| {
-            only(
-                entries
-                    .iter()
-                    .filter(|entry| entry.name.eq_ignore_ascii_case(reference.trim()))
-                    .collect(),
-            )
-        })
-        .or_else(|| {
-            only(
-                entries
-                    .iter()
-                    .filter(|entry| reference.len() >= 4 && entry.id.starts_with(reference))
-                    .collect(),
-            )
-        })
+        let mut matches = entries
+            .iter()
+            .filter(|entry| crate::protocol::refers_to(reference, &entry.id, &entry.name));
+        match (matches.next(), matches.next()) {
+            (Some(entry), None) => Uuid::parse_str(&entry.id).ok(),
+            _ => None,
+        }
     }
 
     fn dosi_context(&self, context: &DosiContext) -> Option<String> {
@@ -251,7 +231,7 @@ impl Runtime {
                     format!(
                         "the terminal \"{}\" ({})",
                         entry.name,
-                        entry.id.get(..8).unwrap_or(&entry.id)
+                        crate::protocol::short_id(&entry.id)
                     )
                 })
         });

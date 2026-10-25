@@ -82,13 +82,11 @@ extension AppDependencies {
     }
 
     func terminal(named reference: String) -> RuntimeSession? {
-        sessions.first { $0.id == reference }
-            ?? sessions.first { $0.name.caseInsensitiveCompare(reference) == .orderedSame }
-            ?? (reference.count >= 4 ? sessions.first { $0.id.hasPrefix(reference) } : nil)
+        sessions.first { refers(reference, to: $0.id, named: $0.name) }
     }
 
     func room(named reference: String) -> MissionEntry? {
-        missions.first { $0.id == reference } ?? missions.first { $0.name.caseInsensitiveCompare(reference) == .orderedSame }
+        missions.first { refers(reference, to: $0.id, named: $0.name) }
     }
 
     func open(_ target: DosiTarget) {

@@ -33,6 +33,24 @@ QString idOf(const QVariant& item)
     return item.toMap().value(QStringLiteral("id")).toString();
 }
 
+bool refers(const QString& reference, const QString& id, const QString& name)
+{
+    return !reference.isEmpty()
+        && (id == reference || (reference.size() >= 4 && id.endsWith(reference))
+            || name.compare(reference, Qt::CaseInsensitive) == 0);
+}
+
+QString referredId(const QVariantList& entries, const QString& reference)
+{
+    for (const auto& value : entries) {
+        const auto entry = value.toMap();
+        const auto id = entry.value(QStringLiteral("id")).toString();
+        if (refers(reference, id, entry.value(QStringLiteral("name")).toString()))
+            return id;
+    }
+    return {};
+}
+
 bool openQuestion(const QVariantMap& content)
 {
     return content.value(QStringLiteral("kind")).toString() == QStringLiteral("question")
@@ -346,42 +364,12 @@ void DosiModel::open(const QString& place, const QString& value)
 
 QString DosiModel::terminalId(const QString& reference) const
 {
-    if (reference.isEmpty())
-        return {};
-    const auto sessions = m_sessions.sessions();
-    const auto find = [&](auto matches) {
-        for (const auto& value : sessions) {
-            const auto session = value.toMap();
-            if (matches(session))
-                return session.value(QStringLiteral("id")).toString();
-        }
-        return QString {};
-    };
-    auto found = find([&](const QVariantMap& session) { return session.value(QStringLiteral("id")).toString() == reference; });
-    if (found.isEmpty())
-        found = find([&](const QVariantMap& session) {
-            return session.value(QStringLiteral("name")).toString().compare(reference, Qt::CaseInsensitive) == 0;
-        });
-    if (found.isEmpty() && reference.size() >= 4)
-        found = find([&](const QVariantMap& session) { return session.value(QStringLiteral("id")).toString().startsWith(reference); });
-    return found;
+    return referredId(m_sessions.sessions(), reference);
 }
 
 QString DosiModel::roomId(const QString& reference) const
 {
-    if (reference.isEmpty())
-        return {};
-    const auto rooms = m_workspace.m_missions.missions();
-    for (const auto& value : rooms) {
-        if (value.toMap().value(QStringLiteral("id")).toString() == reference)
-            return reference;
-    }
-    for (const auto& value : rooms) {
-        const auto room = value.toMap();
-        if (room.value(QStringLiteral("name")).toString().compare(reference, Qt::CaseInsensitive) == 0)
-            return room.value(QStringLiteral("id")).toString();
-    }
-    return {};
+    return referredId(m_workspace.m_missions.missions(), reference);
 }
 
 QString DosiModel::moodLabel(const QString& name)

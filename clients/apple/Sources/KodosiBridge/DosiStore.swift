@@ -82,9 +82,7 @@ public final class DosiStore {
     public func question(forTerminal session: RuntimeSession) -> (DosiItem, DosiQuestion)? {
         for item in openQuestions.reversed() {
             guard case let .question(question) = item.body, let reference = question.terminal else { continue }
-            if reference == session.id || reference.caseInsensitiveCompare(session.name) == .orderedSame
-                || (reference.count >= 4 && session.id.hasPrefix(reference))
-            {
+            if refers(reference, to: session.id, named: session.name) {
                 return (item, question)
             }
         }

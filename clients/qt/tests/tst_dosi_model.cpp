@@ -194,6 +194,21 @@ private slots:
         QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("answered")).toString(), QStringLiteral("Yes · Terminal"));
     }
 
+    void aQuestionNamesItsTerminalByItsIdTheEndOfItsIdOrItsName()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        for (const auto& [reference, found] : { std::pair { test::id(1), true }, std::pair { QStringLiteral("000001"), true },
+                 std::pair { QStringLiteral("terminal"), true }, std::pair { QStringLiteral("0198aaaa"), false },
+                 std::pair { QStringLiteral("01"), false } }) {
+            const QJsonObject question { { QStringLiteral("kind"), QStringLiteral("question") },
+                { QStringLiteral("question"), QStringLiteral("Ship it?") }, { QStringLiteral("options"), QJsonArray { QStringLiteral("Yes") } },
+                { QStringLiteral("terminal"), reference } };
+            f.snapshot({ entry(QStringLiteral("q"), question) });
+            QCOMPARE(f.dosi.terminalQuestions().contains(test::id(1)), found);
+        }
+    }
+
     void dosiThinksInTheThreadUntilItsTurnShowsSomething()
     {
         Fixture f;

@@ -30,7 +30,7 @@ and `--help` lists every option.
 ## Terminals
 
 - `kodosi --json terminal list`: the terminals that you can open, with their agents and
-  states. A terminal is its name or the start of its ID.
+  states. A terminal is its name, its ID or the end of its ID that `terminal list` shows.
 - `kodosi terminal info <terminal>` and `kodosi terminal read <terminal>` for its screen.
 - `kodosi terminal message <terminal> "text"`: send a message to the agent in another
   terminal. Kodosi tells it who you are and where you work. It stops with a message
@@ -60,7 +60,7 @@ and `--help` lists every option.
 - `kodosi room task claim <task>`: take a task. It stops with a message when another
   member or terminal has it. `release`, `reopen` and `close --note "result or PR link"`
   name a task in the same way. A task is its ID, the end of the ID that `task list`
-  shows, or its exact title. A task that you had in a terminal that ended, such as one
+  shows, or its title. A task that you had in a terminal that ended, such as one
   that Kodosi started again after a restart, you can claim again from your new terminal.
 - `kodosi room repo list`, `kodosi room repo add [URL]` (by default this checkout's
   origin) and `kodosi room repo issues <repository>`.

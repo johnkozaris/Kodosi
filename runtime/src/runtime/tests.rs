@@ -768,6 +768,32 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
 }
 
 #[tokio::test]
+async fn an_app_can_show_a_listed_terminal_of_another_computer_that_is_not_open() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    let mut events = runtime.events.subscribe();
+    let show = |id: Uuid| Command::Show {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+    };
+    runtime.apply(&show(remote.id)).unwrap();
+    let told = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| serde_json::to_value(event).unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        told.iter()
+            .any(|event| event["type"] == "session.show"
+                && event["sessionId"] == remote.id.to_string()),
+        "{told:?}"
+    );
+    assert!(matches!(
+        runtime.apply(&show(Uuid::now_v7())),
+        Err(Error::NotFound)
+    ));
+}
+
+#[tokio::test]
 async fn a_devices_refresh_says_again_which_computers_are_online() {
     let (mut runtime, _root) = registry_fixture();
     let generation = runtime.network.generation();
