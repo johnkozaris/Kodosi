@@ -12,24 +12,93 @@ struct TerminalInputTests {
         #expect(TerminalMessage.text(from: "") == nil)
     }
 
-    @Test func `reading shows the header, the composer and an agent's question`() {
+    @Test func `only reading keeps the header in landscape and shows an agent's question`() {
+        #expect(TerminalInput.reading.showsAsk && !TerminalInput.reading.showsKeys)
+        #expect(TerminalInput.typing.showsKeys && !TerminalInput.typing.showsAsk)
+        #expect(!TerminalInput.composing.showsKeys && !TerminalInput.composing.showsAsk)
         #expect(TerminalInput.reading.showsHeader(compact: true))
-        #expect(!TerminalInput.reading.showsKeys)
-        #expect(TerminalInput.reading.showsAsk)
+        #expect(!TerminalInput.typing.showsHeader(compact: true) && TerminalInput.typing.showsHeader(compact: false))
+        #expect(!TerminalInput.composing.showsHeader(compact: true) && TerminalInput.composing.showsHeader(compact: false))
     }
 
-    @Test func `typing in the terminal shows the keys and hides the header in landscape`() {
-        #expect(TerminalInput.typing.showsKeys)
-        #expect(!TerminalInput.typing.showsAsk)
-        #expect(TerminalInput.typing.showsHeader(compact: false))
-        #expect(!TerminalInput.typing.showsHeader(compact: true))
+    @Test func `the terminal keeps the keyboard until it loses focus`() {
+        var keyboard = TerminalKeyboard(hardware: false)
+        #expect(!keyboard.focusesTerminal(composing: false))
+        keyboard.type()
+        #expect(keyboard.focusesTerminal(composing: false))
+        keyboard.terminalFocused(true)
+        #expect(keyboard.input(composing: false) == .typing)
+        keyboard.terminalFocused(false)
+        #expect(!keyboard.focusesTerminal(composing: false))
+        #expect(keyboard.input(composing: false) == .reading)
     }
 
-    @Test func `writing a message shows only the composer and hides the header in landscape`() {
-        #expect(!TerminalInput.composing.showsKeys)
-        #expect(!TerminalInput.composing.showsAsk)
-        #expect(TerminalInput.composing.showsHeader(compact: false))
-        #expect(!TerminalInput.composing.showsHeader(compact: true))
+    @Test func `the keyboard key focuses the terminal again after the keyboard was hidden`() {
+        var keyboard = TerminalKeyboard(hardware: true)
+        #expect(keyboard.focusesTerminal(composing: false))
+        keyboard.terminalFocused(true)
+        keyboard.hide()
+        keyboard.terminalFocused(false)
+        #expect(!keyboard.focusesTerminal(composing: false))
+        keyboard.type()
+        #expect(keyboard.focusesTerminal(composing: false))
+    }
+
+    @Test func `a sent message leaves the terminal to read with the on-screen keyboard`() {
+        var keyboard = TerminalKeyboard(hardware: false)
+        keyboard.type()
+        keyboard.terminalFocused(true)
+        keyboard.compose()
+        #expect(keyboard.input(composing: false) == .composing)
+        #expect(!keyboard.focusesTerminal(composing: false))
+        keyboard.terminalFocused(false)
+        #expect(keyboard.input(composing: true) == .composing)
+        keyboard.composerClosed()
+        #expect(keyboard.input(composing: false) == .reading)
+        #expect(!keyboard.focusesTerminal(composing: false))
+    }
+
+    @Test func `a hardware keyboard goes back to the terminal after a message but not after hiding`() {
+        var keyboard = TerminalKeyboard(hardware: true)
+        keyboard.terminalFocused(true)
+        keyboard.compose()
+        keyboard.terminalFocused(false)
+        #expect(!keyboard.focusesTerminal(composing: true))
+        keyboard.composerClosed()
+        #expect(keyboard.focusesTerminal(composing: false))
+
+        keyboard.terminalFocused(true)
+        keyboard.compose()
+        keyboard.terminalFocused(false)
+        keyboard.hide()
+        keyboard.composerClosed()
+        #expect(!keyboard.focusesTerminal(composing: false))
+    }
+
+    @Test func `a hardware keyboard that connects focuses the terminal`() {
+        var keyboard = TerminalKeyboard(hardware: false)
+        keyboard.hardwareChanged(true)
+        #expect(keyboard.focusesTerminal(composing: false))
+        keyboard.hide()
+        keyboard.hardwareChanged(true)
+        #expect(!keyboard.focusesTerminal(composing: false))
+
+        keyboard.hardwareChanged(false)
+        keyboard.type()
+        keyboard.terminalFocused(true)
+        keyboard.compose()
+        keyboard.terminalFocused(false)
+        keyboard.composerClosed()
+        #expect(!keyboard.focusesTerminal(composing: false))
+    }
+
+    @Test func `a new terminal view takes the focus of the view that went away`() {
+        var keyboard = TerminalKeyboard(hardware: false)
+        keyboard.type()
+        keyboard.terminalFocused(true)
+        keyboard.terminalGone()
+        #expect(keyboard.input(composing: false) == .reading)
+        #expect(keyboard.focusesTerminal(composing: false))
     }
 
     @Test func `a message fits one input chunk`() {

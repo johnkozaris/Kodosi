@@ -32,10 +32,7 @@ private struct TerminalScreenContent: View {
     @State private var controller: TerminalController
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
-    @State private var hardwareKeyboard = GCKeyboard.coalesced != nil
-    @State private var typing = false
-    @State private var writing = false
-    @State private var wantsKeyboard = false
+    @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
     init(store: TerminalStore, sessionId: String) {
@@ -47,26 +44,20 @@ private struct TerminalScreenContent: View {
     }
 
     private var input: TerminalInput {
-        if writing || composing {
-            return .composing
-        }
-        return typing ? .typing : .reading
+        keyboard.input(composing: composing)
     }
 
     private var inputActions: TerminalInputActions {
         TerminalInputActions(
             type: {
-                writing = false
+                keyboard.type()
                 composing = false
-                wantsKeyboard = true
             },
             compose: {
-                wantsKeyboard = false
-                writing = true
+                keyboard.compose()
             },
             hide: {
-                writing = false
-                wantsKeyboard = false
+                keyboard.hide()
                 composing = false
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             },
@@ -130,7 +121,7 @@ private struct TerminalScreenContent: View {
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: composing) { _, focused in
             if !focused {
-                writing = false
+                keyboard.composerClosed()
             }
         }
         .onChange(of: session == nil || session?.hidden == true) { _, gone in
@@ -138,9 +129,9 @@ private struct TerminalScreenContent: View {
                 dismiss()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .GCKeyboardDidConnect)) { _ in hardwareKeyboard = true }
+        .onReceive(NotificationCenter.default.publisher(for: .GCKeyboardDidConnect)) { _ in keyboard.hardwareChanged(true) }
         .onReceive(NotificationCenter.default.publisher(for: .GCKeyboardDidDisconnect)) { _ in
-            hardwareKeyboard = GCKeyboard.coalesced != nil
+            keyboard.hardwareChanged(GCKeyboard.coalesced != nil)
         }
         .terminalPrompts($prompt) { controller.noteEnding() }
         .sheet(isPresented: $showsSharing) {
@@ -179,22 +170,20 @@ private struct TerminalScreenContent: View {
                         session: surface.renderer,
                         sessionName: session.name,
                         accessibilityIdentifier: "terminal.surface",
-                        shouldFocus: (hardwareKeyboard || wantsKeyboard) && !composing && !writing && controller.canType,
+                        shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType,
                         allowsFocus: controller.allowsKeyboard,
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                         onFocusChange: { focused in
-                            typing = focused
+                            keyboard.terminalFocused(focused)
                             if focused {
                                 controller.focusTerminal()
-                            } else {
-                                wantsKeyboard = false
                             }
                         },
                     )
                 }
-                .onDisappear { typing = false }
+                .onDisappear { keyboard.terminalGone() }
                 .padding(5)
                 .overlay {
                     TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)

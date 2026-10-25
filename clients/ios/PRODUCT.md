@@ -19,7 +19,7 @@ computer.
   the terminal, a key row on the keyboard adds the keys a phone lacks. The composer
   sends text as one paste and Return only when you tap send, and then closes. While an
   agent waits for an answer, 1, 2 and 3 answer it without the keyboard. In landscape,
-  the terminal fills the screen while you type. A hardware keyboard types directly.
+  the header hides while you type. A hardware keyboard types directly.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,
