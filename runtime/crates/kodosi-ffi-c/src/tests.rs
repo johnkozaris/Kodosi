@@ -243,8 +243,22 @@ fn retiring_a_subscription_does_not_wait_for_a_stalled_callback() {
 #[test]
 fn callbacks_cannot_reopen_closed_admission() {
     let gate = Gate::default();
-    let _scope = CallbackScope::enter();
-    assert!(CallbackScope::active());
+    let _scope = CallbackScope::enter(&gate);
+    assert!(CallbackScope::within(&gate));
     gate.close();
     assert!(gate.enter().is_none());
+}
+#[test]
+fn a_callback_of_one_gate_does_not_excuse_waiting_for_another() {
+    let runtime = Gate::default();
+    let activation = Gate::default();
+    {
+        let _scope = CallbackScope::enter(&activation);
+        assert!(CallbackScope::within(&activation));
+        assert!(!CallbackScope::within(&runtime));
+        let _nested = CallbackScope::enter(&runtime);
+        assert!(CallbackScope::within(&runtime));
+    }
+    assert!(!CallbackScope::within(&activation));
+    assert!(!CallbackScope::within(&runtime));
 }

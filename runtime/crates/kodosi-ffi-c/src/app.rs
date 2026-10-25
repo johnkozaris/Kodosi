@@ -324,7 +324,7 @@ fn close_app() {
     };
     owner.gate.close();
     owner.stop.cancel();
-    if !CallbackScope::active() {
+    if !CallbackScope::within(&owner.gate) {
         owner.gate.wait();
         if let Some(thread) = owner.thread.take() {
             drop(thread.join());
@@ -407,7 +407,7 @@ fn serve(
             let Some(_permit) = gate.enter() else {
                 return false;
             };
-            let _scope = CallbackScope::enter();
+            let _scope = CallbackScope::enter(&gate);
             unsafe {
                 (activation.callback)(bytes.as_ptr(), bytes.len(), activation.userdata.get());
             }
@@ -559,6 +559,9 @@ mod tests {
         );
         let (signal, finished) = std::sync::mpsc::channel();
         let closing = std::thread::spawn(move || {
+            let runtime = Gate::default();
+            let _permit = runtime.enter();
+            let _callback = CallbackScope::enter(&runtime);
             kodosi_close_app();
             signal.send(()).unwrap();
         });
