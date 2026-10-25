@@ -188,17 +188,19 @@ final class TerminalController {
         refresh()
     }
 
-    func send() {
-        guard let text = TerminalMessage.text(from: draft) else { return }
+    @discardableResult
+    func send() -> Bool {
+        guard let text = TerminalMessage.text(from: draft) else { return false }
         guard TerminalMessage.fits(text) else {
             inputNote = String(localized: "This message is too long to send at once.")
-            return
+            return false
         }
-        guard canType, let renderer = surface?.renderer, renderer.pasteText(text) else { return }
+        guard canType, let renderer = surface?.renderer, renderer.pasteText(text) else { return false }
         renderer.sendKeyPress(.keyboardReturnOrEnter)
         draft = ""
         inputNote = nil
         sent += 1
+        return true
     }
 
     func press(_ key: TerminalKey) {
