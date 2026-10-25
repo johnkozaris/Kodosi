@@ -232,6 +232,35 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ARestartedTerminalNamesTheTerminalItReplacesToEveryoneWhoCanUseIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
+        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
+        await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
+        object Terminal(Guid id, Guid? restoredFrom) => new
+        {
+            id, incarnationId = Guid.CreateVersion7(), name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host",
+            missionId = (Guid?)null, restoredFrom,
+        };
+        var replaced = Guid.CreateVersion7(); var id = Guid.CreateVersion7();
+        var restarted = await CallAsync(owner, HttpMethod.Post, "/api/sessions", Terminal(id, replaced));
+        Assert.Equal(replaced, restarted.GetProperty("restoredFrom").GetGuid());
+        await CallAsync(owner, HttpMethod.Put, $"/api/sessions/{id}/members",
+            new { incarnationId = restarted.GetProperty("incarnationId").GetGuid(), expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
+        Assert.Equal(replaced, (await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray().Single().GetProperty("restoredFrom").GetGuid());
+        Assert.Equal(replaced, (await CallAsync(friend, HttpMethod.Get, $"/api/sessions/{id}")).GetProperty("restoredFrom").GetGuid());
+
+        var started = await CallAsync(owner, HttpMethod.Post, "/api/sessions", Terminal(Guid.CreateVersion7(), null));
+        Assert.Equal(JsonValueKind.Null, started.GetProperty("restoredFrom").ValueKind);
+        var itself = Guid.CreateVersion7();
+        using var request = await SignedAsync(owner, HttpMethod.Post, "/api/sessions", Terminal(itself, itself));
+        using var refused = await owner.Client.SendAsync(request, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+    }
+
+    [Fact]
     public async Task ViewersGetTheNewestStatusOfATerminalAtMostOnceEachSecond()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));

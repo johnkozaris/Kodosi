@@ -478,6 +478,11 @@ impl Local {
                     .and_then(|id| Uuid::parse_str(id).ok()),
                 room_sequence: self.room_sequence,
                 shared_with: self.entry.shared_with.iter().cloned().collect(),
+                restored_from: self
+                    .entry
+                    .restored_from
+                    .as_deref()
+                    .and_then(|id| Uuid::parse_str(id).ok()),
             },
             self.terminal.host_requests.clone(),
             self.terminal.output(),
@@ -2490,7 +2495,7 @@ impl Runtime {
             mission_id: remote.mission_id.map(|id| id.to_string()),
             mission_name: remote.mission_name,
             shared_with: remote.shared_with,
-            restored_from: None,
+            restored_from: remote.restored_from.map(|id| id.to_string()),
         }
     }
 

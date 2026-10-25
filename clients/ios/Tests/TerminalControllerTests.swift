@@ -45,6 +45,41 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
+    @Test func `an open terminal moves to the terminal that its computer started again`() async throws {
+        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        controller.appear(active: true)
+        await log.waitFor("session.openRemote")
+        try deliver("sessions.snapshot", ["sessions": []])
+        controller.refresh()
+        #expect(controller.session == nil)
+        log.clear()
+        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s2", state: "working", restoredFrom: "s1")]])
+        controller.refresh()
+        #expect(controller.sessionId == "s2")
+        #expect(log.fields(of: "session.disconnect").map { $0["sessionId"] as? String } == ["s1"])
+        await log.waitFor("session.openRemote")
+        #expect(log.fields(of: "session.openRemote").map { $0["sessionId"] as? String } == ["s2"])
+        #expect(model.terminals.watchingSessionId == "s2")
+        controller.disappear()
+    }
+
+    @Test func `a terminal moves only to a restart of itself on the same computer of the same person`() throws {
+        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        controller.appear(active: true)
+        try deliver("sessions.snapshot", ["sessions": [
+            terminalEntry("elsewhere", state: "working", host: "Air", restoredFrom: "s1"),
+            terminalEntry("someone", state: "working", owner: false, restoredFrom: "s1"),
+            terminalEntry("other", state: "working", restoredFrom: "s9"),
+        ]])
+        controller.refresh()
+        #expect(controller.sessionId == "s1")
+        controller.noteEnding()
+        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s2", state: "working", restoredFrom: "s1")]])
+        controller.refresh()
+        #expect(controller.sessionId == "s1")
+        controller.disappear()
+    }
+
     @Test func `background stops watching and tells the host`() throws {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
@@ -154,16 +189,20 @@ func terminalEntry(
     host: String = "Studio",
     connection: String = "connected",
     room: (id: String, name: String)? = nil,
+    restoredFrom: String? = nil,
 ) -> [String: Any] {
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
         "programStatus": ["state": state], "name": id, "isOwner": owner, "status": "running",
         "attention": false, "hidden": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
-        "ownerName": owner ? "Me" : "Maria",
+        "ownerUserId": owner ? "user-1" : "user-2", "ownerName": owner ? "Me" : "Maria",
     ]
     if let room {
         entry["missionId"] = room.id
         entry["missionName"] = room.name
+    }
+    if let restoredFrom {
+        entry["restoredFrom"] = restoredFrom
     }
     return entry
 }

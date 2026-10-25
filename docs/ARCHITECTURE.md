@@ -30,9 +30,10 @@ and again as it stops, with the conversation that each agent shows. It reads Cla
 Code's own records of the conversation that each Claude process shows, and for Codex and
 Copilot CLI it types their own list of conversations to continue. A new host keeps the
 saved terminals until an app sends `session.restore`; then it starts each one again with
-a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. A
-restored terminal joins its room or its people again when the account that chose them
-is signed in.
+a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. The
+host also gives `restoredFrom` to the backend, so that views on other devices can follow
+the terminal. A restored terminal joins its room or its people again when the account
+that chose them is signed in.
 
 ## Terminals
 

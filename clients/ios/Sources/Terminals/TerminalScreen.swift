@@ -20,6 +20,7 @@ private struct TerminalLiveKey: Equatable {
     let canControl: Bool
     let incarnation: String?
     let rendered: Bool
+    let replacement: String?
 }
 
 private struct TerminalScreenContent: View {
@@ -49,6 +50,7 @@ private struct TerminalScreenContent: View {
             canControl: session?.canControl == true,
             incarnation: session?.incarnationId,
             rendered: controller.renderState == .rendered,
+            replacement: controller.replacement?.id,
         )
     }
 
@@ -88,6 +90,7 @@ private struct TerminalScreenContent: View {
         .onDisappear { controller.disappear() }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
+        .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: session == nil || session?.hidden == true) { _, gone in
             if gone, controller.ending {
                 dismiss()
