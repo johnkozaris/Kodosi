@@ -693,23 +693,36 @@ impl TerminalTarget {
 
     /// Types the text and then presses Enter as a key of its own, as a person does: agents keep
     /// text and Enter that arrive together as a paste. When a person types in the pause, the
-    /// text stays in the terminal for them.
-    fn type_line(&self, text: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-        let typed = self.send_input(Bytes::from(text));
+    /// text stays in the terminal for them. The terminal checks both writes of a message against
+    /// its agent's state, so Enter never answers a question that the agent asked in the pause.
+    fn type_line(
+        &self,
+        text: String,
+        message: bool,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let typed = self.write(Bytes::from(text), message);
         let target = self.clone();
         Box::pin(async move {
             typed.await?;
             tokio::time::sleep(ENTER_PAUSE).await;
-            if let Err(error) = target.send_input(Bytes::from_static(b"\r")).await {
+            if let Err(error) = target.write(Bytes::from_static(b"\r"), message).await {
                 tracing::debug!(%error, "the typed text waits for Enter");
             }
             Ok(())
         })
     }
 
-    #[cfg(feature = "host")]
-    fn message(&self, bytes: Bytes) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    /// Input as a person types it, or a message, which only an agent that takes messages gets.
+    fn write(
+        &self,
+        bytes: Bytes,
+        message: bool,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        if !message {
+            return self.send_input(bytes);
+        }
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.message(bytes)),
             Self::Remote(terminal) => {
                 let result = terminal.control(
@@ -721,23 +734,6 @@ impl TerminalTarget {
                 Box::pin(async move { result.await.map(|_| ()) })
             }
         }
-    }
-
-    /// Types a message line for the agent and then Enter, as `type_line` does. The terminal
-    /// checks both against the agent's state, so Enter never answers a question that the agent
-    /// asked in the pause.
-    #[cfg(feature = "host")]
-    fn type_message(&self, line: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-        let typed = self.message(Bytes::from(line));
-        let target = self.clone();
-        Box::pin(async move {
-            typed.await?;
-            tokio::time::sleep(ENTER_PAUSE).await;
-            if let Err(error) = target.message(Bytes::from_static(b"\r")).await {
-                tracing::debug!(%error, "the typed message waits for Enter");
-            }
-            Ok(())
-        })
     }
 
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -1601,11 +1597,8 @@ impl Runtime {
             .clone()
             .unwrap_or_else(|| "the person".to_owned());
         let agent = agent.map(str::to_owned).or_else(|| {
-            let program = self.local.get(&from?)?.entry.program.clone()?;
-            crate::agents::Agent::ALL
-                .into_iter()
-                .find(|agent| agent.name() == program)
-                .map(|agent| agent.label().to_owned())
+            let program = self.local.get(&from?)?.entry.program.as_deref()?;
+            crate::agents::Agent::named(program).map(|agent| agent.label().to_owned())
         });
         match agent {
             Some(agent) => messages::Sender::Agent {
@@ -1671,7 +1664,7 @@ impl Runtime {
             let terminal = TerminalTarget::Local(self.local[&id].terminal.clone());
             self.mentions.telling.insert(id);
             self.spawn(async move {
-                let result = terminal.type_message(line).await;
+                let result = terminal.type_line(line, true).await;
                 Completion::Told {
                     id,
                     mentions: now_told,
@@ -1684,7 +1677,7 @@ impl Runtime {
     #[cfg(feature = "host")]
     fn told(&mut self, id: Uuid, told: Vec<messages::Mention>, result: Result<()>, current: bool) {
         self.mentions.telling.remove(&id);
-        if !current {
+        if !current || !self.local.contains_key(&id) {
             return;
         }
         match result {

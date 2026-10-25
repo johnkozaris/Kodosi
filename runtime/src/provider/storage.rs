@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{Read, Seek},
     path::{Component, Path, PathBuf},
+    time::SystemTime,
 };
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
@@ -211,4 +212,10 @@ pub(super) fn bounded(label: &str, value: usize, maximum: usize) -> Result<usize
         return Err(format!("{label} must be between 1 and {maximum}"));
     }
     Ok(value)
+}
+
+pub(super) fn timestamp(value: SystemTime) -> Option<String> {
+    time::OffsetDateTime::from(value)
+        .format(&time::format_description::well_known::Rfc3339)
+        .ok()
 }

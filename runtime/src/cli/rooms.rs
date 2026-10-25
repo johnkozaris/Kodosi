@@ -134,11 +134,8 @@ fn terminal() -> Option<String> {
 /// The agent that runs in this terminal, which names itself in its posts unless it chose a name.
 fn this_agent(context: &Context) -> Option<String> {
     let id = Uuid::parse_str(&terminal()?).ok()?;
-    let program = context.session(id).ok()?["program"].as_str()?.to_owned();
-    crate::agents::Agent::ALL
-        .into_iter()
-        .find(|agent| agent.name() == program)
-        .map(|agent| agent.label().to_owned())
+    let program = context.session(id).ok()?["program"].as_str()?;
+    crate::agents::Agent::named(program).map(|agent| agent.label().to_owned())
 }
 
 pub(super) async fn run(

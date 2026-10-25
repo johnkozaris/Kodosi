@@ -1,4 +1,4 @@
-use std::{fs, path::Path, time::SystemTime};
+use std::{fs, path::Path};
 
 use super::{ConversationListPage, ConversationRef, Provider, storage};
 
@@ -80,8 +80,8 @@ fn claude(state_root: &Path, directory: &Path) -> Result<Vec<ConversationRef>, S
             native_conversation_id: id.to_owned(),
             working_directory: directory.to_string_lossy().into_owned(),
             title: super::history::preview_title(&mut file),
-            created_at: metadata.created().ok().and_then(timestamp),
-            updated_at: metadata.modified().ok().and_then(timestamp),
+            created_at: metadata.created().ok().and_then(storage::timestamp),
+            updated_at: metadata.modified().ok().and_then(storage::timestamp),
         });
     }
     Ok(items)
@@ -134,12 +134,6 @@ fn copilot(state_root: &Path, directory: &Path) -> Result<Vec<ConversationRef>, 
         items.push(item);
     }
     Ok(items)
-}
-
-fn timestamp(value: SystemTime) -> Option<String> {
-    time::OffsetDateTime::from(value)
-        .format(&time::format_description::well_known::Rfc3339)
-        .ok()
 }
 
 fn paginate(
