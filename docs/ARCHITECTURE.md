@@ -22,8 +22,8 @@ terminal library, and the apps draw it with Ghostty. The iPhone and iPad app emb
 viewer build of the runtime and hosts no terminals.
 
 Quit in a desktop app stops a background host and its terminals. A host that runs in a
-terminal with `kodosi host` stops only there. An app that finds a host of an earlier
-version offers to restart it.
+terminal with `kodosi host` stops only there. An app that finds a background host of an
+earlier version restarts it, and asks first when that host still has terminals.
 
 The host saves its terminals in `terminals.json` in its data folder while they change,
 and again as it stops, with the conversation that each agent shows. It reads Claude
@@ -74,14 +74,16 @@ changed; each device fetches the newer items. Issue actions run on the participa
 computer with its own credentials. See [Security](SECURITY.md) and the
 [encryption design](CRYPTOGRAPHY.md).
 
-A host types the new room messages that name one of its terminals with `@` into the
-agent in that terminal, as one line with who wrote it and from where. `kodosi terminal
-message` sends such a line to an agent on any computer, as a terminal control. The
-terminal types a message only while its agent reports a state other than waiting for a
-person and nobody types there, and Enter follows as a key of its own. Each terminal has
-Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`: the launcher passes it to Claude Code
-and Codex, and Copilot CLI reads it from the host's `agents` folder through
-`COPILOT_CUSTOM_INSTRUCTIONS_DIRS`.
+## Agents
+
+Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`: the launcher passes
+it to Claude Code and Codex, and Copilot CLI reads it from the host's `agents` folder
+through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`. A host types the new room messages that name
+one of its terminals with `@` into the agent in that terminal, as one line with who wrote
+it and from where. `kodosi terminal message` sends such a line to an agent on any
+computer, as a terminal control. The terminal types a message only while its agent
+reports a state other than waiting for a person and nobody types there, and Enter
+follows as a key of its own.
 
 ## Contracts
 

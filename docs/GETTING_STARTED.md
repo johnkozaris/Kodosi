@@ -26,6 +26,7 @@ the shell of the new terminal.
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 - A terminal at its prompt shows a mark for each installed agent. Select a mark to start
   that agent with your last choice.
+- In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - To give an agent its own copy of a repository, hover the repository folder in the
   sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
   Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.
@@ -114,17 +115,16 @@ friends, then start a terminal in the room or share one into it.
   get the terminals and the full conversation. Files stay on the computer of each
   terminal.
 - Put tasks up for grabs, claim them, give them back, close them with a result or open
-  them again. Link GitHub or Gitea repositories to turn issues into tasks; when you change
-  such a task, Kodosi changes its issue.
-- Agents that Kodosi starts know that they run in Kodosi: Claude Code and Codex get a
-  short note with their instructions, and Copilot CLI reads it from Kodosi's folder.
-  Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
+  them again.
+- Link GitHub or Gitea repositories to turn issues into tasks; when you change such a
+  task, Kodosi changes its issue. GitHub uses your `gh` sign-in or Git credential helper,
+  and Gitea the credential helper or `KODOSI_GITEA_TOKEN` for the server in
+  `KODOSI_GITEA_URL`. Your credentials stay on your computer.
+- Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
   terminal your message with your name and the room; the agent decides what to do with
-  it. `kodosi skill` prints the [skill](../runtime/skills/kodosi/SKILL.md) for agents.
-  In a Kodosi terminal, the command finds the room; elsewhere, add `--room <name>`.
-  GitHub uses your `gh` sign-in or Git credential helper. Gitea uses the credential
-  helper, or `KODOSI_GITEA_TOKEN` for the server in `KODOSI_GITEA_URL`. Your credentials
-  stay on your computer.
+  it. Agents that Kodosi starts know that they run in Kodosi, and `kodosi skill` prints
+  the [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent take part. In a
+  Kodosi terminal, the command finds the room; elsewhere, add `--room <name>`.
 
 ## 7. Use the command line
 
