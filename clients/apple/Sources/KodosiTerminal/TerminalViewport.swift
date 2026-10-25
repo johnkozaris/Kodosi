@@ -16,3 +16,13 @@ public struct TerminalViewport: Sendable {
         self.cellHeightPixels = cellHeightPixels
     }
 }
+
+public struct TerminalRowMetrics: Equatable, Sendable {
+    public let cellHeightPixels: UInt32
+    public let insetPixels: UInt32
+
+    public init(rows: UInt16, heightPixels: UInt32, cellHeightPixels: UInt32) {
+        self.cellHeightPixels = cellHeightPixels
+        insetPixels = heightPixels - min(heightPixels, UInt32(rows) * cellHeightPixels)
+    }
+}

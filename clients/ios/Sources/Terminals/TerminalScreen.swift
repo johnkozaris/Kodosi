@@ -132,21 +132,23 @@ private struct TerminalScreenContent: View {
     private func stageContent(_ session: RuntimeSession?) -> some View {
         if let session {
             if session.isConnected, let surface = controller.surface {
-                TerminalRendererView(
-                    session: surface.renderer,
-                    sessionName: session.name,
-                    accessibilityIdentifier: "terminal.surface",
-                    shouldFocus: hardwareKeyboard && !composing && controller.canType,
-                    allowsFocus: controller.allowsKeyboard,
-                    allowsInput: controller.canType,
-                    asksBeforeClipboardRead: !session.isOwner,
-                    isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
-                    onFocusChange: { focused in
-                        if focused {
-                            controller.focusTerminal()
-                        }
-                    },
-                )
+                TerminalRowsFrame(renderer: surface.renderer) {
+                    TerminalRendererView(
+                        session: surface.renderer,
+                        sessionName: session.name,
+                        accessibilityIdentifier: "terminal.surface",
+                        shouldFocus: hardwareKeyboard && !composing && controller.canType,
+                        allowsFocus: controller.allowsKeyboard,
+                        allowsInput: controller.canType,
+                        asksBeforeClipboardRead: !session.isOwner,
+                        isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
+                        onFocusChange: { focused in
+                            if focused {
+                                controller.focusTerminal()
+                            }
+                        },
+                    )
+                }
                 .padding(5)
                 .overlay {
                     TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)
