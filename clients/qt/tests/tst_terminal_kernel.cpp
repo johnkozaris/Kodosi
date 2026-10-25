@@ -1582,9 +1582,7 @@ void TerminalKernelTest::terminalViewRoutesTrackedMouseToPty()
     registry.receiveConnectResult({subscription, ffiOk});
     QCoreApplication::processEvents();
 
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF point(cell.width() * 0.5, cell.height() * 0.5);
     QMouseEvent press(
         QEvent::MouseButtonPress,
@@ -2644,9 +2642,7 @@ void TerminalKernelTest::terminalViewSelectionAnchorSurvivesPresentedScroll()
         view.accessibleText().contains(QStringLiteral("row-00")),
         250);
 
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF anchor(cell.width() * 0.5, cell.height() * 0.5);
     QMouseEvent press(
         QEvent::MouseButtonPress,
@@ -2723,9 +2719,7 @@ void TerminalKernelTest::terminalViewSelectsAWordOnADoubleClickAndALineOnATriple
     registry.receiveConnectResult({subscription, ffiOk});
     QCoreApplication::processEvents();
 
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF onBrave(cell.width() * 8.5, cell.height() * 1.5);
     const auto send = [&](const QEvent::Type type, const quint64 at) {
         const bool down = type != QEvent::MouseButtonRelease;
@@ -2886,9 +2880,7 @@ void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewpo
     QVERIFY(registry.scrollViewport(kodosi::TerminalSurfaceIdentity {subscription, 1}, -100));
     QCoreApplication::processEvents();
 
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF anchor(cell.width() * 0.5, cell.height() * 0.5);
     QMouseEvent press(
         QEvent::MouseButtonPress,
@@ -3002,9 +2994,7 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
         QStringLiteral("file"),
         &capture,
         "capture");
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF safePoint(cell.width() * 0.5, cell.height() * 0.5);
     QHoverEvent hover(
         QEvent::HoverMove,
@@ -3104,9 +3094,7 @@ void TerminalKernelTest::terminalViewOpensAWebAddressInTheTextWithControlClick()
 
     UrlCapture capture;
     QDesktopServices::setUrlHandler(QStringLiteral("https"), &capture, "capture");
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
     const auto click = [&](const Qt::KeyboardModifiers modifiers) {
         QMouseEvent press(QEvent::MouseButtonPress, point, point, Qt::LeftButton, Qt::LeftButton, modifiers);
@@ -3152,9 +3140,7 @@ void TerminalKernelTest::terminalViewShowsTheHandAsSoonAsControlIsPressedOverAWe
     registry.receiveConnectResult({subscription, ffiOk});
     QCoreApplication::processEvents();
 
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
     QHoverEvent hover(QEvent::HoverMove, point, point, point, Qt::NoModifier);
     QCoreApplication::sendEvent(&view, &hover);
@@ -3194,9 +3180,7 @@ void TerminalKernelTest::aProgramThatTracksTheMouseGetsControlClicksAndShiftOpen
 
     UrlCapture capture;
     QDesktopServices::setUrlHandler(QStringLiteral("https"), &capture, "capture");
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
     const auto hoverShowsTheHand = [&](const Qt::KeyboardModifiers modifiers) {
         QHoverEvent hover(QEvent::HoverMove, point, point, point, modifiers);
@@ -3266,9 +3250,7 @@ void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
         QStringLiteral("https"),
         &capture,
         "capture");
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF point(cell.width() * 0.5, cell.height() * 0.5);
     QMouseEvent press(
         QEvent::MouseButtonPress,
@@ -3329,9 +3311,7 @@ void TerminalKernelTest::terminalViewCancelsLinkReleaseOutsideBounds()
         QStringLiteral("https"),
         &capture,
         "capture");
-    const auto cell = kodosi::TerminalRasterizer::cellSize(
-        QFontDatabase::systemFont(QFontDatabase::FixedFont),
-        view.lineHeight());
+    const auto cell = view.terminalCellSize() * view.viewportScale();
     const QPointF edge(cell.width() * 0.5, cell.height() * 0.5);
     const QPointF outside(-20.0, cell.height() * 0.5);
     QMouseEvent press(
