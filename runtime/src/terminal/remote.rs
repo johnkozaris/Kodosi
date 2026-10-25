@@ -290,6 +290,22 @@ struct PendingCapture {
     deadline: tokio::time::Instant,
 }
 
+/// The last resize that a view asked for.
+struct Requested {
+    control: TerminalControl,
+    /// Higher for a view whose size the host took later, and zero before it takes one.
+    applied: u64,
+}
+
+impl Requested {
+    fn size(&self) -> Option<(u16, u16)> {
+        match self.control {
+            TerminalControl::Resize { rows, cols, .. } => Some((rows, cols)),
+            _ => None,
+        }
+    }
+}
+
 struct InFlight {
     result: Pin<Box<dyn Future<Output = crate::network::Result<Value>> + Send>>,
     replies: Vec<oneshot::Sender<Result<Value>>>,
@@ -337,7 +353,7 @@ struct RemoteActor {
     focused: HashSet<Uuid>,
     confirmed_focus: bool,
     resize_owner: Option<(Uuid, CancellationToken)>,
-    requested: HashMap<Uuid, TerminalControl>,
+    requested: HashMap<Uuid, Requested>,
     typed_at: Option<tokio::time::Instant>,
 }
 
@@ -677,8 +693,7 @@ impl RemoteActor {
             {
                 self.requested
                     .get(id)
-                    .cloned()
-                    .map(|control| (*id, control))
+                    .map(|requested| (*id, requested.control.clone()))
             }
             (None, TerminalControl::Input { .. })
                 if self.typed_at.is_some_and(|at| at.elapsed() < super::TYPING) =>
@@ -708,16 +723,12 @@ impl RemoteActor {
         if self.in_flight.is_some() || self.next_sequence.is_none() {
             return;
         }
+        if let Some((owner, _)) = self.resize_owner.take_if(|(_, token)| token.is_cancelled()) {
+            self.give_size_back(owner);
+        }
         self.focused.retain(|id| self.subscribers.contains(*id));
         self.requested
             .retain(|id, _| self.subscribers.contains(*id));
-        if self
-            .resize_owner
-            .as_ref()
-            .is_some_and(|(_, token)| token.is_cancelled())
-        {
-            self.resize_owner = None;
-        }
         let aggregate = !self.focused.is_empty();
         if aggregate != self.confirmed_focus {
             self.begin(
@@ -801,6 +812,38 @@ impl RemoteActor {
         }
     }
 
+    /// The view that set the size left. While the terminal still has the size of that view, the
+    /// focused view whose size the host took last sends its size again, so the host gives the
+    /// size back to it.
+    fn give_size_back(&mut self, owner: Uuid) {
+        let current = self.grid.map(|(size, _)| (size.rows(), size.cols()));
+        if current.is_none() || self.requested.get(&owner).and_then(Requested::size) != current {
+            return;
+        }
+        let Some((id, control)) = self
+            .focused
+            .iter()
+            .filter(|id| self.subscribers.contains(**id))
+            .filter_map(|id| self.requested.get(id).map(|requested| (*id, requested)))
+            .max_by_key(|(_, requested)| requested.applied)
+            .map(|(id, requested)| (id, requested.control.clone()))
+        else {
+            return;
+        };
+        let waiting = self.queued.iter().any(|queued| {
+            queued.connection == Some(id)
+                && matches!(queued.control, TerminalControl::Resize { .. })
+        });
+        if !waiting {
+            self.queued.push_back(QueuedControl {
+                connection: Some(id),
+                control,
+                reply: None,
+                budget: None,
+            });
+        }
+    }
+
     fn merge_input(
         &mut self,
         connection: Option<Uuid>,
@@ -831,7 +874,17 @@ impl RemoteActor {
         control: &mut TerminalControl,
     ) -> Result<Uuid> {
         let id = connection.ok_or(Error::Stale)?;
-        self.requested.insert(id, control.clone());
+        let applied = self
+            .requested
+            .get(&id)
+            .map_or(0, |requested| requested.applied);
+        self.requested.insert(
+            id,
+            Requested {
+                control: control.clone(),
+                applied,
+            },
+        );
         let focused = self.focused.contains(&id);
         let TerminalControl::Resize {
             rows,
@@ -901,6 +954,15 @@ impl RemoteActor {
                 self.confirmed_focus = focus;
             }
             if let Some(owner) = active.resize_owner {
+                let applied = self
+                    .requested
+                    .values()
+                    .map(|requested| requested.applied)
+                    .max()
+                    .map_or(1, |latest| latest + 1);
+                if let Some(requested) = self.requested.get_mut(&owner.0) {
+                    requested.applied = applied;
+                }
                 self.resize_owner = Some(owner);
             }
         } else if active.input
