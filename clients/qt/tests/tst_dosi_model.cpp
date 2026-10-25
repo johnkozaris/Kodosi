@@ -194,6 +194,22 @@ private slots:
         QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("answered")).toString(), QStringLiteral("Yes · Terminal"));
     }
 
+    void anExactNameWinsOverTheSameNameInAnotherCase()
+    {
+        Fixture f;
+        auto lower = test::session(1);
+        lower.insert(QStringLiteral("name"), QStringLiteral("api"));
+        auto upper = test::session(2);
+        upper.insert(QStringLiteral("name"), QStringLiteral("API"));
+        f.workspace.apply(test::snapshot({ lower, upper }), 0);
+        const QJsonObject question { { QStringLiteral("kind"), QStringLiteral("question") },
+            { QStringLiteral("question"), QStringLiteral("Ship it?") }, { QStringLiteral("options"), QJsonArray { QStringLiteral("Yes") } },
+            { QStringLiteral("terminal"), QStringLiteral("API") } };
+        f.snapshot({ entry(QStringLiteral("q"), question) });
+        QVERIFY(f.dosi.terminalQuestions().contains(test::id(2)));
+        QVERIFY(!f.dosi.terminalQuestions().contains(test::id(1)));
+    }
+
     void aQuestionNamesItsTerminalByItsIdTheEndOfItsIdOrItsName()
     {
         Fixture f;

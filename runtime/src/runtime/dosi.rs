@@ -213,11 +213,11 @@ impl Runtime {
 
     fn find_terminal(&self, reference: &str) -> Option<Uuid> {
         let entries = self.entries();
-        let mut matches = entries
+        let named = entries
             .iter()
-            .filter(|entry| crate::protocol::refers_to(reference, &entry.id, &entry.name));
-        match (matches.next(), matches.next()) {
-            (Some(entry), None) => Uuid::parse_str(&entry.id).ok(),
+            .map(|entry| (entry.id.as_str(), entry.name.as_str()));
+        match crate::protocol::referred(reference, named)[..] {
+            [id] => Uuid::parse_str(id).ok(),
             _ => None,
         }
     }

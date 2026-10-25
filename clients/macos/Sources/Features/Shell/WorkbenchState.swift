@@ -217,6 +217,10 @@ final class WorkbenchState {
         closing.insert(id)
     }
 
+    func cancelClosing(_ id: String) {
+        closing.remove(id)
+    }
+
     func switchAccount(_ userId: String?) {
         save()
         accountKey = "stage." + (userId.map { Data($0.utf8).base64EncodedString() } ?? "local")

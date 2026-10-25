@@ -69,6 +69,19 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(dosi.items.isEmpty)
 }
 
+private struct Named {
+    let id: String
+    let name: String
+}
+
+@Test func `an exact name wins over the same name in another case`() {
+    let items = [Named(id: "first-0001", name: "api"), Named(id: "second-0002", name: "API")]
+    #expect(referred("API", in: items, id: \.id, name: \.name)?.id == "second-0002")
+    #expect(referred("api", in: items, id: \.id, name: \.name)?.id == "first-0001")
+    #expect(referred("0002", in: items, id: \.id, name: \.name)?.id == "second-0002")
+    #expect(referred("", in: items, id: \.id, name: \.name) == nil)
+}
+
 @Test @MainActor func `a question names its terminal by its ID, the end of its ID or its name`() throws {
     let dosi = DosiStore(commands: CommandSink())
     let terminal = try runtimeSession()

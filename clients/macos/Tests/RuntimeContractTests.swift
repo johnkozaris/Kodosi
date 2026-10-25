@@ -251,6 +251,22 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.reconcile([elsewhere, someone, reopened, again]) == [again.id])
 }
 
+@Test @MainActor func `a terminal whose close failed still follows its restart`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowFailedClose"))
+    let ids = (0 ..< 2).map { "01992e43-53db-7040-8e02-f6ebf4149ba\($0)" }
+    let ended = try onMini(ids[0])
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([ended])
+    workbench.showSession(ended.id)
+    workbench.noteClosing(ended.id)
+    workbench.cancelClosing(ended.id)
+    _ = workbench.reconcile([])
+    let again = try onMini(ids[1], restoredFrom: ended.id)
+    #expect(workbench.reconcile([again]) == [again.id])
+    #expect(workbench.stagedSessionIds == [again.id])
+}
+
 @Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "offline")

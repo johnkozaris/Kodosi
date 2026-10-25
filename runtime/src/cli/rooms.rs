@@ -505,12 +505,11 @@ fn task_action(action: TaskAction, snapshot: &Snapshot) -> Result<Action> {
         TaskAction::Reopen { task } => (task, TaskChange::Reopen, None),
         TaskAction::List { .. } => return Err(Error::Invalid("Expected a task change.".into())),
     };
-    let matching = snapshot
+    let tasks = snapshot
         .tasks
         .iter()
-        .filter(|task| refers_to(&reference, &task.id, &task.title))
-        .map(|task| task.id.as_str())
-        .collect::<Vec<_>>();
+        .map(|task| (task.id.as_str(), task.title.as_str()));
+    let matching = crate::protocol::referred(&reference, tasks);
     Ok(Action::UpdateTask {
         task_id: only(&matching, "task", &reference, "kodosi room task list")?.to_owned(),
         change,

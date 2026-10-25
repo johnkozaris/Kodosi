@@ -42,13 +42,19 @@ bool refers(const QString& reference, const QString& id, const QString& name)
 
 QString referredId(const QVariantList& entries, const QString& reference)
 {
-    for (const auto& value : entries) {
-        const auto entry = value.toMap();
-        const auto id = entry.value(QStringLiteral("id")).toString();
-        if (refers(reference, id, entry.value(QStringLiteral("name")).toString()))
-            return id;
-    }
-    return {};
+    if (reference.isEmpty())
+        return {};
+    const auto find = [&](const auto& matches) {
+        for (const auto& value : entries) {
+            const auto entry = value.toMap();
+            const auto id = entry.value(QStringLiteral("id")).toString();
+            if (matches(id, entry.value(QStringLiteral("name")).toString()))
+                return id;
+        }
+        return QString {};
+    };
+    const auto exact = find([&](const QString& id, const QString& name) { return id == reference || name == reference; });
+    return exact.isEmpty() ? find([&](const QString& id, const QString& name) { return refers(reference, id, name); }) : exact;
 }
 
 bool openQuestion(const QVariantMap& content)

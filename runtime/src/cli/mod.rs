@@ -1030,14 +1030,13 @@ fn referred<'a>(
     (id, name): (&str, &str),
     reference: &str,
 ) -> Vec<&'a str> {
-    entries
-        .into_iter()
-        .filter_map(|entry| {
-            let value = entry[id].as_str()?;
-            let named = entry[name].as_str().unwrap_or_default();
-            crate::protocol::refers_to(reference, value, named).then_some(value)
-        })
-        .collect()
+    let entries = entries.into_iter().filter_map(|entry| {
+        Some((
+            entry[id].as_str()?,
+            entry[name].as_str().unwrap_or_default(),
+        ))
+    });
+    crate::protocol::referred(reference, entries)
 }
 
 fn only<'a>(matches: &[&'a str], kind: &str, reference: &str, list: &str) -> Result<&'a str> {
@@ -1800,8 +1799,15 @@ mod tests {
         let rooms = json!({"missions":[
             {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Launch"},
             {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Launch"},
+            {"id":"019f0000-0000-7000-8000-00000000e5f6","name":"api"},
+            {"id":"019f0000-0000-7000-8000-00000000f7a8","name":"API"},
         ]});
         assert!(mission_id(&rooms, "launch").is_err());
+        assert_eq!(
+            mission_id(&rooms, "API").unwrap(),
+            "019f0000-0000-7000-8000-00000000f7a8"
+        );
+        assert!(mission_id(&rooms, "Api").is_err());
         assert_eq!(
             mission_id(&rooms, "c3d4").unwrap(),
             "019f0000-0000-7000-8000-00000000c3d4"

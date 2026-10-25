@@ -82,11 +82,11 @@ extension AppDependencies {
     }
 
     func terminal(named reference: String) -> RuntimeSession? {
-        sessions.first { refers(reference, to: $0.id, named: $0.name) }
+        referred(reference, in: sessions, id: \.id, name: \.name)
     }
 
     func room(named reference: String) -> MissionEntry? {
-        missions.first { refers(reference, to: $0.id, named: $0.name) }
+        referred(reference, in: missions, id: \.id, name: \.name)
     }
 
     func open(_ target: DosiTarget) {
