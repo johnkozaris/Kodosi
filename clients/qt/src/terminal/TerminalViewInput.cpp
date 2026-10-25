@@ -320,6 +320,7 @@ bool TerminalView::event(QEvent* event)
 
 void TerminalView::keyPressEvent(QKeyEvent* event)
 {
+    refreshHoverLink(event);
     if (!interactionAvailable() || m_runtime == nullptr || m_registry == nullptr || !m_terminalReady) {
         QQuickItem::keyPressEvent(event);
         return;
@@ -414,6 +415,7 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
 
 void TerminalView::keyReleaseEvent(QKeyEvent* event)
 {
+    refreshHoverLink(event);
     if (event->key() == Qt::Key_C && m_copyShortcutActive) {
         m_copyShortcutActive = false;
         event->accept();
@@ -531,9 +533,8 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         QQuickItem::mousePressEvent(event);
         return;
     }
-    const auto modifiers = event->modifiers();
-    if (m_canSendInput && (modifiers == Qt::NoModifier || modifiers == Qt::ControlModifier)) {
-        if (auto link = linkAtCell(*cell, true, modifiers == Qt::ControlModifier)) {
+    if (const auto modifiers = linkModifiers(event->modifiers())) {
+        if (auto link = linkAtCell(*cell, true, *modifiers == Qt::ControlModifier)) {
             m_pressedLink = std::move(*link);
             m_selecting = false;
             event->accept();
@@ -620,23 +621,20 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
 
 void TerminalView::hoverMoveEvent(QHoverEvent* event)
 {
-    if (m_canSendInput
-        && sendMouseEvent(
-            TerminalMouseAction::Motion,
-            TerminalMouseButton::None,
-            event->position(),
-            event->modifiers(),
-            false)) {
-        clearHoverLink();
-        event->accept();
-        return;
-    }
+    m_hoverPosition = event->position();
+    (void)sendMouseEvent(
+        TerminalMouseAction::Motion,
+        TerminalMouseButton::None,
+        event->position(),
+        event->modifiers(),
+        false);
     updateHoverLink(event->position(), event->modifiers());
     event->accept();
 }
 
 void TerminalView::hoverLeaveEvent(QHoverEvent* event)
 {
+    m_hoverPosition.reset();
     clearHoverLink();
     event->accept();
 }
@@ -960,39 +958,77 @@ std::optional<QUrl> TerminalView::linkAtCell(
     const bool reportFailure,
     const bool text)
 {
-    if (m_registry == nullptr || !m_terminalReady) {
+    if (m_registry == nullptr || !m_terminalReady || !m_frame) {
         return std::nullopt;
     }
-    auto value = m_registry->linkAt(
-        surfaceIdentity(),
-        m_frame->viewportRevision,
-        static_cast<std::uint16_t>(cell.x()),
-        static_cast<std::uint16_t>(cell.y()));
-    if (!value) {
-        if (reportFailure
-            && value.error().code
-                != GhosttyTerminalKernel::Failure::Code::StaleFrame) {
-            emit operationError(value.error().message);
+    const auto column = static_cast<std::uint16_t>(cell.x());
+    const auto row = static_cast<std::uint16_t>(cell.y());
+    if (const auto* shown = m_frame->cell(column, row); shown != nullptr && shown->hyperlink) {
+        auto value = m_registry->linkAt(surfaceIdentity(), m_frame->viewportRevision, column, row);
+        if (!value) {
+            if (reportFailure
+                && value.error().code != GhosttyTerminalKernel::Failure::Code::StaleFrame) {
+                emit operationError(value.error().message);
+            }
+            return std::nullopt;
         }
+        if (!value->isEmpty()) {
+            return validatedTerminalLink(*value);
+        }
+    }
+    return text ? terminalTextLinkAt(*m_frame, column, row) : std::nullopt;
+}
+
+std::optional<Qt::KeyboardModifiers> TerminalView::linkModifiers(Qt::KeyboardModifiers modifiers) const
+{
+    if (!m_canSendInput) {
         return std::nullopt;
     }
-    if (value->isEmpty() && text) {
-        return terminalTextLinkAt(
-            *m_frame,
-            static_cast<std::uint16_t>(cell.x()),
-            static_cast<std::uint16_t>(cell.y()));
+    if (m_frame && m_frame->mouseTracking) {
+        if (!modifiers.testFlag(Qt::ShiftModifier)) {
+            return std::nullopt;
+        }
+        modifiers.setFlag(Qt::ShiftModifier, false);
     }
-    return validatedTerminalLink(*value);
+    if (modifiers != Qt::NoModifier && modifiers != Qt::ControlModifier) {
+        return std::nullopt;
+    }
+    return modifiers;
 }
 
 void TerminalView::updateHoverLink(const QPointF& position, const Qt::KeyboardModifiers modifiers)
 {
-    const auto cell = terminalCellAt(position, CellHitTest::Strict);
-    if (cell && linkAtCell(*cell, false, modifiers == Qt::ControlModifier)) {
+    const auto linkable = linkModifiers(modifiers);
+    const auto cell = linkable ? terminalCellAt(position, CellHitTest::Strict) : std::nullopt;
+    if (cell && linkAtCell(*cell, false, *linkable == Qt::ControlModifier)) {
         setCursor(Qt::PointingHandCursor);
     } else {
         unsetCursor();
     }
+}
+
+void TerminalView::refreshHoverLink(const QKeyEvent* event)
+{
+    const auto modifier = [&]() -> std::optional<Qt::KeyboardModifier> {
+        switch (event->key()) {
+        case Qt::Key_Shift:
+            return Qt::ShiftModifier;
+        case Qt::Key_Control:
+            return Qt::ControlModifier;
+        case Qt::Key_Alt:
+            return Qt::AltModifier;
+        case Qt::Key_Meta:
+            return Qt::MetaModifier;
+        default:
+            return std::nullopt;
+        }
+    }();
+    if (!modifier || !m_hoverPosition) {
+        return;
+    }
+    auto modifiers = event->modifiers();
+    modifiers.setFlag(*modifier, event->type() == QEvent::KeyPress);
+    updateHoverLink(*m_hoverPosition, modifiers);
 }
 
 void TerminalView::clearHoverLink()

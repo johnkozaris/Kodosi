@@ -27,6 +27,8 @@ the shell of the new terminal.
 - A terminal at its prompt shows a mark for each installed agent. Select a mark to start
   that agent with your last choice.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
+- ⌘-click a web address to open it in your browser (Ctrl-click on Linux and Windows). In a
+  program that uses the mouse, also hold Shift.
 - To give an agent its own copy of a repository, hover the repository folder in the
   sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
   Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.

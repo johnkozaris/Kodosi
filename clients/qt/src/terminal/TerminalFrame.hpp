@@ -24,6 +24,7 @@ struct TerminalCell {
     bool selected = false;
     std::int32_t underline = 0;
     std::uint8_t width = 1;
+    bool hyperlink = false;
 
     bool operator==(const TerminalCell&) const = default;
 };
@@ -75,6 +76,7 @@ struct TerminalFrame {
     QVector<bool> wrappedRows;
     QVector<TerminalImagePlacement> images;
     std::optional<std::chrono::steady_clock::time_point> imageAnimationDue;
+    bool mouseTracking = false;
 
     [[nodiscard]] const TerminalCell* cell(
         const std::uint16_t column,
