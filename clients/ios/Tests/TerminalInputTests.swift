@@ -12,6 +12,26 @@ struct TerminalInputTests {
         #expect(TerminalMessage.text(from: "") == nil)
     }
 
+    @Test func `reading shows the header, the composer and an agent's question`() {
+        #expect(TerminalInput.reading.showsHeader(compact: true))
+        #expect(!TerminalInput.reading.showsKeys)
+        #expect(TerminalInput.reading.showsAsk)
+    }
+
+    @Test func `typing in the terminal shows the keys and hides the header in landscape`() {
+        #expect(TerminalInput.typing.showsKeys)
+        #expect(!TerminalInput.typing.showsAsk)
+        #expect(TerminalInput.typing.showsHeader(compact: false))
+        #expect(!TerminalInput.typing.showsHeader(compact: true))
+    }
+
+    @Test func `writing a message shows only the composer and hides the header in landscape`() {
+        #expect(!TerminalInput.composing.showsKeys)
+        #expect(!TerminalInput.composing.showsAsk)
+        #expect(TerminalInput.composing.showsHeader(compact: false))
+        #expect(!TerminalInput.composing.showsHeader(compact: true))
+    }
+
     @Test func `a message fits one input chunk`() {
         #expect(TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes)))
         #expect(!TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes + 1)))

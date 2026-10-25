@@ -33,6 +33,9 @@ private struct TerminalScreenContent: View {
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
     @State private var hardwareKeyboard = GCKeyboard.coalesced != nil
+    @State private var typing = false
+    @State private var writing = false
+    @State private var wantsKeyboard = false
     @FocusState private var composing: Bool
 
     init(store: TerminalStore, sessionId: String) {
@@ -41,6 +44,33 @@ private struct TerminalScreenContent: View {
 
     private var compact: Bool {
         verticalSizeClass == .compact
+    }
+
+    private var input: TerminalInput {
+        if writing || composing {
+            return .composing
+        }
+        return typing ? .typing : .reading
+    }
+
+    private var inputActions: TerminalInputActions {
+        TerminalInputActions(
+            type: {
+                writing = false
+                composing = false
+                wantsKeyboard = true
+            },
+            compose: {
+                wantsKeyboard = false
+                writing = true
+            },
+            hide: {
+                writing = false
+                wantsKeyboard = false
+                composing = false
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            },
+        )
     }
 
     private var liveKey: TerminalLiveKey {
@@ -59,13 +89,20 @@ private struct TerminalScreenContent: View {
         VStack(spacing: 0) {
             stage(session)
                 .padding(.horizontal, compact ? 6 : 10)
-                .padding(.top, 6)
+                .padding(.top, input.showsHeader(compact: compact) ? 6 : 2)
                 .padding(.bottom, session == nil ? 10 : 0)
             if let session {
-                TerminalControls(controller: controller, session: session, compact: compact, composing: $composing)
+                TerminalControls(
+                    controller: controller, session: session, input: input, compact: compact, composing: $composing,
+                    actions: inputActions,
+                    menu: input.showsHeader(compact: compact)
+                        ? nil
+                        : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt),
+                )
             }
         }
         .background { GroundBackdrop() }
+        .toolbar(input.showsHeader(compact: compact) ? .visible : .hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -91,6 +128,11 @@ private struct TerminalScreenContent: View {
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
+        .onChange(of: composing) { _, focused in
+            if !focused {
+                writing = false
+            }
+        }
         .onChange(of: session == nil || session?.hidden == true) { _, gone in
             if gone, controller.ending {
                 dismiss()
@@ -137,18 +179,22 @@ private struct TerminalScreenContent: View {
                         session: surface.renderer,
                         sessionName: session.name,
                         accessibilityIdentifier: "terminal.surface",
-                        shouldFocus: hardwareKeyboard && !composing && controller.canType,
+                        shouldFocus: (hardwareKeyboard || wantsKeyboard) && !composing && !writing && controller.canType,
                         allowsFocus: controller.allowsKeyboard,
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                         onFocusChange: { focused in
+                            typing = focused
                             if focused {
                                 controller.focusTerminal()
+                            } else {
+                                wantsKeyboard = false
                             }
                         },
                     )
                 }
+                .onDisappear { typing = false }
                 .padding(5)
                 .overlay {
                     TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)

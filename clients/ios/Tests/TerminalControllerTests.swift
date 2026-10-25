@@ -141,7 +141,7 @@ struct TerminalControllerTests {
         let controller = TerminalController(sessionId: "s1", store: model.terminals)
         controller.appear(active: true)
         controller.draft = "Plan the release\nThen ship it"
-        controller.send()
+        #expect(!controller.send())
         #expect(controller.draft == "Plan the release\nThen ship it")
         #expect(controller.sent == 0)
         controller.disappear()
