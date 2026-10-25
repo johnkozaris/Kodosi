@@ -15,6 +15,23 @@ bool started(kodosi::RuntimeBridge& bridge)
     bridge.startAsync([&](auto result) { running = result.has_value(); });
     return QTest::qWaitFor([&] { return running; });
 }
+class CheckpointSink final : public kodosi::TerminalEventSink {
+public:
+    void receiveData(kodosi::TerminalData) noexcept override { }
+    void receiveControl(kodosi::TerminalControl) noexcept override { }
+    void receiveConnectResult(kodosi::TerminalConnectResult) noexcept override { }
+    bool installCheckpoint(kodosi::TerminalCheckpoint checkpoint) noexcept override
+    {
+        installed = checkpoint.snapshot.size();
+        return true;
+    }
+    qsizetype installed = 0;
+};
+std::int32_t sendCheckpoint(const QByteArray& snapshot, std::uintptr_t length)
+{
+    return runtime_fixture::callbacks.on_terminal_checkpoint("session", "view", 1, 0, 24, 80, false,
+        reinterpret_cast<const uint8_t*>(snapshot.constData()), length, runtime_fixture::userdata);
+}
 }
 
 class RuntimeBridgeTest final : public QObject {
@@ -181,6 +198,18 @@ private slots:
         QVERIFY(started(bridge));
         runtime_fixture::commandResult = KODOSI_FFI_BUSY;
         QVERIFY(!bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")));
+    }
+    void installsCheckpointsUpToTheSnapshotLimit()
+    {
+        CheckpointSink sink;
+        kodosi::RuntimeBridge bridge(sink);
+        QVERIFY(started(bridge));
+        const QByteArray snapshot(9 * 1024 * 1024, 'x');
+        QCOMPARE(sendCheckpoint(snapshot, static_cast<std::uintptr_t>(snapshot.size())), KODOSI_FFI_OK);
+        QCOMPARE(sink.installed, snapshot.size());
+        QCOMPARE(sendCheckpoint(snapshot, std::uintptr_t { KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES } + 1),
+            KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED);
+        QCOMPARE(sink.installed, snapshot.size());
     }
 };
 QTEST_GUILESS_MAIN(RuntimeBridgeTest)
