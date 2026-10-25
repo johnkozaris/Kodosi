@@ -267,7 +267,18 @@ final class AppDependencies {
         openRemote(id, inRoom: roomId)
     }
 
-    private func openRemote(_ id: String, inRoom roomId: String?) {
+    func openStaged(_ id: String) {
+        guard let current = session(id) else { return }
+        if let replaced = current.restoredFrom {
+            for state in roomViews.values where state.selectedTerminal == replaced {
+                state.selectedTerminal = id
+            }
+        }
+        guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
+        openRemote(id, inRoom: nil, shows: false)
+    }
+
+    private func openRemote(_ id: String, inRoom roomId: String?, shows: Bool = true) {
         let epoch = accountEpoch
         let section = workbench.section
         let selectedRoom = workbench.selectedMissionId
@@ -281,7 +292,7 @@ final class AppDependencies {
             do {
                 _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
                 guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
-                if workbench.section == section, workbench.selectedMissionId == selectedRoom {
+                if shows, workbench.section == section, workbench.selectedMissionId == selectedRoom {
                     workbench.showSession(id, inRoom: roomId)
                 }
                 if let roomId {

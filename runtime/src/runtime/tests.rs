@@ -707,6 +707,7 @@ fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
         online: true,
         status: None,
         hidden: false,
+        restored_from: None,
     }
 }
 
@@ -1437,6 +1438,21 @@ async fn opening_a_terminal_whose_computer_is_offline_waits_for_the_computer() {
 }
 
 #[tokio::test]
+async fn a_terminal_that_another_computer_started_again_names_the_one_it_replaces() {
+    let (mut runtime, _root) = registry_fixture();
+    let replaced = Uuid::now_v7();
+    let remote = RemoteSession {
+        restored_from: Some(replaced),
+        ..remote_session(Uuid::now_v7(), Uuid::now_v7())
+    };
+    runtime.replace_remotes(vec![remote.clone()]);
+    assert_eq!(
+        runtime.remotes[&remote.id].restored_from,
+        Some(replaced.to_string())
+    );
+}
+
+#[tokio::test]
 async fn a_terminal_whose_computer_is_away_hides_or_closes_through_the_server() {
     let (mut runtime, _root) = registry_fixture();
     let mut hidden = remote_session(Uuid::now_v7(), Uuid::now_v7());
@@ -2041,10 +2057,11 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
     )
     .await
     .unwrap();
+    let replaced = Uuid::now_v7();
     let entry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": [],
+        "repository": false, "sharedWith": [], "restoredFrom": replaced,
     }))
     .unwrap();
     let chosen = Uuid::now_v7().to_string();
@@ -2062,6 +2079,10 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
             worktree: None,
             wanted: restore::Sharing::of(Some(&"owner".to_owned()), Some(&chosen), &[]),
         },
+    );
+    assert_eq!(
+        runtime.local[&id].publication(id).0.restored_from,
+        Some(replaced)
     );
     let room_of = |runtime: &Runtime| runtime.local[&id].entry.mission_id.clone();
     for user in [None, Some("someone else")] {

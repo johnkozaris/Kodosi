@@ -240,8 +240,15 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const Q
 QString SessionCatalogModel::current(const QString& id) const
 {
     const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(),
-        [&](const auto& s) { return s.restoredFrom == id; });
+        [&](const auto& s) { return s.restoredFrom == id && s.kind == QStringLiteral("local"); });
     return found == m_sessions.cend() ? id : found->id;
+}
+std::optional<QString> SessionCatalogModel::restart(const QString& id, const QString& owner, const QString& host) const
+{
+    const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(), [&](const auto& s) {
+        return s.restoredFrom == id && s.ownerUserId == owner && s.hostDeviceId == host;
+    });
+    return found == m_sessions.cend() ? std::nullopt : std::optional(found->id);
 }
 bool SessionCatalogModel::containsSession(const QString& id) const
 {
@@ -330,7 +337,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerName", "hostName", "missionName", "message", "workingDir", "title", "program", "restoredFrom"}) {
+    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "missionName", "message", "workingDir", "title", "program", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -402,6 +409,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     }
     s.ownerUserId = text("ownerUserId");
     s.ownerName = text("ownerName");
+    s.hostDeviceId = text("hostDeviceId");
     s.hostName = text("hostName");
     s.missionId = text("missionId");
     s.missionName = text("missionName");

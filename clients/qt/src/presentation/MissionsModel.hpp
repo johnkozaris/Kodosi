@@ -39,6 +39,7 @@ public:
     QVariantMap presentation() const { return m_presentations.value(m_selectedId); }
     QString issueRepository() const { return m_issueRepository; }
     Q_INVOKABLE void setPresentation(const QString& key, const QVariant& value);
+    void followTerminal(const QString& replaced, const QString& id);
     QVariantList issues() const { return m_issues; }
     Q_INVOKABLE void roomAction(const QVariantMap& action);
     Q_INVOKABLE void copyAgentInstructions();

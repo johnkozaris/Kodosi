@@ -1042,7 +1042,12 @@ impl BackendClient {
             }
             return Ok(());
         }
-        let mut dto:SessionDto=self.inner.http.device(Method::POST,"api/sessions",&credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":host_label(),"missionId":info.mission_id}))).await?;
+        let body = publication_body(&info, &credentials.keys.device_id, info.mission_id);
+        let mut dto: SessionDto = self
+            .inner
+            .http
+            .device(Method::POST, "api/sessions", &credentials, Some(body))
+            .await?;
         if info.mission_id.is_none()
             && dto.shared_with.iter().cloned().collect::<BTreeSet<_>>() != info.shared_with
         {
@@ -1318,6 +1323,24 @@ fn path_segment(value: &str) -> Result<String> {
         .push(value);
     Ok(url.path().trim_start_matches('/').to_owned())
 }
+
+#[cfg(feature = "host")]
+pub(crate) fn publication_body(
+    info: &LocalPublication,
+    device_id: &str,
+    room: Option<Uuid>,
+) -> Value {
+    json!({
+        "id": info.session_id,
+        "incarnationId": info.incarnation_id,
+        "name": info.name,
+        "hostDeviceId": device_id,
+        "hostName": host_label(),
+        "missionId": room,
+        "restoredFrom": info.restored_from,
+    })
+}
+
 pub(crate) fn host_label() -> String {
     let label = device_label().or_else(|| {
         std::env::var("HOSTNAME")

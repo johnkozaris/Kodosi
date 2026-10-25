@@ -16,6 +16,7 @@ fn session() -> RemoteSession {
         online: true,
         status: None,
         hidden: false,
+        restored_from: None,
     }
 }
 

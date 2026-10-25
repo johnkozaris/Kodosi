@@ -156,6 +156,7 @@ pub struct LocalPublication {
     pub mission_id: Option<Uuid>,
     pub room_sequence: u64,
     pub shared_with: BTreeSet<String>,
+    pub restored_from: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,6 +176,8 @@ pub struct RemoteSession {
     pub status: Option<TerminalStatus>,
     #[serde(default)]
     pub hidden: bool,
+    #[serde(default)]
+    pub restored_from: Option<Uuid>,
 }
 
 /// The server reads it, so it never carries the program's text.

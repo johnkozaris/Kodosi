@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 30,
+  "apiContractVersion": 31,
   "oldestApiContractVersion": 29,
   "authContractVersion": 1,
   "compatibility": {
@@ -65,7 +65,8 @@
     "historicalMutationReceipts": false,
     "offlineExpiry": false,
     "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access",
-    "status": "GET /api/sessions and GET /api/sessions/{id} give the newest status of a terminal while its host is connected, or null (terminalStatus in terminal-connections.json)"
+    "status": "GET /api/sessions and GET /api/sessions/{id} give the newest status of a terminal while its host is connected, or null (terminalStatus in terminal-connections.json)",
+    "restoredFrom": "POST /api/sessions takes the ID of the terminal that the host started again as this one, or null, and GET /api/sessions and GET /api/sessions/{id} give it; a viewer moves an open view to it only when the owner and the hosting device are the same"
   },
   "terminalRoom": {
     "choice": "PUT /api/sessions/{id}/mission takes {incarnationId, missionId, choice: {deviceId, sequence, signature}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v1 and the length-prefixed owner account id, terminal id, incarnation id, room id (empty for no room), 8-byte big-endian sequence and its own device id",

@@ -14,7 +14,8 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String = "/remote/project", restoredFrom: String? = nil) throws -> RuntimeSession
+                    directory: String = "/remote/project", restoredFrom: String? = nil,
+                    ownerUserId: String? = nil, hostDeviceId: String? = nil) throws -> RuntimeSession
 {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
@@ -23,7 +24,13 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         "sharedWith": .array([]),
     ]
     fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
+    fields["ownerUserId"] = ownerUserId.map(JSONValue.string)
+    fields["hostDeviceId"] = hostDeviceId.map(JSONValue.string)
     return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+}
+
+private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "ana") throws -> RuntimeSession {
+    try runtimeSession(id, connection: "connected", restoredFrom: restoredFrom, ownerUserId: owner, hostDeviceId: "mini")
 }
 
 @Test func `event envelope requires explicit account and exact epoch`() throws {
@@ -151,6 +158,97 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     _ = restarted.reconcile([later])
     _ = restarted.reconcile([earlier, later])
     #expect(restarted.stagedSessionIds == [ids[2], ids[3]])
+}
+
+@Test @MainActor func `a terminal that another computer started again takes the place and focus of the one that ended`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollow"))
+    let ids = (0 ..< 3).map { "01992e43-53db-7040-8e02-f6ebf4149b5\($0)" }
+    let (ended, other) = try (onMini(ids[0]), onMini(ids[1]))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([ended, other])
+    workbench.showSession(ended.id)
+    workbench.showSession(other.id)
+    workbench.toggleFocus(ended.id)
+    #expect(workbench.reconcile([other]).isEmpty)
+    #expect(workbench.stagedSessionIds == [other.id])
+    #expect(workbench.selectedSessionId == nil)
+    #expect(workbench.focusedSessionId == nil)
+    let again = try onMini(ids[2], restoredFrom: ended.id)
+    #expect(workbench.reconcile([other, again]) == [again.id])
+    #expect(workbench.stagedSessionIds == [again.id, other.id])
+    #expect(workbench.selectedSessionId == again.id)
+    #expect(workbench.focusedSessionId == again.id)
+}
+
+@Test @MainActor func `a restart takes no selection that the person gave to another terminal`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowSelection"))
+    let ids = (0 ..< 3).map { "01992e43-53db-7040-8e02-f6ebf4149b6\($0)" }
+    let (ended, other) = try (onMini(ids[0]), onMini(ids[1]))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([ended, other])
+    workbench.showSession(ended.id)
+    workbench.showSession(other.id)
+    workbench.toggleFocus(ended.id)
+    _ = workbench.reconcile([other])
+    workbench.selectSession(other.id)
+    _ = try workbench.reconcile([other, onMini(ids[2], restoredFrom: ended.id)])
+    #expect(workbench.stagedSessionIds == [ids[2], other.id])
+    #expect(workbench.selectedSessionId == other.id)
+    #expect(workbench.focusedSessionId == nil)
+}
+
+@Test @MainActor func `terminals that ended together come back in their places and only the selected one takes the selection`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowTogether"))
+    let ids = (0 ..< 4).map { "01992e43-53db-7040-8e02-f6ebf4149b9\($0)" }
+    let (first, second) = try (onMini(ids[0]), onMini(ids[1]))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([first, second])
+    workbench.showSession(first.id)
+    workbench.showSession(second.id)
+    _ = workbench.reconcile([])
+    let restarts = try [onMini(ids[3], restoredFrom: second.id), onMini(ids[2], restoredFrom: first.id)]
+    #expect(Set(workbench.reconcile(restarts)) == [ids[2], ids[3]])
+    #expect(workbench.stagedSessionIds == [ids[2], ids[3]])
+    #expect(workbench.selectedSessionId == ids[3])
+}
+
+@Test @MainActor func `a terminal that is still listed moves to its restart at once`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowListed"))
+    let ids = (0 ..< 2).map { "01992e43-53db-7040-8e02-f6ebf4149b7\($0)" }
+    let away = try onMini(ids[0])
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([away])
+    workbench.showSession(away.id)
+    let again = try onMini(ids[1], restoredFrom: away.id)
+    #expect(workbench.reconcile([away, again]) == [again.id])
+    #expect(workbench.stagedSessionIds == [again.id])
+    #expect(workbench.selectedSessionId == again.id)
+}
+
+@Test @MainActor func `a terminal follows no restart on another computer, of another person or after a close`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowRefused"))
+    let ids = (0 ..< 6).map { "01992e43-53db-7040-8e02-f6ebf4149b8\($0)" }
+    let (ended, closed) = try (onMini(ids[0]), onMini(ids[1]))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile([ended, closed])
+    workbench.showSession(ended.id)
+    workbench.showSession(closed.id)
+    workbench.noteClosing(closed.id)
+    _ = workbench.reconcile([ended])
+    #expect(workbench.selectedSessionId == ended.id)
+    _ = workbench.reconcile([])
+    let elsewhere = try runtimeSession(ids[2], connection: "connected", restoredFrom: ended.id, ownerUserId: "ana", hostDeviceId: "air")
+    let someone = try onMini(ids[3], restoredFrom: ended.id, owner: "bob")
+    let reopened = try onMini(ids[4], restoredFrom: closed.id)
+    #expect(workbench.reconcile([elsewhere, someone, reopened]).isEmpty)
+    #expect(workbench.stagedSessionIds.isEmpty)
+    let again = try onMini(ids[5], restoredFrom: ended.id)
+    #expect(workbench.reconcile([elsewhere, someone, reopened, again]) == [again.id])
 }
 
 @Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {

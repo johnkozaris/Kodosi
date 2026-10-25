@@ -211,7 +211,7 @@ extension AppDependencies {
         }
         reconcileTerminals()
         for id in workbench.reconcile(received) {
-            activateSession(id)
+            openStaged(id)
         }
         reportVisible()
         consumeDeepLink()

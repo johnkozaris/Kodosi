@@ -42,6 +42,7 @@ public:
         QString workingDirectory;
         QString ownerUserId;
         QString ownerName;
+        QString hostDeviceId;
         QString hostName;
         QString missionId;
         QString missionName;
@@ -88,8 +89,10 @@ public:
     [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
-    // The terminal that the host started again in place of `id` after it stopped, or `id`.
+    // The terminal that this computer's host started again in place of `id` after it stopped, or `id`.
     [[nodiscard]] QString current(const QString& id) const;
+    // The terminal that its host started again in place of `id`, on the same computer of the same person.
+    [[nodiscard]] std::optional<QString> restart(const QString& id, const QString& owner, const QString& host) const;
     [[nodiscard]] std::optional<PresentationSession> presentationSession(const QString& id) const;
     [[nodiscard]] std::optional<QString> incarnationForSession(const QString& id) const;
     void apply(const QJsonObject& event);

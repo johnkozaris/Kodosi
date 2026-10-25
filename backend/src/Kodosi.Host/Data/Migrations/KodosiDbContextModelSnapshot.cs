@@ -470,6 +470,9 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("RestoredFrom")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("RoomDeviceId")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
