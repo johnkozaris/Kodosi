@@ -1,5 +1,4 @@
 use std::{
-    cell::Cell,
     collections::{HashMap, HashSet},
     ffi::{CStr, CString, OsString, c_char, c_void},
     panic::AssertUnwindSafe,
@@ -92,10 +91,6 @@ const STOP_BUDGET: Duration = Duration::from_secs(10);
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static NEXT_HANDLE: AtomicUsize = AtomicUsize::new(1);
 static HANDLES: OnceLock<Mutex<HashMap<usize, Arc<Instance>>>> = OnceLock::new();
-
-thread_local! {
-    static CALLBACK_DEPTH: Cell<usize> = const { Cell::new(0) };
-}
 
 type EventCb = Option<unsafe extern "C" fn(*const u8, usize, *mut c_void)>;
 type TerminalDataCb = Option<
@@ -192,7 +187,7 @@ pub unsafe extern "C" fn kodosi_stop(handle: *mut c_void) {
         return;
     };
     instance.state.close();
-    if !CallbackScope::active() {
+    if !CallbackScope::within(&instance.state.gate) {
         instance.state.gate.wait();
         instance.stopped.wait();
     }
