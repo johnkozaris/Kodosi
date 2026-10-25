@@ -500,6 +500,58 @@ struct TerminalLifecycleTests {
     }
 
     @Test
+    func `a new surface gets the focus of its view`() throws {
+        let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
+        let coordinator = TerminalSurfaceCoordinator()
+        let hostView = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        hostView.wantsLayer = true
+        let window = NSWindow(
+            contentRect: hostView.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostView
+        var routed: [(TerminalSurface, Bool)] = []
+
+        coordinator.isAttached = { hostView.window != nil }
+        coordinator.scaleFactor = { 1 }
+        coordinator.viewSize = { (hostView.bounds.width, hostView.bounds.height) }
+        coordinator.platformSetup = { config in
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(hostView).toOpaque()
+                )
+            )
+        }
+        coordinator.applyFocus = { surface, focused in
+            routed.append((surface, focused))
+        }
+        coordinator.configuration = .init(session: session)
+        coordinator.controller = TerminalController()
+        defer {
+            coordinator.freeSurface()
+            window.contentView = nil
+        }
+
+        let first = try #require(coordinator.surface)
+        #expect(routed.count == 1)
+        #expect(routed[0].0 === first)
+        #expect(routed[0].1 == false)
+
+        coordinator.setFocus(true)
+        coordinator.controller = TerminalController()
+        let replacement = try #require(coordinator.surface)
+        #expect(replacement !== first)
+        #expect(routed.count == 3)
+        #expect(routed[1].0 === first)
+        #expect(routed[1].1 == true)
+        #expect(routed[2].0 === replacement)
+        #expect(routed[2].1 == true)
+    }
+
+    @Test
     func `zero size defers configuration rebuild until layout recovers`() {
         let firstSession = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
         let replacementSession = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
