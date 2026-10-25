@@ -27,7 +27,7 @@ struct RoomConversation: View {
         Group {
             if let snapshot = rooms.snapshots[roomId] {
                 transcript(snapshot, state: state, targets: targets)
-                    .safeAreaBar(edge: .bottom) { RoomComposer(roomId: roomId, targets: targets) }
+                    .safeAreaInset(edge: .bottom) { RoomComposer(roomId: roomId, targets: targets) }
             } else if let failure = state.readFailure, !state.loading {
                 RoomRecovery(message: failure) { Task { await rooms.read(roomId) } }
             } else {
