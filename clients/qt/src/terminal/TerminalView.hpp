@@ -72,6 +72,7 @@ public:
     [[nodiscard]] QString fontFamily() const;
     [[nodiscard]] int fontPixelSize() const noexcept;
     [[nodiscard]] double lineHeight() const noexcept;
+    [[nodiscard]] QSizeF terminalCellSize() const;
     [[nodiscard]] int cursorStyle() const noexcept;
     [[nodiscard]] bool cursorBlink() const noexcept;
     [[nodiscard]] int scrollbackLines() const noexcept;
@@ -184,7 +185,6 @@ private:
     [[nodiscard]] QPointF viewportOffset() const;
     [[nodiscard]] QPointF gridPoint(const QPointF& point) const;
     [[nodiscard]] qreal devicePixelRatio() const;
-    [[nodiscard]] QSizeF terminalCellSize() const;
     QFont m_font;
     qreal m_lineHeight = 1.1;
     TerminalCursorStyle m_cursorStyle = TerminalCursorStyle::Block;
