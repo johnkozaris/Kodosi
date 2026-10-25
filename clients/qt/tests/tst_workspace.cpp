@@ -282,7 +282,7 @@ private slots:
         Fixture f;
         auto away = test::session(1, true, false);
         away.insert(QStringLiteral("status"), QStringLiteral("offline"));
-        away.insert(QStringLiteral("hostName"), QStringLiteral("minisforum"));
+        away.insert(QStringLiteral("hostName"), QStringLiteral("studio"));
         away.insert(QStringLiteral("missionId"), test::id(10));
         auto other = away;
         other.insert(QStringLiteral("id"), test::id(2));
