@@ -416,7 +416,6 @@ fn resize(rows: u16, cols: u16, claim: bool) -> TerminalControl {
     }
 }
 
-/// Accepts the next control as the host does, and gives that control.
 async fn confirm(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TerminalControl {
     match next_request(requests).await {
         TestRemoteRequest::Control { control, reply } => {
@@ -447,7 +446,6 @@ async fn another_view(
     view.await.expect("another view")
 }
 
-/// A view sets the size: the host takes it and reports it, and the watching view sees it.
 async fn set_size(
     terminal: &RemoteTerminal,
     view: Uuid,
@@ -495,7 +493,6 @@ async fn host_size(
     }
 }
 
-/// A focused app view sets 17x49, then an attach view claims 30x100.
 async fn attach_takes_the_size() -> (
     RemoteTerminal,
     Subscription,

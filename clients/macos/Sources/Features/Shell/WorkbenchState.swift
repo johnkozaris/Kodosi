@@ -253,7 +253,7 @@ final class WorkbenchState {
         )
         restoredIds = restoredIds.map { restarted[$0] ?? $0 }
         for (place, id) in stagedSessionIds.enumerated().reversed() {
-            if let session = current[id], restart(of: session.id, owner: session.ownerUserId, host: session.hostDeviceId, in: sessions) == nil {
+            if let session = current[id], sessions.restart(of: session.id, owner: session.ownerUserId, host: session.hostDeviceId) == nil {
                 continue
             }
             if let session = current[id] ?? known[id] {
@@ -286,10 +286,6 @@ final class WorkbenchState {
         return followed + restore
     }
 
-    private func restart(of id: String, owner: String?, host: String?, in sessions: [RuntimeSession]) -> RuntimeSession? {
-        sessions.first { $0.restoredFrom == id && $0.ownerUserId == owner && $0.hostDeviceId == host }
-    }
-
     private func depart(_ session: RuntimeSession, from place: Int) {
         if closing.remove(session.id) == nil {
             departures.append(Departure(
@@ -307,7 +303,7 @@ final class WorkbenchState {
     private func follow(_ sessions: [RuntimeSession]) -> [String] {
         var followed: [String] = []
         for departure in departures.sorted(by: { $0.place < $1.place }) {
-            guard let next = restart(of: departure.id, owner: departure.owner, host: departure.host, in: sessions) else { continue }
+            guard let next = sessions.restart(of: departure.id, owner: departure.owner, host: departure.host) else { continue }
             departures.removeAll { $0.id == departure.id }
             guard !next.hidden, !stagedSessionIds.contains(next.id), stagedSessionIds.count < Self.maximumStagedSessions else { continue }
             stagedSessionIds.insert(next.id, at: min(departure.place, stagedSessionIds.count))

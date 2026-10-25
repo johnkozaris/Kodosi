@@ -6,6 +6,12 @@ public func refers(_ reference: String, to id: String, named name: String) -> Bo
         || name.caseInsensitiveCompare(reference) == .orderedSame
 }
 
+public extension [RuntimeSession] {
+    func restart(of id: String, owner: String?, host: String?) -> RuntimeSession? {
+        first { $0.restoredFrom == id && $0.ownerUserId == owner && $0.hostDeviceId == host }
+    }
+}
+
 public func referred<Item>(_ reference: String, in items: [Item], id: KeyPath<Item, String>, name: KeyPath<Item, String>) -> Item? {
     guard !reference.isEmpty else { return nil }
     return items.first { $0[keyPath: id] == reference || $0[keyPath: name] == reference }

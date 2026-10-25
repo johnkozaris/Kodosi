@@ -63,7 +63,7 @@ final class TerminalStore {
 
     func replacement(of session: RuntimeSession) -> RuntimeSession? {
         guard let owner = session.ownerUserId, let host = session.hostDeviceId else { return nil }
-        return sessions.first { $0.restoredFrom == session.id && $0.ownerUserId == owner && $0.hostDeviceId == host }
+        return sessions.restart(of: session.id, owner: owner, host: host)
     }
 
     func sign(of session: RuntimeSession) -> StatusSign.Form? {

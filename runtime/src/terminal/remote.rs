@@ -290,14 +290,12 @@ struct PendingCapture {
     deadline: tokio::time::Instant,
 }
 
-/// The last resize that a view asked for.
-struct Requested {
+struct RequestedResize {
     control: TerminalControl,
-    /// Higher for a view whose size the host took later, and zero before it takes one.
-    applied: u64,
+    taken_turn: u64,
 }
 
-impl Requested {
+impl RequestedResize {
     fn size(&self) -> Option<(u16, u16)> {
         match self.control {
             TerminalControl::Resize { rows, cols, .. } => Some((rows, cols)),
@@ -353,7 +351,7 @@ struct RemoteActor {
     focused: HashSet<Uuid>,
     confirmed_focus: bool,
     resize_owner: Option<(Uuid, CancellationToken)>,
-    requested: HashMap<Uuid, Requested>,
+    requested: HashMap<Uuid, RequestedResize>,
     typed_at: Option<tokio::time::Instant>,
 }
 
@@ -812,12 +810,11 @@ impl RemoteActor {
         }
     }
 
-    /// The view that set the size left. While the terminal still has the size of that view, the
-    /// focused view whose size the host took last sends its size again, so the host gives the
-    /// size back to it.
     fn give_size_back(&mut self, owner: Uuid) {
         let current = self.grid.map(|(size, _)| (size.rows(), size.cols()));
-        if current.is_none() || self.requested.get(&owner).and_then(Requested::size) != current {
+        if current.is_none()
+            || self.requested.get(&owner).and_then(RequestedResize::size) != current
+        {
             return;
         }
         let Some((id, control)) = self
@@ -825,7 +822,7 @@ impl RemoteActor {
             .iter()
             .filter(|id| self.subscribers.contains(**id))
             .filter_map(|id| self.requested.get(id).map(|requested| (*id, requested)))
-            .max_by_key(|(_, requested)| requested.applied)
+            .max_by_key(|(_, requested)| requested.taken_turn)
             .map(|(id, requested)| (id, requested.control.clone()))
         else {
             return;
@@ -874,15 +871,15 @@ impl RemoteActor {
         control: &mut TerminalControl,
     ) -> Result<Uuid> {
         let id = connection.ok_or(Error::Stale)?;
-        let applied = self
+        let taken_turn = self
             .requested
             .get(&id)
-            .map_or(0, |requested| requested.applied);
+            .map_or(0, |requested| requested.taken_turn);
         self.requested.insert(
             id,
-            Requested {
+            RequestedResize {
                 control: control.clone(),
-                applied,
+                taken_turn,
             },
         );
         let focused = self.focused.contains(&id);
@@ -954,14 +951,14 @@ impl RemoteActor {
                 self.confirmed_focus = focus;
             }
             if let Some(owner) = active.resize_owner {
-                let applied = self
+                let taken_turn = self
                     .requested
                     .values()
-                    .map(|requested| requested.applied)
+                    .map(|requested| requested.taken_turn)
                     .max()
                     .map_or(1, |latest| latest + 1);
                 if let Some(requested) = self.requested.get_mut(&owner.0) {
-                    requested.applied = applied;
+                    requested.taken_turn = taken_turn;
                 }
                 self.resize_owner = Some(owner);
             }

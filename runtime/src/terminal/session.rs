@@ -482,13 +482,11 @@ struct ResizeOwner {
     authorization: CancellationToken,
 }
 
-/// The last size that a view asked for.
 #[derive(Clone, Copy)]
-struct Requested {
+struct RequestedSize {
     size: TerminalSize,
     geometry: Option<TerminalPixelGeometry>,
-    /// Higher for a view whose size the terminal took later, and zero before it takes one.
-    applied: u64,
+    taken_turn: u64,
 }
 
 enum ResizeError {
@@ -589,7 +587,7 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
-    requested: HashMap<Controller, Requested>,
+    requested: HashMap<Controller, RequestedSize>,
     typed_at: Option<tokio::time::Instant>,
     cell: CellPixels,
     sequence: u64,
@@ -750,16 +748,16 @@ impl LocalActor {
         claim: bool,
     ) -> std::result::Result<(), ResizeError> {
         validate_pixels(size, geometry).map_err(ResizeError::Rejected)?;
-        let applied = self
+        let taken_turn = self
             .requested
             .get(&controller)
-            .map_or(0, |requested| requested.applied);
+            .map_or(0, |requested| requested.taken_turn);
         self.requested.insert(
             controller,
-            Requested {
+            RequestedSize {
                 size,
                 geometry,
-                applied,
+                taken_turn,
             },
         );
         let claim = claim || self.focused.contains_key(&controller);
@@ -790,18 +788,18 @@ impl LocalActor {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
         }
-        let applied = self
+        let taken_turn = self
             .requested
             .values()
-            .map(|requested| requested.applied)
+            .map(|requested| requested.taken_turn)
             .max()
             .map_or(1, |latest| latest + 1);
         self.requested.insert(
             controller,
-            Requested {
+            RequestedSize {
                 size,
                 geometry,
-                applied,
+                taken_turn,
             },
         );
         self.resize_owner = Some(ResizeOwner {
@@ -881,8 +879,6 @@ impl LocalActor {
         }
     }
 
-    /// Applies the size that a focused view asked for. An error means that the terminal and its
-    /// process can disagree about the size.
     async fn take_requested_size(
         &mut self,
         controller: Controller,
@@ -910,8 +906,6 @@ impl LocalActor {
         }
     }
 
-    /// The view that set the size left, so the focused view whose size the terminal took last
-    /// takes the size back. The answer is a reason to stop the terminal.
     async fn give_size_back(&mut self) -> Option<String> {
         self.resize_owner = None;
         let (controller, authorization) = self
@@ -921,9 +915,9 @@ impl LocalActor {
             .filter_map(|(controller, authorization)| {
                 self.requested
                     .get(controller)
-                    .map(|requested| (requested.applied, *controller, authorization))
+                    .map(|requested| (requested.taken_turn, *controller, authorization))
             })
-            .max_by_key(|(applied, ..)| *applied)
+            .max_by_key(|(turn, ..)| *turn)
             .map(|(_, controller, authorization)| (controller, authorization.clone()))?;
         let error = self
             .take_requested_size(controller, authorization)
@@ -937,8 +931,6 @@ impl LocalActor {
         self.typed_at.is_some_and(|at| at.elapsed() < TYPING)
     }
 
-    /// Ends a view's focus and its claim on the size. The answer is a reason to stop the
-    /// terminal.
     async fn release(&mut self, controller: Controller) -> Option<String> {
         self.requested.remove(&controller);
         if self.focused.contains_key(&controller)
@@ -990,7 +982,6 @@ impl LocalActor {
                 .is_some_and(|output| output.elapsed() < BUSY_AFTER_OUTPUT)
     }
 
-    /// The answer is a reason to stop the terminal.
     async fn maintain(&mut self) -> Option<String> {
         self.subscribers.prune();
         self.type_start_line();
