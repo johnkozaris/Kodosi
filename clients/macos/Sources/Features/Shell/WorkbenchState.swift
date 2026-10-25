@@ -302,7 +302,7 @@ final class WorkbenchState {
 
     private func follow(_ sessions: [RuntimeSession]) -> [String] {
         var followed: [String] = []
-        for departure in departures.sorted(by: { $0.place < $1.place }) {
+        for departure in departures.reversed() {
             guard let next = sessions.restart(of: departure.id, owner: departure.owner, host: departure.host) else { continue }
             departures.removeAll { $0.id == departure.id }
             guard !next.hidden, !stagedSessionIds.contains(next.id), stagedSessionIds.count < Self.maximumStagedSessions else { continue }

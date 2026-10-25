@@ -316,7 +316,7 @@ QStringList DesktopStateModel::follow()
 {
     QStringList followed;
     auto departures = m_departures;
-    std::ranges::sort(departures, {}, &Departure::place);
+    std::ranges::reverse(departures);
     for (const auto& departure : std::as_const(departures)) {
         const auto next = m_sessions->restart(departure.id, departure.computer.owner, departure.computer.host);
         if (!next)

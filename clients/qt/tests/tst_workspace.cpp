@@ -963,6 +963,20 @@ private slots:
         QCOMPARE(f.desktop.selectedSessionId(), test::id(4));
         QVERIFY(opened(f.commands, test::id(3)) && opened(f.commands, test::id(4)));
     }
+    void terminalsThatEndedOneAfterAnotherComeBackInTheirPlaces()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2), onMini(3) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(3)));
+        f.workspace.apply(test::snapshot({ onMini(2), onMini(3) }), 1);
+        f.workspace.apply(test::snapshot({ onMini(2) }), 1);
+        f.workspace.apply(test::snapshot({}), 1);
+        f.workspace.apply(test::snapshot({ onMini(6, 3), onMini(5, 2), onMini(4, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(4), test::id(5), test::id(6) }));
+    }
     void aTerminalThatIsStillListedMovesToItsRestartAtOnce()
     {
         Fixture f;
