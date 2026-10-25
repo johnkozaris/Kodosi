@@ -80,6 +80,30 @@ impl Agent {
         }
     }
 
+    /// The words that give this agent Kodosi's note with its own instructions, as the shell of
+    /// a Kodosi terminal reads them. Copilot CLI finds the note through its variable instead.
+    #[cfg(feature = "host")]
+    pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
+        match self {
+            Self::Claude => Some(format!(
+                "--append-system-prompt {}",
+                variable_word(shell, "", CONTEXT_VARIABLE)
+            )),
+            Self::Codex => Some(format!(
+                "-c {}",
+                variable_word(shell, "developer_instructions=", CONTEXT_VARIABLE)
+            )),
+            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
+        }
+    }
+
+    /// The command and Kodosi's note for this agent, as one line for the shell.
+    #[cfg(feature = "host")]
+    pub(crate) fn with_context(self, command: &str, shell: &Path) -> String {
+        self.context_words(shell)
+            .map_or_else(|| command.to_owned(), |words| format!("{command} {words}"))
+    }
+
     #[cfg(feature = "host")]
     pub(crate) const fn home(self) -> Option<(&'static str, &'static str)> {
         match self {
@@ -93,6 +117,49 @@ impl Agent {
 
 pub(crate) fn is_agent_name(name: &str) -> bool {
     Agent::ALL.iter().any(|agent| agent.name() == name)
+}
+
+/// The note that agents in a Kodosi terminal get with their own instructions: what Kodosi is,
+/// that messages can come, and that they decide what to do with them.
+#[cfg(feature = "host")]
+pub(crate) const CONTEXT: &str = include_str!("../../skills/kodosi/CONTEXT.md");
+/// Each terminal has the note in this variable, so the typed command line stays short.
+#[cfg(feature = "host")]
+pub(crate) const CONTEXT_VARIABLE: &str = "KODOSI_AGENT_CONTEXT";
+/// Copilot CLI reads more instructions from the folders in this variable.
+#[cfg(feature = "host")]
+pub(crate) const COPILOT_INSTRUCTIONS: &str = "COPILOT_CUSTOM_INSTRUCTIONS_DIRS";
+
+/// Writes the note where Copilot CLI finds it, in the folder that terminals name for it.
+#[cfg(feature = "host")]
+pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
+    let text = format!("# Kodosi\n\n{}\n", CONTEXT.trim());
+    let file = folder.join("AGENTS.md");
+    if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
+        return Ok(());
+    }
+    kodosi_os::fs::create_private_dir(folder)?;
+    kodosi_os::fs::write_private(&file, text.as_bytes())
+}
+
+/// One word that the shell reads as `prefix` and then the value of `variable`.
+#[cfg(feature = "host")]
+pub(crate) fn variable_word(shell: &Path, prefix: &str, variable: &str) -> String {
+    match shell_name(shell).as_str() {
+        "pwsh" | "powershell" => format!("\"{prefix}$env:{variable}\""),
+        "cmd" => format!("\"{prefix}%{variable}%\""),
+        "nu" => format!("$\"{prefix}($env.{variable})\""),
+        _ => format!("\"{prefix}${variable}\""),
+    }
+}
+
+#[cfg(feature = "host")]
+fn shell_name(shell: &Path) -> String {
+    shell
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
 }
 
 /// The command that starts `agent` with the account in `folder`, as the launcher types it.
@@ -310,12 +377,7 @@ async fn add_account(
 
 #[cfg(feature = "host")]
 pub fn quote(shell: &Path, text: &str) -> String {
-    let name = shell
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    match name.as_str() {
+    match shell_name(shell).as_str() {
         "fish" => format!("'{}'", text.replace('\\', r"\\").replace('\'', r"\'")),
         "pwsh" | "powershell" => {
             let mut word = String::from("'");

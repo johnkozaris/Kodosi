@@ -21,6 +21,7 @@ async fn shell(
         vec!["-c".to_owned(), script.to_owned()],
         directory,
         None,
+        None,
         changes,
     )
     .await
@@ -692,6 +693,34 @@ async fn a_program_status_report_reaches_the_host_and_the_people_who_view_the_te
 }
 
 #[tokio::test]
+async fn a_message_reaches_an_agent_that_works_but_not_one_that_asks_a_person() {
+    let (asking, mut changes, _root) = shell(
+        "printf '\\033]7501;state=blocked:kind=permission:app=claude-code\\007'; exec /bin/cat",
+    )
+    .await;
+    next_status(&mut changes).await;
+    let refused = asking.message(Bytes::from_static(b"hello")).await;
+    assert_eq!(refused.expect_err("asks").to_string(), AGENT_ASKS);
+    asking.close().await.expect("close");
+
+    let (working, mut changes, _root) =
+        shell("printf '\\033]7501;state=working:app=claude-code\\007'; exec /bin/cat").await;
+    next_status(&mut changes).await;
+    let mut view = working.subscribe().await.expect("view");
+    working
+        .message(Bytes::from_static(b"hello from Ana"))
+        .await
+        .expect("message");
+    wait_text(&mut view, b"hello from Ana").await;
+    working.close().await.expect("close");
+
+    let (plain, _changes, _root) = shell("exec /bin/cat").await;
+    let refused = plain.message(Bytes::from_static(b"hello")).await;
+    assert_eq!(refused.expect_err("no agent").to_string(), NO_AGENT);
+    plain.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn a_program_that_ends_while_it_works_leaves_no_status() {
     let (session, mut changes, _root) = shell(
         "set -m; /bin/sh -c \"printf '\\033]7501;state=working:progress=40\\007'; sleep 1\"; exec /bin/cat",
@@ -811,6 +840,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         vec!["-i".to_owned()],
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
         None,
+        None,
         changes,
     )
     .await
@@ -860,6 +890,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         PathBuf::from(program),
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         None,
         changes,
     )
@@ -1088,6 +1119,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             r"printf '\033]0;Final title\007'; exec /bin/cat".into(),
         ],
         root.path().to_owned(),
+        None,
         None,
         changes,
     )

@@ -217,7 +217,7 @@ void MissionsModel::completeAction(const QString& room, const QString& action, c
 
 void MissionsModel::copyAgentInstructions()
 {
-    QGuiApplication::clipboard()->setText(QStringLiteral("Read `kodosi room skill`, then use `kodosi --json room --room %1 context`. "
+    QGuiApplication::clipboard()->setText(QStringLiteral("Read `kodosi skill`, then use `kodosi --json room --room %1 context`. "
                                                          "You can read and post updates, create and pick up tasks, and share results for this work.")
                                               .arg(m_selectedId));
 }

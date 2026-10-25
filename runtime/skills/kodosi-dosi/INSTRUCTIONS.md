@@ -26,9 +26,11 @@ their terminals and rooms, and bring back only what they need to know.
   Agents in those terminals can read and post in the room and take tasks when they choose
   to.
 - When someone writes `@` and the name of a terminal in a room, Kodosi types the message
-  into the agent of that terminal when the agent waits for input. Agents get nothing else
-  from a room unless they read it. To give an agent in a room a question or work, post a
-  message that names its terminal.
+  into the agent of that terminal at once, also while it works, with who wrote it and
+  from where. It waits only while the agent asks a person something or the person types
+  there. `kodosi terminal message <terminal> "text"` gives an agent a message directly.
+  Agents that Kodosi starts get a short note about Kodosi, and they decide themselves what
+  to do with a message. Agents get nothing else from a room unless they read it.
 - When the person quits Kodosi, the terminals of that computer stop. When Kodosi opens
   again, they start again in their folders and rooms. Claude Code continues its
   conversation; Codex and Copilot CLI show their conversations to continue.
@@ -64,6 +66,8 @@ and what needs them.
   already shows.
 - Speak for the person in rooms and shared terminals only when they ask you to. Do not
   give agents work that the person did not ask for.
+- Carry the person's answers and decisions to an agent with `kodosi terminal message
+  <terminal> "text"`. The agent sees that the message comes from you for the person.
 
 ## Your folder
 

@@ -125,6 +125,14 @@ impl Runtime {
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
+            #[cfg(feature = "host")]
+            Command::Message { .. } => self.send_message(command)?,
+            #[cfg(not(feature = "host"))]
+            Command::Message { .. } => {
+                return Err(Error::Invalid(
+                    "This device sends no messages to agents.".to_owned(),
+                ));
+            }
             Command::Read { .. } => self.read(command)?,
             Command::Show { session_id, .. } => {
                 self.target(parse_id(session_id)?)?;
@@ -364,6 +372,42 @@ impl Runtime {
             Completion::Terminal {
                 command,
                 result: input.await,
+            }
+        });
+        Ok(())
+    }
+
+    /// Gives the agent in a terminal a message with who sends it and from where.
+    #[cfg(feature = "host")]
+    fn send_message(&mut self, command: &Command) -> Result<()> {
+        let Command::Message {
+            session_id,
+            expected_runtime_incarnation_id,
+            text,
+            from_session_id,
+            agent,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a message".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        let from = from_session_id.as_deref().map(parse_id).transpose()?;
+        if from == Some(id) {
+            return Err(Error::Invalid(
+                "This is your own terminal. Send the message to another terminal.".to_owned(),
+            ));
+        }
+        let line = super::messages::message_line(&self.sender(from, agent.as_deref()), text);
+        let delivery = self.target(id)?.type_message(line);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: delivery.await,
             }
         });
         Ok(())
@@ -1404,9 +1448,12 @@ async fn session_program(
         .await
         .ok_or_else(|| Error::Invalid("The provider CLI is not installed.".to_owned()))?;
     let arguments = match resume.provider {
-        provider::Provider::Claude => {
-            vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
-        }
+        provider::Provider::Claude => vec![
+            "--append-system-prompt".to_owned(),
+            crate::agents::CONTEXT.trim().to_owned(),
+            "--resume".to_owned(),
+            resume.native_conversation_id.clone(),
+        ],
         provider::Provider::Copilot => {
             vec![format!("--resume={}", resume.native_conversation_id)]
         }
@@ -1534,6 +1581,7 @@ async fn create_session(
         arguments,
         directory.clone(),
         Some(config.data_root.join("shell")),
+        Some(config.data_root.join("agents")),
         changes,
     )
     .await

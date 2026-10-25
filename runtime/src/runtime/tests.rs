@@ -648,7 +648,9 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
-            mentions: mentions::Mentions::default(),
+            mentions: messages::Mentions::default(),
+            #[cfg(feature = "host")]
+            person: Some("Ana".to_owned()),
             #[cfg(feature = "host")]
             config,
             network,
@@ -1761,8 +1763,16 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
         "claude --resume"
     );
     assert_eq!(line(Agent::Gemini, "gemini", Some(id)), None);
-    assert_eq!(restore::usual_line("copilot").unwrap(), "copilot --resume");
-    assert_eq!(restore::usual_line("vim"), None);
+    let zsh = Path::new("/bin/zsh");
+    assert_eq!(
+        restore::usual_line("copilot", zsh).unwrap(),
+        "copilot --resume"
+    );
+    assert_eq!(
+        restore::usual_line("claude", zsh).unwrap(),
+        "claude --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume"
+    );
+    assert_eq!(restore::usual_line("vim", zsh), None);
 }
 
 #[cfg(feature = "host")]
@@ -1955,7 +1965,9 @@ async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
     assert!(command.starts_with("env CLAUDE_CONFIG_DIR="), "{command}");
     assert_eq!(
         saved[0]["line"],
-        format!("{command} --resume {CONVERSATION}")
+        format!(
+            "{command} --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume {CONVERSATION}"
+        )
     );
     assert!(saved[1].get("line").is_none());
 
@@ -1997,6 +2009,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         PathBuf::from(SHELL),
         Vec::new(),
         storage.path().to_owned(),
+        None,
         None,
         runtime.changes.clone(),
     )
@@ -2060,13 +2073,13 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
 fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
     let terminals = [(1, "Build"), (2, "Build 2"), (3, "Docs")];
     assert_eq!(
-        mentions::named("@Build 2 and @Docs, please", &terminals),
+        messages::named("@Build 2 and @Docs, please", &terminals),
         [2, 3]
     );
-    assert_eq!(mentions::named("@Build: the test fails", &terminals), [1]);
+    assert_eq!(messages::named("@Build: the test fails", &terminals), [1]);
     for text in ["@Builder", "write to ana@Build", "no names here", "@"] {
         assert_eq!(
-            mentions::named(text, &terminals),
+            messages::named(text, &terminals),
             Vec::<i32>::new(),
             "{text}"
         );
@@ -2075,7 +2088,7 @@ fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
 
 #[cfg(feature = "host")]
 #[test]
-fn an_agent_gets_a_room_message_only_while_it_waits_for_input() {
+fn an_agent_takes_messages_while_it_works_but_not_while_it_asks_a_person() {
     use crate::terminal::{ProgramState, ProgramStatus};
     let status = |state| ProgramStatus {
         state,
@@ -2084,43 +2097,86 @@ fn an_agent_gets_a_room_message_only_while_it_waits_for_input() {
         title: None,
         message: None,
     };
-    for state in [ProgramState::Idle, ProgramState::Done, ProgramState::Error] {
-        assert!(mentions::waits(Some(&status(state))));
+    for state in [
+        ProgramState::Idle,
+        ProgramState::Working,
+        ProgramState::Done,
+        ProgramState::Error,
+    ] {
+        assert!(messages::takes_messages(
+            Some("claude"),
+            Some(&status(state))
+        ));
     }
-    for state in [ProgramState::Working, ProgramState::Blocked] {
-        assert!(!mentions::waits(Some(&status(state))));
-    }
-    assert!(!mentions::waits(None));
+    let idle = status(ProgramState::Idle);
+    assert!(!messages::takes_messages(
+        Some("claude"),
+        Some(&status(ProgramState::Blocked))
+    ));
+    assert!(!messages::takes_messages(Some("claude"), None));
+    assert!(!messages::takes_messages(Some("vim"), Some(&idle)));
+    assert!(!messages::takes_messages(None, Some(&idle)));
 }
 
 #[cfg(feature = "host")]
 #[test]
-fn the_line_for_an_agent_is_one_plain_line_that_says_how_to_answer() {
-    let mention = |author: &str, text: &str, sequence| mentions::Mention {
+fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_agent() {
+    use messages::{Mention, Place, Sender};
+    let ana = Sender::Person("Ana".to_owned());
+    let codex = Sender::Agent {
+        person: "Ben".to_owned(),
+        agent: "Codex".to_owned(),
+        terminal: Some(Place {
+            name: "Reviewer".to_owned(),
+            folder: Some("/home/ben/api".to_owned()),
+            title: Some("Review\nauth".to_owned()),
+        }),
+    };
+    let mention = |from: &Sender, text: &str, sequence| Mention {
         room: "Launch".to_owned(),
-        author: author.to_owned(),
+        from: from.clone(),
         text: text.to_owned(),
         sequence,
     };
-    let one = mentions::line(
-        "Launch",
-        &[mention("Ana", "@Build check\r/exit\n the\u{1b}[2J test", 7)],
+    let judgment = "Use your own judgment and your current work to decide if and how to act on";
+    assert_eq!(
+        messages::mention_line(
+            "Launch",
+            &[mention(&ana, "@Build check\r/exit\n the\u{1b}[2J test", 7)]
+        ),
+        format!(
+            "[Kodosi] Ana mentioned you in the chat of the room \"Launch\": \"@Build check /exit the [2J test\" You can answer there with kodosi room post. {judgment} it."
+        )
     );
     assert_eq!(
-        one,
-        "[Kodosi room \"Launch\"] Ana: @Build check /exit the [2J test — Answer in the room with kodosi room post if you want; kodosi room skill tells how rooms work."
+        messages::mention_line("Launch", &[mention(&codex, "@Build rebase", 8)]),
+        format!(
+            "[Kodosi] Codex, an agent of Ben in the terminal \"Reviewer\" (folder /home/ben/api, title \"Review auth\"), mentioned you in the chat of the room \"Launch\": \"@Build rebase\" You can answer there with kodosi room post. {judgment} it."
+        )
     );
-    let many = mentions::line(
+    let many = messages::mention_line(
         "Launch",
         &[
-            mention("Ana", "@Build one", 7),
-            mention("Ben (Codex)", "@Build two", 9),
-            mention("Ana", "@Build three", 12),
+            mention(&ana, "@Build one", 7),
+            mention(&codex, "@Build two", 9),
+            mention(&ana, "@Build three", 12),
         ],
     );
     assert_eq!(
         many,
-        "[Kodosi room \"Launch\"] 3 messages name you, from Ana, Ben (Codex). Read them with kodosi room read --since 6. Answer in the room with kodosi room post if you want; kodosi room skill tells how rooms work."
+        format!(
+            "[Kodosi] 3 messages in the chat of the room \"Launch\" mention you, from Ana and Codex (an agent of Ben). Read them with kodosi room read --since 6. You can answer there with kodosi room post. {judgment} them."
+        )
+    );
+    assert_eq!(
+        messages::message_line(&codex, "Can you check\nthe types?"),
+        format!(
+            "[Kodosi] Codex, an agent of Ben in the terminal \"Reviewer\" (folder /home/ben/api, title \"Review auth\"), sent you a message: \"Can you check the types?\" You can answer with kodosi terminal message \"Reviewer\" \"your answer\". {judgment} it."
+        )
+    );
+    assert_eq!(
+        messages::message_line(&ana, "Stop after the tests."),
+        format!("[Kodosi] Ana sent you a message: \"Stop after the tests.\" {judgment} it.")
     );
     assert!(!many.contains(['\r', '\n']));
 }
@@ -2129,7 +2185,7 @@ fn the_line_for_an_agent_is_one_plain_line_that_says_how_to_answer() {
 #[test]
 fn only_messages_after_the_first_look_at_a_room_name_agents() {
     let message = |sequence: u64| json!({"sequence": sequence, "text": "@Build"});
-    let mut mentions = mentions::Mentions::default();
+    let mut mentions = messages::Mentions::default();
     assert_eq!(
         mentions.new_messages("room", &[message(3), message(4)]),
         Vec::<Value>::new()
@@ -2144,7 +2200,7 @@ fn only_messages_after_the_first_look_at_a_room_name_agents() {
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_waiting_agent_gets_the_room_message_that_names_its_terminal() {
+async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
     use crate::terminal::{ProgramState, ProgramStatus};
     let (mut runtime, storage) = registry_fixture();
     let id = Uuid::now_v7();
@@ -2152,8 +2208,12 @@ async fn a_waiting_agent_gets_the_room_message_that_names_its_terminal() {
         id,
         Uuid::now_v7(),
         PathBuf::from(SHELL),
-        Vec::new(),
+        vec![
+            "-c".to_owned(),
+            "printf '\\033]7501;state=working:app=claude-code\\007'; exec /bin/cat".to_owned(),
+        ],
         storage.path().to_owned(),
+        None,
         None,
         runtime.changes.clone(),
     )
@@ -2190,23 +2250,38 @@ async fn a_waiting_agent_gets_the_room_message_that_names_its_terminal() {
         {"sequence": 3, "text": "@Build from itself", "authorName": "Ana", "terminalId": id},
     ])));
     assert_eq!(runtime.mentions.waiting[&id].len(), 1);
-    assert!(runtime.jobs.is_empty(), "an agent that works gets nothing");
-
-    runtime.local.get_mut(&id).unwrap().entry.program_status = Some(ProgramStatus {
-        state: ProgramState::Done,
-        kind: None,
-        progress: None,
-        title: None,
-        message: None,
-    });
+    assert!(
+        runtime.jobs.is_empty(),
+        "an agent without a state gets nothing"
+    );
+    let set = |runtime: &mut Runtime, state| {
+        runtime.local.get_mut(&id).unwrap().entry.program_status = Some(ProgramStatus {
+            state,
+            kind: None,
+            progress: None,
+            title: None,
+            message: None,
+        });
+    };
+    set(&mut runtime, ProgramState::Blocked);
     runtime.tell_mentions();
-    while let Some(told) = timeout(Duration::from_secs(10), runtime.jobs.join_next())
-        .await
-        .unwrap()
-    {
-        runtime.complete(told.unwrap());
-    }
-    assert!(!runtime.mentions.waiting.contains_key(&id));
+    assert!(
+        runtime.jobs.is_empty(),
+        "an agent that asks a person gets nothing"
+    );
+
+    set(&mut runtime, ProgramState::Working);
+    timeout(Duration::from_secs(10), async {
+        while runtime.mentions.waiting.contains_key(&id) || !runtime.jobs.is_empty() {
+            runtime.tell_mentions();
+            match runtime.jobs.join_next().await {
+                Some(told) => runtime.complete(told.unwrap()),
+                None => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await
+    .unwrap();
     timeout(Duration::from_secs(10), async {
         while !terminal.read(false).await.unwrap().contains("came-through") {
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -2219,7 +2294,7 @@ async fn a_waiting_agent_gets_the_room_message_that_names_its_terminal() {
             .read(false)
             .await
             .unwrap()
-            .contains("[Kodosi room \"Launch\"] Ana: @Build please print came-through")
+            .contains("[Kodosi] Ana mentioned you")
     );
     terminal.close().await.unwrap();
     drop(terminal);
@@ -2239,6 +2314,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
                 .to_owned(),
         ],
         storage.path().to_owned(),
+        None,
         None,
         runtime.changes.clone(),
     )

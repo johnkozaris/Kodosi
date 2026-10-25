@@ -190,6 +190,7 @@ fn session_result(event: &Value, context: &Context) -> String {
         }
         "session.run" => "The agent is starting in the terminal.".to_owned(),
         "session.input" => "Sent to the terminal.".to_owned(),
+        "session.message" => "Kodosi gave the message to the agent.".to_owned(),
         "session.read" => text(event, "text"),
         "session.show" => "The Kodosi app shows the terminal when it is open.".to_owned(),
         "session.close" => event["text"]

@@ -36,7 +36,7 @@ mod commands;
 #[cfg(feature = "host")]
 mod dosi;
 #[cfg(feature = "host")]
-mod mentions;
+mod messages;
 #[cfg(feature = "host")]
 mod restore;
 #[cfg(test)]
@@ -581,7 +581,7 @@ enum Completion {
     #[cfg(feature = "host")]
     Told {
         id: Uuid,
-        mentions: Vec<mentions::Mention>,
+        mentions: Vec<messages::Mention>,
         result: Result<()>,
     },
     Unpublished {
@@ -702,6 +702,39 @@ impl TerminalTarget {
             tokio::time::sleep(ENTER_PAUSE).await;
             if let Err(error) = target.send_input(Bytes::from_static(b"\r")).await {
                 tracing::debug!(%error, "the typed text waits for Enter");
+            }
+            Ok(())
+        })
+    }
+
+    #[cfg(feature = "host")]
+    fn message(&self, bytes: Bytes) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            Self::Local(terminal) => Box::pin(terminal.message(bytes)),
+            Self::Remote(terminal) => {
+                let result = terminal.control(
+                    None,
+                    TerminalControl::Message {
+                        bytes: bytes.to_vec(),
+                    },
+                );
+                Box::pin(async move { result.await.map(|_| ()) })
+            }
+        }
+    }
+
+    /// Types a message line for the agent and then Enter, as `type_line` does. The terminal
+    /// checks both against the agent's state, so Enter never answers a question that the agent
+    /// asked in the pause.
+    #[cfg(feature = "host")]
+    fn type_message(&self, line: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let typed = self.message(Bytes::from(line));
+        let target = self.clone();
+        Box::pin(async move {
+            typed.await?;
+            tokio::time::sleep(ENTER_PAUSE).await;
+            if let Err(error) = target.message(Bytes::from_static(b"\r")).await {
+                tracing::debug!(%error, "the typed message waits for Enter");
             }
             Ok(())
         })
@@ -841,7 +874,9 @@ struct Runtime {
     #[cfg(feature = "host")]
     restore: restore::Restore,
     #[cfg(feature = "host")]
-    mentions: mentions::Mentions,
+    mentions: messages::Mentions,
+    #[cfg(feature = "host")]
+    person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -950,6 +985,10 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         &commands::shell(&config),
     ));
     #[cfg(feature = "host")]
+    if let Err(error) = crate::agents::write_notes(&config.data_root.join("agents")) {
+        tracing::warn!(%error, "the note for agents was not written");
+    }
+    #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
     #[cfg(not(feature = "host"))]
     let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
@@ -962,7 +1001,9 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         #[cfg(feature = "host")]
         restore: restore::Restore::load(&config.data_root),
         #[cfg(feature = "host")]
-        mentions: mentions::Mentions::default(),
+        mentions: messages::Mentions::default(),
+        #[cfg(feature = "host")]
+        person: None,
         #[cfg(feature = "host")]
         config,
         #[cfg(feature = "host")]
@@ -1365,8 +1406,13 @@ impl Runtime {
         for (id, local) in &self.local {
             if let Some(program) = local.entry.program.clone().filter(|_| local.comes_back()) {
                 let (id, terminal, home) = (*id, local.terminal.clone(), self.config.home.clone());
-                asking
-                    .spawn(async move { (id, restore::agent_line(terminal, program, home).await) });
+                let shell = commands::shell(&self.config);
+                asking.spawn(async move {
+                    (
+                        id,
+                        restore::agent_line(terminal, program, home, shell).await,
+                    )
+                });
             }
         }
         let mut lines = HashMap::new();
@@ -1386,6 +1432,7 @@ impl Runtime {
 
     #[cfg(feature = "host")]
     fn save_terminals(&mut self, mut lines: HashMap<Uuid, String>) {
+        let shell = commands::shell(&self.config);
         let mut ids = self
             .local
             .iter()
@@ -1408,9 +1455,13 @@ impl Runtime {
                             &local.entry.shared_with,
                         )
                     }),
-                    line: lines
-                        .remove(&id)
-                        .or_else(|| local.entry.program.as_deref().and_then(restore::usual_line)),
+                    line: lines.remove(&id).or_else(|| {
+                        local
+                            .entry
+                            .program
+                            .as_deref()
+                            .and_then(|program| restore::usual_line(program, &shell))
+                    }),
                     worktree: local.worktree.clone(),
                 }
             })
@@ -1481,23 +1532,31 @@ impl Runtime {
             let from = message["terminalId"]
                 .as_str()
                 .and_then(|terminal| Uuid::parse_str(terminal).ok());
-            let person = message["authorName"].as_str().unwrap_or("Someone");
-            let author = message["agent"]
+            let person = message["authorName"]
                 .as_str()
-                .map_or_else(|| person.to_owned(), |agent| format!("{person} ({agent})"));
+                .unwrap_or("Someone")
+                .to_owned();
+            let sender = match message["agent"].as_str() {
+                Some(agent) => messages::Sender::Agent {
+                    person,
+                    agent: agent.to_owned(),
+                    terminal: from.and_then(|terminal| self.place(terminal)),
+                },
+                None => messages::Sender::Person(person),
+            };
             let text = message["text"].as_str().unwrap_or_default();
-            for terminal in mentions::named(text, &terminals).into_iter().flatten() {
+            for terminal in messages::named(text, &terminals).into_iter().flatten() {
                 if Some(terminal) != from {
                     kept.push((
                         terminal,
-                        author.clone(),
+                        sender.clone(),
                         text.to_owned(),
                         message["sequence"].as_u64().unwrap_or_default(),
                     ));
                 }
             }
         }
-        for (terminal, author, text, sequence) in kept {
+        for (terminal, from, text, sequence) in kept {
             let room = self.local[&terminal]
                 .entry
                 .mission_name
@@ -1506,15 +1565,56 @@ impl Runtime {
                 .unwrap_or_else(|| "room".to_owned());
             self.mentions.keep(
                 terminal,
-                mentions::Mention {
+                messages::Mention {
                     room,
-                    author,
+                    from,
                     text,
                     sequence,
                 },
             );
         }
         self.tell_mentions();
+    }
+
+    /// The name, folder and title of a terminal that this computer knows, for the agents that
+    /// get a message from it.
+    #[cfg(feature = "host")]
+    fn place(&self, id: Uuid) -> Option<messages::Place> {
+        let entry = self
+            .local
+            .get(&id)
+            .map(|local| &local.entry)
+            .or_else(|| self.remotes.get(&id))?;
+        Some(messages::Place {
+            name: entry.name.clone(),
+            folder: entry.working_dir.clone(),
+            title: entry.title.clone(),
+        })
+    }
+
+    /// Who sends a message: the agent that names itself or runs in the sending terminal of
+    /// this computer, or else the person.
+    #[cfg(feature = "host")]
+    fn sender(&self, from: Option<Uuid>, agent: Option<&str>) -> messages::Sender {
+        let person = self
+            .person
+            .clone()
+            .unwrap_or_else(|| "the person".to_owned());
+        let agent = agent.map(str::to_owned).or_else(|| {
+            let program = self.local.get(&from?)?.entry.program.clone()?;
+            crate::agents::Agent::ALL
+                .into_iter()
+                .find(|agent| agent.name() == program)
+                .map(|agent| agent.label().to_owned())
+        });
+        match agent {
+            Some(agent) => messages::Sender::Agent {
+                person,
+                agent,
+                terminal: from.and_then(|id| self.place(id)),
+            },
+            None => messages::Sender::Person(person),
+        }
     }
 
     #[cfg(feature = "host")]
@@ -1530,8 +1630,8 @@ impl Runtime {
             .map(str::to_owned)
     }
 
-    /// Types the messages that name a terminal into its agent once it waits for input, one line
-    /// for each room, and not more often than every few seconds.
+    /// Types the messages that name a terminal into its agent as soon as it takes messages, one
+    /// line for each room, and not more often than every few seconds.
     #[cfg(feature = "host")]
     fn tell_mentions(&mut self) {
         let now = tokio::time::Instant::now();
@@ -1546,15 +1646,13 @@ impl Runtime {
                         .mentions
                         .told
                         .get(id)
-                        .is_none_or(|at| now.duration_since(*at) >= mentions::SPACING)
+                        .is_none_or(|at| now.duration_since(*at) >= messages::SPACING)
                     && self.local.get(id).is_some_and(|local| {
                         local.comes_back()
-                            && local
-                                .entry
-                                .program
-                                .as_deref()
-                                .is_some_and(crate::agents::is_agent_name)
-                            && mentions::waits(local.entry.program_status.as_ref())
+                            && messages::takes_messages(
+                                local.entry.program.as_deref(),
+                                local.entry.program_status.as_ref(),
+                            )
                     })
             })
             .collect::<Vec<_>>();
@@ -1569,11 +1667,11 @@ impl Runtime {
             if !later.is_empty() {
                 self.mentions.waiting.insert(id, later);
             }
-            let line = mentions::line(&room, &now_told);
+            let line = messages::mention_line(&room, &now_told);
             let terminal = TerminalTarget::Local(self.local[&id].terminal.clone());
             self.mentions.telling.insert(id);
             self.spawn(async move {
-                let result = terminal.type_line(line).await;
+                let result = terminal.type_message(line).await;
                 Completion::Told {
                     id,
                     mentions: now_told,
@@ -1584,7 +1682,7 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn told(&mut self, id: Uuid, told: Vec<mentions::Mention>, result: Result<()>, current: bool) {
+    fn told(&mut self, id: Uuid, told: Vec<messages::Mention>, result: Result<()>, current: bool) {
         self.mentions.telling.remove(&id);
         if !current {
             return;
@@ -1935,7 +2033,13 @@ impl Runtime {
                 "auth.finalizing" | "auth.restoring" => {
                     self.latest_auth = Some(event.event.clone());
                 }
-                "auth.ready" | "auth.required" | "auth.error" => self.latest_auth = None,
+                "auth.ready" | "auth.required" | "auth.error" => {
+                    self.latest_auth = None;
+                    #[cfg(feature = "host")]
+                    {
+                        self.person = event.event["displayName"].as_str().map(str::to_owned);
+                    }
+                }
                 _ => {}
             }
             let event = if kind == "missions.snapshot" {

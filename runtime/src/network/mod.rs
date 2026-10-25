@@ -222,6 +222,9 @@ pub enum TerminalControl {
     Input {
         bytes: Vec<u8>,
     },
+    Message {
+        bytes: Vec<u8>,
+    },
     Resize {
         rows: u16,
         cols: u16,

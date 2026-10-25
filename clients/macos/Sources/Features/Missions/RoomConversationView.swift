@@ -138,7 +138,7 @@ struct RoomConversationView: View {
     private func copyInvite() {
         let path = (Bundle.main.executablePath ?? "kodosi").replacingOccurrences(of: "'", with: "'\"'\"'")
         deps.copyText("""
-        Read `'\(path)' room skill`, then use \
+        Read `'\(path)' skill`, then use \
         `'\(path)' --json room --room \(roomId) context`.
         Use this executable for the skill's kodosi commands. You can read and post updates, \
         create and pick up tasks, and share results for this work.

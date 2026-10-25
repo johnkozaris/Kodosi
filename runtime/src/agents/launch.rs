@@ -166,7 +166,7 @@ impl Launcher {
             state.saved.set(pick);
         }
         Arc::clone(self).save().await;
-        Ok(line)
+        Ok(start.agent.with_context(&line, &self.shell))
     }
 
     async fn known_catalog(&self, refresh: bool) -> Result<AgentCatalog, String> {

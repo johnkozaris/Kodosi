@@ -523,6 +523,33 @@ mod tests {
     }
 
     #[test]
+    fn a_message_for_an_agent_travels_as_a_control_of_text() {
+        let request_id = Uuid::now_v7();
+        let line = "[Kodosi] Ana mentioned you: \"é ✓\"".as_bytes().to_vec();
+        let decoded = round_trip(&Frame::Control {
+            request_id,
+            control: TerminalControl::Message {
+                bytes: line.clone(),
+            },
+        });
+        assert!(matches!(
+            decoded,
+            Frame::Control { request_id: id, control: TerminalControl::Message { bytes } }
+                if id == request_id && bytes == line
+        ));
+        assert!(
+            Frame::Control {
+                request_id,
+                control: TerminalControl::Message {
+                    bytes: vec![0xff, 0xfe],
+                },
+            }
+            .encode()
+            .is_err()
+        );
+    }
+
+    #[test]
     fn a_call_carries_one_json_object_within_its_bound() {
         let request = serde_json::json!({"type":"folders.list","requestId":"x","path":"~/Repos"});
         assert!(

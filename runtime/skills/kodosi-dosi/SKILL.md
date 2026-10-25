@@ -48,9 +48,12 @@ context between terminals and rooms.
   last choice; `--account`, `--model`, `--effort`, `--directory`, `--branch` and `--room`
   change it. `kodosi terminal run <terminal> --agent codex` starts an agent in a terminal
   that waits at its shell prompt.
+- `kodosi terminal message <terminal> "text"` gives the agent in a terminal a message
+  from you, with your name and the person's. It stops with a message while that agent
+  waits for a person's answer or the person types there.
 - `kodosi terminal interrupt <terminal>` and `kodosi terminal close <terminal>`.
 - `kodosi room --room <name> post "text" --agent Dosi`, and the task commands in
-  `kodosi room skill`.
+  `kodosi skill`.
 
 ## Show and ask
 

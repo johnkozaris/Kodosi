@@ -15,6 +15,15 @@ mod render;
 mod rooms;
 mod terminal;
 
+const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
+
+/// The Kodosi terminal that this command runs in, if any.
+fn this_terminal() -> Option<String> {
+    std::env::var("KODOSI_SESSION_ID")
+        .ok()
+        .filter(|id| Uuid::parse_str(id).is_ok())
+}
+
 #[derive(Parser)]
 #[command(
     name = "kodosi",
@@ -59,6 +68,10 @@ enum Action {
     Room(rooms::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
     Dosi(DosiAction),
+    #[command(
+        about = "Print the skill that lets an agent work with the people and agents in Kodosi."
+    )]
+    Skill,
     #[command(
         subcommand,
         about = "Read the saved conversations of Claude Code and Copilot CLI."
@@ -197,6 +210,14 @@ enum TerminalAction {
     },
     /// Open a terminal in this window. Press Ctrl-] and then . to leave; the terminal keeps running.
     Attach { terminal: String },
+    /// Send a message to the agent in a terminal. Kodosi types it with who sends it and from where. It stops with a message while that agent waits for a person's answer or a person types there.
+    Message {
+        terminal: String,
+        text: String,
+        /// The name of the agent that sends it, by default the agent in this terminal.
+        #[arg(long)]
+        agent: Option<String>,
+    },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
         terminal: String,
@@ -391,8 +412,8 @@ async fn dispatch(args: Arguments) -> Result<()> {
     {
         return stop_host(&config, force, args.json).await;
     }
-    if matches!(args.command, Action::Dosi(DosiAction::Skill)) {
-        return print_text(dosi::SKILL);
+    if let Some(skill) = skill(&args.command) {
+        return print_text(skill);
     }
     refuse_for_dosi(&args.command)?;
     let mut client = local_host::connect_or_start(&config.data_root).await?;
@@ -480,6 +501,14 @@ async fn dispatch(args: Arguments) -> Result<()> {
     }
 }
 
+const fn skill(action: &Action) -> Option<&'static str> {
+    match action {
+        Action::Skill => Some(SKILL),
+        Action::Dosi(DosiAction::Skill) => Some(dosi::SKILL),
+        _ => None,
+    }
+}
+
 fn refuse_for_dosi(action: &Action) -> Result<()> {
     if std::env::var_os(crate::dosi::TOKEN_VARIABLE).is_none() {
         return Ok(());
@@ -539,6 +568,7 @@ async fn command(
         Action::Provider(action) => provider_command(action, &request)?,
         Action::Room(_)
         | Action::Dosi(_)
+        | Action::Skill
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status
@@ -783,6 +813,21 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             let text = keys.iter().map(|key| key_text(key));
             let text = text.collect::<Result<String>>()?;
             (terminal, "session.input", true, json!({"text":text}))
+        }
+        TerminalAction::Message {
+            terminal,
+            text,
+            agent,
+        } => {
+            let agent = agent.or_else(|| {
+                std::env::var_os(crate::dosi::TOKEN_VARIABLE).map(|_| "Dosi".to_owned())
+            });
+            (
+                terminal,
+                "session.message",
+                true,
+                json!({"text":text,"fromSessionId":this_terminal(),"agent":agent}),
+            )
         }
         TerminalAction::Input {
             terminal,
@@ -1603,7 +1648,7 @@ mod tests {
         for skill in [
             include_str!("../../skills/kodosi-dosi/INSTRUCTIONS.md"),
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
-            include_str!("../../skills/kodosi-room/SKILL.md"),
+            include_str!("../../skills/kodosi/SKILL.md"),
         ] {
             let commands = skill.split('`').skip(1).step_by(2);
             for command in commands.filter(|code| code.starts_with("kodosi ")) {

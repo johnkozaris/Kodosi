@@ -26,6 +26,8 @@ fn validate_participants(users: &[String]) -> Result<()> {
 pub const VERSION: u32 = 72;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
+/// A message travels to another computer in one terminal control, with its sender.
+pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -266,6 +268,20 @@ pub enum Command {
         text: String,
         #[serde(default)]
         enter: bool,
+    },
+    #[serde(rename = "session.message")]
+    Message {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        text: String,
+        #[serde(rename = "fromSessionId", default)]
+        from_session_id: Option<String>,
+        #[serde(default)]
+        agent: Option<String>,
     },
     #[serde(rename = "session.read")]
     Read {
@@ -1353,6 +1369,7 @@ impl Command {
             Self::InterruptSession { .. } => "session.interrupt",
             Self::RunInSession { .. } => "session.run",
             Self::Input { .. } => "session.input",
+            Self::Message { .. } => "session.message",
             Self::Visible { .. } => "session.visible",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
@@ -1463,6 +1480,7 @@ impl Command {
             | Self::InterruptSession { request_id, .. }
             | Self::RunInSession { request_id, .. }
             | Self::Input { request_id, .. }
+            | Self::Message { request_id, .. }
             | Self::Visible { request_id, .. }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
@@ -1515,6 +1533,7 @@ impl Command {
             | Self::InterruptSession { session_id, .. }
             | Self::RunInSession { session_id, .. }
             | Self::Input { session_id, .. }
+            | Self::Message { session_id, .. }
             | Self::Read { session_id, .. }
             | Self::Show { session_id, .. }
             | Self::OpenRemote { session_id, .. }
@@ -1548,6 +1567,10 @@ impl Command {
                 ..
             }
             | Self::Input {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::Message {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1792,6 +1815,25 @@ impl Command {
                 return Err(Error::Invalid(
                     "Input must contain 1 byte to 1 MiB.".to_owned(),
                 ));
+            }
+            Self::Message { text, .. }
+                if text.trim().is_empty() || text.len() > MESSAGE_MAX_BYTES =>
+            {
+                return Err(Error::Invalid(format!(
+                    "A message has 1 to {MESSAGE_MAX_BYTES} bytes. Put longer text in a file and name the file."
+                )));
+            }
+            Self::Message {
+                from_session_id,
+                agent,
+                ..
+            } => {
+                if let Some(from) = from_session_id {
+                    parse_id(from)?;
+                }
+                if let Some(agent) = agent {
+                    text(agent, "agent", 64)?;
+                }
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
             Self::ChooseAgent {

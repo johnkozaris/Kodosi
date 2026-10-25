@@ -109,6 +109,7 @@ pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
     home: PathBuf,
+    shell: PathBuf,
 ) -> Option<String> {
     let agent = Agent::ALL
         .into_iter()
@@ -120,7 +121,10 @@ pub(super) async fn agent_line(
         .map(PathBuf::from)
         .filter(|folder| folder.is_absolute())
         .unwrap_or_else(|| home.join(usual));
-    let command = crate::agents::account_command(agent, &home, &folder);
+    let command = agent.with_context(
+        &crate::agents::account_command(agent, &home, &folder),
+        &shell,
+    );
     let conversation = match (agent, foreground.group) {
         (Agent::Claude, Some(group)) => crate::provider::claude_conversation(folder, group).await,
         _ => None,
@@ -129,11 +133,11 @@ pub(super) async fn agent_line(
 }
 
 /// The line for a terminal whose agent was not asked, as when its host ended without a stop.
-pub(super) fn usual_line(program: &str) -> Option<String> {
+pub(super) fn usual_line(program: &str, shell: &Path) -> Option<String> {
     let agent = Agent::ALL
         .into_iter()
         .find(|agent| agent.name() == program)?;
-    resume_line(agent, agent.program(), None)
+    resume_line(agent, &agent.with_context(agent.program(), shell), None)
 }
 
 /// Without a known conversation, the agent lists its conversations in that folder to continue.
