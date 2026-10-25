@@ -14,7 +14,8 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String = "/remote/project", restoredFrom: String? = nil) throws -> RuntimeSession
+                    directory: String = "/remote/project", restoredFrom: String? = nil,
+                    ownerUserId: String? = nil, hostDeviceId: String? = nil) throws -> RuntimeSession
 {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
@@ -23,6 +24,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         "sharedWith": .array([]),
     ]
     fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
+    fields["ownerUserId"] = ownerUserId.map(JSONValue.string)
+    fields["hostDeviceId"] = hostDeviceId.map(JSONValue.string)
     return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
 }
 
@@ -83,104 +86,6 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     ] {
         #expect(try DeepLinkRouter.destination(for: #require(URL(string: source))) == nil)
     }
-}
-
-@Test @MainActor func `stage restoration is account scoped and survives delayed catalog`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestoration"))
-    let session = try runtimeSession()
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount("owner")
-    first.showSession(session.id)
-    first.sidebarCollapsed = true
-    #expect(first.stagedSessionIds == [session.id])
-    let restored = WorkbenchState(defaults: defaults)
-    #expect(restored.sidebarCollapsed)
-    restored.switchAccount("owner")
-    #expect(restored.reconcile([]).isEmpty)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]) == [session.id])
-    #expect(restarted.stagedSessionIds == [session.id])
-    restarted.switchAccount("another-user")
-    #expect(restarted.stagedSessionIds.isEmpty)
-    #expect(restarted.reconcile([session]).isEmpty)
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]) == [session.id])
-    restarted.dismissSession(session.id)
-    #expect(restarted.reconcile([session]).isEmpty)
-}
-
-@Test @MainActor func `the signed out stage comes back after a restart`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSignedOut"))
-    let session = try runtimeSession()
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount(nil)
-    first.showSession(session.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount(nil)
-    #expect(restarted.reconcile([session]) == [session.id])
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]).isEmpty)
-}
-
-@Test @MainActor func `a terminal that the host started again takes the place of the one before`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestarted"))
-    let before = try runtimeSession(kind: "local", connection: "local")
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount(nil)
-    first.showSession(before.id)
-    let again = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local",
-                                   restoredFrom: before.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount(nil)
-    #expect(restarted.reconcile([again]) == [again.id])
-    #expect(restarted.stagedSessionIds == [again.id])
-}
-
-@Test @MainActor func `restored terminals keep their order on the stage`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestartedOrder"))
-    let ids = (0 ..< 4).map { "01992e43-53db-7040-8e02-f6ebf4149b4\($0)" }
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount(nil)
-    first.showSession(ids[0])
-    first.showSession(ids[1])
-    let earlier = try runtimeSession(ids[2], kind: "local", connection: "local", restoredFrom: ids[0])
-    let later = try runtimeSession(ids[3], kind: "local", connection: "local", restoredFrom: ids[1])
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount(nil)
-    _ = restarted.reconcile([later])
-    _ = restarted.reconcile([earlier, later])
-    #expect(restarted.stagedSessionIds == [ids[2], ids[3]])
-}
-
-@Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
-    let session = try runtimeSession(status: "offline")
-    #expect(session.statusLabel == "Remote computer is offline")
-    #expect(try runtimeSession().statusLabel == "Not connected")
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount("owner")
-    first.showSession(session.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]) == [session.id])
-    #expect(restarted.stagedSessionIds == [session.id])
-}
-
-@Test @MainActor func `stage limit keeps existing terminals and allows reopening`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageLimit"))
-    let workbench = WorkbenchState(defaults: defaults)
-    let ids = (0 ..< 7).map { _ in UUIDv7.generate() }
-    for id in ids {
-        workbench.showSession(id)
-    }
-    #expect(workbench.stagedSessionIds == Array(ids.prefix(6)))
-    workbench.showSession(ids[0])
-    #expect(workbench.selectedSessionId == ids[0])
-    workbench.dismissSession(ids[1])
-    workbench.showSession(ids[6])
-    #expect(workbench.stagedSessionIds.count == 6)
-    #expect(workbench.selectedSessionId == ids[6])
 }
 
 @Test func `event inbox is bounded ordered and closes waiter`() async {

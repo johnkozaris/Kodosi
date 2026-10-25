@@ -37,6 +37,7 @@ const PROMPT_QUIET: Duration = Duration::from_millis(300);
 const BUSY_UPKEEP: Duration = Duration::from_millis(20);
 const IDLE_UPKEEP: Duration = Duration::from_millis(250);
 const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
+const SIZE_NOT_APPLIED: &str = "The terminal could not apply its new size.";
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -481,6 +482,13 @@ struct ResizeOwner {
     authorization: CancellationToken,
 }
 
+#[derive(Clone, Copy)]
+struct RequestedSize {
+    size: TerminalSize,
+    geometry: Option<TerminalPixelGeometry>,
+    taken_turn: u64,
+}
+
 enum ResizeError {
     Rejected(Error),
     Diverged(Error),
@@ -579,7 +587,7 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
-    requested: HashMap<Controller, (TerminalSize, Option<TerminalPixelGeometry>)>,
+    requested: HashMap<Controller, RequestedSize>,
     typed_at: Option<tokio::time::Instant>,
     cell: CellPixels,
     sequence: u64,
@@ -740,7 +748,18 @@ impl LocalActor {
         claim: bool,
     ) -> std::result::Result<(), ResizeError> {
         validate_pixels(size, geometry).map_err(ResizeError::Rejected)?;
-        self.requested.insert(controller, (size, geometry));
+        let taken_turn = self
+            .requested
+            .get(&controller)
+            .map_or(0, |requested| requested.taken_turn);
+        self.requested.insert(
+            controller,
+            RequestedSize {
+                size,
+                geometry,
+                taken_turn,
+            },
+        );
         let claim = claim || self.focused.contains_key(&controller);
         let cell = geometry.map_or(self.cell, CellPixels::of);
         let (width, height) = cell.pty_pixels(size);
@@ -769,6 +788,20 @@ impl LocalActor {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
         }
+        let taken_turn = self
+            .requested
+            .values()
+            .map(|requested| requested.taken_turn)
+            .max()
+            .map_or(1, |latest| latest + 1);
+        self.requested.insert(
+            controller,
+            RequestedSize {
+                size,
+                geometry,
+                taken_turn,
+            },
+        );
         self.resize_owner = Some(ResizeOwner {
             controller,
             authorization,
@@ -821,12 +854,6 @@ impl LocalActor {
         Ok(())
     }
 
-    async fn release_logged(&mut self, controller: Controller) {
-        if let Err(error) = self.release(controller).await {
-            tracing::warn!(id = %self.id, %error, "terminal view release was incomplete");
-        }
-    }
-
     async fn focus_view(
         &mut self,
         controller: Controller,
@@ -843,42 +870,82 @@ impl LocalActor {
             .resize_owner
             .as_ref()
             .is_some_and(|owner| owner.controller == controller);
-        let Some((size, geometry)) = self.requested.get(&controller).copied() else {
-            return (Ok(()), false);
-        };
         if !focused || owner {
             return (Ok(()), false);
         }
+        match self.take_requested_size(controller, authorization).await {
+            Ok(()) => (Ok(()), false),
+            Err(error) => (Err(error), true),
+        }
+    }
+
+    async fn take_requested_size(
+        &mut self,
+        controller: Controller,
+        authorization: CancellationToken,
+    ) -> Result<()> {
+        let Some(requested) = self.requested.get(&controller).copied() else {
+            return Ok(());
+        };
         match self
-            .apply_resize(controller, authorization, size, geometry, true)
+            .apply_resize(
+                controller,
+                authorization,
+                requested.size,
+                requested.geometry,
+                true,
+            )
             .await
         {
-            Ok(()) => (Ok(()), false),
+            Ok(()) => Ok(()),
             Err(ResizeError::Rejected(error)) => {
                 tracing::debug!(id = %self.id, %error, "a focused view kept the terminal size");
-                (Ok(()), false)
+                Ok(())
             }
-            Err(ResizeError::Diverged(error)) => (Err(error), true),
+            Err(ResizeError::Diverged(error)) => Err(error),
         }
+    }
+
+    async fn give_size_back(&mut self) -> Option<String> {
+        self.resize_owner = None;
+        let (controller, authorization) = self
+            .focused
+            .iter()
+            .filter(|(_, authorization)| !authorization.is_cancelled())
+            .filter_map(|(controller, authorization)| {
+                self.requested
+                    .get(controller)
+                    .map(|requested| (requested.taken_turn, *controller, authorization))
+            })
+            .max_by_key(|(turn, ..)| *turn)
+            .map(|(_, controller, authorization)| (controller, authorization.clone()))?;
+        let error = self
+            .take_requested_size(controller, authorization)
+            .await
+            .err()?;
+        tracing::warn!(id = %self.id, %error, "the terminal could not give the size back");
+        Some(SIZE_NOT_APPLIED.to_owned())
     }
 
     fn typing(&self) -> bool {
         self.typed_at.is_some_and(|at| at.elapsed() < TYPING)
     }
 
-    async fn release(&mut self, controller: Controller) -> Result<()> {
+    async fn release(&mut self, controller: Controller) -> Option<String> {
         self.requested.remove(&controller);
+        if self.focused.contains_key(&controller)
+            && let Err(error) = self.set_focus(controller, None, false).await
+        {
+            tracing::warn!(id = %self.id, %error, "terminal view release was incomplete");
+        }
         if self
             .resize_owner
             .as_ref()
             .is_some_and(|owner| owner.controller == controller)
         {
-            self.resize_owner = None;
+            return self.give_size_back().await;
         }
-        if self.focused.contains_key(&controller) {
-            self.set_focus(controller, None, false).await?;
-        }
-        Ok(())
+        None
     }
 
     fn type_start_line(&mut self) {
@@ -915,7 +982,7 @@ impl LocalActor {
                 .is_some_and(|output| output.elapsed() < BUSY_AFTER_OUTPUT)
     }
 
-    async fn maintain(&mut self) {
+    async fn maintain(&mut self) -> Option<String> {
         self.subscribers.prune();
         self.type_start_line();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
@@ -999,16 +1066,20 @@ impl LocalActor {
             .map(|(controller, _)| *controller)
             .collect::<Vec<_>>();
         for controller in expired {
-            self.release_logged(controller).await;
+            if let Some(reason) = self.release(controller).await {
+                return Some(reason);
+            }
         }
         if self
             .resize_owner
             .as_ref()
             .is_some_and(|owner| owner.authorization.is_cancelled())
+            && let Some(reason) = self.give_size_back().await
         {
-            self.resize_owner = None;
+            return Some(reason);
         }
         self.drop_cancelled_input();
+        None
     }
 
     async fn apply_output(&mut self, bytes: Bytes, accepting_input: bool) -> Result<()> {
@@ -1184,7 +1255,7 @@ impl LocalActor {
             Request::Unsubscribe(connection) => {
                 self.subscribers.remove(connection);
                 self.note_local_view();
-                self.release_logged(Controller::Local(connection)).await;
+                return self.release(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
             Request::Send(write, message) => self.accept_command_input(write, message),
@@ -1221,7 +1292,7 @@ impl LocalActor {
                 };
                 drop(reply.send(result));
                 if diverged {
-                    return Some("The terminal could not apply its new size.".to_owned());
+                    return Some(SIZE_NOT_APPLIED.to_owned());
                 }
             }
             Request::Interrupt(reply) => {
@@ -1300,7 +1371,7 @@ impl LocalActor {
             }
         };
         drop(reply.send(result));
-        fatal.then(|| "The terminal could not apply its new size.".to_owned())
+        fatal.then(|| SIZE_NOT_APPLIED.to_owned())
     }
 
     async fn host_request(&mut self, request: HostRequest) -> Option<String> {
@@ -1349,7 +1420,7 @@ impl LocalActor {
             HostRequest::Disconnected { connection_id } => {
                 self.viewers.remove(&connection_id);
                 self.publish_presence();
-                self.release_logged(Controller::Remote(connection_id)).await;
+                return self.release(Controller::Remote(connection_id)).await;
             }
             HostRequest::Control {
                 connection_id,
@@ -1531,7 +1602,7 @@ impl LocalActor {
                     Err(error) if error.raw_os_error() == Some(5) => break "The terminal ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },
-                () = tokio::time::sleep_until(upkeep) => { self.maintain().await; true }
+                () = tokio::time::sleep_until(upkeep) => { if let Some(reason) = self.maintain().await { break reason; } true }
             };
             let now = tokio::time::Instant::now();
             upkeep = if !kept_up {

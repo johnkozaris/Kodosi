@@ -2106,10 +2106,71 @@ pub fn parse_id(value: &str) -> Result<Uuid> {
     Ok(id)
 }
 
+pub fn short_id(id: &str) -> &str {
+    id.get(id.len().saturating_sub(6)..).unwrap_or(id)
+}
+
+pub fn refers_to(reference: &str, id: &str, name: &str) -> bool {
+    !reference.is_empty()
+        && (id == reference
+            || (reference.len() >= 4 && id.ends_with(reference))
+            || name.to_lowercase() == reference.to_lowercase())
+}
+
+pub fn referred<'a>(
+    reference: &str,
+    entries: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Vec<&'a str> {
+    let matching = entries
+        .into_iter()
+        .filter(|(id, name)| refers_to(reference, id, name))
+        .collect::<Vec<_>>();
+    let exact = matching
+        .iter()
+        .filter(|(id, name)| *id == reference || *name == reference)
+        .map(|(id, _)| *id)
+        .collect::<Vec<_>>();
+    if exact.len() == 1 {
+        exact
+    } else {
+        matching.into_iter().map(|(id, _)| id).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_reference_is_the_id_its_end_or_the_name_in_any_case() {
+        let id = "01a10d06-92a7-7367-8536-65c4895d05ae";
+        assert_eq!(short_id(id), "5d05ae");
+        for reference in [id, "5d05ae", "05ae", "Release notes", "release NOTES"] {
+            assert!(refers_to(reference, id, "Release notes"), "{reference}");
+        }
+        assert!(refers_to("CAFÉ", id, "Café"));
+        for reference in ["ae", "01a10d06", "", "Release"] {
+            assert!(!refers_to(reference, id, "Release notes"), "{reference}");
+        }
+        assert!(!refers_to("", "", ""));
+    }
+
+    #[test]
+    fn an_exact_name_wins_over_the_same_name_in_another_case() {
+        let entries = [
+            ("first-0001", "api"),
+            ("second-0002", "API"),
+            ("third-0003", "web"),
+        ];
+        assert_eq!(referred("api", entries), ["first-0001"]);
+        assert_eq!(referred("API", entries), ["second-0002"]);
+        assert_eq!(referred("Api", entries), ["first-0001", "second-0002"]);
+        assert_eq!(referred("WEB", entries), ["third-0003"]);
+        assert_eq!(referred("0002", entries), ["second-0002"]);
+        let twins = [("first-0001", "api"), ("second-0002", "api")];
+        assert_eq!(referred("api", twins), ["first-0001", "second-0002"]);
+    }
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
     #[cfg(unix)]

@@ -20,6 +20,8 @@ open class UITerminalView: UIView {
     weak var observedWindow: UIWindow?
     weak var observedScene: UIWindowScene?
     public var onFocusChange: ((Bool) -> Void)?
+    public var onCursorRowChange: ((ClosedRange<CGFloat>) -> Void)?
+    var reportedCursorRow: ClosedRange<CGFloat>?
 
     open weak var delegate: (any TerminalSurfaceViewDelegate)? {
         get { core.delegate }
@@ -88,6 +90,7 @@ open class UITerminalView: UIView {
         }
         core.onPostRender = { [weak self] in
             self?.updateSurfaceLayers()
+            self?.reportCursorRow()
         }
         core.onCellSizeDidChange = { [weak self] in
             self?.inputHandler.notifyGeometryDidChange()

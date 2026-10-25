@@ -196,7 +196,16 @@ async fn current_publication(
                 return Err(Error::Stale);
             }
             publication.clear_sharing().await;
-            let dto:SessionDto=network.inner.http.device(Method::POST,"api/sessions",credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":crate::network::backend_client::host_label(),"missionId":null}))).await?;
+            let body = crate::network::backend_client::publication_body(
+                &info,
+                &credentials.keys.device_id,
+                None,
+            );
+            let dto: SessionDto = network
+                .inner
+                .http
+                .device(Method::POST, "api/sessions", credentials, Some(body))
+                .await?;
             *publication.dto.write().await = dto.clone();
             network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":"The server no longer had this terminal; choose friends again."}));
             Ok(dto)

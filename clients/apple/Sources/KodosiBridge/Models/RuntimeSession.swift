@@ -1,5 +1,23 @@
 import Foundation
 
+public func refers(_ reference: String, to id: String, named name: String) -> Bool {
+    guard !reference.isEmpty else { return false }
+    return id == reference || (reference.count >= 4 && id.hasSuffix(reference))
+        || name.caseInsensitiveCompare(reference) == .orderedSame
+}
+
+public extension [RuntimeSession] {
+    func restart(of id: String, owner: String?, host: String?) -> RuntimeSession? {
+        first { $0.restoredFrom == id && $0.ownerUserId == owner && $0.hostDeviceId == host }
+    }
+}
+
+public func referred<Item>(_ reference: String, in items: [Item], id: KeyPath<Item, String>, name: KeyPath<Item, String>) -> Item? {
+    guard !reference.isEmpty else { return nil }
+    return items.first { $0[keyPath: id] == reference || $0[keyPath: name] == reference }
+        ?? items.first { refers(reference, to: $0[keyPath: id], named: $0[keyPath: name]) }
+}
+
 public struct ProgramStatus: Decodable, Equatable, Sendable {
     public enum State: String, Decodable, Sendable { case idle, working, done, blocked, error }
     public enum Kind: String, Decodable, Sendable { case permission, question, auth }

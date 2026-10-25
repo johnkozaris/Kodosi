@@ -65,13 +65,15 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
                 session.AuthorizationRevision, online, status, session.RoomSequence,
                 session.RoomSignature is { } signature ? new RoomChoice(session.RoomDeviceId!, Convert.ToBase64String(signature)) : null,
                 row.Hidden && !online,
-                session.CloseSignature is { } closing ? new CloseRequest(session.CloseUserId!.Value, session.CloseDeviceId!, Convert.ToBase64String(closing)) : null);
+                session.CloseSignature is { } closing ? new CloseRequest(session.CloseUserId!.Value, session.CloseDeviceId!, Convert.ToBase64String(closing)) : null,
+                session.RestoredFrom);
         }).ToList();
     }
 
     public async Task<SessionDto> CreateAsync(Guid userId, ApprovedDevice device, CreateSession body, CancellationToken ct)
     {
         Limits.Id(body.Id, "Terminal ID"); Limits.Id(body.IncarnationId, "Incarnation ID");
+        if (body.RestoredFrom == body.Id) throw ApiException.Invalid("A terminal cannot replace itself.");
         if (body.HostDeviceId != device.Id) throw ApiException.Forbidden("Only the computer that hosts a terminal can add it.");
         var existing = await db.Sessions.SingleOrDefaultAsync(x => x.Id == body.Id, ct);
         if (existing is not null)
@@ -100,6 +102,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             HostDeviceId = device.Id,
             HostName = Limits.Text(body.HostName, "Host name", 128),
             Name = Limits.Text(body.Name, "Session name", 128),
+            RestoredFrom = body.RestoredFrom,
             MissionId = body.MissionId,
             ExpiresAt = now + EndedRecordLife,
             CreatedAt = now
@@ -277,10 +280,11 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
         string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
-        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice, bool Hidden, CloseRequest? CloseRequest);
+        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice, bool Hidden, CloseRequest? CloseRequest, Guid? RestoredFrom);
     public sealed record RoomChoice(string DeviceId, string Signature);
     public sealed record CloseRequest(Guid UserId, string DeviceId, string Signature);
-    public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId);
+    public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId,
+        Guid? RestoredFrom = null);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
     public sealed record AttachSession(Guid IncarnationId, Guid? MissionId, RoomChoiceWrite Choice);
     public sealed record RoomChoiceWrite(string DeviceId, long Sequence, string Signature);

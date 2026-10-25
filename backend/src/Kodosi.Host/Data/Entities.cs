@@ -82,6 +82,7 @@ public sealed class Session
     public string HostDeviceId { get; set; } = "";
     public string HostName { get; set; } = "";
     public string Name { get; set; } = "";
+    public Guid? RestoredFrom { get; set; }
     public Guid? MissionId { get; set; }
     public long RoomSequence { get; set; }
     public string? RoomDeviceId { get; set; }

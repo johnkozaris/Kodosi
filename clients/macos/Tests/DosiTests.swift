@@ -69,6 +69,32 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
     #expect(dosi.items.isEmpty)
 }
 
+private struct Named {
+    let id: String
+    let name: String
+}
+
+@Test func `an exact name wins over the same name in another case`() {
+    let items = [Named(id: "first-0001", name: "api"), Named(id: "second-0002", name: "API")]
+    #expect(referred("API", in: items, id: \.id, name: \.name)?.id == "second-0002")
+    #expect(referred("api", in: items, id: \.id, name: \.name)?.id == "first-0001")
+    #expect(referred("0002", in: items, id: \.id, name: \.name)?.id == "second-0002")
+    #expect(referred("", in: items, id: \.id, name: \.name) == nil)
+}
+
+@Test @MainActor func `a question names its terminal by its ID, the end of its ID or its name`() throws {
+    let dosi = DosiStore(commands: CommandSink())
+    let terminal = try runtimeSession()
+    for (reference, found) in [(terminal.id, true), ("149b28", true), ("terminal", true), ("01992e43", false), ("28", false)] {
+        let question = item("q", [
+            "kind": .string("question"), "question": .string("Continue?"), "options": .array([.string("y")]),
+            "multiple": .bool(false), "terminal": .string(reference), "answer": .null,
+        ])
+        try dosi.receive(runtimeEvent("dosi.snapshot", fields: snapshot(items: [question])))
+        #expect((dosi.question(forTerminal: terminal) != nil) == found, "\(reference)")
+    }
+}
+
 @Test @MainActor func `a terminal finds its question and the face follows the turn`() throws {
     let dosi = DosiStore(commands: CommandSink())
     let question = item("q", [

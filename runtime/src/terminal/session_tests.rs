@@ -244,6 +244,127 @@ async fn the_focused_view_owns_the_size_and_brings_its_size_with_focus() {
     session.close().await.expect("close");
 }
 
+async fn remote_control(
+    session: &TerminalSession,
+    connection_id: Uuid,
+    authorization: &CancellationToken,
+    control: TerminalControl,
+) {
+    let (reply, result) = oneshot::channel();
+    session
+        .host_requests
+        .send(HostRequest::Control {
+            connection_id,
+            control,
+            authorization: authorization.clone(),
+            reply,
+        })
+        .await
+        .expect("host request");
+    result
+        .await
+        .expect("control reply")
+        .expect("accepted control");
+}
+
+#[tokio::test]
+async fn a_focused_view_takes_its_size_back_when_the_view_that_took_it_leaves() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let mut output = session.output();
+    let phone = Uuid::now_v7();
+    let authorization = CancellationToken::new();
+    remote_control(
+        &session,
+        phone,
+        &authorization,
+        TerminalControl::Focus { focused: true },
+    )
+    .await;
+    remote_control(
+        &session,
+        phone,
+        &authorization,
+        TerminalControl::Resize {
+            rows: 17,
+            cols: 49,
+            width_pixels: 0,
+            height_pixels: 0,
+            cell_width_pixels: 0,
+            cell_height_pixels: 0,
+            claim: false,
+        },
+    )
+    .await;
+    let attach = session.subscribe().await.expect("attach");
+    session
+        .resize(
+            attach.connection_id,
+            TerminalSize::new(30, 100).expect("size"),
+            None,
+            true,
+        )
+        .await
+        .expect("an attach claims the size");
+    drop(attach);
+
+    let mut sizes = Vec::new();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while sizes.len() < 3 {
+            if let PublishedFrame::Resize { rows, cols, .. } =
+                output.recv().await.expect("published frame")
+            {
+                sizes.push((rows, cols));
+            }
+        }
+    })
+    .await
+    .expect("the phone's size again");
+    assert_eq!(sizes, [(17, 49), (30, 100), (17, 49)]);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn the_focused_view_that_set_the_size_last_takes_it_back() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let first = session.subscribe().await.expect("first");
+    let second = session.subscribe().await.expect("second");
+    let blurred = session.subscribe().await.expect("blurred");
+    let attach = session.subscribe().await.expect("attach");
+    let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
+    for view in [&first, &second, &blurred] {
+        session
+            .focus(view.connection_id, true)
+            .await
+            .expect("focus");
+    }
+    for (view, rows, cols) in [
+        (&first, 18, 60),
+        (&second, 24, 80),
+        (&first, 20, 70),
+        (&blurred, 40, 90),
+    ] {
+        session
+            .resize(view.connection_id, size(rows, cols), None, false)
+            .await
+            .expect("a focused view sets the size");
+    }
+    session
+        .focus(blurred.connection_id, false)
+        .await
+        .expect("blur");
+    session
+        .resize(attach.connection_id, size(30, 100), None, true)
+        .await
+        .expect("an attach claims the size");
+    session.unsubscribe(attach.connection_id);
+    let cut = session
+        .checkpoint(first.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size(20, 70));
+    session.close().await.expect("close");
+}
+
 #[tokio::test]
 async fn command_input_waits_while_a_person_types() {
     let (session, _changes, _root) = shell("stty raw -echo; exec /bin/cat").await;

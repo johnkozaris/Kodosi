@@ -201,6 +201,19 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
         seeCanvas();
 }
 
+void MissionsModel::followTerminal(const QString& replaced, const QString& id)
+{
+    bool changed = false;
+    for (auto& state : m_presentations) {
+        if (state.value(QStringLiteral("terminal")).toString() == replaced) {
+            state.insert(QStringLiteral("terminal"), id);
+            changed = true;
+        }
+    }
+    if (changed)
+        emit presentationChanged();
+}
+
 void MissionsModel::completeAction(const QString& room, const QString& action, const QVariantMap& submitted)
 {
     auto& current = m_presentations[room];

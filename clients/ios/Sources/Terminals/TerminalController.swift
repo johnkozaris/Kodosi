@@ -37,7 +37,7 @@ enum TerminalMessage {
 
 @Observable
 final class TerminalController {
-    let sessionId: String
+    private(set) var sessionId: String
     let surfaceId = UUID()
     var draft = ""
     private(set) var presence = TerminalPresence()
@@ -52,6 +52,7 @@ final class TerminalController {
 
     @ObservationIgnored let store: TerminalStore
     @ObservationIgnored private var openTask: Task<Void, Never>?
+    @ObservationIgnored private var listed: RuntimeSession?
 
     init(sessionId: String, store: TerminalStore) {
         self.sessionId = sessionId
@@ -60,6 +61,11 @@ final class TerminalController {
 
     var session: RuntimeSession? {
         store.session(sessionId)
+    }
+
+    var replacement: RuntimeSession? {
+        guard !ending, let listed else { return nil }
+        return store.replacement(of: listed)
     }
 
     var surface: ManagedTerminalSession? {
@@ -105,15 +111,8 @@ final class TerminalController {
     func disappear() {
         guard presence.visible else { return }
         presence.visible = false
-        openTask?.cancel()
-        openTask = nil
-        opening = false
-        releaseFocus()
+        leave()
         store.focus.registerRevoker(surfaceId: surfaceId, revoker: nil)
-        store.watch(sessionId, false)
-        TerminalInputQueue.shared.cancel(sessionId: sessionId)
-        store.live.releaseSession(for: sessionId)
-        store.disconnect(sessionId)
     }
 
     func setActive(_ active: Bool) {
@@ -125,6 +124,11 @@ final class TerminalController {
     }
 
     func refresh() {
+        if let replacement {
+            follow(replacement)
+        } else if let session {
+            listed = session
+        }
         var current = presence
         current.rendered = renderState == .rendered
         current.canControl = session?.canControl == true
@@ -167,11 +171,11 @@ final class TerminalController {
         openTask = Task { [weak self, store, sessionId] in
             do {
                 try await store.open(sessionId)
-                self?.finishOpen(failure: nil)
+                self?.finishOpen(sessionId, failure: nil)
             } catch is CancellationError {
                 return
             } catch {
-                self?.finishOpen(failure: error.localizedDescription)
+                self?.finishOpen(sessionId, failure: error.localizedDescription)
             }
         }
     }
@@ -216,10 +220,31 @@ final class TerminalController {
         ending = true
     }
 
-    private func finishOpen(failure: String?) {
+    private func finishOpen(_ opened: String, failure: String?) {
+        guard opened == sessionId else { return }
         openTask = nil
         opening = false
         openFailure = failure
+    }
+
+    private func follow(_ next: RuntimeSession) {
+        leave()
+        sessionId = next.id
+        listed = next
+        openFailure = nil
+        focusDeclined = false
+        open()
+    }
+
+    private func leave() {
+        openTask?.cancel()
+        openTask = nil
+        opening = false
+        releaseFocus()
+        store.watch(sessionId, false)
+        TerminalInputQueue.shared.cancel(sessionId: sessionId)
+        store.live.releaseSession(for: sessionId)
+        store.disconnect(sessionId)
     }
 
     private func recover() {

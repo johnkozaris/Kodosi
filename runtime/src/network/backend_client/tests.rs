@@ -191,6 +191,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             mission_id: None,
             room_sequence: 0,
             shared_with: BTreeSet::new(),
+            restored_from: None,
         },
         requests,
         output,
@@ -212,6 +213,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             room_choice: None,
             hidden: false,
             close_request: None,
+            restored_from: None,
         },
     ));
     network
@@ -250,6 +252,7 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             mission_id: Some(Uuid::now_v7()),
             room_sequence: 0,
             shared_with: BTreeSet::from([friend.clone()]),
+            restored_from: None,
         },
         requests,
         output,
@@ -271,6 +274,7 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             room_choice: None,
             hidden: false,
             close_request: None,
+            restored_from: None,
         },
     ));
     *publication.pending_shares.lock().await = Some(BTreeSet::from([friend]));
@@ -337,6 +341,7 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
         mission_id: None,
         room_sequence: 0,
         shared_with: BTreeSet::new(),
+        restored_from: None,
     };
     network.inner.publications.lock().await.insert(
         id,
@@ -391,6 +396,32 @@ fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed
                 .is_none()
         );
     }
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_restarted_terminal_tells_the_server_which_terminal_it_replaces() {
+    let replaced = Uuid::now_v7();
+    let restarted = LocalPublication {
+        session_id: Uuid::now_v7(),
+        incarnation_id: Uuid::now_v7(),
+        name: "Build".into(),
+        mission_id: None,
+        room_sequence: 0,
+        shared_with: BTreeSet::new(),
+        restored_from: Some(replaced),
+    };
+    let body = publication_body(&restarted, "device", None);
+    assert_eq!(body["restoredFrom"], json!(replaced));
+    assert_eq!(body["hostDeviceId"], "device");
+    let started = LocalPublication {
+        restored_from: None,
+        ..restarted
+    };
+    assert_eq!(
+        publication_body(&started, "device", None)["restoredFrom"],
+        Value::Null
+    );
 }
 
 fn scripted_backend(

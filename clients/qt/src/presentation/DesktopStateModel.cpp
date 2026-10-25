@@ -112,6 +112,7 @@ bool DesktopStateModel::stageSession(const QString& id, bool revealStage)
         emit stagedSessionIdsChanged();
         saveStage();
     }
+    remember(id);
     if (m_selected != id) {
         m_selected = id;
         emit selectedSessionIdChanged();
@@ -128,6 +129,7 @@ bool DesktopStateModel::unstageSession(const QString& id)
 {
     if (!m_staged.removeOne(id))
         return false;
+    m_computers.remove(id);
     emit stagedSessionIdsChanged();
     saveStage();
     if (m_selected == id) {
@@ -188,6 +190,13 @@ void DesktopStateModel::switchAccount(const QString& userId)
                                   QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     m_restoring = m_settings->value(m_stageKey).toStringList();
     m_savedStage = m_restoring;
+    m_computers.clear();
+    m_departures.clear();
+    m_closing.clear();
+}
+void DesktopStateModel::noteClosing(const QString& id)
+{
+    m_closing.insert(id);
 }
 void DesktopStateModel::saveStage()
 {
@@ -234,11 +243,19 @@ void DesktopStateModel::reconcile()
 {
     if (!m_sessions || !m_sessions->hasAuthoritativeSnapshot())
         return;
-    for (const auto& id : QStringList(m_staged)) {
+    for (auto place = m_staged.size() - 1; place >= 0; --place) {
+        const auto id = m_staged.at(place);
+        const auto computer = m_computers.value(id);
+        if (!m_sessions->containsSession(id) || m_sessions->restart(id, computer.owner, computer.host)) {
+            depart(id, place);
+            continue;
+        }
         const auto session = m_sessions->presentationSession(id);
         if (!session || !session->canRetainPresentation)
             unstageSession(id);
     }
+    m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
+    const auto followed = follow();
     const auto rank = [this](const QString& id) {
         const auto found = std::ranges::find_if(
             m_savedStage, [&](const QString& saved) { return m_sessions->current(saved) == id; });
@@ -255,6 +272,7 @@ void DesktopStateModel::reconcile()
             && m_staged.size() < 6) {
             m_staged.insert(std::ranges::find_if(m_staged, [&](const QString& staged) { return rank(staged) > rank(id); }),
                 id);
+            remember(id);
             restored.append(id);
         }
     }
@@ -264,9 +282,65 @@ void DesktopStateModel::reconcile()
             m_selected = m_staged.first();
             emit selectedSessionIdChanged();
         }
-        emit this->restored(restored);
     }
+    if (!followed.isEmpty() || !restored.isEmpty())
+        emit this->restored(followed + restored);
     saveStage();
+}
+void DesktopStateModel::remember(const QString& id)
+{
+    if (const auto session = m_sessions ? m_sessions->session(id) : std::nullopt)
+        m_computers.insert(id, { session->ownerUserId, session->hostDeviceId });
+}
+void DesktopStateModel::depart(const QString& id, qsizetype place)
+{
+    if (m_closing.remove(id) || !m_computers.contains(id)) {
+        unstageSession(id);
+        return;
+    }
+    const bool selected = m_selected == id;
+    const bool focused = m_mode == Focus && selected;
+    m_departures.append({ id, m_computers.take(id), place, selected, focused });
+    if (m_departures.size() > 64)
+        m_departures.removeFirst();
+    m_staged.removeAt(place);
+    emit stagedSessionIdsChanged();
+    if (selected) {
+        m_selected.clear();
+        emit selectedSessionIdChanged();
+    }
+    if (focused || m_staged.isEmpty())
+        exitFocusMode();
+}
+QStringList DesktopStateModel::follow()
+{
+    QStringList followed;
+    auto departures = m_departures;
+    std::ranges::reverse(departures);
+    for (const auto& departure : std::as_const(departures)) {
+        const auto next = m_sessions->restart(departure.id, departure.computer.owner, departure.computer.host);
+        if (!next)
+            continue;
+        m_departures.removeIf([&](const Departure& kept) { return kept.id == departure.id; });
+        const auto session = m_sessions->session(*next);
+        const auto presentation = m_sessions->presentationSession(*next);
+        if (!session || session->hidden || !presentation || !presentation->canRetainPresentation
+            || m_staged.contains(*next) || m_staged.size() >= 6)
+            continue;
+        m_staged.insert(std::min(departure.place, m_staged.size()), *next);
+        remember(*next);
+        emit stagedSessionIdsChanged();
+        if (departure.selected && m_selected.isEmpty()) {
+            m_selected = *next;
+            emit selectedSessionIdChanged();
+        }
+        if (departure.focused && m_mode == Grid && m_selected == *next) {
+            m_mode = Focus;
+            emit stageLayoutModeChanged();
+        }
+        followed.append(*next);
+    }
+    return followed;
 }
 void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overrideSize)
 {

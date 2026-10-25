@@ -14,11 +14,11 @@ namespace kodosi {
 namespace {
     constexpr qsizetype maximumEventBytes = 8 * 1024 * 1024;
     constexpr qsizetype maximumQueuedEventBytes = 16 * 1024 * 1024;
-    QByteArray copyBytes(const std::uint8_t* bytes, std::uintptr_t length)
+    QByteArray copyBytes(const std::uint8_t* bytes, std::uintptr_t length, std::uintptr_t maximum)
     {
         if (length == 0)
             return {};
-        if (bytes == nullptr || length > static_cast<std::uintptr_t>(maximumEventBytes))
+        if (bytes == nullptr || length > maximum)
             return {};
         return QByteArray(reinterpret_cast<const char*>(bytes), static_cast<qsizetype>(length));
     }
@@ -289,7 +289,7 @@ void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
             Qt::QueuedConnection);
         return;
     }
-    const auto payload = copyBytes(json, length);
+    const auto payload = copyBytes(json, length, static_cast<std::uintptr_t>(maximumEventBytes));
     QMetaObject::invokeMethod(
         this,
         [this, generation, size, payload] {
@@ -364,7 +364,7 @@ void RuntimeBridge::terminalData(const char* session, const char* subscription, 
     auto* bridge = resolve(userdata);
     if (!bridge || !bridge->m_terminalSink || !bridge->m_activeGeneration.load(std::memory_order_acquire))
         return;
-    auto payload = copyBytes(bytes, length);
+    auto payload = copyBytes(bytes, length, static_cast<std::uintptr_t>(maximumEventBytes));
     if (length && payload.isEmpty())
         return;
     bridge->m_terminalSink->receiveData(
@@ -377,7 +377,7 @@ void RuntimeBridge::terminalControl(const char* session, const char* subscriptio
     auto* bridge = resolve(userdata);
     if (!bridge || !bridge->m_terminalSink || !bridge->m_activeGeneration.load(std::memory_order_acquire))
         return;
-    auto payload = copyBytes(json, length);
+    auto payload = copyBytes(json, length, KODOSI_TERMINAL_CONTROL_MAX_BYTES);
     if (length && payload.isEmpty())
         return;
     bridge->m_terminalSink->receiveControl(
@@ -402,7 +402,7 @@ std::int32_t RuntimeBridge::terminalCheckpoint(const char* session, const char* 
     if (!bridge || !bridge->m_terminalSink || !bridge->m_activeGeneration.load(std::memory_order_acquire)) {
         return KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
     }
-    auto payload = copyBytes(snapshot, length);
+    auto payload = copyBytes(snapshot, length, KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES);
     if (!length || payload.isEmpty())
         return KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
     return bridge->m_terminalSink->installCheckpoint(

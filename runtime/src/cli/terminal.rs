@@ -36,7 +36,7 @@ impl Drop for ScreenGuard {
 pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         return Err(Error::Invalid(
-            "terminal attach requires an interactive terminal".into(),
+            "`kodosi terminal attach` needs an interactive terminal.".into(),
         ));
     }
     let mut client = local_host::TerminalClient::connect(root, session).await?;

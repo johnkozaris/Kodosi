@@ -124,9 +124,20 @@ final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
     }
 }
 
+#if os(iOS)
+    @MainActor
+    public final class TerminalCursor: ObservableObject {
+        @Published public internal(set) var row: ClosedRange<CGFloat>?
+    }
+#endif
+
 @MainActor
 public final class TerminalRendererSession: ObservableObject {
     @Published public private(set) var nativeSurfaceGeneration: UInt64 = 0
+    #if os(iOS)
+        @Published public private(set) var rowMetrics: TerminalRowMetrics?
+        public let cursor = TerminalCursor()
+    #endif
 
     private let backend: InMemoryTerminalSession
     private let inputAuthority: TerminalInputAuthority
@@ -173,6 +184,16 @@ public final class TerminalRendererSession: ObservableObject {
             nativeSurfaceGeneration = generation
             onSurfaceAttached(generation)
         }
+        #if os(iOS)
+            viewState.$surfaceSize
+                .map { size in
+                    size.map {
+                        TerminalRowMetrics(rows: $0.rows, heightPixels: $0.heightPixels, cellHeightPixels: $0.cellHeightPixels)
+                    }
+                }
+                .removeDuplicates()
+                .assign(to: &$rowMetrics)
+        #endif
     }
 
     public var currentViewport: TerminalViewport? {

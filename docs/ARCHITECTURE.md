@@ -30,9 +30,10 @@ and again as it stops, with the conversation that each agent shows. It reads Cla
 Code's own records of the conversation that each Claude process shows, and for Codex and
 Copilot CLI it types their own list of conversations to continue. A new host keeps the
 saved terminals until an app sends `session.restore`; then it starts each one again with
-a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. A
-restored terminal joins its room or its people again when the account that chose them
-is signed in.
+a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. The
+host also gives `restoredFrom` to the backend, so that views on other devices can follow
+the terminal. A restored terminal joins its room or its people again when the account
+that chose them is signed in.
 
 ## Terminals
 
@@ -42,7 +43,8 @@ bounded buffering; a view on another device gets them over its own end-to-end en
 channel through the backend. Input whose delivery is uncertain is not replayed, and a
 stale view cannot control a replacement terminal.
 
-The view in focus sets the size of its terminal. Input from a view is a person's;
+The view in focus sets the size of its terminal. When that view leaves, the focused
+view whose size the terminal had before sets it again. Input from a view is a person's;
 input from the `kodosi` command stops with a message while a person types in the
 terminal. When a terminal stops working or starts to wait while no client shows it, the
 host marks it until a client shows it.
@@ -80,10 +82,10 @@ Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`: the launch
 it to Claude Code and Codex, and Copilot CLI reads it from the host's `agents` folder
 through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`. A host types the new room messages that name
 one of its terminals with `@` into the agent in that terminal, as one line with who wrote
-it and from where. `kodosi terminal message` sends such a line to an agent on any
-computer, as a terminal control. The terminal types a message only while its agent
-reports a state other than waiting for a person and nobody types there, and Enter
-follows as a key of its own.
+it and from where. `kodosi terminal message <terminal> "text"` sends such a line to an
+agent on any computer, as a terminal control. The terminal types a message only while
+its agent reports a state other than waiting for a person and nobody types there, and
+Enter follows as a key of its own.
 
 ## Contracts
 

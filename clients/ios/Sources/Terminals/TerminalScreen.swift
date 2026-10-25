@@ -20,6 +20,7 @@ private struct TerminalLiveKey: Equatable {
     let canControl: Bool
     let incarnation: String?
     let rendered: Bool
+    let replacement: String?
 }
 
 private struct TerminalScreenContent: View {
@@ -49,6 +50,7 @@ private struct TerminalScreenContent: View {
             canControl: session?.canControl == true,
             incarnation: session?.incarnationId,
             rendered: controller.renderState == .rendered,
+            replacement: controller.replacement?.id,
         )
     }
 
@@ -88,6 +90,7 @@ private struct TerminalScreenContent: View {
         .onDisappear { controller.disappear() }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
+        .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: session == nil || session?.hidden == true) { _, gone in
             if gone, controller.ending {
                 dismiss()
@@ -129,21 +132,23 @@ private struct TerminalScreenContent: View {
     private func stageContent(_ session: RuntimeSession?) -> some View {
         if let session {
             if session.isConnected, let surface = controller.surface {
-                TerminalRendererView(
-                    session: surface.renderer,
-                    sessionName: session.name,
-                    accessibilityIdentifier: "terminal.surface",
-                    shouldFocus: hardwareKeyboard && !composing && controller.canType,
-                    allowsFocus: controller.allowsKeyboard,
-                    allowsInput: controller.canType,
-                    asksBeforeClipboardRead: !session.isOwner,
-                    isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
-                    onFocusChange: { focused in
-                        if focused {
-                            controller.focusTerminal()
-                        }
-                    },
-                )
+                TerminalRowsFrame(renderer: surface.renderer) {
+                    TerminalRendererView(
+                        session: surface.renderer,
+                        sessionName: session.name,
+                        accessibilityIdentifier: "terminal.surface",
+                        shouldFocus: hardwareKeyboard && !composing && controller.canType,
+                        allowsFocus: controller.allowsKeyboard,
+                        allowsInput: controller.canType,
+                        asksBeforeClipboardRead: !session.isOwner,
+                        isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
+                        onFocusChange: { focused in
+                            if focused {
+                                controller.focusTerminal()
+                            }
+                        },
+                    )
+                }
                 .padding(5)
                 .overlay {
                     TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)

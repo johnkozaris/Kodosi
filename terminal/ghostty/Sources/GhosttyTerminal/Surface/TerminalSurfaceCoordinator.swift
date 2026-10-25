@@ -40,6 +40,10 @@ final class TerminalSurfaceCoordinator {
         surface.setDisplayID(displayID)
     }
 
+    var applyFocus: (TerminalSurface, Bool) -> Void = { surface, focused in
+        surface.setFocus(focused)
+    }
+
     var scaleFactor: () -> Double = { 2.0 }
     var viewSize: () -> (width: Double, height: Double) = { (0, 0) }
     var platformSetup: ((inout ghostty_surface_config_s) -> Void)?
@@ -145,6 +149,7 @@ final class TerminalSurfaceCoordinator {
         surface = newSurface
         synchronizeDisplayID(on: newSurface)
         newSurface.setOcclusion(effectiveSurfaceVisible)
+        applyFocus(newSurface, isSurfaceFocused)
         TerminalDebugLog.log(.lifecycle, "surface rebuild succeeded")
         synchronizeMetrics()
         attachInMemorySession(to: rawSurface)
@@ -310,7 +315,9 @@ final class TerminalSurfaceCoordinator {
         bridge.hasFocus = focused
         requestImmediateTick()
         TerminalDebugLog.log(.lifecycle, "focus=\(focused)")
-        surface?.setFocus(focused)
+        if let surface {
+            applyFocus(surface, focused)
+        }
     }
 
     func freeSurface() {

@@ -48,6 +48,8 @@ pub(crate) struct SessionDto {
     #[cfg(feature = "host")]
     #[serde(default)]
     pub close_request: Option<CloseRequest>,
+    #[serde(default)]
+    pub restored_from: Option<Uuid>,
 }
 
 #[cfg(feature = "host")]
@@ -83,6 +85,7 @@ impl From<SessionDto> for super::RemoteSession {
             online: dto.host_online,
             status: dto.status.filter(TerminalStatus::is_valid),
             hidden: dto.hidden,
+            restored_from: dto.restored_from.filter(|replaced| *replaced != dto.id),
         }
     }
 }

@@ -1,10 +1,16 @@
+use std::cell::RefCell;
+
 use super::{
-    Arc, CALLBACK_DEPTH, CancellationToken, Condvar, KODOSI_FFI_OK, KODOSI_MAX_FRAME_BYTES,
+    Arc, CancellationToken, Condvar, KODOSI_FFI_OK, KODOSI_MAX_FRAME_BYTES,
     KODOSI_TERMINAL_CONTROL_MAX_BYTES, KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES, KodosiCallbacks, Mutex,
     MutexGuard, Uuid, c_void,
     subscriptions::{SubscriptionState, Subscriptions},
     terminal,
 };
+
+thread_local! {
+    static CALLBACK_GATES: RefCell<Vec<*const Gate>> = const { RefCell::new(Vec::new()) };
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct UserData(pub(super) *mut c_void);
@@ -68,17 +74,17 @@ impl Drop for Permit<'_> {
 }
 pub(super) struct CallbackScope;
 impl CallbackScope {
-    pub(super) fn enter() -> Self {
-        CALLBACK_DEPTH.with(|depth| depth.set(depth.get() + 1));
+    pub(super) fn enter(gate: &Gate) -> Self {
+        CALLBACK_GATES.with_borrow_mut(|gates| gates.push(gate));
         Self
     }
-    pub(super) fn active() -> bool {
-        CALLBACK_DEPTH.with(|depth| depth.get() != 0)
+    pub(super) fn within(gate: &Gate) -> bool {
+        CALLBACK_GATES.with_borrow(|gates| gates.iter().any(|held| std::ptr::eq(*held, gate)))
     }
 }
 impl Drop for CallbackScope {
     fn drop(&mut self) {
-        CALLBACK_DEPTH.with(|depth| depth.set(depth.get() - 1));
+        CALLBACK_GATES.with_borrow_mut(Vec::pop);
     }
 }
 
@@ -146,7 +152,7 @@ impl State {
         } else {
             None
         };
-        let _scope = CallbackScope::enter();
+        let _scope = CallbackScope::enter(&self.gate);
         Some(action())
     }
     pub(super) fn event(&self, event: &serde_json::Value) {

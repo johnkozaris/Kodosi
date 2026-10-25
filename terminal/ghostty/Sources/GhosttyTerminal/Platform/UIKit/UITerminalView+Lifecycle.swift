@@ -149,6 +149,15 @@ extension UITerminalView {
         }
     }
 
+    func reportCursorRow() {
+        guard let onCursorRowChange, let surface else { return }
+        let point = surface.imePoint()
+        let row = CGFloat(point.y - max(point.height, 0)) ... CGFloat(point.y)
+        guard row != reportedCursorRow else { return }
+        reportedCursorRow = row
+        onCursorRowChange(row)
+    }
+
     func removeSurfaceLayers() {
         surfaceLayers.forEach { $0.removeFromSuperlayer() }
     }

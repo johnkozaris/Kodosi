@@ -135,7 +135,9 @@ impl Runtime {
             }
             Command::Read { .. } => self.read(command)?,
             Command::Show { session_id, .. } => {
-                self.target(parse_id(session_id)?)?;
+                if !self.listed(&parse_id(session_id)?) {
+                    return Err(Error::NotFound);
+                }
                 self.emit(json!({"type":"session.show", "sessionId":session_id}));
                 self.result(command);
             }

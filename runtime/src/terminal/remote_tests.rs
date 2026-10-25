@@ -16,6 +16,7 @@ fn session() -> RemoteSession {
         online: true,
         status: None,
         hidden: false,
+        restored_from: None,
     }
 }
 
@@ -400,6 +401,208 @@ async fn focus_brings_the_size_the_view_asked_for() {
         } => reply.send(Ok(Value::Null)).expect("resize result"),
         _ => panic!("the asked size expected"),
     }
+    terminal.disconnect();
+}
+
+fn resize(rows: u16, cols: u16, claim: bool) -> TerminalControl {
+    TerminalControl::Resize {
+        rows,
+        cols,
+        width_pixels: 0,
+        height_pixels: 0,
+        cell_width_pixels: 0,
+        cell_height_pixels: 0,
+        claim,
+    }
+}
+
+async fn confirm(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TerminalControl {
+    match next_request(requests).await {
+        TestRemoteRequest::Control { control, reply } => {
+            reply.send(Ok(Value::Null)).expect("control result");
+            control
+        }
+        TestRemoteRequest::Checkpoint => panic!("control expected"),
+    }
+}
+
+async fn another_view(
+    terminal: &RemoteTerminal,
+    requests: &mut mpsc::Receiver<TestRemoteRequest>,
+    updates: &mpsc::Sender<RemoteUpdate>,
+) -> Subscription {
+    let view = terminal.subscribe();
+    assert!(matches!(
+        next_request(requests).await,
+        TestRemoteRequest::Checkpoint
+    ));
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"initial"),
+            next_sequence: 0,
+        })
+        .await
+        .expect("current cut");
+    view.await.expect("another view")
+}
+
+async fn set_size(
+    terminal: &RemoteTerminal,
+    view: Uuid,
+    control: TerminalControl,
+    requests: &mut mpsc::Receiver<TestRemoteRequest>,
+    updates: &mpsc::Sender<RemoteUpdate>,
+    watcher: &mut Subscription,
+) {
+    let TerminalControl::Resize { rows, cols, .. } = control else {
+        panic!("resize expected");
+    };
+    let sent = terminal.control(Some(view), control);
+    assert!(matches!(
+        confirm(requests).await,
+        TerminalControl::Resize { claim: true, .. }
+    ));
+    sent.await.expect("the host takes the size");
+    host_size(updates, watcher, rows, cols).await;
+}
+
+async fn host_size(
+    updates: &mpsc::Sender<RemoteUpdate>,
+    watcher: &mut Subscription,
+    rows: u16,
+    cols: u16,
+) {
+    updates
+        .send(RemoteUpdate::Resize {
+            rows,
+            cols,
+            cell: CELL,
+            at_sequence: 0,
+        })
+        .await
+        .expect("host size");
+    loop {
+        let frame = tokio::time::timeout(Duration::from_secs(2), watcher.control.recv())
+            .await
+            .expect("new grid")
+            .expect("open view");
+        if matches!(frame, ControlFrame::Resize { rows: r, cols: c, .. } if (r, c) == (rows, cols))
+        {
+            break;
+        }
+    }
+}
+
+async fn attach_takes_the_size() -> (
+    RemoteTerminal,
+    Subscription,
+    Subscription,
+    mpsc::Receiver<TestRemoteRequest>,
+    mpsc::Sender<RemoteUpdate>,
+    mpsc::Receiver<SessionChange>,
+) {
+    let (terminal, mut app, mut requests, updates, changes) = start().await;
+    let attach = another_view(&terminal, &mut requests, &updates).await;
+    let focused = terminal.control(
+        Some(app.connection_id),
+        TerminalControl::Focus { focused: true },
+    );
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    let app_id = app.connection_id;
+    for (view, control) in [
+        (app_id, resize(17, 49, false)),
+        (attach.connection_id, resize(30, 100, true)),
+    ] {
+        set_size(&terminal, view, control, &mut requests, &updates, &mut app).await;
+    }
+    (terminal, app, attach, requests, updates, changes)
+}
+
+#[tokio::test]
+async fn a_focused_view_sends_its_size_again_when_the_view_that_set_it_leaves() {
+    let (terminal, _app, attach, mut requests, _updates, _changes) = attach_takes_the_size().await;
+    drop(attach);
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 17,
+            cols: 49,
+            claim: true,
+            ..
+        }
+    ));
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_view_that_leaves_after_another_view_took_the_size_gives_no_size() {
+    let (terminal, mut app, attach, mut requests, updates, _changes) =
+        attach_takes_the_size().await;
+    host_size(&updates, &mut app, 50, 150).await;
+    drop(attach);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(requests.try_recv().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn the_focused_view_whose_size_the_host_took_last_sends_it_again() {
+    let (terminal, mut first, mut requests, updates, _changes) = start().await;
+    let second = another_view(&terminal, &mut requests, &updates).await;
+    let blurred = another_view(&terminal, &mut requests, &updates).await;
+    let attach = another_view(&terminal, &mut requests, &updates).await;
+    let ids = [
+        first.connection_id,
+        second.connection_id,
+        blurred.connection_id,
+    ];
+    let focused = terminal.control(Some(ids[0]), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    for id in &ids[1..] {
+        terminal
+            .control(Some(*id), TerminalControl::Focus { focused: true })
+            .await
+            .expect("focus");
+    }
+    for (id, control) in [
+        (ids[0], resize(18, 60, false)),
+        (ids[1], resize(24, 80, false)),
+        (ids[0], resize(20, 70, false)),
+        (ids[2], resize(40, 90, false)),
+    ] {
+        set_size(&terminal, id, control, &mut requests, &updates, &mut first).await;
+    }
+    terminal
+        .control(Some(ids[2]), TerminalControl::Focus { focused: false })
+        .await
+        .expect("blur");
+    set_size(
+        &terminal,
+        attach.connection_id,
+        resize(30, 100, true),
+        &mut requests,
+        &updates,
+        &mut first,
+    )
+    .await;
+    terminal.unsubscribe(attach.connection_id);
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 20,
+            cols: 70,
+            claim: true,
+            ..
+        }
+    ));
     terminal.disconnect();
 }
 

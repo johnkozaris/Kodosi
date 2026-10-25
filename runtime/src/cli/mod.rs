@@ -1,4 +1,7 @@
-use crate::{Config, Error, EventBody, HostKind, Result, local_host, protocol::SessionKind};
+use crate::{
+    Config, Error, EventBody, HostKind, Result, local_host, protocol::SessionKind,
+    provider::Provider,
+};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 use std::{
@@ -39,47 +42,50 @@ struct Arguments {
 }
 #[derive(Subcommand)]
 enum Action {
-    #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
-    Host {
-        #[command(subcommand)]
-        action: Option<HostAction>,
-    },
     #[command(about = "Show the account and the terminals.")]
     Status,
     #[command(subcommand, about = "Start, read, type into and share terminals.")]
     Terminal(TerminalAction),
     #[command(
         subcommand,
-        about = "List the agents, their accounts, models and efforts."
+        about = "List the agents with their accounts, models and efforts, and show their plan use."
     )]
     Agent(AgentAction),
-    #[command(subcommand, about = "Sign in or out, or delete your account.")]
-    Auth(AuthAction),
-    #[command(
-        subcommand,
-        about = "Approve and remove your devices, and make a recovery key."
-    )]
-    Devices(DeviceAction),
-    #[command(subcommand, about = "Add, verify and remove friends.")]
-    Friends(FriendAction),
     #[command(
         about = "Work with rooms and their members, conversation, tasks, repositories and terminals."
     )]
     Room(rooms::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
     Dosi(DosiAction),
+    #[command(subcommand, about = "Add, verify and remove friends.")]
+    Friends(FriendAction),
     #[command(
-        about = "Print the skill that lets an agent work with the people and agents in Kodosi."
+        subcommand,
+        about = "Approve and remove your devices, and make a recovery key."
     )]
-    Skill,
+    Devices(DeviceAction),
+    #[command(subcommand, about = "Sign in or out, or delete your account.")]
+    Auth(AuthAction),
     #[command(
         subcommand,
         about = "Read the saved conversations of Claude Code and Copilot CLI."
     )]
     Provider(ProviderAction),
+    #[command(
+        about = "Print the skill that lets an agent work with the people and agents in Kodosi."
+    )]
+    Skill,
+    #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
+    Host {
+        #[command(subcommand)]
+        action: Option<HostAction>,
+    },
     #[command(hide = true)]
     InternalHost,
 }
+
+const TERMINAL: &str =
+    "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
 #[derive(Subcommand)]
 enum DosiAction {
     /// Print the skill that lets an agent act as Dosi: it sees your terminals and rooms and acts on them.
@@ -104,7 +110,8 @@ enum DosiAction {
         /// Let the person pick more than one choice.
         #[arg(long)]
         multiple: bool,
-        /// Type what the chosen option types, and Enter, into this terminal.
+        /// Type what the chosen option types, and Enter, into this terminal: its name, its ID
+        /// or the end of its ID that `kodosi terminal list` shows.
         #[arg(long)]
         terminal: Option<String>,
     },
@@ -123,11 +130,18 @@ enum TerminalAction {
     /// List the terminals of this computer and the terminals that you can open.
     List,
     /// Show the details of one terminal.
-    Info { terminal: String },
+    Info {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
     /// Show a terminal in the Kodosi app.
-    Show { terminal: String },
+    Show {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
     /// Print the text on the screen of a terminal.
     Read {
+        #[arg(help = TERMINAL)]
         terminal: String,
         /// Also print the earlier lines that scrolled away.
         #[arg(long)]
@@ -135,12 +149,14 @@ enum TerminalAction {
     },
     /// Press keys in a terminal, for example enter, escape, up or ctrl-c. It stops with a message while a person types there.
     Keys {
+        #[arg(help = TERMINAL)]
         terminal: String,
         #[arg(required = true)]
         keys: Vec<String>,
     },
     /// Wait until the program in a terminal reaches a state.
     Wait {
+        #[arg(help = TERMINAL)]
         terminal: String,
         /// One or more states, separated by commas.
         #[arg(long, value_delimiter = ',', required = true)]
@@ -185,6 +201,7 @@ enum TerminalAction {
     },
     /// Start an agent in a terminal that waits at its shell prompt.
     Run {
+        #[arg(help = TERMINAL)]
         terminal: String,
         /// The agent, for example claude or codex. It starts with your last choice of account, model and effort.
         #[arg(long)]
@@ -199,19 +216,24 @@ enum TerminalAction {
         #[arg(long)]
         effort: Option<String>,
     },
-    /// Start a terminal that resumes a saved provider conversation.
+    /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
     Resume {
-        provider: String,
+        provider: Provider,
         conversation: Uuid,
         directory: PathBuf,
-        /// The name of the terminal.
+        /// The name of the terminal. The default is the agent's name, with a number when another
+        /// terminal has that name.
         #[arg(long)]
         name: Option<String>,
     },
     /// Open a terminal in this window. Press Ctrl-] and then . to leave; the terminal keeps running.
-    Attach { terminal: String },
+    Attach {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
     /// Send a message to the agent in a terminal. Kodosi types it with who sends it and from where. It stops with a message while that agent waits for a person's answer or a person types there.
     Message {
+        #[arg(help = TERMINAL)]
         terminal: String,
         text: String,
         /// The name of the agent that sends it, by default the agent in this terminal.
@@ -220,6 +242,7 @@ enum TerminalAction {
     },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
+        #[arg(help = TERMINAL)]
         terminal: String,
         text: String,
         /// Press Enter after the text.
@@ -227,24 +250,39 @@ enum TerminalAction {
         enter: bool,
     },
     /// Give a terminal a new name.
-    Rename { terminal: String, name: String },
+    Rename {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+        name: String,
+    },
     /// End a terminal and the programs in it.
-    Close { terminal: String },
+    Close {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
     /// Send Ctrl-C to a terminal.
-    Interrupt { terminal: String },
+    Interrupt {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
     /// Give friends full control of a terminal of this computer.
     Share {
+        #[arg(help = TERMINAL)]
         terminal: String,
         #[arg(required = true)]
         friends: Vec<String>,
     },
     /// Take a terminal back from the given friends, or from all friends.
     Unshare {
+        #[arg(help = TERMINAL)]
         terminal: String,
         friends: Vec<String>,
     },
     /// Leave a terminal that a friend shared with you.
-    Leave { terminal: String },
+    Leave {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+    },
 }
 #[derive(Subcommand)]
 enum AgentAction {
@@ -261,8 +299,6 @@ enum AuthAction {
     Login,
     /// Sign out. This ends the sharing of the terminals of this computer.
     Logout,
-    /// Show the account and the terminals.
-    Status,
     /// Delete this account and its devices, friends, shared terminals and rooms on the server.
     DeleteAccount,
 }
@@ -277,7 +313,10 @@ enum DeviceAction {
     /// Approve the device that shows this code.
     Approve { code: String },
     /// Remove a device from your account.
-    Revoke { device: String },
+    Revoke {
+        /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        device: String,
+    },
     /// Start fresh on this device: every other device loses access until it is approved again.
     Reset,
     /// Make a recovery key and show it one time. An earlier recovery key stops working.
@@ -311,19 +350,19 @@ enum FriendAction {
 enum ProviderAction {
     /// Show the program and the settings files of an agent, for a folder if you give one.
     Inspect {
-        provider: String,
+        provider: Provider,
         /// The folder whose project settings to show.
         #[arg(long)]
         directory: Option<PathBuf>,
     },
     /// List the saved conversations of an agent in a folder.
     History {
-        provider: String,
+        provider: Provider,
         directory: PathBuf,
     },
     /// Print a saved conversation.
     Read {
-        provider: String,
+        provider: Provider,
         conversation: Uuid,
         directory: PathBuf,
     },
@@ -424,9 +463,10 @@ async fn dispatch(args: Arguments) -> Result<()> {
         Action::Room(arguments) => {
             rooms::run(arguments, &mut client, &mut context, json_output).await
         }
-        Action::Status
-        | Action::Terminal(TerminalAction::List)
-        | Action::Auth(AuthAction::Status) => print_status(&context, json_output),
+        Action::Status => print_status(&context, json_output, render::status),
+        Action::Terminal(TerminalAction::List) => {
+            print_status(&context, json_output, render::terminals)
+        }
         Action::Terminal(TerminalAction::Wait {
             terminal,
             until,
@@ -445,11 +485,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
         }
         Action::Terminal(TerminalAction::Info { terminal }) => {
             let entry = context.session(context.session_id(&terminal)?)?;
-            if json_output {
-                print_json(entry)
-            } else {
-                print_text(&render::session(entry, &context))
-            }
+            output(entry, json_output, &render::session(entry, &context))
         }
         Action::Terminal(TerminalAction::Attach { terminal }) => {
             let session = context.session_id(&terminal)?;
@@ -492,11 +528,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
         action => {
             let command = command(action, &mut client, &mut context).await?;
             let event = request(&mut client, &mut context, command, json_output).await?;
-            if json_output {
-                print_json(&event)
-            } else {
-                print_text(&render::result(&event, &context))
-            }
+            output(&event, json_output, &render::result(&event, &context))
         }
     }
 }
@@ -571,8 +603,7 @@ async fn command(
         | Action::Skill
         | Action::Host { .. }
         | Action::InternalHost
-        | Action::Status
-        | Action::Auth(AuthAction::Status) => {
+        | Action::Status => {
             return Err(Error::Invalid("unexpected command".into()));
         }
     })
@@ -597,12 +628,11 @@ async fn start_command(
     };
     let chosen = name.is_some() || branch.is_some();
     let name = name.or_else(|| {
-        agent.as_ref().and_then(|agent| {
-            crate::agents::Agent::ALL
-                .into_iter()
-                .find(|known| known.name() == agent["agent"])
-                .map(|known| known.label().to_owned())
-        })
+        agent
+            .as_ref()
+            .and_then(|agent| agent["agent"].as_str())
+            .and_then(crate::agents::Agent::named)
+            .map(|known| known.label().to_owned())
     });
     let computer = match computer {
         Some(reference) => computer_id(client, context, &reference).await?,
@@ -638,20 +668,8 @@ async fn device_id(
         .get("devices.list")
         .cloned()
         .unwrap_or_default();
-    let matches = list["devices"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|entry| {
-            entry["label"]
-                .as_str()
-                .is_some_and(|label| label.eq_ignore_ascii_case(reference))
-                || entry["deviceId"].as_str().is_some_and(|id| {
-                    id == reference || (reference.len() >= 4 && id.ends_with(reference))
-                })
-        })
-        .filter_map(|entry| entry["deviceId"].as_str())
-        .collect::<Vec<_>>();
+    let devices = list["devices"].as_array().into_iter().flatten();
+    let matches = referred(devices, ("deviceId", "label"), reference);
     only(&matches, kind, reference, "kodosi devices list").map(str::to_owned)
 }
 
@@ -766,9 +784,14 @@ async fn terminal_command(
             conversation,
             directory,
             name,
-        } => Ok(
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(Some(directory))?,"resume":{"provider":provider_name(provider)?,"nativeConversationId":conversation}}),
-        ),
+        } => {
+            let name = name.unwrap_or_else(|| {
+                unused_name(provider.agent().label().to_owned(), &context.sessions)
+            });
+            Ok(
+                json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(Some(directory))?,"resume":{"provider":provider,"nativeConversationId":conversation}}),
+            )
+        }
         TerminalAction::Show { terminal } => {
             let id = context.session_id(&terminal)?;
             Ok(json!({"type":"session.show","requestId":request,"sessionId":id}))
@@ -889,11 +912,8 @@ async fn share(
             result => break result?,
         }
     };
-    if json_output {
-        print_json(&event)
-    } else {
-        print_text(&render::sharing(context.session(id)?, &users, &known))
-    }
+    let text = render::sharing(context.session(id)?, &users, &known);
+    output(&event, json_output, &text)
 }
 
 async fn link_device(
@@ -909,11 +929,7 @@ async fn link_device(
     )
     .await?;
     if event["code"].is_string() {
-        if json_output {
-            print_json(&event)?;
-        } else {
-            print_text(&render::link_code(&event))?;
-        }
+        output(&event, json_output, &render::link_code(&event))?;
         event = tokio::time::timeout(Duration::from_mins(11), async {
             loop {
                 let frame = client.next().await?;
@@ -963,12 +979,7 @@ async fn request(
 }
 
 async fn list_terminals(action: &Action, client: &mut local_host::Client, context: &mut Context) {
-    if context.user.is_some()
-        && matches!(
-            action,
-            Action::Status | Action::Terminal(_) | Action::Auth(AuthAction::Status)
-        )
-    {
+    if context.user.is_some() && matches!(action, Action::Status | Action::Terminal(_)) {
         drop(
             tokio::time::timeout(
                 Duration::from_secs(5),
@@ -1009,14 +1020,23 @@ fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
 }
 
 fn mission_id(snapshot: &Value, reference: &str) -> Result<String> {
-    let matches = snapshot["missions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|mission| mission["id"] == reference || mission["name"] == reference)
-        .filter_map(|mission| mission["id"].as_str())
-        .collect::<Vec<_>>();
+    let missions = snapshot["missions"].as_array().into_iter().flatten();
+    let matches = referred(missions, ("id", "name"), reference);
     only(&matches, "room", reference, "kodosi room list").map(str::to_owned)
+}
+
+fn referred<'a>(
+    entries: impl IntoIterator<Item = &'a Value>,
+    (id, name): (&str, &str),
+    reference: &str,
+) -> Vec<&'a str> {
+    let entries = entries.into_iter().filter_map(|entry| {
+        Some((
+            entry[id].as_str()?,
+            entry[name].as_str().unwrap_or_default(),
+        ))
+    });
+    crate::protocol::referred(reference, entries)
 }
 
 fn only<'a>(matches: &[&'a str], kind: &str, reference: &str, list: &str) -> Result<&'a str> {
@@ -1175,10 +1195,8 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
 }
 
 fn agent_name(agent: &str) -> Result<&'static str> {
-    crate::agents::Agent::ALL
-        .into_iter()
+    crate::agents::Agent::named(agent)
         .map(crate::agents::Agent::name)
-        .find(|name| *name == agent)
         .ok_or_else(|| {
             Error::Invalid(format!(
                 "Kodosi knows these agents: {}.",
@@ -1204,24 +1222,31 @@ fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {
             provider,
             directory,
         } => {
-            json!({"type":"provider.inspect","requestId":request,"provider":provider_name(provider)?,"workingDirectory":path(directory)?})
+            json!({"type":"provider.inspect","requestId":request,"provider":provider,"workingDirectory":path(directory)?})
         }
         ProviderAction::History {
             provider,
             directory,
         } => {
-            json!({"type":"provider.discoverConversations","requestId":request,"provider":provider_name(provider)?,"workingDirectory":path(Some(directory))?})
+            json!({"type":"provider.discoverConversations","requestId":request,"provider":provider,"workingDirectory":path(Some(directory))?})
         }
         ProviderAction::Read {
             provider,
             conversation,
             directory,
         } => {
-            json!({"type":"provider.readConversation","requestId":request,"provider":provider_name(provider)?,"nativeConversationId":conversation,"workingDirectory":path(Some(directory))?})
+            json!({"type":"provider.readConversation","requestId":request,"provider":provider,"nativeConversationId":conversation,"workingDirectory":path(Some(directory))?})
         }
     })
 }
 
+fn output(value: &impl serde::Serialize, json_output: bool, text: &str) -> Result<()> {
+    if json_output {
+        print_json(value)
+    } else {
+        print_text(text)
+    }
+}
 fn print_text(text: &str) -> Result<()> {
     let mut output = io::stdout().lock();
     output.write_all(text.as_bytes())?;
@@ -1267,14 +1292,6 @@ fn path(value: Option<PathBuf>) -> Result<Option<String>> {
         .transpose()
         .map_err(Into::into)
 }
-fn provider_name(value: String) -> Result<String> {
-    if matches!(value.as_str(), "claude" | "copilot") {
-        Ok(value)
-    } else {
-        Err(Error::Invalid("provider must be claude or copilot".into()))
-    }
-}
-
 struct Context {
     user: Option<String>,
     epoch: u64,
@@ -1356,17 +1373,7 @@ impl Context {
         true
     }
     fn session_id(&self, reference: &str) -> Result<Uuid> {
-        let matches = self
-            .sessions
-            .iter()
-            .filter(|session| {
-                session["name"] == reference
-                    || session["id"].as_str().is_some_and(|id| {
-                        id == reference || (reference.len() >= 4 && id.ends_with(reference))
-                    })
-            })
-            .filter_map(|session| session["id"].as_str())
-            .collect::<Vec<_>>();
+        let matches = referred(&self.sessions, ("id", "name"), reference);
         let id = only(&matches, "terminal", reference, "kodosi terminal list")?;
         Uuid::parse_str(id).map_err(|_| Error::Stale)
     }
@@ -1484,6 +1491,15 @@ impl WaitState {
     }
 }
 
+fn wait_outcome(until: &[WaitState], entry: Option<&Value>) -> Option<Result<WaitState>> {
+    if let Some(state) = until.iter().find(|state| state.reached(entry)) {
+        return Some(Ok(*state));
+    }
+    let closed = || Some("The terminal closed.".to_owned());
+    let failure = entry.map_or_else(closed, render::offline)?;
+    Some(Err(Error::Other(failure)))
+}
+
 async fn wait_for(
     client: &mut local_host::Client,
     context: &mut Context,
@@ -1494,50 +1510,44 @@ async fn wait_for(
 ) -> Result<()> {
     let id = session.to_string();
     let reached = tokio::time::timeout(Duration::from_secs(seconds), async {
+        let mut listed = true;
         loop {
             let entry = context
                 .sessions
                 .iter()
                 .find(|entry| entry["id"] == id.as_str());
-            if let Some(state) = until.iter().find(|state| state.reached(entry)) {
-                return Ok::<_, Error>((*state, entry.cloned().unwrap_or_default()));
-            }
-            if let Some(offline) = entry.and_then(render::offline) {
-                return Err(Error::Other(offline));
+            if (listed || entry.is_some())
+                && let Some(outcome) = wait_outcome(until, entry)
+            {
+                return outcome.map(|state| (state, entry.cloned().unwrap_or_default()));
             }
             let frame = client.next().await?;
-            if let Some(event) = frame.get("event") {
-                context.observe(event);
+            if let Some(event) = frame.get("event")
+                && context.observe(event)
+            {
+                listed = event["type"] == "sessions.snapshot";
             }
         }
     })
     .await
     .map_err(|_| Error::Other("The terminal did not reach that state in time.".into()))?;
     let (state, entry) = reached?;
-    if json_output {
-        print_json(&json!({"state":state.name(),"session":entry}))
-    } else {
-        print_text(state.name())
-    }
+    let reached = json!({"state":state.name(),"session":entry});
+    output(&reached, json_output, state.name())
 }
 
-fn print_status(context: &Context, json_output: bool) -> Result<()> {
-    if json_output {
-        print_json(
-            &json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions}),
-        )
-    } else {
-        print_text(&render::status(context))
-    }
+fn print_status(context: &Context, json_output: bool, text: fn(&Context) -> String) -> Result<()> {
+    let status = json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions});
+    output(&status, json_output, &text(context))
 }
 
 async fn stop_host(config: &Config, force: bool, json_output: bool) -> Result<()> {
     local_host::stop_other_host(&config.data_root, force).await?;
-    if json_output {
-        print_json(&json!({"stopped":true}))
-    } else {
-        print_text("The Kodosi host stopped.")
-    }
+    output(
+        &json!({"stopped":true}),
+        json_output,
+        "The Kodosi host stopped.",
+    )
 }
 
 fn key_text(key: &str) -> Result<String> {
@@ -1623,7 +1633,7 @@ mod tests {
         assert!(!is_invocation(&[]));
     }
     #[test]
-    fn every_command_in_a_skill_is_a_command_of_this_cli() {
+    fn every_command_in_a_skill_or_guide_is_a_command_of_this_cli() {
         let words = |command: &str| {
             let mut words = vec![String::new()];
             let mut quoted = false;
@@ -1645,12 +1655,15 @@ mod tests {
                 })
                 .collect::<Vec<_>>()
         };
-        for skill in [
+        for document in [
             include_str!("../../skills/kodosi-dosi/INSTRUCTIONS.md"),
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
             include_str!("../../skills/kodosi/SKILL.md"),
+            include_str!("../../../README.md"),
+            include_str!("../../../docs/GETTING_STARTED.md"),
+            include_str!("../../../docs/ARCHITECTURE.md"),
         ] {
-            let commands = skill.split('`').skip(1).step_by(2);
+            let commands = document.split('`').skip(1).step_by(2);
             for command in commands.filter(|code| code.starts_with("kodosi ")) {
                 assert!(
                     Arguments::try_parse_from(words(command)).is_ok(),
@@ -1675,9 +1688,23 @@ mod tests {
         assert!(!WaitState::Prompt.reached(Some(&entry)));
         assert!(WaitState::Closed.reached(None));
         assert!(!WaitState::Waiting.reached(None));
-        assert_eq!(render::offline(&entry), None);
+        let done = [WaitState::Done];
+        assert!(wait_outcome(&done, Some(&entry)).is_none());
+        assert!(matches!(
+            wait_outcome(&[WaitState::Done, WaitState::Waiting], Some(&entry)),
+            Some(Ok(WaitState::Waiting))
+        ));
+        assert!(matches!(
+            wait_outcome(&[WaitState::Closed], None),
+            Some(Ok(WaitState::Closed))
+        ));
+        assert!(
+            matches!(wait_outcome(&done, None), Some(Err(Error::Other(message))) if message == "The terminal closed.")
+        );
         let away = json!({"id":"t","status":"offline","hostName":"Studio"});
-        assert_eq!(render::offline(&away).unwrap(), "Studio is offline.");
+        assert!(
+            matches!(wait_outcome(&done, Some(&away)), Some(Err(Error::Other(message))) if message == "Studio is offline.")
+        );
     }
     #[test]
     fn background_hosts_only_exit_after_an_idle_grace_period() {
@@ -1752,7 +1779,7 @@ mod tests {
         assert_eq!(context.sessions, [] as [Value; 0]);
     }
     #[test]
-    fn a_terminal_and_a_friend_are_found_by_name_or_identifier() {
+    fn terminals_rooms_and_friends_are_found_by_name_or_id() {
         let context = Context::from_events(&[
             json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":1,"sessions":[
                 {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work"},
@@ -1761,13 +1788,30 @@ mod tests {
             ]}),
         ]);
         let work = Uuid::parse_str("01a10d06-92a7-7367-8536-65c4895d05ae").unwrap();
-        assert_eq!(context.session_id("work").unwrap(), work);
-        assert_eq!(context.session_id("5d05ae").unwrap(), work);
-        assert_eq!(context.session_id(&work.to_string()).unwrap(), work);
+        for reference in ["work", "Work", "5d05ae", &work.to_string()] {
+            assert_eq!(context.session_id(reference).unwrap(), work);
+        }
         assert!(context.session_id("Terminal").is_err());
         assert!(context.session_id("000003").is_ok());
-        assert!(context.session_id("ae").is_err());
-        assert!(context.session_id("other").is_err());
+        for reference in ["ae", "01a10d06", "other", ""] {
+            assert!(context.session_id(reference).is_err());
+        }
+        let rooms = json!({"missions":[
+            {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Launch"},
+            {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Launch"},
+            {"id":"019f0000-0000-7000-8000-00000000e5f6","name":"api"},
+            {"id":"019f0000-0000-7000-8000-00000000f7a8","name":"API"},
+        ]});
+        assert!(mission_id(&rooms, "launch").is_err());
+        assert_eq!(
+            mission_id(&rooms, "API").unwrap(),
+            "019f0000-0000-7000-8000-00000000f7a8"
+        );
+        assert!(mission_id(&rooms, "Api").is_err());
+        assert_eq!(
+            mission_id(&rooms, "c3d4").unwrap(),
+            "019f0000-0000-7000-8000-00000000c3d4"
+        );
         let friends = [json!({"userId":"u-bob","handle":"bob"})];
         for reference in ["bob", "@bob", "Bob", "u-bob"] {
             assert_eq!(friend_id(&friends, reference).unwrap(), "u-bob");

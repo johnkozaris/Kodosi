@@ -42,6 +42,23 @@ struct Fixture {
         desktop.attachSessionCatalog(&sessions);
     }
 };
+QJsonObject onMini(int value, int restoredFrom = 0, const QString& owner = test::id(50),
+    const QString& host = QStringLiteral("mini"))
+{
+    auto entry = test::session(value, true);
+    entry.insert(QStringLiteral("ownerUserId"), owner);
+    entry.insert(QStringLiteral("hostDeviceId"), host);
+    if (restoredFrom != 0)
+        entry.insert(QStringLiteral("restoredFrom"), test::id(restoredFrom));
+    return entry;
+}
+bool opened(const Commands& commands, const QString& id)
+{
+    return std::ranges::any_of(commands.values, [&](const QJsonObject& command) {
+        return command.value(QStringLiteral("type")).toString() == QStringLiteral("session.openRemote")
+            && command.value(QStringLiteral("sessionId")).toString() == id;
+    });
+}
 QJsonObject accountEvent(const QString& userId, int epoch)
 {
     QJsonObject event { { QStringLiteral("type"), userId.isEmpty() ? QStringLiteral("auth.required") : QStringLiteral("auth.ready") },
@@ -895,6 +912,109 @@ private slots:
         const auto command = restarted.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
         QCOMPARE(command.value(QStringLiteral("sessionId")).toString(), test::id(4));
+    }
+    void aTerminalThatAnotherComputerStartedAgainTakesThePlaceAndFocusOfTheOneThatEnded()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.desktop.selectSession(test::id(1)));
+        f.desktop.toggleFocusForSelectedSession();
+        f.workspace.missions().open(test::id(10));
+        f.workspace.missions().setPresentation(QStringLiteral("terminal"), test::id(1));
+        f.workspace.apply(test::snapshot({ onMini(2) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(2) });
+        QVERIFY(f.desktop.selectedSessionId().isEmpty());
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
+        f.workspace.apply(test::snapshot({ onMini(2), onMini(3, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(2) }));
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(3));
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        QVERIFY(opened(f.commands, test::id(3)));
+        QCOMPARE(f.workspace.missions().presentation().value(QStringLiteral("terminal")).toString(), test::id(3));
+    }
+    void aRestartTakesNoSelectionThatThePersonGaveToAnotherTerminal()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.desktop.selectSession(test::id(1)));
+        f.workspace.apply(test::snapshot({ onMini(2) }), 1);
+        QVERIFY(f.desktop.selectSession(test::id(2)));
+        f.workspace.apply(test::snapshot({ onMini(2), onMini(3, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(2) }));
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(2));
+    }
+    void terminalsThatEndedTogetherComeBackInTheirPlacesAndOnlyTheSelectedOneTakesTheSelection()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        f.workspace.apply(test::snapshot({}), 1);
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        f.workspace.apply(test::snapshot({ onMini(4, 2), onMini(3, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(4) }));
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(4));
+        QVERIFY(opened(f.commands, test::id(3)) && opened(f.commands, test::id(4)));
+    }
+    void terminalsThatEndedOneAfterAnotherComeBackInTheirPlaces()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2), onMini(3) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(3)));
+        f.workspace.apply(test::snapshot({ onMini(2), onMini(3) }), 1);
+        f.workspace.apply(test::snapshot({ onMini(2) }), 1);
+        f.workspace.apply(test::snapshot({}), 1);
+        f.workspace.apply(test::snapshot({ onMini(6, 3), onMini(5, 2), onMini(4, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(4), test::id(5), test::id(6) }));
+    }
+    void aTerminalThatIsStillListedMovesToItsRestartAtOnce()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2, 1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(2) });
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(2));
+    }
+    void aTerminalFollowsNoRestartOnAnotherComputerOfAnotherPersonOrAfterAClose()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.workspace.sessionActions().close(test::id(2)));
+        f.workspace.apply(test::snapshot({}), 1);
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        QJsonArray restarts { onMini(3, 1, test::id(50), QStringLiteral("air")), onMini(4, 1, test::id(51)), onMini(5, 2) };
+        f.workspace.apply(test::snapshot(restarts), 1);
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        restarts.append(onMini(6, 1));
+        f.workspace.apply(test::snapshot(restarts), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(6) });
+    }
+    void closingTheSelectedTerminalSelectsTheFirstTerminalLeft()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), onMini(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.workspace.sessionActions().close(test::id(2)));
+        f.workspace.apply(test::snapshot({ onMini(1) }), 1);
+        QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(1) });
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(1));
     }
     void boundedStageAndInvalidSnapshot()
     {
