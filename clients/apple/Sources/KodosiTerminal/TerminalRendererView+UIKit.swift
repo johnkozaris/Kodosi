@@ -124,6 +124,7 @@
 
         static func dismantleUIView(_ view: TerminalRendererHostedView, coordinator _: ()) {
             view.onFocusChange = nil
+            view.onCursorRowChange = nil
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
             view.delegateProxy.clipboardReadRequested = nil
@@ -155,6 +156,9 @@
             view.configuration = session.viewState.configuration
             view.onFocusChange = { focused in
                 onFocusChange(focused)
+            }
+            view.onCursorRowChange = { [weak cursor = session.cursor] row in
+                cursor?.row = row
             }
             view.isAccessibilityElement = isSurfaceVisible
             view.accessibilityElementsHidden = !isSurfaceVisible

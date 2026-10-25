@@ -39,4 +39,18 @@ struct TerminalRowsTests {
     @Test func `a terminal that has not measured its cells keeps its room`() {
         #expect(TerminalRows.height(room: 44, metrics: nil, scale: scale) == 44)
     }
+
+    @Test func `a phone terminal with little room shows its bottom rows when they hold the cursor`() {
+        #expect(TerminalRows.top(room: 44, height: 200, cursor: 170 ... 188) == 156)
+        #expect(TerminalRows.top(room: 44, height: 200, cursor: nil) == 156)
+    }
+
+    @Test func `a phone terminal with little room shows the rows down to a cursor above its bottom rows`() {
+        #expect(TerminalRows.top(room: 44, height: 200, cursor: 80 ... 98) == 54)
+        #expect(TerminalRows.top(room: 44, height: 200, cursor: 0 ... 18) == 0)
+    }
+
+    @Test func `a phone terminal with room for all its rows shows them from the top`() {
+        #expect(TerminalRows.top(room: 326, height: 326, cursor: 0 ... 18) == 0)
+    }
 }
