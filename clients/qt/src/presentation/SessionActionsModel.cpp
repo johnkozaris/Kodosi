@@ -29,6 +29,8 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
     connect(&desktop, &DesktopStateModel::restored, this, [this](const QStringList& ids) {
         for (const auto& id : ids) {
             const auto session = m_sessions.session(id);
+            if (session && !session->restoredFrom.isEmpty())
+                m_workspace.missions().followTerminal(session->restoredFrom, id);
             if (session && session->kind == QStringLiteral("remote") && !opening(id))
                 openRemote(id);
         }
@@ -266,7 +268,10 @@ bool SessionActionsModel::command(
 
 bool SessionActionsModel::close(const QString& id)
 {
-    return command(QStringLiteral("session.close"), id);
+    if (!command(QStringLiteral("session.close"), id))
+        return false;
+    m_desktop.noteClosing(id);
+    return true;
 }
 
 bool SessionActionsModel::hide(const QString& id)

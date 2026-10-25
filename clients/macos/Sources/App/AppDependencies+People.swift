@@ -47,6 +47,7 @@ extension AppDependencies {
     }
 
     func close(_ session: RuntimeSession) async {
+        workbench.noteClosing(session.id)
         do {
             try await mutateSession("session.close", session: session)
         } catch { errorMessage = error.localizedDescription }

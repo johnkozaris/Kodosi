@@ -3,6 +3,7 @@
 #include <QPointer>
 #include <QSettings>
 #include <QHash>
+#include <QSet>
 #include <QSize>
 #include <QStringList>
 #include <QVariantMap>
@@ -60,6 +61,7 @@ public:
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
     Q_INVOKABLE void clearError();
     void switchAccount(const QString& userId);
+    void noteClosing(const QString& id);
     QString launcherPrompt() const { return m_launcherPrompt; }
     QString launcherFolder() const { return m_launcherFolder; }
     QVariantMap launcherRemoteFolders() const { return m_launcherRemoteFolders; }
@@ -85,6 +87,17 @@ protected:
     bool eventFilter(QObject*, QEvent*) override;
 
 private:
+    struct Computer {
+        QString owner;
+        QString host;
+    };
+    struct Departure {
+        QString id;
+        Computer computer;
+        qsizetype place = 0;
+        bool selected = false;
+        bool focused = false;
+    };
     std::unique_ptr<QSettings> m_settings;
     QPointer<SessionCatalogModel> m_sessions;
     QPointer<QWindow> m_window;
@@ -94,6 +107,9 @@ private:
     QString m_stageKey;
     QStringList m_restoring;
     QStringList m_savedStage;
+    QHash<QString, Computer> m_computers;
+    QList<Departure> m_departures;
+    QSet<QString> m_closing;
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;
@@ -107,6 +123,9 @@ private:
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
     void reconcile();
+    void remember(const QString& id);
+    void depart(const QString& id, qsizetype place);
+    QStringList follow();
     void saveStage();
     void saveWindow();
 };

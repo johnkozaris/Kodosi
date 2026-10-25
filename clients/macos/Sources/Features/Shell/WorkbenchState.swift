@@ -73,10 +73,22 @@ final class WorkbenchState {
     private(set) var dosiWidth: CGFloat = Metrics.dosiWidth
     private(set) var folding = false
 
+    private struct Departure {
+        let id: String
+        let owner: String?
+        let host: String?
+        let place: Int
+        let selected: Bool
+        let focused: Bool
+    }
+
     private let defaults: UserDefaults
     private var accountKey: String?
     private var restoredIds: [String] = []
     private var savedStage: [String] = []
+    private var known: [String: RuntimeSession] = [:]
+    private var departures: [Departure] = []
+    private var closing: Set<String> = []
     @ObservationIgnored private var unfolding: Task<Void, Never>?
 
     init(defaults: UserDefaults) {
@@ -201,11 +213,18 @@ final class WorkbenchState {
         focusedSessionId = focusedSessionId == id ? nil : id
     }
 
+    func noteClosing(_ id: String) {
+        closing.insert(id)
+    }
+
     func switchAccount(_ userId: String?) {
         save()
         accountKey = "stage." + (userId.map { Data($0.utf8).base64EncodedString() } ?? "local")
         restoredIds = accountKey.flatMap { defaults.stringArray(forKey: $0) } ?? []
         savedStage = restoredIds
+        known = [:]
+        departures = []
+        closing = []
         stagedSessionIds.removeAll()
         selectedSessionId = nil
         focusedSessionId = nil
@@ -223,34 +242,80 @@ final class WorkbenchState {
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {
+        let current = Dictionary(sessions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let restarted = Dictionary(
-            sessions.compactMap { session in session.restoredFrom.map { ($0, session.id) } },
+            sessions.filter { $0.kind == .local }.compactMap { session in session.restoredFrom.map { ($0, session.id) } },
             uniquingKeysWith: { first, _ in first },
         )
         restoredIds = restoredIds.map { restarted[$0] ?? $0 }
-        let available = Set(sessions.map(\.id))
-        for id in stagedSessionIds where !available.contains(id) {
-            dismissSession(id)
+        for (place, id) in stagedSessionIds.enumerated().reversed() {
+            if let session = current[id], restart(of: session.id, owner: session.ownerUserId, host: session.hostDeviceId, in: sessions) == nil {
+                continue
+            }
+            if let session = current[id] ?? known[id] {
+                depart(session, from: place)
+            } else {
+                dismissSession(id)
+            }
         }
+        known = current
+        closing.formIntersection(current.keys)
+        let followed = follow(sessions)
         let listed = Set(sessions.filter { !$0.hidden }.map(\.id))
         let restore = Array(restoredIds.filter { listed.contains($0) }.prefix(max(0, Self.maximumStagedSessions - stagedSessionIds.count)))
-        restoredIds.removeAll { available.contains($0) }
+        restoredIds.removeAll { current[$0] != nil }
         let rank = { (id: String) in self.savedStage.firstIndex { (restarted[$0] ?? $0) == id } ?? -1 }
         for id in restore where !stagedSessionIds.contains(id) {
             let position = stagedSessionIds.firstIndex { rank($0) > rank(id) } ?? stagedSessionIds.endIndex
             stagedSessionIds.insert(id, at: position)
         }
-        if selectedSessionId == nil {
+        if selectedSessionId == nil, !restore.isEmpty {
             selectedSessionId = stagedSessionIds.first
         }
-        if let id = sharingSessionId, !available.contains(id) {
+        if let id = sharingSessionId, current[id] == nil {
             sharingSessionId = nil
         }
-        if let id = detailsSessionId, !available.contains(id) {
+        if let id = detailsSessionId, current[id] == nil {
             detailsSessionId = nil
         }
         save()
-        return restore
+        return followed + restore
+    }
+
+    private func restart(of id: String, owner: String?, host: String?, in sessions: [RuntimeSession]) -> RuntimeSession? {
+        sessions.first { $0.restoredFrom == id && $0.ownerUserId == owner && $0.hostDeviceId == host }
+    }
+
+    private func depart(_ session: RuntimeSession, from place: Int) {
+        if closing.remove(session.id) == nil {
+            departures.append(Departure(
+                id: session.id, owner: session.ownerUserId, host: session.hostDeviceId, place: place,
+                selected: selectedSessionId == session.id, focused: focusedSessionId == session.id,
+            ))
+            departures = Array(departures.suffix(64))
+            if selectedSessionId == session.id {
+                selectedSessionId = nil
+            }
+        }
+        dismissSession(session.id)
+    }
+
+    private func follow(_ sessions: [RuntimeSession]) -> [String] {
+        var followed: [String] = []
+        for departure in departures.sorted(by: { $0.place < $1.place }) {
+            guard let next = restart(of: departure.id, owner: departure.owner, host: departure.host, in: sessions) else { continue }
+            departures.removeAll { $0.id == departure.id }
+            guard !next.hidden, !stagedSessionIds.contains(next.id), stagedSessionIds.count < Self.maximumStagedSessions else { continue }
+            stagedSessionIds.insert(next.id, at: min(departure.place, stagedSessionIds.count))
+            if departure.selected, selectedSessionId == nil {
+                selectedSessionId = next.id
+            }
+            if departure.focused, focusedSessionId == nil, selectedSessionId == next.id {
+                focusedSessionId = next.id
+            }
+            followed.append(next.id)
+        }
+        return followed
     }
 
     private func save() {
