@@ -1882,6 +1882,10 @@ impl Runtime {
         false
     }
 
+    fn listed(&self, id: &Uuid) -> bool {
+        self.hosts(id) || self.remotes.contains_key(id)
+    }
+
     fn check_incarnation(&self, id: Uuid, incarnation: Uuid) -> Result<()> {
         let expected = self
             .remotes

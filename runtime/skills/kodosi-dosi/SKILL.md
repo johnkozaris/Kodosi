@@ -25,8 +25,8 @@ context between terminals and rooms.
 
 - `kodosi --json terminal list`: every terminal that the person can open, with its agent,
   state and what it waits for. Start here. A terminal that runs a program with no agent
-  state can also wait for input, so read its screen. A terminal is its name or the start
-  of its ID.
+  state can also wait for input, so read its screen. A terminal is its name, its ID or the
+  end of its ID that `terminal list` shows.
 - `kodosi terminal info <terminal>`, and `kodosi terminal read <terminal>` for the screen
   as text (`--history` adds the earlier lines). Quote only the lines that matter.
 - `kodosi agent list` and `kodosi agent models <agent>`: the installed agents, their
@@ -81,6 +81,6 @@ context between terminals and rooms.
 ## Answer
 
 - Start with what needs the person: the terminals that wait, failed or finished, what
-  each one waits for, and the rooms with new messages (`unread` in `kodosi room list`).
+  each one waits for, and the rooms that `kodosi room list` shows with new messages.
 - Name terminals and rooms by their names. Keep answers short, and give the full text
   only when the person asks for it.

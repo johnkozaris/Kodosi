@@ -1,15 +1,18 @@
 use super::{
     Context, Duration, Error, PathBuf, Result, Subcommand, Uuid, Value, friend_id, friends, json,
-    local_host, mission_id, missions, only, print_json, print_text, render, request,
+    local_host, mission_id, missions, only, output, print_json, render, request,
 };
-use crate::rooms::{Action, Issue, Snapshot, TaskChange};
+use crate::{
+    protocol::{refers_to, short_id},
+    rooms::{Action, Issue, Snapshot, TaskChange},
+};
 
 #[derive(clap::Args)]
 pub(super) struct Arguments {
     #[arg(
         long,
         global = true,
-        help = "Room name or identifier; defaults to this terminal's room."
+        help = "The room: its name, its ID or the end of its ID that `kodosi room list` shows. The default is the room of this terminal"
     )]
     room: Option<String>,
     #[command(subcommand)]
@@ -28,11 +31,20 @@ enum RoomAction {
     /// Invite a friend to the room.
     Invite { friend: String },
     /// Accept the invitation to a room.
-    Accept { name: String },
+    Accept {
+        #[arg(help = INVITATION)]
+        name: String,
+    },
     /// Reject the invitation to a room.
-    Reject { name: String },
+    Reject {
+        #[arg(help = INVITATION)]
+        name: String,
+    },
     /// Remove a member from the room.
-    RemoveMember { member: String },
+    RemoveMember {
+        /// The member: the username of a friend, or the user ID that `kodosi room context` shows.
+        member: String,
+    },
     /// Leave the room.
     Leave,
     /// Show the room, its members, terminals, tasks and repositories.
@@ -65,9 +77,15 @@ enum RoomAction {
         after: Option<u64>,
     },
     /// Give every member full control of a terminal, by default this one.
-    Share { terminal: Option<String> },
+    Share {
+        #[arg(help = super::TERMINAL)]
+        terminal: Option<String>,
+    },
     /// Take a terminal out of its room, by default this one.
-    Unshare { terminal: Option<String> },
+    Unshare {
+        #[arg(help = super::TERMINAL)]
+        terminal: Option<String>,
+    },
     /// Work with the room's tasks.
     #[command(subcommand)]
     Task(TaskAction),
@@ -89,25 +107,40 @@ enum TaskAction {
         /// What the task needs.
         #[arg(long, default_value = "")]
         description: String,
-        /// Link a repository of the room. Repeat it for more.
+        /// Link a repository of the room, by the name or address that `kodosi room repo list`
+        /// shows. Repeat it for more.
         #[arg(long = "repo")]
         repositories: Vec<String>,
     },
     /// Take a task.
-    Claim { task: String },
+    Claim {
+        #[arg(help = TASK)]
+        task: String,
+    },
     /// Give a task back.
-    Release { task: String },
+    Release {
+        #[arg(help = TASK)]
+        task: String,
+    },
     /// Close a task.
     Close {
+        #[arg(help = TASK)]
         task: String,
         /// The result or a pull request link.
         #[arg(long)]
         note: Option<String>,
     },
     /// Open a closed task again.
-    Reopen { task: String },
+    Reopen {
+        #[arg(help = TASK)]
+        task: String,
+    },
     /// Make a task of a GitHub or Gitea issue. A change of the task changes the issue.
-    Import { repository: String, number: u64 },
+    Import {
+        #[arg(help = REPOSITORY)]
+        repository: String,
+        number: u64,
+    },
 }
 #[derive(Subcommand)]
 enum RepoAction {
@@ -124,8 +157,16 @@ enum RepoAction {
         provider: Option<String>,
     },
     /// List the open issues of a repository.
-    Issues { repository: String },
+    Issues {
+        #[arg(help = REPOSITORY)]
+        repository: String,
+    },
 }
+
+const INVITATION: &str = "The room of the invitation, by the name that `kodosi room list` shows";
+const TASK: &str =
+    "The task: its title, its ID or the end of its ID that `kodosi room task list` shows";
+const REPOSITORY: &str = "The repository: its name or address that `kodosi room repo list` shows";
 
 fn terminal() -> Option<String> {
     super::this_terminal()
@@ -247,9 +288,7 @@ fn done(result: &Value, json_output: bool) -> Result<()> {
     }
     let suffix = result["result"]["itemId"]
         .as_str()
-        .map_or_else(String::new, |id| {
-            format!(" {}", &id[id.len().saturating_sub(6)..])
-        });
+        .map_or_else(String::new, |id| format!(" {}", short_id(id)));
     output(result, json_output, &format!("Done.{suffix}"))
 }
 
@@ -341,7 +380,7 @@ async fn change(
     json_output: bool,
 ) -> Result<()> {
     let event = request(client, context, command, json_output).await?;
-    output(&event, json_output, "Done.")
+    output(&event, json_output, &render::result(&event, context))
 }
 
 fn answer(operation: &str, catalog: &Value, reference: &str) -> Result<Value> {
@@ -350,9 +389,9 @@ fn answer(operation: &str, catalog: &Value, reference: &str) -> Result<Value> {
         .into_iter()
         .flatten()
         .filter(|invitation| {
+            let text = |key: &str| invitation[key].as_str().unwrap_or_default();
             invitation["id"] == reference
-                || invitation["missionId"] == reference
-                || invitation["missionName"] == reference
+                || refers_to(reference, text("missionId"), text("missionName"))
         })
         .filter_map(|invitation| invitation["id"].as_str())
         .collect::<Vec<_>>();
@@ -421,7 +460,7 @@ fn show_tasks(snapshot: &Snapshot, available: bool, json_output: bool) -> Result
         .map(|task| {
             format!(
                 "{}  {}  {}",
-                &task.id[task.id.len().saturating_sub(6)..],
+                short_id(&task.id),
                 if task.closed {
                     "done"
                 } else if task.assigned_to.is_some() {
@@ -469,13 +508,11 @@ fn task_action(action: TaskAction, snapshot: &Snapshot) -> Result<Action> {
     let matching = snapshot
         .tasks
         .iter()
-        .filter(|task| {
-            task.id == reference || task.id.ends_with(&reference) || task.title == reference
-        })
+        .filter(|task| refers_to(&reference, &task.id, &task.title))
         .map(|task| task.id.as_str())
         .collect::<Vec<_>>();
     Ok(Action::UpdateTask {
-        task_id: only(&matching, "task", &reference, "room task list")?.to_owned(),
+        task_id: only(&matching, "task", &reference, "kodosi room task list")?.to_owned(),
         change,
         note,
         terminal_id: terminal(),
@@ -520,22 +557,10 @@ fn repo_id(snapshot: &Snapshot, reference: &str) -> Result<String> {
     let matching = snapshot
         .repositories
         .iter()
-        .filter(|repo| {
-            repo.id == reference
-                || repo.id.ends_with(reference)
-                || repo.name == reference
-                || repo.url == reference
-        })
+        .filter(|repo| refers_to(reference, &repo.id, &repo.name) || repo.url == reference)
         .map(|repo| repo.id.as_str())
         .collect::<Vec<_>>();
-    only(&matching, "repository", reference, "room repo list").map(str::to_owned)
-}
-fn output(value: &Value, json_output: bool, text: &str) -> Result<()> {
-    if json_output {
-        print_json(value)
-    } else {
-        print_text(text)
-    }
+    only(&matching, "repository", reference, "kodosi room repo list").map(str::to_owned)
 }
 fn conversation(snapshot: &Snapshot) -> String {
     snapshot

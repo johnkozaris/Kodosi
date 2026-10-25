@@ -1,5 +1,11 @@
 import Foundation
 
+public func refers(_ reference: String, to id: String, named name: String) -> Bool {
+    guard !reference.isEmpty else { return false }
+    return id == reference || (reference.count >= 4 && id.hasSuffix(reference))
+        || name.caseInsensitiveCompare(reference) == .orderedSame
+}
+
 public struct ProgramStatus: Decodable, Equatable, Sendable {
     public enum State: String, Decodable, Sendable { case idle, working, done, blocked, error }
     public enum Kind: String, Decodable, Sendable { case permission, question, auth }

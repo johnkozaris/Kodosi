@@ -6,7 +6,7 @@ use std::{
 
 use serde_json::{Value, json};
 
-use super::{Context, DosiAction, print_json, print_text, render, request};
+use super::{Context, DosiAction, output, print_json, print_text, render, request};
 use crate::{
     Error, Result,
     dosi::{DosiBody, DosiItem, DosiTone, DosiToolStatus},
@@ -22,7 +22,7 @@ pub(super) async fn run(
     json_output: bool,
 ) -> Result<()> {
     let command = match action {
-        DosiAction::Skill => return print_text(SKILL),
+        DosiAction::Skill => return Err(Error::Invalid("unexpected command".to_owned())),
         DosiAction::Say { text, timeout } => {
             return say(client, context, &text, timeout, json_output).await;
         }
@@ -39,16 +39,15 @@ pub(super) async fn run(
                     "Only Dosi in the Kodosi app asks with buttons. Ask in your answer.".to_owned(),
                 )
             })?;
+            let terminal = terminal
+                .map(|reference| context.session_id(&reference).map(|id| id.to_string()))
+                .transpose()?;
             let (options, keys) = choices(options, terminal.is_some());
             json!({"type":"dosi.ask","token":token,"question":question,"options":options,"keys":keys,"multiple":multiple,"terminal":terminal})
         }
     };
     let event = request(client, context, command, json_output).await?;
-    if json_output {
-        print_json(&event)
-    } else {
-        print_text(&render::result(&event, context))
-    }
+    output(&event, json_output, &render::result(&event, context))
 }
 
 fn choices(options: Vec<String>, typed: bool) -> (Vec<String>, Vec<String>) {
