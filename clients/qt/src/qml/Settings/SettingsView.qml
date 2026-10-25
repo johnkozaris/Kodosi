@@ -14,18 +14,21 @@ Item {
         if (focusCode)
             Qt.callLater(() => devices.focusCode());
     }
-
-    Accessible.id: objectName
-    objectName: "panel.settings"
-
-    onVisibleChanged: {
-        if (!visible)
-            return;
+    function showAccountStep() {
         if (!Models.Account.signedIn && Models.Account.signInPage.length > 0)
             section = 2;
         else if (Models.Account.signedIn && !Models.Devices.localDeviceEnrolled)
             section = 3;
     }
+
+    Accessible.id: objectName
+    objectName: "panel.settings"
+
+    onVisibleChanged: {
+        if (visible)
+            showAccountStep();
+    }
+    Component.onCompleted: showAccountStep()
     Connections {
         function onLoginChanged() {
             if (Models.Account.signInPage.length > 0 && !Models.Account.signedIn)

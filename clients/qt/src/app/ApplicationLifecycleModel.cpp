@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QThread>
 #include <QTimer>
+#include <QVersionNumber>
 
 #include <utility>
 
@@ -69,14 +70,14 @@ int ApplicationLifecycleModel::hostTerminals() const noexcept
     return m_outdatedHost ? static_cast<int>(m_outdatedHost->terminals) : 0;
 }
 
-void ApplicationLifecycleModel::scheduleInitialStart()
+void ApplicationLifecycleModel::beginInitialStart()
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    if (m_initialStartScheduled || m_stopping) {
+    if (m_initialStartBegun || m_stopping) {
         return;
     }
-    m_initialStartScheduled = true;
-    beginAttempt();
+    m_initialStartBegun = true;
+    executeAttempt(beginAttempt());
 }
 
 void ApplicationLifecycleModel::stop() noexcept
@@ -97,7 +98,10 @@ void ApplicationLifecycleModel::retry()
     if (m_state != State::Failed || m_attemptInFlight || m_stopping) {
         return;
     }
-    beginAttempt();
+    QTimer::singleShot(
+        StartDelayMilliseconds,
+        this,
+        [this, token = beginAttempt()] { executeAttempt(token); });
 }
 
 void ApplicationLifecycleModel::setUpdateInstalled()
@@ -107,6 +111,14 @@ void ApplicationLifecycleModel::setUpdateInstalled()
     }
     m_updateInstalled = true;
     emit updateInstalledChanged();
+}
+
+void ApplicationLifecycleModel::offerRestart(const QString& launched, const QString& running)
+{
+    if (QVersionNumber::fromString(launched) > QVersionNumber::fromString(running))
+        setUpdateInstalled();
+    if (m_updateInstalled)
+        emit restartOffered();
 }
 
 void ApplicationLifecycleModel::restart()
@@ -150,7 +162,7 @@ void ApplicationLifecycleModel::completeHostStop(const std::uint64_t token, cons
                                      : tr("Kodosi could not reach the earlier Kodosi."));
 }
 
-void ApplicationLifecycleModel::beginAttempt()
+std::uint64_t ApplicationLifecycleModel::beginAttempt()
 {
     ++m_attemptToken;
     const auto token = m_attemptToken;
@@ -160,10 +172,7 @@ void ApplicationLifecycleModel::beginAttempt()
         m_errorText.clear();
         emit stateChanged();
     }
-    QTimer::singleShot(
-        StartDelayMilliseconds,
-        this,
-        [this, token] { executeAttempt(token); });
+    return token;
 }
 
 void ApplicationLifecycleModel::executeAttempt(const std::uint64_t token)
@@ -206,6 +215,9 @@ void ApplicationLifecycleModel::completeAttempt(
     setOutdatedHost(result ? std::nullopt : result.error().outdatedHost);
     if (!result) {
         fail(m_outdatedHost ? describe(*m_outdatedHost) : result.error().message);
+        if (m_outdatedHost && !m_outdatedHost->foreground && m_outdatedHost->terminals == 0
+            && !std::exchange(m_outdatedHostRestarted, true))
+            restartHost();
         return;
     }
 
@@ -239,6 +251,10 @@ QString ApplicationLifecycleModel::describe(const OutdatedHost& host)
         return tr("The `kodosi host` command (process %1) runs the earlier version. "
                   "Stop it in its terminal and start it again.")
             .arg(host.pid);
+    }
+    if (host.terminals == 1) {
+        return tr("The earlier version of Kodosi still runs 1 terminal in the background. "
+                  "Restart it to use the update. The terminal ends.");
     }
     return tr("The earlier version of Kodosi still runs %n terminals in the background. "
               "Restart it to use the update. Its terminals end.",

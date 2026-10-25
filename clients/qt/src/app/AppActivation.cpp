@@ -15,6 +15,7 @@ namespace {
 const auto tokenKey = QStringLiteral("token");
 const auto sessionKey = QStringLiteral("session");
 const auto routeErrorKey = QStringLiteral("routeError");
+const auto appVersionKey = QStringLiteral("appVersion");
 constexpr qsizetype maximumWaiting = 16;
 constexpr std::array forwardedErrors {
     DeepLinkParseError::Oversized,
@@ -53,6 +54,12 @@ AppActivation AppActivation::fromJson(const QByteArray& json)
     const auto object = QJsonDocument::fromJson(json).object();
     if (const auto token = object.value(tokenKey).toString(); isSafeActivationToken(token))
         activation.token = token;
+    const auto version = object.value(appVersionKey).toString();
+    if (version.size() <= 32 && std::ranges::all_of(version, [](const QChar character) {
+            return character.isLetterOrNumber() || character == QLatin1Char('.') || character == QLatin1Char('-')
+                || character == QLatin1Char('+');
+        }))
+        activation.appVersion = version;
     const auto session = object.value(sessionKey).toString();
     if (DeepLinkRouter::isSafeIdentity(session))
         activation.route = DeepLinkParseResult { .destination = DeepLinkDestination { session }, .error = {} };

@@ -31,12 +31,7 @@ Row {
             radius: root.barWidth * 0.4
             color: index <= root.level ? root.lit : root.unlit
 
-            Behavior on color {
-                SequentialAnimation {
-                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : bar.index * 35 }
-                    ColorAnimation { duration: KodosiTheme.motionSnappy }
-                }
-            }
+            Behavior on color { ColorAnimation { duration: KodosiTheme.motionSnappy } }
         }
     }
 }

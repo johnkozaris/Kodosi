@@ -18,8 +18,8 @@ use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
-    CellPixels, ControlFrame, DataFrame, SOMEONE_TYPING, SessionChange, Subscription, TYPING,
-    TerminalPixelGeometry, TerminalSize,
+    AGENT_ASKS, CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SOMEONE_TYPING,
+    SessionChange, Subscription, TYPING, TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -34,6 +34,9 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const START_PATIENCE: Duration = Duration::from_secs(3);
 const START_LIMIT: Duration = Duration::from_secs(15);
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
+const BUSY_UPKEEP: Duration = Duration::from_millis(20);
+const IDLE_UPKEEP: Duration = Duration::from_millis(250);
+const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -48,7 +51,9 @@ enum Request {
         connection: Uuid,
         write: PendingWrite,
     },
-    Send(PendingWrite),
+    /// Input from a command; `true` makes it a message, which only an agent that takes messages
+    /// gets.
+    Send(PendingWrite, bool),
     Read {
         history: bool,
         reply: oneshot::Sender<Result<String>>,
@@ -71,6 +76,17 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Start(String),
+    Foreground {
+        variable: &'static str,
+        reply: oneshot::Sender<Result<Foreground>>,
+    },
+}
+
+/// The process group in front of a terminal's shell, and one variable of its leader.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct Foreground {
+    pub group: Option<u32>,
+    pub variable: Option<String>,
 }
 
 #[derive(Clone)]
@@ -85,6 +101,8 @@ pub(crate) struct TerminalSession {
 }
 
 impl TerminalSession {
+    /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
+    /// reads; the note itself is in each terminal's environment.
     pub(crate) async fn spawn(
         id: Uuid,
         incarnation_id: Uuid,
@@ -92,6 +110,7 @@ impl TerminalSession {
         arguments: Vec<String>,
         directory: PathBuf,
         prompt_marks: Option<PathBuf>,
+        notes: Option<PathBuf>,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -104,12 +123,20 @@ impl TerminalSession {
             let emulator = SessionTerminalHandle::spawn(size)?;
             let session_id = id.to_string();
             let command_path = command_path();
+            let copilot_notes = notes.as_deref().and_then(copilot_notes);
             let mut environment = vec![
                 ("KODOSI_SESSION_ID", session_id.as_str()),
-                ("TERM_PROGRAM_VERSION", env!("KODOSI_VERSION")),
+                ("KODOSI_VERSION", env!("KODOSI_VERSION")),
+                (
+                    crate::agents::CONTEXT_VARIABLE,
+                    crate::agents::CONTEXT.trim(),
+                ),
             ];
             if let Some(path) = &command_path {
                 environment.push(("PATH", path.as_str()));
+            }
+            if let Some(folders) = &copilot_notes {
+                environment.push((crate::agents::COPILOT_INSTRUCTIONS, folders.as_str()));
             }
             let (pty, reader) = KodosiPty::spawn_program(
                 &program,
@@ -240,7 +267,18 @@ impl TerminalSession {
         let (reply, response) = oneshot::channel();
         let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
             write.completion = Some(InputCompletion::Local(reply));
-            self.send(Request::Send(write))
+            self.send(Request::Send(write, false))
+        });
+        await_reply(admission, response)
+    }
+
+    /// Types a message for the agent in this terminal, unless it waits for a person's answer
+    /// or a person types here.
+    pub(crate) fn message(&self, bytes: Bytes) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
+            write.completion = Some(InputCompletion::Local(reply));
+            self.send(Request::Send(write, true))
         });
         await_reply(admission, response)
     }
@@ -301,6 +339,14 @@ impl TerminalSession {
 
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
+    }
+
+    pub(crate) fn foreground(
+        &self,
+        variable: &'static str,
+    ) -> impl Future<Output = Result<Foreground>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::Foreground { variable, reply }), response)
     }
 
     pub(crate) fn close(&self) -> impl Future<Output = Result<()>> + Send + use<> {
@@ -467,20 +513,36 @@ fn command_path() -> Option<String> {
     if cfg!(windows) {
         return None;
     }
-    let folder = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    path_with_command(&std::env::var_os("PATH").unwrap_or_default(), folder)
+    let program = std::env::current_exe().ok()?;
+    path_with_command(
+        &std::env::var_os("PATH").unwrap_or_default(),
+        program.parent()?,
+    )
 }
 
-fn path_with_command(path: &std::ffi::OsStr, folder: PathBuf) -> Option<String> {
+/// Kodosi's notes folder after the folders that Copilot CLI already reads.
+fn copilot_notes(folder: &Path) -> Option<String> {
+    let folder = folder.to_str()?;
+    Some(
+        std::env::var(crate::agents::COPILOT_INSTRUCTIONS)
+            .ok()
+            .filter(|folders| !folders.is_empty())
+            .map_or_else(
+                || folder.to_owned(),
+                |folders| format!("{folders},{folder}"),
+            ),
+    )
+}
+
+fn path_with_command(path: &std::ffi::OsStr, folder: &Path) -> Option<String> {
     if !folder.join("kodosi").is_file() {
         return None;
     }
-    let mut folders: Vec<PathBuf> = std::env::split_paths(path).collect();
-    if folders.contains(&folder) {
-        return None;
-    }
-    folders.push(folder);
-    std::env::join_paths(folders).ok()?.into_string().ok()
+    let others = std::env::split_paths(path).filter(|other| other.as_path() != folder);
+    std::env::join_paths(std::iter::once(folder.to_path_buf()).chain(others))
+        .ok()?
+        .into_string()
+        .ok()
 }
 
 /// `PowerShell` and `cmd` cancel a line with Ctrl+C; Unix line editors clear it
@@ -844,6 +906,15 @@ impl LocalActor {
         }
     }
 
+    fn busy(&self) -> bool {
+        self.start.is_some()
+            || !self.queue.is_empty()
+            || self.subscribers.behind()
+            || self
+                .output_at
+                .is_some_and(|output| output.elapsed() < BUSY_AFTER_OUTPUT)
+    }
+
     async fn maintain(&mut self) {
         self.subscribers.prune();
         self.type_start_line();
@@ -1050,14 +1121,38 @@ impl LocalActor {
         self.queue.push_back(write);
     }
 
-    fn accept_command_input(&mut self, mut write: PendingWrite) {
-        if self.typing() {
+    fn accept_command_input(&mut self, mut write: PendingWrite, message: bool) {
+        let refused = if message {
+            self.takes_message().err()
+        } else {
+            self.typing()
+                .then(|| Error::Invalid(SOMEONE_TYPING.to_owned()))
+        };
+        if let Some(error) = refused {
             if let Some(completion) = write.completion.take() {
-                completion.send(Err(Error::Invalid(SOMEONE_TYPING.to_owned())));
+                completion.send(Err(error));
             }
             return;
         }
         self.queue.push_back(write);
+    }
+
+    /// Typed text answers a question that waits, so a message goes only to an agent that reports
+    /// its state and does not wait for a person's answer, and never while a person types.
+    fn takes_message(&self) -> Result<()> {
+        if self.typing() {
+            return Err(Error::Invalid(SOMEONE_TYPING.to_owned()));
+        }
+        let agent = self
+            .live_program()
+            .is_some_and(|program| crate::agents::is_agent_name(&program));
+        match self.status.summary() {
+            Some(status) if agent && status.state == ProgramState::Blocked => {
+                Err(Error::Invalid(AGENT_ASKS.to_owned()))
+            }
+            Some(_) if agent => Ok(()),
+            _ => Err(Error::Invalid(NO_AGENT.to_owned())),
+        }
     }
 
     async fn command(&mut self, command: Request) -> Option<String> {
@@ -1092,7 +1187,7 @@ impl LocalActor {
                 self.release_logged(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
-            Request::Send(write) => self.accept_command_input(write),
+            Request::Send(write, message) => self.accept_command_input(write, message),
             Request::Read { history, reply } => {
                 if !reply.is_closed() {
                     drop(reply.send(self.emulator.text(history).await));
@@ -1150,6 +1245,12 @@ impl LocalActor {
             }
             Request::Start(line) => {
                 self.start = Some((line, tokio::time::Instant::now()));
+            }
+            Request::Foreground { variable, reply } => {
+                drop(reply.send(Ok(Foreground {
+                    group: self.pty.foreground_process_group(),
+                    variable: self.pty.foreground_variable(variable),
+                })));
             }
         }
         None
@@ -1279,14 +1380,19 @@ impl LocalActor {
             return None;
         }
         let mut fatal = false;
+        let message = matches!(control, TerminalControl::Message { .. });
         let result = match control {
-            TerminalControl::Input { bytes } => {
+            TerminalControl::Input { bytes } | TerminalControl::Message { bytes } => {
                 match PendingWrite::new(Bytes::from(bytes), &self.input_budget, Some(authorization))
                 {
                     Ok(mut write) => {
                         write.completion = Some(InputCompletion::Remote(reply));
-                        self.typed_at = Some(tokio::time::Instant::now());
-                        self.queue.push_back(write);
+                        if message {
+                            self.accept_command_input(write, true);
+                        } else {
+                            self.typed_at = Some(tokio::time::Instant::now());
+                            self.queue.push_back(write);
+                        }
                         return None;
                     }
                     Err(error) => Err(error),
@@ -1397,33 +1503,44 @@ impl LocalActor {
 
     async fn run(mut self) {
         let mut buffer = vec![0_u8; READ_BYTES];
-        let mut tick = tokio::time::interval(Duration::from_millis(20));
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut upkeep = tokio::time::Instant::now() + BUSY_UPKEEP;
         let mut host_open = true;
         let reason = loop {
             if self.cancellation.is_cancelled() {
                 break "The terminal stopped.".to_owned();
             }
             let input = self.pending_input();
-            tokio::select! {
+            let kept_up = tokio::select! {
                 () = self.cancellation.cancelled() => break "The terminal stopped.".to_owned(),
                 command = self.commands.recv() => match command {
-                    Some(command) => { if let Some(reason) = self.command(command).await { break reason; } }
+                    Some(command) => { if let Some(reason) = self.command(command).await { break reason; } false }
                     None => break "Kodosi stopped.".to_owned(),
                 },
-                request = self.host.recv(), if host_open => match request {
-                    Some(request) => { if let Some(reason) = self.host_request(request).await { break reason; } }
-                    None => host_open = false,
+                request = self.host.recv(), if host_open => {
+                    if let Some(request) = request {
+                        if let Some(reason) = self.host_request(request).await { break reason; }
+                    } else {
+                        host_open = false;
+                    }
+                    false
                 },
                 transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
                     Ok(Transfer::Read(0)) => break "The terminal ended.".to_owned(),
-                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } }
-                    Ok(Transfer::Wrote(count)) => self.wrote(count),
+                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } false }
+                    Ok(Transfer::Wrote(count)) => { self.wrote(count); false }
                     Err(error) if error.raw_os_error() == Some(5) => break "The terminal ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },
-                _ = tick.tick() => self.maintain().await,
-            }
+                () = tokio::time::sleep_until(upkeep) => { self.maintain().await; true }
+            };
+            let now = tokio::time::Instant::now();
+            upkeep = if !kept_up {
+                upkeep.min(now + BUSY_UPKEEP)
+            } else if self.busy() {
+                now + BUSY_UPKEEP
+            } else {
+                now + IDLE_UPKEEP
+            };
         };
         self.cancellation.cancel();
         self.commands.close();

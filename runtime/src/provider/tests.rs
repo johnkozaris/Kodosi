@@ -506,6 +506,40 @@ async fn active_claude_native_identity_is_not_resumed() {
     );
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn the_claude_conversation_of_a_process_group_comes_from_its_activity_record() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join(".claude");
+    assert_eq!(claude_conversation(root.clone(), 1).await, None);
+    let sessions = root.join("sessions");
+    fs::create_dir_all(&sessions).unwrap();
+    let group = kodosi_pty::process_group(std::process::id()).unwrap();
+    for (name, record) in [
+        (
+            "other.json",
+            serde_json::json!({"sessionId":id(1),"pid":u32::MAX - 1}),
+        ),
+        (
+            "broken.json",
+            serde_json::json!({"sessionId":"not an id","pid":std::process::id()}),
+        ),
+        (
+            "notes.txt",
+            serde_json::json!({"sessionId":id(3),"pid":std::process::id()}),
+        ),
+    ] {
+        fs::write(sessions.join(name), record.to_string()).unwrap();
+    }
+    assert_eq!(claude_conversation(root.clone(), group).await, None);
+    fs::write(
+        sessions.join("shown.json"),
+        serde_json::json!({"sessionId":id(2),"pid":std::process::id()}).to_string(),
+    )
+    .unwrap();
+    assert_eq!(claude_conversation(root, group).await, Some(id(2)));
+}
+
 #[test]
 fn paging_is_byte_based_and_does_not_repeat_records() {
     let file = tempfile::NamedTempFile::new().unwrap();

@@ -11,7 +11,6 @@ FocusScope {
     property string filter: ""
     property string highlighted: ""
     property bool hovering: false
-    property int shown: 0
     readonly property int visibleRows: 7
     readonly property real rowHeight: rows.some(row => !!row.subtitle) ? 44 : 32
     readonly property bool filters: rows.length > visibleRows || filter.length > 0
@@ -31,12 +30,6 @@ FocusScope {
         hovering = false
         const current = rows.find(row => row.current) || rows.find(row => row.kind !== "note")
         highlighted = current ? current.id : ""
-        if (KodosiTheme.reduceMotion) {
-            shown = 1000000
-        } else {
-            shown = 0
-            reveal.start()
-        }
         forceActiveFocus()
     }
     function move(step) {
@@ -88,19 +81,6 @@ FocusScope {
                 && (event.text !== " " || filter.length > 0)) {
             filter += event.text
             event.accepted = true
-        }
-    }
-
-    Timer {
-        id: reveal
-        interval: 18
-        repeat: true
-        onTriggered: {
-            root.shown += 1
-            if (root.shown >= root.rows.length) {
-                root.shown = 1000000
-                stop()
-            }
         }
     }
 
@@ -186,8 +166,6 @@ FocusScope {
 
             width: ListView.view.width
             height: root.rowHeight
-            opacity: index < root.shown ? 1 : 0
-            transform: Translate { y: row.index < root.shown ? 0 : -5 }
             Accessible.role: note ? Accessible.StaticText : Accessible.ListItem
             Accessible.name: [modelData.title, modelData.subtitle || "", modelData.detail || "", modelData.usage ? modelData.usage.spoken : ""]
                 .filter(part => part.length > 0).join(", ")
@@ -196,8 +174,6 @@ FocusScope {
                 if (!row.note)
                     root.picked(modelData.id)
             }
-
-            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
 
             Row {
                 x: 10

@@ -34,7 +34,7 @@ use crate::identity::{
     oidc::{APP_REDIRECT, BrowserLogin, Oidc, Tokens},
     pins::{IdentityBundle, Pins, VerifiedIdentity},
     signed_device_list::{DeviceListEntry, build_bootstrap_list, build_replacement_list},
-    storage::Secrets,
+    storage::{CredentialLocation, Secrets},
 };
 
 #[derive(Clone)]
@@ -66,6 +66,8 @@ pub(crate) struct Inner {
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
     update_required: AtomicBool,
+    restoring: std::sync::Mutex<Option<crate::protocol::AuthRestoringReason>>,
+    credential_location: CredentialLocation,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     app_login: std::sync::Mutex<Option<AppLogin>>,
@@ -84,6 +86,8 @@ pub(crate) const SIGN_IN_LIFE: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
     tokens: Option<Tokens>,
+    unsaved_tokens: bool,
+    token_save_failing: bool,
     secrets: Secrets,
     pub(crate) pins: Arc<std::sync::Mutex<Pins>>,
     blocked_devices: BTreeSet<(String, String)>,
@@ -120,6 +124,7 @@ impl BackendClient {
             &config.secret_service,
             config.isolated,
         );
+        let credential_location = secrets.location();
         let (events, _) = broadcast::channel(128);
         Ok(Self {
             inner: Arc::new(Inner {
@@ -129,6 +134,8 @@ impl BackendClient {
                 credentials: RwLock::new(None),
                 state: Mutex::new(State {
                     tokens: None,
+                    unsaved_tokens: false,
+                    token_save_failing: false,
                     secrets,
                     pins: Arc::new(std::sync::Mutex::new(pins)),
                     blocked_devices,
@@ -156,6 +163,8 @@ impl BackendClient {
                 renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
                 update_required: AtomicBool::new(false),
+                restoring: std::sync::Mutex::new(None),
+                credential_location,
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 app_login: std::sync::Mutex::new(None),
@@ -195,7 +204,18 @@ impl BackendClient {
                 .filter(|credentials| credentials.user_id == user_id)
                 .map(|credentials| credentials.display_name.clone())
         });
-        json!({"type":"auth.ready","userId":user_id,"displayName":display_name,"enrolled":enrolled})
+        let mut event = json!({"type":"auth.ready","userId":user_id,"displayName":display_name,"enrolled":enrolled});
+        self.credential_fields(&mut event);
+        event
+    }
+
+    fn credential_fields(&self, event: &mut Value) {
+        if let Some((store, folder)) = self.inner.credential_location.get() {
+            event["credentialStore"] = json!(store);
+            if let Some(folder) = folder {
+                event["credentialFolder"] = json!(folder.display().to_string());
+            }
+        }
     }
 
     pub fn identity(&self) -> Option<Identity> {
@@ -224,6 +244,7 @@ impl BackendClient {
             let mut tick = tokio::time::interval(Duration::from_secs(10));
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             tick.tick().await;
+            let mut failure = crate::diagnostics::Repeats::new();
             loop {
                 tokio::select! {
                     ()=this.inner.shutdown.cancelled()=>break,
@@ -236,10 +257,12 @@ impl BackendClient {
                         }else{
                             Ok(())
                         };
-                        if let Err(error)=this.sign_in_kept(result).await
-                            && error.user_facing()
-                        {
-                            tracing::warn!(%error, "the account was not refreshed; it will be tried again");
+                        match this.sign_in_kept(result).await {
+                            Ok(()) => failure.worked(),
+                            Err(error) if error.user_facing() && failure.new_failure(&error) => {
+                                tracing::warn!(%error, "the account was not refreshed; it will be tried again");
+                            }
+                            Err(_) => {}
                         }
                     }
                 }

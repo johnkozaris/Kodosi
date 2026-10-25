@@ -96,7 +96,7 @@ fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
 }
 
 #[test]
-fn a_program_that_asks_for_the_terminal_version_is_told_kodosi() {
+fn a_program_that_asks_for_the_terminal_version_is_told_ghostty() {
     let mut terminal = SessionTerminal::new(24, 80).expect("terminal");
 
     let output = terminal.process_output(b"\x1b[>q").expect("output");
@@ -104,6 +104,32 @@ fn a_program_that_asks_for_the_terminal_version_is_told_kodosi() {
     assert!(matches!(
         output.effects.as_slice(),
         [TerminalEffect::PtyWrite(reply)]
-            if reply == format!("\x1bP>|Kodosi {}\x1b\\", env!("KODOSI_VERSION")).as_bytes()
+            if reply == b"\x1bP>|ghostty 1.3.2-dev\x1b\\"
     ));
+}
+
+#[test]
+fn a_program_that_asks_for_the_colors_is_told_the_colors_that_the_apps_draw() {
+    let mut terminal = SessionTerminal::new(24, 80).expect("terminal");
+
+    let output = terminal
+        .process_output(b"\x1b]11;?\x1b\\\x1b]10;?\x1b\\\x1b]4;1;?\x1b\\")
+        .expect("output");
+
+    let replies: Vec<&[u8]> = output
+        .effects
+        .iter()
+        .filter_map(|effect| match effect {
+            TerminalEffect::PtyWrite(reply) => Some(reply.as_slice()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        replies,
+        [
+            b"\x1b]11;rgb:0d0d/0b0b/0909\x1b\\".as_slice(),
+            b"\x1b]10;rgb:e8e8/e1e1/d9d9\x1b\\".as_slice(),
+            b"\x1b]4;1;rgb:c4c4/4040/4040\x1b\\".as_slice(),
+        ]
+    );
 }

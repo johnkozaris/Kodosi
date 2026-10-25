@@ -51,9 +51,10 @@ public:
     [[nodiscard]] bool updateInstalled() const noexcept { return m_updateInstalled; }
     [[nodiscard]] bool restartRequested() const noexcept { return m_restartRequested; }
 
-    void scheduleInitialStart();
+    void beginInitialStart();
     void stop() noexcept;
     void setUpdateInstalled();
+    void offerRestart(const QString& launched, const QString& running);
 
     Q_INVOKABLE void retry();
     Q_INVOKABLE void restartHost();
@@ -63,6 +64,7 @@ signals:
     void stateChanged();
     void hostForegroundChanged();
     void updateInstalledChanged();
+    void restartOffered();
 
 private:
     static constexpr qsizetype MaximumErrorTextLength = 320;
@@ -76,13 +78,14 @@ private:
     QString m_errorText;
     State m_state = State::Starting;
     std::uint64_t m_attemptToken = 0;
-    bool m_initialStartScheduled = false;
+    bool m_initialStartBegun = false;
     bool m_attemptInFlight = false;
     bool m_stopping = false;
     bool m_updateInstalled = false;
     bool m_restartRequested = false;
+    bool m_outdatedHostRestarted = false;
 
-    void beginAttempt();
+    std::uint64_t beginAttempt();
     void executeAttempt(std::uint64_t token);
     void completeAttempt(
         std::uint64_t token,

@@ -67,10 +67,37 @@ ColumnLayout {
     ListGroup {
         Layout.fillWidth: true
         visible: !root.inBrowser
+        footer: {
+            const folder = Models.Account.credentialFolder;
+            switch (Models.Account.credentialStore) {
+            case "keychain":
+                return qsTr("Kodosi keeps your sign-in in the keychain (Secret Service).");
+            case "privateFile":
+                return qsTr("Kodosi keeps your sign-in in private files in %1.").arg(folder);
+            case "protectedFile":
+                return qsTr("Kodosi keeps your sign-in in files that Windows protects for you, in %1.").arg(folder);
+            default:
+                return "";
+            }
+        }
 
         ListRow {
-            title: Models.Account.signedIn ? Identity.selfName : qsTr("Not signed in")
-            subtitle: Models.Account.signedIn ? qsTr("Signed in") : qsTr("Your terminals work without an account.")
+            title: Models.Account.signedIn ? Identity.selfName
+                : Models.Account.restoring.length > 0 ? qsTr("Signing in again") : qsTr("Not signed in")
+            subtitle: {
+                if (Models.Account.signedIn)
+                    return qsTr("Signed in");
+                if (Models.Account.restoring === "offline")
+                    return qsTr("Kodosi signs you in when it reaches the server.");
+                if (Models.Account.restoring === "updateRequired")
+                    return qsTr("Update Kodosi to sign in.");
+                if (Models.Account.restoring === "unavailable")
+                    return qsTr("The Kodosi server does not answer. Kodosi tries again.");
+                if (Models.Account.restoring === "unreadable")
+                    return Models.Account.credentialStore === "keychain" ? qsTr("Unlock the keychain. Kodosi tries again.")
+                        : qsTr("Kodosi cannot read your sign-in in %1.").arg(Models.Account.credentialFolder);
+                return qsTr("Your terminals work without an account.");
+            }
             leading: Item {
                 implicitWidth: 32
                 implicitHeight: 32
@@ -84,7 +111,8 @@ ColumnLayout {
                 enabled: !Models.Account.signingIn
                 working: Models.Account.signingIn
                 objectName: "panel.settings.account"
-                text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
+                text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.signingIn ? qsTr("Signing in…")
+                    : Models.Account.restoring.length > 0 ? qsTr("Try again") : qsTr("Sign in")
 
                 onClicked: Models.Account.signedIn ? signOutConfirmation.open() : Models.Account.login()
             }
@@ -161,7 +189,7 @@ ColumnLayout {
             title: qsTr("Quit Kodosi")
             subtitle: Models.ApplicationLifecycle.hostForeground
                 ? qsTr("Your terminals keep running in the kodosi host command.")
-                : qsTr("Quit stops the terminals on this computer.")
+                : qsTr("Terminals stop. They start again when Kodosi opens.")
 
             KButton {
                 Accessible.id: objectName

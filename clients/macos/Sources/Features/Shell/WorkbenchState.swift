@@ -76,6 +76,7 @@ final class WorkbenchState {
     private let defaults: UserDefaults
     private var accountKey: String?
     private var restoredIds: [String] = []
+    private var savedStage: [String] = []
     @ObservationIgnored private var unfolding: Task<Void, Never>?
 
     init(defaults: UserDefaults) {
@@ -202,8 +203,9 @@ final class WorkbenchState {
 
     func switchAccount(_ userId: String?) {
         save()
-        accountKey = userId.map { "stage.\(Data($0.utf8).base64EncodedString())" }
+        accountKey = "stage." + (userId.map { Data($0.utf8).base64EncodedString() } ?? "local")
         restoredIds = accountKey.flatMap { defaults.stringArray(forKey: $0) } ?? []
+        savedStage = restoredIds
         stagedSessionIds.removeAll()
         selectedSessionId = nil
         focusedSessionId = nil
@@ -221,6 +223,11 @@ final class WorkbenchState {
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {
+        let restarted = Dictionary(
+            sessions.compactMap { session in session.restoredFrom.map { ($0, session.id) } },
+            uniquingKeysWith: { first, _ in first },
+        )
+        restoredIds = restoredIds.map { restarted[$0] ?? $0 }
         let available = Set(sessions.map(\.id))
         for id in stagedSessionIds where !available.contains(id) {
             dismissSession(id)
@@ -228,8 +235,10 @@ final class WorkbenchState {
         let listed = Set(sessions.filter { !$0.hidden }.map(\.id))
         let restore = Array(restoredIds.filter { listed.contains($0) }.prefix(max(0, Self.maximumStagedSessions - stagedSessionIds.count)))
         restoredIds.removeAll { available.contains($0) }
+        let rank = { (id: String) in self.savedStage.firstIndex { (restarted[$0] ?? $0) == id } ?? -1 }
         for id in restore where !stagedSessionIds.contains(id) {
-            stagedSessionIds.append(id)
+            let position = stagedSessionIds.firstIndex { rank($0) > rank(id) } ?? stagedSessionIds.endIndex
+            stagedSessionIds.insert(id, at: position)
         }
         if selectedSessionId == nil {
             selectedSessionId = stagedSessionIds.first

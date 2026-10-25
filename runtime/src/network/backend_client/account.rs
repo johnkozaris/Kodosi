@@ -1,4 +1,5 @@
 use super::*;
+use crate::protocol::AuthRestoringReason;
 
 const ENROLLMENT_CHECK_MS: u64 = 5 * 60 * 1000;
 const DELETION_POLL: Duration = Duration::from_secs(3);
@@ -23,14 +24,34 @@ impl BackendClient {
             .lock()
             .map_err(|_| Error::Closed)?
             .clone();
-        let saved = secrets.run(cancel, |store| store.load("tokens")).await?;
-        if let Some(saved) = saved {
-            let mut tokens: Tokens = serde_json::from_str(&saved)?;
-            if tokens.expires_at <= identity::now_ms() + 60_000 {
-                tokens = self.oidc()?.refresh(&tokens).await?;
+        let saved = match secrets.run(cancel, |store| store.load("tokens")).await {
+            Ok(saved) => saved,
+            Err(error) => {
+                if !matches!(error, Error::Busy | Error::Stale | Error::Closed) {
+                    self.announce_restoring(generation, AuthRestoringReason::Unreadable);
+                }
+                return Err(error);
             }
-            self.finish_login(tokens, generation).await?;
+        };
+        if let Some(saved) = saved {
+            let restored = async {
+                let mut tokens: Tokens = serde_json::from_str(&saved).map_err(|_| {
+                    tracing::warn!("the saved sign-in is damaged; a new sign-in replaces it");
+                    Error::SignedOut
+                })?;
+                if tokens.expires_at <= identity::now_ms() + 60_000 {
+                    tokens = self.oidc()?.refresh(&tokens).await?;
+                }
+                self.finish_login(tokens, generation).await
+            }
+            .await;
+            if let Err(error) = &restored {
+                self.restoring(generation, error);
+            }
+            restored?;
+            self.stop_restoring();
         } else {
+            self.stop_restoring();
             self.emit_for(
                 generation,
                 None,
@@ -39,6 +60,39 @@ impl BackendClient {
         }
         self.inner.restore_pending.store(false, Ordering::Release);
         Ok(())
+    }
+
+    fn restoring(&self, generation: u64, error: &Error) {
+        let reason = match error {
+            Error::UpdateRequired => AuthRestoringReason::UpdateRequired,
+            Error::Dns | Error::Unreachable | Error::Timeout | Error::Dropped => {
+                AuthRestoringReason::Offline
+            }
+            Error::SignedOut | Error::AccountDeleted | Error::Stale | Error::Closed => return,
+            _ => AuthRestoringReason::Unavailable,
+        };
+        self.announce_restoring(generation, reason);
+    }
+
+    fn announce_restoring(&self, generation: u64, reason: AuthRestoringReason) {
+        if reason == AuthRestoringReason::UpdateRequired {
+            self.update_required();
+        }
+        let Ok(mut restoring) = self.inner.restoring.lock() else {
+            return;
+        };
+        if restoring.replace(reason) != Some(reason) {
+            drop(restoring);
+            let mut event = json!({"type":"auth.restoring","reason":reason});
+            self.credential_fields(&mut event);
+            self.emit_for(generation, None, event);
+        }
+    }
+
+    fn stop_restoring(&self) {
+        if let Ok(mut restoring) = self.inner.restoring.lock() {
+            *restoring = None;
+        }
     }
 
     pub(super) fn oidc(&self) -> Result<Oidc> {
@@ -87,6 +141,7 @@ impl BackendClient {
         }
         let mut state = self.inner.state.lock().await;
         state.tokens = Some(tokens.clone());
+        state.unsaved_tokens = false;
         let cancel = state.account_cancel.clone();
         drop(state);
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(Credentials {
@@ -129,19 +184,15 @@ impl BackendClient {
             return Ok(());
         };
         if previous.expires_at > identity::now_ms() + 60_000 {
-            return Ok(());
+            return self.save_tokens(&credentials).await;
         }
         let tokens = self.oidc()?.refresh(&previous).await?;
         self.check_credentials(&credentials)?;
-        let secrets = self.inner.state.lock().await.secrets.clone();
-        let saved = Zeroizing::new(serde_json::to_string(&tokens)?);
-        secrets
-            .run(credentials.cancel.clone(), move |store| {
-                store.store("tokens", &saved)
-            })
-            .await?;
-        self.check_credentials(&credentials)?;
-        self.inner.state.lock().await.tokens = Some(tokens.clone());
+        {
+            let mut state = self.inner.state.lock().await;
+            state.tokens = Some(tokens.clone());
+            state.unsaved_tokens = true;
+        }
         if let Some(credentials) = self
             .inner
             .credentials
@@ -152,7 +203,50 @@ impl BackendClient {
             credentials.token = Zeroizing::new(tokens.access_token.clone());
         }
         self.inner.renew_connections.store(true, Ordering::Release);
-        Ok(())
+        self.save_tokens(&credentials).await
+    }
+
+    async fn save_tokens(&self, credentials: &Credentials) -> Result<()> {
+        let (secrets, saved, expires_at) = {
+            let state = self.inner.state.lock().await;
+            match state.tokens.as_ref() {
+                Some(tokens) if state.unsaved_tokens => (
+                    state.secrets.clone(),
+                    Zeroizing::new(serde_json::to_string(tokens)?),
+                    tokens.expires_at,
+                ),
+                _ => return Ok(()),
+            }
+        };
+        let result = secrets
+            .run(credentials.cancel.clone(), move |store| {
+                store.store("tokens", &saved)
+            })
+            .await;
+        match result {
+            Ok(()) => {
+                let mut state = self.inner.state.lock().await;
+                if state
+                    .tokens
+                    .as_ref()
+                    .is_some_and(|tokens| tokens.expires_at == expires_at)
+                {
+                    state.unsaved_tokens = false;
+                }
+                state.token_save_failing = false;
+                drop(state);
+                Ok(())
+            }
+            Err(error @ (Error::Stale | Error::Closed)) => Err(error),
+            Err(error) => {
+                let first =
+                    !std::mem::replace(&mut self.inner.state.lock().await.token_save_failing, true);
+                if first {
+                    tracing::warn!(%error, "the renewed sign-in was not saved; it is used and saved later");
+                }
+                Ok(())
+            }
+        }
     }
 
     pub(super) async fn refresh(&self) -> Result<()> {
@@ -252,7 +346,10 @@ impl BackendClient {
             .lock()
             .map_err(|_| Error::Closed)?
             .cancel();
+        self.stop_restoring();
         state.tokens = None;
+        state.unsaved_tokens = false;
+        state.token_save_failing = false;
         state.link = None;
         state.deletion = None;
         state.changed_friends.clear();

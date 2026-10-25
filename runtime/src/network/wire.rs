@@ -125,6 +125,11 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
             json!({"type":"resize","rows":rows,"cols":cols,"widthPixels":width_pixels,"heightPixels":height_pixels,
                 "cellWidthPixels":cell_width_pixels,"cellHeightPixels":cell_height_pixels,"claim":claim})
         }
+        TerminalControl::Message { bytes } => {
+            let text =
+                std::str::from_utf8(bytes).map_err(|_| invalid("A message must be text."))?;
+            json!({"type":"message","text":text})
+        }
         TerminalControl::Focus { focused } => json!({"type":"focus","focused":focused}),
         TerminalControl::Interrupt => json!({"type":"interrupt"}),
         TerminalControl::Close => json!({"type":"close"}),
@@ -163,6 +168,9 @@ pub(crate) fn decode_control(value: &[u8]) -> Result<TerminalControl> {
                 .get("focused")
                 .and_then(Value::as_bool)
                 .ok_or_else(|| invalid("Invalid focus."))?,
+        }),
+        "message" => Ok(TerminalControl::Message {
+            bytes: text(&value, "text")?.as_bytes().to_vec(),
         }),
         "interrupt" => Ok(TerminalControl::Interrupt),
         "close" => Ok(TerminalControl::Close),

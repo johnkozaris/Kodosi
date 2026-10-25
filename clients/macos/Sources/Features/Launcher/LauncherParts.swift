@@ -1,43 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-struct TypedText: View {
-    @Environment(\.theme) private var theme
-    let text: String
-    @State private var shown = ""
-    @State private var typing: Task<Void, Never>?
-
-    var body: some View {
-        Text(verbatim: shown)
-            .onChange(of: text, initial: true) { _, target in type(target) }
-            .onDisappear { typing?.cancel() }
-            .accessibilityLabel(Text(verbatim: text))
-    }
-
-    private func type(_ target: String) {
-        typing?.cancel()
-        guard !theme.motion.reduced else {
-            shown = target
-            return
-        }
-        typing = Task { @MainActor in
-            let kept = shown.commonPrefix(with: target).count
-            while shown.count > kept {
-                shown.removeLast()
-                try? await Task.sleep(for: .milliseconds(8))
-                guard !Task.isCancelled else { return }
-            }
-            let rest = target.dropFirst(kept)
-            let pace = max(7, min(22, 420 / max(rest.count, 1)))
-            for character in rest {
-                shown.append(character)
-                try? await Task.sleep(for: .milliseconds(pace))
-                guard !Task.isCancelled else { return }
-            }
-        }
-    }
-}
-
 enum TerminalInk {
     static let body = hex(0x0D0B09)
     static let band = hex(0x1A1512)
@@ -62,12 +25,12 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
                 .frame(height: 26)
             if let info {
                 if info.installed {
-                    TypedText(text: info.program)
+                    Text(verbatim: info.program)
                         .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
                         .frame(height: 26)
                     choices()
                 } else {
-                    TypedText(text: info.install)
+                    Text(verbatim: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
                         .frame(height: 26)
                     PromptCursor(line: info.install)

@@ -20,7 +20,7 @@ struct GeneralSettingsView: View {
     private var closeFooter: LocalizedStringKey {
         deps.settings.keepRunning
             ? "Your terminals keep running, and Kodosi stays in the menu bar."
-            : "Closing the window quits Kodosi."
+            : "Closing the window quits Kodosi. Your terminals stop, and start again when Kodosi opens."
     }
 
     private var commandFooter: LocalizedStringKey {

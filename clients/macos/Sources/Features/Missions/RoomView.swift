@@ -81,7 +81,7 @@ struct RoomHeader: View {
     }
 
     private var sessions: [RuntimeSession] {
-        deps.sessions.filter { $0.missionId == roomId }
+        deps.roomSessions(roomId)
     }
 
     var body: some View {

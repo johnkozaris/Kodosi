@@ -87,22 +87,22 @@ public:
         int prompts);
     [[nodiscard]] GhosttyTerminalKernel::Result scrollViewportToBottom(
         const TerminalSurfaceIdentity& identity);
+    [[nodiscard]] GhosttyTerminalKernel::Result scrollViewportToTop(
+        const TerminalSurfaceIdentity& identity);
     [[nodiscard]] std::expected<QString, GhosttyTerminalKernel::Failure> linkAt(
         const TerminalSurfaceIdentity& identity,
         std::uint64_t viewportRevision,
         std::uint16_t column,
         std::uint16_t row);
-    [[nodiscard]] GhosttyTerminalKernel::Result beginSelection(
+    [[nodiscard]] GhosttyTerminalKernel::Result pressSelection(
         const TerminalSurfaceIdentity& identity,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row,
-        bool rectangular = false);
-    [[nodiscard]] GhosttyTerminalKernel::Result updateSelection(
+        const TerminalSelectionPress& press);
+    [[nodiscard]] GhosttyTerminalKernel::Result dragSelection(
         const TerminalSurfaceIdentity& identity,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row);
+        const TerminalSelectionDrag& drag);
+    void releaseSelection(const TerminalSurfaceIdentity& identity);
     [[nodiscard]] GhosttyTerminalKernel::Result clearSelection(
         const TerminalSurfaceIdentity& identity);
     [[nodiscard]] GhosttyTerminalKernel::Result advanceImageAnimations(

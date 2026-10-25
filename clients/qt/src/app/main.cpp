@@ -21,6 +21,8 @@
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -69,6 +71,24 @@ QString startFailure()
                                                     : QStringLiteral("Kodosi could not start.");
 }
 
+bool replacesEarlierApp()
+{
+    const auto version = QStringLiteral(KODOSI_VERSION);
+    QMessageBox box;
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(QStringLiteral("Kodosi"));
+    box.setText(QCoreApplication::translate("main", "An earlier version of Kodosi is still open."));
+    box.setInformativeText(QCoreApplication::translate(
+        "main", "Close it to use Kodosi %1. Its terminals keep running until you restart them.")
+                               .arg(version));
+    QPushButton* replace
+        = box.addButton(QCoreApplication::translate("main", "Use Kodosi %1").arg(version), QMessageBox::AcceptRole);
+    box.addButton(QCoreApplication::translate("main", "Keep the earlier one"), QMessageBox::RejectRole);
+    box.setDefaultButton(replace);
+    box.exec();
+    return box.clickedButton() == static_cast<QAbstractButton*>(replace);
+}
+
 }
 
 int main(int argc, char* argv[])
@@ -100,7 +120,7 @@ int main(int argc, char* argv[])
     QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
 #endif
     std::optional<QSize> windowSize;
-    kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken() };
+    kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken(), .appVersion = {} };
     const auto arguments = app.arguments();
     for (int i = 1; i < arguments.size(); ++i) {
         if (arguments[i] == QStringLiteral("--window-size")) {
@@ -126,6 +146,15 @@ int main(int argc, char* argv[])
         const auto json = launch.toJson();
         role = kodosi_forward_activation(
             reinterpret_cast<const uint8_t*>(json.constData()), static_cast<uintptr_t>(json.size()));
+        if (role == KODOSI_APP_FORWARDED_TO_EARLIER) {
+            if (!replacesEarlierApp())
+                return EXIT_SUCCESS;
+            role = kodosi_replace_earlier_app();
+            if (role != KODOSI_APP_OWNER) {
+                QMessageBox::warning(nullptr, QStringLiteral("Kodosi"), startFailure());
+                return EXIT_FAILURE;
+            }
+        }
         if (role == KODOSI_APP_FORWARDED)
             return EXIT_SUCCESS;
     }
@@ -207,6 +236,7 @@ int main(int argc, char* argv[])
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(EXIT_FAILURE); }, Qt::QueuedConnection);
+    lifecycle.beginInitialStart();
     engine.loadFromModule(QStringLiteral("Kodosi"), QStringLiteral("Main"));
     if (engine.rootObjects().isEmpty())
         return EXIT_FAILURE;
@@ -231,6 +261,8 @@ int main(int argc, char* argv[])
     };
     const auto open = [&](const kodosi::AppActivation& activation) {
         raise(activation.token);
+        if (!activation.appVersion.isEmpty())
+            lifecycle.offerRestart(activation.appVersion, QStringLiteral(KODOSI_VERSION));
         if (!activation.route)
             return;
         if (activation.route->destination)
@@ -267,7 +299,6 @@ int main(int argc, char* argv[])
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
-    lifecycle.scheduleInitialStart();
     const auto code = app.exec();
     if (lifecycle.restartRequested()) {
         claim.release();

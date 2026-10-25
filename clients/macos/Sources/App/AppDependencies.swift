@@ -29,6 +29,7 @@ final class AppDependencies {
     var roomViews: [String: RoomViewState] = [:]
     var roomSeen: [String: UInt64] = [:]
     var reportedVisible: [String]?
+    var restoreAsked = false
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []
@@ -55,6 +56,7 @@ final class AppDependencies {
     var accountEpoch: UInt64 = 0
     var accountKnown = false
     @ObservationIgnored private var otherLaunchers: [String: LauncherState] = [:]
+    @ObservationIgnored private var outdatedHostRestarted = false
     private var eventTask: Task<Void, Never>?
     var activationTasks: [String: Task<Void, Never>] = [:]
     var missionTask: Task<Void, Never>?
@@ -144,6 +146,10 @@ final class AppDependencies {
         }
         if failure.code == .hostOutdated {
             present(.hostOutdated(failure))
+            if failure.restartsWithoutAsking, !outdatedHostRestarted {
+                outdatedHostRestarted = true
+                restartOutdatedHost()
+            }
         } else {
             failRuntime(failure.message)
         }
@@ -202,9 +208,9 @@ final class AppDependencies {
         commandSink.transport = nil
         otherLaunchers.removeAll()
         inbox.close()
-        runtimeHandle.stop(completion: completion)
         eventTask?.cancel()
         eventTask = nil
+        runtimeHandle.stop(completion: completion)
     }
 
     private func failRuntime(_ message: String) {
@@ -220,7 +226,11 @@ final class AppDependencies {
     }
 
     var listedSessions: [RuntimeSession] {
-        sessions.filter { !$0.hidden }
+        sessions.filter { !$0.hidden && $0.status != .closing }
+    }
+
+    func roomSessions(_ roomId: String) -> [RuntimeSession] {
+        sessions.filter { $0.missionId == roomId && $0.status != .closing }
     }
 
     func refresh() {
@@ -298,15 +308,22 @@ final class AppDependencies {
         workbench.selectedSessionId.flatMap(session)?.localDirectory
     }
 
-    func openLauncher(folder: String? = nil, roomId: String? = nil) {
-        if let folder {
-            workbench.launcherDraft.folder = folder
-        }
+    func openLauncher(roomId: String? = nil) {
         let onHome = workbench.section == .sessions && !workbench.stagedSessionIds.contains { session($0) != nil }
         if onHome, roomId == nil {
             workbench.launcherFocus += 1
         } else {
             workbench.launcher = LauncherRequest(roomId: roomId)
+        }
+    }
+
+    func openTerminal(in directory: String) {
+        Task { @MainActor [weak self] in
+            do {
+                try await self?.createSession(name: generateSessionName(), directory: directory)
+            } catch {
+                self?.errorMessage = error.localizedDescription
+            }
         }
     }
 

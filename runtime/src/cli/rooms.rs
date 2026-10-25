@@ -35,9 +35,7 @@ enum RoomAction {
     RemoveMember { member: String },
     /// Leave the room.
     Leave,
-    /// Print the skill that lets an agent take part in a room.
-    Skill,
-    /// Show the room, its members and its terminals.
+    /// Show the room, its members, terminals, tasks and repositories.
     Context,
     /// Open the room in the Kodosi app.
     Show,
@@ -130,9 +128,17 @@ enum RepoAction {
 }
 
 fn terminal() -> Option<String> {
-    std::env::var("KODOSI_SESSION_ID")
-        .ok()
-        .filter(|id| Uuid::parse_str(id).is_ok())
+    super::this_terminal()
+}
+
+/// The agent that runs in this terminal, which names itself in its posts unless it chose a name.
+fn this_agent(context: &Context) -> Option<String> {
+    let id = Uuid::parse_str(&terminal()?).ok()?;
+    let program = context.session(id).ok()?["program"].as_str()?.to_owned();
+    crate::agents::Agent::ALL
+        .into_iter()
+        .find(|agent| agent.name() == program)
+        .map(|agent| agent.label().to_owned())
 }
 
 pub(super) async fn run(
@@ -141,9 +147,6 @@ pub(super) async fn run(
     context: &mut Context,
     json_output: bool,
 ) -> Result<()> {
-    if matches!(args.action, RoomAction::Skill) {
-        return print_text(include_str!("../../skills/kodosi-room/SKILL.md"));
-    }
     let catalog = missions(client, context).await?;
     let command = match &args.action {
         RoomAction::List => {
@@ -191,7 +194,7 @@ pub(super) async fn run(
     if let RoomAction::Post { text, agent } = args.action {
         let action = Action::Post {
             text,
-            agent,
+            agent: agent.or_else(|| this_agent(context)),
             terminal_id: terminal(),
         };
         return done(&call(client, context, &room, action).await?, json_output);
@@ -293,14 +296,18 @@ async fn show_context(
         false,
     )
     .await?;
+    let read = call(client, context, room, Action::Read { before: None }).await?;
+    let snapshot: Snapshot = serde_json::from_value(read["room"].clone())?;
     let terminals = context
         .sessions
         .iter()
         .filter(|session| session["missionId"].as_str() == Some(room))
         .collect::<Vec<_>>();
-    print_json(
-        &json!({"room":event["mission"],"members":event["members"],"terminals":terminals,"currentTerminalId":terminal()}),
-    )
+    print_json(&json!({
+        "room":event["mission"],"members":event["members"],"terminals":terminals,
+        "currentTerminalId":terminal(),"tasks":snapshot.tasks,
+        "repositories":snapshot.repositories,"sequence":snapshot.sequence
+    }))
 }
 
 async fn share_terminal(

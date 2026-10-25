@@ -21,6 +21,7 @@ async fn shell(
         vec!["-c".to_owned(), script.to_owned()],
         directory,
         None,
+        None,
         changes,
     )
     .await
@@ -53,7 +54,7 @@ async fn launch_exposes_its_terminal_context_and_preserves_terminal_setup() {
     let (session, mut changes, root) = shell(
         r#"while [ ! -f ready ]; do sleep 0.01; done
 printf '%s' "${KODOSI_SESSION_ID-}" > session-id
-printf '%s %s' "$TERM" "${TERM_PROGRAM_VERSION-}" > term
+printf '%s %s %s %s' "$TERM" "${TERM_PROGRAM-}" "${TERM_PROGRAM_VERSION-}" "${KODOSI_VERSION-}" > term
 pwd -P > cwd
 stty size > size
 stty -echo
@@ -88,7 +89,10 @@ exec /bin/cat"#,
     assert_eq!(actual, ended);
     assert_eq!(
         std::fs::read_to_string(root.path().join("term")).expect("terminal type"),
-        format!("xterm-256color {}", env!("KODOSI_VERSION"))
+        format!(
+            "xterm-256color ghostty 1.3.2-dev {}",
+            env!("KODOSI_VERSION")
+        )
     );
     assert_eq!(
         std::fs::read_to_string(root.path().join("cwd")).expect("working directory"),
@@ -689,6 +693,34 @@ async fn a_program_status_report_reaches_the_host_and_the_people_who_view_the_te
 }
 
 #[tokio::test]
+async fn a_message_reaches_an_agent_that_works_but_not_one_that_asks_a_person() {
+    let (asking, mut changes, _root) = shell(
+        "printf '\\033]7501;state=blocked:kind=permission:app=claude-code\\007'; exec /bin/cat",
+    )
+    .await;
+    next_status(&mut changes).await;
+    let refused = asking.message(Bytes::from_static(b"hello")).await;
+    assert_eq!(refused.expect_err("asks").to_string(), AGENT_ASKS);
+    asking.close().await.expect("close");
+
+    let (working, mut changes, _root) =
+        shell("printf '\\033]7501;state=working:app=claude-code\\007'; exec /bin/cat").await;
+    next_status(&mut changes).await;
+    let mut view = working.subscribe().await.expect("view");
+    working
+        .message(Bytes::from_static(b"hello from Ana"))
+        .await
+        .expect("message");
+    wait_text(&mut view, b"hello from Ana").await;
+    working.close().await.expect("close");
+
+    let (plain, _changes, _root) = shell("exec /bin/cat").await;
+    let refused = plain.message(Bytes::from_static(b"hello")).await;
+    assert_eq!(refused.expect_err("no agent").to_string(), NO_AGENT);
+    plain.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn a_program_that_ends_while_it_works_leaves_no_status() {
     let (session, mut changes, _root) = shell(
         "set -m; /bin/sh -c \"printf '\\033]7501;state=working:progress=40\\007'; sleep 1\"; exec /bin/cat",
@@ -808,6 +840,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         vec!["-i".to_owned()],
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
         None,
+        None,
         changes,
     )
     .await
@@ -857,6 +890,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         PathBuf::from(program),
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         None,
         changes,
     )
@@ -1086,6 +1120,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         ],
         root.path().to_owned(),
         None,
+        None,
         changes,
     )
     .await
@@ -1148,16 +1183,19 @@ fn start_commands_clear_the_line_the_way_the_shell_edits() {
 }
 
 #[test]
-fn terminals_find_the_kodosi_command_of_the_running_app() {
+fn terminals_find_the_kodosi_command_of_the_running_app_first() {
     let app = tempfile::tempdir().expect("app folder");
     let folder = app.path().to_path_buf();
     let path = std::ffi::OsString::from("/usr/bin:/bin");
-    assert_eq!(path_with_command(&path, folder.clone()), None);
+    assert_eq!(path_with_command(&path, &folder), None);
     std::fs::write(folder.join("kodosi"), b"").expect("command");
-    assert_eq!(
-        path_with_command(&path, folder.clone()),
-        Some(format!("/usr/bin:/bin:{}", folder.display()))
-    );
-    let present = std::env::join_paths([PathBuf::from("/usr/bin"), folder.clone()]).expect("path");
-    assert_eq!(path_with_command(&present, folder), None);
+    let first = Some(format!("{}:/usr/bin:/bin", folder.display()));
+    assert_eq!(path_with_command(&path, &folder), first);
+    let later = std::env::join_paths([
+        PathBuf::from("/usr/bin"),
+        folder.clone(),
+        PathBuf::from("/bin"),
+    ])
+    .expect("path");
+    assert_eq!(path_with_command(&later, &folder), first);
 }

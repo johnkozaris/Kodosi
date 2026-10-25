@@ -7,7 +7,7 @@ struct TilingStage: View {
     @Bindable var workbench: WorkbenchState
 
     private var presentedSessionIds: [String] {
-        workbench.stagedSessionIds.filter { deps.session($0) != nil }
+        workbench.stagedSessionIds.filter { deps.session($0).map { $0.status != .closing } == true }
     }
 
     var body: some View {

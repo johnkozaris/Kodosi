@@ -211,5 +211,14 @@ pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
     storage::provider_root(home, provider)
 }
 
+/// The Claude conversation that a process of `group` shows, read from the Claude folder `root`.
+#[cfg(feature = "host")]
+pub(crate) async fn claude_conversation(root: PathBuf, group: u32) -> Option<String> {
+    tokio::task::spawn_blocking(move || resume::claude_conversation(&root, group))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[cfg(all(test, feature = "host"))]
 mod tests;

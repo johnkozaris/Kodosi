@@ -55,8 +55,8 @@ Item {
         }
     }
 
-    function focusLauncher(folder) {
-        return !hasStage && overview.focusLauncher(folder)
+    function focusLauncher() {
+        return !hasStage && overview.focusLauncher()
     }
 
     function registerTerminalTile(tile) {

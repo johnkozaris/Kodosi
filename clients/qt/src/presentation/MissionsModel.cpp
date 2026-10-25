@@ -70,8 +70,10 @@ QStringList MissionsModel::sessionIds() const
         return result;
     for (int row = 0; row < m_sessions.rowCount(); ++row) {
         const auto index = m_sessions.index(row, 0);
-        if (m_sessions.data(index, SessionCatalogModel::MissionIdRole).toString() == m_selectedId)
-            result.append(m_sessions.data(index, SessionCatalogModel::SessionIdRole).toString());
+        const auto id = m_sessions.data(index, SessionCatalogModel::SessionIdRole).toString();
+        const auto session = m_sessions.session(id);
+        if (session && session->missionId == m_selectedId && session->status != QStringLiteral("closing"))
+            result.append(id);
     }
     return result;
 }
@@ -215,7 +217,9 @@ void MissionsModel::completeAction(const QString& room, const QString& action, c
 
 void MissionsModel::copyAgentInstructions()
 {
-    QGuiApplication::clipboard()->setText(QStringLiteral("Read `kodosi room skill`, then use `kodosi --json room --room %1 context` to participate in this room.").arg(m_selectedId));
+    QGuiApplication::clipboard()->setText(QStringLiteral("Read `kodosi skill`, then use `kodosi --json room --room %1 context`. "
+                                                         "You can read and post updates, create and pick up tasks, and share results for this work.")
+                                              .arg(m_selectedId));
 }
 
 void MissionsModel::applyRoom(const QJsonObject& room)

@@ -22,7 +22,19 @@ operating-system privileges.
 ## People and agents
 
 Humans and agents read and write the same room conversation. Agents take part through
-the `kodosi` command and its room skill.
+the `kodosi` command and its skill, when they choose to. When Kodosi starts Claude Code,
+Codex or Copilot CLI, the agent gets a short note with its instructions: it runs in
+Kodosi with people and other agents, messages can come, and it decides with its own
+judgment and its current work what to do with them.
+
+A room message that names a terminal with `@` and its name goes to the agent in that
+terminal at once, also while it works. An agent can also send a message to the agent of
+another terminal with `kodosi terminal message`. Kodosi types each message as one line
+with who wrote it and from where: the room, or the sender's terminal with its folder and
+title. It never types while the agent waits for a person's answer or while a person
+types there; room messages wait until then, and several go together as one line. Nothing
+else from a room goes into a terminal. Dosi knows rooms, terminals and agents, and reads
+a room to tell the person what its work is and what needs them.
 
 New members get the full history. Anyone can post messages, put tasks up for grabs,
 claim, release, close and reopen them. A task can carry context, repositories, and a
@@ -34,7 +46,8 @@ refreshing the room picks up provider changes. Provider credentials stay on the
 participant's computer. Native tasks need no Git provider.
 
 Agents run through their own CLIs. Execution, prompts, permissions, settings, memory
-and conversations stay with the provider. Kodosi supplies the shared space.
+and conversations stay with the provider; Kodosi only adds its note when it starts an
+agent. Kodosi supplies the shared space.
 
 ## Terminal behavior
 
@@ -43,7 +56,9 @@ programs. Closing the window leaves the app and the host running, with Kodosi's 
 the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
 can change what closing the window does. Quit stops the computer's host and its
 terminals, but not a host that runs in a terminal with `kodosi host`, and not terminals
-on other computers.
+on other computers. When the app opens again, the host starts those terminals again with
+their names, folders, rooms and sharing, and agents continue their conversations. The
+`kodosi` command starts a host but never starts the earlier terminals.
 
 The apps and the `kodosi` command are equal clients of the computer's host: what one
 does, the others show. A person's typing comes first: input from the command stops with
@@ -89,8 +104,9 @@ progress where work happens and give each failure a clear recovery action.
   terminals of the person's computers and friends, takes part in rooms, and starts no
   terminals.
 - Each app contains the `kodosi` command. `kodosi terminal` starts, reads, types into,
-  waits for, shows and shares terminals and starts agents in them; `kodosi room` and its
-  skill let agents take part in rooms.
+  waits for, shows and shares terminals and starts agents in them; `kodosi room`,
+  `kodosi terminal message` and `kodosi skill` let agents take part in rooms and reach
+  each other.
 - Dosi is the person's agent for their other agents. It sees every terminal, agent and
   room of the person, acts on them with the `kodosi` command, shows them in the app and
   asks with choices. It runs on the computer where the person writes, with the agent,

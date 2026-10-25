@@ -61,6 +61,28 @@ enum class TerminalKeyAction {
     Release,
 };
 
+struct TerminalSelectionPointer {
+    std::uint16_t column = 0;
+    std::uint16_t row = 0;
+    double x = 0;
+    double y = 0;
+};
+
+struct TerminalSelectionPress {
+    TerminalSelectionPointer pointer;
+    std::uint64_t timeNs = 0;
+    std::uint64_t repeatIntervalNs = 0;
+    double repeatDistance = 0;
+    bool output = false;
+};
+
+struct TerminalSelectionDrag {
+    TerminalSelectionPointer pointer;
+    std::uint32_t cellWidth = 0;
+    std::uint32_t screenHeight = 0;
+    bool rectangle = false;
+};
+
 struct TerminalModifiers {
     bool shift = false;
     bool control = false;
@@ -183,6 +205,8 @@ public:
         int rows);
     [[nodiscard]] Result scrollViewportToBottom(
         const TerminalSubscription& subscription);
+    [[nodiscard]] Result scrollViewportToTop(
+        const TerminalSubscription& subscription);
     [[nodiscard]] Result jumpToPrompt(
         const TerminalSubscription& subscription,
         int prompts);
@@ -191,17 +215,15 @@ public:
         std::uint64_t viewportRevision,
         std::uint16_t column,
         std::uint16_t row);
-    [[nodiscard]] Result beginSelection(
+    [[nodiscard]] Result pressSelection(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row,
-        bool rectangular = false);
-    [[nodiscard]] Result updateSelection(
+        const TerminalSelectionPress& press);
+    [[nodiscard]] Result dragSelection(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,
-        std::uint16_t column,
-        std::uint16_t row);
+        const TerminalSelectionDrag& drag);
+    void releaseSelection(const TerminalSubscription& subscription);
     [[nodiscard]] Result clearSelection(const TerminalSubscription& subscription);
     [[nodiscard]] Result advanceImageAnimations(const TerminalSubscription& subscription);
     [[nodiscard]] std::expected<QString, Failure> selectedText(

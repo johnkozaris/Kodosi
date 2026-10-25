@@ -1133,6 +1133,48 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.restore"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "agent": {
             "anyOf": [
               {
@@ -1629,6 +1671,9 @@
               }
             ]
           },
+          "enter": {
+            "type": "boolean"
+          },
           "expectedRuntimeIncarnationId": {
             "type": "string"
           },
@@ -1643,6 +1688,80 @@
           },
           "type": {
             "const": "session.input"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "text"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "fromSessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.message"
           }
         },
         "required": [
@@ -4602,6 +4721,36 @@
               }
             ]
           },
+          "credentialFolder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialStore": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "keychain"
+                  },
+                  {
+                    "const": "protectedFile"
+                  },
+                  {
+                    "const": "privateFile"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "displayName": {
             "anyOf": [
               {
@@ -4672,6 +4821,81 @@
           },
           "type": {
             "const": "auth.required"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "reason"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialFolder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialStore": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "keychain"
+                  },
+                  {
+                    "const": "protectedFile"
+                  },
+                  {
+                    "const": "privateFile"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "const": "offline"
+              },
+              {
+                "const": "unavailable"
+              },
+              {
+                "const": "updateRequired"
+              },
+              {
+                "const": "unreadable"
+              }
+            ]
+          },
+          "type": {
+            "const": "auth.restoring"
           }
         },
         "required": [
@@ -5746,6 +5970,16 @@
                 },
                 "repository": {
                   "type": "boolean"
+                },
+                "restoredFrom": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "sharedWith": {
                   "items": {
@@ -9974,7 +10208,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 70,
+  "protocolVersion": 72,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

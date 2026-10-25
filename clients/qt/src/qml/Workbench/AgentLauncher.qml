@@ -74,9 +74,7 @@ ColumnLayout {
     function folderName(path) {
         return shown(path) === "~" ? "~" : Models.Sessions.folderName(path)
     }
-    function focusPrompt(path) {
-        if (path)
-            Models.DesktopState.launcherFolder = path
+    function focusPrompt() {
         promptInput.forceActiveFocus()
     }
     function showDraft() {
@@ -313,43 +311,9 @@ ColumnLayout {
         }
     }
 
-    component TypedText: Text {
-        id: typed
-
-        property string target: ""
-        property string shown: ""
-
-        text: shown
+    component CommandWord: Text {
         textFormat: Text.PlainText
         elide: Text.ElideMiddle
-        Accessible.name: target
-        onTargetChanged: step.restart()
-        Component.onCompleted: step.restart()
-
-        Timer {
-            id: step
-            interval: 14
-            repeat: true
-            triggeredOnStart: true
-            onTriggered: {
-                const target = typed.target
-                const shown = typed.shown
-                if (KodosiTheme.reduceMotion) {
-                    typed.shown = target
-                    stop()
-                    return
-                }
-                let kept = 0
-                while (kept < shown.length && kept < target.length && shown[kept] === target[kept])
-                    kept++
-                if (shown.length > kept)
-                    typed.shown = shown.slice(0, -1)
-                else if (shown.length < target.length)
-                    typed.shown = target.slice(0, shown.length + 1)
-                else
-                    stop()
-            }
-        }
     }
 
     Item {
@@ -723,11 +687,11 @@ ColumnLayout {
                         font: root.commandFont
                         Accessible.ignored: true
                     }
-                    TypedText {
+                    CommandWord {
                         visible: root.info !== null && root.info.installed
                         height: 26
                         verticalAlignment: Text.AlignVCenter
-                        target: root.info ? root.info.program : ""
+                        text: root.info ? root.info.program : ""
                         color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
                         font: root.commandFont
                     }
@@ -777,11 +741,11 @@ ColumnLayout {
                         }
                         onClicked: root.toggleMenu("model")
                     }
-                    TypedText {
+                    CommandWord {
                         visible: root.info !== null && !root.info.installed
                         height: 26
                         verticalAlignment: Text.AlignVCenter
-                        target: root.info ? root.info.install : ""
+                        text: root.info ? root.info.install : ""
                         color: KodosiTheme.terminalInkMuted
                         font: root.commandFont
                     }

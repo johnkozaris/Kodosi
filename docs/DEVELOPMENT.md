@@ -81,7 +81,7 @@ their terminal views to stderr.
 
 ## Data formats
 
-An update keeps the data of the last release: a new format also reads the released one,
-and a change of the database is a new migration (`dotnet ef migrations add <Name>` in
-`backend/`). A contract change that older apps cannot use raises the oldest version in
-`protocol/` only 60 days after the release with the new version.
+Kodosi has no users yet, so a new format replaces the old one and needs no reader for
+it. A change of the database is still a new migration (`dotnet ef migrations add <Name>`
+in `backend/`). A contract change that older apps cannot use raises the oldest version
+in `protocol/` in the same change.

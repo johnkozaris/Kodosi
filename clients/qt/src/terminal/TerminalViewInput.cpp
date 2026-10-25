@@ -14,6 +14,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QQuickWindow>
+#include <QStyleHints>
 #include <QTimer>
 #include <QWheelEvent>
 
@@ -249,6 +250,32 @@ std::optional<TerminalKey> terminalKey(const QKeyEvent* event)
     }
 }
 
+enum class HistoryMove {
+    PageUp,
+    PageDown,
+    Top,
+    Bottom,
+};
+
+std::optional<HistoryMove> historyMove(const QKeyEvent* event)
+{
+    if (event->modifiers() != Qt::ShiftModifier) {
+        return std::nullopt;
+    }
+    switch (event->key()) {
+    case Qt::Key_PageUp:
+        return HistoryMove::PageUp;
+    case Qt::Key_PageDown:
+        return HistoryMove::PageDown;
+    case Qt::Key_Home:
+        return HistoryMove::Top;
+    case Qt::Key_End:
+        return HistoryMove::Bottom;
+    default:
+        return std::nullopt;
+    }
+}
+
 int promptJump(const QKeyEvent* event)
 {
     if (event->modifiers() != (Qt::ControlModifier | Qt::ShiftModifier)) {
@@ -307,6 +334,22 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
     if (const auto prompts = promptJump(event); prompts != 0) {
         if (auto jumped = m_registry->jumpToPrompt(surfaceIdentity(), prompts); !jumped) {
             emit operationError(jumped.error().message);
+        }
+        event->accept();
+        return;
+    }
+    if (const auto move = historyMove(event)) {
+        if (!event->isAutoRepeat()) {
+            m_historyKey = event->key();
+        }
+        const auto page = m_frame == nullptr ? 1 : std::max(1, static_cast<int>(m_frame->rows));
+        auto moved = *move == HistoryMove::Top ? m_registry->scrollViewportToTop(surfaceIdentity())
+            : *move == HistoryMove::Bottom    ? m_registry->scrollViewportToBottom(surfaceIdentity())
+                                              : m_registry->scrollViewport(
+                                                    surfaceIdentity(),
+                                                    *move == HistoryMove::PageUp ? -page : page);
+        if (!moved) {
+            emit operationError(moved.error().message);
         }
         event->accept();
         return;
@@ -377,7 +420,16 @@ void TerminalView::keyReleaseEvent(QKeyEvent* event)
         return;
     }
     if (m_pasteShortcutKey && event->key() == *m_pasteShortcutKey) {
-        m_pasteShortcutKey.reset();
+        if (!event->isAutoRepeat()) {
+            m_pasteShortcutKey.reset();
+        }
+        event->accept();
+        return;
+    }
+    if (m_historyKey && event->key() == *m_historyKey) {
+        if (!event->isAutoRepeat()) {
+            m_historyKey.reset();
+        }
         event->accept();
         return;
     }
@@ -443,6 +495,7 @@ QVariant TerminalView::inputMethodQuery(const Qt::InputMethodQuery query) const
 
 void TerminalView::mousePressEvent(QMouseEvent* event)
 {
+    m_pressedAt = event->timestamp();
     if (!interactionAvailable() || !m_terminalReady) {
         QQuickItem::mousePressEvent(event);
         return;
@@ -478,8 +531,9 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         QQuickItem::mousePressEvent(event);
         return;
     }
-    if (m_canSendInput && event->modifiers() == Qt::NoModifier) {
-        if (auto link = linkAtCell(*cell, true)) {
+    const auto modifiers = event->modifiers();
+    if (m_canSendInput && (modifiers == Qt::NoModifier || modifiers == Qt::ControlModifier)) {
+        if (auto link = linkAtCell(*cell, true, modifiers == Qt::ControlModifier)) {
             m_pressedLink = std::move(*link);
             m_selecting = false;
             event->accept();
@@ -487,8 +541,17 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         }
     }
     m_pressedLink.reset();
-    beginSelection(*cell);
+    pressSelection(event, *cell);
     event->accept();
+}
+
+void TerminalView::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->timestamp() == m_pressedAt) {
+        event->accept();
+        return;
+    }
+    mousePressEvent(event);
 }
 
 void TerminalView::mouseMoveEvent(QMouseEvent* event)
@@ -513,11 +576,7 @@ void TerminalView::mouseMoveEvent(QMouseEvent* event)
         QQuickItem::mouseMoveEvent(event);
         return;
     }
-    if (const auto cell = terminalCellAt(
-            event->position(),
-            CellHitTest::ClampToViewport)) {
-        updateSelection(*cell);
-    }
+    dragSelection(event->position(), event->modifiers());
     event->accept();
 }
 
@@ -539,7 +598,7 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         const auto cell = terminalCellAt(
             event->position(),
             CellHitTest::Strict);
-        const auto released = cell ? linkAtCell(*cell, true) : std::nullopt;
+        const auto released = cell ? linkAtCell(*cell, true, true) : std::nullopt;
         if (released && *released == *pressed
             && !QDesktopServices::openUrl(*released)) {
             emit operationError(QStringLiteral("The terminal link could not be opened."));
@@ -551,10 +610,9 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         QQuickItem::mouseReleaseEvent(event);
         return;
     }
-    if (const auto cell = terminalCellAt(
-            event->position(),
-            CellHitTest::ClampToViewport)) {
-        updateSelection(*cell);
+    dragSelection(event->position(), event->modifiers());
+    if (m_registry != nullptr) {
+        m_registry->releaseSelection(surfaceIdentity());
     }
     m_selecting = false;
     event->accept();
@@ -573,7 +631,7 @@ void TerminalView::hoverMoveEvent(QHoverEvent* event)
         event->accept();
         return;
     }
-    updateHoverLink(event->position());
+    updateHoverLink(event->position(), event->modifiers());
     event->accept();
 }
 
@@ -899,7 +957,8 @@ std::optional<QPoint> TerminalView::terminalCellAt(
 
 std::optional<QUrl> TerminalView::linkAtCell(
     const QPoint& cell,
-    const bool reportFailure)
+    const bool reportFailure,
+    const bool text)
 {
     if (m_registry == nullptr || !m_terminalReady) {
         return std::nullopt;
@@ -917,13 +976,19 @@ std::optional<QUrl> TerminalView::linkAtCell(
         }
         return std::nullopt;
     }
+    if (value->isEmpty() && text) {
+        return terminalTextLinkAt(
+            *m_frame,
+            static_cast<std::uint16_t>(cell.x()),
+            static_cast<std::uint16_t>(cell.y()));
+    }
     return validatedTerminalLink(*value);
 }
 
-void TerminalView::updateHoverLink(const QPointF& position)
+void TerminalView::updateHoverLink(const QPointF& position, const Qt::KeyboardModifiers modifiers)
 {
     const auto cell = terminalCellAt(position, CellHitTest::Strict);
-    if (cell && linkAtCell(*cell, false)) {
+    if (cell && linkAtCell(*cell, false, modifiers == Qt::ControlModifier)) {
         setCursor(Qt::PointingHandCursor);
     } else {
         unsetCursor();
@@ -967,32 +1032,56 @@ int TerminalView::wheelRows(QWheelEvent* event)
     return 0;
 }
 
-void TerminalView::beginSelection(const QPoint& anchor)
+TerminalSelectionPointer TerminalView::selectionPointer(const QPoint& cell, const QPointF& position) const
+{
+    const auto point = gridPoint(position) * devicePixelRatio();
+    return {
+        .column = static_cast<std::uint16_t>(cell.x()),
+        .row = static_cast<std::uint16_t>(cell.y()),
+        .x = point.x(),
+        .y = point.y(),
+    };
+}
+
+void TerminalView::pressSelection(const QMouseEvent* event, const QPoint& cell)
 {
     if (m_registry == nullptr || m_frame == nullptr) {
         return;
     }
-    auto selected = m_registry->beginSelection(
+    constexpr std::uint64_t nanosecondsPerMillisecond = 1'000'000;
+    const auto interval = std::max(0, QGuiApplication::styleHints()->mouseDoubleClickInterval());
+    auto selected = m_registry->pressSelection(
         surfaceIdentity(),
         m_frame->viewportRevision,
-        static_cast<std::uint16_t>(anchor.x()),
-        static_cast<std::uint16_t>(anchor.y()));
+        {
+            .pointer = selectionPointer(cell, event->position()),
+            .timeNs = static_cast<std::uint64_t>(event->timestamp()) * nanosecondsPerMillisecond,
+            .repeatIntervalNs = static_cast<std::uint64_t>(interval) * nanosecondsPerMillisecond,
+            .repeatDistance = terminalCellSize().width() * devicePixelRatio(),
+            .output = event->modifiers().testFlag(Qt::ControlModifier),
+        });
     m_selecting = selected.has_value();
     if (!selected && !selected.error().isRecoverableHitTestRace()) {
         emit operationError(selected.error().message);
     }
 }
 
-void TerminalView::updateSelection(const QPoint& endpoint)
+void TerminalView::dragSelection(const QPointF& position, const Qt::KeyboardModifiers modifiers)
 {
-    if (m_registry == nullptr || m_frame == nullptr) {
+    const auto cell = terminalCellAt(position, CellHitTest::ClampToViewport);
+    if (m_registry == nullptr || m_frame == nullptr || !cell) {
         return;
     }
-    auto selected = m_registry->updateSelection(
+    const auto size = terminalCellSize() * devicePixelRatio();
+    auto selected = m_registry->dragSelection(
         surfaceIdentity(),
         m_frame->viewportRevision,
-        static_cast<std::uint16_t>(endpoint.x()),
-        static_cast<std::uint16_t>(endpoint.y()));
+        {
+            .pointer = selectionPointer(*cell, position),
+            .cellWidth = static_cast<std::uint32_t>(std::lround(size.width())),
+            .screenHeight = static_cast<std::uint32_t>(std::lround(size.height() * m_frame->rows)),
+            .rectangle = modifiers.testFlags(Qt::ControlModifier | Qt::AltModifier),
+        });
     if (!selected) {
         if (selected.error().isRecoverableHitTestRace()) {
             m_selecting = false;

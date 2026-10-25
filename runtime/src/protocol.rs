@@ -23,9 +23,11 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 70;
+pub const VERSION: u32 = 72;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
+/// A message travels to another computer in one terminal control, with its sender.
+pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -187,6 +189,11 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "session.restore")]
+    RestoreSessions {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "session.create")]
     CreateSession {
         #[serde(rename = "requestId")]
@@ -259,6 +266,22 @@ pub enum Command {
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
         text: String,
+        #[serde(default)]
+        enter: bool,
+    },
+    #[serde(rename = "session.message")]
+    Message {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        text: String,
+        #[serde(rename = "fromSessionId", default)]
+        from_session_id: Option<String>,
+        #[serde(default)]
+        agent: Option<String>,
     },
     #[serde(rename = "session.read")]
     Read {
@@ -683,6 +706,8 @@ pub struct SessionEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restored_from: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -740,9 +765,21 @@ pub enum EventBody {
         display_name: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enrolled: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_store: Option<CredentialStore>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_folder: Option<String>,
     },
     #[serde(rename = "auth.required")]
     AuthRequired { reason: AuthRequiredReason },
+    #[serde(rename = "auth.restoring")]
+    AuthRestoring {
+        reason: AuthRestoringReason,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_store: Option<CredentialStore>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        credential_folder: Option<String>,
+    },
     #[serde(rename = "auth.device_code")]
     AuthDeviceCode {
         request_id: String,
@@ -991,6 +1028,23 @@ pub enum AuthRequiredReason {
     AccountDeleted,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthRestoringReason {
+    Offline,
+    Unavailable,
+    UpdateRequired,
+    Unreadable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CredentialStore {
+    Keychain,
+    ProtectedFile,
+    PrivateFile,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum DeviceLinkOutcome {
@@ -1193,6 +1247,7 @@ impl EventBody {
             Self::SystemUpdateRequired {} => "system.updateRequired",
             Self::AuthReady { .. } => "auth.ready",
             Self::AuthRequired { .. } => "auth.required",
+            Self::AuthRestoring { .. } => "auth.restoring",
             Self::AuthDeviceCode { .. } => "auth.device_code",
             Self::AuthBrowser { .. } => "auth.browser",
             Self::AuthFinalizing {} => "auth.finalizing",
@@ -1307,12 +1362,14 @@ impl Command {
             Self::VerifyFriend { .. } => "friends.verify",
             Self::FriendInvite { .. } => "friends.invite",
             Self::ListSessions { .. } => "session.list",
+            Self::RestoreSessions { .. } => "session.restore",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
             Self::RunInSession { .. } => "session.run",
             Self::Input { .. } => "session.input",
+            Self::Message { .. } => "session.message",
             Self::Visible { .. } => "session.visible",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
@@ -1416,12 +1473,14 @@ impl Command {
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
             | Self::ListSessions { request_id }
+            | Self::RestoreSessions { request_id }
             | Self::CreateSession { request_id, .. }
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
             | Self::InterruptSession { request_id, .. }
             | Self::RunInSession { request_id, .. }
             | Self::Input { request_id, .. }
+            | Self::Message { request_id, .. }
             | Self::Visible { request_id, .. }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
@@ -1474,6 +1533,7 @@ impl Command {
             | Self::InterruptSession { session_id, .. }
             | Self::RunInSession { session_id, .. }
             | Self::Input { session_id, .. }
+            | Self::Message { session_id, .. }
             | Self::Read { session_id, .. }
             | Self::Show { session_id, .. }
             | Self::OpenRemote { session_id, .. }
@@ -1507,6 +1567,10 @@ impl Command {
                 ..
             }
             | Self::Input {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::Message {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1751,6 +1815,25 @@ impl Command {
                 return Err(Error::Invalid(
                     "Input must contain 1 byte to 1 MiB.".to_owned(),
                 ));
+            }
+            Self::Message { text, .. }
+                if text.trim().is_empty() || text.len() > MESSAGE_MAX_BYTES =>
+            {
+                return Err(Error::Invalid(format!(
+                    "A message has 1 to {MESSAGE_MAX_BYTES} bytes. Put longer text in a file and name the file."
+                )));
+            }
+            Self::Message {
+                from_session_id,
+                agent,
+                ..
+            } => {
+                if let Some(from) = from_session_id {
+                    parse_id(from)?;
+                }
+                if let Some(agent) = agent {
+                    text(agent, "agent", 64)?;
+                }
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
             Self::ChooseAgent {
@@ -2056,6 +2139,7 @@ mod tests {
             "friends.refresh",
             "friends.invite",
             "session.list",
+            "session.restore",
             "mission.list",
         ]
         .into_iter()
@@ -2156,7 +2240,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 63);
+        assert_eq!(kinds.len(), 64);
     }
 
     #[test]

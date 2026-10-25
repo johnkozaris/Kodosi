@@ -36,6 +36,10 @@ public struct RuntimeStartFailure: Equatable, Sendable {
     public let hostTerminals: UInt32
     public let message: String
 
+    public var restartsWithoutAsking: Bool {
+        code == .hostOutdated && hostKind == .background && hostTerminals == 0
+    }
+
     public init(code: Code, hostKind: HostKind, hostPID: UInt32, hostTerminals: UInt32, message: String) {
         self.code = code
         self.hostKind = hostKind

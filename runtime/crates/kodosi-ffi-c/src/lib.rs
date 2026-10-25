@@ -27,7 +27,10 @@ mod link;
 mod subscriptions;
 mod terminal_bridge;
 
-pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};
+pub use app::{
+    kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare,
+    kodosi_replace_earlier_app,
+};
 pub use instance::kodosi_start;
 
 use callbacks::{CallbackScope, Gate, State, UserData, lock};
@@ -72,6 +75,7 @@ pub const KODOSI_APP_OWNER: i32 = 0;
 pub const KODOSI_APP_SECONDARY: i32 = 1;
 pub const KODOSI_APP_FORWARDED: i32 = 2;
 pub const KODOSI_APP_FAILED: i32 = 3;
+pub const KODOSI_APP_FORWARDED_TO_EARLIER: i32 = 4;
 pub const KODOSI_ACTIVATION_MAX_BYTES: usize = 16_384;
 pub const KODOSI_LOG_INFO: i32 = 0;
 pub const KODOSI_LOG_WARNING: i32 = 1;

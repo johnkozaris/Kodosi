@@ -4,6 +4,7 @@
 #include "presentation/Workspace.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include <QJsonArray>
+#include <algorithm>
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QFileInfo>
@@ -25,17 +26,30 @@ public:
 };
 struct Fixture {
     QTemporaryDir dir;
+    QString root;
     Commands commands;
     kodosi::SessionCatalogModel sessions;
     kodosi::DesktopStateModel desktop {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
+        std::make_unique<QSettings>(root + QStringLiteral("/ui.ini"), QSettings::IniFormat)
     };
     kodosi::DesktopSettings settings {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("terminal.ini")), QSettings::IniFormat)
+        std::make_unique<QSettings>(root + QStringLiteral("/terminal.ini"), QSettings::IniFormat)
     };
     kodosi::Workspace workspace { commands, sessions, desktop, settings };
-    Fixture() { desktop.attachSessionCatalog(&sessions); }
+    explicit Fixture(const QString& place = {})
+        : root(place.isEmpty() ? dir.path() : place)
+    {
+        desktop.attachSessionCatalog(&sessions);
+    }
 };
+QJsonObject accountEvent(const QString& userId, int epoch)
+{
+    QJsonObject event { { QStringLiteral("type"), userId.isEmpty() ? QStringLiteral("auth.required") : QStringLiteral("auth.ready") },
+        { QStringLiteral("accountEpoch"), epoch } };
+    if (!userId.isEmpty())
+        event.insert(QStringLiteral("userId"), userId);
+    return event;
+}
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
@@ -304,8 +318,17 @@ private slots:
         local.insert(QStringLiteral("title"), QStringLiteral("GitHub Copilot"));
         auto remote = test::session(2, true, false);
         remote.insert(QStringLiteral("workingDir"), QStringLiteral("/host/project"));
-        f.sessions.apply(test::snapshot({ local, remote }));
-        QCOMPARE(f.sessions.folderGroups().size(), 2);
+        remote.insert(QStringLiteral("ownerName"), QStringLiteral("Ana"));
+        remote.insert(QStringLiteral("hostName"), QStringLiteral("Studio"));
+        auto unopened = remote;
+        unopened.insert(QStringLiteral("id"), test::id(3));
+        unopened.insert(QStringLiteral("incarnationId"), test::id(103));
+        unopened.remove(QStringLiteral("workingDir"));
+        f.sessions.apply(test::snapshot({ local, remote, unopened }));
+        QStringList labels;
+        for (const auto& group : f.sessions.folderGroups())
+            labels.append(group.toMap().value(QStringLiteral("label")).toString());
+        QCOMPARE(labels, (QStringList { QStringLiteral("project"), QStringLiteral("Ana · Studio"), QStringLiteral("project · Ana · Studio") }));
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
         QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));
@@ -584,7 +607,7 @@ private slots:
         QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
         QVERIFY(f.workspace.sessionActions().close(test::id(1)));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.close"));
-        QVERIFY(f.workspace.sessionActions().busy());
+        QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(f.sessions.containsSession(test::id(1)));
         QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
         const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
@@ -609,6 +632,42 @@ private slots:
         closing.insert(QStringLiteral("status"), QStringLiteral("stopping"));
         f.workspace.apply(test::snapshot({ closing }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
+    void aClosingTerminalLeavesTheStageAndTheSidebarAtOnce()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
+        auto closing = test::session(1);
+        closing.insert(QStringLiteral("status"), QStringLiteral("closing"));
+        f.workspace.apply(test::snapshot({ closing }), 0);
+        QVERIFY(f.sessions.containsSession(test::id(1)));
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(f.sessions.listedSessions().isEmpty());
+        QVERIFY(f.sessions.folderGroups().isEmpty());
+    }
+    void aClosingTerminalLeavesItsRoomAtOnce()
+    {
+        Fixture f;
+        auto session = test::session(1);
+        session.insert(QStringLiteral("missionId"), test::id(10));
+        f.workspace.apply(test::snapshot({ session }), 0);
+        f.workspace.missions().open(test::id(10));
+        QCOMPARE(f.workspace.missions().sessionIds(), QStringList { test::id(1) });
+        session.insert(QStringLiteral("status"), QStringLiteral("closing"));
+        f.workspace.apply(test::snapshot({ session }), 0);
+        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
+    }
+    void aTerminalThatWaitsForItsProgramsToStopDoesNotHoldUpANewOne()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        QVERIFY(f.workspace.sessionActions().close(test::id(1)));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.close"));
+        QVERIFY(!f.workspace.sessionActions().busy());
+        QVERIFY(f.workspace.sessionActions().create(QStringLiteral("Work"), QStringLiteral("/repo")));
+        QVERIFY(f.workspace.sessionActions().busy());
     }
     void aCreatedTerminalOpensWhenItsResultArrives()
     {
@@ -721,6 +780,121 @@ private slots:
         QVERIFY(f.desktop.launcherRemoteFolders().isEmpty());
         QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(!f.workspace.account().signedIn());
+    }
+    void theStageComesBackForItsAccountAfterARestart()
+    {
+        QTemporaryDir dir;
+        const auto both = test::snapshot({ test::session(1), test::session(2) });
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(both, 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(2)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        restarted.workspace.apply(test::snapshot({}), 1);
+        QVERIFY(restarted.desktop.stagedSessionIds().isEmpty());
+        restarted.workspace.apply(both, 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+        QCOMPARE(restarted.desktop.selectedSessionId(), test::id(2));
+
+        restarted.workspace.apply(accountEvent({}, 2), 2);
+        restarted.workspace.apply(both, 2);
+        QVERIFY(restarted.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(restarted.workspace.sessionActions().activate(test::id(1)));
+        restarted.workspace.apply(accountEvent(test::id(50), 3), 3);
+        restarted.workspace.apply(both, 3);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+
+        Fixture signedOut(dir.path());
+        signedOut.workspace.apply(accountEvent({}, 1), 1);
+        signedOut.workspace.apply(both, 1);
+        QCOMPARE(signedOut.desktop.stagedSessionIds(), QStringList { test::id(1) });
+        QVERIFY(signedOut.workspace.sessionActions().close(test::id(1)));
+        signedOut.workspace.apply(test::snapshot({ test::session(2) }), 1);
+        Fixture again(dir.path());
+        again.workspace.apply(accountEvent({}, 1), 1);
+        again.workspace.apply(both, 1);
+        QVERIFY(again.desktop.stagedSessionIds().isEmpty());
+    }
+    void aTerminalThatTheHostStartedAgainTakesThePlaceOfTheOneBefore()
+    {
+        QTemporaryDir dir;
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent({}, 1), 1);
+            first.workspace.apply(test::snapshot({ test::session(1) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent({}, 1), 1);
+        restarted.workspace.apply(accountEvent(test::id(50), 2), 2);
+        const auto restores = std::ranges::count_if(restarted.commands.values, [](const QJsonObject& command) {
+            return command.value(QStringLiteral("type")).toString() == QStringLiteral("session.restore");
+        });
+        QCOMPARE(restores, 1);
+        restarted.workspace.apply(accountEvent({}, 3), 3);
+        auto again = test::session(2);
+        again.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ again }), 3);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+    }
+    void restoredTerminalsKeepTheirOrderOnTheStage()
+    {
+        QTemporaryDir dir;
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent({}, 1), 1);
+            first.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+            QVERIFY(first.workspace.sessionActions().activate(test::id(2)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent({}, 1), 1);
+        auto second = test::session(4);
+        second.insert(QStringLiteral("restoredFrom"), test::id(2));
+        restarted.workspace.apply(test::snapshot({ second }), 1);
+        auto first = test::session(3);
+        first.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ first, second }), 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(4) }));
+    }
+    void theStageComesBackWhileASavedSignInWaitsForTheServer()
+    {
+        QTemporaryDir dir;
+        const QJsonObject restoring { { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("offline") }, { QStringLiteral("accountEpoch"), 1 } };
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(restoring, 1);
+            first.workspace.apply(test::snapshot({ test::session(1) }), 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(1)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(restoring, 1);
+        auto again = test::session(2);
+        again.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ again }), 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
+    }
+    void aRestoredRemoteTerminalOpensAgain()
+    {
+        QTemporaryDir dir;
+        const auto remote = test::snapshot({ test::session(4, true, false) });
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(remote, 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(4)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        restarted.workspace.apply(remote, 1);
+        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(4) });
+        const auto command = restarted.commands.values.last();
+        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
+        QCOMPARE(command.value(QStringLiteral("sessionId")).toString(), test::id(4));
     }
     void boundedStageAndInvalidSnapshot()
     {
@@ -998,6 +1172,37 @@ private slots:
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
         QVERIFY(f.workspace.devices().waitingRequests().isEmpty());
         QVERIFY(!f.workspace.devices().approvalNoticeDismissed());
+    }
+    void aSavedSignInThatComesBackIsNotShownAsSignedOut()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("offline") } }, 1);
+        QCOMPARE(f.workspace.account().restoring(), QStringLiteral("offline"));
+        QVERIFY(!f.workspace.account().signedIn());
+        QVERIFY(!f.workspace.account().signingIn());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), QStringLiteral("user") } }, 1);
+        QVERIFY(f.workspace.account().restoring().isEmpty());
+        QVERIFY(f.workspace.account().signedIn());
+    }
+    void theAccountSaysWhereTheSignInIsKept()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.restoring") },
+            { QStringLiteral("reason"), QStringLiteral("unreadable") },
+            { QStringLiteral("credentialStore"), QStringLiteral("keychain") } }, 1);
+        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("keychain"));
+        QVERIFY(f.workspace.account().credentialFolder().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), QStringLiteral("user") },
+            { QStringLiteral("credentialStore"), QStringLiteral("privateFile") },
+            { QStringLiteral("credentialFolder"), QStringLiteral("/home/user/.config/kodosi/secrets") } }, 1);
+        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("privateFile"));
+        QCOMPARE(f.workspace.account().credentialFolder(), QStringLiteral("/home/user/.config/kodosi/secrets"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
+        QVERIFY(f.workspace.account().credentialStore().isEmpty());
+        QVERIFY(f.workspace.account().credentialFolder().isEmpty());
     }
     void pendingSignInCanBeCancelled()
     {

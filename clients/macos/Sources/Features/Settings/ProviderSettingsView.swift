@@ -43,8 +43,10 @@ struct ProviderSettingsView: View {
                             .accessibilityIdentifier("settings.providers.clearProject")
                     }
                     Button("Choose a project…") {
-                        if let selected = pickWorkingDirectory(initialDirectory: directory) {
-                            directory = selected
+                        Task { @MainActor in
+                            if let selected = await pickWorkingDirectory(initialDirectory: directory) {
+                                directory = selected
+                            }
                         }
                     }.buttonStyle(.kodosi(.secondary, size: .small))
                 }

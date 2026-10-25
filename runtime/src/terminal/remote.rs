@@ -788,7 +788,9 @@ impl RemoteActor {
                 TerminalControl::Input { bytes } => {
                     self.merge_input(queued.connection, bytes, &mut replies, &mut budgets);
                 }
-                TerminalControl::Interrupt | TerminalControl::Close => {}
+                TerminalControl::Message { .. }
+                | TerminalControl::Interrupt
+                | TerminalControl::Close => {}
             }
             if let Some(reply) = queued.reply {
                 replies.insert(0, reply);

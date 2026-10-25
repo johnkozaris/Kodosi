@@ -33,20 +33,29 @@ QVariantList SessionCatalogModel::folderGroups() const
         return *m_groupsCache;
     QMap<QString, QVariantMap> groups;
     for (const auto& session : m_sessions) {
-        if (session.hidden)
+        if (session.hidden || session.status == QStringLiteral("closing"))
             continue;
         const auto local = session.kind == QStringLiteral("local");
         const auto key = (local ? QStringLiteral("0:") : QStringLiteral("1:") + session.ownerUserId + QLatin1Char(':') + session.hostName)
             + QLatin1Char(':') + session.workingDirectory;
         auto& group = groups[key];
         const bool away = presentation(session).away && !local;
+        const auto folder = session.workingDirectory.isEmpty() ? QString {} : folderName(session.workingDirectory);
+        const auto name = folder.isEmpty() ? tr("Terminals") : folder;
+        const auto host = local ? QString {} : session.hostName;
+        const auto owner = local || session.isOwner ? QString {} : session.ownerName;
+        QStringList label;
+        for (const auto& part : { local ? QString {} : folder, owner, host }) {
+            if (!part.isEmpty())
+                label.append(part);
+        }
         group.insert(QStringLiteral("offline"), away && group.value(QStringLiteral("offline"), true).toBool());
         group.insert(QStringLiteral("key"), key);
         group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : QString {});
-        group.insert(QStringLiteral("name"),
-            session.workingDirectory.isEmpty() ? tr("Terminals") : folderName(session.workingDirectory));
-        group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
-        group.insert(QStringLiteral("owner"), local || session.isOwner ? QString {} : session.ownerName);
+        group.insert(QStringLiteral("name"), name);
+        group.insert(QStringLiteral("label"), label.isEmpty() ? name : label.join(QStringLiteral(" · ")));
+        group.insert(QStringLiteral("host"), host);
+        group.insert(QStringLiteral("owner"), owner);
         if (local && session.repository)
             group.insert(QStringLiteral("repository"), true);
         auto entries = group.value(QStringLiteral("sessions")).toList();
@@ -75,7 +84,7 @@ QVariantList SessionCatalogModel::listedSessions() const
         return *m_listedCache;
     QVariantList result;
     for (const auto& session : m_sessions) {
-        if (!session.hidden)
+        if (!session.hidden && session.status != QStringLiteral("closing"))
             result.append(fields(session));
     }
     m_listedCache = result;
@@ -228,6 +237,12 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const Q
         = std::find_if(m_sessions.cbegin(), m_sessions.cend(), [&](const auto& s) { return s.id == id; });
     return found == m_sessions.cend() ? std::nullopt : std::optional(*found);
 }
+QString SessionCatalogModel::current(const QString& id) const
+{
+    const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(),
+        [&](const auto& s) { return s.restoredFrom == id; });
+    return found == m_sessions.cend() ? id : found->id;
+}
 bool SessionCatalogModel::containsSession(const QString& id) const
 {
     return session(id).has_value();
@@ -245,7 +260,8 @@ SessionCatalogModel::PresentationSession SessionCatalogModel::presentation(const
     const bool live = s.status == QStringLiteral("running")
         || s.status == QStringLiteral("reconnecting") || away;
     const bool ready = live && (local || s.connectionState == QStringLiteral("connected")) && !blocked;
-    return { s.id, s.kind, !blocked, !local && !blocked && live, ready,
+    const bool closing = s.status == QStringLiteral("closing");
+    return { s.id, s.kind, !blocked && !closing, !local && !blocked && live, ready,
         ready && s.status == QStringLiteral("running"), away };
 }
 std::optional<SessionCatalogModel::PresentationSession> SessionCatalogModel::presentationSession(
@@ -314,7 +330,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerName", "hostName", "missionName", "message", "workingDir", "title", "program"}) {
+    for (const auto* key : {"ownerName", "hostName", "missionName", "message", "workingDir", "title", "program", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -390,6 +406,9 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.missionId = text("missionId");
     s.missionName = text("missionName");
     s.message = text("message");
+    s.restoredFrom = text("restoredFrom");
+    if (!s.restoredFrom.isEmpty() && QUuid(s.restoredFrom).isNull())
+        return std::nullopt;
     for (const auto& v : o.value(QStringLiteral("sharedWith")).toArray()) {
         if (!v.isString() || QUuid(v.toString()).isNull())
             return std::nullopt;

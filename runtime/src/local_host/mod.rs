@@ -22,7 +22,7 @@ use crate::{
     protocol::SessionKind, terminal,
 };
 
-const VERSION: u32 = 24;
+const VERSION: u32 = 26;
 const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
@@ -149,7 +149,8 @@ mod framing;
 mod server;
 
 pub use app::{
-    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, claim_app, forward_activation, serve_activations,
+    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, RunningApp, app_owner, claim_app,
+    forward_activation, serve_activations,
 };
 pub use client::{
     Client, Commands, Events, TerminalClient, connect_or_start, host_status, stop_other_host,

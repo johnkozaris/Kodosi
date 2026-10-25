@@ -37,18 +37,21 @@ class ApplicationLifecycleModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void schedulesInitialStartAndReportsReadyOnce();
+    void startsAtOnceAndReportsReadyOnce();
     void rejectsConcurrentRetryAndDoubleClick();
     void ignoresStaleCompletionAfterRuntimeReset();
     void boundsAndSanitizesSynchronousFailure();
     void runtimeStopReturnsReadyLifecycleToFailure();
     void explicitStopInvalidatesCompletion();
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
+    void anOutdatedHostWithNoTerminalsRestartsWithoutAsking();
+    void anOutdatedHostThatComesBackIsRestartedOnlyOnce();
     void anInstalledUpdateAsksOnceForARestart();
+    void aLaunchOfANewerVersionOffersTheRestart();
 };
 
 void ApplicationLifecycleModelTest::
-    schedulesInitialStartAndReportsReadyOnce()
+    startsAtOnceAndReportsReadyOnce()
 {
     kodosi::RuntimeBridge runtime;
     auto startCalls = 0;
@@ -63,17 +66,13 @@ void ApplicationLifecycleModelTest::
         [&stopCalls] { ++stopCalls; });
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
-    model.scheduleInitialStart();
+    model.beginInitialStart();
+    model.beginInitialStart();
 
+    QCOMPARE(startCalls, 1);
     QCOMPARE(
         model.state(),
-        kodosi::ApplicationLifecycleModel::State::Starting);
-    QCOMPARE(startCalls, 0);
-    QTRY_COMPARE(
-        model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
-    QCOMPARE(startCalls, 1);
     QCOMPARE(ready.count, 1);
     QCOMPARE(stopCalls, 0);
 }
@@ -98,7 +97,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Failed);
@@ -136,7 +135,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(completions.size(), std::size_t {1});
     QVERIFY(QMetaObject::invokeMethod(
         &runtime,
@@ -177,7 +176,7 @@ void ApplicationLifecycleModelTest::
         },
         [] {});
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Failed);
@@ -200,7 +199,7 @@ void ApplicationLifecycleModelTest::
         [] {});
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
@@ -235,7 +234,7 @@ void ApplicationLifecycleModelTest::explicitStopInvalidatesCompletion()
         [&stopCalls] { ++stopCalls; });
     ReadyCount ready(model);
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_VERIFY(completion);
     model.stop();
     model.stop();
@@ -269,7 +268,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
         [] {},
         [&](std::function<void(kodosi::HostStop)> completion) { stopping = std::move(completion); });
 
-    model.scheduleInitialStart();
+    model.beginInitialStart();
     QTRY_COMPARE(model.state(), State::Failed);
     QVERIFY(model.hostOutdated());
     QVERIFY(model.hostForeground());
@@ -296,6 +295,79 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
     QCOMPARE(model.state(), State::Ready);
     QVERIFY(!model.hostOutdated());
     QCOMPARE(starts, 3);
+}
+
+void ApplicationLifecycleModelTest::anOutdatedHostWithNoTerminalsRestartsWithoutAsking()
+{
+    using State = kodosi::ApplicationLifecycleModel::State;
+    kodosi::RuntimeBridge runtime;
+    std::optional<kodosi::OutdatedHost> outdated = kodosi::OutdatedHost { .foreground = false, .pid = 7, .terminals = 0 };
+    auto stops = 0;
+    kodosi::ApplicationLifecycleModel model(
+        runtime,
+        [&](kodosi::ApplicationLifecycleModel::Completion completion) {
+            if (outdated) {
+                completion(std::unexpected(
+                    kodosi::RuntimeFailure { .ffiResult = -1, .message = QStringLiteral("old"), .outdatedHost = outdated }));
+            } else {
+                completion(kodosi::RuntimeBridge::Result {});
+            }
+        },
+        [] {},
+        [&](std::function<void(kodosi::HostStop)> completion) {
+            ++stops;
+            outdated.reset();
+            completion(kodosi::HostStop::Stopped);
+        });
+
+    model.beginInitialStart();
+    QTRY_COMPARE(model.state(), State::Ready);
+    QCOMPARE(stops, 1);
+    QVERIFY(!model.hostOutdated());
+}
+
+void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOnce()
+{
+    using State = kodosi::ApplicationLifecycleModel::State;
+    kodosi::RuntimeBridge runtime;
+    const kodosi::OutdatedHost outdated { .foreground = false, .pid = 7, .terminals = 0 };
+    auto starts = 0;
+    auto stops = 0;
+    kodosi::ApplicationLifecycleModel model(
+        runtime,
+        [&](kodosi::ApplicationLifecycleModel::Completion completion) {
+            ++starts;
+            completion(std::unexpected(
+                kodosi::RuntimeFailure { .ffiResult = -1, .message = QStringLiteral("old"), .outdatedHost = outdated }));
+        },
+        [] {},
+        [&](std::function<void(kodosi::HostStop)> completion) {
+            ++stops;
+            completion(kodosi::HostStop::Stopped);
+        });
+
+    model.beginInitialStart();
+    QTRY_COMPARE(starts, 2);
+    QCOMPARE(model.state(), State::Failed);
+    QVERIFY(model.hostOutdated());
+    QCOMPARE(stops, 1);
+}
+
+void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
+{
+    kodosi::RuntimeBridge runtime;
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [] {});
+    QSignalSpy offered(&model, &kodosi::ApplicationLifecycleModel::restartOffered);
+
+    model.offerRestart(QStringLiteral("0.2.1"), QStringLiteral("0.2.2"));
+    model.offerRestart(QString {}, QStringLiteral("0.2.2"));
+    QVERIFY(!model.updateInstalled());
+    QCOMPARE(offered.count(), 0);
+    model.offerRestart(QStringLiteral("0.2.10"), QStringLiteral("0.2.2"));
+    QVERIFY(model.updateInstalled());
+    QCOMPARE(offered.count(), 1);
+    model.offerRestart(QString {}, QStringLiteral("0.2.2"));
+    QCOMPARE(offered.count(), 2);
 }
 
 void ApplicationLifecycleModelTest::anInstalledUpdateAsksOnceForARestart()

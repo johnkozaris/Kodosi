@@ -14,14 +14,16 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String = "/remote/project") throws -> RuntimeSession
+                    directory: String = "/remote/project", restoredFrom: String? = nil) throws -> RuntimeSession
 {
-    try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
-        "id": JSONValue.string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
+    var fields: [String: JSONValue] = [
+        "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string(directory),
         "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection),
         "sharedWith": .array([]),
-    ]))
+    ]
+    fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
+    return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
 }
 
 @Test func `event envelope requires explicit account and exact epoch`() throws {
@@ -106,6 +108,49 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(restarted.reconcile([session]) == [session.id])
     restarted.dismissSession(session.id)
     #expect(restarted.reconcile([session]).isEmpty)
+}
+
+@Test @MainActor func `the signed out stage comes back after a restart`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSignedOut"))
+    let session = try runtimeSession()
+    let first = WorkbenchState(defaults: defaults)
+    first.switchAccount(nil)
+    first.showSession(session.id)
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount(nil)
+    #expect(restarted.reconcile([session]) == [session.id])
+    restarted.switchAccount("owner")
+    #expect(restarted.reconcile([session]).isEmpty)
+}
+
+@Test @MainActor func `a terminal that the host started again takes the place of the one before`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestarted"))
+    let before = try runtimeSession(kind: "local", connection: "local")
+    let first = WorkbenchState(defaults: defaults)
+    first.switchAccount(nil)
+    first.showSession(before.id)
+    let again = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local",
+                                   restoredFrom: before.id)
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount(nil)
+    #expect(restarted.reconcile([again]) == [again.id])
+    #expect(restarted.stagedSessionIds == [again.id])
+}
+
+@Test @MainActor func `restored terminals keep their order on the stage`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestartedOrder"))
+    let ids = (0 ..< 4).map { "01992e43-53db-7040-8e02-f6ebf4149b4\($0)" }
+    let first = WorkbenchState(defaults: defaults)
+    first.switchAccount(nil)
+    first.showSession(ids[0])
+    first.showSession(ids[1])
+    let earlier = try runtimeSession(ids[2], kind: "local", connection: "local", restoredFrom: ids[0])
+    let later = try runtimeSession(ids[3], kind: "local", connection: "local", restoredFrom: ids[1])
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount(nil)
+    _ = restarted.reconcile([later])
+    _ = restarted.reconcile([earlier, later])
+    #expect(restarted.stagedSessionIds == [ids[2], ids[3]])
 }
 
 @Test @MainActor func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {

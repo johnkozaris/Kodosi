@@ -7,7 +7,7 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CompressionProgress, ContextAction, ContextSignal, Effect, Error, ProgramStatus,
+    Colors, CompressionProgress, ContextAction, ContextSignal, Effect, Error, ProgramStatus,
     ProgramStatusKind, ProgramStatusState, ProgressState, Screen, SnapshotHeader, SnapshotLimits,
     TerminalState,
 };
@@ -92,6 +92,10 @@ impl Terminal {
 
     pub fn report_version(&mut self, version: &'static str) -> Result<(), Error> {
         self.raw.report_version(version)
+    }
+
+    pub fn set_default_colors(&mut self, colors: &Colors) -> Result<(), Error> {
+        self.raw.set_default_colors(colors)
     }
 
     pub fn write(&mut self, bytes: &[u8]) -> Result<Vec<Effect>, Error> {

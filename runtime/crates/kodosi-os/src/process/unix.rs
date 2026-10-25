@@ -22,22 +22,19 @@ pub(super) fn default_shell() -> PathBuf {
 pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     use zbus::{blocking, proxy::CacheProperties};
 
-    let connection = blocking::connection::Builder::session()
-        .ok()?
-        .method_timeout(std::time::Duration::from_secs(2))
-        .build()
-        .ok()?;
-    let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(&connection)
-        .destination("org.freedesktop.systemd1")
-        .ok()?
-        .path("/org/freedesktop/systemd1")
-        .ok()?
-        .interface("org.freedesktop.systemd1.Manager")
-        .ok()?
-        .cache_properties(CacheProperties::No)
-        .build()
-        .ok()?;
-    let variables: Vec<String> = manager.get_property("Environment").ok()?;
+    let variables: Vec<String> = crate::session_bus::ask(|connection| {
+        let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(connection)
+            .destination("org.freedesktop.systemd1")
+            .ok()?
+            .path("/org/freedesktop/systemd1")
+            .ok()?
+            .interface("org.freedesktop.systemd1.Manager")
+            .ok()?
+            .cache_properties(CacheProperties::No)
+            .build()
+            .ok()?;
+        manager.get_property("Environment").ok()
+    })?;
     Some(
         variables
             .iter()
@@ -50,6 +47,18 @@ pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
 #[cfg(not(target_os = "linux"))]
 pub(super) const fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     None
+}
+
+pub(super) struct EndRequest(tokio::signal::unix::Signal);
+
+impl EndRequest {
+    pub(super) fn new() -> std::io::Result<Self> {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map(Self)
+    }
+
+    pub(super) async fn received(&mut self) {
+        self.0.recv().await;
+    }
 }
 
 pub(super) fn detach(command: &mut std::process::Command) {
@@ -104,6 +113,15 @@ pub(super) fn end_group(leader: u32, force: bool) {
         rustix::process::Signal::TERM
     };
     let _ = rustix::process::kill_process_group(leader, signal);
+}
+
+pub(super) fn end_process(pid: u32) {
+    if let Some(pid) = i32::try_from(pid)
+        .ok()
+        .and_then(rustix::process::Pid::from_raw)
+    {
+        let _ = rustix::process::kill_process(pid, rustix::process::Signal::TERM);
+    }
 }
 
 pub(super) fn is_running(pid: u32) -> bool {

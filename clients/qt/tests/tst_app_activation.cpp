@@ -27,6 +27,7 @@ class AppActivationTest final : public QObject {
 private slots:
     void launchesForwardTheirRouteAndToken();
     void malformedFieldsStillShowTheWindow();
+    void aLaunchNamesItsVersion();
     void activationsWaitForTheirHandler();
     void activationsFromTheRuntimeThreadReachTheAppThread();
     void activationTokensAreTakenOnceAndRestored();
@@ -37,6 +38,7 @@ void AppActivationTest::launchesForwardTheirRouteAndToken()
     const kodosi::AppActivation routed {
         .route = kodosi::DeepLinkRouter::parse(QStringLiteral("kodosi://session/0198aaaa-0000-7000-8000-000000000001")),
         .token = QStringLiteral("xdg-token"),
+        .appVersion = {},
     };
     QVERIFY(routed.route->destination);
     const auto received = kodosi::AppActivation::fromJson(routed.toJson());
@@ -46,6 +48,7 @@ void AppActivationTest::launchesForwardTheirRouteAndToken()
     const kodosi::AppActivation invalid {
         .route = kodosi::DeepLinkRouter::parse(QStringLiteral("kodosi://unknown/route")),
         .token = {},
+        .appVersion = {},
     };
     QVERIFY(!invalid.route->destination);
     const auto rejected = kodosi::AppActivation::fromJson(invalid.toJson());
@@ -77,11 +80,19 @@ void AppActivationTest::malformedFieldsStillShowTheWindow()
     QVERIFY(!kodosi::AppActivation::fromJson(QByteArrayLiteral("not json")).route);
 }
 
+void AppActivationTest::aLaunchNamesItsVersion()
+{
+    QCOMPARE(parse({ { QStringLiteral("appVersion"), QStringLiteral("0.2.2") } }).appVersion, QStringLiteral("0.2.2"));
+    QVERIFY(parse({ { QStringLiteral("appVersion"), QStringLiteral("0.2.2\nrun") } }).appVersion.isEmpty());
+    QVERIFY(parse({ { QStringLiteral("appVersion"), QString(33, QLatin1Char('1')) } }).appVersion.isEmpty());
+    QVERIFY(parse({}).appVersion.isEmpty());
+}
+
 void AppActivationTest::activationsWaitForTheirHandler()
 {
     kodosi::AppActivations activations;
     for (int index = 0; index < 20; ++index)
-        hand(activations, { .route = {}, .token = QStringLiteral("token-%1").arg(index) });
+        hand(activations, { .route = {}, .token = QStringLiteral("token-%1").arg(index), .appVersion = {} });
     QCoreApplication::processEvents();
 
     QStringList tokens;
@@ -90,7 +101,7 @@ void AppActivationTest::activationsWaitForTheirHandler()
     QCOMPARE(tokens.first(), QStringLiteral("token-0"));
     QCOMPARE(tokens.last(), QStringLiteral("token-15"));
 
-    hand(activations, { .route = {}, .token = QStringLiteral("later") });
+    hand(activations, { .route = {}, .token = QStringLiteral("later"), .appVersion = {} });
     QTRY_COMPARE(tokens.last(), QStringLiteral("later"));
 }
 

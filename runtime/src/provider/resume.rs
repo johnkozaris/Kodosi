@@ -45,30 +45,11 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
         }
         let entry = entry.map_err(|error| error.to_string())?;
         let name = entry.file_name();
-        let Some(name) = name.to_str().filter(|name| {
-            Path::new(name)
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
-        }) else {
+        let Some(name) = name.to_str().filter(|name| is_record(name)) else {
             continue;
         };
-        let mut file = storage::open_file(&root, name)?;
-        let mut bytes = Vec::new();
-        (&mut file)
-            .take(MAX_CLAUDE_STATE_BYTES + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|error| error.to_string())?;
-        if bytes.len() as u64 > MAX_CLAUDE_STATE_BYTES {
-            return Err("Claude activity record exceeds its byte limit".to_owned());
-        }
-        let value: serde_json::Value = serde_json::from_slice(&bytes)
-            .map_err(|error| format!("Could not read Claude session activity: {error}"))?;
-        if value
-            .get("sessionId")
-            .or_else(|| value.get("session_id"))
-            .and_then(serde_json::Value::as_str)
-            != Some(id)
-        {
+        let value = claude_record(&root, name)?;
+        if record_conversation(&value) != Some(id) {
             continue;
         }
         let cwd = value
@@ -91,6 +72,57 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
         }
     }
     Ok(())
+}
+
+/// The Claude conversation that a process of `group` shows, by Claude's activity records.
+pub(super) fn claude_conversation(state_root: &Path, group: u32) -> Option<String> {
+    let root = state_root.join("sessions");
+    let entries = std::fs::read_dir(&root).ok()?;
+    let directory = kodosi_os::fs::open_dir(&root).ok()?;
+    entries
+        .take(storage::MAX_DIRECTORY_ENTRIES)
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| is_record(name))
+        .filter_map(|name| claude_record(&directory, &name).ok())
+        .find_map(|record| {
+            let pid = record
+                .get("pid")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|pid| u32::try_from(pid).ok())
+                .filter(|pid| *pid != 0)?;
+            (pid == group || kodosi_pty::process_group(pid) == Some(group))
+                .then(|| record_conversation(&record))
+                .flatten()
+                .and_then(|id| storage::conversation_id(id).ok())
+        })
+}
+
+fn is_record(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+}
+
+fn claude_record(root: &File, name: &str) -> Result<serde_json::Value, String> {
+    let mut file = storage::open_file(root, name)?;
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(MAX_CLAUDE_STATE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > MAX_CLAUDE_STATE_BYTES {
+        return Err("Claude activity record exceeds its byte limit".to_owned());
+    }
+    serde_json::from_slice(&bytes)
+        .map_err(|error| format!("Could not read Claude session activity: {error}"))
+}
+
+fn record_conversation(record: &serde_json::Value) -> Option<&str> {
+    record
+        .get("sessionId")
+        .or_else(|| record.get("session_id"))
+        .and_then(serde_json::Value::as_str)
 }
 
 fn copilot_inactive(directory: &Path, mut file: File, session: &File) -> Result<(), String> {

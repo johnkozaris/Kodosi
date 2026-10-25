@@ -700,3 +700,129 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
     assert!(finish(right).await.is_err());
     assert_eq!(server.await.unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn a_renewed_sign_in_that_cannot_be_saved_is_used_and_saved_later() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let discovery = json!({
+        "issuer": address,
+        "authorization_endpoint": format!("{address}/authorize"),
+        "token_endpoint": format!("{address}/token"),
+        "device_authorization_endpoint": format!("{address}/device"),
+    });
+    let renewed = json!({
+        "access_token": "renewed",
+        "refresh_token": "next",
+        "token_type": "Bearer",
+        "expires_in": 900,
+    });
+    let server = scripted_backend(listener, vec![(200, discovery), (200, renewed)]);
+    let (root, network, _user) = signed_in_at(&address).await;
+    network.inner.state.lock().await.tokens = Some(Tokens {
+        access_token: "old".into(),
+        refresh_token: Some("refresh".into()),
+        expires_at: 0,
+    });
+    let saved = root.path().join("secrets/kodosi.tokens");
+    std::fs::create_dir_all(&saved).unwrap();
+
+    network.renew_token().await.unwrap();
+    server.await.unwrap();
+    assert_eq!(network.credentials().unwrap().token.as_str(), "renewed");
+    assert!(network.inner.state.lock().await.unsaved_tokens);
+
+    std::fs::remove_dir(&saved).unwrap();
+    network.renew_token().await.unwrap();
+    assert!(!network.inner.state.lock().await.unsaved_tokens);
+    let stored: Value = serde_json::from_str(&std::fs::read_to_string(&saved).unwrap()).unwrap();
+    assert_eq!(stored["access_token"], "renewed");
+    assert_eq!(stored["refresh_token"], "next");
+}
+
+#[tokio::test]
+async fn a_damaged_saved_sign_in_ends_so_a_new_sign_in_can_start() {
+    let (_root, network) = fixture();
+    let secrets = network.inner.state.lock().await.secrets.clone();
+    secrets.store("tokens", "not a sign-in").unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    let error = network
+        .execute("auth.login.start", request())
+        .await
+        .unwrap_err();
+    assert!(error.unanswered(), "{error}");
+    assert!(secrets.load("tokens").unwrap().is_none());
+    assert!(!network.inner.restore_pending.load(Ordering::Acquire));
+    let auth: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| event.event)
+        .filter(|event| event["type"] == "auth.required" || event["type"] == "auth.restoring")
+        .collect();
+    assert_eq!(auth, [json!({"type":"auth.required","reason":"expired"})]);
+}
+
+#[tokio::test]
+async fn a_saved_sign_in_that_cannot_reach_the_server_is_reported_once_as_coming_back() {
+    let (_root, network) = fixture();
+    let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;
+    network
+        .inner
+        .state
+        .lock()
+        .await
+        .secrets
+        .store("tokens", saved)
+        .unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    for _ in 0..2 {
+        let error = network
+            .restore_saved(network.generation())
+            .await
+            .unwrap_err();
+        assert!(error.unanswered(), "{error}");
+    }
+    let mut reasons = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        if event.event["type"] == "auth.restoring" {
+            reasons.push(event.event["reason"].clone());
+        }
+    }
+    assert_eq!(reasons, [json!("offline")]);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_saved_sign_in_that_cannot_be_read_says_where_it_is_kept() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (root, network) = fixture();
+    let tokens = root.path().join("secrets/kodosi.tokens");
+    std::fs::create_dir_all(root.path().join("secrets")).unwrap();
+    std::fs::write(&tokens, "{}").unwrap();
+    std::fs::set_permissions(&tokens, std::fs::Permissions::from_mode(0o644)).unwrap();
+    network.inner.restore_pending.store(true, Ordering::Release);
+    let mut events = network.events();
+    assert!(network.restore_saved(network.generation()).await.is_err());
+    let restoring: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| event.event["type"] == "auth.restoring")
+        .map(|event| event.event)
+        .collect();
+    assert_eq!(restoring.len(), 1);
+    assert_eq!(restoring[0]["reason"], "unreadable");
+    assert_eq!(restoring[0]["credentialStore"], "privateFile");
+    assert_eq!(
+        restoring[0]["credentialFolder"],
+        root.path().join("secrets").display().to_string()
+    );
+}
+
+#[tokio::test]
+async fn the_ready_event_says_where_the_sign_in_is_kept() {
+    let (root, network) = fixture();
+    let event = network.ready_event("01992e43-53db-7040-8e02-f6ebf4149b28", true);
+    assert_eq!(event["credentialStore"], "privateFile");
+    assert_eq!(
+        event["credentialFolder"],
+        root.path().join("secrets").display().to_string()
+    );
+}

@@ -40,7 +40,7 @@ Item {
     property Item pillTarget: null
     property var collapsedFolders: ({})
 
-    signal newTerminalRequested(string folder)
+    signal newTerminalRequested
     signal detailsRequested(string sessionId)
     signal shareRequested(string sessionId)
     signal resumeRequested(string provider)
@@ -223,7 +223,7 @@ Item {
                 contentItem: Item {
                     KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6; opacity: railNewSpot.hidden ? 0 : 1 }
                 }
-                onClicked: root.newTerminalRequested("")
+                onClicked: root.newTerminalRequested()
             }
         }
         Flickable {
@@ -391,7 +391,7 @@ Item {
                 selected: root.selection === "people" || root.selection === "settings"
                 onAboutRequested: root.aboutRequested()
                 onResumeRequested: provider => root.resumeRequested(provider)
-                onStartRequested: root.newTerminalRequested("")
+                onStartRequested: root.newTerminalRequested()
             }
         }
     }
@@ -514,14 +514,14 @@ Item {
                     PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
                     PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
-                onClicked: root.newTerminalRequested("")
+                onClicked: root.newTerminalRequested()
             }
         }
         DosiPanel {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.dosi
-            onNewTerminalRequested: root.newTerminalRequested("")
+            onNewTerminalRequested: root.newTerminalRequested()
             onNewRoomRequested: root.accountReady ? root.newRoomRequested() : root.signIn()
             onSettingsRequested: root.dosiSettingsRequested()
         }
@@ -773,7 +773,7 @@ Item {
                     addName: qsTr("New terminal")
                     identifier: "sidebar.terminals"
                     onClicked: Models.DesktopState.activeView = Models.DesktopState.Sessions
-                    onAddClicked: root.newTerminalRequested("")
+                    onAddClicked: root.newTerminalRequested()
                 }
                 Repeater {
                     model: root.groups.length
@@ -818,7 +818,7 @@ Item {
                                 PlainLabel {
                                     id: folderLabel
                                     Layout.fillWidth: true
-                                    text: folder.group.host ? (folder.group.owner ? folder.group.owner + " · " + folder.group.host : folder.group.host) : (folder.group.name || "")
+                                    text: folder.group.label || ""
                                     color: folderHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
                                     font.weight: Font.Medium
@@ -859,7 +859,7 @@ Item {
                                     objectName: "sidebar.folder.new." + folder.group.key
                                     Accessible.id: objectName
                                     Accessible.name: qsTr("New terminal in %1").arg(folder.group.name)
-                                    onClicked: root.newTerminalRequested(folder.group.directory)
+                                    onClicked: Models.SessionActions.create("", folder.group.directory)
                                 }
                                 KIconButton {
                                     Layout.rightMargin: 2
@@ -1100,8 +1100,8 @@ Item {
                                 TapHandler {
                                     acceptedButtons: Qt.RightButton
                                     onTapped: {
-                                        menu.sessionId = row.sessionId
-                                        menu.popup()
+                                        terminalMenu.sessionId = row.sessionId
+                                        terminalMenu.popup()
                                     }
                                 }
                             }
@@ -1173,8 +1173,9 @@ Item {
 
                             Layout.fillWidth: true
                             Layout.leftMargin: signInButton.approving ? 12 : 0
-                            text: signInButton.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
-                            active: Models.Account.signingIn
+                            text: signInButton.approving ? qsTr("Approve this device")
+                                : Models.Account.signingIn || Models.Account.restoring.length > 0 ? qsTr("Signing in…") : qsTr("Sign in")
+                            active: Models.Account.signingIn || Models.Account.restoring.length > 0
                             color: KodosiTheme.ink
                             font.pixelSize: KodosiTheme.fontBody
                             font.weight: Font.DemiBold
@@ -1228,7 +1229,7 @@ Item {
                     selected: root.selection === "people" || root.selection === "settings"
                     onAboutRequested: root.aboutRequested()
                     onResumeRequested: provider => root.resumeRequested(provider)
-                    onStartRequested: root.newTerminalRequested("")
+                    onStartRequested: root.newTerminalRequested()
                 }
             }
         }
@@ -1260,18 +1261,18 @@ Item {
         z: 10
     }
     KMenu {
-        id: menu
+        id: terminalMenu
 
         property string sessionId: ""
         readonly property var session: Models.Sessions.presentationForSession(sessionId)
 
-        KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(menu.sessionId) }
-        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: menu.session.isOwner === true; onTriggered: root.renamingId = menu.sessionId }
-        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: menu.session.kind === "local" && menu.session.isOwner === true; onTriggered: root.shareRequested(menu.sessionId) }
-        KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
+        KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: terminalMenu.session.isOwner === true; onTriggered: root.renamingId = terminalMenu.sessionId }
+        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: terminalMenu.session.kind === "local" && terminalMenu.session.isOwner === true; onTriggered: root.shareRequested(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(terminalMenu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-        KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
-        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canClose === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
+        KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(terminalMenu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: terminalMenu.session.canClose === true; onTriggered: closeDialog.ask(terminalMenu.sessionId, terminalMenu.session.name || "") }
     }
     KPopover {
         id: branchPopover

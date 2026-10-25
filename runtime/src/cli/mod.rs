@@ -15,6 +15,15 @@ mod render;
 mod rooms;
 mod terminal;
 
+const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
+
+/// The Kodosi terminal that this command runs in, if any.
+fn this_terminal() -> Option<String> {
+    std::env::var("KODOSI_SESSION_ID")
+        .ok()
+        .filter(|id| Uuid::parse_str(id).is_ok())
+}
+
 #[derive(Parser)]
 #[command(
     name = "kodosi",
@@ -59,6 +68,10 @@ enum Action {
     Room(rooms::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
     Dosi(DosiAction),
+    #[command(
+        about = "Print the skill that lets an agent work with the people and agents in Kodosi."
+    )]
+    Skill,
     #[command(
         subcommand,
         about = "Read the saved conversations of Claude Code and Copilot CLI."
@@ -138,7 +151,8 @@ enum TerminalAction {
     },
     /// Start a terminal on this computer, or on another computer of yours with --computer.
     Start {
-        /// The name of the terminal. The default is Terminal, or the name of the new branch.
+        /// The name of the terminal. The default is the name of the new branch, or the agent's
+        /// name or Terminal, with a number when another terminal has that name.
         #[arg(long)]
         name: Option<String>,
         /// The folder to start in. The default is your home folder.
@@ -196,6 +210,14 @@ enum TerminalAction {
     },
     /// Open a terminal in this window. Press Ctrl-] and then . to leave; the terminal keeps running.
     Attach { terminal: String },
+    /// Send a message to the agent in a terminal. Kodosi types it with who sends it and from where. It stops with a message while that agent waits for a person's answer or a person types there.
+    Message {
+        terminal: String,
+        text: String,
+        /// The name of the agent that sends it, by default the agent in this terminal.
+        #[arg(long)]
+        agent: Option<String>,
+    },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
         terminal: String,
@@ -390,8 +412,8 @@ async fn dispatch(args: Arguments) -> Result<()> {
     {
         return stop_host(&config, force, args.json).await;
     }
-    if matches!(args.command, Action::Dosi(DosiAction::Skill)) {
-        return print_text(dosi::SKILL);
+    if let Some(skill) = skill(&args.command) {
+        return print_text(skill);
     }
     refuse_for_dosi(&args.command)?;
     let mut client = local_host::connect_or_start(&config.data_root).await?;
@@ -479,6 +501,14 @@ async fn dispatch(args: Arguments) -> Result<()> {
     }
 }
 
+const fn skill(action: &Action) -> Option<&'static str> {
+    match action {
+        Action::Skill => Some(SKILL),
+        Action::Dosi(DosiAction::Skill) => Some(dosi::SKILL),
+        _ => None,
+    }
+}
+
 fn refuse_for_dosi(action: &Action) -> Result<()> {
     if std::env::var_os(crate::dosi::TOKEN_VARIABLE).is_none() {
         return Ok(());
@@ -538,6 +568,7 @@ async fn command(
         Action::Provider(action) => provider_command(action, &request)?,
         Action::Room(_)
         | Action::Dosi(_)
+        | Action::Skill
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status
@@ -564,6 +595,7 @@ async fn start_command(
     } else {
         None
     };
+    let chosen = name.is_some() || branch.is_some();
     let name = name.or_else(|| {
         agent.as_ref().and_then(|agent| {
             crate::agents::Agent::ALL
@@ -581,7 +613,10 @@ async fn start_command(
             "Give --directory, the repository on that computer, for a new branch there.".into(),
         ));
     }
-    let (name, directory) = start_defaults(name, directory, branch.as_deref());
+    let (mut name, directory) = start_defaults(name, directory, branch.as_deref());
+    if !chosen {
+        name = unused_name(name, &context.sessions);
+    }
     let directory = match &computer {
         Some(computer) => remote_folder(client, context, computer, directory).await?,
         None => path(directory)?,
@@ -779,14 +814,31 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             let text = text.collect::<Result<String>>()?;
             (terminal, "session.input", true, json!({"text":text}))
         }
+        TerminalAction::Message {
+            terminal,
+            text,
+            agent,
+        } => {
+            let agent = agent.or_else(|| {
+                std::env::var_os(crate::dosi::TOKEN_VARIABLE).map(|_| "Dosi".to_owned())
+            });
+            (
+                terminal,
+                "session.message",
+                true,
+                json!({"text":text,"fromSessionId":this_terminal(),"agent":agent}),
+            )
+        }
         TerminalAction::Input {
             terminal,
             text,
             enter,
-        } => {
-            let text = if enter { format!("{text}\r") } else { text };
-            (terminal, "session.input", true, json!({"text":text}))
-        }
+        } => (
+            terminal,
+            "session.input",
+            true,
+            json!({"text":text,"enter":enter}),
+        ),
         TerminalAction::Rename { terminal, name } => {
             (terminal, "session.rename", false, json!({"name":name}))
         }
@@ -1038,6 +1090,7 @@ impl IdleWatch {
 
 async fn run_host(config: Config, json_output: bool) -> Result<()> {
     let mut idle = IdleWatch::new(config.host == HostKind::Background);
+    let mut end = kodosi_os::process::EndRequest::new()?;
     crate::diagnostics::install(&config.data_root, crate::diagnostics::Role::Host);
     let runtime = crate::start(config).await?;
     let result = async {
@@ -1048,6 +1101,7 @@ async fn run_host(config: Config, json_output: bool) -> Result<()> {
             let deadline = idle.deadline(local_sessions, *clients.borrow(), tokio::time::Instant::now());
             tokio::select! {
                 result=tokio::signal::ctrl_c()=>{result?;break;}
+                ()=end.received()=>break,
                 ()=runtime.stopped()=>break,
                 ()=async{match deadline{Some(at)=>tokio::time::sleep_until(at).await,None=>std::future::pending().await}}=>break,
                 changed=clients.changed()=>{if changed.is_err(){break;}}
@@ -1191,6 +1245,16 @@ fn start_defaults(
         directory.or_else(|| branch.map(|_| PathBuf::from("."))),
     )
 }
+fn unused_name(name: String, sessions: &[Value]) -> String {
+    let used = |candidate: &str| sessions.iter().any(|session| session["name"] == candidate);
+    if !used(&name) {
+        return name;
+    }
+    (2..=sessions.len() + 1)
+        .map(|number| format!("{name} {number}"))
+        .find(|candidate| !used(candidate))
+        .unwrap_or(name)
+}
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
@@ -1216,6 +1280,7 @@ struct Context {
     epoch: u64,
     sessions: Vec<Value>,
     account: Option<Value>,
+    restoring: Option<Value>,
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
     rooms: BTreeMap<String, Value>,
@@ -1227,6 +1292,7 @@ impl Context {
             epoch: 0,
             sessions: vec![],
             account: None,
+            restoring: None,
             friends: vec![],
             latest: BTreeMap::new(),
             rooms: BTreeMap::new(),
@@ -1245,6 +1311,7 @@ impl Context {
                 self.sessions.clear();
                 self.friends.clear();
                 self.account = None;
+                self.restoring = None;
                 self.latest.clear();
                 self.rooms.clear();
             }
@@ -1273,8 +1340,17 @@ impl Context {
             Some("friends.snapshot") => {
                 self.friends = event["friends"].as_array().cloned().unwrap_or_default();
             }
-            Some("auth.ready") => self.account = Some(event.clone()),
-            Some("auth.required") => self.account = None,
+            Some("auth.ready") => {
+                self.account = Some(event.clone());
+                self.restoring = None;
+            }
+            Some("auth.required") => {
+                self.account = None;
+                self.restoring = None;
+            }
+            Some("auth.restoring") => {
+                self.restoring = Some(event.clone());
+            }
             _ => {}
         }
         true
@@ -1572,7 +1648,7 @@ mod tests {
         for skill in [
             include_str!("../../skills/kodosi-dosi/INSTRUCTIONS.md"),
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
-            include_str!("../../skills/kodosi-room/SKILL.md"),
+            include_str!("../../skills/kodosi/SKILL.md"),
         ] {
             let commands = skill.split('`').skip(1).step_by(2);
             for command in commands.filter(|code| code.starts_with("kodosi ")) {
@@ -1649,6 +1725,17 @@ mod tests {
             start_defaults(None, None, None),
             ("Terminal".to_owned(), None)
         );
+        let sessions = [
+            json!({"name":"Terminal"}),
+            json!({"name":"Terminal 2"}),
+            json!({"name":"Claude Code"}),
+        ];
+        assert_eq!(unused_name("Terminal".into(), &sessions), "Terminal 3");
+        assert_eq!(
+            unused_name("Claude Code".into(), &sessions),
+            "Claude Code 2"
+        );
+        assert_eq!(unused_name("Codex".into(), &sessions), "Codex");
     }
     #[test]
     fn older_account_events_cannot_restore_old_sessions() {

@@ -133,7 +133,7 @@ fn folder_name(path: &Path, usual: &str, program: &str) -> String {
     name
 }
 
-fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
+pub(super) fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
     if cfg!(windows) {
         return None;
     }

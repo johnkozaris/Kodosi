@@ -73,7 +73,7 @@ struct SidebarRoomRow: View {
     let pill: Namespace.ID
 
     private var live: [RuntimeSession] {
-        deps.sessions.filter { $0.missionId == mission.id }
+        deps.roomSessions(mission.id)
     }
 
     var body: some View {
@@ -182,7 +182,7 @@ struct SidebarFolderHeader: View {
             .accessibilityIdentifier("sidebar.folder.\(AccessibilityIdentifier.token(group.id))")
             .contextMenu {
                 if group.host == nil, let directory = group.directory {
-                    Button("New terminal here") { deps.openLauncher(folder: directory) }
+                    Button("New terminal here") { deps.openTerminal(in: directory) }
                     if group.sessions.contains(where: { $0.repository == true }) {
                         Button("New terminal on a new branch…") { branching = true }
                     }
@@ -212,12 +212,13 @@ struct SidebarFolderHeader: View {
                 IconButton(title: "New terminal here", symbol: "plus",
                            identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).new", size: 20)
                 {
-                    deps.openLauncher(folder: directory)
+                    deps.openTerminal(in: directory)
                 }
                 .opacity(hovered ? 1 : 0)
             }
         }
         .padding(.top, 6)
+        .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .offlineChoice($choosingOffline, for: group.sessions)

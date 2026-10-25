@@ -6,8 +6,9 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "host")]
 use super::{
-    Arc, Duration, KODOSI_ACTIVATION_MAX_BYTES, KODOSI_APP_FORWARDED, KODOSI_APP_OWNER,
-    KODOSI_APP_SECONDARY, KODOSI_START_ALREADY_ACTIVE, KODOSI_START_INVALID_CALLBACKS, Mutex,
+    Arc, Duration, KODOSI_ACTIVATION_MAX_BYTES, KODOSI_APP_FORWARDED,
+    KODOSI_APP_FORWARDED_TO_EARLIER, KODOSI_APP_OWNER, KODOSI_APP_SECONDARY,
+    KODOSI_START_ALREADY_ACTIVE, KODOSI_START_INVALID_CALLBACKS, Mutex,
     callbacks::{CallbackScope, Gate, UserData, lock},
     payload,
 };
@@ -20,6 +21,8 @@ use super::{
 
 #[cfg(feature = "host")]
 const FORWARD_WAIT: Duration = Duration::from_secs(10);
+#[cfg(feature = "host")]
+const REPLACE_WAIT: Duration = Duration::from_secs(10);
 
 type ActivationCb = Option<unsafe extern "C" fn(*const u8, usize, *mut c_void)>;
 
@@ -36,6 +39,7 @@ struct App {
     preferences: Option<std::ffi::CString>,
     activation: Activation,
     owner: Option<Owner>,
+    earlier: Option<u32>,
 }
 
 #[cfg(feature = "host")]
@@ -146,6 +150,7 @@ unsafe fn prepare(
         preferences: preferences_path,
         activation,
         owner,
+        earlier: None,
     });
     let path = prepared
         .preferences
@@ -194,8 +199,22 @@ unsafe fn forward(json: *const u8, length: usize) -> Outcome {
             FORWARD_WAIT,
         ))
         .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?;
-    let Forwarded::Claimed(claim) = forwarded else {
-        return Ok(KODOSI_APP_FORWARDED);
+    let claim = match forwarded {
+        Forwarded::Delivered(running) => {
+            return Ok(match running {
+                local_host::RunningApp {
+                    pid: Some(pid),
+                    version: None,
+                } if cfg!(target_os = "linux") => {
+                    if let Some(app) = lock(&APP).as_mut() {
+                        app.earlier = Some(pid);
+                    }
+                    KODOSI_APP_FORWARDED_TO_EARLIER
+                }
+                _ => KODOSI_APP_FORWARDED,
+            });
+        }
+        Forwarded::Claimed(claim) => claim,
     };
     let mut prepared = lock(&APP);
     let Some(app) = prepared.as_mut() else {
@@ -207,6 +226,70 @@ unsafe fn forward(json: *const u8, length: usize) -> Outcome {
     app.owner = Some(own(&app.config, claim, app.activation)?);
     drop(prepared);
     Ok(KODOSI_APP_OWNER)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kodosi_replace_earlier_app() -> i32 {
+    settle(replace_earlier)
+}
+
+#[cfg(feature = "host")]
+fn replace_earlier() -> Outcome {
+    let (root, pid) = match lock(&APP).as_mut() {
+        None => {
+            return Err(failed(
+                KODOSI_START_FAILED,
+                "Prepare the Kodosi app before replacing an earlier one.",
+            ));
+        }
+        Some(app) if app.owner.is_some() => return Ok(KODOSI_APP_OWNER),
+        Some(app) => match app.earlier.take() {
+            Some(pid) => (app.config.data_root.clone(), pid),
+            None => {
+                return Err(failed(
+                    KODOSI_START_FAILED,
+                    "No earlier Kodosi app is open.",
+                ));
+            }
+        },
+    };
+    end_earlier(&root, pid);
+    let deadline = std::time::Instant::now() + REPLACE_WAIT;
+    loop {
+        if let Some(claim) = local_host::claim_app(&root)
+            .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?
+        {
+            let mut prepared = lock(&APP);
+            let Some(app) = prepared.as_mut() else {
+                return Err(failed(
+                    KODOSI_START_FAILED,
+                    "The Kodosi app closed while it replaced an earlier one.",
+                ));
+            };
+            app.owner = Some(own(&app.config, claim, app.activation)?);
+            drop(prepared);
+            return Ok(KODOSI_APP_OWNER);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(failed(
+                KODOSI_START_FAILED,
+                "The earlier Kodosi did not close. Quit it, then open Kodosi again.",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[cfg(feature = "host")]
+fn end_earlier(root: &std::path::Path, pid: u32) {
+    let owner = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .ok()
+        .and_then(|runtime| runtime.block_on(local_host::app_owner(root)));
+    if owner == Some(pid) {
+        kodosi_os::process::end_process(pid);
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -359,6 +442,11 @@ unsafe fn forward(_json: *const u8, _length: usize) -> Outcome {
 const fn close_app() {}
 
 #[cfg(not(feature = "host"))]
+fn replace_earlier() -> Outcome {
+    Err(no_app_claim())
+}
+
+#[cfg(not(feature = "host"))]
 fn no_app_claim() -> Box<KodosiStartFailure> {
     failed(
         KODOSI_START_REJECTED,
@@ -451,10 +539,24 @@ mod tests {
 
         release.send(()).unwrap();
         assert!(launch(&root, "kodosi://first").join().unwrap());
-        assert_eq!(received.recv().unwrap(), br#"{"route":"kodosi://first"}"#);
+        assert_eq!(
+            received.recv().unwrap(),
+            format!(
+                r#"{{"appVersion":"{}","route":"kodosi://first"}}"#,
+                kodosi_runtime::PRODUCT_VERSION
+            )
+            .as_bytes()
+        );
 
         let second = launch(&root, "kodosi://second");
-        assert_eq!(received.recv().unwrap(), br#"{"route":"kodosi://second"}"#);
+        assert_eq!(
+            received.recv().unwrap(),
+            format!(
+                r#"{{"appVersion":"{}","route":"kodosi://second"}}"#,
+                kodosi_runtime::PRODUCT_VERSION
+            )
+            .as_bytes()
+        );
         let (signal, finished) = std::sync::mpsc::channel();
         let closing = std::thread::spawn(move || {
             kodosi_close_app();

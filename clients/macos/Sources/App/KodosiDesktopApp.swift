@@ -104,6 +104,11 @@ struct RootView: View {
             The `kodosi host` command (process \(pid)) runs the earlier version. \
             Stop it in its terminal and start it again.
             """)
+        case .background where failure.hostTerminals == 1:
+            return String(localized: """
+            The earlier version of Kodosi still runs 1 terminal in the background. \
+            Restart it to use the update. The terminal ends.
+            """)
         case .background:
             return String(localized: """
             The earlier version of Kodosi still runs \(terminals) terminals in the background. \

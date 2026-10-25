@@ -35,6 +35,10 @@ use crate::{network::LocalPublication, terminal::TerminalSession};
 mod commands;
 #[cfg(feature = "host")]
 mod dosi;
+#[cfg(feature = "host")]
+mod messages;
+#[cfg(feature = "host")]
+mod restore;
 #[cfg(test)]
 mod tests;
 
@@ -59,6 +63,9 @@ const MAX_QUEUED_INPUT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ANSWERS: usize = 256;
 #[cfg(feature = "host")]
 const CALL_ANSWER: Duration = Duration::from_secs(20);
+#[cfg(feature = "host")]
+const AGENT_ANSWER: Duration = Duration::from_secs(2);
+const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
@@ -429,13 +436,14 @@ struct Local {
     published: bool,
     room_sequence: u64,
     worktree: Option<crate::worktree::Worktree>,
+    wanted: Option<restore::Sharing>,
 }
 
 #[cfg(feature = "host")]
 impl Local {
-    fn stop(&self) -> impl Future<Output = ()> + use<> {
+    fn stop(&self, keeps_worktree: bool) -> impl Future<Output = ()> + use<> {
         let terminal = self.terminal.clone();
-        let worktree = self.worktree.clone();
+        let worktree = self.worktree.clone().filter(|_| !keeps_worktree);
         async move {
             if terminal.close().await.is_err() {
                 terminal.cancel();
@@ -444,6 +452,10 @@ impl Local {
                 crate::worktree::remove_unchanged(worktree).await;
             }
         }
+    }
+
+    fn comes_back(&self) -> bool {
+        !self.terminal.is_closed() && self.entry.status != SessionStatus::Closing
     }
 
     fn publication(
@@ -563,6 +575,13 @@ enum Completion {
     Published {
         id: Uuid,
         incarnation: Uuid,
+        refused: bool,
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Told {
+        id: Uuid,
+        mentions: Vec<messages::Mention>,
         result: Result<()>,
     },
     Unpublished {
@@ -672,6 +691,55 @@ impl TerminalTarget {
         }
     }
 
+    /// Types the text and then presses Enter as a key of its own, as a person does: agents keep
+    /// text and Enter that arrive together as a paste. When a person types in the pause, the
+    /// text stays in the terminal for them.
+    fn type_line(&self, text: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let typed = self.send_input(Bytes::from(text));
+        let target = self.clone();
+        Box::pin(async move {
+            typed.await?;
+            tokio::time::sleep(ENTER_PAUSE).await;
+            if let Err(error) = target.send_input(Bytes::from_static(b"\r")).await {
+                tracing::debug!(%error, "the typed text waits for Enter");
+            }
+            Ok(())
+        })
+    }
+
+    #[cfg(feature = "host")]
+    fn message(&self, bytes: Bytes) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            Self::Local(terminal) => Box::pin(terminal.message(bytes)),
+            Self::Remote(terminal) => {
+                let result = terminal.control(
+                    None,
+                    TerminalControl::Message {
+                        bytes: bytes.to_vec(),
+                    },
+                );
+                Box::pin(async move { result.await.map(|_| ()) })
+            }
+        }
+    }
+
+    /// Types a message line for the agent and then Enter, as `type_line` does. The terminal
+    /// checks both against the agent's state, so Enter never answers a question that the agent
+    /// asked in the pause.
+    #[cfg(feature = "host")]
+    fn type_message(&self, line: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let typed = self.message(Bytes::from(line));
+        let target = self.clone();
+        Box::pin(async move {
+            typed.await?;
+            tokio::time::sleep(ENTER_PAUSE).await;
+            if let Err(error) = target.message(Bytes::from_static(b"\r")).await {
+                tracing::debug!(%error, "the typed message waits for Enter");
+            }
+            Ok(())
+        })
+    }
+
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
@@ -770,6 +838,7 @@ struct Reconnect {
     failures: u32,
     next: tokio::time::Instant,
     connected: Option<tokio::time::Instant>,
+    failure: crate::diagnostics::Repeats,
 }
 
 struct Starting {
@@ -802,6 +871,12 @@ struct Runtime {
     dosi: crate::dosi::Engine,
     #[cfg(feature = "host")]
     recent: crate::folders::Recent,
+    #[cfg(feature = "host")]
+    restore: restore::Restore,
+    #[cfg(feature = "host")]
+    mentions: messages::Mentions,
+    #[cfg(feature = "host")]
+    person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -910,6 +985,10 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         &commands::shell(&config),
     ));
     #[cfg(feature = "host")]
+    if let Err(error) = crate::agents::write_notes(&config.data_root.join("agents")) {
+        tracing::warn!(%error, "the note for agents was not written");
+    }
+    #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
     #[cfg(not(feature = "host"))]
     let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
@@ -919,6 +998,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         host: cfg!(feature = "host").then_some(config.host),
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
+        #[cfg(feature = "host")]
+        restore: restore::Restore::load(&config.data_root),
+        #[cfg(feature = "host")]
+        mentions: messages::Mentions::default(),
+        #[cfg(feature = "host")]
+        person: None,
         #[cfg(feature = "host")]
         config,
         #[cfg(feature = "host")]
@@ -1251,10 +1336,14 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); } self.reconnect_views(); self.started_remotes(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
             }
         }
         requests.close();
+        self.stop().await;
+    }
+
+    async fn stop(&mut self) {
         self.jobs.abort_all();
         while let Some(job) = self.jobs.join_next().await {
             #[cfg(feature = "host")]
@@ -1282,6 +1371,8 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.dosi.shutdown();
         #[cfg(feature = "host")]
+        self.save_terminals(self.agent_lines().await);
+        #[cfg(feature = "host")]
         self.stop_locals().await;
         self.network.shutdown().await;
     }
@@ -1303,9 +1394,329 @@ impl Runtime {
     async fn stop_locals(&self) {
         let mut stopping = JoinSet::new();
         for local in self.local.values() {
-            stopping.spawn(local.stop());
+            stopping.spawn(local.stop(local.comes_back()));
         }
         while stopping.join_next().await.is_some() {}
+    }
+
+    /// Asks each terminal's agent which conversation it shows, so the conversation continues.
+    #[cfg(feature = "host")]
+    async fn agent_lines(&self) -> HashMap<Uuid, String> {
+        let mut asking = JoinSet::new();
+        for (id, local) in &self.local {
+            if let Some(program) = local.entry.program.clone().filter(|_| local.comes_back()) {
+                let (id, terminal, home) = (*id, local.terminal.clone(), self.config.home.clone());
+                let shell = commands::shell(&self.config);
+                asking.spawn(async move {
+                    (
+                        id,
+                        restore::agent_line(terminal, program, home, shell).await,
+                    )
+                });
+            }
+        }
+        let mut lines = HashMap::new();
+        let answered = tokio::time::timeout(AGENT_ANSWER, async {
+            while let Some(answer) = asking.join_next().await {
+                if let Ok((id, Some(line))) = answer {
+                    lines.insert(id, line);
+                }
+            }
+        })
+        .await;
+        if answered.is_err() {
+            tracing::warn!("an agent conversation was not found before the host stopped");
+        }
+        lines
+    }
+
+    #[cfg(feature = "host")]
+    fn save_terminals(&mut self, mut lines: HashMap<Uuid, String>) {
+        let shell = commands::shell(&self.config);
+        let mut ids = self
+            .local
+            .iter()
+            .filter(|(_, local)| local.comes_back())
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        ids.sort_unstable();
+        let live = ids
+            .into_iter()
+            .map(|id| {
+                let local = &self.local[&id];
+                restore::Saved {
+                    id,
+                    name: local.entry.name.clone(),
+                    folder: local.entry.working_dir.clone(),
+                    sharing: local.wanted.clone().or_else(|| {
+                        restore::Sharing::of(
+                            local.entry.owner_user_id.as_ref(),
+                            local.entry.mission_id.as_ref(),
+                            &local.entry.shared_with,
+                        )
+                    }),
+                    line: lines.remove(&id).or_else(|| {
+                        local
+                            .entry
+                            .program
+                            .as_deref()
+                            .and_then(|program| restore::usual_line(program, &shell))
+                    }),
+                    worktree: local.worktree.clone(),
+                }
+            })
+            .collect();
+        self.restore.save(live);
+    }
+
+    /// Starts the terminals of the last host again when an app asks.
+    #[cfg(feature = "host")]
+    pub(super) fn restore_saved(&mut self) {
+        let saved = self.restore.take();
+        if !saved.is_empty() {
+            tracing::info!(
+                terminals = saved.len(),
+                "the terminals of the last host come back"
+            );
+        }
+        for saved in saved {
+            let command = Command::CreateSession {
+                request_id: Uuid::now_v7().to_string(),
+                name: saved.name.clone(),
+                working_dir: restore::nearest_folder(saved.folder.as_deref()),
+                mission_id: None,
+                resume: None,
+                branch: None,
+                worktrees: None,
+                command: saved.line.clone(),
+                agent: None,
+                prompt: None,
+            };
+            match self.begin_creation(command) {
+                Ok(id) => {
+                    self.restore.starting.insert(id, saved);
+                }
+                Err(error) => {
+                    tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
+                }
+            }
+        }
+    }
+
+    /// Keeps the new messages of a room that name terminals of this computer for their agents.
+    #[cfg(feature = "host")]
+    fn note_mentions(&mut self, room: &Value) {
+        let Some(id) = room["roomId"].as_str() else {
+            return;
+        };
+        let messages = room["messages"].as_array().map_or(&[][..], Vec::as_slice);
+        let fresh = self.mentions.new_messages(id, messages);
+        if fresh.is_empty() {
+            return;
+        }
+        let in_room = |entry: &SessionEntry| entry.mission_id.as_deref() == Some(id);
+        let terminals = self
+            .local
+            .iter()
+            .filter(|(_, local)| in_room(&local.entry))
+            .map(|(terminal, local)| (Some(*terminal), local.entry.name.as_str()))
+            .chain(
+                self.remotes
+                    .iter()
+                    .filter(|(remote, entry)| !self.local.contains_key(remote) && in_room(entry))
+                    .map(|(_, entry)| (None, entry.name.as_str())),
+            )
+            .collect::<Vec<_>>();
+        let mut kept = Vec::new();
+        for message in &fresh {
+            let from = message["terminalId"]
+                .as_str()
+                .and_then(|terminal| Uuid::parse_str(terminal).ok());
+            let person = message["authorName"]
+                .as_str()
+                .unwrap_or("Someone")
+                .to_owned();
+            let sender = match message["agent"].as_str() {
+                Some(agent) => messages::Sender::Agent {
+                    person,
+                    agent: agent.to_owned(),
+                    terminal: from.and_then(|terminal| self.place(terminal)),
+                },
+                None => messages::Sender::Person(person),
+            };
+            let text = message["text"].as_str().unwrap_or_default();
+            for terminal in messages::named(text, &terminals).into_iter().flatten() {
+                if Some(terminal) != from {
+                    kept.push((
+                        terminal,
+                        sender.clone(),
+                        text.to_owned(),
+                        message["sequence"].as_u64().unwrap_or_default(),
+                    ));
+                }
+            }
+        }
+        for (terminal, from, text, sequence) in kept {
+            let room = self.local[&terminal]
+                .entry
+                .mission_name
+                .clone()
+                .or_else(|| self.room_name(id))
+                .unwrap_or_else(|| "room".to_owned());
+            self.mentions.keep(
+                terminal,
+                messages::Mention {
+                    room,
+                    from,
+                    text,
+                    sequence,
+                },
+            );
+        }
+        self.tell_mentions();
+    }
+
+    /// The name, folder and title of a terminal that this computer knows, for the agents that
+    /// get a message from it.
+    #[cfg(feature = "host")]
+    fn place(&self, id: Uuid) -> Option<messages::Place> {
+        let entry = self
+            .local
+            .get(&id)
+            .map(|local| &local.entry)
+            .or_else(|| self.remotes.get(&id))?;
+        Some(messages::Place {
+            name: entry.name.clone(),
+            folder: entry.working_dir.clone(),
+            title: entry.title.clone(),
+        })
+    }
+
+    /// Who sends a message: the agent that names itself or runs in the sending terminal of
+    /// this computer, or else the person.
+    #[cfg(feature = "host")]
+    fn sender(&self, from: Option<Uuid>, agent: Option<&str>) -> messages::Sender {
+        let person = self
+            .person
+            .clone()
+            .unwrap_or_else(|| "the person".to_owned());
+        let agent = agent.map(str::to_owned).or_else(|| {
+            let program = self.local.get(&from?)?.entry.program.clone()?;
+            crate::agents::Agent::ALL
+                .into_iter()
+                .find(|agent| agent.name() == program)
+                .map(|agent| agent.label().to_owned())
+        });
+        match agent {
+            Some(agent) => messages::Sender::Agent {
+                person,
+                agent,
+                terminal: from.and_then(|id| self.place(id)),
+            },
+            None => messages::Sender::Person(person),
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn room_name(&self, id: &str) -> Option<String> {
+        self.cached_events
+            .get("missions.snapshot")?
+            .get("missions")?
+            .as_array()?
+            .iter()
+            .find(|mission| mission["id"] == id)?
+            .get("name")?
+            .as_str()
+            .map(str::to_owned)
+    }
+
+    /// Types the messages that name a terminal into its agent as soon as it takes messages, one
+    /// line for each room, and not more often than every few seconds.
+    #[cfg(feature = "host")]
+    fn tell_mentions(&mut self) {
+        let now = tokio::time::Instant::now();
+        let ready = self
+            .mentions
+            .waiting
+            .keys()
+            .copied()
+            .filter(|id| {
+                !self.mentions.telling.contains(id)
+                    && self
+                        .mentions
+                        .told
+                        .get(id)
+                        .is_none_or(|at| now.duration_since(*at) >= messages::SPACING)
+                    && self.local.get(id).is_some_and(|local| {
+                        local.comes_back()
+                            && messages::takes_messages(
+                                local.entry.program.as_deref(),
+                                local.entry.program_status.as_ref(),
+                            )
+                    })
+            })
+            .collect::<Vec<_>>();
+        for id in ready {
+            let Some(waiting) = self.mentions.waiting.remove(&id) else {
+                continue;
+            };
+            let room = waiting[0].room.clone();
+            let (now_told, later): (Vec<_>, Vec<_>) = waiting
+                .into_iter()
+                .partition(|mention| mention.room == room);
+            if !later.is_empty() {
+                self.mentions.waiting.insert(id, later);
+            }
+            let line = messages::mention_line(&room, &now_told);
+            let terminal = TerminalTarget::Local(self.local[&id].terminal.clone());
+            self.mentions.telling.insert(id);
+            self.spawn(async move {
+                let result = terminal.type_message(line).await;
+                Completion::Told {
+                    id,
+                    mentions: now_told,
+                    result,
+                }
+            });
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn told(&mut self, id: Uuid, told: Vec<messages::Mention>, result: Result<()>, current: bool) {
+        self.mentions.telling.remove(&id);
+        if !current {
+            return;
+        }
+        match result {
+            Ok(()) => {
+                self.mentions.told.insert(id, tokio::time::Instant::now());
+            }
+            Err(error) => {
+                tracing::debug!(%id, %error, "a room message waits for the agent");
+                for mention in told {
+                    self.mentions.keep(id, mention);
+                }
+            }
+        }
+    }
+
+    /// Gives restored terminals their room or people when the account that chose them is signed in.
+    #[cfg(feature = "host")]
+    fn apply_wanted(&mut self) {
+        let Some(user) = self.scope.user.clone() else {
+            return;
+        };
+        for local in self.local.values_mut() {
+            if let Some(sharing) = local.wanted.take_if(|sharing| sharing.owner == user) {
+                local.entry.shared_with = if sharing.room.is_some() {
+                    Vec::new()
+                } else {
+                    sharing.people
+                };
+                local.entry.mission_id = sharing.room;
+                local.entry.mission_name = None;
+            }
+        }
     }
 
     fn clear_input_notice(&mut self, session: Uuid) {
@@ -1541,6 +1952,8 @@ impl Runtime {
         self.cached_events.clear();
         self.room_latest.clear();
         self.room_seen = None;
+        #[cfg(feature = "host")]
+        self.mentions.clear();
         self.latest_auth = None;
         self.administering.clear();
         #[cfg(feature = "host")]
@@ -1557,6 +1970,8 @@ impl Runtime {
             local.entry.owner_user_id.clone_from(&self.scope.user);
             local.entry.host_device_id = None;
         }
+        #[cfg(feature = "host")]
+        self.apply_wanted();
         self.emit(self.auth_event());
         self.publish_catalog();
         #[cfg(feature = "host")]
@@ -1615,10 +2030,16 @@ impl Runtime {
             }
         } else {
             match kind {
-                "auth.finalizing" => {
+                "auth.finalizing" | "auth.restoring" => {
                     self.latest_auth = Some(event.event.clone());
                 }
-                "auth.ready" | "auth.required" | "auth.error" => self.latest_auth = None,
+                "auth.ready" | "auth.required" | "auth.error" => {
+                    self.latest_auth = None;
+                    #[cfg(feature = "host")]
+                    {
+                        self.person = event.event["displayName"].as_str().map(str::to_owned);
+                    }
+                }
                 _ => {}
             }
             let event = if kind == "missions.snapshot" {
@@ -1640,6 +2061,8 @@ impl Runtime {
             let room = (kind == "room.snapshot").then(|| event["room"].clone());
             self.emit(event);
             if let Some(room) = room {
+                #[cfg(feature = "host")]
+                self.note_mentions(&room);
                 self.room_changed(&room);
             }
         }
@@ -2074,11 +2497,13 @@ impl Runtime {
             mission_id: remote.mission_id.map(|id| id.to_string()),
             mission_name: remote.mission_name,
             shared_with: remote.shared_with,
+            restored_from: None,
         }
     }
 
     #[cfg(feature = "host")]
     fn ended(&mut self, id: Uuid) {
+        self.mentions.forget(id);
         let (published, worktree) = self
             .local
             .remove(&id)
@@ -2186,6 +2611,7 @@ impl Runtime {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program_status = status;
                     self.publish_catalog();
+                    self.tell_mentions();
                 }
             }
             #[cfg(feature = "host")]
@@ -2273,6 +2699,7 @@ impl Runtime {
                     failures,
                     next: tokio::time::Instant::now() + Reconnect::delay(failures),
                     connected: None,
+                    failure: crate::diagnostics::Repeats::new(),
                 },
             );
         } else if let Some(connection) = self.connections.remove(&id) {
@@ -2375,17 +2802,21 @@ impl Runtime {
             self.spawn(async move {
                 let incarnation = info.incarnation_id;
                 let result = if network.generation() == generation {
-                    network
-                        .publish(info, host_requests, output)
-                        .await
-                        .map_err(Error::from)
+                    network.publish(info, host_requests, output).await
                 } else {
-                    Err(Error::Stale)
+                    Err(crate::network::Error::Stale)
                 };
                 Completion::Published {
                     id,
                     incarnation,
-                    result,
+                    refused: matches!(
+                        result,
+                        Err(crate::network::Error::Backend {
+                            status: 403 | 404,
+                            ..
+                        })
+                    ),
+                    result: result.map_err(Error::from),
                 }
             });
         }

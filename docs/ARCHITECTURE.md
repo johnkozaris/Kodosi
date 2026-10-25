@@ -25,6 +25,15 @@ Quit in a desktop app stops a background host and its terminals. A host that run
 terminal with `kodosi host` stops only there. An app that finds a host of an earlier
 version offers to restart it.
 
+The host saves its terminals in `terminals.json` in its data folder while they change,
+and again as it stops, with the conversation that each agent shows. It reads Claude
+Code's own records of the conversation that each Claude process shows, and for Codex and
+Copilot CLI it types their own list of conversations to continue. A new host keeps the
+saved terminals until an app sends `session.restore`; then it starts each one again with
+a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. A
+restored terminal joins its room or its people again when the account that chose them
+is signed in.
+
 ## Terminals
 
 The computer that starts a terminal hosts it: it owns the process, the terminal state
@@ -64,6 +73,15 @@ backend stores the ciphertext, numbers the items and tells members' devices that
 changed; each device fetches the newer items. Issue actions run on the participant's
 computer with its own credentials. See [Security](SECURITY.md) and the
 [encryption design](CRYPTOGRAPHY.md).
+
+A host types the new room messages that name one of its terminals with `@` into the
+agent in that terminal, as one line with who wrote it and from where. `kodosi terminal
+message` sends such a line to an agent on any computer, as a terminal control. The
+terminal types a message only while its agent reports a state other than waiting for a
+person and nobody types there, and Enter follows as a key of its own. Each terminal has
+Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`: the launcher passes it to Claude Code
+and Codex, and Copilot CLI reads it from the host's `agents` folder through
+`COPILOT_CUSTOM_INSTRUCTIONS_DIRS`.
 
 ## Contracts
 

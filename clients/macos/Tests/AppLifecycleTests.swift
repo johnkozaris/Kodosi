@@ -40,6 +40,47 @@ import Testing
     #expect(app.listedSessions.map(\.id) == [id])
 }
 
+@Test @MainActor func `a saved sign-in that comes back is not shown as signed out`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "RestoringSignIn"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    try app.receive(runtimeEvent("auth.restoring", epoch: 0, userId: nil, fields: ["reason": .string("offline")]))
+    #expect(app.account.restoring == "offline")
+    #expect(app.signInPrompt == String(localized: "Signing in…"))
+    try app.receive(runtimeEvent("auth.ready", epoch: 1, fields: ["userId": .string("owner"), "credentialStore": .string("keychain")]))
+    #expect(app.account.restoring == nil)
+    #expect(app.account.userId == "owner")
+    #expect(app.account.credentialStore == "keychain")
+    try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("signedOut")]))
+    #expect(app.account.credentialStore == nil)
+}
+
+@Test @MainActor func `a closing terminal leaves the listed terminals at once`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "ClosingTerminal"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b2a"
+    func snapshot(_ status: String) throws -> RuntimeEvent {
+        try runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object([
+            "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b2b"),
+            "kind": .string("local"), "name": .string("Quartz Puma"), "isOwner": .bool(true),
+            "status": .string(status), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
+        ])])])
+    }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    try app.receive(snapshot("running"))
+    #expect(app.listedSessions.map(\.id) == [id])
+    try app.receive(snapshot("closing"))
+    #expect(app.listedSessions.isEmpty)
+    #expect(app.session(id)?.status == .closing)
+}
+
 @Test @MainActor func `signed out startup and refresh only list local sessions`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SignedOutRefresh"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -58,7 +99,7 @@ import Testing
     #expect(sent == ["session.list", "session.list"])
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     app.refresh()
-    #expect(sent.allSatisfy { $0 == "session.list" })
+    #expect(sent.filter { $0 != "session.list" } == ["session.restore"])
     #expect(app.errorMessage == nil)
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     sent.removeAll()

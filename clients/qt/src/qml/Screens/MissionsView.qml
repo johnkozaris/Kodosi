@@ -15,12 +15,12 @@ Item {
     readonly property var terminals: {
         const byRoom = {}
         for (const session of Models.Sessions.sessions) {
-            if (session.missionId)
+            if (session.missionId && session.status !== "closing")
                 (byRoom[session.missionId] = byRoom[session.missionId] || []).push(session)
         }
         return byRoom
     }
-    readonly property int shared: Models.Sessions.sessions.filter(session => !!session.missionId).length
+    readonly property int shared: Models.Sessions.sessions.filter(session => !!session.missionId && session.status !== "closing").length
 
     signal inspectSessionRequested(string sessionId)
     signal shareSessionRequested(string sessionId)

@@ -53,4 +53,16 @@ pub enum KodosiError {
     Spawn(String),
 }
 
-pub use pty::{CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
+pub use pty::{
+    CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, process_group,
+};
+
+macro_rules! ghostty_version {
+    () => {
+        "1.3.2-dev"
+    };
+}
+
+pub const TERMINAL_PROGRAM: &str = "ghostty";
+pub const GHOSTTY_VERSION: &str = ghostty_version!();
+pub const XTVERSION: &str = concat!("ghostty ", ghostty_version!());

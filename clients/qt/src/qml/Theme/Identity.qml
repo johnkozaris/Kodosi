@@ -30,7 +30,10 @@ QtObject {
         if (userId === Models.Account.userId)
             return selfName
         const name = Models.People.displayName(userId)
-        return name.length > 0 ? name : qsTr("Someone")
+        if (name.length > 0)
+            return name
+        const member = Models.Missions.members.find(member => member.userId === userId)
+        return member ? (member.displayName || member.handle) : qsTr("Someone")
     }
 
     function kindTint(kind: string): color {

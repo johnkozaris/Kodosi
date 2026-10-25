@@ -15,6 +15,10 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
+pub fn system_store_available() -> bool {
+    imp::available()
+}
+
 pub struct SecretStore(imp::Store);
 
 impl SecretStore {

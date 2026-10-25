@@ -303,6 +303,11 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
+    /// Windows cannot read another process's environment.
+    pub const fn foreground_variable(&self, _name: &str) -> Option<String> {
+        None
+    }
+
     pub fn resize(
         &self,
         rows: u16,
@@ -887,7 +892,8 @@ fn environment_block(
     for (key, value) in [
         ("TERM", "xterm-256color"),
         ("COLORTERM", "truecolor"),
-        ("TERM_PROGRAM", "Kodosi"),
+        ("TERM_PROGRAM", crate::TERMINAL_PROGRAM),
+        ("TERM_PROGRAM_VERSION", crate::GHOSTTY_VERSION),
     ]
     .into_iter()
     .chain(overrides.iter().copied())
@@ -1083,7 +1089,8 @@ mod tests {
                 "KODOSI_SESSION_ID=id",
                 r"Path=C:\bin",
                 "TERM=xterm-256color",
-                "TERM_PROGRAM=Kodosi",
+                "TERM_PROGRAM=ghostty",
+                "TERM_PROGRAM_VERSION=1.3.2-dev",
                 "WT_SESSION=1",
             ]
         );

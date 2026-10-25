@@ -43,7 +43,7 @@ private struct RoomTerminals: View {
     @Bindable var state: RoomViewState
 
     private var sessions: [RuntimeSession] {
-        deps.sessions.filter { $0.missionId == roomId }
+        deps.roomSessions(roomId)
     }
 
     private var mine: [RuntimeSession] {

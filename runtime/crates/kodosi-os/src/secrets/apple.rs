@@ -10,6 +10,10 @@ use zeroize::Zeroizing;
 
 const NOT_FOUND: i32 = -25300;
 
+pub(super) const fn available() -> bool {
+    true
+}
+
 pub(super) struct Store {
     service: String,
 }

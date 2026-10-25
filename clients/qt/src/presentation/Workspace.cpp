@@ -64,6 +64,13 @@ bool Workspace::sendUntracked(QString type, QJsonObject values)
     return !sendRequest(std::move(type), std::move(values)).isEmpty();
 }
 
+// The host starts the terminals of its last run again only when an app asks.
+void Workspace::askRestore()
+{
+    if (!m_restoreAsked)
+        m_restoreAsked = sendUntracked(QStringLiteral("session.restore"));
+}
+
 bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject values,
     QString sessionId, QString missionId)
 {
@@ -122,7 +129,7 @@ void Workspace::setError(QString error)
     emit errorChanged();
 }
 
-void Workspace::clearAccountData(bool clearLinks)
+void Workspace::clearAccountData(bool clearLinks, const QString& userId)
 {
     m_pending.clear();
     m_people.reset();
@@ -130,7 +137,7 @@ void Workspace::clearAccountData(bool clearLinks)
     m_missions.reset();
     m_dosi.reset();
     m_sessionActions.reset(clearLinks);
-    m_desktop.clearSessions();
+    m_desktop.switchAccount(userId);
     m_desktop.clearLauncherDraft();
     m_sessions.resetRuntimeAuthority();
     notifyBusy();
@@ -140,7 +147,7 @@ void Workspace::reset()
 {
     m_hostReady = false;
     m_reportedVisible.reset();
-    clearAccountData(m_account.signedIn());
+    clearAccountData(m_account.signedIn(), m_account.m_userId);
     m_account.reset();
 }
 
@@ -199,14 +206,29 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("system.ready")) {
         m_hostReady = true;
+        m_restoreAsked = false;
         m_reportedVisible = QStringList {};
         reportVisible();
         emit hostReady();
         return;
     }
+    if (type == QStringLiteral("auth.restoring")) {
+        if (accountEpoch != m_account.m_epoch) {
+            clearAccountData(false, {});
+            m_account.m_epoch = accountEpoch;
+            m_account.m_userId.clear();
+        }
+        askRestore();
+        m_account.m_finalizing = false;
+        m_account.m_restoring = event.value(QStringLiteral("reason")).toString();
+        m_account.receivePlace(event);
+        emit m_account.loginChanged();
+        return;
+    }
     if (type == QStringLiteral("auth.finalizing")) {
         const bool fromBrowser = !m_account.m_signInPage.isEmpty();
         m_account.m_finalizing = true;
+        m_account.m_restoring.clear();
         m_account.m_signInPage.clear();
         emit m_account.loginChanged();
         if (fromBrowser)
@@ -215,18 +237,20 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
         m_account.m_finalizing = false;
+        m_account.m_restoring.clear();
         m_account.endDeletion();
         const auto user = type == QStringLiteral("auth.ready")
             ? event.value(QStringLiteral("userId")).toString()
             : QString {};
         if (accountEpoch != m_account.m_epoch || user != m_account.m_userId) {
-            clearAccountData(m_account.signedIn());
+            clearAccountData(m_account.signedIn(), user);
             m_account.m_epoch = accountEpoch;
             m_account.m_userId = user;
             m_account.m_displayName.clear();
         }
         if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
             m_account.m_displayName = name;
+        m_account.receivePlace(event);
         m_account.m_signInPage.clear();
         m_devices.m_enrolled = !user.isEmpty() && event.value(QStringLiteral("enrolled")).toBool(true);
         if (m_devices.m_enrolled)
@@ -239,6 +263,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             setError(tr("Your sign-in has ended. Sign in again."));
         else if (reason == QStringLiteral("accountDeleted"))
             setError(tr("Your Kodosi account is deleted."));
+        askRestore();
         m_sessionActions.refresh();
         m_sessionActions.activatePendingLink();
         return;
@@ -251,6 +276,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.browser")) {
         m_account.m_finalizing = false;
+        m_account.m_restoring.clear();
         m_account.m_signInPage = event.value(QStringLiteral("url")).toString();
         emit m_account.loginChanged();
         emit m_account.signInPageReady(m_account.m_signInPage);

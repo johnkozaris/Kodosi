@@ -49,6 +49,7 @@ public:
         QString connectionState;
         QString message;
         QStringList sharedWith;
+        QString restoredFrom;
         bool isOwner = false;
         bool attention = false;
         bool hidden = false;
@@ -87,6 +88,8 @@ public:
     [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
+    // The terminal that the host started again in place of `id` after it stopped, or `id`.
+    [[nodiscard]] QString current(const QString& id) const;
     [[nodiscard]] std::optional<PresentationSession> presentationSession(const QString& id) const;
     [[nodiscard]] std::optional<QString> incarnationForSession(const QString& id) const;
     void apply(const QJsonObject& event);

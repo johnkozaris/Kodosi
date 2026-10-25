@@ -51,6 +51,10 @@ pub fn open_private(path: &Path) -> io::Result<File> {
     imp::open_private(path)
 }
 
+pub fn read_private(path: &Path) -> io::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
+    imp::read_private(path)
+}
+
 pub fn append_private(path: &Path) -> io::Result<File> {
     imp::append_private(path)
 }

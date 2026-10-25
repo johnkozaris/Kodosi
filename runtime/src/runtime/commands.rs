@@ -110,6 +110,13 @@ impl Runtime {
             }
             #[cfg(feature = "host")]
             Command::CreateSession { .. } => self.create(command.clone())?,
+            #[cfg(feature = "host")]
+            Command::RestoreSessions { .. } => {
+                self.restore_saved();
+                self.result(command);
+            }
+            #[cfg(not(feature = "host"))]
+            Command::RestoreSessions { .. } => self.result(command),
             #[cfg(not(feature = "host"))]
             Command::CreateSession { .. } => {
                 return Err(Error::Invalid(
@@ -118,6 +125,14 @@ impl Runtime {
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
+            #[cfg(feature = "host")]
+            Command::Message { .. } => self.send_message(command)?,
+            #[cfg(not(feature = "host"))]
+            Command::Message { .. } => {
+                return Err(Error::Invalid(
+                    "This device sends no messages to agents.".to_owned(),
+                ));
+            }
             Command::Read { .. } => self.read(command)?,
             Command::Show { session_id, .. } => {
                 self.target(parse_id(session_id)?)?;
@@ -336,6 +351,7 @@ impl Runtime {
             session_id,
             expected_runtime_incarnation_id,
             text,
+            enter,
             ..
         } = command
         else {
@@ -345,14 +361,53 @@ impl Runtime {
         self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
         self.reachable(id)?;
         self.job_capacity()?;
-        let input = self
-            .target(id)?
-            .send_input(Bytes::from(text.clone().into_bytes()));
+        let target = self.target(id)?;
+        let input = if *enter {
+            target.type_line(text.clone())
+        } else {
+            target.send_input(Bytes::from(text.clone().into_bytes()))
+        };
         let command = command.clone();
         self.spawn(async move {
             Completion::Terminal {
                 command,
                 result: input.await,
+            }
+        });
+        Ok(())
+    }
+
+    /// Gives the agent in a terminal a message with who sends it and from where.
+    #[cfg(feature = "host")]
+    fn send_message(&mut self, command: &Command) -> Result<()> {
+        let Command::Message {
+            session_id,
+            expected_runtime_incarnation_id,
+            text,
+            from_session_id,
+            agent,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a message".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        let from = from_session_id.as_deref().map(parse_id).transpose()?;
+        if from == Some(id) {
+            return Err(Error::Invalid(
+                "This is your own terminal. Send the message to another terminal.".to_owned(),
+            ));
+        }
+        let line = super::messages::message_line(&self.sender(from, agent.as_deref()), text);
+        let delivery = self.target(id)?.type_message(line);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: delivery.await,
             }
         });
         Ok(())
@@ -594,15 +649,20 @@ impl Runtime {
             self.emit(json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"}));
             return Ok(());
         }
-        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
-            return Err(Error::Busy);
-        }
-        self.job_capacity()?;
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
                 return Err(Error::Invalid("This provider conversation is already running in Kodosi.".to_owned()));
             }
+        self.begin_creation(command).map(drop)
+    }
+
+    #[cfg(feature = "host")]
+    pub(super) fn begin_creation(&mut self, command: Command) -> Result<Uuid> {
+        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
+            return Err(Error::Busy);
+        }
+        self.job_capacity()?;
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
@@ -612,7 +672,7 @@ impl Runtime {
             let result = create_session(id, config, &launcher, &command, changes).await;
             Completion::Created { id, result }
         });
-        Ok(())
+        Ok(id)
     }
 
     pub(super) fn open_remote(&mut self, id: Uuid, command: Command) -> Result<()> {
@@ -665,6 +725,7 @@ impl Runtime {
                     failures: 0,
                     next: tokio::time::Instant::now() + Duration::from_secs(2),
                     connected: None,
+                    failure: crate::diagnostics::Repeats::new(),
                 });
             }
             if !recovering {
@@ -708,6 +769,7 @@ impl Runtime {
                 failures: 0,
                 next: tokio::time::Instant::now(),
                 connected: None,
+                failure: crate::diagnostics::Repeats::new(),
             });
         }
         self.result(command);
@@ -895,8 +957,15 @@ impl Runtime {
             Completion::Published {
                 id,
                 incarnation,
+                refused,
                 result,
-            } => self.published(id, incarnation, result, current),
+            } => self.published(id, incarnation, refused, result, current),
+            #[cfg(feature = "host")]
+            Completion::Told {
+                id,
+                mentions,
+                result,
+            } => self.told(id, mentions, result, current),
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {
@@ -990,9 +1059,14 @@ impl Runtime {
         let Some(command) = self.creating.remove(&id) else {
             return;
         };
-        if !current {
-            self.error(&command, &Error::Stale);
-            return;
+        let restored = self.restore.starting.remove(&id);
+        let result = if current || restored.is_some() {
+            result
+        } else {
+            Err(Error::Stale)
+        };
+        if let (Some(saved), Err(error)) = (&restored, &result) {
+            tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
         }
         match result {
             Ok(mut started) => {
@@ -1044,11 +1118,20 @@ impl Runtime {
                     mission_id: mission_id.clone(),
                     mission_name: None,
                     shared_with: vec![],
+                    restored_from: restored.as_ref().map(|saved| saved.id.to_string()),
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 if let Some(folder) = &entry.working_dir {
                     self.recent.remember(folder);
                 }
+                let (kept, wanted) = restored.map_or((None, None), |saved| {
+                    (
+                        saved
+                            .worktree
+                            .filter(|worktree| started.directory.starts_with(&worktree.path)),
+                        saved.sharing,
+                    )
+                });
                 self.local.insert(
                     id,
                     Local {
@@ -1057,9 +1140,11 @@ impl Runtime {
                         creation: command,
                         published: false,
                         room_sequence: 0,
-                        worktree: started.worktree.take(),
+                        worktree: started.worktree.take().or(kept),
+                        wanted,
                     },
                 );
+                self.apply_wanted();
                 self.publish_catalog();
                 self.emit(created);
                 self.publish_locals();
@@ -1160,6 +1245,7 @@ impl Runtime {
                             failures,
                             next: tokio::time::Instant::now() + Duration::from_secs(2),
                             connected: Some(tokio::time::Instant::now()),
+                            failure: crate::diagnostics::Repeats::new(),
                         },
                     );
                 }
@@ -1199,7 +1285,13 @@ impl Runtime {
     }
 
     fn connection_failed(&mut self, id: Uuid, commands: Vec<Command>, error: Error) {
-        tracing::warn!(%id, %error, "remote terminal connection failed");
+        if self
+            .reconnect
+            .get_mut(&id)
+            .is_none_or(|retry| retry.failure.new_failure(&error))
+        {
+            tracing::warn!(%id, %error, "remote terminal connection failed");
+        }
         let blocked = matches!(error, Error::Invalid(_));
         if blocked {
             self.reconnect.remove(&id);
@@ -1243,7 +1335,14 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn published(&mut self, id: Uuid, incarnation: Uuid, result: Result<()>, current: bool) {
+    pub(super) fn published(
+        &mut self,
+        id: Uuid,
+        incarnation: Uuid,
+        refused: bool,
+        result: Result<()>,
+        current: bool,
+    ) {
         if !current {
             return;
         }
@@ -1267,6 +1366,16 @@ impl Runtime {
             }
             Err(error) => {
                 tracing::debug!(%id, %error, "local session publication deferred");
+                if let Some(local) = self.local.get_mut(&id).filter(|local| {
+                    refused
+                        && (local.entry.mission_id.is_some() || !local.entry.shared_with.is_empty())
+                }) {
+                    tracing::warn!(%id, %error, "the terminal is private now: the server refused its room or people");
+                    local.entry.mission_id = None;
+                    local.entry.mission_name = None;
+                    local.entry.shared_with.clear();
+                    self.publish_catalog();
+                }
             }
         }
     }
@@ -1281,10 +1390,12 @@ impl Runtime {
                 Command::RenameSession { name, .. } => local.entry.name.clone_from(name),
                 Command::ShareSession { user_ids, .. } => {
                     local.entry.shared_with.clone_from(user_ids);
+                    local.wanted = None;
                 }
                 Command::AttachSession { mission_id, .. } => {
                     local.entry.mission_id.clone_from(mission_id);
                     local.entry.mission_name = None;
+                    local.wanted = None;
                 }
                 _ => {}
             }
@@ -1337,9 +1448,12 @@ async fn session_program(
         .await
         .ok_or_else(|| Error::Invalid("The provider CLI is not installed.".to_owned()))?;
     let arguments = match resume.provider {
-        provider::Provider::Claude => {
-            vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
-        }
+        provider::Provider::Claude => vec![
+            "--append-system-prompt".to_owned(),
+            crate::agents::CONTEXT.trim().to_owned(),
+            "--resume".to_owned(),
+            resume.native_conversation_id.clone(),
+        ],
         provider::Provider::Copilot => {
             vec![format!("--resume={}", resume.native_conversation_id)]
         }
@@ -1467,6 +1581,7 @@ async fn create_session(
         arguments,
         directory.clone(),
         Some(config.data_root.join("shell")),
+        Some(config.data_root.join("agents")),
         changes,
     )
     .await

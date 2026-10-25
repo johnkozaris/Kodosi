@@ -17,6 +17,11 @@ use uuid::Uuid;
 pub(crate) const TYPING: Duration = Duration::from_secs(3);
 pub(crate) const SOMEONE_TYPING: &str =
     "Someone is typing in this terminal. Try again in a moment.";
+#[cfg(feature = "host")]
+pub(crate) const AGENT_ASKS: &str =
+    "The agent in this terminal waits for a person's answer. Try again later.";
+#[cfg(feature = "host")]
+pub(crate) const NO_AGENT: &str = "No agent in this terminal reports its state, so it gets no messages. Type into it with kodosi terminal input.";
 
 pub use context::{ContextPlace, PlaceKind, TerminalContext};
 pub(crate) use remote::RemoteTerminal;

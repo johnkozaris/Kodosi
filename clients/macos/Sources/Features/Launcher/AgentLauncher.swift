@@ -284,8 +284,11 @@ struct AgentLauncher: View {
             deps.workbench.launcherDraft.folder = path
         case .anotherFolder:
             closeMenu()
-            if let selected = pickWorkingDirectory(initialDirectory: directory) {
-                deps.workbench.launcherDraft.folder = selected
+            let directory = directory
+            Task { @MainActor in
+                if let selected = await pickWorkingDirectory(initialDirectory: directory) {
+                    deps.workbench.launcherDraft.folder = selected
+                }
             }
             return
         case .newAccount:

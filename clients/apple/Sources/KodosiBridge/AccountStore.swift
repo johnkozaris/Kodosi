@@ -32,6 +32,9 @@ public final class AccountStore {
     public private(set) var deletion: Deletion?
     public private(set) var deletionPage: URL?
     public private(set) var signInPage: URL?
+    public private(set) var restoring: String?
+    public private(set) var credentialStore: String?
+    public private(set) var credentialFolder: String?
 
     @ObservationIgnored public var notify: (String) -> Void = { _ in }
     @ObservationIgnored private let commands: CommandSink
@@ -100,15 +103,24 @@ public final class AccountStore {
         deletion = nil
         deletionPage = nil
         signInPage = nil
+        restoring = nil
+        credentialStore = nil
+        credentialFolder = nil
         if !stage.isPending {
             stage = .idle
         }
     }
 
     public func receiveAuth(_ event: RuntimeEvent) throws {
+        if event.type != "auth.restoring", event.type != "auth.deletion_pending" {
+            restoring = nil
+        }
         switch event.type {
         case "auth.ready": try receiveReady(event)
         case "auth.required": receiveRequired(event)
+        case "auth.restoring":
+            restoring = event.string("reason")
+            receivePlace(event)
         case "auth.browser":
             let url = event.string("url").flatMap(ExternalAuthURL.parse)
             stage = .awaitingBrowser(url)
@@ -198,6 +210,7 @@ public final class AccountStore {
         }
         authResolved = true
         signInPage = nil
+        receivePlace(event)
         if let name = event.string("displayName") {
             displayName = name
         }
@@ -211,8 +224,15 @@ public final class AccountStore {
         }
     }
 
+    private func receivePlace(_ event: RuntimeEvent) {
+        credentialStore = event.string("credentialStore")
+        credentialFolder = event.string("credentialFolder")
+    }
+
     private func receiveRequired(_ event: RuntimeEvent) {
         authResolved = true
+        credentialStore = nil
+        credentialFolder = nil
         deletion = nil
         deletionPage = nil
         signInPage = nil

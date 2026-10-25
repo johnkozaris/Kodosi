@@ -138,6 +138,21 @@ impl Default for GhosttyAllocator {
         }
     }
 }
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct GhosttyColorRgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyColorRgb"][::std::mem::size_of::<GhosttyColorRgb>() - 3usize];
+    ["Alignment of GhosttyColorRgb"][::std::mem::align_of::<GhosttyColorRgb>() - 1usize];
+    ["Offset of field: GhosttyColorRgb::r"][::std::mem::offset_of!(GhosttyColorRgb, r) - 0usize];
+    ["Offset of field: GhosttyColorRgb::g"][::std::mem::offset_of!(GhosttyColorRgb, g) - 1usize];
+    ["Offset of field: GhosttyColorRgb::b"][::std::mem::offset_of!(GhosttyColorRgb, b) - 2usize];
+};
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_LIGHT: GhosttyColorScheme = 0;
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK: GhosttyColorScheme = 1;
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_MAX_VALUE: GhosttyColorScheme = 2147483647;

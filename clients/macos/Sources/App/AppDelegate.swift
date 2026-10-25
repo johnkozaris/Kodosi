@@ -108,8 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             let alert = NSAlert()
             alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
             alert.informativeText = local == 1
-                ? String(localized: "1 terminal on this Mac will close.")
-                : String(localized: "\(local) terminals on this Mac will close.")
+                ? String(localized: "1 terminal on this Mac stops. It starts again when Kodosi opens.")
+                : String(localized: "\(local) terminals on this Mac stop. They start again when Kodosi opens.")
             alert.alertStyle = .warning
             alert.addButton(withTitle: String(localized: "Cancel"))
             alert.addButton(withTitle: restarting ? String(localized: "Restart") : String(localized: "Quit"))

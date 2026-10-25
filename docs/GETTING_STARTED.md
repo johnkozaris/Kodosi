@@ -35,7 +35,10 @@ A terminal is a real shell on the computer that runs it. Minimize hides a termin
 keeps it running; Close ends it and its programs. When you close the window, Kodosi and
 your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
 on a desktop without a system tray, closing the window quits Kodosi. When you quit
-Kodosi, your terminals end. In Settings, you can choose what closing the window does.
+Kodosi, your terminals stop. When you open Kodosi again, they start again in their
+folders, rooms and places on the stage. Claude Code continues its conversation, and Codex
+and Copilot CLI show their conversations so that you can continue one. In Settings, you
+can choose what closing the window does.
 
 ## 3. See which agent needs you
 
@@ -113,12 +116,15 @@ friends, then start a terminal in the room or share one into it.
 - Put tasks up for grabs, claim them, give them back, close them with a result or open
   them again. Link GitHub or Gitea repositories to turn issues into tasks; when you change
   such a task, Kodosi changes its issue.
-- To let your agent work in a room, give it the
-  [room skill](../runtime/skills/kodosi-room/SKILL.md) in the usual way of that agent;
-  `kodosi room skill` prints it. In a Kodosi terminal, the command finds the room;
-  elsewhere, add `--room <name>`. GitHub uses your `gh` sign-in or Git credential helper.
-  Gitea uses the credential helper, or `KODOSI_GITEA_TOKEN` for the server in
-  `KODOSI_GITEA_URL`. Your credentials stay on your computer.
+- Agents that Kodosi starts know that they run in Kodosi: Claude Code and Codex get a
+  short note with their instructions, and Copilot CLI reads it from Kodosi's folder.
+  Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
+  terminal your message with your name and the room; the agent decides what to do with
+  it. `kodosi skill` prints the [skill](../runtime/skills/kodosi/SKILL.md) for agents.
+  In a Kodosi terminal, the command finds the room; elsewhere, add `--room <name>`.
+  GitHub uses your `gh` sign-in or Git credential helper. Gitea uses the credential
+  helper, or `KODOSI_GITEA_TOKEN` for the server in `KODOSI_GITEA_URL`. Your credentials
+  stay on your computer.
 
 ## 7. Use the command line
 
@@ -133,15 +139,18 @@ does.
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
 | `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
+| `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
 | `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |
 | `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |
 | `kodosi terminal show <terminal>` | Shows the terminal in the app. |
 | `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
+| `kodosi skill` | Prints the skill that lets an agent work with the people and agents in Kodosi. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
 | `kodosi host` | Keeps your terminals running after you quit the app. `kodosi host stop` stops a host that runs in the background. |
 
-`input` and `keys` stop with a message while you type in that terminal.
+`message`, `input` and `keys` stop with a message while you type in that terminal.
+`message` also stops while the agent waits for a person's answer.
 
 ## If something does not connect
 

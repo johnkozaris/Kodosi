@@ -219,7 +219,7 @@ fn finalizing(events: &[Value]) -> bool {
         .rev()
         .find_map(|event| match event["type"].as_str() {
             Some("auth.finalizing") => Some(true),
-            Some("auth.ready" | "auth.required") => Some(false),
+            Some("auth.ready" | "auth.required" | "auth.restoring") => Some(false),
             _ => None,
         })
         == Some(true)
@@ -249,10 +249,13 @@ async fn connect_or_spawn(root: &Path) -> Result<Client> {
     kodosi_os::process::detach(&mut command);
     let mut child = command.spawn()?;
     let mut exited = None;
-    for _ in 0..100 {
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    for _ in 0..500 {
+        tokio::time::sleep(Duration::from_millis(10)).await;
         match Client::connect(root).await {
-            Ok(client) => return Ok(client),
+            Ok(client) => {
+                collect_exit(child);
+                return Ok(client);
+            }
             Err(Error::Io(error))
                 if matches!(
                     error.kind(),
@@ -274,6 +277,14 @@ async fn connect_or_spawn(root: &Path) -> Result<Client> {
     Err(Error::Other(
         "The Kodosi host did not start in time.".into(),
     ))
+}
+
+fn collect_exit(mut child: std::process::Child) {
+    drop(
+        std::thread::Builder::new()
+            .name("kodosi-host-exit".into())
+            .spawn(move || drop(child.wait())),
+    );
 }
 
 fn host_program() -> Result<PathBuf> {

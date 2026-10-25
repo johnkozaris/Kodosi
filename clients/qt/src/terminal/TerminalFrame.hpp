@@ -72,6 +72,7 @@ struct TerminalFrame {
     TerminalCursor cursor;
     TerminalScrollState scroll;
     QVector<TerminalCell> cells;
+    QVector<bool> wrappedRows;
     QVector<TerminalImagePlacement> images;
     std::optional<std::chrono::steady_clock::time_point> imageAnimationDue;
 

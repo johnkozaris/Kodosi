@@ -72,6 +72,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let missionName: String?
     public let connectedUsers: [String]?
     public let sharedWith: [String]
+    public let restoredFrom: String?
     public let attention: Bool
     public let hidden: Bool
 

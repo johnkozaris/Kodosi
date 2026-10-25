@@ -53,6 +53,8 @@ pub enum Error {
     Unreachable,
     #[error("The server did not respond in time. The operation was not confirmed.")]
     Timeout,
+    #[error("The connection to the server dropped. The operation was not confirmed.")]
+    Dropped,
     #[error("{0}")]
     Json(#[from] serde_json::Error),
     #[error("{message}")]
@@ -77,6 +79,8 @@ impl From<reqwest::Error> for Error {
             Self::Unreachable
         } else if error.is_timeout() {
             Self::Timeout
+        } else if error.is_request() || error.is_body() {
+            Self::Dropped
         } else {
             Self::Http(error)
         }
@@ -98,6 +102,7 @@ impl Error {
                 | Self::Dns
                 | Self::Unreachable
                 | Self::Timeout
+                | Self::Dropped
                 | Self::Busy
         ) || matches!(self, Self::Backend { status, .. } if *status == 429 || *status >= 500)
     }
@@ -215,6 +220,9 @@ impl TerminalStatus {
 #[derive(Debug, Clone)]
 pub enum TerminalControl {
     Input {
+        bytes: Vec<u8>,
+    },
+    Message {
         bytes: Vec<u8>,
     },
     Resize {

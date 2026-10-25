@@ -8,9 +8,7 @@ KPopover {
 
     signal resumeRequested
 
-    function openFor(folder, roomId) {
-        if (folder)
-            Models.DesktopState.launcherFolder = folder
+    function openFor(roomId) {
         launcher.roomId = roomId || ""
         open()
     }

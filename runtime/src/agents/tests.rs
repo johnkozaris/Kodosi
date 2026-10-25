@@ -531,6 +531,75 @@ fn quoted_prompts_reach_the_program_as_one_word() {
     assert_eq!(quote(Path::new("nu"), "a'#b"), "r##'a'#b'##");
 }
 
+#[test]
+fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
+    let note = "You run in a Kodosi terminal; it's [Kodosi] & `kodosi skill`.";
+    for (shell, arguments) in [
+        ("/bin/zsh", &["-f", "-c"][..]),
+        ("/bin/bash", &["--norc", "--noprofile", "-c"][..]),
+        ("/bin/sh", &["-c"][..]),
+    ] {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        let word = variable_word(
+            Path::new(shell),
+            "developer_instructions=",
+            CONTEXT_VARIABLE,
+        );
+        let output = std::process::Command::new(shell)
+            .args(arguments)
+            .arg(format!("printf %s {word}"))
+            .env(CONTEXT_VARIABLE, note)
+            .output()
+            .expect("shell runs");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            format!("developer_instructions={note}"),
+            "{shell}"
+        );
+    }
+    assert_eq!(
+        variable_word(Path::new("/usr/bin/fish"), "", CONTEXT_VARIABLE),
+        "\"$KODOSI_AGENT_CONTEXT\""
+    );
+    assert_eq!(
+        variable_word(Path::new("pwsh.exe"), "a=", CONTEXT_VARIABLE),
+        "\"a=$env:KODOSI_AGENT_CONTEXT\""
+    );
+    assert_eq!(
+        variable_word(Path::new("cmd.exe"), "", CONTEXT_VARIABLE),
+        "\"%KODOSI_AGENT_CONTEXT%\""
+    );
+    assert_eq!(
+        variable_word(Path::new("nu"), "a=", CONTEXT_VARIABLE),
+        "$\"a=($env.KODOSI_AGENT_CONTEXT)\""
+    );
+    let zsh = Path::new("/bin/zsh");
+    assert_eq!(
+        Agent::Claude.with_context("claude --model opus", zsh),
+        "claude --model opus --append-system-prompt \"$KODOSI_AGENT_CONTEXT\""
+    );
+    assert_eq!(
+        Agent::Codex.with_context("codex", zsh),
+        "codex -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
+    );
+    assert_eq!(Agent::Copilot.with_context("copilot", zsh), "copilot");
+    assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
+}
+
+#[test]
+fn copilot_finds_the_note_in_the_folder_that_kodosi_writes() {
+    let folder = tempfile::tempdir().unwrap();
+    let notes = kodosi_os::fs::canonicalize(folder.path())
+        .unwrap()
+        .join("agents");
+    write_notes(&notes).unwrap();
+    write_notes(&notes).unwrap();
+    let text = fs::read_to_string(notes.join("AGENTS.md")).unwrap();
+    assert_eq!(text, format!("# Kodosi\n\n{}\n", CONTEXT.trim()));
+}
+
 fn claude_with_accounts() -> AgentInfo {
     AgentInfo {
         agent: Agent::Claude,
