@@ -25,11 +25,6 @@ rust-tools-install:
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version {{ cargo_machete_version }}
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.9.1
 
-# Install Bacon and the Rust check tools that its jobs use.
-[group('tools')]
-bacon-install: rust-tools-install
-    cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.26.0
-
 [private]
 rust-dependency-tools-check:
     @test -x "{{ cargo_tools_bin }}/cargo-deny" -a -x "{{ cargo_tools_bin }}/cargo-machete" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
@@ -131,12 +126,6 @@ rust-test: conpty-install
 rust-coverage-gen: rust-coverage-tools-check
     {{ llvm_cov }} --html --output-dir runtime/target/llvm-cov
 
-# Write an LCOV coverage report to runtime/target/llvm-cov/lcov.info.
-[group('rust')]
-rust-lcov-gen: rust-coverage-tools-check
-    mkdir -p runtime/target/llvm-cov
-    {{ llvm_cov }} --lcov --output-path runtime/target/llvm-cov/lcov.info
-
 # Stop if the line coverage of the Rust tests is less than the minimum.
 [group('rust')]
 rust-coverage-check: rust-coverage-tools-check
@@ -224,9 +213,9 @@ mac-check:
 ios-build:
     just --justfile clients/ios/justfile build
 
-# Lint and test the iPhone and iPad app, then build it for devices.
+# Lint the runtime for iOS, lint and test the iPhone and iPad app, then build it for devices.
 [group('ios')]
-ios-check:
+ios-check: ios-rust-lint
     just --justfile clients/ios/justfile check
 
 # Install the Rust targets for iOS devices and the iOS simulator.
@@ -244,7 +233,7 @@ ios-rust-lint:
 linux-build:
     just --justfile clients/qt/justfile build
 
-# Lint and test the Linux app and its release and license scripts.
+# Lint and test the Linux app and check its dependency pins and license evidence.
 [group('linux')]
 linux-check:
     just --justfile clients/qt/justfile check

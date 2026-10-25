@@ -28,9 +28,7 @@ trap 'rm -rf "$stage" "$output_dir/_CPack_Packages"' EXIT
 
 rm -f "$output_dir"/kodosi_*.deb \
     "$output_dir"/kodosi-*-linux-x86_64.tar.gz \
-    "$output_dir"/kodosi-bin-*.pkg.tar.zst \
-    "$output_dir/release-manifest.json" \
-    "$output_dir/release-manifest.json.asc"
+    "$output_dir"/kodosi-bin-*.pkg.tar.zst
 umask 022
 .tools/cmake/bin/cpack --config "$build_dir/CPackConfig.cmake" -B "$output_dir"
 

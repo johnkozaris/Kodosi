@@ -72,8 +72,9 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 Validate by running the app or calling the real boundary, with a disposable database and
 a disposable `KODOSI_DATA_ROOT`. Set `KODOSI_PRODUCTION_DATA_ROOT` to the real data root
 too, so the runtime refuses an overlap. `KODOSI__RUNTIME__INITIAL_SHELL` picks the shell
-of new terminals; the host gives its terminals your real `HOME`, so point it at a script
-that sets a disposable one. Never touch real provider settings, memory, conversations,
+of new terminals. The Mac app gives its host `<KODOSI_DATA_ROOT>/harness-home` as `HOME`;
+elsewhere terminals get your real `HOME`, so point the shell variable at a script that
+sets a disposable one. Never touch real provider settings, memory, conversations,
 credentials or working files. The app writes a redacted `app.log` in the data root, and
 the host `host.log`; check them for private data before you attach them to an issue.
 With `KODOSI_TERMINAL_DEBUG=1`, the Mac and iPhone apps write the sizes and lifecycle of
@@ -81,7 +82,7 @@ their terminal views to stderr.
 
 ## Data formats
 
-Kodosi has no users yet, so a new format replaces the old one and needs no reader for
-it. A change of the database is still a new migration (`dotnet ef migrations add <Name>`
-in `backend/`). A contract change that older apps cannot use raises the oldest version
-in `protocol/` in the same change.
+[AGENTS.md](../AGENTS.md) says when a format can change without a reader for the old one.
+A change of the database is a new migration (`dotnet ef migrations add <Name>` in
+`backend/`). A contract change that older apps cannot use raises the oldest version in
+`protocol/` in the same change.

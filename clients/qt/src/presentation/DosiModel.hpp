@@ -68,8 +68,6 @@ public:
     Q_INVOKABLE void resetInstructions();
     Q_INVOKABLE void loadEarlier();
     Q_INVOKABLE void open(const QString& place, const QString& value);
-    Q_INVOKABLE QString terminalId(const QString& reference) const;
-    Q_INVOKABLE QString roomId(const QString& reference) const;
     Q_INVOKABLE static QString moodLabel(const QString& name);
     QVariantList buildRows(const QDateTime& now) const;
 
@@ -104,6 +102,8 @@ private:
     bool m_earlier = false;
     bool m_loadingEarlier = false;
 
+    QString terminalId(const QString& reference) const;
+    QString roomId(const QString& reference) const;
     void apply(const QString& type, const QJsonObject& event);
     void applySnapshot(const QJsonObject& dosi);
     void upsert(const QVariantMap& item);

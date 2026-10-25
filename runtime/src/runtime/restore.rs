@@ -111,9 +111,7 @@ pub(super) async fn agent_line(
     home: PathBuf,
     shell: PathBuf,
 ) -> Option<String> {
-    let agent = Agent::ALL
-        .into_iter()
-        .find(|agent| agent.name() == program)?;
+    let agent = Agent::named(&program)?;
     let (usual, variable) = agent.home()?;
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
     let folder = foreground
@@ -134,9 +132,7 @@ pub(super) async fn agent_line(
 
 /// The line for a terminal whose agent was not asked, as when its host ended without a stop.
 pub(super) fn usual_line(program: &str, shell: &Path) -> Option<String> {
-    let agent = Agent::ALL
-        .into_iter()
-        .find(|agent| agent.name() == program)?;
+    let agent = Agent::named(program)?;
     resume_line(agent, &agent.with_context(agent.program(), shell), None)
 }
 

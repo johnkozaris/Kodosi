@@ -2182,6 +2182,26 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
 }
 
 #[cfg(feature = "host")]
+#[tokio::test]
+async fn a_delivery_that_ends_after_its_terminal_leaves_nothing_behind() {
+    let (mut runtime, _storage) = registry_fixture();
+    let gone = Uuid::now_v7();
+    let mention = messages::Mention {
+        room: "Launch".to_owned(),
+        from: messages::Sender::Person("Ana".to_owned()),
+        text: "@Build".to_owned(),
+        sequence: 3,
+    };
+    for result in [Ok(()), Err(Error::Invalid("refused".to_owned()))] {
+        runtime.mentions.telling.insert(gone);
+        runtime.told(gone, vec![mention.clone()], result, true);
+        assert!(runtime.mentions.telling.is_empty());
+        assert!(runtime.mentions.waiting.is_empty());
+        assert!(runtime.mentions.told.is_empty());
+    }
+}
+
+#[cfg(feature = "host")]
 #[test]
 fn only_messages_after_the_first_look_at_a_room_name_agents() {
     let message = |sequence: u64| json!({"sequence": sequence, "text": "@Build"});
@@ -2331,7 +2351,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
     };
     shows("ready").await;
     TerminalTarget::Local(terminal.clone())
-        .type_line("hello".to_owned())
+        .type_line("hello".to_owned(), false)
         .await
         .unwrap();
     shows("0000005").await;

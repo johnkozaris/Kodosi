@@ -251,15 +251,9 @@ fn claude_item(
         native_conversation_id: id.to_owned(),
         working_directory: directory.to_string_lossy().into_owned(),
         title: preview_title(&mut file),
-        created_at: created.and_then(timestamp),
-        updated_at: timestamp(modified),
+        created_at: created.and_then(storage::timestamp),
+        updated_at: storage::timestamp(modified),
     }))
-}
-
-fn timestamp(value: SystemTime) -> Option<String> {
-    time::OffsetDateTime::from(value)
-        .format(&time::format_description::well_known::Rfc3339)
-        .ok()
 }
 
 pub(super) fn preview_title(file: &mut fs::File) -> Option<String> {

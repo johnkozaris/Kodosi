@@ -389,6 +389,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         return;
     const auto id = event.value(QStringLiteral("requestId")).toString();
     if (type == QStringLiteral("room.error")) {
+        if (!m_pending.contains(id))
+            return;
         const auto pending = m_pending.take(id);
         m_missions.m_presentations[pending.missionId].insert(QStringLiteral("failure"), event.value(QStringLiteral("message")).toString());
         emit m_missions.presentationChanged();

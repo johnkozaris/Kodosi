@@ -22,7 +22,7 @@ import Testing
     func snapshot(hidden: Bool, back: Bool = false) throws -> RuntimeEvent {
         try runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
             "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-            "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("minisforum"),
+            "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("studio"),
             "status": .string(back ? "running" : "offline"), "attention": .bool(false), "hidden": .bool(hidden),
             "connectionState": .string(back ? "connected" : "offline"), "missionId": .string("room"), "sharedWith": .array([]),
         ])])])

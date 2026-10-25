@@ -406,6 +406,7 @@ struct CapturedView {
     GhosttyTerminalScrollbar scrollbar {};
     QVector<TerminalImagePlacement> images;
     std::optional<std::chrono::steady_clock::time_point> imageAnimationDue;
+    bool mouseTracking = false;
 };
 
 using ViewCapture = std::expected<CapturedView, GhosttyTerminalKernel::Failure>;
@@ -442,14 +443,22 @@ ViewCapture captureView(
         return std::unexpected(ghosttyFailure(QStringLiteral("render-state update"), update));
     }
     GhosttyTerminalScrollbar scrollbar {};
-    const auto result = ghostty_terminal_get(
+    auto result = ghostty_terminal_get(
         terminal,
         GHOSTTY_TERMINAL_DATA_SCROLLBAR,
         &scrollbar);
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
     }
-    return CapturedView {scrollbar, images.capture(terminal, renderState), std::nullopt};
+    bool mouseTracking = false;
+    result = ghostty_terminal_get(
+        terminal,
+        GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING,
+        &mouseTracking);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("terminal mouse tracking"), result));
+    }
+    return CapturedView {scrollbar, images.capture(terminal, renderState), std::nullopt, mouseTracking};
 }
 
 FrameResult buildFrame(
@@ -515,6 +524,7 @@ FrameResult buildFrame(
     };
     frame->images = view.images;
     frame->imageAnimationDue = view.imageAnimationDue;
+    frame->mouseTracking = view.mouseTracking;
     frame->cells.reserve(static_cast<qsizetype>(cellCount));
     frame->wrappedRows.reserve(rows);
 
@@ -635,6 +645,11 @@ FrameResult buildFrame(
             if (result != GHOSTTY_SUCCESS) {
                 return std::unexpected(ghosttyFailure(QStringLiteral("cell width"), result));
             }
+            bool hyperlink = false;
+            result = ghostty_cell_get(rawCell, GHOSTTY_CELL_DATA_HAS_HYPERLINK, &hyperlink);
+            if (result != GHOSTTY_SUCCESS) {
+                return std::unexpected(ghosttyFailure(QStringLiteral("cell hyperlink"), result));
+            }
 
             auto cellForeground = foregroundResult == GHOSTTY_SUCCESS
                 ? color(foreground)
@@ -665,6 +680,7 @@ FrameResult buildFrame(
                 .width = wide == GHOSTTY_CELL_WIDE_WIDE ? std::uint8_t {2}
                     : (wide == GHOSTTY_CELL_WIDE_NARROW ? std::uint8_t {1}
                                                        : std::uint8_t {0}),
+                .hyperlink = hyperlink,
             });
             ++column;
         }

@@ -245,6 +245,7 @@ private:
     bool m_copyShortcutActive = false;
     std::optional<int> m_pasteShortcutKey;
     std::optional<QUrl> m_pressedLink;
+    std::optional<QPointF> m_hoverPosition;
     int m_wheelAngleRemainder = 0;
     qreal m_wheelPixelRemainder = 0.0;
     std::atomic_bool m_renderPerformanceQueued = false;
@@ -283,7 +284,9 @@ private:
         const QPoint& cell,
         bool reportFailure,
         bool text);
+    [[nodiscard]] std::optional<Qt::KeyboardModifiers> linkModifiers(Qt::KeyboardModifiers modifiers) const;
     void updateHoverLink(const QPointF& position, Qt::KeyboardModifiers modifiers);
+    void refreshHoverLink(const QKeyEvent* event);
     void clearHoverLink();
     [[nodiscard]] int wheelRows(QWheelEvent* event);
     [[nodiscard]] TerminalSelectionPointer selectionPointer(const QPoint& cell, const QPointF& position) const;
