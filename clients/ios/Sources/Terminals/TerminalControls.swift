@@ -2,22 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-enum TerminalInput {
-    case reading, typing, composing
-
-    var showsKeys: Bool {
-        self == .typing
-    }
-
-    var showsAsk: Bool {
-        self == .reading
-    }
-
-    func showsHeader(compact: Bool) -> Bool {
-        !compact || self == .reading
-    }
-}
-
 struct TerminalInputActions {
     let type: () -> Void
     let compose: () -> Void
@@ -161,7 +145,7 @@ private struct TerminalKeyBar: View {
     }
 }
 
-struct TerminalKeyRow: View {
+private struct TerminalKeyRow: View {
     let enabled: Bool
     let answering: Bool
     let press: (TerminalKey) -> Void
@@ -254,7 +238,7 @@ private struct TerminalKeyCap: View {
     }
 }
 
-struct TerminalComposer: View {
+private struct TerminalComposer: View {
     @Environment(\.theme) private var theme
     @Bindable var controller: TerminalController
     let session: RuntimeSession

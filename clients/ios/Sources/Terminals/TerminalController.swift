@@ -188,7 +188,6 @@ final class TerminalController {
         refresh()
     }
 
-    @discardableResult
     func send() -> Bool {
         guard let text = TerminalMessage.text(from: draft) else { return false }
         guard TerminalMessage.fits(text) else {
