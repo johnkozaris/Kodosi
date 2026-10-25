@@ -46,3 +46,18 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   directives and license notices.
 - Validate real workflows with native or boundary tools. Don't add automated smoke
   drivers.
+
+## Documents
+
+Each document has one job. Say a thing once, as it is now, in the document whose job it
+is. Don't add release notes, plans, observations or details that the code shows.
+
+- `README.md`, `docs/GETTING_STARTED.md` and `docs/SECURITY.md`: for the people who use
+  Kodosi.
+- `PRODUCT.md`: the intent, and the behavior that every client keeps.
+- A client's `PRODUCT.md`: only what is particular to that app. Its `DESIGN.md`: its
+  visual system.
+- `docs/ARCHITECTURE.md`: how the parts work together. `docs/CRYPTOGRAPHY.md`: the
+  encryption design.
+- `docs/DEVELOPMENT.md` and each project's `README.md`: build, run and check.
+  `docs/SELF-HOSTING.md`: run a backend.

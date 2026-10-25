@@ -4,74 +4,92 @@ Kodosi is a native place for people and their coding agents to work together thr
 shared terminals and a room conversation. Keep it lean: make useful actions available
 and let people and agents decide how to use them.
 
-## Rooms and terminals
+## Terminals and rooms
 
-The interface calls these shared spaces rooms; runtime contracts call them missions.
+The interface calls the shared spaces rooms; runtime contracts call them missions.
 
-- A terminal is a real process on its host computer.
-- Share a terminal with a room once. Every member gets full control, including people
-  invited later. Room sharing follows the room's membership.
-- Any member can contribute their own terminals. A room can hold terminals from many
-  computers, folders and repositories.
-- Sharing a terminal does not share the host's other terminals.
+- A terminal is a real process on the computer that hosts it. Full control means typing,
+  resizing, interrupting and closing, with the host user's operating-system privileges.
 - A person's approved devices can use all of that person's terminals.
-
-Full control means typing, resizing, interrupting and closing, with the host user's
-operating-system privileges.
+- A terminal can be shared with friends or with a room, and everyone it is shared with
+  gets full control. Room sharing follows the room's membership, including people invited
+  later. Sharing a terminal shares nothing else of its computer.
+- A room holds a conversation, tasks, repositories and terminals from many computers,
+  folders and repositories. Every member can share their own terminals into it, and new
+  members get the full history.
+- Anyone in a room can post, put tasks up for grabs, claim, release, close and reopen
+  them. A task can carry context, repositories and a result. People and agents decide
+  what to do next.
+- A room can link GitHub or Gitea repositories and turn their issues into tasks. The
+  provider stays authoritative: changing a linked task updates the issue. Provider
+  credentials stay on the participant's computer, and tasks need no Git provider.
 
 ## People and agents
 
-Humans and agents read and write the same room conversation. Agents take part through
-the `kodosi` command and its skill, when they choose to. When Kodosi starts Claude Code,
-Codex or Copilot CLI, the agent gets a short note with its instructions: it runs in
-Kodosi with people and other agents, messages can come, and it decides with its own
-judgment and its current work what to do with them.
+People and agents read and write the same room conversation. Agents take part through
+the `kodosi` command and its skill, when they choose to.
 
-A room message that names a terminal with `@` and its name goes to the agent in that
-terminal at once, also while it works. An agent can also send a message to the agent of
-another terminal with `kodosi terminal message`. Kodosi types each message as one line
-with who wrote it and from where: the room, or the sender's terminal with its folder and
-title. It never types while the agent waits for a person's answer or while a person
-types there; room messages wait until then, and several go together as one line. Nothing
-else from a room goes into a terminal. Dosi knows rooms, terminals and agents, and reads
-a room to tell the person what its work is and what needs them.
+Agents run through their own CLIs. Execution, prompts, permissions, settings, memory and
+conversations stay with the provider. When Kodosi starts Claude Code, Codex or Copilot
+CLI, it adds only a short note: the agent runs in Kodosi with people and other agents,
+messages can come, and it decides with its own judgment and its current work what to do
+with them.
 
-New members get the full history. Anyone can post messages, put tasks up for grabs,
-claim, release, close and reopen them. A task can carry context, repositories, and a
-completion note or pull request link. People and agents decide what to do next.
+A room message that names a terminal with `@` goes to the agent in that terminal at once,
+also while it works, and an agent can send a message to the agent of another terminal
+with `kodosi terminal message`. Kodosi types each message as one line that says who wrote
+it and from where. It never types while the agent waits for a person's answer or while a
+person types there. Nothing else from a room goes into a terminal.
 
-A room can link several GitHub or Gitea repositories and turn their issues into tasks.
-The provider stays authoritative: changing a linked task updates the issue, and
-refreshing the room picks up provider changes. Provider credentials stay on the
-participant's computer. Native tasks need no Git provider.
-
-Agents run through their own CLIs. Execution, prompts, permissions, settings, memory
-and conversations stay with the provider; Kodosi only adds its note when it starts an
-agent. Kodosi supplies the shared space.
+Dosi is the person's agent for their other agents. It sees every terminal, agent and room
+of the person, acts on them with the `kodosi` command, shows them in the app and asks
+with choices. It runs on the computer where the person writes, with the agent, account,
+model and effort chosen in Settings, and works in its own folder. One encrypted
+conversation follows the person to all their computers.
 
 ## Terminal behavior
 
-Minimize hides a view and keeps its terminal running. Close ends the terminal and its
-programs. Closing the window leaves the app and the host running, with Kodosi's icon in
-the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
-can change what closing the window does. Quit stops the computer's host and its
-terminals, but not a host that runs in a terminal with `kodosi host`, and not terminals
-on other computers. When the app opens again, the host starts those terminals again with
-their names, folders, rooms and sharing, and agents continue their conversations. The
-`kodosi` command starts a host but never starts the earlier terminals.
+- Terminals show the state that their programs report: working, waiting for a person,
+  done or failed. Everyone who can open a terminal sees its state and who has it open.
+  While the app is in the background, a terminal that the person owns or has open sends a
+  notification when it starts to wait, finishes or fails.
+- Minimize hides a view and keeps its terminal running. Close ends the terminal and its
+  programs. Closing the window leaves the app and the host running, with Kodosi's icon in
+  the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
+  can change what closing the window does.
+- Quit stops the computer's host and its terminals, but not a host that runs in a
+  terminal with `kodosi host`. When the app opens again, the host starts those terminals
+  again with their names, folders, rooms and sharing, and agents continue their
+  conversations. The `kodosi` command starts a host but never the earlier terminals.
+- The apps and the `kodosi` command are equal clients of the computer's host: what one
+  does, the others show. A person's typing comes first: input from the command stops with
+  a message while a person types in that terminal.
+- Reconnecting restores the current state without disturbing other viewers or repeating
+  input whose delivery is uncertain. A stale connection never controls a replacement
+  terminal. A lost connection does not change sharing.
+- When the computer of a terminal is offline, the terminal says so, keeps its last screen,
+  takes no input and opens again when that computer is back. The person can hide it from
+  their own lists until then, or close it for everyone when the computer is back. A room
+  still shows its hidden terminals.
+- Programs get what Ghostty gives them, such as Kitty images and clipboard writes. A
+  clipboard read asks first only in another person's terminal.
 
-The apps and the `kodosi` command are equal clients of the computer's host: what one
-does, the others show. A person's typing comes first: input from the command stops with
-a message while a person types in that terminal.
+## Starting work
 
-Reconnecting restores the current state without disturbing other viewers or repeating
-input whose delivery is uncertain. A stale connection never controls a replacement
-terminal. A lost connection does not change sharing. When the computer of a terminal is
-offline, the terminal says so, keeps its last screen and takes no input; it opens again
-when that computer is back. Its X asks what to do: Hide until it's back takes it out of
-that person's lists until the computer is back, and Close forever takes it out of
-everyone's lists and closes it when the computer is back. A room still shows its hidden
-terminals.
+- New terminal opens the launcher. The host finds the installed agents (Claude Code,
+  Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode) with their accounts, models and
+  efforts, and keeps the last choice, so the apps and `kodosi terminal start --agent`
+  start the same way. Kodosi types the agent's command into the shell of the new terminal
+  and does no more.
+- The launcher can also start the terminal on another of the person's computers where
+  Kodosi runs.
+- A terminal can start on a new branch in its own Git worktree, which the host removes
+  when the terminal ends if nothing changed.
+- The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
+  account has used. The agent's own program reads the numbers when the person looks;
+  Kodosi reads no credentials, and the numbers do not go to the backend.
+- Saved Claude Code and Copilot CLI conversations can be previewed and resumed through
+  the provider's own CLI.
 
 ## Encryption
 
@@ -97,63 +115,18 @@ A terminal opened in a room keeps the conversation beside it. Tasks and reposito
 share that workspace. Drafts and reading position survive moving between them. Show
 progress where work happens and give each failure a clear recovery action.
 
-## What the apps do
+## The apps
 
-- The Mac app and the Linux and Windows app run terminals on the computer's host and
-  take part in rooms. The iPhone and iPad app follows, answers and controls the
-  terminals of the person's computers and friends, takes part in rooms, and starts no
-  terminals.
-- Each app contains the `kodosi` command. `kodosi terminal` starts, reads, types into,
-  waits for, shows and shares terminals and starts agents in them; `kodosi room`,
-  `kodosi terminal message` and `kodosi skill` let agents take part in rooms and reach
-  each other.
-- Dosi is the person's agent for their other agents. It sees every terminal, agent and
-  room of the person, acts on them with the `kodosi` command, shows them in the app and
-  asks with choices. It runs on the computer where the person writes, with the agent,
-  account, model and effort chosen in Settings, and works in its own folder. One
-  encrypted conversation follows the person to all their computers. `kodosi dosi say`,
-  `show` and `stop` reach it from a shell, and `kodosi dosi skill` lets another agent act
-  as Dosi.
+- The Mac app and the Linux and Windows app run terminals on the computer's host and take
+  part in rooms. The iPhone and iPad app follows, answers and controls the terminals of
+  the person's computers and friends, takes part in rooms, and starts no terminals.
+- Each desktop app contains the `kodosi` command, so that people and agents can do from a
+  shell what the apps do.
 - Apps update themselves in the background and never restart without asking, because a
-  restart ends the host's terminals. After a system update on Linux, and when Windows
-  has downloaded a newer package, the app offers to restart. An app too old for the
-  backend asks for an update.
+  restart stops the host's terminals. An app too old for the backend asks for an update.
 - Until it is approved, a new device says so and shares nothing. The person's approved
-  computers show its request and lead to the approval.
-- Terminals show the state their programs report: working, waiting for a person, done
-  or failed. Everyone who can open a terminal sees its state and who has it open. While
-  the app is in the background, a terminal the person owns or has open sends a
-  notification when it starts to wait, finishes or fails.
-- New terminal opens the launcher. The host finds the installed agents (Claude Code,
-  Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), their accounts, models and
-  efforts. The person picks them and may type a first prompt; the new terminal's shell
-  types the command. A missing agent offers its install command. The host keeps the last
-  choice, so the apps and `kodosi terminal start --agent` start the same way.
-- The launcher can also start the terminal on another of the person's computers where
-  Kodosi runs. It then shows that computer's agents, accounts and last choice, its recent
-  folders, and the folders in its home, one level at a time. Only the person's own
-  approved devices can ask, and the requests and answers stay end-to-end encrypted.
-  `kodosi terminal start --computer` does the same.
-- The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
-  account has used. Provider Usage in the menu beside the person's name shows each signed-in
-  account with a dial for each limit, and a click opens the launcher with that account.
-  The agent's own program reads the numbers when the person opens these, at most once a
-  minute. Kodosi reads no credentials, and the numbers do not go to the backend; those
-  of another computer come end-to-end encrypted. `kodosi agent usage` prints them.
-- A terminal at its prompt offers a mark for each installed agent, which starts it with
-  the person's last choice. Kodosi types the command into the shell and does no more.
-- Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard
-  reads, which ask first in another person's terminal. Kodosi marks each prompt of a
-  login zsh or bash (not macOS's bash 3.2), so ⌘↑ and ⌘↓ (Ctrl+Shift+↑ and ↓ on Linux and
-  Windows) jump between prompts. A terminal shows when its program runs on another
-  computer, in a container or virtual machine, or as root.
-- A room shows a dot when someone else, or one of the person's agents, wrote in it since
-  the person last looked.
-- A terminal can start on a new branch in its own Git worktree, which the host removes
-  when the terminal ends if nothing changed.
+  computers show its request.
 - A server can define plans that limit an account's devices, rooms, people, friends and
   room data. A full room loses its oldest messages first; tasks and repositories stay.
-- A person deletes their account through the sign-in service's account page; what they
-  wrote in other rooms stays. Terminals keep running.
-- A terminal can also be shared directly with friends, and saved Claude Code and
-  Copilot CLI conversations can be previewed and resumed.
+- A person deletes their account through the sign-in service's account page. What they
+  wrote in other rooms stays, and their terminals keep running.

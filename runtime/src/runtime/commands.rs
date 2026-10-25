@@ -363,7 +363,7 @@ impl Runtime {
         self.job_capacity()?;
         let target = self.target(id)?;
         let input = if *enter {
-            target.type_line(text.clone())
+            target.type_line(text.clone(), false)
         } else {
             target.send_input(Bytes::from(text.clone().into_bytes()))
         };
@@ -402,7 +402,7 @@ impl Runtime {
             ));
         }
         let line = super::messages::message_line(&self.sender(from, agent.as_deref()), text);
-        let delivery = self.target(id)?.type_message(line);
+        let delivery = self.target(id)?.type_line(line, true);
         let command = command.clone();
         self.spawn(async move {
             Completion::Terminal {

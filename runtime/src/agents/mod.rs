@@ -49,6 +49,11 @@ impl Agent {
         }
     }
 
+    /// The agent with this name, as a terminal reports its program.
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|agent| agent.name() == name)
+    }
+
     pub const fn program(self) -> &'static str {
         match self {
             Self::Claude => "claude",
@@ -116,7 +121,7 @@ impl Agent {
 }
 
 pub(crate) fn is_agent_name(name: &str) -> bool {
-    Agent::ALL.iter().any(|agent| agent.name() == name)
+    Agent::named(name).is_some()
 }
 
 /// The note that agents in a Kodosi terminal get with their own instructions: what Kodosi is,

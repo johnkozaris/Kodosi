@@ -503,6 +503,8 @@ private slots:
     void terminalLinkValidationRejectsMalformedValues();
     void terminalViewActivatesGhosttyLinks();
     void terminalViewOpensAWebAddressInTheTextWithControlClick();
+    void terminalViewShowsTheHandAsSoonAsControlIsPressedOverAWebAddress();
+    void aProgramThatTracksTheMouseGetsControlClicksAndShiftOpensLinks();
     void terminalViewCannotActivateLinkFromUndisplayedFrame();
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
@@ -3035,6 +3037,8 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
         QUrl(QStringLiteral("https://example.com/safe")));
 
     view.setTerminalInteraction(false, false);
+    QCoreApplication::sendEvent(&view, &hover);
+    QVERIFY(view.cursor().shape() != Qt::PointingHandCursor);
     QCoreApplication::sendEvent(&view, &press);
     QCoreApplication::sendEvent(&view, &release);
     QTest::qWait(20);
@@ -3124,6 +3128,102 @@ void TerminalKernelTest::terminalViewOpensAWebAddressInTheTextWithControlClick()
     QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
 }
 
+void TerminalKernelTest::terminalViewShowsTheHandAsSoonAsControlIsPressedOverAWebAddress()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("control-hover"),
+        QStringLiteral("control-hover-subscription"),
+        23,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("control-hover-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        4,
+        40,
+        checkpointFor(QByteArrayLiteral("go https://example.com/page now"), 40, 4),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+
+    const auto cell = kodosi::TerminalRasterizer::cellSize(
+        QFontDatabase::systemFont(QFontDatabase::FixedFont),
+        view.lineHeight());
+    const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
+    QHoverEvent hover(QEvent::HoverMove, point, point, point, Qt::NoModifier);
+    QCoreApplication::sendEvent(&view, &hover);
+    QVERIFY(view.cursor().shape() != Qt::PointingHandCursor);
+
+    QKeyEvent pressed(QEvent::KeyPress, Qt::Key_Control, Qt::NoModifier);
+    QCoreApplication::sendEvent(&view, &pressed);
+    QCOMPARE(view.cursor().shape(), Qt::PointingHandCursor);
+    QKeyEvent released(QEvent::KeyRelease, Qt::Key_Control, Qt::ControlModifier);
+    QCoreApplication::sendEvent(&view, &released);
+    QVERIFY(view.cursor().shape() != Qt::PointingHandCursor);
+}
+
+void TerminalKernelTest::aProgramThatTracksTheMouseGetsControlClicksAndShiftOpensLinks()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("tracked-link"),
+        QStringLiteral("tracked-link-subscription"),
+        23,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("tracked-link-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        4,
+        40,
+        checkpointFor(QByteArrayLiteral("\x1b[?1000h\x1b[?1006hgo https://example.com/page now"), 40, 4),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+
+    UrlCapture capture;
+    QDesktopServices::setUrlHandler(QStringLiteral("https"), &capture, "capture");
+    const auto cell = kodosi::TerminalRasterizer::cellSize(
+        QFontDatabase::systemFont(QFontDatabase::FixedFont),
+        view.lineHeight());
+    const QPointF point(cell.width() * 8.5, cell.height() * 0.5);
+    const auto hoverShowsTheHand = [&](const Qt::KeyboardModifiers modifiers) {
+        QHoverEvent hover(QEvent::HoverMove, point, point, point, modifiers);
+        QCoreApplication::sendEvent(&view, &hover);
+        return view.cursor().shape() == Qt::PointingHandCursor;
+    };
+    const auto click = [&](const Qt::KeyboardModifiers modifiers) {
+        QMouseEvent press(QEvent::MouseButtonPress, point, point, Qt::LeftButton, Qt::LeftButton, modifiers);
+        QMouseEvent release(QEvent::MouseButtonRelease, point, point, Qt::LeftButton, Qt::NoButton, modifiers);
+        QCoreApplication::sendEvent(&view, &press);
+        QCoreApplication::sendEvent(&view, &release);
+    };
+
+    QVERIFY(!hoverShowsTheHand(Qt::ControlModifier));
+    click(Qt::ControlModifier);
+    QTest::qWait(20);
+    QVERIFY(capture.values.isEmpty());
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+
+    QVERIFY(hoverShowsTheHand(Qt::ControlModifier | Qt::ShiftModifier));
+    click(Qt::ControlModifier | Qt::ShiftModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(capture.values.size(), 1, 250);
+    QCOMPARE(capture.values.constFirst(), QUrl(QStringLiteral("https://example.com/page")));
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+    QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
+}
+
 void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
 {
     kodosi::TerminalSessionRegistry registry;
@@ -3136,7 +3236,7 @@ void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
     };
     view.setWidth(400);
     view.setHeight(160);
-    view.setTerminalInteraction(false, false);
+    view.setTerminalInteraction(true, false);
     QVERIFY(view.attach(
         registry,
         dispatcher,
@@ -3203,7 +3303,7 @@ void TerminalKernelTest::terminalViewCancelsLinkReleaseOutsideBounds()
     };
     view.setWidth(400);
     view.setHeight(160);
-    view.setTerminalInteraction(false, false);
+    view.setTerminalInteraction(true, false);
     QVERIFY(view.attach(
         registry,
         dispatcher,
