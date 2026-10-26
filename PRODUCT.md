@@ -59,10 +59,11 @@ conversation follows the person to all their computers.
   can change what closing the window does.
 - Quit stops the computer's host and its terminals, but not a host that runs in a
   terminal with `kodosi host`. When the app opens again, the host starts those terminals
-  again with their names, folders, rooms and sharing, and agents continue their
-  conversations. An open view of such a terminal on another device moves to it. When a
-  terminal ends by itself, no other terminal takes its keyboard focus. The `kodosi`
-  command starts a host but never the earlier terminals.
+  again with their names, folders, rooms and sharing, and with their earlier screens and
+  history above a new prompt; agents continue their conversations. An open view of such a
+  terminal on another device moves to it. When a terminal ends by itself, no other
+  terminal takes its keyboard focus. The `kodosi` command starts a host but never the
+  earlier terminals.
 - The apps and the `kodosi` command are equal clients of the computer's host: what one
   does, the others show. A person's typing comes first: input from the command stops with
   a message while a person types in that terminal.

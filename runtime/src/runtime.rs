@@ -1374,6 +1374,8 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.save_terminals(self.agent_lines().await);
         #[cfg(feature = "host")]
+        self.save_screens().await;
+        #[cfg(feature = "host")]
         self.stop_locals().await;
         self.network.shutdown().await;
     }
@@ -1429,6 +1431,25 @@ impl Runtime {
             tracing::warn!("an agent conversation was not found before the host stopped");
         }
         lines
+    }
+
+    /// Keeps the screen and history of each terminal that comes back, on this computer only.
+    #[cfg(feature = "host")]
+    async fn save_screens(&self) {
+        let mut asking = JoinSet::new();
+        for (id, local) in &self.local {
+            if local.comes_back() {
+                let (id, history) = (*id, local.terminal.primary_history());
+                asking.spawn(async move { (id, history.await) });
+            }
+        }
+        let mut screens = Vec::new();
+        while let Some(answer) = asking.join_next().await {
+            if let Ok((id, Ok(screen))) = answer {
+                screens.push((id, screen));
+            }
+        }
+        self.restore.keep_screens(screens);
     }
 
     #[cfg(feature = "host")]
@@ -1493,11 +1514,12 @@ impl Runtime {
                 agent: None,
                 prompt: None,
             };
-            match self.begin_creation(command) {
+            match self.begin_creation(command, Some(self.restore.screen_file(saved.id))) {
                 Ok(id) => {
                     self.restore.starting.insert(id, saved);
                 }
                 Err(error) => {
+                    self.restore.forget_screen(saved.id);
                     tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
                 }
             }

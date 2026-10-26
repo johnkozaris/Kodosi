@@ -1839,6 +1839,45 @@ fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
 
 #[cfg(feature = "host")]
 #[test]
+fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
+    assert_eq!(restore::newest_lines(b"one\r\ntwo\r\nthree", 9), b"three");
+    assert_eq!(restore::newest_lines(b"one\r\ntwo", 8), b"one\r\ntwo");
+    assert_eq!(restore::newest_lines(b"one long line", 4), b"");
+
+    let root = tempfile::tempdir().unwrap();
+    let saved = restore::Saved {
+        id: Uuid::now_v7(),
+        name: "Notes".to_owned(),
+        folder: None,
+        sharing: None,
+        line: None,
+        worktree: None,
+    };
+    let mut restore = restore::Restore::load(root.path());
+    restore.save(vec![saved.clone()]);
+    let ended = restore.screen_file(Uuid::now_v7());
+    std::fs::create_dir_all(ended.parent().unwrap()).unwrap();
+    std::fs::write(&ended, b"ended").unwrap();
+    let lines = (0..100_000)
+        .map(|line| format!("line {line}"))
+        .collect::<Vec<_>>()
+        .join("\r\n");
+    restore.keep_screens(vec![(saved.id, lines.clone().into_bytes())]);
+
+    assert!(!ended.exists());
+    let shown = String::from_utf8(restore::earlier_screen(&restore.screen_file(saved.id))).unwrap();
+    assert!(shown.len() < lines.len());
+    assert!(shown.starts_with("line ") && !shown.starts_with("line 0\r\n"));
+    assert!(shown.ends_with("line 99999\x1b]8;;\x1b\\\x1b[0m\r\n\x1b[2mRestored\x1b[0m\r\n"));
+    restore.forget_screen(saved.id);
+    assert_eq!(
+        restore::earlier_screen(&restore.screen_file(saved.id)),
+        Vec::<u8>::new()
+    );
+}
+
+#[cfg(feature = "host")]
+#[test]
 fn a_restored_terminal_opens_in_the_nearest_folder_that_is_still_there() {
     let root = tempfile::tempdir().unwrap();
     let kept = root.path().join("kept");
@@ -1914,7 +1953,7 @@ async fn sessions_where(
 }
 
 #[cfg(all(unix, feature = "host"))]
-async fn screen_shows(handle: &RuntimeHandle, entry: &Value, text: &str) {
+async fn screen_shows(handle: &RuntimeHandle, entry: &Value, text: &str) -> String {
     let (_, mut events) = handle.observe().await.unwrap();
     timeout(Duration::from_secs(20), async {
         loop {
@@ -1936,13 +1975,13 @@ async fn screen_shows(handle: &RuntimeHandle, entry: &Value, text: &str) {
                 }
             };
             if screen.contains(text) {
-                break;
+                break screen;
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
     })
     .await
-    .unwrap();
+    .unwrap()
 }
 
 #[cfg(all(unix, feature = "host"))]
@@ -1985,15 +2024,21 @@ async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
         agent.display()
     );
     let build = create_named(&first, "Build", &work, Some(start_agent)).await;
-    let notes = create_named(&first, "Notes", &gone, None).await;
-    sessions_where(&mut events, |sessions| {
+    let line = "echo before$((1+1))quit".to_owned();
+    let notes = create_named(&first, "Notes", &gone, Some(line)).await;
+    let sessions = sessions_where(&mut events, |sessions| {
         sessions
             .iter()
             .any(|entry| entry["id"] == build && entry["program"] == "claude")
     })
     .await;
+    let notes_entry = sessions.iter().find(|entry| entry["id"] == notes).unwrap();
+    screen_shows(&first, notes_entry, "before2quit").await;
     first.shutdown().await;
     drop(first);
+    let screens = root.join("core/screens");
+    let notes_screen = std::fs::read(screens.join(&notes)).unwrap();
+    assert!(String::from_utf8_lossy(&notes_screen).contains("before2quit"));
 
     let file = root.join("core/terminals.json");
     let mut saved: Vec<Value> = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
@@ -2036,6 +2081,10 @@ async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
         assert_eq!(entry["workingDir"], work.to_str().unwrap());
     }
     screen_shows(&second, &build_again, "came2back").await;
+    let screen = screen_shows(&second, &notes_again, "Restored").await;
+    let before = screen.find("before2quit").unwrap();
+    assert!(before < screen.find("Restored").unwrap(), "{screen}");
+    assert!(std::fs::read_dir(&screens).unwrap().next().is_none());
     second.shutdown().await;
     drop(second);
 }
@@ -2053,6 +2102,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         storage.path().to_owned(),
         None,
         None,
+        Vec::new(),
         runtime.changes.clone(),
     )
     .await
@@ -2282,6 +2332,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         storage.path().to_owned(),
         None,
         None,
+        Vec::new(),
         runtime.changes.clone(),
     )
     .await
@@ -2383,6 +2434,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         storage.path().to_owned(),
         None,
         None,
+        Vec::new(),
         runtime.changes.clone(),
     )
     .await
