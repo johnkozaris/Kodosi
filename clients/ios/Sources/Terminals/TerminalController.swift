@@ -141,7 +141,7 @@ final class TerminalController {
             return
         }
         let focused = presence.focused
-        surface.token.setInputAllowed(focused)
+        surface.token.setInputAllowed(focused, by: surfaceId)
         guard focused, !focusDeclined, let session else {
             if !focused {
                 TerminalInputQueue.shared.cancel(sessionId: sessionId)

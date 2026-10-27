@@ -136,10 +136,12 @@ ColumnLayout {
             return remoteRows()
         const seen = []
         const local = Models.Sessions.sessions.filter(session => session.kind === "local").map(session => session.workingDirectory || "")
-        for (const path of [folder, Models.DesktopSettings.effectiveWorkingDirectory].concat(local).concat([home])) {
-            if (path && seen.indexOf(path) < 0 && seen.length < 6)
+        for (const path of [folder, Models.DesktopSettings.effectiveWorkingDirectory].concat(places.recent || []).concat(local)) {
+            if (path && path !== home && seen.indexOf(path) < 0 && seen.length < 7)
                 seen.push(path)
         }
+        if (home)
+            seen.push(home)
         return seen.map(path => ({ id: path, kind: "choice", icon: "folder", subtitle: tilde(path), current: path === directory,
             title: tilde(path) === "~" ? "~" : Models.Sessions.folderName(path) }))
             .concat([{ id: "menu.choose", kind: "action", title: qsTr("Choose a folder…"), icon: "slot", glyph: "folder" }])
@@ -232,9 +234,11 @@ ColumnLayout {
         closeMenu()
     }
 
-    function askComputer() {
-        if (computer.length === 0)
+    function askFolders() {
+        if (computer.length === 0) {
+            Models.Launcher.listFolders()
             return
+        }
         Models.Launcher.remote.computer = computer
         Models.Launcher.remote.listFolders()
     }
@@ -245,13 +249,13 @@ ColumnLayout {
 
     Component.onCompleted: {
         showDraft()
-        askComputer()
+        askFolders()
         root.launcher.refresh(false)
         root.launcher.refreshUsage()
         root.launcher.loadModels(agentId)
     }
     onComputerChanged: {
-        askComputer()
+        askFolders()
         if (menuKind.length > 0)
             closeMenu()
         root.launcher.refresh(false)
@@ -259,7 +263,7 @@ ColumnLayout {
     }
     onVisibleChanged: {
         if (visible) {
-            askComputer()
+            askFolders()
             root.launcher.refresh(false)
             root.launcher.refreshUsage()
             promptInput.forceActiveFocus()

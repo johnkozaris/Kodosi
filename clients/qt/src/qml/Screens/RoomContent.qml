@@ -35,6 +35,10 @@ Item {
     function newTerminal() {
         root.newTerminalRequested(Models.Missions.selectedMissionId);
     }
+    function openTerminalMenu(sessionId) {
+        terminalMenu.sessionId = sessionId
+        terminalMenu.popup()
+    }
 
     objectName: "room"
     Accessible.id: objectName
@@ -366,6 +370,12 @@ Item {
                                                     Raised { anchors.fill: parent; radius: 14; visible: tab.selected }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(sessionId)
+
+                                                TapHandler {
+                                                    acceptedButtons: Qt.RightButton
+                                                    enabled: tab.session.isOwner === true
+                                                    onTapped: root.openTerminalMenu(tab.sessionId)
+                                                }
                                             }
                                         }
                                     }
@@ -527,6 +537,12 @@ Item {
                                                     AvatarStack { Layout.rightMargin: 12; visible: card.viewers.length > 0; userIds: card.viewers; size: 20; limit: 2; ring: KodosiTheme.raised }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(modelData)
+
+                                                TapHandler {
+                                                    acceptedButtons: Qt.RightButton
+                                                    enabled: card.session.isOwner === true
+                                                    onTapped: root.openTerminalMenu(card.modelData)
+                                                }
                                             }
                                         }
                                     }
@@ -594,6 +610,18 @@ Item {
                     }
                 }
             }
+        }
+    }
+    KMenu {
+        id: terminalMenu
+
+        property string sessionId: ""
+
+        KMenuItem {
+            text: qsTr("Remove from room")
+            iconName: "leave"
+            objectName: "room.terminal.remove"
+            onTriggered: Models.SessionActions.attachMission(terminalMenu.sessionId, "")
         }
     }
     KDialog {

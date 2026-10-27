@@ -177,7 +177,16 @@ struct SidebarView: View {
             } add: {
                 deps.openLauncher()
             }
-            ForEach(SessionFolderGroup.groups(deps.listedSessions)) { group in
+            let listed = deps.listedSessions
+            let pinned = deps.workbench.pinnedSessionIds.compactMap { id in listed.first { $0.id == id } }
+            if !pinned.isEmpty {
+                SidebarPinnedHeader()
+                ForEach(pinned) { session in
+                    SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill)
+                        .transition(AnyTransition.rise)
+                }
+            }
+            ForEach(SessionFolderGroup.groups(listed.filter { !deps.workbench.isPinned($0.id) })) { group in
                 let collapsed = collapsedFolders.contains(group.id)
                 SidebarFolderHeader(group: group, collapsed: collapsed) {
                     withAnimation(theme.motion.spring) {

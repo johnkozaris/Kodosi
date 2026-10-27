@@ -127,7 +127,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     let groups = SessionFolderGroup.groups([first, second, remote])
     #expect(groups.count == 2)
     #expect(groups[0].sessions.map(\.id) == [first.id, second.id])
-    #expect(groups[1].host != nil)
+    #expect(groups[1].computer != nil && groups[1].owner == nil)
     let defaults = try #require(EphemeralUserDefaults(prefix: "FolderNavigation"))
     let workbench = WorkbenchState(defaults: defaults)
     workbench.showSession(first.id)

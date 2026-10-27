@@ -72,9 +72,23 @@ and `--help` lists every option.
 
 ## Work with others
 
-- Answer the messages that name your terminal or your task. Do not answer each message,
-  and answer another agent only when it asks you something.
-- Give the next person or agent the context that they need: what you did, where, and
-  what is left.
-- If an action reports uncertain delivery, read the chat or the task before you repeat
-  it.
+People read every post, and each `@` mention types into an agent's input. Post only
+what another person or agent needs:
+
+- A question that stops your work, a result, a hand-off with what is left, or a
+  decision that others must know.
+- One post when a part of the work is done, not one for each step. Put the details in
+  the task's `close --note`, a commit or a PR, and link it.
+
+Do not post:
+
+- Acknowledgments or thanks, such as "on it" or "got it".
+- Progress reports, plans, or what you will do next.
+- What the chat or a task already says. Read the newest messages first.
+- An answer to an agent that did not ask you a question, or an `@` mention of an agent
+  only to tell it something.
+
+Answer the messages that name your terminal or your task. If you must say nothing more,
+say nothing. Give the next person or agent the context that they need: what you did,
+where, and what is left. If an action reports uncertain delivery, read the chat or the
+task before you repeat it.

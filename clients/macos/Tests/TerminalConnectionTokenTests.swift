@@ -18,16 +18,29 @@ import Testing
 
 @Test func `input suppression does not retire the renderer connection`() {
     let token = TerminalConnectionToken()
+    let view = UUID()
     #expect(!token.canSendInput)
-    token.setInputAllowed(true)
+    token.setInputAllowed(true, by: view)
     #expect(token.canSendInput)
-    token.setInputAllowed(false)
+    token.setInputAllowed(false, by: view)
     #expect(token.isActive)
     #expect(!token.canSendInput)
-    token.setInputAllowed(true)
+    token.setInputAllowed(true, by: view)
     #expect(token.deactivate())
     #expect(!token.canSendInput)
     #expect(!token.deactivate())
+}
+
+@Test func `a view that goes away does not stop the input of the view that replaced it`() {
+    let token = TerminalConnectionToken()
+    let grid = UUID()
+    let room = UUID()
+    token.setInputAllowed(true, by: grid)
+    token.setInputAllowed(true, by: room)
+    token.setInputAllowed(false, by: grid)
+    #expect(token.canSendInput)
+    token.setInputAllowed(false, by: room)
+    #expect(!token.canSendInput)
 }
 
 @Test @MainActor func `focus blur and resize use canonical subscription token`() throws {

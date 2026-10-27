@@ -7,7 +7,7 @@ public final class TerminalConnectionToken: @unchecked Sendable {
 
     private let lock = NSLock()
     private var active = true
-    private var inputAllowed = false
+    private var inputViews: Set<UUID> = []
     public let subscriptionId: String
     public let subscriptionGeneration: UInt64
 
@@ -23,11 +23,17 @@ public final class TerminalConnectionToken: @unchecked Sendable {
     }
 
     public var canSendInput: Bool {
-        lock.withLock { active && inputAllowed }
+        lock.withLock { active && !inputViews.isEmpty }
     }
 
-    public func setInputAllowed(_ allowed: Bool) {
-        lock.withLock { inputAllowed = allowed }
+    public func setInputAllowed(_ allowed: Bool, by view: UUID) {
+        lock.withLock {
+            if allowed {
+                inputViews.insert(view)
+            } else {
+                inputViews.remove(view)
+            }
+        }
     }
 
     @discardableResult

@@ -9,6 +9,7 @@ struct RoomView: View {
     @Bindable var state: RoomViewState
     @State private var dragStart: CGFloat?
     @State private var handleHovered = false
+    @State private var dropping = false
 
     private var roomId: String {
         detail.mission.id
@@ -23,6 +24,9 @@ struct RoomView: View {
                 ZStack(alignment: .trailing) {
                     if !(narrow && state.conversationVisible) {
                         RoomContentView(roomId: roomId, state: state)
+                            .overlay { DropSlot(radius: Radius.xl, shown: dropping).padding(6) }
+                            .roomDrop(roomId, deps: deps, targeted: $dropping)
+                            .animation(theme.motion.snappy, value: dropping)
                             .padding(.trailing, state.conversationVisible ? width + 6 : 0)
                             .transaction(value: state.conversationVisible) { $0.animation = nil }
                     }

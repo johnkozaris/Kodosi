@@ -229,3 +229,47 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.stagedSessionIds.count == 6)
     #expect(workbench.selectedSessionId == ids[6])
 }
+
+@Test @MainActor func `a pin stays with its account and follows the terminal when its host starts it again`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StagePins"))
+    let local = try runtimeSession(kind: "local", connection: "local")
+    let remote = try onMini("01992e43-53db-7040-8e02-f6ebf4149b31")
+    let first = WorkbenchState(defaults: defaults)
+    first.switchAccount("ana")
+    _ = first.reconcile([local, remote])
+    first.togglePin(remote.id)
+    first.togglePin(local.id)
+    #expect(first.pinnedSessionIds == [remote.id, local.id])
+    let remoteAgain = try onMini("01992e43-53db-7040-8e02-f6ebf4149b32", restoredFrom: remote.id)
+    _ = first.reconcile([local])
+    _ = first.reconcile([local, remoteAgain])
+    #expect(first.pinnedSessionIds == [remoteAgain.id, local.id])
+    let localAgain = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local",
+                                        restoredFrom: local.id)
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount("ana")
+    _ = restarted.reconcile([localAgain, remoteAgain])
+    #expect(restarted.pinnedSessionIds == [remoteAgain.id, localAgain.id])
+    restarted.togglePin(remoteAgain.id)
+    #expect(!restarted.isPinned(remoteAgain.id))
+    restarted.switchAccount("maya")
+    #expect(restarted.pinnedSessionIds.isEmpty)
+}
+
+@Test @MainActor func `a dragged terminal takes the place of the terminal that it drops on`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageMove"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    for id in ["a", "b", "c"] {
+        workbench.showSession(id)
+    }
+    workbench.moveStaged("a", to: "c")
+    #expect(workbench.stagedSessionIds == ["b", "c", "a"])
+    workbench.moveStaged("a", to: "b")
+    #expect(workbench.stagedSessionIds == ["a", "b", "c"])
+    workbench.moveStaged("x", to: "b")
+    #expect(workbench.stagedSessionIds == ["a", "b", "c"])
+    let restarted = WorkbenchState(defaults: defaults)
+    restarted.switchAccount("ana")
+    #expect(restarted.reconcile([]).isEmpty)
+}

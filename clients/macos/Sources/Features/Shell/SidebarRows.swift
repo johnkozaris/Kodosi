@@ -71,6 +71,7 @@ struct SidebarRoomRow: View {
     let mission: MissionEntry
     let selected: Bool
     let pill: Namespace.ID
+    @State private var dropping = false
 
     private var live: [RuntimeSession] {
         deps.roomSessions(mission.id)
@@ -98,8 +99,11 @@ struct SidebarRoomRow: View {
                 }
             }
             .hoverRow(selected: selected)
+            .overlay { DropSlot(radius: Radius.md, shown: dropping) }
         }
         .buttonStyle(.plain)
+        .roomDrop(mission.id, deps: deps, targeted: $dropping)
+        .animation(theme.motion.snappy, value: dropping)
         .accessibilityIdentifier("missions.mission.\(AccessibilityIdentifier.token(mission.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityValue(mission.unread ? Text("New messages") : Text(verbatim: ""))
@@ -152,7 +156,7 @@ struct SidebarFolderHeader: View {
     let toggle: () -> Void
 
     private var away: Bool {
-        group.host != nil && !group.sessions.isEmpty && group.sessions.allSatisfy(\.hostOffline)
+        group.computer != nil && !group.sessions.isEmpty && group.sessions.allSatisfy(\.hostOffline)
     }
 
     var body: some View {
@@ -162,10 +166,9 @@ struct SidebarFolderHeader: View {
                     Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
                         .rotationEffect(.degrees(collapsed ? 0 : 90))
                         .foregroundStyle(theme.colors.inkFaint).frame(width: 10)
-                    if let host = group.host {
-                        DeviceGlyph(label: host).font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint)
-                    }
-                    Text(group.label)
+                    Image(systemName: group.directory == nil ? "terminal" : "folder.fill")
+                        .font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
+                    Text(group.name)
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                     if collapsed {
                         Text(group.sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
@@ -173,15 +176,18 @@ struct SidebarFolderHeader: View {
                             StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
                         }
                     }
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 4)
+                    if let computer = group.computer {
+                        ComputerChip(computer: computer, owner: group.owner, away: away)
+                    }
                 }
                 .padding(.leading, 8).frame(height: 24).contentShape(Rectangle())
             }
-            .buttonStyle(.plain).help(group.directory ?? group.name)
+            .buttonStyle(.plain).help(help)
             .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
             .accessibilityIdentifier("sidebar.folder.\(AccessibilityIdentifier.token(group.id))")
             .contextMenu {
-                if group.host == nil, let directory = group.directory {
+                if group.computer == nil, let directory = group.directory {
                     Button("New terminal here") { deps.openTerminal(in: directory) }
                     if group.sessions.contains(where: { $0.repository == true }) {
                         Button("New terminal on a new branch…") { branching = true }
@@ -199,7 +205,7 @@ struct SidebarFolderHeader: View {
                 }
                 .opacity(hovered || choosingOffline ? 1 : 0)
             }
-            if group.host == nil, let directory = group.directory {
+            if group.computer == nil, let directory = group.directory {
                 if group.sessions.contains(where: { $0.repository == true }) {
                     IconButton(title: "New terminal on a new branch", symbol: "arrow.triangle.branch",
                                identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).branch", size: 20, open: branching)
@@ -222,6 +228,62 @@ struct SidebarFolderHeader: View {
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .offlineChoice($choosingOffline, for: group.sessions)
+    }
+}
+
+struct SidebarPinnedHeader: View {
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Color.clear.frame(width: 10)
+            Image(systemName: "pin.fill").font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(theme.colors.inkFaint).frame(width: 13)
+            Text("Pinned").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 8).frame(height: 24).padding(.top, 6)
+        .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("sidebar.pinned")
+    }
+}
+
+private extension SidebarFolderHeader {
+    var help: String {
+        let folder = group.directory ?? group.name
+        guard let computer = group.computer else { return folder }
+        if let owner = group.owner {
+            return String(localized: "\(folder) on \(owner.name)’s \(computer)")
+        }
+        return String(localized: "\(folder) on \(computer)")
+    }
+}
+
+struct ComputerChip: View {
+    @Environment(\.theme) private var theme
+    let computer: String
+    let owner: SessionFolderGroup.Owner?
+    var away = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let owner {
+                PersonAvatar(name: owner.name, key: owner.userId, size: 13)
+            } else {
+                DeviceGlyph(label: computer).font(.system(size: 9, weight: .semibold))
+            }
+            Text(computer).appTextStyle(.caption).lineLimit(1).frame(maxWidth: 92)
+            if away {
+                Image(systemName: "wifi.slash").font(.system(size: 8, weight: .bold))
+            }
+        }
+        .foregroundStyle(theme.colors.inkFaint)
+        .padding(.leading, owner == nil ? 6 : 3).padding(.trailing, 7).frame(height: 18)
+        .wellCapsule()
+        .opacity(away ? 0.7 : 1)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(owner.map { Text("\($0.name)’s \(computer)") } ?? Text(computer))
     }
 }
 
@@ -266,6 +328,7 @@ struct SidebarTerminalRow: View {
         .animation(theme.motion.snappy, value: deps.sign(of: session))
         .help(session.isConnected && !troubled ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : session.statusLabel)
         .contextMenu { menu }
+        .terminalDrag(session)
         .confirmationDialog("Close \(session.name)?", isPresented: $confirmingClose, titleVisibility: .visible) {
             Button("Close", role: .destructive) { Task { await deps.close(session) } }
             Button("Cancel", role: .cancel) {}
@@ -371,6 +434,9 @@ struct SidebarTerminalRow: View {
     @ViewBuilder
     private var menu: some View {
         Button("Open") { deps.activateSession(session.id) }
+        Button(deps.workbench.isPinned(session.id) ? "Unpin" : "Pin") {
+            withAnimation(theme.motion.spring) { deps.workbench.togglePin(session.id) }
+        }
         if session.isOwner {
             Button("Rename…") { draft = session.name; renaming = true; nameFocused = true }
         }
