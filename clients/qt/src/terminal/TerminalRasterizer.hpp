@@ -58,9 +58,7 @@ public:
         const QFont& font,
         qreal devicePixelRatio,
         const Options& options);
-    // Paints again, on the image that render made for the earlier frame, only the rows that
-    // differ, and gives their number. Gives nothing when the image must be made again.
-    [[nodiscard]] static std::optional<int> update(
+    [[nodiscard]] static std::optional<int> repaintChangedRows(
         QImage& image,
         const TerminalFrame& earlier,
         const Options& earlierOptions,

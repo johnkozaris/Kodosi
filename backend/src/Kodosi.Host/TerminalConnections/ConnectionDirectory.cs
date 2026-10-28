@@ -60,7 +60,7 @@ public sealed class ConnectionDirectory
 
     internal void Register(DeviceConnection connection)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
         {
             var devices = accounts.GetValueOrDefault(connection.UserId);
@@ -69,7 +69,7 @@ public sealed class ConnectionDirectory
                 throw new ApiException(503, "Too many device connections.");
             if (previous is not null)
             {
-                DetachLocked(previous, ending);
+                DetachLocked(previous, afterUnlock);
                 devices = accounts.GetValueOrDefault(connection.UserId);
             }
             if (devices is null) accounts[connection.UserId] = devices = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -77,7 +77,7 @@ public sealed class ConnectionDirectory
             devices[connection.DeviceId] = entry;
             entries[connection] = entry;
         }
-        ending.Apply(this);
+        afterUnlock.Apply(this);
     }
 
     internal void Ready(DeviceConnection connection)
@@ -92,31 +92,31 @@ public sealed class ConnectionDirectory
 
     internal void Remove(DeviceConnection connection)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (entries.TryGetValue(connection, out var entry)) DetachLocked(entry, ending);
-        ending.Apply(this);
+            if (entries.TryGetValue(connection, out var entry)) DetachLocked(entry, afterUnlock);
+        afterUnlock.Apply(this);
         connection.Abort();
     }
 
     public void RemoveDevice(Guid userId, string deviceId)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId) is { } entry) DetachLocked(entry, ending);
-        ending.Apply(this);
+            if (accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId) is { } entry) DetachLocked(entry, afterUnlock);
+        afterUnlock.Apply(this);
     }
 
     internal void Host(DeviceConnection connection, Data.Session session)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
         {
             if (!entries.TryGetValue(connection, out var entry) || !connection.IsOpen) throw ApiException.Conflict("The device connection closed.");
             if (hosted.TryGetValue(session.Id, out var live))
             {
                 if (live.Host == entry && live.IncarnationId == session.IncarnationId) return;
-                EndPipesLocked(live.Pipes, 409, "This terminal was replaced.", ending);
+                EndPipesLocked(live.Pipes, 409, "This terminal was replaced.", afterUnlock);
                 live.Host.Hosted.Remove(session.Id);
                 live.Host = entry; live.IncarnationId = session.IncarnationId; live.Status = null;
             }
@@ -126,9 +126,9 @@ public sealed class ConnectionDirectory
                 hosted[session.Id] = new Hosted(session.IncarnationId, entry);
             }
             entry.Hosted.Add(session.Id);
-            ending.Changed.Add(session.Id);
+            afterUnlock.Changed.Add(session.Id);
         }
-        ending.Apply(this);
+        afterUnlock.Apply(this);
     }
 
     internal void Share(DeviceConnection connection, Guid sessionId, Guid incarnationId, TerminalStatus? status)
@@ -144,18 +144,18 @@ public sealed class ConnectionDirectory
 
     internal void Unhost(DeviceConnection connection, Guid sessionId)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (hosted.TryGetValue(sessionId, out var live) && live.Host.Connection == connection) RemoveHostedLocked(sessionId, live, ending);
-        ending.Apply(this);
+            if (hosted.TryGetValue(sessionId, out var live) && live.Host.Connection == connection) RemoveHostedLocked(sessionId, live, afterUnlock);
+        afterUnlock.Apply(this);
     }
 
     public void RemoveSession(Guid sessionId)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (hosted.TryGetValue(sessionId, out var live)) RemoveHostedLocked(sessionId, live, ending);
-        ending.Apply(this);
+            if (hosted.TryGetValue(sessionId, out var live)) RemoveHostedLocked(sessionId, live, afterUnlock);
+        afterUnlock.Apply(this);
     }
 
     internal void Open(DeviceConnection viewer, Guid pipeId, Data.Session session)
@@ -198,10 +198,10 @@ public sealed class ConnectionDirectory
     internal void Close(DeviceConnection connection, Guid pipeId)
     {
         if (!pipes.TryGetValue(pipeId, out var pipe) || (pipe.Viewer != connection && pipe.Host != connection)) return;
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (RemovePipeLocked(pipe)) ending.Pipes.Add((pipe, 0, "", connection));
-        ending.Apply(this);
+            if (RemovePipeLocked(pipe)) afterUnlock.Pipes.Add((pipe, 0, "", connection));
+        afterUnlock.Apply(this);
     }
 
     internal int Relay(DeviceConnection from, Guid pipeId, ReadOnlySpan<byte> frame)
@@ -216,25 +216,25 @@ public sealed class ConnectionDirectory
             _ => (503, "The connection is too slow."),
         };
         if (status == 0) return frame.Length;
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         lock (sync)
-            if (RemovePipeLocked(pipe)) ending.Pipes.Add((pipe, status, message, null));
-        ending.Apply(this);
+            if (RemovePipeLocked(pipe)) afterUnlock.Pipes.Add((pipe, status, message, null));
+        afterUnlock.Apply(this);
         return 0;
     }
 
     public void Revoke(Guid sessionId, Func<Guid, string, bool> keep)
     {
-        var ending = new Ending();
+        var afterUnlock = new AfterUnlock();
         DeviceConnection host;
         lock (sync)
         {
             if (!hosted.TryGetValue(sessionId, out var live)) return;
             host = live.Host.Connection;
             foreach (var pipe in live.Pipes.Select(id => pipes[id]).Where(x => !keep(x.Viewer.UserId, x.Viewer.DeviceId)).ToArray())
-                if (RemovePipeLocked(pipe)) ending.Pipes.Add((pipe, 403, "This terminal is not shared with you.", null));
+                if (RemovePipeLocked(pipe)) afterUnlock.Pipes.Add((pipe, 403, "This terminal is not shared with you.", null));
         }
-        ending.Apply(this);
+        afterUnlock.Apply(this);
         host.Send(Wire.Encode(new AccessChangedNotice(sessionId)));
     }
 
@@ -265,15 +265,15 @@ public sealed class ConnectionDirectory
         foreach (var connection in all) connection.Close();
     }
 
-    private void DetachLocked(Entry entry, Ending ending)
+    private void DetachLocked(Entry entry, AfterUnlock afterUnlock)
     {
         var connection = entry.Connection;
-        foreach (var sessionId in entry.Hosted.ToArray()) RemoveHostedLocked(sessionId, hosted[sessionId], ending, 409, "The host is offline.");
+        foreach (var sessionId in entry.Hosted.ToArray()) RemoveHostedLocked(sessionId, hosted[sessionId], afterUnlock, 409, "The host is offline.");
         foreach (var pipe in entry.Pipes.Select(id => pipes[id]).ToArray())
             if (RemovePipeLocked(pipe))
             {
                 var lost = pipe.Host == connection;
-                ending.Pipes.Add((pipe, lost ? 409 : 0, !lost ? "" : pipe.IsCall ? "That computer is not online." : "The host is offline.", connection));
+                afterUnlock.Pipes.Add((pipe, lost ? 409 : 0, !lost ? "" : pipe.IsCall ? "That computer is not online." : "The host is offline.", connection));
             }
         entries.Remove(connection);
         if (accounts.TryGetValue(connection.UserId, out var devices) && devices.GetValueOrDefault(connection.DeviceId) == entry)
@@ -282,7 +282,7 @@ public sealed class ConnectionDirectory
             if (devices.Count == 0) accounts.Remove(connection.UserId);
         }
         if (entry.Ready && connection.Hosts) TellHostsLocked(connection.UserId);
-        ending.Aborted.Add(connection);
+        afterUnlock.Aborted.Add(connection);
     }
 
     private void TellHostsLocked(Guid userId, DeviceConnection? only = null)
@@ -294,18 +294,18 @@ public sealed class ConnectionDirectory
         foreach (var entry in ready.Where(x => only is null || x.Connection == only)) entry.Connection.Send(notice);
     }
 
-    private void RemoveHostedLocked(Guid sessionId, Hosted live, Ending ending, int status = 404, string message = "This terminal is no longer available.")
+    private void RemoveHostedLocked(Guid sessionId, Hosted live, AfterUnlock afterUnlock, int status = 404, string message = "This terminal is no longer available.")
     {
         hosted.Remove(sessionId);
         live.Host.Hosted.Remove(sessionId);
-        EndPipesLocked(live.Pipes, status, message, ending);
-        ending.Changed.Add(sessionId);
+        EndPipesLocked(live.Pipes, status, message, afterUnlock);
+        afterUnlock.Changed.Add(sessionId);
     }
 
-    private void EndPipesLocked(IEnumerable<Guid> ids, int status, string message, Ending ending)
+    private void EndPipesLocked(IEnumerable<Guid> ids, int status, string message, AfterUnlock afterUnlock)
     {
         foreach (var pipe in ids.Select(id => pipes[id]).ToArray())
-            if (RemovePipeLocked(pipe)) ending.Pipes.Add((pipe, status, message, null));
+            if (RemovePipeLocked(pipe)) afterUnlock.Pipes.Add((pipe, status, message, null));
     }
 
     private bool RemovePipeLocked(Pipe pipe)
@@ -343,8 +343,7 @@ public sealed class ConnectionDirectory
         public HashSet<Guid> Pipes { get; } = [];
     }
 
-    // Messages and closes go out after the lock is released, in the order that the lock gave them.
-    private sealed class Ending
+    private sealed class AfterUnlock
     {
         public List<(Pipe Pipe, int Status, string Message, DeviceConnection? Silent)> Pipes { get; } = [];
         public List<DeviceConnection> Aborted { get; } = [];

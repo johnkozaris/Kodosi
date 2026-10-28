@@ -283,13 +283,13 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const Q
         = std::find_if(m_sessions.cbegin(), m_sessions.cend(), [&](const auto& s) { return s.id == id; });
     return found == m_sessions.cend() ? std::nullopt : std::optional(*found);
 }
-QString SessionCatalogModel::current(const QString& id) const
+QString SessionCatalogModel::afterLocalRestart(const QString& id) const
 {
     const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(),
         [&](const auto& s) { return s.restoredFrom == id && s.kind == QStringLiteral("local"); });
     return found == m_sessions.cend() ? id : found->id;
 }
-std::optional<QString> SessionCatalogModel::restart(const QString& id, const QString& owner, const QString& host) const
+std::optional<QString> SessionCatalogModel::restartedAs(const QString& id, const QString& owner, const QString& host) const
 {
     const auto found = std::find_if(m_sessions.cbegin(), m_sessions.cend(), [&](const auto& s) {
         return s.restoredFrom == id && s.ownerUserId == owner && s.hostDeviceId == host;

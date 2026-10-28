@@ -37,7 +37,6 @@ arguments=(
 if ((critical)); then
     arguments+=(--critical-update-version "")
 fi
-# The private EdDSA key comes on the standard input, or else from the keychain.
 if [[ ! -t 0 ]]; then
     arguments+=(--ed-key-file -)
 fi

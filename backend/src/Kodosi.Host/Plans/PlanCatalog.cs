@@ -3,7 +3,6 @@ using Kodosi.Data;
 
 namespace Kodosi.Plans;
 
-// A null limit is no limit.
 public sealed record PlanLimits(int Devices, int OwnedRooms, int RoomPeople, int SharePeople, long? RoomBytes,
     int? Friends, int SentFriendRequests, int? ReceivedFriendRequests)
 {

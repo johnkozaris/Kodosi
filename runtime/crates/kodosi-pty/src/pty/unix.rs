@@ -656,7 +656,6 @@ fn variable(environment: &[String], name: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// The process group of another process, or `None` when it has ended.
 pub fn process_group(pid: u32) -> Option<u32> {
     nix::unistd::getpgid(Some(Pid::from_raw(i32::try_from(pid).ok()?)))
         .ok()

@@ -722,7 +722,6 @@ impl TerminalTarget {
         })
     }
 
-    /// Input as a person types it, or a message, which only an agent that takes messages gets.
     fn write(
         &self,
         bytes: Bytes,
@@ -1405,7 +1404,6 @@ impl Runtime {
         while stopping.join_next().await.is_some() {}
     }
 
-    /// Asks each terminal's agent which conversation it shows, so the conversation continues.
     #[cfg(feature = "host")]
     async fn agent_lines(&self) -> HashMap<Uuid, String> {
         let mut asking = JoinSet::new();
@@ -1475,7 +1473,6 @@ impl Runtime {
         self.restore.save(live);
     }
 
-    /// Starts the terminals of the last host again when an app asks.
     #[cfg(feature = "host")]
     pub(super) fn restore_saved(&mut self) {
         let saved = self.restore.take();
@@ -1509,7 +1506,6 @@ impl Runtime {
         }
     }
 
-    /// Keeps the new messages of a room that name terminals of this computer for their agents.
     #[cfg(feature = "host")]
     fn note_mentions(&mut self, room: &Value) {
         let Some(id) = room["roomId"].as_str() else {
@@ -1582,8 +1578,6 @@ impl Runtime {
         self.tell_mentions();
     }
 
-    /// The name, folder and title of a terminal that this computer knows, for the agents that
-    /// get a message from it.
     #[cfg(feature = "host")]
     fn place(&self, id: Uuid) -> Option<messages::Place> {
         let entry = self
@@ -1598,8 +1592,6 @@ impl Runtime {
         })
     }
 
-    /// Who sends a message: the agent that names itself or runs in the sending terminal of
-    /// this computer, or else the person.
     #[cfg(feature = "host")]
     fn sender(&self, from: Option<Uuid>, agent: Option<&str>) -> messages::Sender {
         let person = self
@@ -1633,8 +1625,6 @@ impl Runtime {
             .map(str::to_owned)
     }
 
-    /// Types the messages that name a terminal into its agent as soon as it takes messages, one
-    /// line for each room, and not more often than every few seconds.
     #[cfg(feature = "host")]
     fn tell_mentions(&mut self) {
         let now = tokio::time::Instant::now();
@@ -1703,7 +1693,6 @@ impl Runtime {
         }
     }
 
-    /// Gives restored terminals their room or people when the account that chose them is signed in.
     #[cfg(feature = "host")]
     fn apply_wanted(&mut self) {
         let Some(user) = self.scope.user.clone() else {

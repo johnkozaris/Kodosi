@@ -72,7 +72,6 @@ QtObject {
         return kind === "shell" ? KodosiTheme.accentStrong : KodosiTheme.mix(Identity.kindTint(kind), KodosiTheme.ink, 0.2)
     }
 
-    // A mention keeps its spaces unbroken, so its chip stays on one line.
     function html(parts: var, selfId: string): string {
         return "<span style=\"white-space:pre-wrap\">" + parts.map(segment => {
             const body = escaped(segment.text)

@@ -12,7 +12,6 @@ const MOST_FOLDER: usize = 200;
 pub(super) const SPACING: std::time::Duration = std::time::Duration::from_secs(10);
 const JUDGMENT: &str = "Use your own judgment and your current work to decide if and how to act on";
 
-/// Who wrote a message, as the agent that gets it reads it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Sender {
     Person(String),
@@ -23,7 +22,6 @@ pub(super) enum Sender {
     },
 }
 
-/// The terminal that an agent writes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Place {
     pub name: String,
@@ -31,7 +29,6 @@ pub(super) struct Place {
     pub title: Option<String>,
 }
 
-/// A room message that names a terminal of this computer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Mention {
     pub room: String,
@@ -40,7 +37,6 @@ pub(super) struct Mention {
     pub sequence: u64,
 }
 
-/// The room messages that name terminals of this computer, kept until their agents can take them.
 #[derive(Default)]
 pub(super) struct Mentions {
     seen: HashMap<String, u64>,
@@ -50,8 +46,6 @@ pub(super) struct Mentions {
 }
 
 impl Mentions {
-    /// The messages of a room that this computer has not looked at yet. The first look at a
-    /// room only remembers where it is, so older messages never reach an agent.
     pub(super) fn new_messages(&mut self, room: &str, messages: &[Value]) -> Vec<Value> {
         let latest = messages
             .iter()
@@ -99,8 +93,6 @@ impl Mentions {
     }
 }
 
-/// The terminals that a message names with `@` and the terminal's name. Where names start
-/// alike, as `Build` and `Build 2`, the longest name that the text spells wins.
 pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
     let mut found = Vec::new();
     for (index, _) in text.match_indices('@') {
@@ -130,15 +122,11 @@ pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
     found
 }
 
-/// An agent takes a message while it reports its state, also while it works, but not while it
-/// waits for a person's answer: typed text would answer that question.
 pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatus>) -> bool {
     program.is_some_and(crate::agents::is_agent_name)
         && status.is_some_and(|status| status.state != ProgramState::Blocked)
 }
 
-/// The line for messages of one room that name the agent's terminal. One line, because Enter
-/// sends it.
 pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
     let room = plain(room, MOST_NAME);
     let answer = "You can answer there with kodosi room post.";
@@ -169,7 +157,6 @@ pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
     )
 }
 
-/// The line for a message that a person or another agent sends to this agent's terminal.
 pub(super) fn message_line(from: &Sender, text: &str) -> String {
     let answer = match from {
         Sender::Agent {
@@ -188,7 +175,6 @@ pub(super) fn message_line(from: &Sender, text: &str) -> String {
     )
 }
 
-/// The sender, and for an agent the terminal that it writes from: its name, folder and title.
 fn describe(from: &Sender) -> String {
     let Sender::Agent {
         person,

@@ -267,8 +267,6 @@ impl SessionTerminal {
             .map(|effects| effects.into_iter().filter_map(convert_effect).collect())
     }
 
-    /// A history too large for one snapshot gives the visible part, so a view
-    /// always gets the screen.
     fn checkpoint_data(
         &mut self,
         history: bool,

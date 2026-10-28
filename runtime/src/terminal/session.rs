@@ -52,9 +52,10 @@ enum Request {
         connection: Uuid,
         write: PendingWrite,
     },
-    /// Input from a command; `true` makes it a message, which only an agent that takes messages
-    /// gets.
-    Send(PendingWrite, bool),
+    Send {
+        write: PendingWrite,
+        message: bool,
+    },
     Read {
         history: bool,
         reply: oneshot::Sender<Result<String>>,
@@ -83,7 +84,6 @@ enum Request {
     },
 }
 
-/// The process group in front of a terminal's shell, and one variable of its leader.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Foreground {
     pub group: Option<u32>,
@@ -268,18 +268,22 @@ impl TerminalSession {
         let (reply, response) = oneshot::channel();
         let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
             write.completion = Some(InputCompletion::Local(reply));
-            self.send(Request::Send(write, false))
+            self.send(Request::Send {
+                write,
+                message: false,
+            })
         });
         await_reply(admission, response)
     }
 
-    /// Types a message for the agent in this terminal, unless it waits for a person's answer
-    /// or a person types here.
     pub(crate) fn message(&self, bytes: Bytes) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
             write.completion = Some(InputCompletion::Local(reply));
-            self.send(Request::Send(write, true))
+            self.send(Request::Send {
+                write,
+                message: true,
+            })
         });
         await_reply(admission, response)
     }
@@ -1208,8 +1212,6 @@ impl LocalActor {
         self.queue.push_back(write);
     }
 
-    /// Typed text answers a question that waits, so a message goes only to an agent that reports
-    /// its state and does not wait for a person's answer, and never while a person types.
     fn takes_message(&self) -> Result<()> {
         if self.typing() {
             return Err(Error::Invalid(SOMEONE_TYPING.to_owned()));
@@ -1258,7 +1260,7 @@ impl LocalActor {
                 return self.release(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
-            Request::Send(write, message) => self.accept_command_input(write, message),
+            Request::Send { write, message } => self.accept_command_input(write, message),
             Request::Read { history, reply } => {
                 if !reply.is_closed() {
                     drop(reply.send(self.emulator.text(history).await));

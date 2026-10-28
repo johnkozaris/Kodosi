@@ -26,8 +26,6 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    /// Terminals that replay the same output need the same value, or they store different images.
-    pub image_storage_max_bytes: u64,
     pub console: bool,
 }
 
@@ -37,7 +35,6 @@ impl Default for TerminalPolicy {
             continuation_max_bytes: 1024 * 1024,
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
-            image_storage_max_bytes: IMAGE_STORAGE_MAX_BYTES,
             console: false,
         }
     }
@@ -49,7 +46,7 @@ impl TerminalPolicy {
             continuation_max_bytes: self.continuation_max_bytes,
             scrollback_max_bytes: self.scrollback_max_bytes,
             scrollback_max_lines: self.scrollback_max_lines,
-            image_storage_max_bytes: self.image_storage_max_bytes,
+            image_storage_max_bytes: IMAGE_STORAGE_MAX_BYTES,
         }
     }
 }

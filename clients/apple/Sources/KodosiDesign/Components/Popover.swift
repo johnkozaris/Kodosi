@@ -80,7 +80,6 @@ public extension View {
 
 #if os(macOS)
     public extension View {
-        /// Shows `content` beside the popover that holds this view, level with this view.
         func kodosiFlyout(isPresented: Bool, @ViewBuilder content: @escaping () -> some View) -> some View {
             anchorPreference(key: KodosiFlyoutKey.self, value: .bounds) { anchor in
                 isPresented ? [KodosiFlyoutItem(anchor: anchor, content: AnyView(content()))] : []

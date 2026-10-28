@@ -1,8 +1,6 @@
 import Kodosi 1.0
 import QtQuick
 
-// A person mark for an account. With a usage limit, the ring of that limit circles the mark inside the
-// same size.
 Item {
     id: root
 

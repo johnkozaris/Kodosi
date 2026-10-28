@@ -461,6 +461,12 @@ namespace {
 
 QPointer<LightClock> sharedClock;
 
+std::int64_t nextSharedTick(const std::int64_t now)
+{
+    constexpr std::int64_t ticksPerSecond = 30;
+    return ((now * ticksPerSecond / 1000 + 1) * 1000 + ticksPerSecond - 1) / ticksPerSecond;
+}
+
 }
 
 LightClock::LightClock()
@@ -511,9 +517,8 @@ void LightClock::schedule()
 {
     if (m_lights.empty())
         return;
-    // Every light wakes on one grid of 30 a second, so all lights of a window move together.
     const std::int64_t now = QDateTime::currentMSecsSinceEpoch();
-    const std::int64_t next = ((now * 3 / 100 + 1) * 100 + 2) / 3;
+    const std::int64_t next = nextSharedTick(now);
     m_timer.start(std::chrono::milliseconds(std::max<std::int64_t>(1, next - now)));
 }
 

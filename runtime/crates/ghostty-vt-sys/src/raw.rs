@@ -504,7 +504,6 @@ impl Terminal {
         self.keep_scrollback_on_resize()
     }
 
-    /// A snapshot holds the console modes but not this resize rule.
     pub fn report_version(&mut self, version: &'static str) -> Result<(), Error> {
         self.ensure_healthy()?;
         self.callbacks.version = version;

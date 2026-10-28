@@ -240,11 +240,11 @@ void DesktopStateModel::followPins()
         auto current = id;
         if (const auto session = m_sessions->session(id)) {
             m_pinComputers.insert(id, { session->ownerUserId, session->hostDeviceId });
-        } else if (const auto local = m_sessions->current(id); local != id) {
+        } else if (const auto local = m_sessions->afterLocalRestart(id); local != id) {
             current = local;
         } else if (m_pinComputers.contains(id)) {
             const auto computer = m_pinComputers.value(id);
-            current = m_sessions->restart(id, computer.owner, computer.host).value_or(id);
+            current = m_sessions->restartedAs(id, computer.owner, computer.host).value_or(id);
         }
         if (!next.contains(current))
             next.append(current);
@@ -297,7 +297,7 @@ void DesktopStateModel::reconcile()
     for (auto place = m_staged.size() - 1; place >= 0; --place) {
         const auto id = m_staged.at(place);
         const auto computer = m_computers.value(id);
-        if (!m_sessions->containsSession(id) || m_sessions->restart(id, computer.owner, computer.host)) {
+        if (!m_sessions->containsSession(id) || m_sessions->restartedAs(id, computer.owner, computer.host)) {
             depart(id, place);
             continue;
         }
@@ -310,12 +310,12 @@ void DesktopStateModel::reconcile()
     const auto followed = follow();
     const auto rank = [this](const QString& id) {
         const auto found = std::ranges::find_if(
-            m_savedStage, [&](const QString& saved) { return m_sessions->current(saved) == id; });
+            m_savedStage, [&](const QString& saved) { return m_sessions->afterLocalRestart(saved) == id; });
         return found == m_savedStage.end() ? -1 : int(found - m_savedStage.begin());
     };
     QStringList restored;
     for (const auto& saved : QStringList(m_restoring)) {
-        const auto id = m_sessions->current(saved);
+        const auto id = m_sessions->afterLocalRestart(saved);
         const auto session = m_sessions->presentationSession(id);
         if (!session)
             continue;
@@ -370,7 +370,7 @@ QStringList DesktopStateModel::follow()
     auto departures = m_departures;
     std::ranges::reverse(departures);
     for (const auto& departure : std::as_const(departures)) {
-        const auto next = m_sessions->restart(departure.id, departure.computer.owner, departure.computer.host);
+        const auto next = m_sessions->restartedAs(departure.id, departure.computer.owner, departure.computer.host);
         if (!next)
             continue;
         m_departures.removeIf([&](const Departure& kept) { return kept.id == departure.id; });

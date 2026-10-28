@@ -95,8 +95,6 @@ pub struct Task {
 }
 
 impl Task {
-    /// Takes the task for this person and terminal. A terminal of the same person that ended,
-    /// such as one that Kodosi started again after a quit, gives its task up to the new one.
     pub(crate) fn claim(
         &mut self,
         user_id: &str,

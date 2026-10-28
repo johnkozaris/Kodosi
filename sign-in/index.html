@@ -37,15 +37,14 @@
         var tag = given && given.locale && (given.locale.currentLanguageTag || given.locale);
         if (tag && typeof tag === "string") document.documentElement.lang = tag;
       } catch (e) {}
-      // The keys and the ages here are those of src/frame/carry.ts.
       try {
         var root = document.documentElement;
-        var before = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
+        var before = JSON.parse(sessionStorage.getItem("%CARRY_KEY%") || "null");
         var since = Date.now() - Number(sessionStorage.getItem("kodosi.arrive") || 0);
         if (since < 900) {
           root.classList.add("arrive");
           root.style.setProperty("--arrived", since / 1000 + "s");
-        } else if (!(before && Date.now() - before.t < 6000)) {
+        } else if (!(before && Date.now() - before.t < Number("%CARRY_FRESH_MS%"))) {
           root.classList.add("arrive");
           sessionStorage.setItem("kodosi.arrive", Date.now());
         }
@@ -60,10 +59,10 @@
     <div id="root"></div>
     <script>
       try {
-        var c = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
+        var c = JSON.parse(sessionStorage.getItem("%CARRY_KEY%") || "null");
         if (
           c &&
-          Date.now() - c.t < 6000 &&
+          Date.now() - c.t < Number("%CARRY_FRESH_MS%") &&
           c.vw === innerWidth &&
           !matchMedia("(prefers-reduced-motion: reduce)").matches
         ) {

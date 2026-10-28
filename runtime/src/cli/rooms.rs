@@ -176,7 +176,6 @@ fn terminal() -> Option<String> {
     super::this_terminal()
 }
 
-/// The agent that runs in this terminal, which names itself in its posts unless it chose a name.
 fn this_agent(context: &Context) -> Option<String> {
     let id = Uuid::parse_str(&terminal()?).ok()?;
     let program = context.session(id).ok()?["program"].as_str()?;

@@ -5,8 +5,6 @@ import QtQuick
 import QtQuick.Controls
 import Kodosi.Models 1.0 as Models
 
-// How much of each signed-in account's plan limits is used, one dial for each limit, as a submenu of
-// the sidebar menu. A click on an account opens the launcher with it.
 KMenu {
     id: root
 

@@ -74,7 +74,6 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
     Ok(())
 }
 
-/// The Claude conversation that a process of `group` shows, by Claude's activity records.
 pub(super) fn claude_conversation(state_root: &Path, group: u32) -> Option<String> {
     let root = state_root.join("sessions");
     let entries = std::fs::read_dir(&root).ok()?;
