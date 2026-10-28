@@ -96,7 +96,7 @@ extension TerminalController {
         }
         if let scrollbackLimitBytes = options.scrollbackLimitBytes {
             overrides = TerminalConfiguration(startingFrom: overrides) {
-                $0.withCustom("scrollback-limit", String(scrollbackLimitBytes))
+                $0.withCustom("scrollback-limit-bytes", String(scrollbackLimitBytes))
             }
         }
         return GhosttyConfigRenderer.render(

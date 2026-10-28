@@ -35,7 +35,7 @@ index 2d1b0bee5..a7b1b14d4 100644
  
          // If we have a working directory from the options then we set it.
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 53b0b64ad..514b6c84d 100644
+index bffd63ed7..dad57cea2 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -185,6 +185,8 @@ pub const DerivedConfig = struct {
@@ -64,8 +64,8 @@ index 53b0b64ad..514b6c84d 100644
 +    self.terminal.setScrollbackMaxLines(config.scrollback_max_lines);
      self.terminal.setKittyGraphicsSizeLimit(self.alloc, config.image_storage_limit);
      self.terminal.setKittyGraphicsLoadingLimits(.allWithTempDir(global.tmpDirPath()));
- }
-@@ -727,6 +733,8 @@ pub fn restoreCheckpointLocked(
+ 
+@@ -735,6 +741,8 @@ pub fn restoreCheckpointLocked(
      if (reader.bufferedLen() > 0) return .invalid_value;
  
      // Preserve visual configuration and safety policy, never source policy.

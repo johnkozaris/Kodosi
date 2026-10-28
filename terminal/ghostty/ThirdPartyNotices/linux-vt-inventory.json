@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "ghosttyCommit": "f54340ad77814fe319d136e5e915d6a48de8dd23",
+  "ghosttyCommit": "83fb95624b0439ee660c2679b43b38c8b63769cd",
   "zig": {
     "version": "0.17.0",
     "target": "x86_64-linux",
@@ -13,7 +13,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "commit f54340ad77814fe319d136e5e915d6a48de8dd23",
+      "identity": "commit 83fb95624b0439ee660c2679b43b38c8b63769cd",
       "spdx": "MIT",
       "notices": ["LICENSE-GHOSTTY"]
     },

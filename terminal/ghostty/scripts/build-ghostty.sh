@@ -74,7 +74,11 @@ if [ ! -f "$LIBRARY" ]; then
     exit 1
 fi
 
-cp "$LIBRARY" "$OUTPUT_DIR/lib/libghostty.a"
+ZERO_AR_DATE=1 xcrun strip -S -o "$OUTPUT_DIR/lib/libghostty.a" "$LIBRARY"
+if LC_ALL=C grep -q -F -- "$ROOT_DIR" "$OUTPUT_DIR/lib/libghostty.a"; then
+    echo "[!] the Ghostty archive names the build folder: $ROOT_DIR"
+    exit 1
+fi
 cp "$SOURCE_DIR/include/ghostty.h" "$OUTPUT_DIR/include/renderer/ghostty.h"
 cat > "$OUTPUT_DIR/include/renderer/module.modulemap" <<'MAP'
 module libghostty {

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf, time::Duration};
 
 use bytes::Bytes;
 use reqwest::Url;
@@ -112,6 +112,14 @@ pub(crate) fn invalid(reason: impl Into<String>) -> Error {
     Error::Invalid {
         reason: reason.into(),
     }
+}
+
+pub(crate) fn stagger(delay: Duration) -> Duration {
+    let mut random = [0; 4];
+    if aws_lc_rs::rand::fill(&mut random).is_err() {
+        return delay;
+    }
+    delay.mul_f64(0.5 + f64::from(u32::from_le_bytes(random)) / f64::from(u32::MAX) / 2.0)
 }
 
 #[derive(Clone)]

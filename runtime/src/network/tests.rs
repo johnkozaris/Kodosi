@@ -190,3 +190,11 @@ async fn a_connection_that_drops_during_a_request_has_a_clear_text() {
     assert!(error.unanswered());
     assert!(!error.to_string().contains("http"));
 }
+
+#[test]
+fn a_retry_waits_a_random_time_between_half_and_all_of_its_delay() {
+    let delay = Duration::from_secs(8);
+    let waits: BTreeSet<_> = (0..64).map(|_| stagger(delay)).collect();
+    assert!(waits.iter().all(|wait| (delay / 2..=delay).contains(wait)));
+    assert!(waits.len() > 1);
+}

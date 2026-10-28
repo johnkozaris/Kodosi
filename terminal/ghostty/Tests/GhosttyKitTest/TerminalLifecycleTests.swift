@@ -145,7 +145,7 @@ struct TerminalLifecycleTests {
             let view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 80))
             view.wantsLayer = true
             let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
-            let controller = TerminalController(configuration: .init { $0.withCustom("scrollback-limit", "0") })
+            let controller = TerminalController(configuration: .init { $0.withCustom("scrollback-limit-bytes", "0") })
             let bridge = TerminalCallbackBridge()
             let surface = try #require(controller.createSurface(
                 bridge: bridge,
@@ -948,7 +948,7 @@ struct TerminalLifecycleTests {
 
         #expect(resolved.contains("background = 123456"))
         #expect(resolved.contains("font-size = 17"))
-        #expect(resolved.contains("scrollback-limit = 25165824"))
+        #expect(resolved.contains("scrollback-limit-bytes = 25165824"))
     }
 
     @Test
