@@ -3018,18 +3018,18 @@ void TerminalKernelTest::terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLoca
 {
     using Action = kodosi::TerminalLinkDecision::Action;
     const auto elsewhere = [](const QString& value) {
-        return kodosi::decideTerminalLink(value, QStringLiteral("minisforum"));
+        return kodosi::decideTerminalLink(value, QStringLiteral("studio"));
     };
     QCOMPARE(elsewhere(QStringLiteral("https://github.com/kodosi/kodosi/pull/1")).action, Action::Open);
     QCOMPARE(elsewhere(QStringLiteral("vscode://file/home/ana/main.rs")).action, Action::Ask);
     for (const auto& file : {
              QStringLiteral("file:///home/ana/notes.txt"),
              QStringLiteral("src/main.rs"),
-             QStringLiteral("file://minisforum/etc"),
+             QStringLiteral("file://studio/etc"),
          }) {
         const auto decision = elsewhere(file);
         QCOMPARE(decision.action, Action::Refuse);
-        QCOMPARE(decision.reason, QStringLiteral("The file is on minisforum."));
+        QCOMPARE(decision.reason, QStringLiteral("The file is on studio."));
     }
     for (const auto& address : {
              QStringLiteral("http://localhost:5173/"),
@@ -3040,7 +3040,7 @@ void TerminalKernelTest::terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLoca
          }) {
         const auto decision = elsewhere(address);
         QCOMPARE(decision.action, Action::Refuse);
-        QCOMPARE(decision.reason, QStringLiteral("The address is on minisforum."));
+        QCOMPARE(decision.reason, QStringLiteral("The address is on studio."));
     }
     QCOMPARE(elsewhere(QStringLiteral("file:///home/ana/notes.txt")).shown, QStringLiteral("/home/ana/notes.txt"));
     QCOMPARE(elsewhere(QStringLiteral("http://127.0.0.1.example.com/")).action, Action::Open);
@@ -3132,11 +3132,11 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
         refused.constFirst().at(1).toString(),
         QStringLiteral("The file or folder is not on this device."));
 
-    view.setOtherComputer(QStringLiteral("minisforum"));
+    view.setOtherComputer(QStringLiteral("studio"));
     click(filePoint, Qt::ControlModifier);
     QTRY_COMPARE_WITH_TIMEOUT(refused.size(), 2, 250);
     QCOMPARE(refused.constLast().at(0).toString(), QStringLiteral("/home/user/secret"));
-    QCOMPARE(refused.constLast().at(1).toString(), QStringLiteral("The file is on minisforum."));
+    QCOMPARE(refused.constLast().at(1).toString(), QStringLiteral("The file is on studio."));
     QCOMPARE(capture.values.size(), 1);
     QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
     QDesktopServices::unsetUrlHandler(QStringLiteral("file"));

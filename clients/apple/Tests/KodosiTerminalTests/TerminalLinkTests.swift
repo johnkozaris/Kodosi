@@ -80,26 +80,26 @@ struct TerminalLinkTests {
 
     @Test func `in a terminal of another computer, its files and local addresses do not open here`() throws {
         let pullRequest = try #require(URL(string: "https://github.com/kodosi/kodosi/pull/1"))
-        #expect(TerminalLink(pullRequest.absoluteString, otherComputer: "minisforum").decision == .open(pullRequest))
+        #expect(TerminalLink(pullRequest.absoluteString, otherComputer: "studio").decision == .open(pullRequest))
         let editor = try #require(URL(string: "vscode://file/home/ana/main.rs"))
-        #expect(TerminalLink("vscode://file/home/ana/main.rs", otherComputer: "minisforum").decision == .ask(editor))
+        #expect(TerminalLink("vscode://file/home/ana/main.rs", otherComputer: "studio").decision == .ask(editor))
 
-        for file in ["file:///home/ana/notes.txt", "/home/ana/notes.txt", "src/main.rs", "~/notes.txt", "file://minisforum/etc"] {
-            #expect(TerminalLink(file, otherComputer: "minisforum").decision == .refuse(.fileElsewhere("minisforum")), "\(file)")
+        for file in ["file:///home/ana/notes.txt", "/home/ana/notes.txt", "src/main.rs", "~/notes.txt", "file://studio/etc"] {
+            #expect(TerminalLink(file, otherComputer: "studio").decision == .refuse(.fileElsewhere("studio")), "\(file)")
         }
         for address in [
             "http://localhost:5173/", "https://127.0.0.1:8443/admin", "http://0.0.0.0:3000",
             "http://[::1]:3000/", "http://app.localhost/",
         ] {
-            #expect(TerminalLink(address, otherComputer: "minisforum").decision == .refuse(.addressElsewhere("minisforum")), "\(address)")
+            #expect(TerminalLink(address, otherComputer: "studio").decision == .refuse(.addressElsewhere("studio")), "\(address)")
         }
-        #expect(TerminalLink("~/notes.txt", otherComputer: "minisforum").shown == "~/notes.txt")
-        #expect(TerminalLink("file:///home/ana/notes.txt", otherComputer: "minisforum").shown == "/home/ana/notes.txt")
-        #expect(TerminalLink.Refusal.fileElsewhere("minisforum").message == "The file is on minisforum.")
+        #expect(TerminalLink("~/notes.txt", otherComputer: "studio").shown == "~/notes.txt")
+        #expect(TerminalLink("file:///home/ana/notes.txt", otherComputer: "studio").shown == "/home/ana/notes.txt")
+        #expect(TerminalLink.Refusal.fileElsewhere("studio").message == "The file is on studio.")
 
         let local = try #require(URL(string: "http://localhost:5173/"))
         #expect(TerminalLink("http://localhost:5173/").decision == .open(local))
-        #expect(TerminalLink("http://127.0.0.1.example.com/", otherComputer: "minisforum").decision != .refuse(.addressElsewhere("minisforum")))
+        #expect(TerminalLink("http://127.0.0.1.example.com/", otherComputer: "studio").decision != .refuse(.addressElsewhere("studio")))
     }
 
     @Test func `the proxy opens a safe link and lets the view review every other link`() throws {
@@ -119,9 +119,9 @@ struct TerminalLinkTests {
             .refuse(.missingFile),
         ])
 
-        proxy.otherComputer = "minisforum"
+        proxy.otherComputer = "studio"
         proxy.terminalDidRequestOpenURL("http://localhost:5173/", kind: .unknown)
-        #expect(reviewed.last?.decision == .refuse(.addressElsewhere("minisforum")))
+        #expect(reviewed.last?.decision == .refuse(.addressElsewhere("studio")))
         proxy.terminalDidRequestOpenURL("/private/tmp/screen.txt", kind: .text)
         #expect(opened.last == URL(filePath: "/private/tmp/screen.txt"))
         #expect(reviewed.count == 3)
