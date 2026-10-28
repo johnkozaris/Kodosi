@@ -117,7 +117,7 @@ public struct SectionDock: View {
                     withAnimation(theme.motion.snappy) { select(item.id) }
                 } label: {
                     HStack(spacing: 6) {
-                        glyph(item, selected: selected)
+                        glyph(item, selected: selected).hop(when: item.fresh)
                         if selected {
                             Text(item.title).fixedSize()
                                 .transition(.opacity.combined(with: .offset(x: -6)))

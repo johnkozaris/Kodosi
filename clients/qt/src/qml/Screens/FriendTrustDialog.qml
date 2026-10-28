@@ -10,8 +10,8 @@ KDialog {
 
     property string text: ""
     property var request: null
-    readonly property string handle: request ? request.handle || "" : handleIn(text)
-    readonly property string name: request ? request.displayName || request.handle || "" : handle.length > 0 ? "@" + handle : ""
+    readonly property string friendHandle: request ? request.handle || "" : handleIn(text)
+    readonly property string name: request ? request.displayName || request.handle || "" : friendHandle.length > 0 ? "@" + friendHandle : ""
     readonly property string firstName: request ? name.split(" ")[0] : name
 
     signal added()
@@ -76,7 +76,7 @@ KDialog {
                 }
             }
             Rectangle { implicitWidth: 18; implicitHeight: 2; radius: 1; color: KodosiTheme.hairline }
-            PersonAvatar { name: root.handle.length > 0 ? root.handle : "?"; key: root.request ? root.request.userId || "" : ""; size: 40 }
+            PersonAvatar { name: root.friendHandle.length > 0 ? root.friendHandle : "?"; key: root.request ? root.request.userId || "" : ""; size: 40 }
         }
         Tag {
             Layout.alignment: Qt.AlignHCenter

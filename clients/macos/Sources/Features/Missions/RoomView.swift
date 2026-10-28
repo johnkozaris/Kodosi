@@ -24,7 +24,10 @@ struct RoomView: View {
                 ZStack(alignment: .trailing) {
                     if !(narrow && state.conversationVisible) {
                         RoomContentView(roomId: roomId, state: state)
-                            .overlay { DropSlot(radius: Radius.xl, shown: dropping).padding(6) }
+                            .overlay {
+                                DropSlot(radius: Radius.xl, shown: dropping, label: String(localized: "Share with \(detail.mission.name)"))
+                                    .padding(6)
+                            }
                             .roomDrop(roomId, deps: deps, targeted: $dropping)
                             .animation(theme.motion.snappy, value: dropping)
                             .padding(.trailing, state.conversationVisible ? width + 6 : 0)
@@ -39,7 +42,7 @@ struct RoomView: View {
                                 }
                             }
                             .padding([.trailing, .bottom], 6)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                            .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.08, anchor: .topTrailing).combined(with: .opacity))
                     }
                 }
             }
@@ -125,20 +128,16 @@ struct RoomHeader: View {
             .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Room members"))
             .accessibilityIdentifier("room.people")
             .kodosiPopover(isPresented: $state.peopleVisible, arrowEdge: .bottom) { RoomPeoplePopover(detail: detail, state: state) }
-            IconButton(title: state.conversationVisible ? "Hide conversation" : "Show conversation",
-                       symbol: state.conversationVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
-                       identifier: "room.conversation.toggle", size: 30, active: state.conversationVisible)
-            {
-                state.conversationVisible.toggle()
-                if state.conversationVisible {
-                    state.unread = 0
-                    deps.seeRoom(roomId)
+            if state.conversationVisible {
+                IconButton(title: "Hide conversation", symbol: "bubble.left.and.bubble.right.fill",
+                           identifier: "room.conversation.toggle", size: 30, active: true)
+                {
+                    state.conversationVisible = false
                 }
-            }
-            .overlay(alignment: .topTrailing) {
-                if state.unread > 0, !state.conversationVisible {
-                    CountBadge(count: state.unread).offset(x: 6, y: -4).transition(AnyTransition.pop)
-                }
+                .transition(.opacity)
+            } else {
+                ConversationKey(roomId: roomId, state: state)
+                    .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.6, anchor: .trailing).combined(with: .opacity))
             }
             IconButton(title: "Room options", symbol: "ellipsis", identifier: "room.options", size: 30, open: state.optionsVisible) {
                 state.optionsVisible.toggle()
@@ -172,6 +171,7 @@ struct RoomHeader: View {
         }
         .padding(.leading, 16).padding(.trailing, 10).frame(height: Metrics.headerHeight)
         .animation(theme.motion.snappy, value: state.unread)
+        .animation(theme.motion.soft, value: state.conversationVisible)
         .confirmationDialog("Delete \(detail.mission.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete room", role: .destructive) { run("mission.delete") }
         } message: { Text("Its conversation and sharing end. Terminals keep running.") }
@@ -331,5 +331,65 @@ struct RoomPeoplePopover: View {
                 )
             } catch { state.failure = error.localizedDescription }
         }
+    }
+}
+
+struct ConversationKey: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    @State private var hovered = false
+    let roomId: String
+    @Bindable var state: RoomViewState
+
+    private var last: RoomMessage? {
+        deps.rooms[roomId]?.messages.last
+    }
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 6) {
+                face.id(last?.id)
+                    .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
+                if state.unread > 0 {
+                    Text(state.unread, format: .number).appTextStyle(.caption).monospacedDigit()
+                        .foregroundStyle(theme.colors.accentStrong).contentTransition(.numericText())
+                        .transition(AnyTransition.pop)
+                }
+            }
+            .padding(.leading, 5).padding(.trailing, state.unread > 0 ? 9 : 5).frame(height: 30)
+            .background {
+                RaisedBackground(shape: Capsule(), fill: hovered ? theme.colors.lifted : theme.colors.raised,
+                                 elevation: hovered ? .lifted : .resting)
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressScaleStyle())
+        .onHover { hovered = $0 }
+        .animation(theme.motion.snappy, value: last?.id)
+        .animation(theme.motion.snappy, value: state.unread)
+        .animation(theme.motion.hover, value: hovered)
+        .help(last.map { String(localized: "Show conversation. Last: \($0.agent ?? $0.authorName)") } ?? String(localized: "Show conversation"))
+        .accessibilityLabel(Text("Show conversation"))
+        .accessibilityValue(state.unread > 0 ? Text("\(state.unread) new") : Text(verbatim: ""))
+        .accessibilityIdentifier("room.conversation.toggle")
+    }
+
+    @ViewBuilder
+    private var face: some View {
+        if let last, let terminal = last.terminalId.flatMap(deps.session) {
+            AgentMark(session: terminal, size: 20, activity: terminal.mark(rested: .awake))
+        } else if let last {
+            PersonAvatar(name: last.agent ?? last.authorName, key: last.authorId, size: 20,
+                         isSelf: last.isWritten(by: deps.account.userId))
+        } else {
+            Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.colors.inkMuted).frame(width: 20, height: 20)
+        }
+    }
+
+    private func open() {
+        state.conversationVisible = true
+        state.unread = 0
+        deps.seeRoom(roomId)
     }
 }

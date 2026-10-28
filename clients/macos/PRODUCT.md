@@ -33,7 +33,12 @@ Linux and Windows app follows this app.
 
 The conversation stays beside the room's terminals, tasks and repositories. "@"
 mentions a person or a terminal, and a terminal mention opens it. A message can become a
-task.
+task. Hidden, the conversation folds into a key in the header that shows who wrote last
+and how many messages are new.
+
+Linking a repository lists the checkouts of your terminals and your GitHub repositories,
+or takes a pasted address; Connect GitHub opens a terminal for `gh auth login`. The Tasks
+tab adds the open issues of the room's repositories, and a new task can open an issue.
 
 ## Friends
 

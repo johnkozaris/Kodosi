@@ -241,20 +241,72 @@ Item {
                     }
                 }
                 KIconButton {
+                    visible: root.conversation
                     glyph: "chat"
                     size: 30
-                    active: root.conversation
-                    Accessible.name: root.conversation ? qsTr("Hide conversation") : qsTr("Show conversation")
-                    Accessible.description: !root.conversation && root.unread > 0 ? qsTr("%n new messages", "", root.unread) : ""
-                    onClicked: Models.Missions.setPresentation("conversation", !root.conversation)
+                    active: true
+                    Accessible.name: qsTr("Hide conversation")
+                    onClicked: Models.Missions.setPresentation("conversation", false)
+                    objectName: "room.conversation.hide"
+                    Accessible.id: objectName
+                }
+                AbstractButton {
+                    id: conversationKey
+
+                    readonly property var last: (root.room.messages || []).slice(-1)[0] || null
+                    readonly property var terminal: last && last.terminalId ? Models.Sessions.presentationForSession(last.terminalId) : ({})
+
+                    visible: !root.conversation
+                    implicitHeight: 30
+                    implicitWidth: keyRow.implicitWidth + (root.unread > 0 ? 14 : 10)
+                    hoverEnabled: true
+                    scale: pressed ? 0.96 : 1
                     objectName: "room.conversation.toggle"
                     Accessible.id: objectName
-
-                    CountBadge {
-                        x: parent.width - width + 6
-                        y: -4
-                        count: root.conversation ? 0 : root.unread
+                    Accessible.name: qsTr("Show conversation")
+                    Accessible.description: root.unread > 0 ? qsTr("%n new messages", "", root.unread) : ""
+                    background: Raised {
+                        radius: height / 2
+                        fill: conversationKey.hovered ? KodosiTheme.lifted : KodosiTheme.raised
+                        elevation: conversationKey.hovered ? 2 : 1
                     }
+                    contentItem: Item {
+                        RowLayout {
+                            id: keyRow
+                            x: 5
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 6
+
+                            AgentMark {
+                                visible: !!conversationKey.terminal.id
+                                program: conversationKey.terminal.program || ""
+                                session: conversationKey.terminal
+                                size: 20
+                            }
+                            PersonAvatar {
+                                visible: !!conversationKey.last && !conversationKey.terminal.id
+                                name: conversationKey.last ? conversationKey.last.agent || conversationKey.last.authorName || "" : ""
+                                key: conversationKey.last ? conversationKey.last.authorId || "" : ""
+                                isSelf: !!conversationKey.last && !conversationKey.last.agent && conversationKey.last.authorId === Models.Account.userId
+                                size: 20
+                            }
+                            KIcon {
+                                visible: !conversationKey.last
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 14
+                                name: "chat"
+                                color: KodosiTheme.inkMuted
+                            }
+                            RollingText {
+                                visible: root.unread > 0
+                                text: String(root.unread)
+                                color: KodosiTheme.accentStrong
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                    }
+                    onClicked: Models.Missions.setPresentation("conversation", true)
                 }
                 KIconButton {
                     id: optionsButton
@@ -299,6 +351,7 @@ Item {
                     anchors.margins: 6
                     z: 2
                     radius: KodosiTheme.radiusXl
+                    label: qsTr("Share with %1").arg(root.mission.name || "")
                     objectName: "room.canvas.drop"
                     onTerminalDropped: id => roomShare.ask(id, Models.Missions.selectedMissionId)
                 }
