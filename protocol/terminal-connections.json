@@ -178,6 +178,7 @@
     "requests": [
       "provider.agents",
       "provider.agentModels",
+      "provider.usage",
       "provider.addAccount",
       "provider.choose",
       "folders.list",

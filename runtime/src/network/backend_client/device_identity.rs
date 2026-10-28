@@ -345,7 +345,7 @@ impl BackendClient {
             .cloned()
     }
 
-    pub(super) fn keep_identity(
+    pub(in crate::network) fn keep_identity(
         &self,
         credentials: &Credentials,
         user_id: &str,
