@@ -11,5 +11,5 @@ requirement, applied cleanly without a compatibility variant; remove it when
 upstream supplies the behavior. Do not add a second terminal authority, private
 Apple APIs, or test-only behavior to production builds.
 
-The patch files are the inventory. Build and provenance checks verify what the
-release ships.
+The patch files are the inventory. Build and provenance checks verify what is
+actually shipped.
