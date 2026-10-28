@@ -229,6 +229,9 @@ qt_add_qml_module(kodosi-ui
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
+        qml/Screens/FriendTrustDialog.qml
+        qml/Screens/IssuePicker.qml
+        qml/Screens/RepositoryPicker.qml
         qml/Screens/MissionsView.qml
         qml/Screens/RoomContent.qml
         qml/Screens/RoomSkeleton.qml
@@ -303,12 +306,15 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/SessionPlace.qml
+        qml/Controls/ShareBadge.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/Squircle.qml
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
+        qml/Controls/TerminalDragSource.qml
+        qml/Controls/TerminalDropArea.qml
         qml/Controls/UsageDial.qml
         qml/Controls/UsageRing.qml
         qml/Controls/Well.qml
@@ -336,6 +342,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
+        qml/Workbench/RoomShareDialog.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml

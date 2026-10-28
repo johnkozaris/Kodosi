@@ -6,6 +6,8 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
 
     private let resizeLock = NSLock()
     private let surfaceAccess: InMemoryTerminalSurfaceAccess
+    private let shownLock = NSLock()
+    private var shownSurface: ghostty_surface_t?
     private var lastResize: InMemoryTerminalViewport?
     private let writeHandler: @Sendable (Data) -> Void
     private let resizeHandler: @Sendable (InMemoryTerminalViewport) -> Void
@@ -43,6 +45,7 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
 
     func setSurface(_ surface: ghostty_surface_t?) {
         surfaceAccess.setSurface(surface)
+        shownLock.withLock { shownSurface = surface }
         TerminalDebugLog.log(
             .lifecycle,
             "in-memory session surface=\(surface == nil ? "nil" : "set")"
@@ -58,11 +61,23 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
             return
         }
 
+        shownLock.withLock {
+            if shownSurface == expectedSurface {
+                shownSurface = nil
+            }
+        }
         TerminalDebugLog.log(.lifecycle, "in-memory session surface=nil matched")
     }
 
     var currentSurface: ghostty_surface_t? {
         surfaceAccess.currentSurface
+    }
+
+    /// Only the surface that gets the output shows the terminal. Another view of
+    /// the same terminal has an old screen, so its input and size do not count.
+    func shows(_ surface: ghostty_surface_t?) -> Bool {
+        guard let surface else { return false }
+        return shownLock.withLock { shownSurface == surface }
     }
 
     public func readViewportText() -> String? {
@@ -184,10 +199,18 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
             TerminalDebugLog.log(.input, "terminal callback payload rejected bytes=\(len)")
             return
         }
-        let session = Unmanaged<InMemoryTerminalSession>
+        let bridge = Unmanaged<TerminalCallbackBridge>
             .fromOpaque(userdata)
             .takeUnretainedValue()
+        guard let session = bridge.session else { return }
         let data = Data(bytes: ptr, count: len)
+        guard session.shows(bridge.rawSurface) else {
+            TerminalDebugLog.log(
+                .input,
+                "host <- terminal dropped from a view that does not show it \(TerminalDebugLog.describe(data))"
+            )
+            return
+        }
         TerminalDebugLog.log(
             .input,
             "host <- terminal \(TerminalDebugLog.describe(data))"

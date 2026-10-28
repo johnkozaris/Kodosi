@@ -190,6 +190,9 @@ void DesktopStateModel::switchAccount(const QString& userId)
                                   QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     m_restoring = m_settings->value(m_stageKey).toStringList();
     m_savedStage = m_restoring;
+    m_pins = m_settings->value(QStringLiteral("pins/") + m_stageKey.mid(QStringLiteral("stage/").size())).toStringList();
+    m_pinComputers.clear();
+    emit pinnedSessionIdsChanged();
     m_computers.clear();
     m_departures.clear();
     m_closing.clear();
@@ -208,6 +211,54 @@ void DesktopStateModel::saveStage()
             kept.append(id);
     }
     m_settings->setValue(m_stageKey, kept.mid(0, 64));
+}
+void DesktopStateModel::togglePin(const QString& id)
+{
+    if (!m_pins.removeOne(id)) {
+        m_pins.append(id);
+        if (const auto session = m_sessions ? m_sessions->session(id) : std::nullopt)
+            m_pinComputers.insert(id, { session->ownerUserId, session->hostDeviceId });
+    }
+    emit pinnedSessionIdsChanged();
+    savePins();
+}
+bool DesktopStateModel::moveStaged(const QString& id, const QString& target)
+{
+    const auto from = m_staged.indexOf(id);
+    const auto to = m_staged.indexOf(target);
+    if (id == target || from < 0 || to < 0)
+        return false;
+    m_staged.move(from, to);
+    emit stagedSessionIdsChanged();
+    saveStage();
+    return true;
+}
+void DesktopStateModel::followPins()
+{
+    QStringList next;
+    for (const auto& id : std::as_const(m_pins)) {
+        auto current = id;
+        if (const auto session = m_sessions->session(id)) {
+            m_pinComputers.insert(id, { session->ownerUserId, session->hostDeviceId });
+        } else if (const auto local = m_sessions->current(id); local != id) {
+            current = local;
+        } else if (m_pinComputers.contains(id)) {
+            const auto computer = m_pinComputers.value(id);
+            current = m_sessions->restart(id, computer.owner, computer.host).value_or(id);
+        }
+        if (!next.contains(current))
+            next.append(current);
+    }
+    if (next == m_pins)
+        return;
+    m_pins = next;
+    emit pinnedSessionIdsChanged();
+    savePins();
+}
+void DesktopStateModel::savePins()
+{
+    if (!m_stageKey.isEmpty())
+        m_settings->setValue(QStringLiteral("pins/") + m_stageKey.mid(QStringLiteral("stage/").size()), m_pins.mid(std::max<qsizetype>(0, m_pins.size() - 32)));
 }
 void DesktopStateModel::setLauncherPrompt(const QString& value)
 {
@@ -255,6 +306,7 @@ void DesktopStateModel::reconcile()
             unstageSession(id);
     }
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
+    followPins();
     const auto followed = follow();
     const auto rank = [this](const QString& id) {
         const auto found = std::ranges::find_if(

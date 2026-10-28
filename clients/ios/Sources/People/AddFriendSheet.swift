@@ -7,6 +7,7 @@ struct AddFriendSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    @State private var trusting = false
     @FocusState private var focused: Bool
 
     private var trimmed: String {
@@ -73,6 +74,7 @@ struct AddFriendSheet: View {
         }
         .presentationDetents([.large])
         .presentationBackground(theme.colors.ground)
+        .friendTrustAlert(isPresented: $trusting, name: PeopleStore.handle(in: trimmed).map { "@\($0)" }, confirm: confirm)
         .task {
             if model.people.ownInvite == nil {
                 model.people.requestInvite()
@@ -141,6 +143,11 @@ struct AddFriendSheet: View {
     }
 
     private func add() {
+        guard !trimmed.isEmpty else { return }
+        trusting = true
+    }
+
+    private func confirm() {
         guard model.people.add(trimmed) else { return }
         dismiss()
     }

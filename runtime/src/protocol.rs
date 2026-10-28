@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 72;
+pub const VERSION: u32 = 73;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// A message travels to another computer in one terminal control, with its sender.
@@ -537,6 +537,13 @@ pub enum Command {
         #[serde(default)]
         path: Option<String>,
     },
+    #[serde(rename = "repositories.list")]
+    ListRepositories {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "missionId", default)]
+        mission_id: Option<String>,
+    },
     #[serde(rename = "dosi.send")]
     DosiSend {
         #[serde(rename = "requestId")]
@@ -955,6 +962,18 @@ pub enum EventBody {
         operation: String,
         message: String,
     },
+    #[serde(rename = "repositories.result")]
+    RepositoriesResult {
+        request_id: String,
+        operation: String,
+        repositories: RepositoryList,
+    },
+    #[serde(rename = "repositories.error")]
+    RepositoriesError {
+        request_id: String,
+        operation: String,
+        message: String,
+    },
     #[serde(rename = "mission.show")]
     MissionShow { mission_id: String },
     #[serde(rename = "dosi.snapshot")]
@@ -1096,6 +1115,31 @@ pub struct FolderList {
     pub home: String,
     pub folders: Vec<String>,
     pub recent: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum GitHubState {
+    Ready,
+    SignedOut,
+    Missing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RepositoryChoice {
+    pub name: String,
+    pub url: String,
+    pub provider: String,
+    pub folder: Option<String>,
+    pub private: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RepositoryList {
+    pub github: GitHubState,
+    pub repositories: Vec<RepositoryChoice>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -1278,6 +1322,8 @@ impl EventBody {
             Self::ProviderError { .. } => "provider.error",
             Self::FoldersResult { .. } => "folders.result",
             Self::FoldersError { .. } => "folders.error",
+            Self::RepositoriesResult { .. } => "repositories.result",
+            Self::RepositoriesError { .. } => "repositories.error",
             Self::MissionShow { .. } => "mission.show",
             Self::DosiSnapshot { .. } => "dosi.snapshot",
             Self::DosiItem { .. } => "dosi.item",
@@ -1401,6 +1447,7 @@ impl Command {
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
             Self::ListFolders { .. } => "folders.list",
+            Self::ListRepositories { .. } => "repositories.list",
             Self::DosiSend { .. } => "dosi.send",
             Self::DosiStop { .. } => "dosi.stop",
             Self::DosiUnqueue { .. } => "dosi.unqueue",
@@ -1512,6 +1559,7 @@ impl Command {
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
             | Self::ListFolders { request_id, .. }
+            | Self::ListRepositories { request_id, .. }
             | Self::DosiSend { request_id, .. }
             | Self::DosiStop { request_id }
             | Self::DosiUnqueue { request_id, .. }
@@ -1608,6 +1656,10 @@ impl Command {
         }
         match self {
             Self::AttachSession {
+                mission_id: Some(mission_id),
+                ..
+            }
+            | Self::ListRepositories {
                 mission_id: Some(mission_id),
                 ..
             }

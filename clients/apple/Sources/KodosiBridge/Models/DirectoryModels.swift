@@ -99,6 +99,40 @@ public struct FolderList: Decodable, Equatable, Sendable {
     }
 }
 
+public struct RepositoryChoices: Decodable, Equatable, Sendable {
+    public enum GitHub: String, Decodable, Sendable {
+        case ready, signedOut, missing
+    }
+
+    public let github: GitHub
+    public let repositories: [RepositoryChoice]
+
+    public init(github: GitHub, repositories: [RepositoryChoice]) {
+        self.github = github
+        self.repositories = repositories
+    }
+}
+
+public struct RepositoryChoice: Decodable, Equatable, Identifiable, Sendable {
+    public let name: String
+    public let url: String
+    public let provider: String
+    public let folder: String?
+    public let `private`: Bool
+
+    public init(name: String, url: String, provider: String, folder: String? = nil, private: Bool = false) {
+        self.name = name
+        self.url = url
+        self.provider = provider
+        self.folder = folder
+        self.private = `private`
+    }
+
+    public var id: String {
+        url.lowercased()
+    }
+}
+
 public struct MissionEntry: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String

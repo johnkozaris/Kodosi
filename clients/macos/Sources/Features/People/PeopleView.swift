@@ -5,7 +5,6 @@ import SwiftUI
 struct PeopleView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @State private var username = ""
     @State private var pendingRemoval: FriendEntry?
     @State private var copied = false
     @FocusState private var adding: Bool
@@ -84,11 +83,12 @@ struct PeopleView: View {
     }
 
     private var addCapsule: some View {
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        @Bindable var workbench = deps.workbench
+        let trimmed = workbench.friendDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         return HStack(spacing: 10) {
             Image(systemName: "person.badge.plus").font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(adding ? theme.colors.accentStrong : theme.colors.inkFaint)
-            TextField("Paste a friend's invite, or type a username", text: $username)
+            TextField("Paste a friend's invite, or type a username", text: $workbench.friendDraft)
                 .textFieldStyle(.plain).appTextStyle(.callout).focused($adding)
                 .onSubmit { add(trimmed) }
                 .accessibilityIdentifier("people.username")
@@ -106,8 +106,7 @@ struct PeopleView: View {
 
     private func add(_ name: String) {
         guard !name.isEmpty else { return }
-        deps.people.add(name)
-        username = ""
+        deps.workbench.trusting = .add(name)
     }
 
     private func incoming(_ person: FriendRequestEntry) -> some View {
@@ -120,7 +119,7 @@ struct PeopleView: View {
             }
             Spacer()
             Button("Not now") { deps.people.decline(person) }.buttonStyle(.kodosi(.ghost))
-            Button("Accept") { deps.people.accept(person) }.buttonStyle(.kodosi(.primary))
+            Button("Accept…") { deps.workbench.trusting = .accept(person) }.buttonStyle(.kodosi(.primary))
         }
         .padding(14).frame(maxWidth: 620)
         .raised(Radius.xl)

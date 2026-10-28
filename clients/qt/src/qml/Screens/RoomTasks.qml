@@ -14,7 +14,8 @@ Item {
     readonly property string repositoryFilter: repositories.some(repository => repository.id === presentation.taskFilter) ? presentation.taskFilter : ""
     readonly property var tasks: (room.tasks || []).filter(task => repositoryFilter.length === 0 || task.repositoryIds.indexOf(repositoryFilter) >= 0)
     readonly property var chosen: presentation.taskRepositories || []
-    readonly property bool adding: composer.activeFocus || (presentation.taskDescription || "").length > 0 || chosen.length > 0
+    readonly property string issueRepository: presentation.taskIssueRepository || ""
+    readonly property bool adding: composer.activeFocus || (presentation.taskDescription || "").length > 0 || chosen.length > 0 || issueRepository.length > 0
 
     function change(task, action, note) {
         let value = { type: "updateTask", taskId: task.id, change: action };
@@ -26,8 +27,11 @@ Item {
         const title = (root.presentation.taskTitle || "").trim();
         if (title.length === 0 || Models.Missions.busy)
             return;
-        Models.Missions.roomAction({ type: "createTask", title: title, description: (root.presentation.taskDescription || "").trim(),
-            repositoryIds: root.chosen.filter(id => root.repositories.some(repository => repository.id === id)) });
+        let action = { type: "createTask", title: title, description: (root.presentation.taskDescription || "").trim(),
+            repositoryIds: root.chosen.filter(id => root.repositories.some(repository => repository.id === id)) };
+        if (root.repositories.some(repository => repository.id === root.issueRepository))
+            action.issueRepositoryId = root.issueRepository;
+        Models.Missions.roomAction(action);
     }
     function toggle(id) {
         const next = root.chosen.indexOf(id) >= 0 ? root.chosen.filter(entry => entry !== id) : root.chosen.concat([id]);
@@ -416,6 +420,32 @@ Item {
                             Accessible.id: objectName
                             onClicked: root.add()
                         }
+                        KIconButton {
+                            id: issuesButton
+                            visible: quick.text.trim().length === 0
+                            size: 28
+                            glyph: "issue"
+                            open: issuePopover.visible
+                            objectName: "room.task.issues"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Add issues")
+                            ToolTip.visible: hovered && !issuePopover.visible
+                            ToolTip.text: Accessible.name
+                            ToolTip.delay: Tip.delay
+                            onClicked: issuePopover.open()
+
+                            KPopover {
+                                id: issuePopover
+                                y: issuesButton.height + 6
+                                x: issuesButton.width - width
+                                width: 420
+                                padding: 12
+                                contentItem: Loader {
+                                    active: issuePopover.visible
+                                    sourceComponent: IssuePicker {}
+                                }
+                            }
+                        }
                     }
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -478,6 +508,47 @@ Item {
 
                                     KFocusIndicator { active: choice.visualFocus }
                                 }
+                            }
+                            AbstractButton {
+                                id: issueChoice
+
+                                readonly property var chosenRepository: root.repositories.find(repository => repository.id === root.issueRepository) || null
+
+                                implicitWidth: issueTag.implicitWidth
+                                implicitHeight: issueTag.implicitHeight
+                                scale: pressed ? 0.95 : 1
+                                objectName: "room.task.issue"
+                                Accessible.id: objectName
+                                Accessible.name: issueTag.text
+                                contentItem: Tag {
+                                    id: issueTag
+                                    text: issueChoice.chosenRepository ? qsTr("Issue in %1").arg(issueChoice.chosenRepository.name) : qsTr("Open as an issue")
+                                    iconName: "issue"
+                                    tone: issueChoice.chosenRepository ? Tag.Accent : Tag.Neutral
+                                }
+                                onClicked: issueMenu.popup(issueChoice, 0, issueChoice.height + 4)
+
+                                KMenu {
+                                    id: issueMenu
+
+                                    KMenuItem {
+                                        text: qsTr("No issue")
+                                        enabled: issueChoice.chosenRepository !== null
+                                        onTriggered: Models.Missions.setPresentation("taskIssueRepository", "")
+                                    }
+                                    Instantiator {
+                                        model: root.repositories
+                                        onObjectAdded: (index, item) => issueMenu.insertItem(index + 1, item)
+                                        onObjectRemoved: (index, item) => issueMenu.removeItem(item)
+                                        delegate: KMenuItem {
+                                            required property var modelData
+                                            text: modelData.name
+                                            iconName: "repository"
+                                            onTriggered: Models.Missions.setPresentation("taskIssueRepository", modelData.id)
+                                        }
+                                    }
+                                }
+                                KFocusIndicator { active: issueChoice.visualFocus }
                             }
                         }
                     }

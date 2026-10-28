@@ -196,6 +196,24 @@ impl Runtime {
                 ));
             }
             #[cfg(not(feature = "host"))]
+            Command::ListRepositories { .. } => {
+                return Err(Error::Invalid(
+                    "Link repositories from a computer.".to_owned(),
+                ));
+            }
+            #[cfg(feature = "host")]
+            Command::ListRepositories { mission_id, .. } => {
+                self.job_capacity()?;
+                let folders = self.repository_folders(mission_id.as_deref());
+                let command = command.clone();
+                self.spawn(async move {
+                    let result = crate::rooms::providers::choices(folders)
+                        .await
+                        .map_err(Error::from);
+                    Completion::Repositories { command, result }
+                });
+            }
+            #[cfg(not(feature = "host"))]
             Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
             | Command::InspectUsage { .. }
@@ -236,6 +254,32 @@ impl Runtime {
             }
         }
         Ok(())
+    }
+
+    #[cfg(feature = "host")]
+    fn repository_folders(&self, mission_id: Option<&str>) -> Vec<String> {
+        let mut terminals = self
+            .local
+            .values()
+            .filter_map(|local| {
+                Some((
+                    local.entry.mission_id.as_deref() != mission_id,
+                    local.entry.working_dir.clone()?,
+                ))
+            })
+            .collect::<Vec<_>>();
+        terminals.sort_by_key(|(other, _)| *other);
+        let mut folders: Vec<String> = Vec::new();
+        for folder in terminals
+            .into_iter()
+            .map(|(_, folder)| folder)
+            .chain(self.recent.with([]))
+        {
+            if !folders.contains(&folder) {
+                folders.push(folder);
+            }
+        }
+        folders
     }
 
     #[cfg(feature = "host")]
@@ -1002,6 +1046,13 @@ impl Runtime {
                 Err(error) => self.error(&command, &error),
             },
             #[cfg(feature = "host")]
+            Completion::Repositories { command, result } if current => match result {
+                Ok(repositories) => {
+                    self.emit(json!({"type":"repositories.result", "requestId":command.request_id(), "operation":command.operation(), "repositories":repositories}));
+                }
+                Err(error) => self.error(&command, &error),
+            },
+            #[cfg(feature = "host")]
             Completion::Folders { command, result } if current => match result {
                 Ok(folders) => {
                     self.emit(json!({"type":"folders.result", "requestId":command.request_id(), "operation":command.operation(), "folders":folders}));
@@ -1049,7 +1100,9 @@ impl Runtime {
             },
             Completion::Read { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
-            Completion::Provider { command, .. } | Completion::Folders { command, .. } => {
+            Completion::Provider { command, .. }
+            | Completion::Folders { command, .. }
+            | Completion::Repositories { command, .. } => {
                 self.error(&command, &Error::Stale);
             }
             Completion::Asked { command, .. } => self.error(&command, &Error::Stale),

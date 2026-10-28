@@ -215,6 +215,63 @@ struct TerminalLifecycleTests {
     }
 
     @Test
+    func `only the view that shows a terminal types into it`() {
+        let writes = LockedTerminalWrites()
+        let session = InMemoryTerminalSession(write: { writes.append($0) }, resize: { _ in })
+        let earlier = TerminalCallbackBridge()
+        let shown = TerminalCallbackBridge()
+        for (bridge, address) in [(earlier, 1), (shown, 2)] {
+            bridge.session = session
+            bridge.rawSurface = testLifecycleSurface(address)
+            session.setSurface(testLifecycleSurface(address))
+        }
+        defer { session.clearSurface(ifMatches: testLifecycleSurface(2)) }
+
+        for (bridge, text) in [(earlier, "old view"), (shown, "shown view")] {
+            Array(text.utf8).withUnsafeBufferPointer { bytes in
+                InMemoryTerminalSession.receiveBufferCallback(
+                    Unmanaged.passUnretained(bridge).toOpaque(),
+                    bytes.baseAddress,
+                    bytes.count
+                )
+            }
+        }
+
+        #expect(writes.values == [Data("shown view".utf8)])
+    }
+
+    @Test
+    func `only the view that shows a terminal sets its size`() {
+        let sizes = ViewportCollector()
+        let session = InMemoryTerminalSession(write: { _ in }, resize: { sizes.append($0) })
+        let controller = TerminalController()
+        let earlier = TerminalView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        let shown = TerminalView(frame: NSRect(x: 0, y: 0, width: 960, height: 480))
+        let windows = [earlier, shown].map { view in
+            let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            view.controller = controller
+            view.configuration = TerminalSurfaceOptions(session: session)
+            window.contentView = view
+            return window
+        }
+        defer {
+            earlier.tearDownSurface()
+            shown.tearDownSurface()
+            windows.forEach { $0.contentView = nil }
+        }
+        let shownColumns = shown.surface?.size()?.columns
+        let reports = sizes.values.count
+
+        windows[0].setContentSize(NSSize(width: 320, height: 240))
+        earlier.core.synchronizeMetrics()
+
+        #expect(session.currentSurface == shown.surface?.rawValue)
+        #expect(earlier.surface?.size()?.columns != shownColumns)
+        #expect(sizes.values.count == reports)
+        #expect(sizes.values.last?.columns == shownColumns)
+    }
+
+    @Test
     func `host managed parser reports stay native while literal user bytes pass through`() {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
         view.wantsLayer = true

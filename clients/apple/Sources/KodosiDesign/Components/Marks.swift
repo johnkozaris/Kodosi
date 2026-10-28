@@ -355,6 +355,26 @@ public struct RoomSigil: View {
     }
 }
 
+public struct ShareBadge: View {
+    @Environment(\.theme) private var theme
+    public let room: String?
+    public let ring: Color
+
+    public init(room: String?, ring: Color) {
+        self.room = room
+        self.ring = ring
+    }
+
+    public var body: some View {
+        RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+            .fill(room.map(RoomTint.color(for:)) ?? theme.colors.inkFaint)
+            .frame(width: 8, height: 8)
+            .padding(2)
+            .background(ring, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 public struct PlaceGlyph: View {
     public let kind: TerminalPlace.Kind
 

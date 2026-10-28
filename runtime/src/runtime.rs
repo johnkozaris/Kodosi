@@ -611,6 +611,11 @@ enum Completion {
         command: Command,
         result: Result<crate::protocol::FolderList>,
     },
+    #[cfg(feature = "host")]
+    Repositories {
+        command: Command,
+        result: Result<crate::protocol::RepositoryList>,
+    },
     Asked {
         command: Command,
         result: Result<Value>,

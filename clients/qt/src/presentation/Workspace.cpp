@@ -162,9 +162,11 @@ void Workspace::receiveResult(const QString& type, const QJsonObject& event)
         if (const auto room = event.value(QStringLiteral("room")).toObject(); !room.isEmpty())
             m_missions.applyRoom(room);
         if (event.contains(QStringLiteral("issues"))
-            && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId
-            && event.value(QStringLiteral("repositoryId")).toString() == m_missions.m_issueRepository) {
-            m_missions.m_issues = list(event, "issues");
+            && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId) {
+            const auto repository = event.value(QStringLiteral("repositoryId")).toString();
+            m_missions.m_issuesByRepository.insert(repository, list(event, "issues"));
+            if (repository == m_missions.m_issueRepository)
+                m_missions.m_issues = list(event, "issues");
             emit m_missions.roomChanged();
         }
     }
@@ -382,6 +384,13 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("session.result") || type == QStringLiteral("room.result")
         || type == QStringLiteral("mission.result")) {
         receiveResult(type, event);
+        return;
+    }
+    if (type == QStringLiteral("repositories.result") || type == QStringLiteral("repositories.error")) {
+        m_missions.m_repositoryChoices = type == QStringLiteral("repositories.result")
+            ? event.value(QStringLiteral("repositories")).toObject().toVariantMap()
+            : QVariantMap { { QStringLiteral("failure"), event.value(QStringLiteral("message")).toString() } };
+        emit m_missions.repositoryChoicesChanged();
         return;
     }
     if (type == QStringLiteral("provider.error") || type == QStringLiteral("folders.error")

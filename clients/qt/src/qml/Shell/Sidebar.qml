@@ -11,7 +11,29 @@ Item {
 
     readonly property bool collapsed: !Models.DesktopState.sidebarOpen
     readonly property bool dosi: Models.DesktopState.dosiOpen && !collapsed
-    readonly property var groups: Models.Sessions.folderGroups
+    readonly property var pins: Models.DesktopState.pinnedSessionIds
+    readonly property var groups: {
+        const all = Models.Sessions.folderGroups
+        const pinned = []
+        for (const id of pins) {
+            for (const group of all) {
+                const session = (group.sessions || []).find(entry => entry.id === id)
+                if (session) {
+                    pinned.push(session)
+                    break
+                }
+            }
+        }
+        const rest = all.map(group => Object.assign({}, group, { sessions: (group.sessions || []).filter(entry => pins.indexOf(entry.id) < 0) }))
+            .filter(group => group.sessions.length > 0)
+        let previous = null
+        for (const group of rest) {
+            group.computerStart = group.computer !== previous
+            previous = group.computer
+        }
+        return pinned.length > 0 ? [{ key: "pinned", name: qsTr("Pinned"), pinned: true, folder: true, sessions: pinned }].concat(rest) : rest
+    }
+    readonly property bool titled: groups.some(group => !group.pinned && group.computer !== "local")
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
@@ -756,6 +778,12 @@ Item {
                         }
 
                         onClicked: root.openRoom(entry.id)
+
+                        TerminalDropArea {
+                            anchors.fill: parent
+                            objectName: room.objectName + ".drop"
+                            onTerminalDropped: id => roomShare.ask(id, room.entry.id)
+                        }
                     }
                 }
                 PlainLabel {
@@ -783,19 +811,69 @@ Item {
 
                         required property int index
                         readonly property var group: root.groups[index] || ({})
-                        readonly property bool folded: root.collapsedFolders[group.key] === true
+                        readonly property bool folded: group.folder === true && root.collapsedFolders[group.key] === true
 
                         width: content.width
                         spacing: 2
+                        onYChanged: Qt.callLater(root.syncPill)
 
+                        Item {
+                            width: parent.width
+                            height: 30
+                            visible: root.titled && folder.group.computerStart === true && !folder.group.pinned
+                            objectName: "sidebar.computer." + (folder.group.computer || "")
+                            Accessible.id: objectName
+                            Accessible.role: Accessible.Heading
+                            Accessible.name: folder.group.computerOffline === true
+                                ? qsTr("%1 is offline").arg(folder.group.computerTitle || "") : folder.group.computerTitle || ""
+
+                            RowLayout {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 3
+                                spacing: 5
+
+                                PersonAvatar {
+                                    visible: !!folder.group.owner
+                                    name: folder.group.owner || ""
+                                    key: folder.group.ownerUserId || ""
+                                    size: 13
+                                }
+                                KIcon {
+                                    visible: !folder.group.owner
+                                    Layout.preferredWidth: 12
+                                    Layout.preferredHeight: 12
+                                    name: "laptop"
+                                    color: KodosiTheme.inkFaint
+                                }
+                                PlainLabel {
+                                    Layout.fillWidth: true
+                                    text: folder.group.computerTitle || ""
+                                    color: KodosiTheme.inkFaint
+                                    font.pixelSize: KodosiTheme.fontCaption
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                }
+                                KIcon {
+                                    visible: folder.group.computerOffline === true
+                                    Layout.preferredWidth: 10
+                                    Layout.preferredHeight: 10
+                                    name: "offline"
+                                    color: KodosiTheme.inkFaint
+                                }
+                            }
+                        }
                         AbstractButton {
                             id: folderHeader
                             width: parent.width
                             height: 24
+                            visible: folder.group.folder === true
                             hoverEnabled: true
                             objectName: "sidebar.folder." + folder.group.key
                             Accessible.id: objectName
-                            Accessible.name: folderLabel.text
+                            Accessible.name: folder.group.host ? qsTr("%1 on %2").arg(folderLabel.text).arg(folder.group.host) : folderLabel.text
                             contentItem: RowLayout {
                                 spacing: 6
                                 KIcon {
@@ -809,16 +887,16 @@ Item {
                                     Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                                 }
                                 KIcon {
-                                    visible: !!folder.group.host
                                     Layout.preferredWidth: 12
                                     Layout.preferredHeight: 12
-                                    name: "laptop"
+                                    name: folder.group.pinned ? "pin" : "folder"
                                     color: KodosiTheme.inkFaint
                                 }
                                 PlainLabel {
                                     id: folderLabel
                                     Layout.fillWidth: true
-                                    text: folder.group.label || ""
+                                    Layout.minimumWidth: Math.min(implicitWidth, 120)
+                                    text: folder.group.name || ""
                                     color: folderHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
                                     font.weight: Font.Medium
@@ -855,11 +933,11 @@ Item {
                                     Layout.rightMargin: 2
                                     size: 20
                                     glyph: "plus"
-                                    visible: !!folder.group.directory && folderHover.hovered
+                                    visible: folder.group.canStart === true && folderHover.hovered
                                     objectName: "sidebar.folder.new." + folder.group.key
                                     Accessible.id: objectName
                                     Accessible.name: qsTr("New terminal in %1").arg(folder.group.name)
-                                    onClicked: Models.SessionActions.create("", folder.group.directory)
+                                    onClicked: Models.SessionActions.create("", folder.group.directory, "", "", "", ({}), folder.group.computerId || "")
                                 }
                                 KIconButton {
                                     Layout.rightMargin: 2
@@ -888,6 +966,7 @@ Item {
 
                                 required property int index
                                 readonly property var session: (folder.group.sessions || [])[index] || ({})
+                                readonly property bool sharedBy: folder.group.pinned === true && session.isOwner === false && !!session.ownerName
                                 readonly property string sessionId: session.id || ""
                                 readonly property bool selected: root.selection === "terminal:" + sessionId
                                 readonly property bool staged: Models.DesktopState.stagedSessionIds.indexOf(sessionId) >= 0
@@ -914,6 +993,7 @@ Item {
                                 onSelectedChanged: root.claimPill(row, selected)
                                 Component.onCompleted: root.claimPill(row, selected)
                                 Component.onDestruction: root.claimPill(row, false)
+                                onYChanged: Qt.callLater(root.syncPill)
                                 onHeightChanged: Qt.callLater(root.syncPill)
 
                                 contentItem: RowLayout {
@@ -927,6 +1007,16 @@ Item {
                                         session: row.session
                                         opacity: rowSpot.hidden ? 0 : 1
 
+                                        ShareBadge {
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            anchors.rightMargin: -4
+                                            anchors.bottomMargin: -4
+                                            visible: !!row.session.missionId
+                                                || (row.session.isOwner !== false && (row.session.sharedWith || []).length > 0)
+                                            room: row.session.missionId || ""
+                                            ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
+                                        }
                                         FoldSpot {
                                             id: rowSpot
                                             anchors.fill: parent
@@ -1035,26 +1125,12 @@ Item {
                                         visible: !row.signed && row.troubled && !actions.visible
                                     }
                                     PersonAvatar {
-                                        visible: !row.signed && !row.troubled && row.session.isOwner === false && !!row.session.ownerName
+                                        visible: !row.signed && !row.troubled && row.sharedBy
                                             && !actions.visible && !row.renaming
                                         name: row.session.ownerName || ""
                                         key: row.session.ownerUserId || ""
                                         size: 15
                                         Accessible.name: qsTr("Shared by %1").arg(row.session.ownerName || "")
-                                    }
-                                    RoomSigil {
-                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
-                                            && !!row.session.missionId && !actions.visible && !row.renaming
-                                        key: row.session.missionId || ""
-                                        size: 14
-                                    }
-                                    KIcon {
-                                        Layout.preferredWidth: 11
-                                        Layout.preferredHeight: 11
-                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
-                                            && !row.session.missionId && (row.session.sharedWith || []).length > 0 && !actions.visible && !row.renaming
-                                        name: "people"
-                                        color: KodosiTheme.inkFaint
                                     }
                                     Row {
                                         id: actions
@@ -1103,6 +1179,11 @@ Item {
                                         terminalMenu.sessionId = row.sessionId
                                         terminalMenu.popup()
                                     }
+                                }
+                                TerminalDragSource {
+                                    anchors.fill: parent
+                                    enabled: !row.renaming
+                                    sessionId: row.sessionId
                                 }
                             }
                         }
@@ -1267,6 +1348,12 @@ Item {
         readonly property var session: Models.Sessions.presentationForSession(sessionId)
 
         KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(terminalMenu.sessionId) }
+        KMenuItem {
+            text: root.pins.indexOf(terminalMenu.sessionId) >= 0 ? qsTr("Unpin") : qsTr("Pin")
+            iconName: "pin"
+            objectName: "sidebar.terminal.pin"
+            onTriggered: Models.DesktopState.togglePin(terminalMenu.sessionId)
+        }
         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: terminalMenu.session.isOwner === true; onTriggered: root.renamingId = terminalMenu.sessionId }
         KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: terminalMenu.session.kind === "local" && terminalMenu.session.isOwner === true; onTriggered: root.shareRequested(terminalMenu.sessionId) }
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(terminalMenu.sessionId) }
@@ -1340,5 +1427,9 @@ Item {
     }
     CloseTerminalDialog {
         id: closeDialog
+    }
+    RoomShareDialog {
+        id: roomShare
+        onShared: id => root.openRoom(id)
     }
 }

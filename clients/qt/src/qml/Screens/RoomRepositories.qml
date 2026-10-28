@@ -19,12 +19,6 @@ Item {
         requested = id;
         Models.Missions.roomAction({ type: "issues", repositoryId: id });
     }
-    function connect() {
-        const url = (root.presentation.repositoryUrl || "").trim();
-        if (url.length > 0 && !Models.Missions.busy)
-            Models.Missions.roomAction({ type: "addRepository", url: url });
-    }
-
     objectName: "room.repositories"
     Accessible.id: objectName
     onRepositoriesChanged: {
@@ -47,69 +41,29 @@ Item {
             select(repository);
     }
 
-    component ConnectField: Item {
-        id: field
-
-        property alias text: url.text
-        property bool busy: false
-
-        signal edited(string text)
-        signal submitted
-
-        implicitHeight: 40
-        implicitWidth: 420
-
-        Well { anchors.fill: parent; radius: 20 }
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 14
-            anchors.rightMargin: 5
-            spacing: 8
-
-            KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "link"; color: KodosiTheme.inkFaint }
-            TextInput {
-                id: url
-                Layout.fillWidth: true
-                color: KodosiTheme.ink
-                font.pixelSize: KodosiTheme.fontBody
-                selectionColor: KodosiTheme.accent
-                selectedTextColor: KodosiTheme.accentInk
-                clip: true
-                objectName: "room.repository.url"
-                Accessible.id: objectName
-                Accessible.name: qsTr("Repository address")
-                Accessible.role: Accessible.EditableText
-                onTextEdited: field.edited(text)
-                onAccepted: field.submitted()
-
-                PlainLabel { visible: url.text.length === 0; text: qsTr("Paste a repository address"); color: KodosiTheme.inkFaint }
-            }
-            KButton {
-                compact: true
-                variant: KButton.Primary
-                text: qsTr("Connect")
-                working: field.busy
-                enabled: url.text.trim().length > 0 && !field.busy
-                objectName: "room.repository.add"
-                Accessible.id: objectName
-                onClicked: field.submitted()
-            }
-        }
-    }
-
-    EmptyState {
-        anchors.centerIn: parent
-        width: Math.min(400, parent.width - 40)
+    ColumnLayout {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 48
+        width: Math.min(440, parent.width - 40)
         visible: root.repositories.length === 0
-        title: qsTr("Connect a repository")
-        message: qsTr("Its issues can become room tasks. Your sign-in for it stays on this computer.")
-        art: IconTile { iconName: "mission"; tint: "#8c7bd1"; size: 48 }
+        spacing: 14
 
-        ConnectField {
-            text: root.presentation.repositoryUrl || ""
-            busy: Models.Missions.busy
-            onEdited: text => Models.Missions.setPresentation("repositoryUrl", text)
-            onSubmitted: root.connect()
+        IconTile { Layout.alignment: Qt.AlignHCenter; iconName: "repository"; tint: "#8c7bd1"; size: 48 }
+        PlainLabel { Layout.alignment: Qt.AlignHCenter; text: qsTr("Link a repository"); font.pixelSize: KodosiTheme.fontTitle; font.weight: Font.DemiBold }
+        Item {
+            Layout.fillWidth: true
+            implicitHeight: emptyPicker.implicitHeight + 24
+
+            Raised { anchors.fill: parent; radius: KodosiTheme.radiusXl }
+            Loader {
+                id: emptyPicker
+                x: 12
+                y: 12
+                width: parent.width - 24
+                active: root.visible && root.repositories.length === 0
+                sourceComponent: RepositoryPicker {}
+            }
         }
     }
     ColumnLayout {
@@ -173,7 +127,7 @@ Item {
                 compact: true
                 variant: KButton.Ghost
                 iconName: "plus"
-                text: qsTr("Connect")
+                text: qsTr("Link")
                 objectName: "room.repository.new"
                 Accessible.id: objectName
                 onClicked: Models.Missions.setPresentation("newRepository", true)
@@ -249,15 +203,10 @@ Item {
         elevation: 3
         visible: !!root.presentation.newRepository && root.repositories.length > 0
         onClosed: Models.Missions.setPresentation("newRepository", false)
-        contentItem: ColumnLayout {
-            spacing: 14
-            PlainLabel { text: qsTr("Connect a repository"); font.pixelSize: KodosiTheme.fontTitle; font.weight: Font.DemiBold }
-            ConnectField {
-                Layout.fillWidth: true
-                text: root.presentation.repositoryUrl || ""
-                busy: Models.Missions.busy
-                onEdited: text => Models.Missions.setPresentation("repositoryUrl", text)
-                onSubmitted: root.connect()
+        contentItem: Loader {
+            active: !!root.presentation.newRepository
+            sourceComponent: RepositoryPicker {
+                onDone: Models.Missions.setPresentation("newRepository", false)
             }
         }
     }

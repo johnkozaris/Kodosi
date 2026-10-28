@@ -20,13 +20,19 @@ public enum RoomAction {
         return action
     }
 
-    public static func createTask(title: String, description: String, repositoryIds: some Sequence<String>) -> [String: JSONValue] {
-        [
+    public static func createTask(
+        title: String, description: String, repositoryIds: some Sequence<String>, issueRepositoryId: String? = nil,
+    ) -> [String: JSONValue] {
+        var action: [String: JSONValue] = [
             "type": .string("createTask"),
             "title": .string(clip(title.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 256)),
             "description": .string(clip(description.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 16384)),
             "repositoryIds": .array(repositoryIds.sorted().map(JSONValue.string)),
         ]
+        if let issueRepositoryId {
+            action["issueRepositoryId"] = .string(issueRepositoryId)
+        }
+        return action
     }
 
     public static func createTask(from message: RoomMessage) -> [String: JSONValue] {

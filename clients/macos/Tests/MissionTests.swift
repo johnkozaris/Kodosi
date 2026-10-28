@@ -38,10 +38,11 @@ import Testing
     }
     let latest = try #require(commands.last(where: { $0["type"] == .string("mission.open") }))
     #expect(latest["requestId"] != first["requestId"])
+    #expect(app.missionDetail?.mission.name == "Before")
     try app.receive(runtimeEvent("mission.result", fields: [
-        "requestId": #require(first["requestId"]), "operation": .string("mission.open"), "mission": initial, "members": .array([]),
+        "requestId": #require(first["requestId"]), "operation": .string("mission.open"), "mission": changed, "members": .array([]),
     ]))
-    #expect(app.missionDetail == nil)
+    #expect(app.missionDetail?.mission.name == "Before")
     try app.receive(runtimeEvent("mission.result", fields: [
         "requestId": #require(latest["requestId"]), "operation": .string("mission.open"), "mission": changed, "members": .array([]),
     ]))

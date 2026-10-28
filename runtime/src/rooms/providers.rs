@@ -13,6 +13,8 @@ use zeroize::Zeroizing;
 
 use super::{Issue, Repository, TaskChange};
 use crate::network::{Result, invalid};
+#[cfg(feature = "host")]
+use crate::protocol::{GitHubState, RepositoryChoice, RepositoryList};
 
 pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Repository> {
     let remote = remote.trim();
@@ -83,27 +85,44 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
 }
 
 #[cfg(feature = "host")]
+async fn gh() -> Option<std::path::PathBuf> {
+    crate::agents::executable(&kodosi_os::process::default_shell(), "gh").await
+}
+
+#[cfg(feature = "host")]
+async fn gh_token(gh: &std::path::Path, host: &str) -> Result<Option<Zeroizing<String>>> {
+    let output = tokio::time::timeout(
+        Duration::from_secs(5),
+        tokio::process::Command::new(gh)
+            .args(["auth", "token", "--hostname", host])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await;
+    let Ok(Ok(output)) = output else {
+        return Ok(None);
+    };
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let token = Zeroizing::new(
+        String::from_utf8(output.stdout)
+            .map_err(|_| invalid("GitHub credentials are unavailable."))?
+            .trim()
+            .to_owned(),
+    );
+    Ok((!token.is_empty()).then_some(token))
+}
+
+#[cfg(feature = "host")]
 async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
-    if repo.provider == "github" {
-        let output = tokio::time::timeout(
-            Duration::from_secs(5),
-            tokio::process::Command::new("gh")
-                .args(["auth", "token", "--hostname", &repo.host])
-                .stdin(Stdio::null())
-                .kill_on_drop(true)
-                .output(),
-        )
-        .await;
-        if let Ok(Ok(output)) = output
-            && output.status.success()
-        {
-            return Ok(Some(Zeroizing::new(
-                String::from_utf8(output.stdout)
-                    .map_err(|_| invalid("GitHub credentials are unavailable."))?
-                    .trim()
-                    .to_owned(),
-            )));
-        }
+    if repo.provider == "github"
+        && let Some(gh) = gh().await
+        && let Some(token) = gh_token(&gh, &repo.host).await?
+    {
+        return Ok(Some(token));
     }
     let url = Url::parse(&repo.url).map_err(|_| invalid("Invalid repository address."))?;
     if repo.provider == "gitea"
@@ -195,12 +214,16 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
     }
     let response = request.send().await?;
     let status = response.status();
+    let limited = response
+        .headers()
+        .get("x-ratelimit-remaining")
+        .is_some_and(|remaining| remaining.as_bytes() == b"0");
     let bytes = crate::identity::oidc::read_bounded(response, 2 * 1024 * 1024).await?;
     if !status.is_success() {
         return Err(invalid(match status.as_u16() {
+            403 | 429 if limited => "The issue provider limits your requests now. Try again later, or connect your account for a higher limit.".to_owned(),
             403 => "Your provider account or token does not have access to these issues. Check its issue permissions.".to_owned(),
-            401 => if repo.provider == "github" { "Connect your GitHub account with gh auth login, then try again.".to_owned() }
-                else { "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.".to_owned() },
+            401 => connect_message(repo).to_owned(),
             404 => "The repository or issue is unavailable to your account.".to_owned(),
             409 | 422 => "The issue changed, or the provider could not apply the update. Refresh and try again.".to_owned(),
             429 => "The issue provider is busy. Try again in a moment.".to_owned(),
@@ -211,6 +234,15 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
         Ok(Value::Null)
     } else {
         Ok(serde_json::from_slice(&bytes)?)
+    }
+}
+
+#[cfg(feature = "host")]
+fn connect_message(repo: &Repository) -> &'static str {
+    if repo.provider == "github" {
+        "Connect your GitHub account with gh auth login, then try again."
+    } else {
+        "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again."
     }
 }
 
@@ -235,6 +267,9 @@ fn issue(repo: &Repository, value: &Value) -> Result<Issue> {
 }
 
 #[cfg(feature = "host")]
+const LISTED_ISSUES: usize = 100;
+
+#[cfg(feature = "host")]
 pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec<Issue>> {
     let path = format!(
         "repos/{}/{}/issues{}",
@@ -246,34 +281,25 @@ pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec
         let value = api(repo, Method::GET, &path, None).await?;
         return Ok(vec![issue(repo, &value)?]);
     }
-    let mut result = Vec::new();
-    for page in 1.. {
-        let size = if repo.provider == "github" {
-            "per_page"
-        } else {
-            "limit"
-        };
-        let value = api(
-            repo,
-            Method::GET,
-            &format!("{path}?state=open&{size}=100&page={page}"),
-            None,
-        )
-        .await?;
-        let items = value
-            .as_array()
-            .ok_or_else(|| invalid("The provider did not return an issue list."))?;
-        for item in items
-            .iter()
-            .filter(|value| value.get("pull_request").is_none_or(Value::is_null))
-        {
-            result.push(issue(repo, item)?);
-        }
-        if items.len() < 100 {
-            break;
-        }
-    }
-    Ok(result)
+    let size = if repo.provider == "github" {
+        "per_page"
+    } else {
+        "limit"
+    };
+    let value = api(
+        repo,
+        Method::GET,
+        &format!("{path}?state=open&{size}={LISTED_ISSUES}"),
+        None,
+    )
+    .await?;
+    value
+        .as_array()
+        .ok_or_else(|| invalid("The provider did not return an issue list."))?
+        .iter()
+        .filter(|value| value.get("pull_request").is_none_or(Value::is_null))
+        .map(|item| issue(repo, item))
+        .collect()
 }
 
 #[cfg(feature = "host")]
@@ -296,6 +322,143 @@ pub(crate) async fn update_issue(
         TaskChange::Release => json!({"assignees":[]}),
     };
     issue(repo, &api(repo, Method::PATCH, &path, Some(change)).await?)
+}
+
+#[cfg(feature = "host")]
+pub(crate) async fn create_issue(repo: &Repository, title: &str, body: &str) -> Result<Issue> {
+    if token(repo).await?.is_none() {
+        return Err(invalid(connect_message(repo)));
+    }
+    let path = format!("repos/{}/{}/issues", repo.owner, repo.repository);
+    let created = api(
+        repo,
+        Method::POST,
+        &path,
+        Some(json!({"title":title,"body":body})),
+    )
+    .await?;
+    issue(repo, &created)
+}
+
+#[cfg(feature = "host")]
+const CHOICE_FOLDERS: usize = 16;
+
+#[cfg(feature = "host")]
+pub(crate) async fn choices(folders: Vec<String>) -> Result<RepositoryList> {
+    let mut repositories = folder_choices(folders).await;
+    let (github, account) = account_repositories().await;
+    for choice in account {
+        if !repositories
+            .iter()
+            .any(|known| known.url.eq_ignore_ascii_case(&choice.url))
+        {
+            repositories.push(choice);
+        }
+    }
+    Ok(RepositoryList {
+        github,
+        repositories,
+    })
+}
+
+#[cfg(feature = "host")]
+async fn folder_choices(folders: Vec<String>) -> Vec<RepositoryChoice> {
+    let mut repositories: Vec<RepositoryChoice> = Vec::new();
+    for folder in folders.into_iter().take(CHOICE_FOLDERS) {
+        let Some(repo) = origin(&folder)
+            .await
+            .and_then(|remote| repository(&remote, None).ok())
+        else {
+            continue;
+        };
+        if !repositories
+            .iter()
+            .any(|known| known.url.eq_ignore_ascii_case(&repo.url))
+        {
+            repositories.push(RepositoryChoice {
+                name: repo.name,
+                url: repo.url,
+                provider: repo.provider,
+                folder: Some(folder),
+                private: false,
+            });
+        }
+    }
+    repositories
+}
+
+#[cfg(feature = "host")]
+async fn origin(folder: &str) -> Option<String> {
+    let output = tokio::time::timeout(
+        Duration::from_secs(3),
+        tokio::process::Command::new("git")
+            .args(["-C", folder, "remote", "get-url", "origin"])
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    let remote = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    (output.status.success() && !remote.is_empty()).then_some(remote)
+}
+
+#[cfg(feature = "host")]
+async fn account_repositories() -> (GitHubState, Vec<RepositoryChoice>) {
+    let Some(gh) = gh().await else {
+        return (GitHubState::Missing, Vec::new());
+    };
+    if !matches!(gh_token(&gh, "github.com").await, Ok(Some(_))) {
+        return (GitHubState::SignedOut, Vec::new());
+    }
+    let Ok(github) = repository("https://github.com/github/github", Some("github")) else {
+        return (GitHubState::Ready, Vec::new());
+    };
+    let listed = api(
+        &github,
+        Method::GET,
+        "user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member",
+        None,
+    )
+    .await;
+    let items = match listed {
+        Ok(Value::Array(items)) => items,
+        Ok(_) => Vec::new(),
+        Err(error) => {
+            tracing::warn!(%error, "could not list the GitHub repositories");
+            Vec::new()
+        }
+    };
+    (GitHubState::Ready, account_choices(&items))
+}
+
+#[cfg(feature = "host")]
+fn account_choices(items: &[Value]) -> Vec<RepositoryChoice> {
+    items
+        .iter()
+        .filter_map(|item| {
+            let repo = repository(item["html_url"].as_str()?, Some("github")).ok()?;
+            Some(RepositoryChoice {
+                name: repo.name,
+                url: repo.url,
+                provider: repo.provider,
+                folder: None,
+                private: item["private"].as_bool().unwrap_or(false),
+            })
+        })
+        .collect()
+}
+
+#[cfg(not(feature = "host"))]
+#[expect(
+    clippy::unused_async,
+    reason = "issues are created through the provider credentials of a computer"
+)]
+pub(crate) async fn create_issue(_repo: &Repository, _title: &str, _body: &str) -> Result<Issue> {
+    Err(invalid("Create issues from a computer."))
 }
 
 #[cfg(not(feature = "host"))]
@@ -357,10 +520,10 @@ mod tests {
     fn provider_endpoints_and_issue_fields_preserve_repository_and_assignment() {
         let github = repository("https://github.com/team/api", None).unwrap();
         assert_eq!(
-            api_url(&github, "repos/team/api/issues?per_page=100&page=2")
+            api_url(&github, "repos/team/api/issues?state=open&per_page=100")
                 .unwrap()
                 .as_str(),
-            "https://api.github.com/repos/team/api/issues?per_page=100&page=2"
+            "https://api.github.com/repos/team/api/issues?state=open&per_page=100"
         );
         let enterprise = repository("https://git.example/team/api", Some("github")).unwrap();
         assert_eq!(
@@ -379,5 +542,75 @@ mod tests {
         assert_eq!(mapped.assignees, ["alice", "bob"]);
         assert!(mapped.closed);
         assert!(issue(&gitea, &json!({"title":"missing identity"})).is_err());
+    }
+
+    #[cfg(feature = "host")]
+    #[test]
+    fn an_account_list_keeps_the_repositories_that_kodosi_can_link() {
+        let items = json!([
+            {"html_url":"https://github.com/maya/notes","private":true},
+            {"html_url":"https://github.com/team/api"},
+            {"html_url":"not an address"},
+            {"private":false}
+        ]);
+        let choices = account_choices(items.as_array().unwrap());
+        assert_eq!(
+            choices
+                .iter()
+                .map(|choice| (
+                    choice.name.as_str(),
+                    choice.private,
+                    choice.folder.is_none()
+                ))
+                .collect::<Vec<_>>(),
+            [("maya/notes", true, true), ("team/api", false, true)]
+        );
+    }
+
+    #[cfg(feature = "host")]
+    #[tokio::test]
+    async fn the_folders_of_terminals_offer_their_origins_once_in_order() {
+        let root = tempfile::tempdir().unwrap();
+        let checkout = |name: &str, remote: Option<&str>| {
+            let folder = root.path().join(name);
+            std::fs::create_dir(&folder).unwrap();
+            let git = |args: &[&str]| {
+                assert!(
+                    std::process::Command::new("git")
+                        .arg("-C")
+                        .arg(&folder)
+                        .args(args)
+                        .output()
+                        .unwrap()
+                        .status
+                        .success()
+                );
+            };
+            git(&["init", "-q"]);
+            if let Some(remote) = remote {
+                git(&["remote", "add", "origin", remote]);
+            }
+            folder.to_string_lossy().into_owned()
+        };
+        let api = checkout("api", Some("git@github.com:team/api.git"));
+        let again = checkout("api-branch", Some("https://github.com/team/api"));
+        let ui = checkout("ui", Some("https://forge.example/team/ui.git"));
+        let local = checkout("local", None);
+        let plain = root.path().join("plain").to_string_lossy().into_owned();
+        let choices = folder_choices(vec![ui.clone(), local, api.clone(), again, plain]).await;
+        assert_eq!(
+            choices
+                .iter()
+                .map(|choice| (
+                    choice.name.as_str(),
+                    choice.provider.as_str(),
+                    choice.folder.as_deref()
+                ))
+                .collect::<Vec<_>>(),
+            [
+                ("team/ui", "gitea", Some(ui.as_str())),
+                ("team/api", "github", Some(api.as_str())),
+            ]
+        );
     }
 }

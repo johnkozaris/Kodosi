@@ -328,10 +328,10 @@ final class AppDependencies {
         }
     }
 
-    func openTerminal(in directory: String) {
+    func openTerminal(in directory: String, computer: String? = nil) {
         Task { @MainActor [weak self] in
             do {
-                try await self?.createSession(name: generateSessionName(), directory: directory)
+                try await self?.createSession(name: generateSessionName(), directory: directory, computer: computer)
             } catch {
                 self?.errorMessage = error.localizedDescription
             }
@@ -402,7 +402,9 @@ final class AppDependencies {
         let requestId = UUIDv7.generate()
         missionRequestId = requestId
         workbench.selectedMissionId = id
-        missionDetail = nil
+        if missionDetail?.mission.id != id {
+            missionDetail = nil
+        }
         missionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {

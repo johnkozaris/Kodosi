@@ -49,6 +49,7 @@ struct SessionTileView: View {
                     .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)
+            .terminalDrag(session, when: !roomEmbedded)
             terminal.frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 3).padding([.horizontal, .bottom], 5)
         }

@@ -163,6 +163,30 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.settings.lastWorkingDir == "/Users/maya/here")
 }
 
+@Test @MainActor func `the folder menu keeps the host's recent folders after a restart`() async throws {
+    let (app, sent) = try launcherApp("LauncherRecent")
+    defer { app.shutdownProcess() }
+    app.settings.lastWorkingDir = "/work/atlas"
+    let listing = Task { try await app.launcher.folders() }
+    var request: String?
+    for _ in 0 ..< 200 where request == nil {
+        await Task.yield()
+        request = sent().last { $0["type"] == .string("folders.list") }?["requestId"]?.stringValue
+    }
+    #expect(sent().last { $0["type"] == .string("folders.list") }?["computer"] == nil)
+    try app.receive(runtimeEvent("folders.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(request)), "operation": .string("folders.list"),
+        "folders": .object([
+            "path": .string("/Users/maya"), "parent": .string("/Users"), "home": .string("/Users/maya"), "folders": .array([]),
+            "recent": .array(["/work/kodosi", "/work/atlas", "/work/notes"].map(JSONValue.string)),
+        ]),
+    ]))
+    _ = try await listing.value
+    let home = [app.storageBootstrap.defaultWorkingDirectory?.path].compactMap(\.self)
+    #expect(recentFolders(app, chosen: nil, saved: app.launcher.places?.recent ?? [])
+        == ["/work/atlas", "/work/kodosi", "/work/notes"] + home)
+}
+
 @Test func `a folder of another computer shows from its own home`() {
     let mac = FolderList(path: "/home/maya/Repos", parent: "/home/maya", home: "/home/maya", folders: ["kodosi"], recent: [])
     #expect(mac.shown("/home/maya") == "~")

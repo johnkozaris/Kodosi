@@ -22,6 +22,7 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(qreal sidebarWidth READ sidebarWidth NOTIFY sidebarWidthChanged)
     Q_PROPERTY(QString selectedSessionId READ selectedSessionId NOTIFY selectedSessionIdChanged)
     Q_PROPERTY(QStringList stagedSessionIds READ stagedSessionIds NOTIFY stagedSessionIdsChanged)
+    Q_PROPERTY(QStringList pinnedSessionIds READ pinnedSessionIds NOTIFY pinnedSessionIdsChanged)
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
@@ -42,6 +43,9 @@ public:
     qreal sidebarWidth() const;
     QString selectedSessionId() const { return m_selected; }
     QStringList stagedSessionIds() const { return m_staged; }
+    QStringList pinnedSessionIds() const { return m_pins; }
+    Q_INVOKABLE void togglePin(const QString& id);
+    Q_INVOKABLE bool moveStaged(const QString& id, const QString& target);
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }
     void setActiveView(ActiveView value);
@@ -77,6 +81,7 @@ signals:
     void sidebarWidthChanged();
     void selectedSessionIdChanged();
     void stagedSessionIdsChanged();
+    void pinnedSessionIdsChanged();
     void stageLayoutModeChanged();
     void lastErrorChanged();
     void modalOpenChanged();
@@ -104,6 +109,8 @@ private:
     QHash<QObject*, QMetaObject::Connection> m_modals;
     QString m_selected;
     QStringList m_staged;
+    QStringList m_pins;
+    QHash<QString, Computer> m_pinComputers;
     QString m_stageKey;
     QStringList m_restoring;
     QStringList m_savedStage;
@@ -127,6 +134,8 @@ private:
     void depart(const QString& id, qsizetype place);
     QStringList follow();
     void saveStage();
+    void followPins();
+    void savePins();
     void saveWindow();
 };
 }

@@ -35,6 +35,10 @@ final class WorkbenchState {
     var historyProvider: Provider = .claude
     var showsPalette = false
     var showsNewRoom = false
+    var trusting: FriendTrust?
+    var roomShare: RoomShare?
+    var friendDraft = ""
+    private(set) var pinnedSessionIds: [String] = []
     var launcher: LauncherRequest?
     var launcherDraft = LauncherDraft()
     var launcherFocus = 0
@@ -89,6 +93,7 @@ final class WorkbenchState {
     private var known: [String: RuntimeSession] = [:]
     private var departures: [Departure] = []
     private var closing: Set<String> = []
+    @ObservationIgnored private var pinOrigins: [String: (owner: String?, host: String?)] = [:]
     @ObservationIgnored private var unfolding: Task<Void, Never>?
 
     init(defaults: UserDefaults) {
@@ -198,6 +203,13 @@ final class WorkbenchState {
         save()
     }
 
+    func moveStaged(_ id: String, to target: String) {
+        guard id != target, let from = stagedSessionIds.firstIndex(of: id), let to = stagedSessionIds.firstIndex(of: target) else { return }
+        stagedSessionIds.remove(at: from)
+        stagedSessionIds.insert(id, at: to)
+        save()
+    }
+
     func selectAdjacentSession(offset: Int) {
         guard !stagedSessionIds.isEmpty else { return }
         let index = selectedSessionId.flatMap { stagedSessionIds.firstIndex(of: $0) } ?? 0
@@ -225,6 +237,8 @@ final class WorkbenchState {
         save()
         accountKey = "stage." + (userId.map { Data($0.utf8).base64EncodedString() } ?? "local")
         restoredIds = accountKey.flatMap { defaults.stringArray(forKey: $0) } ?? []
+        pinnedSessionIds = accountKey.flatMap { defaults.stringArray(forKey: $0 + ".pins") } ?? []
+        pinOrigins = [:]
         savedStage = restoredIds
         known = [:]
         departures = []
@@ -238,6 +252,9 @@ final class WorkbenchState {
         showsHistory = false
         showsPalette = false
         showsNewRoom = false
+        trusting = nil
+        roomShare = nil
+        friendDraft = ""
         launcher = nil
         launcherDraft = LauncherDraft()
         dismissedDeviceRequests = []
@@ -262,6 +279,7 @@ final class WorkbenchState {
                 dismissSession(id)
             }
         }
+        followPins(sessions, current: current, restarted: restarted)
         known = current
         closing.formIntersection(current.keys)
         let followed = follow(sessions)
@@ -316,6 +334,44 @@ final class WorkbenchState {
             followed.append(next.id)
         }
         return followed
+    }
+
+    func isPinned(_ id: String) -> Bool {
+        pinnedSessionIds.contains(id)
+    }
+
+    func togglePin(_ id: String) {
+        if isPinned(id) {
+            pinnedSessionIds.removeAll { $0 == id }
+        } else {
+            pinnedSessionIds.append(id)
+        }
+        savePins()
+    }
+
+    private func followPins(_ sessions: [RuntimeSession], current: [String: RuntimeSession], restarted: [String: String]) {
+        for id in pinnedSessionIds {
+            if let session = current[id] ?? known[id] {
+                pinOrigins[id] = (session.ownerUserId, session.hostDeviceId)
+            }
+        }
+        var followed: [String] = []
+        for id in pinnedSessionIds {
+            let origin = pinOrigins[id]
+            let next = current[id] != nil ? id
+                : restarted[id] ?? origin.flatMap { sessions.restart(of: id, owner: $0.owner, host: $0.host)?.id } ?? id
+            if !followed.contains(next) {
+                followed.append(next)
+            }
+        }
+        guard followed != pinnedSessionIds else { return }
+        pinnedSessionIds = followed
+        savePins()
+    }
+
+    private func savePins() {
+        guard let accountKey else { return }
+        defaults.set(Array(pinnedSessionIds.suffix(32)), forKey: accountKey + ".pins")
     }
 
     private func save() {

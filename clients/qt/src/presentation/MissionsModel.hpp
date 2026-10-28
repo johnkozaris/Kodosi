@@ -20,6 +20,8 @@ class MissionsModel final : public QObject {
     Q_PROPERTY(QVariantMap presentation READ presentation NOTIFY presentationChanged)
     Q_PROPERTY(QString issueRepository READ issueRepository NOTIFY roomChanged)
     Q_PROPERTY(QVariantList issues READ issues NOTIFY roomChanged)
+    Q_PROPERTY(QVariantMap issuesByRepository READ issuesByRepository NOTIFY roomChanged)
+    Q_PROPERTY(QVariantMap repositoryChoices READ repositoryChoices NOTIFY repositoryChoicesChanged)
     Q_PROPERTY(QVariantList missions READ missions NOTIFY catalogChanged)
     Q_PROPERTY(QVariantList invitations READ invitations NOTIFY catalogChanged)
     Q_PROPERTY(bool catalogTruncated READ catalogTruncated NOTIFY catalogChanged)
@@ -41,6 +43,9 @@ public:
     Q_INVOKABLE void setPresentation(const QString& key, const QVariant& value);
     void followTerminal(const QString& replaced, const QString& id);
     QVariantList issues() const { return m_issues; }
+    QVariantMap issuesByRepository() const { return m_issuesByRepository; }
+    QVariantMap repositoryChoices() const { return m_repositoryChoices; }
+    Q_INVOKABLE void listRepositories();
     Q_INVOKABLE void roomAction(const QVariantMap& action);
     Q_INVOKABLE void copyAgentInstructions();
     QVariantList missions() const { return m_missions; }
@@ -69,6 +74,7 @@ signals:
     void created(const QString& roomId);
     void catalogChanged();
     void selectionChanged();
+    void repositoryChoicesChanged();
 
 private:
     friend class Workspace;
@@ -83,6 +89,8 @@ private:
     QVariantMap m_room;
     QVariantList m_issues;
     QString m_issueRepository;
+    QVariantMap m_issuesByRepository;
+    QVariantMap m_repositoryChoices;
     QHash<QString, QVariantMap> m_presentations;
     QHash<QString, QVariantMap> m_rooms;
     QHash<QString, quint64> m_seen;
