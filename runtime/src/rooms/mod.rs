@@ -31,6 +31,8 @@ pub enum Action {
         repository_ids: Vec<String>,
         #[serde(default)]
         terminal_id: Option<String>,
+        #[serde(default)]
+        issue_repository_id: Option<String>,
     },
     UpdateTask {
         task_id: String,
@@ -220,15 +222,17 @@ impl Action {
                 description,
                 repository_ids,
                 terminal_id,
+                issue_repository_id,
             } => {
                 text(title, 256)?;
                 if description.len() > 16_384 || repository_ids.len() > 64 {
                     return Err(crate::Error::Invalid("Task details are too long.".into()));
                 }
-                for id in repository_ids {
-                    crate::protocol::parse_id(id)?;
-                }
-                if let Some(id) = terminal_id {
+                for id in repository_ids
+                    .iter()
+                    .chain(terminal_id)
+                    .chain(issue_repository_id)
+                {
                     crate::protocol::parse_id(id)?;
                 }
             }

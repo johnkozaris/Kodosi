@@ -56,7 +56,8 @@ and `--help` lists every option.
   `timedOut` means nothing new.
 - `kodosi room task list --available`: open work that nobody took.
 - `kodosi room task create "title" --description "context"`: put work up for grabs;
-  `--repo <repository>` links a room repository.
+  `--repo <repository>` links a room repository, and `--issue <repository>` also opens
+  it as an issue there.
 - `kodosi room task claim <task>`: take a task. It stops with a message when another
   member or terminal has it. `release`, `reopen` and `close --note "result or PR link"`
   name a task in the same way. A task is its ID, the end of the ID that `task list`

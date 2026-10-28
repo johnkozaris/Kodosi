@@ -20,9 +20,11 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
 - Anyone in a room can post, put tasks up for grabs, claim, release, close and reopen
   them. A task can carry context, repositories and a result. People and agents decide
   what to do next.
-- A room can link GitHub or Gitea repositories and turn their issues into tasks. The
-  provider stays authoritative: changing a linked task updates the issue. Provider
-  credentials stay on the participant's computer, and tasks need no Git provider.
+- A room can link GitHub or Gitea repositories and turn their issues into tasks, and a
+  new task can open an issue. The provider stays authoritative: changing a linked task
+  updates the issue. Provider credentials stay on the participant's computer, and tasks
+  need no Git provider. A person picks repositories from the checkouts of their terminals
+  and from the GitHub account that `gh` is signed in to.
 
 ## People and agents
 

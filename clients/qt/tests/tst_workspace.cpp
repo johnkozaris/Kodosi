@@ -343,9 +343,12 @@ private slots:
         unopened.remove(QStringLiteral("workingDir"));
         f.sessions.apply(test::snapshot({ local, remote, unopened }));
         QStringList labels;
-        for (const auto& group : f.sessions.folderGroups())
-            labels.append(group.toMap().value(QStringLiteral("label")).toString());
-        QCOMPARE(labels, (QStringList { QStringLiteral("project"), QStringLiteral("Ana · Studio"), QStringLiteral("project · Ana · Studio") }));
+        for (const auto& group : f.sessions.folderGroups()) {
+            const auto fields = group.toMap();
+            labels.append(QStringList { fields.value(QStringLiteral("name")).toString(), fields.value(QStringLiteral("owner")).toString(),
+                fields.value(QStringLiteral("host")).toString() }.join(QLatin1Char('|')));
+        }
+        QCOMPARE(labels, (QStringList { QStringLiteral("project||"), QStringLiteral("Terminals|Ana|Studio"), QStringLiteral("project|Ana|Studio") }));
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
         QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));
@@ -1003,6 +1006,42 @@ private slots:
         restarts.append(onMini(6, 1));
         f.workspace.apply(test::snapshot(restarts), 1);
         QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(6) });
+    }
+    void aPinStaysWithItsAccountAndFollowsItsTerminal()
+    {
+        QTemporaryDir dir;
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(test::snapshot({ test::session(1), onMini(2) }), 1);
+            first.desktop.togglePin(test::id(2));
+            first.desktop.togglePin(test::id(1));
+            QCOMPARE(first.desktop.pinnedSessionIds(), (QStringList { test::id(2), test::id(1) }));
+            first.workspace.apply(test::snapshot({ test::session(1) }), 1);
+            first.workspace.apply(test::snapshot({ test::session(1), onMini(3, 2) }), 1);
+            QCOMPARE(first.desktop.pinnedSessionIds(), (QStringList { test::id(3), test::id(1) }));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        auto local = test::session(4);
+        local.insert(QStringLiteral("restoredFrom"), test::id(1));
+        restarted.workspace.apply(test::snapshot({ local, onMini(3, 2) }), 1);
+        QCOMPARE(restarted.desktop.pinnedSessionIds(), (QStringList { test::id(3), test::id(4) }));
+        restarted.desktop.togglePin(test::id(3));
+        QCOMPARE(restarted.desktop.pinnedSessionIds(), QStringList { test::id(4) });
+        restarted.workspace.apply(accountEvent(test::id(51), 2), 2);
+        QVERIFY(restarted.desktop.pinnedSessionIds().isEmpty());
+    }
+    void aDraggedTerminalTakesThePlaceOfTheOneItDropsOn()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2), test::session(3) }), 1);
+        for (const auto id : { 1, 2, 3 })
+            QVERIFY(f.workspace.sessionActions().activate(test::id(id)));
+        QVERIFY(f.desktop.moveStaged(test::id(1), test::id(3)));
+        QCOMPARE(f.desktop.stagedSessionIds(), (QStringList { test::id(2), test::id(3), test::id(1) }));
+        QVERIFY(!f.desktop.moveStaged(test::id(9), test::id(2)));
     }
     void closingTheSelectedTerminalSelectsTheFirstTerminalLeft()
     {

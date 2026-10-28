@@ -133,6 +133,11 @@ Item {
             color: root.active ? KodosiTheme.terminalBandSelected : KodosiTheme.terminalBand
 
             TapHandler { onTapped: root.select() }
+            TerminalDragSource {
+                anchors.fill: parent
+                enabled: !root.roomEmbedded
+                sessionId: root.sessionId
+            }
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 9
@@ -416,6 +421,21 @@ Item {
     DosiTouch {
         anchors.fill: parent
         sessionId: root.sessionId
+    }
+    TerminalDropArea {
+        anchors.fill: parent
+        enabled: !root.roomEmbedded
+        radius: KodosiTheme.radiusTile
+        dashed: false
+        objectName: root.objectName + ".drop"
+
+        onTerminalDropped: id => {
+            if (id === root.sessionId)
+                return
+            if (Models.DesktopState.stagedSessionIds.indexOf(id) < 0)
+                Models.SessionActions.activate(id)
+            Models.DesktopState.moveStaged(id, root.sessionId)
+        }
     }
     Rectangle {
         id: veil

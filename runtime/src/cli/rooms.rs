@@ -111,6 +111,10 @@ enum TaskAction {
         /// shows. Repeat it for more.
         #[arg(long = "repo")]
         repositories: Vec<String>,
+        /// Also open the task as an issue in this repository of the room. A change of the
+        /// task then changes the issue.
+        #[arg(long)]
+        issue: Option<String>,
     },
     /// Take a task.
     Claim {
@@ -482,6 +486,7 @@ fn task_action(action: TaskAction, snapshot: &Snapshot) -> Result<Action> {
             title,
             description,
             repositories,
+            issue,
         } => {
             return Ok(Action::CreateTask {
                 title,
@@ -491,6 +496,9 @@ fn task_action(action: TaskAction, snapshot: &Snapshot) -> Result<Action> {
                     .map(|reference| repo_id(snapshot, reference))
                     .collect::<Result<_>>()?,
                 terminal_id: terminal(),
+                issue_repository_id: issue
+                    .map(|reference| repo_id(snapshot, &reference))
+                    .transpose()?,
             });
         }
         TaskAction::Import { repository, number } => {
@@ -626,13 +634,20 @@ mod tests {
                 title: "Join API and UI".into(),
                 description: "Shared context".into(),
                 repositories: vec!["team/api".into(), "000002".into()],
+                issue: Some("team/ui".into()),
             },
             &room,
         )
         .unwrap();
-        let Action::CreateTask { repository_ids, .. } = create else {
+        let Action::CreateTask {
+            repository_ids,
+            issue_repository_id,
+            ..
+        } = create
+        else {
             panic!()
         };
+        assert_eq!(issue_repository_id.as_ref(), Some(&room.repositories[1].id));
         assert_eq!(
             repository_ids,
             room.repositories

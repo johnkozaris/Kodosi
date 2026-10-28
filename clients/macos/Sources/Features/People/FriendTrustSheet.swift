@@ -9,14 +9,9 @@ enum FriendTrust: Equatable {
     var handle: String? {
         switch self {
         case let .accept(request):
-            return request.handle
+            request.handle
         case let .add(text):
-            let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let parts = text.split(separator: ":", omittingEmptySubsequences: false)
-            let handle = parts.count == 3 && parts[0] == "kodosi" ? String(parts[1]) : text.hasPrefix("@") ? String(text.dropFirst()) : text
-            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-            guard !handle.isEmpty, handle.count <= 64, handle.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
-            return handle
+            PeopleStore.handle(in: text)
         }
     }
 

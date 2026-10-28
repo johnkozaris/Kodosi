@@ -83,6 +83,7 @@ struct TerminalMarkStack: View {
 struct IncomingRequestRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @State private var trusting = false
     let request: FriendRequestEntry
 
     private var people: PeopleStore {
@@ -103,7 +104,7 @@ struct IncomingRequestRow: View {
         }
         .padding(.vertical, 6)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            Button { people.accept(request) } label: {
+            Button { trusting = true } label: {
                 Label("Accept", systemImage: "checkmark")
             }
             .tint(theme.colors.accent)
@@ -115,13 +116,14 @@ struct IncomingRequestRow: View {
             .tint(TileTint.graphite)
         }
         .contextMenu {
-            Button { people.accept(request) } label: {
+            Button { trusting = true } label: {
                 Label("Accept", systemImage: "checkmark")
             }
             Button { people.decline(request) } label: {
                 Label("Not now", systemImage: "xmark")
             }
         }
+        .friendTrustAlert(isPresented: $trusting, name: request.personName) { people.accept(request) }
     }
 
     private var identity: some View {
@@ -151,7 +153,7 @@ struct IncomingRequestRow: View {
                 Button("Not now") { people.decline(request) }
                     .buttonStyle(.kodosi(.ghost, size: .small))
                     .accessibilityIdentifier("people.request.decline.\(request.handle)")
-                Button("Accept") { people.accept(request) }
+                Button("Accept") { trusting = true }
                     .buttonStyle(.kodosi(.primary, size: .small))
                     .accessibilityIdentifier("people.request.accept.\(request.handle)")
             }
@@ -226,6 +228,21 @@ struct OutgoingRequestRow: View {
                 .buttonStyle(.kodosi(.ghost, size: .small))
                 .accessibilityLabel(Text("Cancel the request to \(request.personName)"))
                 .accessibilityIdentifier("people.request.cancel.\(request.handle)")
+        }
+    }
+}
+
+extension View {
+    func friendTrustAlert(isPresented: Binding<Bool>, name: String?, confirm: @escaping () -> Void) -> some View {
+        alert("Stop and read", isPresented: isPresented) {
+            Button(name.map { String(localized: "I trust \($0)") } ?? String(localized: "I trust them"), action: confirm)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(verbatim: [
+                name.map { String(localized: "Do you trust \($0) completely?") } ?? String(localized: "Do you trust this person completely?"),
+                String(localized: "A friend can type in each terminal that you share with them, as you, with your rights on that computer."),
+                String(localized: "Add only a person that you would let use your computer."),
+            ].joined(separator: "\n\n"))
         }
     }
 }

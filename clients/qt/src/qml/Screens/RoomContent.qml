@@ -294,6 +294,15 @@ Item {
                 width: root.narrow ? parent.width : parent.width - (root.conversation ? root.sheetWidth + 8 : 0)
                 visible: !root.narrow || !root.conversation
 
+                TerminalDropArea {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    z: 2
+                    radius: KodosiTheme.radiusXl
+                    objectName: "room.canvas.drop"
+                    onTerminalDropped: id => roomShare.ask(id, Models.Missions.selectedMissionId)
+                }
+
                 StackLayout {
                     anchors.fill: parent
                     currentIndex: root.canvas
@@ -611,6 +620,10 @@ Item {
                 }
             }
         }
+    }
+    RoomShareDialog {
+        id: roomShare
+        onShared: Models.SessionActions.activateInRoom(roomShare.sessionId)
     }
     KMenu {
         id: terminalMenu

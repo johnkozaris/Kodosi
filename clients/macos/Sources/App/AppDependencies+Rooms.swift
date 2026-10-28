@@ -41,6 +41,18 @@ extension AppDependencies {
         _ = try await commandSink.request("room.command", ["roomId": .string(roomId), "action": .object(action)])
     }
 
+    func repositoryChoices(for roomId: String) async throws -> RepositoryChoices {
+        try await commandSink.request("repositories.list", ["missionId": .string(roomId)]).value("repositories")
+    }
+
+    func connectGitHub() {
+        Task { @MainActor in
+            do {
+                try await createSession(name: String(localized: "GitHub sign-in"), directory: settings.lastWorkingDir, command: "gh auth login")
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
     func receiveRoom(_ event: RuntimeEvent) throws {
         switch event.type {
         case "room.snapshot":

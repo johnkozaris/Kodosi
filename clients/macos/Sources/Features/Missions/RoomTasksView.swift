@@ -95,10 +95,20 @@ struct RoomTasksView: View {
                 if !state.taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Button("Add", action: create).buttonStyle(.kodosi(.primary, size: .small)).disabled(state.busy)
                         .accessibilityIdentifier("room.task.create").transition(AnyTransition.pop)
+                } else {
+                    IconButton(title: "Add issues", symbol: "smallcircle.filled.circle", identifier: "room.task.issues", size: 28,
+                               open: state.showsIssuePicker)
+                    {
+                        state.showsIssuePicker = true
+                    }
+                    .kodosiPopover(isPresented: $state.showsIssuePicker, alignment: .trailing) {
+                        IssuePicker(roomId: roomId).padding(12).frame(width: 420)
+                    }
+                    .transition(AnyTransition.pop)
                 }
             }
             .padding(.leading, 14).padding(.trailing, 6).frame(height: 40)
-            if adding || !state.taskDescription.isEmpty || !state.taskRepositories.isEmpty {
+            if adding || !state.taskDescription.isEmpty || !state.taskRepositories.isEmpty || state.taskIssueRepository != nil {
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Context for whoever picks it up", text: $state.taskDescription, axis: .vertical)
                         .textFieldStyle(.plain).appTextStyle(.body).lineLimit(2 ... 6)
@@ -116,6 +126,7 @@ struct RoomTasksView: View {
                                 } label: { Tag(text: repository.name, symbol: on ? "checkmark" : "shippingbox", tone: on ? .accent : .neutral) }
                                     .buttonStyle(PressScaleStyle())
                             }
+                            issueChoice
                         }
                     }
                 }
@@ -131,6 +142,24 @@ struct RoomTasksView: View {
         .animation(theme.motion.snappy, value: state.taskTitle.isEmpty)
     }
 
+    private var issueChoice: some View {
+        let chosen = repositories.first { $0.id == state.taskIssueRepository }
+        return Menu {
+            if chosen != nil {
+                Button("No issue") { state.taskIssueRepository = nil }
+                Divider()
+            }
+            ForEach(repositories) { repository in
+                Button(repository.name) { state.taskIssueRepository = repository.id }
+            }
+        } label: {
+            Tag(text: chosen.map { String(localized: "Issue in \($0.name)") } ?? String(localized: "Open as an issue"),
+                symbol: "smallcircle.filled.circle", tone: chosen == nil ? .neutral : .accent)
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .accessibilityIdentifier("room.task.issue")
+    }
+
     private func create() {
         let title = state.taskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, !state.busy else { return }
@@ -139,11 +168,13 @@ struct RoomTasksView: View {
         Task { @MainActor in
             defer { state.busy = false }
             do {
-                try await deps.roomAction(
-                    roomId, RoomAction.createTask(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories),
-                )
+                try await deps.roomAction(roomId, RoomAction.createTask(
+                    title: title, description: state.taskDescription, repositoryIds: state.taskRepositories,
+                    issueRepositoryId: state.taskIssueRepository,
+                ))
                 if revision == state.taskRevision {
                     state.taskTitle = ""; state.taskDescription = ""; state.taskRepositories.removeAll()
+                    state.taskIssueRepository = nil
                 }
             } catch { state.failure = error.localizedDescription }
         }

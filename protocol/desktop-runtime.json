@@ -2329,6 +2329,16 @@
                   "description": {
                     "type": "string"
                   },
+                  "issueRepositoryId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "repositoryIds": {
                     "items": {
                       "type": "string"
@@ -3736,6 +3746,58 @@
           },
           "type": {
             "const": "folders.list"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "repositories.list"
           }
         },
         "required": [
@@ -8501,6 +8563,144 @@
               }
             ]
           },
+          "operation": {
+            "type": "string"
+          },
+          "repositories": {
+            "additionalProperties": false,
+            "properties": {
+              "github": {
+                "oneOf": [
+                  {
+                    "const": "ready"
+                  },
+                  {
+                    "const": "signedOut"
+                  },
+                  {
+                    "const": "missing"
+                  }
+                ]
+              },
+              "repositories": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "folder": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "private": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "url",
+                    "provider",
+                    "folder",
+                    "private"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "github",
+              "repositories"
+            ],
+            "type": "object"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "repositories.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "repositories"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "repositories.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -10208,7 +10408,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 72,
+  "protocolVersion": 73,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,
