@@ -209,7 +209,7 @@ struct SidebarView: View {
                 }
                 if !collapsed {
                     ForEach(group.sessions) { session in
-                        SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill)
+                        SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill, showsOwner: false)
                             .transition(AnyTransition.rise)
                     }
                 }

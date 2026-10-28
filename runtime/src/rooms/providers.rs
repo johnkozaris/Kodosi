@@ -214,12 +214,16 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
     }
     let response = request.send().await?;
     let status = response.status();
+    let limited = response
+        .headers()
+        .get("x-ratelimit-remaining")
+        .is_some_and(|remaining| remaining.as_bytes() == b"0");
     let bytes = crate::identity::oidc::read_bounded(response, 2 * 1024 * 1024).await?;
     if !status.is_success() {
         return Err(invalid(match status.as_u16() {
+            403 | 429 if limited => "The issue provider limits your requests now. Try again later, or connect your account for a higher limit.".to_owned(),
             403 => "Your provider account or token does not have access to these issues. Check its issue permissions.".to_owned(),
-            401 => if repo.provider == "github" { "Connect your GitHub account with gh auth login, then try again.".to_owned() }
-                else { "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.".to_owned() },
+            401 => connect_message(repo).to_owned(),
             404 => "The repository or issue is unavailable to your account.".to_owned(),
             409 | 422 => "The issue changed or the requested update could not be applied. Refresh and try again.".to_owned(),
             429 => "The issue provider is busy. Try again shortly.".to_owned(),
@@ -230,6 +234,15 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
         Ok(Value::Null)
     } else {
         Ok(serde_json::from_slice(&bytes)?)
+    }
+}
+
+#[cfg(feature = "host")]
+fn connect_message(repo: &Repository) -> &'static str {
+    if repo.provider == "github" {
+        "Connect your GitHub account with gh auth login, then try again."
+    } else {
+        "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again."
     }
 }
 
@@ -254,6 +267,9 @@ fn issue(repo: &Repository, value: &Value) -> Result<Issue> {
 }
 
 #[cfg(feature = "host")]
+const LISTED_ISSUES: usize = 100;
+
+#[cfg(feature = "host")]
 pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec<Issue>> {
     let path = format!(
         "repos/{}/{}/issues{}",
@@ -265,34 +281,25 @@ pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec
         let value = api(repo, Method::GET, &path, None).await?;
         return Ok(vec![issue(repo, &value)?]);
     }
-    let mut result = Vec::new();
-    for page in 1.. {
-        let size = if repo.provider == "github" {
-            "per_page"
-        } else {
-            "limit"
-        };
-        let value = api(
-            repo,
-            Method::GET,
-            &format!("{path}?state=open&{size}=100&page={page}"),
-            None,
-        )
-        .await?;
-        let items = value
-            .as_array()
-            .ok_or_else(|| invalid("The provider did not return an issue list."))?;
-        for item in items
-            .iter()
-            .filter(|value| value.get("pull_request").is_none_or(Value::is_null))
-        {
-            result.push(issue(repo, item)?);
-        }
-        if items.len() < 100 {
-            break;
-        }
-    }
-    Ok(result)
+    let size = if repo.provider == "github" {
+        "per_page"
+    } else {
+        "limit"
+    };
+    let value = api(
+        repo,
+        Method::GET,
+        &format!("{path}?state=open&{size}={LISTED_ISSUES}"),
+        None,
+    )
+    .await?;
+    value
+        .as_array()
+        .ok_or_else(|| invalid("The provider did not return an issue list."))?
+        .iter()
+        .filter(|value| value.get("pull_request").is_none_or(Value::is_null))
+        .map(|item| issue(repo, item))
+        .collect()
 }
 
 #[cfg(feature = "host")]
@@ -319,6 +326,9 @@ pub(crate) async fn update_issue(
 
 #[cfg(feature = "host")]
 pub(crate) async fn create_issue(repo: &Repository, title: &str, body: &str) -> Result<Issue> {
+    if token(repo).await?.is_none() {
+        return Err(invalid(connect_message(repo)));
+    }
     let path = format!("repos/{}/{}/issues", repo.owner, repo.repository);
     let created = api(
         repo,
@@ -510,10 +520,10 @@ mod tests {
     fn provider_endpoints_and_issue_fields_preserve_repository_and_assignment() {
         let github = repository("https://github.com/team/api", None).unwrap();
         assert_eq!(
-            api_url(&github, "repos/team/api/issues?per_page=100&page=2")
+            api_url(&github, "repos/team/api/issues?state=open&per_page=100")
                 .unwrap()
                 .as_str(),
-            "https://api.github.com/repos/team/api/issues?per_page=100&page=2"
+            "https://api.github.com/repos/team/api/issues?state=open&per_page=100"
         );
         let enterprise = repository("https://git.example/team/api", Some("github")).unwrap();
         assert_eq!(

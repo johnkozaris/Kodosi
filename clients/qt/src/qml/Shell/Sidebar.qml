@@ -830,15 +830,23 @@ Item {
                                     rotation: folder.folded ? -90 : 0
                                     Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                                 }
+                                PersonAvatar {
+                                    visible: !folder.group.folder && !!folder.group.owner
+                                    name: folder.group.owner || ""
+                                    key: folder.group.ownerUserId || ""
+                                    size: 13
+                                }
                                 KIcon {
+                                    visible: folder.group.folder || !folder.group.owner
                                     Layout.preferredWidth: 12
                                     Layout.preferredHeight: 12
-                                    name: folder.group.pinned ? "pin" : folder.group.directory || folder.group.host ? "folder" : "terminal"
+                                    name: folder.group.pinned ? "pin" : folder.group.folder ? "folder" : "terminal"
                                     color: KodosiTheme.inkFaint
                                 }
                                 PlainLabel {
                                     id: folderLabel
                                     Layout.fillWidth: true
+                                    Layout.minimumWidth: Math.min(implicitWidth, 120)
                                     text: folder.group.name || ""
                                     color: folderHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
@@ -860,6 +868,7 @@ Item {
                                 Item {
                                     visible: !!folder.group.host
                                     Layout.rightMargin: 2
+                                    Layout.minimumWidth: 36
                                     Layout.maximumWidth: 124
                                     implicitWidth: chipRow.implicitWidth + chipRow.x + 7
                                     implicitHeight: 18
@@ -868,19 +877,20 @@ Item {
                                     Well { anchors.fill: parent; radius: height / 2 }
                                     RowLayout {
                                         id: chipRow
-                                        x: folder.group.owner ? 3 : 6
+                                        x: chipOwner.visible ? 3 : 6
                                         width: parent.width - x - 7
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: 4
 
                                         PersonAvatar {
-                                            visible: !!folder.group.owner
+                                            id: chipOwner
+                                            visible: folder.group.folder && !!folder.group.owner
                                             name: folder.group.owner || ""
                                             key: folder.group.ownerUserId || ""
                                             size: 13
                                         }
                                         KIcon {
-                                            visible: !folder.group.owner
+                                            visible: !chipOwner.visible
                                             Layout.preferredWidth: 10
                                             Layout.preferredHeight: 10
                                             name: "laptop"
@@ -947,6 +957,7 @@ Item {
 
                                 required property int index
                                 readonly property var session: (folder.group.sessions || [])[index] || ({})
+                                readonly property bool sharedBy: folder.group.pinned === true && session.isOwner === false && !!session.ownerName
                                 readonly property string sessionId: session.id || ""
                                 readonly property bool selected: root.selection === "terminal:" + sessionId
                                 readonly property bool staged: Models.DesktopState.stagedSessionIds.indexOf(sessionId) >= 0
@@ -1094,7 +1105,7 @@ Item {
                                         visible: !row.signed && row.troubled && !actions.visible
                                     }
                                     PersonAvatar {
-                                        visible: !row.signed && !row.troubled && row.session.isOwner === false && !!row.session.ownerName
+                                        visible: !row.signed && !row.troubled && row.sharedBy
                                             && !actions.visible && !row.renaming
                                         name: row.session.ownerName || ""
                                         key: row.session.ownerUserId || ""
@@ -1102,7 +1113,7 @@ Item {
                                         Accessible.name: qsTr("Shared by %1").arg(row.session.ownerName || "")
                                     }
                                     RoomSigil {
-                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
+                                        visible: !row.signed && !row.troubled && !row.sharedBy
                                             && !!row.session.missionId && !actions.visible && !row.renaming
                                         key: row.session.missionId || ""
                                         size: 14
@@ -1110,8 +1121,8 @@ Item {
                                     KIcon {
                                         Layout.preferredWidth: 11
                                         Layout.preferredHeight: 11
-                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
-                                            && !row.session.missionId && (row.session.sharedWith || []).length > 0 && !actions.visible && !row.renaming
+                                        visible: !row.signed && !row.troubled && !row.sharedBy
+                                            && !row.session.missionId && row.session.isOwner !== false && (row.session.sharedWith || []).length > 0 && !actions.visible && !row.renaming
                                         name: "people"
                                         color: KodosiTheme.inkFaint
                                     }

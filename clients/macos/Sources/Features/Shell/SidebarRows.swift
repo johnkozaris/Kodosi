@@ -166,10 +166,14 @@ struct SidebarFolderHeader: View {
                     Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
                         .rotationEffect(.degrees(collapsed ? 0 : 90))
                         .foregroundStyle(theme.colors.inkFaint).frame(width: 10)
-                    Image(systemName: group.directory == nil ? "terminal" : "folder.fill")
-                        .font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
+                    if group.directory == nil, let owner = group.owner {
+                        PersonAvatar(name: owner.name, key: owner.userId, size: 13)
+                    } else {
+                        Image(systemName: group.directory == nil ? "terminal" : "folder.fill")
+                            .font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
+                    }
                     Text(group.name)
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1).layoutPriority(1)
                     if collapsed {
                         Text(group.sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                         if let sign = group.sessions.first(where: \.needsUser)?.sign(unseen: false) {
@@ -178,7 +182,7 @@ struct SidebarFolderHeader: View {
                     }
                     Spacer(minLength: 4)
                     if let computer = group.computer {
-                        ComputerChip(computer: computer, owner: group.owner, away: away)
+                        ComputerChip(computer: computer, owner: group.directory == nil ? nil : group.owner, away: away)
                     }
                 }
                 .padding(.leading, 8).frame(height: 24).contentShape(Rectangle())
@@ -250,12 +254,14 @@ struct SidebarPinnedHeader: View {
 
 private extension SidebarFolderHeader {
     var help: String {
-        let folder = group.directory ?? group.name
-        guard let computer = group.computer else { return folder }
-        if let owner = group.owner {
-            return String(localized: "\(folder) on \(owner.name)’s \(computer)")
+        guard let computer = group.computer else { return group.directory ?? group.name }
+        guard let directory = group.directory else {
+            return group.owner.map { String(localized: "\($0.name)’s \(computer)") } ?? computer
         }
-        return String(localized: "\(folder) on \(computer)")
+        if let owner = group.owner {
+            return String(localized: "\(directory) on \(owner.name)’s \(computer)")
+        }
+        return String(localized: "\(directory) on \(computer)")
     }
 }
 
@@ -281,7 +287,6 @@ struct ComputerChip: View {
         .padding(.leading, owner == nil ? 6 : 3).padding(.trailing, 7).frame(height: 18)
         .wellCapsule()
         .opacity(away ? 0.7 : 1)
-        .fixedSize()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(owner.map { Text("\($0.name)’s \(computer)") } ?? Text(computer))
     }
@@ -293,6 +298,7 @@ struct SidebarTerminalRow: View {
     let session: RuntimeSession
     let selected: Bool
     let pill: Namespace.ID
+    var showsOwner = true
     @State private var hovered = false
     @State private var confirmingClose = false
     @State private var choosingOffline = false
@@ -417,12 +423,12 @@ struct SidebarTerminalRow: View {
                     StatusSign(form: sign).transition(AnyTransition.pop)
                 } else if troubled {
                     Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                } else if !session.isOwner, let owner = session.ownerName {
+                } else if showsOwner, !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 15).help(String(localized: "Shared by \(owner)"))
                 } else if let room = session.missionId {
                     RoomSigil(key: room, size: 14)
                         .help(session.missionName.map { String(localized: "Shared with \($0)") } ?? "")
-                } else if !session.sharedWith.isEmpty {
+                } else if session.isOwner, !session.sharedWith.isEmpty {
                     Image(systemName: "person.2.fill").font(.system(size: 8)).foregroundStyle(theme.colors.inkFaint)
                         .help("Shared")
                 }

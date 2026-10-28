@@ -104,7 +104,8 @@ struct RepositoryPicker: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(choice.name).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                     if let folder = choice.folder {
-                        Text(tilde(folder)).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+                        Text(tilde(folder)).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+                            .lineLimit(1).truncationMode(.middle)
                     }
                 }
                 Spacer(minLength: 6)
@@ -197,6 +198,7 @@ struct IssuePicker: View {
         let issues = (deps.roomIssues[repository.id] ?? []).filter {
             !$0.closed && (words.isEmpty || $0.title.localizedCaseInsensitiveContains(words) || "#\($0.number)".contains(words))
         }
+        let number = Self.number(in: words).flatMap { number in issues.contains { $0.number == number } ? nil : number }
         HStack(spacing: 6) {
             Image(systemName: "shippingbox").font(.system(size: 10, weight: .semibold))
             Text(repository.name).appTextStyle(.caption)
@@ -207,22 +209,48 @@ struct IssuePicker: View {
         .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 8).padding(.top, 8).padding(.bottom, 2)
         if let failure = failures[repository.id] {
             Text(failure).appTextStyle(.caption).foregroundStyle(theme.colors.danger).padding(.horizontal, 8)
-        } else if issues.isEmpty, !loading.contains(repository.id) {
+        } else if issues.isEmpty, number == nil, !loading.contains(repository.id) {
             Text(words.isEmpty ? "No open issues" : "No match").appTextStyle(.caption)
                 .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 8).padding(.bottom, 4)
         }
         ForEach(issues) { issue in row(issue, in: repository) }
+        if let number {
+            numberRow(number, in: repository)
+        }
+    }
+
+    static func number(in text: String) -> UInt64? {
+        let digits = text.hasPrefix("#") ? text.dropFirst() : Substring(text)
+        return digits.allSatisfy { $0.isASCII && $0.isWholeNumber } ? UInt64(digits).flatMap { $0 > 0 ? $0 : nil } : nil
+    }
+
+    private func numberRow(_ number: UInt64, in repository: RoomRepository) -> some View {
+        Button { add(number, from: repository) } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "number").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
+                Text("Add issue #\(String(number))").appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                Spacer(minLength: 6)
+                if adding == key(number, in: repository) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
+                }
+            }
+            .padding(.horizontal, 8).frame(height: 34).contentShape(Rectangle()).hoverRow()
+        }
+        .buttonStyle(.plain).disabled(adding != nil)
+        .accessibilityIdentifier("room.issue.number.\(number)")
     }
 
     private func row(_ issue: RoomIssue, in repository: RoomRepository) -> some View {
         let imported = deps.rooms[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
-        return Button { add(issue, from: repository) } label: {
+        return Button { add(issue.number, from: repository) } label: {
             HStack(spacing: 10) {
                 Image(systemName: "smallcircle.filled.circle").font(.system(size: 13)).foregroundStyle(theme.colors.ready)
                 Text(issue.title).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 6)
                 Text(verbatim: "#\(issue.number)").appTextStyle(.caption).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
-                if adding == issue.url {
+                if adding == key(issue.number, in: repository) {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: imported ? "checkmark" : "plus").font(.system(size: 11, weight: .bold))
@@ -247,12 +275,17 @@ struct IssuePicker: View {
         }
     }
 
-    private func add(_ issue: RoomIssue, from repository: RoomRepository) {
-        adding = issue.url
+    private func key(_ number: UInt64, in repository: RoomRepository) -> String {
+        "\(repository.id)#\(number)"
+    }
+
+    private func add(_ number: UInt64, from repository: RoomRepository) {
+        adding = key(number, in: repository)
         Task { @MainActor in
             defer { adding = nil }
             do {
-                try await deps.roomAction(roomId, RoomAction.importIssue(repositoryId: repository.id, number: issue.number))
+                try await deps.roomAction(roomId, RoomAction.importIssue(repositoryId: repository.id, number: number))
+                query = ""
             } catch { failures[repository.id] = error.localizedDescription }
         }
     }

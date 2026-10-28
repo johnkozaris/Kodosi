@@ -14,15 +14,17 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String = "/remote/project", restoredFrom: String? = nil,
-                    ownerUserId: String? = nil, hostDeviceId: String? = nil) throws -> RuntimeSession
+                    directory: String? = "/remote/project", restoredFrom: String? = nil,
+                    ownerUserId: String? = nil, hostDeviceId: String? = nil, ownerName: String? = nil) throws -> RuntimeSession
 {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-        "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string(directory),
+        "kind": .string(kind), "name": .string("Terminal"),
         "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]
+    fields["workingDir"] = directory.map(JSONValue.string)
+    fields["ownerName"] = ownerName.map(JSONValue.string)
     fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
     fields["ownerUserId"] = ownerUserId.map(JSONValue.string)
     fields["hostDeviceId"] = hostDeviceId.map(JSONValue.string)
@@ -136,6 +138,13 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(workbench.selectedSessionId == first.id)
     workbench.sidebarCollapsed = true
     #expect(workbench.stagedSessionIds == [first.id, second.id])
+}
+
+@Test func `a friend's terminals without a folder are named by the friend`() throws {
+    let shared = try runtimeSession(owner: false, directory: nil, ownerUserId: "ben", hostDeviceId: "bens-mac", ownerName: "Ben Okafor")
+    let group = try #require(SessionFolderGroup.groups([shared]).first)
+    #expect(group.name == "Ben Okafor")
+    #expect(group.owner == SessionFolderGroup.Owner(name: "Ben Okafor", userId: "ben"))
 }
 
 @Test func `each host folder shows its last folder`() throws {

@@ -839,7 +839,10 @@ ColumnLayout {
         id: folderPopover
 
         parent: folderKey
-        onOpened: folderList.reset()
+        onOpened: {
+            folderList.reset()
+            root.askFolders()
+        }
         onClosed: {
             if (root.menuKind === "folder")
                 root.closeMenu()

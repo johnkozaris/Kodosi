@@ -348,7 +348,7 @@ private slots:
             labels.append(QStringList { fields.value(QStringLiteral("name")).toString(), fields.value(QStringLiteral("owner")).toString(),
                 fields.value(QStringLiteral("host")).toString() }.join(QLatin1Char('|')));
         }
-        QCOMPARE(labels, (QStringList { QStringLiteral("project||"), QStringLiteral("Terminals|Ana|Studio"), QStringLiteral("project|Ana|Studio") }));
+        QCOMPARE(labels, (QStringList { QStringLiteral("project||"), QStringLiteral("Ana|Ana|Studio"), QStringLiteral("project|Ana|Studio") }));
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
         QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));

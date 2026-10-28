@@ -41,13 +41,14 @@ QVariantList SessionCatalogModel::folderGroups() const
         auto& group = groups[key];
         const bool away = presentation(session).away && !local;
         const auto folder = session.workingDirectory.isEmpty() ? QString {} : folderName(session.workingDirectory);
-        const auto name = folder.isEmpty() ? tr("Terminals") : folder;
         const auto host = local ? QString {} : session.hostName;
         const bool friends = !local && !session.isOwner;
+        const auto name = !folder.isEmpty() ? folder : friends && !session.ownerName.isEmpty() ? session.ownerName : tr("Terminals");
         group.insert(QStringLiteral("offline"), away && group.value(QStringLiteral("offline"), true).toBool());
         group.insert(QStringLiteral("key"), key);
         group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : QString {});
         group.insert(QStringLiteral("name"), name);
+        group.insert(QStringLiteral("folder"), !folder.isEmpty());
         group.insert(QStringLiteral("host"), host);
         group.insert(QStringLiteral("owner"), friends ? session.ownerName : QString {});
         group.insert(QStringLiteral("ownerUserId"), friends ? session.ownerUserId : QString {});

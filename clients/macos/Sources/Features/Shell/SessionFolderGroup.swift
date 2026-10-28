@@ -14,8 +14,10 @@ struct SessionFolderGroup: Identifiable {
     let sessions: [RuntimeSession]
 
     var name: String {
-        guard let directory else { return String(localized: "Terminals") }
-        return HostPath.folderName(directory)
+        if let directory {
+            return HostPath.folderName(directory)
+        }
+        return owner?.name ?? String(localized: "Terminals")
     }
 
     private static func key(of session: RuntimeSession) -> String {

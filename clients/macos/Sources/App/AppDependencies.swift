@@ -402,7 +402,9 @@ final class AppDependencies {
         let requestId = UUIDv7.generate()
         missionRequestId = requestId
         workbench.selectedMissionId = id
-        missionDetail = nil
+        if missionDetail?.mission.id != id {
+            missionDetail = nil
+        }
         missionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {

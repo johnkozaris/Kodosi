@@ -11,6 +11,10 @@ ColumnLayout {
     readonly property var repositories: Models.Missions.room.repositories || []
     readonly property var tasks: Models.Missions.room.tasks || []
     readonly property string words: search.text.trim().toLowerCase()
+    readonly property int number: {
+        const match = /^#?(\d{1,9})$/.exec(words)
+        return match ? Number(match[1]) : 0
+    }
     readonly property var rows: {
         const result = []
         for (const repository of repositories) {
@@ -19,6 +23,8 @@ ColumnLayout {
                 .filter(issue => !issue.closed && (words.length === 0 || issue.title.toLowerCase().indexOf(words) >= 0 || ("#" + issue.number).indexOf(words) >= 0))
             for (const issue of issues)
                 result.push(Object.assign({ repositoryId: repository.id }, issue))
+            if (number > 0 && !issues.some(issue => issue.number === number))
+                result.push({ repositoryId: repository.id, number: number, title: qsTr("Add issue #%1").arg(number), byNumber: true })
         }
         return result
     }
@@ -98,7 +104,7 @@ ColumnLayout {
                     Layout.preferredWidth: row.modelData.header ? 11 : 13
                     Layout.preferredHeight: row.modelData.header ? 11 : 13
                     name: row.modelData.header ? "repository" : "issue"
-                    color: row.modelData.header ? KodosiTheme.inkFaint : KodosiTheme.ready
+                    color: row.modelData.header ? KodosiTheme.inkFaint : row.modelData.byNumber ? KodosiTheme.inkMuted : KodosiTheme.ready
                 }
                 PlainLabel {
                     Layout.fillWidth: true
@@ -108,7 +114,7 @@ ColumnLayout {
                     elide: Text.ElideRight
                 }
                 PlainLabel {
-                    visible: !row.modelData.header
+                    visible: !row.modelData.header && !row.modelData.byNumber
                     text: "#" + (row.modelData.number || "")
                     color: KodosiTheme.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
@@ -126,7 +132,11 @@ ColumnLayout {
                 radius: KodosiTheme.radiusMd
                 color: KodosiTheme.alpha(KodosiTheme.ink, row.hovered && row.enabled ? 0.06 : 0)
             }
-            onClicked: Models.Missions.roomAction({ type: "importIssue", repositoryId: modelData.repositoryId, number: modelData.number })
+            onClicked: {
+                Models.Missions.roomAction({ type: "importIssue", repositoryId: modelData.repositoryId, number: modelData.number })
+                if (modelData.byNumber)
+                    search.clear()
+            }
         }
     }
 }

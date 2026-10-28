@@ -16,9 +16,10 @@ Linux and Windows app follows this app.
   Provider Usage in the account menu shows each limit of each signed-in account, and a
   click on an account opens the launcher with it.
 - The sidebar groups terminals by folder. A folder on another computer ends with that
-  computer's name, and a friend's folder with the friend's face. Pinned terminals stay at
-  the top. A repository folder offers a terminal on a new branch. Go to (⌘K) finds
-  terminals, rooms, people and actions. A terminal is renamed in place.
+  computer's name, and a friend's folder with the friend's face. A friend's terminal that
+  you have not opened has no folder yet and stays under the friend's name. Pinned
+  terminals stay at the top. A repository folder offers a terminal on a new branch. Go
+  to (⌘K) finds terminals, rooms, people and actions. A terminal is renamed in place.
 - Drag a terminal by its header onto another terminal to take its place in the grid, or
   drag it from the sidebar onto a terminal to open it there.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs
@@ -38,7 +39,8 @@ and how many messages are new.
 
 Linking a repository lists the checkouts of your terminals and your GitHub repositories,
 or takes a pasted address; Connect GitHub opens a terminal for `gh auth login`. The Tasks
-tab adds the open issues of the room's repositories, and a new task can open an issue.
+tab adds the newest open issues of the room's repositories, or any issue by its number,
+and a new task can open an issue.
 
 ## Friends
 

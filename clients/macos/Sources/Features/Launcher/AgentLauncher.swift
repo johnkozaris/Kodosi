@@ -239,6 +239,7 @@ struct AgentLauncher: View {
                     ),
                     identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu,
                 )
+                .task { _ = try? await launcher.folders() }
             }
         }
     }
