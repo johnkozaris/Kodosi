@@ -144,7 +144,6 @@ final class TerminalSurfaceCoordinator {
             return
         }
 
-        bridge.rawSurface = rawSurface
         let newSurface = TerminalSurface(rawSurface)
         surface = newSurface
         synchronizeDisplayID(on: newSurface)
@@ -153,6 +152,7 @@ final class TerminalSurfaceCoordinator {
         TerminalDebugLog.log(.lifecycle, "surface rebuild succeeded")
         synchronizeMetrics()
         attachInMemorySession(to: rawSurface)
+        reportViewport()
         (delegate as? any TerminalSurfaceLifecycleDelegate)?
             .terminalDidAttachSurface(newSurface)
         requestImmediateTick()
@@ -244,10 +244,21 @@ final class TerminalSurfaceCoordinator {
 
         lastMetrics = metrics
         TerminalDebugLog.log(.metrics, "sync updated \(metrics.debugSummary)")
-        configuration?.session.updateViewport(surfaceSize)
+        reportViewport()
+        onMetricsUpdate?()
+    }
+
+    private func reportViewport() {
+        guard let surfaceSize = lastMetrics?.surfaceSize,
+              let session = configuration?.session
+        else { return }
+        guard session.shows(surface?.rawValue) else {
+            TerminalDebugLog.log(.metrics, "size kept: this view does not show the terminal")
+            return
+        }
+        session.updateViewport(surfaceSize)
         (delegate as? any TerminalSurfaceGridResizeDelegate)?
             .terminalDidResize(surfaceSize)
-        onMetricsUpdate?()
     }
 
     func fitToSize() {

@@ -60,7 +60,7 @@ struct InMemoryTerminalSessionViewportTests {
     }
 }
 
-private final class ViewportCollector: @unchecked Sendable {
+final class ViewportCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [InMemoryTerminalViewport] = []
 
