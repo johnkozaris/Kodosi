@@ -385,6 +385,20 @@ void TerminalView::setAsksBeforeClipboardRead(const bool asks)
     emit asksBeforeClipboardReadChanged();
 }
 
+QString TerminalView::otherComputer() const
+{
+    return m_otherComputer;
+}
+
+void TerminalView::setOtherComputer(const QString& computer)
+{
+    if (m_otherComputer == computer) {
+        return;
+    }
+    m_otherComputer = computer;
+    emit otherComputerChanged();
+}
+
 void TerminalView::setFontFamily(const QString& family)
 {
     Q_ASSERT(thread() == QThread::currentThread());

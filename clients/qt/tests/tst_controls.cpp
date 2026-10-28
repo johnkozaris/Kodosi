@@ -26,6 +26,7 @@ private slots:
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
     void terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal();
     void clipboardReadAnswersOnceTheTerminalTakesInputAgain();
+    void terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink();
     void leavingTerminalsLeavesNoDeferredWork();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
@@ -233,6 +234,84 @@ void ControlsTest::clipboardReadAnswersOnceTheTerminalTakesInputAgain()
     QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
     QTRY_COMPARE(answers().size(), 2);
     QCOMPARE(answers().at(1).toList(), (QVariantList {false, true}));
+}
+
+void ControlsTest::terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink()
+{
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import QtQuick.Controls
+        import Kodosi 1.0
+        ApplicationWindow {
+            id: window
+            property var buttons: []
+            property var copies: []
+            width: 640; height: 480; visible: true
+            function readButtons() {
+                window.buttons = [Dialog.Ok, Dialog.Cancel, Dialog.Apply]
+                    .map(button => links.standardButton(button))
+                    .filter(button => button)
+                    .map(button => button.text);
+            }
+            function copyLink() { links.standardButton(Dialog.Apply).clicked(); }
+            TerminalLinkDialog {
+                id: links
+                objectName: "test.links"
+                onCopyRequested: target => window.copies = window.copies.concat([target])
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.links"));
+    QVERIFY(dialog);
+    const auto buttons = [&] {
+        QMetaObject::invokeMethod(root.get(), "readButtons");
+        return root->property("buttons").toStringList();
+    };
+
+    QVERIFY(QMetaObject::invokeMethod(
+        dialog,
+        "refuse",
+        Q_ARG(QVariant, QStringLiteral("/home/ana/build")),
+        Q_ARG(QVariant, QStringLiteral("Opening it could run a program."))));
+    QTRY_VERIFY(dialog->property("opened").toBool());
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Kodosi does not open this link"));
+    QCOMPARE(buttons(), (QStringList {QStringLiteral("OK"), QStringLiteral("Copy Link")}));
+    QVERIFY(QMetaObject::invokeMethod(root.get(), "copyLink"));
+    QCOMPARE(root->property("copies").toStringList(), QStringList {QStringLiteral("/home/ana/build")});
+    QTRY_VERIFY(!desktop.modalOpen());
+
+    const QUrl meeting(QStringLiteral("zoommtg://join?confno=1"));
+    QVERIFY(QMetaObject::invokeMethod(
+        dialog,
+        "ask",
+        Q_ARG(QVariant, meeting),
+        Q_ARG(QVariant, meeting.toString())));
+    QTRY_VERIFY(dialog->property("opened").toBool());
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Open this link in another app?"));
+    QCOMPARE(buttons(), (QStringList {QStringLiteral("Open"), QStringLiteral("Cancel")}));
+    QVERIFY(QMetaObject::invokeMethod(
+        dialog,
+        "refuse",
+        Q_ARG(QVariant, QStringLiteral("/home/ana/build")),
+        Q_ARG(QVariant, QStringLiteral("Opening it could run a program."))));
+    QCOMPARE(dialog->property("link").toUrl(), meeting);
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Open this link in another app?"));
+    QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+    QTRY_VERIFY(!desktop.modalOpen());
+    QCOMPARE(root->property("copies").toStringList().size(), 1);
 }
 
 void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal()

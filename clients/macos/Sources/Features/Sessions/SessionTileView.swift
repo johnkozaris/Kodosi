@@ -143,6 +143,7 @@ struct SessionTileView: View {
                     isFocused: isSelected && state == .rendered,
                     allowsInput: session.canControl && state == .rendered,
                     asksBeforeClipboardRead: !session.isOwner,
+                    otherComputer: session.otherComputer,
                     isSurfaceVisible: state == .rendered,
                 ) {
                     select()

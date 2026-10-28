@@ -23,6 +23,8 @@ final class TerminalCallbackBridge {
     var onAppWakeup: (() -> Void)?
     var canProcessAppWakeup: (() -> Bool)?
     var surfaceConfig: ghostty_config_t?
+    /// The link under the pointer, as Ghostty last named it on the main thread.
+    var hoverLink: String?
     var managedConfigURL: URL?
 
     init(delegate: (any TerminalSurfaceViewDelegate)? = nil) {

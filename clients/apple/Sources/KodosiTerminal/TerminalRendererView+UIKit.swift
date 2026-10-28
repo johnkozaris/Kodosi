@@ -12,6 +12,7 @@
         private let allowsFocus: Bool
         private let allowsInput: Bool
         private let asksBeforeClipboardRead: Bool
+        private let otherComputer: String?
         private let isSurfaceVisible: Bool
         private let onFocusChange: (Bool) -> Void
 
@@ -23,6 +24,7 @@
             allowsFocus: Bool,
             allowsInput: Bool,
             asksBeforeClipboardRead: Bool = true,
+            otherComputer: String? = nil,
             isSurfaceVisible: Bool,
             onFocusChange: @escaping (Bool) -> Void,
         ) {
@@ -33,6 +35,7 @@
             self.allowsFocus = allowsFocus
             self.allowsInput = allowsInput
             self.asksBeforeClipboardRead = asksBeforeClipboardRead
+            self.otherComputer = otherComputer
             self.isSurfaceVisible = isSurfaceVisible
             self.onFocusChange = onFocusChange
         }
@@ -46,6 +49,7 @@
                 allowsFocus: allowsFocus,
                 allowsInput: allowsInput,
                 asksBeforeClipboardRead: asksBeforeClipboardRead,
+                otherComputer: otherComputer,
                 isSurfaceVisible: isSurfaceVisible,
                 onFocusChange: onFocusChange,
             )
@@ -59,6 +63,7 @@
         var allowsInput = true
         var requestedFocus = false
         private var clipboardPromptOpen = false
+        var linkAlertOpen = false
 
         func askToShareClipboard(
             sessionName: String,
@@ -103,6 +108,7 @@
         let allowsFocus: Bool
         let allowsInput: Bool
         let asksBeforeClipboardRead: Bool
+        let otherComputer: String?
         let isSurfaceVisible: Bool
         let onFocusChange: (Bool) -> Void
 
@@ -128,6 +134,7 @@
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
             view.delegateProxy.clipboardReadRequested = nil
+            view.delegateProxy.linkReviewRequested = nil
             if view.isFirstResponder {
                 view.resignFirstResponder()
             }
@@ -144,8 +151,12 @@
             view.delegateProxy.target = session.viewState
             view.delegateProxy.viewportDidResize = nil
             view.delegateProxy.asksBeforeClipboardRead = asksBeforeClipboardRead
+            view.delegateProxy.otherComputer = otherComputer
             view.delegateProxy.clipboardReadRequested = { [weak view] answer in
                 view?.askToShareClipboard(sessionName: sessionName, answer)
+            }
+            view.delegateProxy.linkReviewRequested = { [weak view] link in
+                view?.review(link)
             }
             if view.delegate !== view.delegateProxy {
                 view.delegate = view.delegateProxy

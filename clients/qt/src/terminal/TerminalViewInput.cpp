@@ -533,8 +533,8 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         QQuickItem::mousePressEvent(event);
         return;
     }
-    if (const auto modifiers = linkModifiers(event->modifiers())) {
-        if (auto link = linkAtCell(*cell, true, *modifiers == Qt::ControlModifier)) {
+    if (opensLinks(event->modifiers())) {
+        if (auto link = linkAtCell(*cell, true)) {
             m_pressedLink = std::move(*link);
             m_selecting = false;
             event->accept();
@@ -599,10 +599,9 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         const auto cell = terminalCellAt(
             event->position(),
             CellHitTest::Strict);
-        const auto released = cell ? linkAtCell(*cell, true, true) : std::nullopt;
-        if (released && *released == *pressed
-            && !QDesktopServices::openUrl(*released)) {
-            emit operationError(QStringLiteral("The terminal link could not be opened."));
+        const auto released = cell ? linkAtCell(*cell, true) : std::nullopt;
+        if (released && *released == *pressed) {
+            activateLink(*released);
         }
         event->accept();
         return;
@@ -953,10 +952,7 @@ std::optional<QPoint> TerminalView::terminalCellAt(
     return QPoint(column, row);
 }
 
-std::optional<QUrl> TerminalView::linkAtCell(
-    const QPoint& cell,
-    const bool reportFailure,
-    const bool text)
+std::optional<QString> TerminalView::linkAtCell(const QPoint& cell, const bool reportFailure)
 {
     if (m_registry == nullptr || !m_terminalReady || !m_frame) {
         return std::nullopt;
@@ -973,34 +969,54 @@ std::optional<QUrl> TerminalView::linkAtCell(
             return std::nullopt;
         }
         if (!value->isEmpty()) {
-            return validatedTerminalLink(*value);
+            return *value;
         }
     }
-    return text ? terminalTextLinkAt(*m_frame, column, row) : std::nullopt;
+    return terminalTextLinkAt(*m_frame, column, row);
 }
 
-std::optional<Qt::KeyboardModifiers> TerminalView::linkModifiers(Qt::KeyboardModifiers modifiers) const
+// As in Ghostty, Ctrl opens a link, and while a program tracks the mouse, Ctrl+Shift.
+bool TerminalView::opensLinks(Qt::KeyboardModifiers modifiers) const
 {
     if (!m_canSendInput) {
-        return std::nullopt;
+        return false;
     }
     if (m_frame && m_frame->mouseTracking) {
         if (!modifiers.testFlag(Qt::ShiftModifier)) {
-            return std::nullopt;
+            return false;
         }
         modifiers.setFlag(Qt::ShiftModifier, false);
     }
-    if (modifiers != Qt::NoModifier && modifiers != Qt::ControlModifier) {
-        return std::nullopt;
+    return modifiers == Qt::ControlModifier;
+}
+
+void TerminalView::activateLink(const QString& link)
+{
+    const auto decision = decideTerminalLink(link, m_otherComputer);
+    switch (decision.action) {
+    case TerminalLinkDecision::Action::Open:
+        if (!QDesktopServices::openUrl(decision.url)) {
+            emit operationError(QStringLiteral("The terminal link could not be opened."));
+        }
+        return;
+    case TerminalLinkDecision::Action::Ask:
+        emit linkQuestionRequested(decision.url, decision.shown);
+        return;
+    case TerminalLinkDecision::Action::Refuse:
+        emit linkRefused(decision.shown, decision.reason);
+        return;
     }
-    return modifiers;
+}
+
+void TerminalView::copyText(const QString& text)
+{
+    QGuiApplication::clipboard()->setText(text, QClipboard::Clipboard);
 }
 
 void TerminalView::updateHoverLink(const QPointF& position, const Qt::KeyboardModifiers modifiers)
 {
-    const auto linkable = linkModifiers(modifiers);
-    const auto cell = linkable ? terminalCellAt(position, CellHitTest::Strict) : std::nullopt;
-    if (cell && linkAtCell(*cell, false, *linkable == Qt::ControlModifier)) {
+    const auto cell = opensLinks(modifiers) ? terminalCellAt(position, CellHitTest::Strict) : std::nullopt;
+    if (cell && linkAtCell(*cell, false)) {
         setCursor(Qt::PointingHandCursor);
     } else {
         unsetCursor();

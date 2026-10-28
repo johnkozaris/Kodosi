@@ -299,6 +299,7 @@ Item {
                 Accessible.id: objectName
                 anchors.fill: parent
                 asksBeforeClipboardRead: root.session.isOwner !== true
+                otherComputer: root.session.kind === "local" ? "" : (root.session.hostLabel || "")
                 cursorBlink: Models.DesktopSettings.cursorBlink
                 cursorStyle: Models.DesktopSettings.cursorStyle
                 fontFamily: Models.DesktopSettings.fontFamily
@@ -320,6 +321,8 @@ Item {
                     context.popup(point.x, point.y);
                 }
                 onClipboardReadRequested: clipboardRead.open()
+                onLinkQuestionRequested: (link, target) => linkReview.ask(link, target)
+                onLinkRefused: (target, reason) => linkReview.refuse(target, reason)
                 onOperationError: message => root.terminalOperationError = message
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
@@ -535,6 +538,12 @@ Item {
         sessionName: root.sessionName
 
         onAnswered: allowed => terminal.answerClipboardRead(allowed)
+    }
+    TerminalLinkDialog {
+        id: linkReview
+        objectName: root.objectName + ".linkReview"
+
+        onCopyRequested: target => terminal.copyText(target)
     }
     CloseTerminalDialog {
         id: closeConfirmation

@@ -77,6 +77,13 @@ conversation follows the person to all their computers.
   still shows its hidden terminals.
 - Programs get what Ghostty gives them, such as Kitty images and clipboard writes. A
   clipboard read asks first only in another person's terminal.
+- Any program can show a link, so a link opens by Ghostty's rules. A web or mail link
+  opens at once. A file or folder opens, but not a file that can run a program. A link to
+  another app asks first. A link with hidden characters or an incomplete address does not
+  open; the app tells why and can copy the link.
+- A link opens on the device where the person selects it. In a terminal of another
+  computer, a file or a local address such as `localhost` is on that computer, so it does
+  not open; the app names that computer.
 
 ## Starting work
 

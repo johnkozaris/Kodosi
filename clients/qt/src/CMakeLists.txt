@@ -347,6 +347,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
+        qml/Workbench/TerminalLinkDialog.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES
