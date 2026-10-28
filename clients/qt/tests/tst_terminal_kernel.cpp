@@ -12,7 +12,10 @@
 #include <QAccessible>
 #include <QByteArray>
 #include <QClipboard>
+#include <QDir>
 #include <QDesktopServices>
+#include <QFile>
+#include <QFileInfo>
 #include <QFocusEvent>
 #include <QFontDatabase>
 #include <QInputMethodEvent>
@@ -25,6 +28,8 @@
 #include <QQuickWindow>
 #include <QRawFont>
 #include <QSignalSpy>
+#include <QSysInfo>
+#include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
@@ -500,7 +505,9 @@ private slots:
     void aHistoryKeyReleasedElsewhereDoesNotHideALaterRelease();
     void terminalViewCancelsSelectionAgainstStaleDisplayedViewport();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
-    void terminalLinkValidationRejectsMalformedValues();
+    void terminalLinksWithHiddenCharactersOrNoAddressDoNotOpen();
+    void terminalLinksOpenByGhosttysRules();
+    void terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLocalAddresses();
     void terminalViewActivatesGhosttyLinks();
     void terminalViewOpensAWebAddressInTheTextWithControlClick();
     void terminalViewShowsTheHandAsSoonAsControlIsPressedOverAWebAddress();
@@ -1900,7 +1907,7 @@ void TerminalKernelTest::aWebAddressInTheTextIsALinkThatEndsBeforePunctuation()
         frame.cells.push_back({.grapheme = character == u' ' ? QString() : QString(character)});
     }
     frame.wrappedRows = {true, false, false};
-    const QUrl expected(QStringLiteral("https://example.com/a_(b)"));
+    const QString expected = QStringLiteral("https://example.com/a_(b)");
     QCOMPARE(kodosi::terminalTextLinkAt(frame, 6, 0), expected);
     QCOMPARE(kodosi::terminalTextLinkAt(frame, 3, 1), expected);
     QVERIFY(!kodosi::terminalTextLinkAt(frame, 13, 1));
@@ -2930,26 +2937,123 @@ void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewpo
     QCOMPARE(errors.count(), 0);
 }
 
-void TerminalKernelTest::terminalLinkValidationRejectsMalformedValues()
+void TerminalKernelTest::terminalLinksWithHiddenCharactersOrNoAddressDoNotOpen()
 {
-    QVERIFY(kodosi::validatedTerminalLink(
-        QStringLiteral("https://example.com/path")));
-    QVERIFY(kodosi::validatedTerminalLink(
-        QStringLiteral("mailto:user@example.com")));
-    QVERIFY(kodosi::validatedTerminalLink(
-        QStringLiteral("file:///home/user/project/main.rs")));
-    QVERIFY(kodosi::validatedTerminalLink(
-        QStringLiteral("vscode://file/home/user/project/main.rs:12")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("project/main.rs")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("https://example.com/\nnext")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("https://example.com/%0a")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("https://example.com/\u202Etxt")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("https://example.com/%E2%80%AEtxt")));
+    const auto refusal = [](const QString& value) {
+        const auto decision = kodosi::decideTerminalLink(value);
+        return decision.action == kodosi::TerminalLinkDecision::Action::Refuse ? decision.reason : QString();
+    };
+    const auto incomplete = QStringLiteral("The link is not a complete address.");
+    const auto hidden = QStringLiteral("The link has hidden characters that can change how it looks.");
+    QCOMPARE(refusal(QString()), incomplete);
+    QCOMPARE(refusal(QStringLiteral("project/main.rs")), incomplete);
+    QCOMPARE(refusal(QStringLiteral("https://exa mple.com/")), incomplete);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/\nnext")), hidden);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/%0a")), hidden);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/\u202Etxt")), hidden);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/%E2%80%AEtxt")), hidden);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/\u200Btxt")), hidden);
+    QCOMPARE(refusal(QStringLiteral("https://example.com/%EF%BB%BFtxt")), hidden);
+    QCOMPARE(
+        kodosi::decideTerminalLink(QStringLiteral("https://example.com/\u202Egnp.exe")).shown,
+        QStringLiteral("https://example.com/\\u{202E}gnp.exe"));
+}
+
+void TerminalKernelTest::terminalLinksOpenByGhosttysRules()
+{
+    using Action = kodosi::TerminalLinkDecision::Action;
+    const auto decide = [](const QString& value) { return kodosi::decideTerminalLink(value); };
+    QCOMPARE(decide(QStringLiteral("https://example.com/path")).action, Action::Open);
+    QCOMPARE(decide(QStringLiteral("mailto:ana@example.com")).action, Action::Open);
+    QCOMPARE(decide(QStringLiteral("https:relative")).action, Action::Refuse);
+    QCOMPARE(decide(QStringLiteral("mailto:")).action, Action::Refuse);
+    const auto editor = decide(QStringLiteral("vscode://file/home/ana/repo/main.rs:12"));
+    QCOMPARE(editor.action, Action::Ask);
+    QCOMPARE(editor.url, QUrl(QStringLiteral("vscode://file/home/ana/repo/main.rs:12")));
+    QCOMPARE(editor.shown, QStringLiteral("vscode://file/home/ana/repo/main.rs:12"));
+
+    QTemporaryDir folder;
+    QVERIFY(folder.isValid());
+    const QDir dir(QFileInfo(folder.path()).canonicalFilePath());
+    QFile notes(dir.filePath(QStringLiteral("notes.txt")));
+    QVERIFY(notes.open(QIODevice::WriteOnly));
+    notes.write("notes");
+    notes.close();
+    QFile launcher(dir.filePath(QStringLiteral("setup.desktop")));
+    QVERIFY(launcher.open(QIODevice::WriteOnly));
+    launcher.write("[Desktop Entry]\nExec=true\n");
+    launcher.close();
+
+    const auto opened = decide(QUrl::fromLocalFile(dir.path()).toString());
+    QCOMPARE(opened.action, Action::Open);
+    QCOMPARE(opened.url, QUrl::fromLocalFile(dir.path()));
+    QCOMPARE(decide(QUrl::fromLocalFile(notes.fileName()).toString()).url, QUrl::fromLocalFile(notes.fileName()));
+    auto onLocalhost = QUrl::fromLocalFile(dir.path());
+    onLocalhost.setHost(QStringLiteral("localhost"));
+    QCOMPARE(decide(onLocalhost.toString()).action, Action::Open);
+    const auto launcherDecision = decide(QUrl::fromLocalFile(launcher.fileName()).toString());
+    QCOMPARE(launcherDecision.action, Action::Refuse);
+    QCOMPARE(launcherDecision.reason, QStringLiteral("Opening it could run a program."));
+#ifndef Q_OS_WIN
+    QFile script(dir.filePath(QStringLiteral("build")));
+    QVERIFY(script.open(QIODevice::WriteOnly));
+    script.write("#!/bin/sh\necho hi\n");
+    script.close();
+    QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+    QVERIFY(QFile::link(script.fileName(), dir.filePath(QStringLiteral("readme.txt"))));
+    QCOMPARE(decide(QUrl::fromLocalFile(script.fileName()).toString()).action, Action::Refuse);
+    const auto disguised = decide(QUrl::fromLocalFile(dir.filePath(QStringLiteral("readme.txt"))).toString());
+    QCOMPARE(disguised.action, Action::Refuse);
+    QCOMPARE(disguised.shown, script.fileName());
+#endif
+
+    const auto missing = decide(QUrl::fromLocalFile(dir.filePath(QStringLiteral("missing.txt"))).toString());
+    QCOMPARE(missing.action, Action::Refuse);
+    QCOMPARE(missing.reason, QStringLiteral("The file or folder is not on this device."));
+    QCOMPARE(decide(QStringLiteral("file://server/share/notes.txt")).action, Action::Refuse);
+    QCOMPARE(decide(QUrl::fromLocalFile(notes.fileName()).toString() + QStringLiteral("?run=1")).action, Action::Refuse);
+}
+
+void TerminalKernelTest::terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLocalAddresses()
+{
+    using Action = kodosi::TerminalLinkDecision::Action;
+    const auto elsewhere = [](const QString& value) {
+        return kodosi::decideTerminalLink(value, QStringLiteral("studio"));
+    };
+    QCOMPARE(elsewhere(QStringLiteral("https://github.com/kodosi/kodosi/pull/1")).action, Action::Open);
+    QCOMPARE(elsewhere(QStringLiteral("vscode://file/home/ana/main.rs")).action, Action::Ask);
+    for (const auto& file : {
+             QStringLiteral("file:///home/ana/notes.txt"),
+             QStringLiteral("src/main.rs"),
+             QStringLiteral("file://studio/etc"),
+         }) {
+        const auto decision = elsewhere(file);
+        QCOMPARE(decision.action, Action::Refuse);
+        QCOMPARE(decision.reason, QStringLiteral("The file is on studio."));
+    }
+    for (const auto& address : {
+             QStringLiteral("http://localhost:5173/"),
+             QStringLiteral("https://127.0.0.1:8443/admin"),
+             QStringLiteral("http://0.0.0.0:3000"),
+             QStringLiteral("http://[::1]:3000/"),
+             QStringLiteral("http://app.localhost/"),
+         }) {
+        const auto decision = elsewhere(address);
+        QCOMPARE(decision.action, Action::Refuse);
+        QCOMPARE(decision.reason, QStringLiteral("The address is on studio."));
+    }
+    QCOMPARE(elsewhere(QStringLiteral("file:///home/ana/notes.txt")).shown, QStringLiteral("/home/ana/notes.txt"));
+    QCOMPARE(elsewhere(QStringLiteral("http://127.0.0.1.example.com/")).action, Action::Open);
+    QCOMPARE(kodosi::decideTerminalLink(QStringLiteral("http://localhost:5173/")).action, Action::Open);
+
+    QCOMPARE(
+        kodosi::decideTerminalLink(QStringLiteral("file://server/share/notes.txt")).reason,
+        QStringLiteral("The file is on server."));
+    QTemporaryDir folder;
+    QVERIFY(folder.isValid());
+    auto here = QUrl::fromLocalFile(QFileInfo(folder.path()).canonicalFilePath());
+    here.setHost(QSysInfo::machineHostName());
+    QCOMPARE(kodosi::decideTerminalLink(here.toString(QUrl::FullyEncoded)).action, Action::Open);
 }
 
 void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
@@ -2986,84 +3090,54 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
     QCoreApplication::processEvents();
 
     UrlCapture capture;
-    QDesktopServices::setUrlHandler(
-        QStringLiteral("https"),
-        &capture,
-        "capture");
-    QDesktopServices::setUrlHandler(
-        QStringLiteral("file"),
-        &capture,
-        "capture");
+    QDesktopServices::setUrlHandler(QStringLiteral("https"), &capture, "capture");
+    QDesktopServices::setUrlHandler(QStringLiteral("file"), &capture, "capture");
+    QSignalSpy refused(&view, &kodosi::TerminalView::linkRefused);
     const auto cell = view.terminalCellSize() * view.viewportScale();
+    const auto hoverShowsTheHand = [&](const QPointF& point, const Qt::KeyboardModifiers modifiers) {
+        QHoverEvent hover(QEvent::HoverMove, point, point, point, modifiers);
+        QCoreApplication::sendEvent(&view, &hover);
+        return view.cursor().shape() == Qt::PointingHandCursor;
+    };
+    const auto click = [&](const QPointF& point, const Qt::KeyboardModifiers modifiers) {
+        QMouseEvent press(QEvent::MouseButtonPress, point, point, Qt::LeftButton, Qt::LeftButton, modifiers);
+        QMouseEvent release(QEvent::MouseButtonRelease, point, point, Qt::LeftButton, Qt::NoButton, modifiers);
+        QCoreApplication::sendEvent(&view, &press);
+        QCoreApplication::sendEvent(&view, &release);
+    };
     const QPointF safePoint(cell.width() * 0.5, cell.height() * 0.5);
-    QHoverEvent hover(
-        QEvent::HoverMove,
-        safePoint,
-        safePoint,
-        safePoint,
-        Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &hover);
-    QCOMPARE(view.cursor().shape(), Qt::PointingHandCursor);
+    QVERIFY(!hoverShowsTheHand(safePoint, Qt::NoModifier));
+    click(safePoint, Qt::NoModifier);
+    QTest::qWait(20);
+    QVERIFY(capture.values.isEmpty());
 
-    QMouseEvent press(
-        QEvent::MouseButtonPress,
-        safePoint,
-        safePoint,
-        Qt::LeftButton,
-        Qt::LeftButton,
-        Qt::NoModifier);
-    QMouseEvent release(
-        QEvent::MouseButtonRelease,
-        safePoint,
-        safePoint,
-        Qt::LeftButton,
-        Qt::NoButton,
-        Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &press);
-    QCoreApplication::sendEvent(&view, &release);
+    QVERIFY(hoverShowsTheHand(safePoint, Qt::ControlModifier));
+    click(safePoint, Qt::ControlModifier);
     QTRY_COMPARE_WITH_TIMEOUT(capture.values.size(), 1, 250);
-    QCOMPARE(
-        capture.values.constFirst(),
-        QUrl(QStringLiteral("https://example.com/safe")));
+    QCOMPARE(capture.values.constFirst(), QUrl(QStringLiteral("https://example.com/safe")));
 
     view.setTerminalInteraction(false, false);
-    QCoreApplication::sendEvent(&view, &hover);
-    QVERIFY(view.cursor().shape() != Qt::PointingHandCursor);
-    QCoreApplication::sendEvent(&view, &press);
-    QCoreApplication::sendEvent(&view, &release);
+    QVERIFY(!hoverShowsTheHand(safePoint, Qt::ControlModifier));
+    click(safePoint, Qt::ControlModifier);
     QTest::qWait(20);
     QCOMPARE(capture.values.size(), 1);
     view.setTerminalInteraction(true, false);
 
     const QPointF filePoint(cell.width() * 6.5, cell.height() * 0.5);
-    QHoverEvent fileHover(
-        QEvent::HoverMove,
-        filePoint,
-        filePoint,
-        safePoint,
-        Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &fileHover);
-    QCOMPARE(view.cursor().shape(), Qt::PointingHandCursor);
-    QMouseEvent filePress(
-        QEvent::MouseButtonPress,
-        filePoint,
-        filePoint,
-        Qt::LeftButton,
-        Qt::LeftButton,
-        Qt::NoModifier);
-    QMouseEvent fileRelease(
-        QEvent::MouseButtonRelease,
-        filePoint,
-        filePoint,
-        Qt::LeftButton,
-        Qt::NoButton,
-        Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &filePress);
-    QCoreApplication::sendEvent(&view, &fileRelease);
-    QTRY_COMPARE_WITH_TIMEOUT(capture.values.size(), 2, 250);
+    QVERIFY(hoverShowsTheHand(filePoint, Qt::ControlModifier));
+    click(filePoint, Qt::ControlModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(refused.size(), 1, 250);
+    QCOMPARE(refused.constFirst().at(0).toString(), QStringLiteral("/home/user/secret"));
     QCOMPARE(
-        capture.values.constLast(),
-        QUrl(QStringLiteral("file:///home/user/secret")));
+        refused.constFirst().at(1).toString(),
+        QStringLiteral("The file or folder is not on this device."));
+
+    view.setOtherComputer(QStringLiteral("studio"));
+    click(filePoint, Qt::ControlModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(refused.size(), 2, 250);
+    QCOMPARE(refused.constLast().at(0).toString(), QStringLiteral("/home/user/secret"));
+    QCOMPARE(refused.constLast().at(1).toString(), QStringLiteral("The file is on studio."));
+    QCOMPARE(capture.values.size(), 1);
     QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
     QDesktopServices::unsetUrlHandler(QStringLiteral("file"));
 }
@@ -3258,14 +3332,14 @@ void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
         point,
         Qt::LeftButton,
         Qt::LeftButton,
-        Qt::NoModifier);
+        Qt::ControlModifier);
     QMouseEvent release(
         QEvent::MouseButtonRelease,
         point,
         point,
         Qt::LeftButton,
         Qt::NoButton,
-        Qt::NoModifier);
+        Qt::ControlModifier);
     QCoreApplication::sendEvent(&view, &press);
     QCoreApplication::sendEvent(&view, &release);
     QCoreApplication::processEvents();
@@ -3320,14 +3394,14 @@ void TerminalKernelTest::terminalViewCancelsLinkReleaseOutsideBounds()
         edge,
         Qt::LeftButton,
         Qt::LeftButton,
-        Qt::NoModifier);
+        Qt::ControlModifier);
     QMouseEvent release(
         QEvent::MouseButtonRelease,
         outside,
         outside,
         Qt::LeftButton,
         Qt::NoButton,
-        Qt::NoModifier);
+        Qt::ControlModifier);
     QCoreApplication::sendEvent(&view, &press);
     QCoreApplication::sendEvent(&view, &release);
     QCoreApplication::processEvents();

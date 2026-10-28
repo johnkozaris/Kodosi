@@ -81,10 +81,18 @@ private enum TerminalCallbacks {
             .fromOpaque(bridgePtr)
             .takeUnretainedValue()
         let snapshot = copyTerminalAction(action)
+        if Thread.isMainThread, case let .mouseOverLink(url) = snapshot {
+            // A tap asks for the link under the finger and reads this answer at once.
+            MainActor.assumeIsolated { bridge.hoverLink = url }
+        }
         Task { @MainActor in
             bridge.handleAction(snapshot)
         }
 
+        // The app decides every link, so Ghostty must not open one itself.
+        if case .openURL = snapshot {
+            return true
+        }
         return false
     }
 

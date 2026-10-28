@@ -64,6 +64,7 @@ class TerminalView : public QQuickItem {
         READ asksBeforeClipboardRead
         WRITE setAsksBeforeClipboardRead
         NOTIFY asksBeforeClipboardReadChanged)
+    Q_PROPERTY(QString otherComputer READ otherComputer WRITE setOtherComputer NOTIFY otherComputerChanged)
 
 public:
     explicit TerminalView(QQuickItem* parent = nullptr);
@@ -88,6 +89,7 @@ public:
     [[nodiscard]] bool readOnly() const noexcept;
     [[nodiscard]] bool hasSelection() const;
     [[nodiscard]] bool asksBeforeClipboardRead() const noexcept;
+    [[nodiscard]] QString otherComputer() const;
     [[nodiscard]] QString accessibleText() const;
     [[nodiscard]] int accessibleCursorPosition() const;
     [[nodiscard]] QPair<int, int> accessibleSelection() const;
@@ -105,6 +107,7 @@ public:
     void setPreeditForeground(const QColor& color);
     void setTerminalInteraction(bool canSendInput, bool canResize);
     void setAsksBeforeClipboardRead(bool asks);
+    void setOtherComputer(const QString& computer);
 
     [[nodiscard]] bool attach(
         TerminalSessionRegistry& registry,
@@ -116,6 +119,7 @@ public:
     Q_INVOKABLE [[nodiscard]] bool copySelectionToClipboard();
     Q_INVOKABLE void pasteFromClipboard();
     Q_INVOKABLE void answerClipboardRead(bool allowed);
+    Q_INVOKABLE void copyText(const QString& text);
 
 signals:
     void fontFamilyChanged();
@@ -130,6 +134,7 @@ signals:
     void preeditForegroundChanged();
     void terminalReadyChanged();
     void asksBeforeClipboardReadChanged();
+    void otherComputerChanged();
     void frameChanged();
     void terminalError(QString message);
     void operationError(QString message);
@@ -137,6 +142,8 @@ signals:
     void connectionCompleted(bool connected, std::int32_t result);
     void terminalClosed();
     void clipboardReadRequested();
+    void linkQuestionRequested(QUrl link, QString target);
+    void linkRefused(QString target, QString reason);
 
 protected:
     bool event(QEvent* event) override;
@@ -223,6 +230,8 @@ private:
     bool m_canSendInput = false;
     bool m_canResize = false;
     bool m_asksBeforeClipboardRead = true;
+    // The computer that runs the terminal, when it is not this one.
+    QString m_otherComputer;
     std::deque<QByteArray> m_inputQueue;
     qsizetype m_queuedInputBytes = 0;
     bool m_inputRetryQueued = false;
@@ -244,7 +253,7 @@ private:
     Qt::MouseButton m_reportedMouseButton = Qt::NoButton;
     bool m_copyShortcutActive = false;
     std::optional<int> m_pasteShortcutKey;
-    std::optional<QUrl> m_pressedLink;
+    std::optional<QString> m_pressedLink;
     std::optional<QPointF> m_hoverPosition;
     int m_wheelAngleRemainder = 0;
     qreal m_wheelPixelRemainder = 0.0;
@@ -280,11 +289,9 @@ private:
     [[nodiscard]] std::optional<QPoint> terminalCellAt(
         const QPointF& position,
         CellHitTest hitTest = CellHitTest::Strict) const;
-    [[nodiscard]] std::optional<QUrl> linkAtCell(
-        const QPoint& cell,
-        bool reportFailure,
-        bool text);
-    [[nodiscard]] std::optional<Qt::KeyboardModifiers> linkModifiers(Qt::KeyboardModifiers modifiers) const;
+    [[nodiscard]] std::optional<QString> linkAtCell(const QPoint& cell, bool reportFailure);
+    [[nodiscard]] bool opensLinks(Qt::KeyboardModifiers modifiers) const;
+    void activateLink(const QString& link);
     void updateHoverLink(const QPointF& position, Qt::KeyboardModifiers modifiers);
     void refreshHoverLink(const QKeyEvent* event);
     void clearHoverLink();
