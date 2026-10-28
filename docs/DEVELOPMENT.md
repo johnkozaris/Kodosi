@@ -5,9 +5,9 @@ they connect.
 
 ## Toolchains
 
-Install `just`, Python 3 and the toolchains of the part you change. Rust is pinned in
-[rust-toolchain.toml](../rust-toolchain.toml) and .NET in
-[backend/global.json](../backend/global.json); put that .NET SDK in
+Install `just`, Python 3 and the toolchains of the part you change.
+[rust-toolchain.toml](../rust-toolchain.toml) pins Rust and
+[backend/global.json](../backend/global.json) pins .NET; put that .NET SDK in
 `backend/.tools/dotnet/`. `just rust-tools-install` puts the Rust check tools in
 `.tools/rust/`. Keep every tool and dependency inside the project. The
 [Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md) and

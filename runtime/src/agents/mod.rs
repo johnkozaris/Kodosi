@@ -366,7 +366,7 @@ async fn add_account(
     let name = name.to_owned();
     tokio::task::spawn_blocking(move || accounts::add(&home, agent, &name, &taken))
         .await
-        .map_err(|error| format!("The account was not made: {error}"))?
+        .map_err(|error| format!("Kodosi could not make the account: {error}"))?
 }
 
 #[cfg(feature = "host")]

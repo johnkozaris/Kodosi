@@ -81,7 +81,7 @@
                 message: String(localized: "A program in \(sessionName) asks for the text that you copied."),
                 preferredStyle: .alert,
             )
-            alert.addAction(UIAlertAction(title: String(localized: "Don’t Allow"), style: .cancel) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: String(localized: "Don't Allow"), style: .cancel) { [weak self] _ in
                 self?.clipboardPromptOpen = false
                 answer(false)
             })

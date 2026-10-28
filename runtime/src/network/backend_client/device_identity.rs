@@ -452,7 +452,7 @@ async fn own_identity(
 }
 
 const UNAPPROVED: &str = "Approve this device from one of your existing devices.";
-const REPLACED: &str = "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here.";
+const REPLACED: &str = "You reset your trusted devices on another device. Approve this device from that device, or start fresh here.";
 const UNREADABLE: &str = "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again.";
 
 pub(super) const DEVICE_LIST_LIFE_MS: u64 = 24 * 60 * 60_000;

@@ -133,7 +133,7 @@ QString DeepLinkRouter::userMessage(const DeepLinkParseError error)
     case DeepLinkParseError::None:
         return QStringLiteral("This Kodosi link is invalid or unsupported.");
     }
-    return QStringLiteral("This Kodosi link could not be opened.");
+    return QStringLiteral("Kodosi could not open this link.");
 }
 
 std::optional<QString> DeepLinkRouter::decodeComponent(

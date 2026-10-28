@@ -33,7 +33,7 @@ struct LicensesView: View {
                             .accessibilityIdentifier("settings.licenses.\(file.url.lastPathComponent)")
                         }
                     } footer: {
-                        Text("Kodosi is built with these open-source projects.")
+                        Text("Kodosi uses these open-source projects.")
                             .appTextStyle(.footnote)
                             .foregroundStyle(theme.colors.inkFaint)
                     }

@@ -143,7 +143,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
     {
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it individually.");
+        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it with friends.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid($"Choose up to {Limits.MaxSessionMembers} friends, excluding yourself.");
         var selected = body.UserIds.ToHashSet();

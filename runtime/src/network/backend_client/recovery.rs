@@ -132,9 +132,7 @@ impl BackendClient {
         }
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
-            return Err(invalid(
-                "This device could not be approved with the recovery key.",
-            ));
+            return Err(invalid("The recovery key could not approve this device."));
         }
         let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);

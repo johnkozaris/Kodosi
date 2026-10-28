@@ -81,7 +81,7 @@ QStringList MissionsModel::sessionIds() const
 void MissionsModel::create(const QString& name)
 {
     if (!Workspace::validName(name)) {
-        m_workspace.setError(tr("Use a name of 1–128 UTF-8 bytes."));
+        m_workspace.setError(tr("Use a name of 1 to 128 UTF-8 bytes."));
         return;
     }
     m_workspace.sendTracked(Workspace::PendingDomain::Mission, QStringLiteral("mission.create"),
@@ -127,7 +127,7 @@ void MissionsModel::command(QString type, QJsonObject values)
 void MissionsModel::rename(const QString& name)
 {
     if (!Workspace::validName(name)) {
-        m_workspace.setError(tr("Use a name of 1–128 UTF-8 bytes."));
+        m_workspace.setError(tr("Use a name of 1 to 128 UTF-8 bytes."));
         return;
     }
     command(QStringLiteral("mission.rename"), { { QStringLiteral("name"), name.trimmed() } });

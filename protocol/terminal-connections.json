@@ -208,7 +208,7 @@
     "confirmation": "inputAck when the terminal accepted the bytes; the viewer sends more input only while less than 65536 bytes wait for confirmation, one input frame carries at most 1048576 bytes, and the host ends a channel that sends input while more than 262144 bytes wait",
     "replayAfterReconnect": false,
     "late": "the host refuses input that carries a heartbeat number more than 2 behind its own",
-    "unconfirmed": "when a channel is lost while input waits for confirmation, the view says that some of the input was not sent"
+    "unconfirmed": "when a channel is lost while input waits for confirmation, the view says that Kodosi did not send some of the input"
   },
   "controls": {
     "actions": [

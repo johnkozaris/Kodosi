@@ -310,7 +310,7 @@ const SCENES: Record<string, Scene> = {
     page: "login.ftl",
     with: {
       ...open,
-      message: { type: "success", summary: "If the account exists, a link is on its way to you." },
+      message: { type: "success", summary: "If the account exists, we sent you a link." },
     },
   },
   "new-password": {

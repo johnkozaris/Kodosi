@@ -22,7 +22,7 @@ internal static class Limits
         if (string.IsNullOrWhiteSpace(value) || System.Text.Encoding.UTF8.GetByteCount(value) > max
             || value.Any(char.IsControl))
         {
-            throw ApiException.Invalid($"{field} must contain 1–{max} UTF-8 bytes without control characters.");
+            throw ApiException.Invalid($"{field} must contain 1 to {max} UTF-8 bytes without control characters.");
         }
         return value;
     }

@@ -1096,7 +1096,7 @@ impl Engine {
         let before = self.queue.len();
         self.queue.retain(|queued| queued.id != id);
         if self.queue.len() == before {
-            return Err(Error::Invalid("That message was already sent.".to_owned()));
+            return Err(Error::Invalid("You sent that message already.".to_owned()));
         }
         out.snapshot = true;
         Ok(())

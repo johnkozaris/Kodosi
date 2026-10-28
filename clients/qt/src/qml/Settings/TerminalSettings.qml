@@ -243,7 +243,7 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
-        footer: qsTr("A terminal on a new branch gets its own folder. A folder with no changes goes away when its terminal ends.")
+        footer: qsTr("A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.")
 
         ListRow {
             iconName: "branch"

@@ -104,7 +104,7 @@ bool DesktopStateModel::stageSession(const QString& id, bool revealStage)
         return false;
     if (!m_staged.contains(id)) {
         if (m_staged.size() >= 6) {
-            m_error = tr("Six terminals are already on Stage. Close a view before opening another.");
+            m_error = tr("Six terminals are open. Minimize one to open another.");
             emit lastErrorChanged();
             return false;
         }
@@ -428,7 +428,7 @@ void DesktopStateModel::saveWindow()
         m_settings->setValue(QStringLiteral("window/geometry"), m_window->geometry());
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
-        m_error = tr("Window preferences could not be saved.");
+        m_error = tr("Kodosi could not save the window preferences.");
         emit lastErrorChanged();
     }
 }

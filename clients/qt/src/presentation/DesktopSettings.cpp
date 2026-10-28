@@ -157,7 +157,7 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("app/closeHintShown"), m_closeHintShown);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
-        m_error = tr("Terminal settings could not be saved.");
+        m_error = tr("Kodosi could not save the terminal settings.");
         emit settingsErrorChanged();
         return false;
     }

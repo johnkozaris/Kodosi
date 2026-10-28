@@ -271,7 +271,7 @@ struct SidebarComputerHeader: View {
 
     private var help: String {
         guard let computer = group.computer else { return group.title }
-        let place = group.owner.map { String(localized: "\($0.name)’s \(computer)") } ?? computer
+        let place = group.owner.map { String(localized: "\($0.name)'s \(computer)") } ?? computer
         return group.away ? String(localized: "\(place) is offline") : place
     }
 }

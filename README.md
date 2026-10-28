@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/banner.webp" width="800" alt="Kodosi — terminals, agents and friends. Together.">
+  <img src="docs/media/banner.webp" width="800" alt="The Kodosi logo above the words 'terminals, agents and friends. together.' and a terminal cursor.">
 </p>
 
 <p align="center">
@@ -57,9 +57,9 @@ two agents never change the same files.
 **On your iPhone and iPad.** Follow, answer and control your terminals and rooms when you
 are away from your computer.
 
-**End-to-end encrypted, post-quantum.** Your keys stay on your devices. Terminals and rooms
-are encrypted end to end with ML-KEM-768 together with X25519, and the service cannot read
-them. [Security](docs/SECURITY.md)
+**End-to-end encrypted, post-quantum.** Your keys stay on your devices. Your devices encrypt
+terminals and rooms end to end with ML-KEM-768 together with X25519, so the service cannot
+read them. [Security](docs/SECURITY.md)
 
 ## Get Kodosi
 
@@ -96,7 +96,8 @@ vulnerabilities [in private](docs/SECURITY.md#report-a-vulnerability).
 
 ## License
 
-Kodosi is under the [Apache License 2.0](LICENSE). The name and logo are not: see
-[Trademarks](TRADEMARKS.md). Built with [Ghostty](https://ghostty.org), Rust, Swift, Qt
-and ASP.NET Core; see the [third-party notices](terminal/ghostty/THIRD_PARTY_NOTICES.md)
-and [picture credits](docs/media/README.md).
+Kodosi is under the [Apache License 2.0](LICENSE). The Kodosi name and logo are not under
+that license; [Trademarks](TRADEMARKS.md) says how you can use them. Kodosi uses
+[Ghostty](https://ghostty.org), Rust, Swift, Qt and ASP.NET Core. The
+[third-party notices](terminal/ghostty/THIRD_PARTY_NOTICES.md) and the
+[picture credits](docs/media/README.md) list what it includes.

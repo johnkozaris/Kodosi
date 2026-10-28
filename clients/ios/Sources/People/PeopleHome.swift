@@ -210,7 +210,7 @@ private struct FriendListItem: View {
             Button("Remove", role: .destructive) { people.remove(friend) }
                 .accessibilityIdentifier("people.confirmRemove")
         } message: {
-            Text("They lose the terminals you shared. Commands they already ran stay done.")
+            Text("They lose the terminals you shared. Kodosi does not undo the commands that they already ran.")
         }
     }
 }

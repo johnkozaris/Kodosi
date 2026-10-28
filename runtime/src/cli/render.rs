@@ -135,7 +135,7 @@ fn account(context: &Context) -> String {
 
 fn restoring(event: &Value) -> String {
     match event["reason"].as_str() {
-        Some("offline") => "Signing in again when Kodosi reaches the server.".to_owned(),
+        Some("offline") => "Kodosi signs in again when it reaches the server.".to_owned(),
         Some("updateRequired") => {
             "Signing in again needs a newer Kodosi. Update Kodosi.".to_owned()
         }
@@ -149,7 +149,7 @@ fn restoring(event: &Value) -> String {
             ),
             None => "Kodosi cannot read your saved sign-in.".to_owned(),
         },
-        _ => "Signing in again when the Kodosi server answers.".to_owned(),
+        _ => "Kodosi signs in again when the Kodosi server answers.".to_owned(),
     }
 }
 
@@ -609,7 +609,7 @@ mod tests {
         ]);
         assert_eq!(
             account(&context),
-            "Signing in again when Kodosi reaches the server."
+            "Kodosi signs in again when it reaches the server."
         );
     }
 

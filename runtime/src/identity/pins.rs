@@ -233,9 +233,7 @@ impl Pins {
         });
         match anchor {
             Anchor::Pinned if existing.is_none() => {
-                return Err(Error::Trust(
-                    "This person has not been explicitly trusted.".into(),
-                ));
+                return Err(Error::Trust("You have not trusted this person yet.".into()));
             }
             Anchor::Root(approved) if *approved != root => {
                 return Err(Error::Trust(

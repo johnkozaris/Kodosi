@@ -975,7 +975,7 @@ impl Runtime {
         match job.completion {
             Completion::Input { result } => {
                 if current && let Err(error) = result {
-                    self.emit(json!({"type":"system.error", "message":format!("Terminal input was not confirmed and was not retried: {error}")}));
+                    self.emit(json!({"type":"system.error", "message":format!("The terminal did not confirm the input, and Kodosi did not send it again: {error}")}));
                 }
             }
             Completion::Initialized(result) => {

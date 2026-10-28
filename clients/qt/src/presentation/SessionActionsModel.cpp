@@ -223,7 +223,7 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     if (title.isEmpty())
         title = generatedName();
     if (!Workspace::validName(title)) {
-        m_workspace.setError(tr("Use a name of 1–128 UTF-8 bytes."));
+        m_workspace.setError(tr("Use a name of 1 to 128 UTF-8 bytes."));
         return false;
     }
     QJsonObject values { { QStringLiteral("name"), title } };
@@ -257,7 +257,7 @@ bool SessionActionsModel::command(
     if (!m_sessions.hasAuthoritativeSnapshot() || !session
         || session->connectionState == QStringLiteral("blocked")
         || (ownerOnly && !session->isOwner)) {
-        m_workspace.setError(tr("This operation is not available for the selected terminal."));
+        m_workspace.setError(tr("You cannot do this in the selected terminal."));
         return false;
     }
     values.insert(QStringLiteral("sessionId"), id);
@@ -303,7 +303,7 @@ bool SessionActionsModel::share(
         return false;
     }
     if (!m_workspace.account().signedIn()) {
-        m_workspace.setError(tr("Sign in before sharing a terminal."));
+        m_workspace.setError(tr("Sign in before you share a terminal."));
         return false;
     }
     return command(QStringLiteral("session.share"), id,
@@ -332,7 +332,7 @@ void SessionActionsModel::route(const DeepLinkDestination& destination)
             m_links, [&](const auto& link) { return link.sessionId == destination.sessionId; }))
         return;
     if (m_links.size() >= 32) {
-        m_workspace.setError(tr("Too many pending terminal links."));
+        m_workspace.setError(tr("Too many terminal links wait to open."));
         return;
     }
     m_links.append(destination);

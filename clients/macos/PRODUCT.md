@@ -1,18 +1,18 @@
 # Kodosi for macOS
 
-Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN.md). The
-Linux and Windows app follows this app.
+[PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
+visual system. The Linux and Windows app follows this app.
 
 ## Terminals
 
 - New Terminal (⌘N) opens the launcher, the terminal about to open: a tab for each agent
   after the plain terminal, then one line with the folder, the account, the model with
-  its effort, and the first prompt. With nothing open it sits in the middle of the main
+  its effort, and the first prompt. With nothing open it is in the middle of the main
   area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
 - When another of your computers runs Kodosi, the launcher's band names the computer.
   Another computer shows its own agents, choices, recent folders and home folders. The
   launcher keeps the last computer; Resume stays on this Mac.
-- The account key in the launcher shows how much of the account's plan limit is used.
+- The account key in the launcher shows how much of its plan limit the account has used.
   Provider Usage in the account menu shows each limit of each signed-in account, and a
   click on an account opens the launcher with it.
 - The sidebar groups terminals by folder, and by computer when they run on more than
@@ -22,7 +22,7 @@ Linux and Windows app follows this app.
   terminal there. A small square on a terminal's mark has the color of its room, or is
   grey when the terminal is shared with people. Pinned terminals stay at the top. A
   repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals,
-  rooms, people and actions. A terminal is renamed in place.
+  rooms, people and actions. You rename a terminal in place.
 - Drag a terminal by its header onto another terminal to take its place in the grid, or
   drag it from the sidebar onto a terminal to open it there.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs
@@ -30,25 +30,25 @@ Linux and Windows app follows this app.
   look. Faces show who else has a terminal open.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning.
-- One share sheet puts a terminal in a room or shares it with friends. Dragging your
-  terminal onto a room asks first, and its tab in the room removes it again.
+- One share sheet puts a terminal in a room or shares it with friends. When you drag your
+  terminal onto a room, Kodosi asks first. You remove it again from its tab in the room.
 
 ## Rooms
 
 The conversation stays beside the room's terminals, tasks and repositories. "@"
 mentions a person or a terminal, and a terminal mention opens it. A message can become a
-task. Hidden, the conversation folds into a key in the header that shows who wrote last
-and how many messages are new.
+task. When you hide the conversation, it folds into a key in the header that shows who
+wrote last and how many messages are new.
 
-Linking a repository lists the checkouts of your terminals and your GitHub repositories,
-or takes a pasted address; Connect GitHub opens a terminal for `gh auth login`. The Tasks
-tab adds the newest open issues of the room's repositories, or any issue by its number,
-and a new task can open an issue.
+To link a repository, pick the checkout of one of your terminals or one of your GitHub
+repositories, or paste an address. Connect GitHub opens a terminal for `gh auth login`.
+In the Tasks tab, you add the newest open issues of the room's repositories, or any issue
+by its number, and a new task can open an issue.
 
 ## Friends
 
-Before you add or accept a friend, a sheet stops you: a friend can type in each terminal
-that you share with them, so add only a person that you trust completely.
+Before you add or accept a friend, a sheet asks you to stop and read. A friend can type in
+each terminal that you share with them, so add only a person that you trust completely.
 
 ## Dosi
 
@@ -59,8 +59,8 @@ button for each answer and a field for your own words. A question about a termin
 shows its short answers on that terminal's header, and an answer there types into the
 terminal; your own words go to Dosi. Settings › Dosi chooses its agent, account, model
 and effort, which Dosi uses from the next message, edits its instructions and shows its
-folder. Turned off there, Dosi leaves the sidebar, the rail and the terminal tiles of
-this computer.
+folder. When you turn Dosi off there, it leaves the sidebar, the rail and the terminal
+tiles of this computer.
 
 ## Providers
 

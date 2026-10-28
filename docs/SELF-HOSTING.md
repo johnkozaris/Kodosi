@@ -15,7 +15,7 @@ The issuer's discovery document must give its authorization, device authorizatio
 token endpoints on the issuer's origin, over HTTPS (loopback HTTP for development).
 Access tokens must be RS256 or ES256, name the issuer and the audience `kodosi-app`, and
 carry `sub`, an expiry and `auth_time`; deleting an account or starting fresh needs a
-sign-in at most 15 minutes old. Accounts are keyed by issuer and subject, and
+sign-in at most 15 minutes old. The backend keys accounts by issuer and subject, and
 `preferred_username` and `name` give display names.
 
 ## Backend
@@ -31,10 +31,10 @@ Set:
 | `ASPNETCORE_URLS` | Listening address |
 | `Proxy__Addresses__0`, `__1`, … | Trusted reverse proxies for forwarded headers |
 
-Run the host once with the argument `migrate`, then start it normally;
+Run the host once with the argument `migrate`, then start it with no argument;
 `just backend-run` does both. Run one serving instance, and back up the database before
 upgrades. Terminate HTTPS at a reverse proxy that passes WebSockets. `/health/live`
-checks the process and `/health/ready` readiness.
+checks that the process runs, and `/health/ready` checks that it can serve.
 
 The backend uses up to 32 pooled database connections plus one more; `Maximum Pool Size`
 in the connection string changes the 32. It logs its load each minute, and the meter
@@ -78,10 +78,10 @@ an account's plan (the default plan otherwise):
 }
 ```
 
-Limits: `Devices` (1–16), `OwnedRooms` (1–64), `RoomPeople` in an owned room, counting
-the owner and open invitations (1–65), `SharePeople` who can see one of the account's
-terminals (1–64), `RoomBytes` of encrypted data per owned room (at least 131072),
-`Friends`, `SentFriendRequests` (1–64) and `ReceivedFriendRequests`. An unset limit
+The limits are `Devices` (1 to 16), `OwnedRooms` (1 to 64), `RoomPeople` in an owned
+room, counting the owner and open invitations (1 to 65), `SharePeople` who can see one of
+the account's terminals (1 to 64), `RoomBytes` of encrypted data per owned room (at
+least 131072), `Friends`, `SentFriendRequests` (1 to 64) and `ReceivedFriendRequests`. An unset limit
 keeps its default, and the owner's plan applies to a room or terminal. Past `RoomBytes`
 a room drops its oldest messages. A smaller plan removes nothing, recovery is never
 limited, a changed `users.Plan` applies at once, and an invalid setting stops the

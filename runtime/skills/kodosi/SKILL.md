@@ -19,7 +19,7 @@ and `--help` lists every option.
   starting with `[Kodosi]`, with who sent it and from where: a room's chat, or the
   terminal of another agent with its folder and title. A message can arrive while you
   work.
-- A message does not mean that you must stop. Someone wanted to reach you: use your own
+- A message does not mean that you must stop. Someone wanted to reach you, so use your own
   judgment and your current work to decide if, when and how to act on it. Finish a step
   first when that is better, and say so when you will not do what someone asks.
 - Answer a message from a room's chat in that room: `kodosi room post "answer"`. Answer
@@ -61,22 +61,23 @@ and `--help` lists every option.
 - `kodosi room task claim <task>`: take a task. It stops with a message when another
   member or terminal has it. `release`, `reopen` and `close --note "result or PR link"`
   name a task in the same way. A task is its ID, the end of the ID that `task list`
-  shows, or its title. A task that you had in a terminal that ended, such as one
-  that Kodosi started again after a restart, you can claim again from your new terminal.
+  shows, or its title. When the terminal that had your task ended, for example because
+  Kodosi started it again after a restart, you can claim the task again from your new
+  terminal.
 - `kodosi room repo list` lists the room's repositories. With `--available` it lists
   the ones that you can add: the origins of this computer's terminals, then your GitHub
-  repositories. `kodosi room repo add [repository]` adds one by its name or address, by
-  default this checkout's origin, and `kodosi room repo issues <repository>` lists its
-  open issues. `kodosi room task import <repository> <issue-number>` links a GitHub or
-  Gitea issue; changing the task updates the issue.
+  repositories. `kodosi room repo add [repository]` adds one by its name or address. By
+  default it adds this checkout's origin. `kodosi room repo issues <repository>` lists
+  its open issues. `kodosi room task import <repository> <issue-number>` links a GitHub
+  or Gitea issue; changing the task updates the issue.
 - `kodosi room share [terminal]`: give every member full control of a terminal, by
   default this one. `kodosi terminal start --room <name>` starts a terminal in the room;
   `--agent claude --prompt "task"` starts an agent in it.
 
 ## Work with others
 
-People read every post, and each `@` mention types into an agent's input. Post only
-what another person or agent needs:
+People read every post, and Kodosi types a post that mentions a terminal into the agent
+in it. Post only what another person or agent needs:
 
 - A question that stops your work, a result, a hand-off with what is left, or a
   decision that others must know.
@@ -91,7 +92,7 @@ Do not post:
 - An answer to an agent that did not ask you a question, or an `@` mention of an agent
   only to tell it something.
 
-Answer the messages that name your terminal or your task. If you must say nothing more,
-say nothing. Give the next person or agent the context that they need: what you did,
+Answer the messages that name your terminal or your task. When you have nothing to add,
+post nothing. Give the next person or agent the context that they need: what you did,
 where, and what is left. If an action reports uncertain delivery, read the chat or the
 task before you repeat it.

@@ -1,6 +1,6 @@
 # Kodosi for macOS
 
-The native Swift app. It embeds the Rust runtime and Ghostty.
+This is the native Swift app. It embeds the Rust runtime and Ghostty.
 
 ## Build and run
 
@@ -29,7 +29,7 @@ ln -s /absolute/path/Kodosi.app/Contents/MacOS/Kodosi ~/.local/bin/kodosi
 
 ## Releases
 
-Release builds update themselves with [Sparkle](https://sparkle-project.org); the feed
-and its public key are set in `Config/Release.xcconfig`. Here, `just release-package`
+Release builds update themselves with [Sparkle](https://sparkle-project.org);
+`Config/Release.xcconfig` sets the feed and its public key. Here, `just release-package`
 makes the notarized disk image, `just cask-gen` the Homebrew cask, and
 `scripts/release/generate-appcast.sh` the signed update feed.

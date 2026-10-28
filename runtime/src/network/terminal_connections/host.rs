@@ -968,7 +968,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                     return Err(invalid("Terminal input is out of order."));
                 }
                 if self.heartbeat.wrapping_sub(heartbeat) > LATE_HEARTBEATS {
-                    return Err(invalid("Terminal input arrived too late; it was not used."));
+                    return Err(invalid(
+                        "Terminal input arrived too late, and the host did not use it.",
+                    ));
                 }
                 self.input_offset += bytes.len() as u64;
                 let end = self.input_offset;
@@ -995,7 +997,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                         () = authorization.cancelled() => Err("This terminal connection is no longer authorized.".to_owned()),
                         result = tokio::time::timeout(CONTROL_TIMEOUT, response) => match result {
                             Ok(Ok(result)) => result.map(|_| ()),
-                            _ => Err("The terminal did not confirm the operation; it was not retried.".to_owned()),
+                            _ => Err("The terminal did not confirm the operation, and Kodosi did not send it again.".to_owned()),
                         },
                     };
                     ControlResult {

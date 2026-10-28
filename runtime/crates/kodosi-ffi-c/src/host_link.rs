@@ -22,8 +22,9 @@ const TERMINAL_QUEUE: usize = 64;
 const RECONNECT_FIRST: Duration = Duration::from_millis(250);
 const RECONNECT_LAST: Duration = Duration::from_secs(30);
 const SWEEP: Duration = Duration::from_secs(1);
-const LOST: &str = "The Kodosi host stopped before it answered. The request was not retried.";
-const LATE: &str = "No answer arrived in time. The request was not retried.";
+const LOST: &str =
+    "The Kodosi host stopped before it answered, and Kodosi did not send the request again.";
+const LATE: &str = "No answer arrived in time, and Kodosi did not send the request again.";
 
 pub(super) struct Link {
     queue: mpsc::Sender<Value>,
@@ -530,7 +531,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                     pending.system_error(
                         state,
                         &format!(
-                            "Terminal input was not confirmed and was not retried: {}",
+                            "The terminal did not confirm the input, and Kodosi did not send it again: {}",
                             message.as_deref().unwrap_or("the host refused it")
                         ),
                     );

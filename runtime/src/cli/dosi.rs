@@ -199,7 +199,7 @@ fn line(body: &DosiBody) -> Option<String> {
             ..
         } => match answer {
             Some(answer) if !answer.is_empty() => format!(
-                "Dosi asks: {question} [{}] → {}",
+                "Dosi asks: {question} [{}] Answer: {}",
                 options.join(" / "),
                 answer.join(", ")
             ),

@@ -62,7 +62,7 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
                 if (loaded is not null) return loaded;
             }
         }
-        throw ApiException.Conflict("The account could not be created; retry sign-in.");
+        throw ApiException.Conflict("The server could not make the account. Sign in again.");
     }
 
     public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal) =>

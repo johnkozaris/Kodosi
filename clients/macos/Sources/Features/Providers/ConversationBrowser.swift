@@ -78,7 +78,7 @@ final class ConversationBrowser {
                 if conversations.count >= 1000 {
                     conversations = Array(conversations.prefix(1000))
                     nextCursor = nil
-                    message = String(localized: "Showing the first 1,000 conversations. Choose a project folder to narrow the list.")
+                    message = String(localized: "The list shows the first 1,000 conversations. Choose a project folder to narrow it.")
                 } else {
                     nextCursor = page.nextCursor
                 }

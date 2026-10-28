@@ -112,7 +112,7 @@
             let alert = NSAlert()
             alert.messageText = String(localized: "Let a program read your clipboard?")
             alert.informativeText = String(localized: "A program in \(sessionName) asks for the text that you copied.")
-            alert.addButton(withTitle: String(localized: "Don’t Allow"))
+            alert.addButton(withTitle: String(localized: "Don't Allow"))
             alert.addButton(withTitle: String(localized: "Allow"))
             alert.beginSheetModal(for: window) { [weak self] response in
                 self?.clipboardPromptOpen = false

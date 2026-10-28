@@ -35,15 +35,15 @@ context between terminals and rooms.
 - `kodosi provider history claude <folder>` and
   `kodosi provider read claude <conversation> <folder>`: saved Claude Code conversations;
   `copilot` works the same way.
-- `kodosi room list`, `kodosi room --room <name> context` and
-  `kodosi --json room --room <name> read`.
+- `kodosi room list` lists the rooms, `kodosi room --room <name> context` shows one, and
+  `kodosi --json room --room <name> read` reads its conversation.
 
 ## Act
 
 - `kodosi terminal input <terminal> --enter "text"` types a line. `kodosi terminal keys
   <terminal> down enter` presses keys: enter, tab, escape, backspace, delete, up, down,
   left, right, home, end, pageup, pagedown, space and ctrl- with a letter. While the person
-  types in that terminal, both stop with a message; try again a little later.
+  types in that terminal, both stop with a message; try again later.
 - `kodosi terminal start --agent claude --prompt "task"` starts an agent with the person's
   last choice; `--account`, `--model`, `--effort`, `--directory`, `--branch` and `--room`
   change it. `kodosi terminal run <terminal> --agent codex` starts an agent in a terminal
@@ -51,9 +51,10 @@ context between terminals and rooms.
 - `kodosi terminal message <terminal> "text"` gives the agent in a terminal a message
   from you, with your name and the person's. It stops with a message while that agent
   waits for a person's answer or the person types there.
-- `kodosi terminal interrupt <terminal>` and `kodosi terminal close <terminal>`.
-- `kodosi room --room <name> post "text" --agent Dosi`, and the task commands in
-  `kodosi skill`.
+- `kodosi terminal interrupt <terminal>` sends Ctrl-C, and `kodosi terminal close
+  <terminal>` ends the terminal and its programs.
+- `kodosi room --room <name> post "text" --agent Dosi` posts in a room, and `kodosi
+  skill` lists the task commands.
 
 ## Show and ask
 

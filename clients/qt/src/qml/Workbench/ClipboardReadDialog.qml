@@ -15,7 +15,7 @@ KDialog {
     onAboutToShow: allow = false
     onOpened: {
         standardButton(Dialog.Ok).text = qsTr("Allow");
-        standardButton(Dialog.Cancel).text = qsTr("Don\u2019t Allow");
+        standardButton(Dialog.Cancel).text = qsTr("Don't Allow");
     }
     onAccepted: allow = true
     onClosed: answered(allow)

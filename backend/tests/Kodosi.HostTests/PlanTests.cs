@@ -194,7 +194,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         foreach (var id in new[] { Guid.CreateVersion7(), Guid.CreateVersion7() })
             await store.Missions.PutContentAsync(tasks, id, bob.User.Id, Item(bob, tasks, id, "task"), ct);
         var full = Guid.CreateVersion7();
-        await RefusedAsync("This room is full: its tasks and repositories use all of its space. Make a new room to continue.",
+        await RefusedAsync("This room is full, because its tasks and repositories use all of its space. Make a new room to continue.",
             () => store.Missions.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
         store.Db.ChangeTracker.Clear();
         Assert.Equal(2, await store.Db.MissionItems.CountAsync(x => x.MissionId == tasks, ct));

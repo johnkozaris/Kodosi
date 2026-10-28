@@ -41,7 +41,7 @@ A terminal is a real shell on the computer that runs it. Minimize hides a termin
 keeps it running; Close ends it and its programs. When you close the window, Kodosi and
 your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
 on a desktop without a system tray, closing the window quits Kodosi. When you quit
-Kodosi, your terminals stop; Kodosi saves what they show on your computer and nowhere
+Kodosi, your terminals stop. Kodosi saves what they show on your computer and nowhere
 else. When you open Kodosi again, they start again in their folders, rooms and places on
 the stage, with their earlier screen and history above a new prompt (on Windows, scroll
 up to see it). Claude Code continues its conversation, and Codex and Copilot CLI show
@@ -89,7 +89,7 @@ question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi
 ## 5. Add your other computers
 
 Sign in on the new computer with the same account. It shows a code, and the computers
-that you already use ask you to approve it: choose Approve on one of them and enter the
+that you already use ask you to approve it. Choose Approve on one of them and enter the
 code. An iPhone or iPad joins the same way. Then each computer shows the terminals of all
 your computers.
 
@@ -167,6 +167,6 @@ terminal is still shared. A new device can need approval, and a friend with a ch
 identity can need verification in Friends. After a lost connection, Kodosi shows the
 current state again. When Kodosi says that a computer is offline, its terminals open
 again when it is back, unless they ended there. To take such a terminal out of your list,
-select its X: Hide until it's back shows it again when the computer is back, and Close
+select its X. Hide until it's back shows it again when the computer is back, and Close
 forever closes it then. If Kodosi says that it is not sure your input arrived, look at
 the terminal before you type the command again.

@@ -95,7 +95,7 @@ bool DesktopFileIntegration::openPath(const QString& path)
 {
     const auto canonical = canonicalLocalPath(path);
     if (canonical.isEmpty()) {
-        fail(tr("This local file or folder is missing or cannot be opened."));
+        fail(tr("This local file or folder is missing, or Kodosi cannot open it."));
         return false;
     }
     if (!m_opener(QUrl::fromLocalFile(canonical))) {

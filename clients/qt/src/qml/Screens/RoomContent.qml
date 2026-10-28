@@ -702,7 +702,7 @@ Item {
             width: 340
             color: KodosiTheme.inkMuted
             wrapMode: Text.WordWrap
-            text: root.owner ? qsTr("The conversation and tasks go away for everyone. The terminals keep running.") : qsTr("You lose its terminals, conversation and tasks.")
+            text: root.owner ? qsTr("Kodosi deletes the conversation and tasks for everyone. The terminals keep running.") : qsTr("You lose its terminals, conversation and tasks.")
         }
     }
     KPopover {

@@ -13,14 +13,14 @@ their terminals and rooms, and bring back only what they need to know.
 
 - Kodosi runs on each of the person's computers. On each computer, one host owns the
   terminals that run there. The Kodosi app and the `kodosi` command are clients of that
-  host: what one does, the others show. You see the terminals of all the person's
+  host. What one does, the others show. You see the terminals of all the person's
   computers, and the terminals that friends share with them.
 - A terminal is a real shell with its own folder, on the computer that runs it. People and
   agents speak about a terminal by its name.
 - A coding agent, such as Claude Code, Codex or Copilot CLI, works in a terminal and
   reports its state: working, waiting for an answer, done, failed or idle. A terminal
   without an agent state can also wait for input; read its screen.
-- The person can share a terminal with friends. Sharing is trust: they get full control.
+- The person can share a terminal with friends. Sharing is trust, so they get full control.
 - A room is a shared space for one piece of work. It has members, a conversation, tasks,
   repositories and terminals. Every member can see and use the terminals in the room.
   Agents in those terminals can read and post in the room and take tasks when they choose
@@ -28,7 +28,7 @@ their terminals and rooms, and bring back only what they need to know.
 - When someone writes `@` and the name of a terminal in a room, Kodosi types the message
   into the agent of that terminal at once, also while it works, with who wrote it and
   from where. It waits only while the agent asks a person something or the person types
-  there. `kodosi terminal message <terminal> "text"` gives an agent a message directly.
+  there. `kodosi terminal message <terminal> "text"` gives an agent a message without a room.
   Agents that Kodosi starts get a short note about Kodosi, and they decide themselves what
   to do with a message. Agents get nothing else from a room unless they read it.
 - When the person quits Kodosi, the terminals of that computer stop. When Kodosi opens
