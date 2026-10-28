@@ -3,7 +3,7 @@ use super::{
     local_host, mission_id, missions, only, output, print_json, render, request,
 };
 use crate::{
-    protocol::{refers_to, short_id},
+    protocol::{GitHubState, RepositoryList, refers_to, short_id},
     rooms::{Action, Issue, Snapshot, TaskChange},
 };
 
@@ -149,10 +149,16 @@ enum TaskAction {
 #[derive(Subcommand)]
 enum RepoAction {
     /// List the repositories.
-    List,
+    List {
+        /// List the repositories that you can add: the origins of this computer's terminals,
+        /// then your GitHub repositories.
+        #[arg(long)]
+        available: bool,
+    },
     /// Link a repository, by default the origin of the current folder's checkout.
     Add {
-        url: Option<String>,
+        /// A repository address, or a name that `kodosi room repo list --available` shows.
+        repository: Option<String>,
         /// Use the origin of the checkout in this folder.
         #[arg(long)]
         directory: Option<PathBuf>,
@@ -263,25 +269,51 @@ pub(super) async fn run(
         RoomAction::Task(TaskAction::List { available }) => {
             show_tasks(&snapshot, available, json_output)
         }
-        RoomAction::Repo(RepoAction::List) => output(
-            &json!({"repositories":snapshot.repositories}),
-            json_output,
-            &snapshot
-                .repositories
-                .iter()
-                .map(|repo| format!("{}  {}", repo.name, repo.url))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        ),
-        command => {
-            let action = match command {
-                RoomAction::Task(action) => task_action(action, &snapshot)?,
-                RoomAction::Repo(action) => repository_action(action, &snapshot)?,
-                _ => return Err(Error::Invalid("Unsupported room action.".into())),
-            };
+        RoomAction::Task(action) => {
+            let action = task_action(action, &snapshot)?;
             done(&call(client, context, &room, action).await?, json_output)
         }
+        RoomAction::Repo(action) => {
+            repository(action, client, context, &room, &snapshot, json_output).await
+        }
+        _ => Err(Error::Invalid("Unsupported room action.".into())),
     }
+}
+
+async fn repository(
+    action: RepoAction,
+    client: &mut local_host::Client,
+    context: &mut Context,
+    room: &str,
+    snapshot: &Snapshot,
+    json_output: bool,
+) -> Result<()> {
+    let action = match action {
+        RepoAction::List { available: false } => {
+            return output(
+                &json!({"repositories":snapshot.repositories}),
+                json_output,
+                &snapshot
+                    .repositories
+                    .iter()
+                    .map(|repo| format!("{}  {}", repo.name, repo.url))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+        }
+        RepoAction::List { available: true } => {
+            let choices = repository_choices(client, context, room).await?;
+            return show_choices(&addable(choices, snapshot), json_output);
+        }
+        RepoAction::Add {
+            repository: Some(name),
+            ..
+        } if !name.contains(':') => {
+            chosen(&repository_choices(client, context, room).await?, &name)?
+        }
+        action => repository_action(action, snapshot)?,
+    };
+    done(&call(client, context, room, action).await?, json_output)
 }
 
 fn done(result: &Value, json_output: bool) -> Result<()> {
@@ -531,11 +563,11 @@ fn repository_action(action: RepoAction, snapshot: &Snapshot) -> Result<Action> 
             repository_id: repo_id(snapshot, &repository)?,
         }),
         RepoAction::Add {
-            url,
+            repository,
             directory,
             provider,
         } => {
-            let url = if let Some(url) = url {
+            let url = if let Some(url) = repository {
                 url
             } else {
                 let mut command = std::process::Command::new("git");
@@ -555,8 +587,76 @@ fn repository_action(action: RepoAction, snapshot: &Snapshot) -> Result<Action> 
             };
             Ok(Action::AddRepository { url, provider })
         }
-        RepoAction::List => Err(Error::Invalid("Expected a repository action.".into())),
+        RepoAction::List { .. } => Err(Error::Invalid("Expected a repository action.".into())),
     }
+}
+
+async fn repository_choices(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    room: &str,
+) -> Result<RepositoryList> {
+    let answer = request(
+        client,
+        context,
+        json!({"type":"repositories.list","missionId":room}),
+        false,
+    )
+    .await?;
+    Ok(serde_json::from_value(answer["repositories"].clone())?)
+}
+
+fn addable(mut list: RepositoryList, snapshot: &Snapshot) -> RepositoryList {
+    list.repositories.retain(|choice| {
+        !snapshot
+            .repositories
+            .iter()
+            .any(|linked| linked.url.eq_ignore_ascii_case(&choice.url))
+    });
+    list
+}
+
+fn show_choices(list: &RepositoryList, json_output: bool) -> Result<()> {
+    let mut lines = list
+        .repositories
+        .iter()
+        .map(|choice| {
+            let private = if choice.private { "  private" } else { "" };
+            format!("{}  {}{private}", choice.name, choice.url)
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        lines.push("No repositories to add.".to_owned());
+    }
+    match list.github {
+        GitHubState::Ready => {}
+        GitHubState::SignedOut => {
+            lines.push("Run `gh auth login` to list your GitHub repositories too.".to_owned());
+        }
+        GitHubState::Missing => {
+            lines.push("Install GitHub CLI to list your GitHub repositories too.".to_owned());
+        }
+    }
+    output(&serde_json::to_value(list)?, json_output, &lines.join("\n"))
+}
+
+fn chosen(list: &RepositoryList, name: &str) -> Result<Action> {
+    let matching = list
+        .repositories
+        .iter()
+        .filter(|choice| choice.name.eq_ignore_ascii_case(name))
+        .map(|choice| choice.url.as_str())
+        .collect::<Vec<_>>();
+    let url = only(
+        &matching,
+        "repository",
+        name,
+        "kodosi room repo list --available",
+    )?;
+    Ok(Action::AddRepository {
+        url: url.to_owned(),
+        provider: None,
+    })
 }
 
 fn repo_id(snapshot: &Snapshot, reference: &str) -> Result<String> {
@@ -695,7 +795,7 @@ mod tests {
         );
         let add = repository_action(
             RepoAction::Add {
-                url: Some("https://github.com/another/repo".into()),
+                repository: Some("https://github.com/another/repo".into()),
                 directory: None,
                 provider: None,
             },
@@ -726,6 +826,45 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_repository_can_be_added_by_its_name_from_the_choices_that_the_room_lacks() {
+        let room = snapshot();
+        let choice = |name: &str, url: &str| crate::protocol::RepositoryChoice {
+            name: name.into(),
+            url: url.into(),
+            provider: "github".into(),
+            folder: None,
+            private: false,
+        };
+        let choices = RepositoryList {
+            github: GitHubState::Ready,
+            repositories: vec![
+                choice("team/api", "https://GitHub.com/team/api"),
+                choice("ana/notes", "https://github.com/ana/notes"),
+                choice("team/web", "https://github.com/team/web"),
+                choice("team/web", "https://forge.example/team/web"),
+            ],
+        };
+        let open = addable(choices.clone(), &room);
+        assert_eq!(
+            open.repositories
+                .iter()
+                .map(|choice| choice.url.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "https://github.com/ana/notes",
+                "https://github.com/team/web",
+                "https://forge.example/team/web"
+            ]
+        );
+        let Action::AddRepository { url, .. } = chosen(&choices, "ANA/notes").unwrap() else {
+            panic!()
+        };
+        assert_eq!(url, "https://github.com/ana/notes");
+        assert!(chosen(&choices, "team/web").is_err());
+        assert!(chosen(&choices, "ana/unknown").is_err());
     }
 
     #[test]
