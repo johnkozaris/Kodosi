@@ -52,7 +52,6 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
     for source, destination in ((archive, bundle / archive_name(target)),
                                 (header, bundle / "include/kodosi_runtime.h")):
         destination.parent.mkdir(parents=True, exist_ok=True)
-        # An unchanged file keeps its time, so the app does not link again.
         if not destination.exists() or not filecmp.cmp(source, destination, shallow=False):
             shutil.copyfile(source, destination)
     return bundle

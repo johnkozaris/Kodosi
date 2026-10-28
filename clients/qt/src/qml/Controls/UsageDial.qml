@@ -1,7 +1,6 @@
 import Kodosi 1.0
 import QtQuick
 
-// One limit as a small dial: the ring with the used percent inside it.
 Item {
     id: root
 

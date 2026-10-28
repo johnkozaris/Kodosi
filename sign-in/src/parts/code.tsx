@@ -42,17 +42,17 @@ export function CodeCells({
   const [focused, setFocused] = useState(false);
   const field = useRef<HTMLInputElement>(null);
   const sent = useRef(false);
+  const [sendsGiven] = useState(() => Boolean(given) && send && value.length === length);
 
   useEffect(() => {
-    if (!given || !send || value.length !== length || sent.current) return;
+    if (!sendsGiven || sent.current) return;
     sent.current = true;
     const timer = window.setTimeout(() => field.current?.form?.requestSubmit(), 760);
     return () => {
       clearTimeout(timer);
       sent.current = false;
     };
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sendsGiven]);
 
   const at = Math.min(value.length, length - 1);
   const middle = length / 2;

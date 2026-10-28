@@ -71,7 +71,6 @@ public:
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
-    // The terminals that the person did not hide; a room still shows its hidden terminals.
     [[nodiscard]] QVariantList listedSessions() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
     [[nodiscard]] QStringList visible() const;
@@ -89,10 +88,8 @@ public:
     [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
-    // The terminal that this computer's host started again in place of `id` after it stopped, or `id`.
-    [[nodiscard]] QString current(const QString& id) const;
-    // The terminal that its host started again in place of `id`, on the same computer of the same person.
-    [[nodiscard]] std::optional<QString> restart(const QString& id, const QString& owner, const QString& host) const;
+    [[nodiscard]] QString afterLocalRestart(const QString& id) const;
+    [[nodiscard]] std::optional<QString> restartedAs(const QString& id, const QString& owner, const QString& host) const;
     [[nodiscard]] std::optional<PresentationSession> presentationSession(const QString& id) const;
     [[nodiscard]] std::optional<QString> incarnationForSession(const QString& id) const;
     void apply(const QJsonObject& event);

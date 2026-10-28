@@ -142,7 +142,6 @@ extension AppDependencies {
         reportVisible()
     }
 
-    /// The host starts the terminals of its last run again only when an app asks.
     private func askRestore() {
         guard !restoreAsked else { return }
         restoreAsked = true

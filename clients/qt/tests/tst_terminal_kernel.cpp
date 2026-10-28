@@ -1200,7 +1200,7 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
                  }) {
                 options.lineHeight = lineHeight;
                 auto image = kodosi::TerminalRasterizer::render(earlier, font, ratio, before);
-                const auto painted = kodosi::TerminalRasterizer::update(
+                const auto painted = kodosi::TerminalRasterizer::repaintChangedRows(
                     image, earlier, before, *frame, font, options);
                 QVERIFY(painted.has_value());
                 QVERIFY(*painted <= mostRows);
@@ -1212,7 +1212,7 @@ void TerminalKernelTest::rasterizerPaintsChangedRowsAsTheWholeFrame()
     auto recolored = earlier;
     recolored.background = QColor(QStringLiteral("#ffffff"));
     auto image = kodosi::TerminalRasterizer::render(earlier, font, 1.0, Options {});
-    QVERIFY(!kodosi::TerminalRasterizer::update(
+    QVERIFY(!kodosi::TerminalRasterizer::repaintChangedRows(
         image, earlier, Options {}, recolored, font, Options {}));
 }
 

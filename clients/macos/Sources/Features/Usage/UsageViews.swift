@@ -11,8 +11,6 @@ extension UsageLevel {
     }
 }
 
-/// The used share of a limit as an arc that fills clockwise from the top. Without a limit, a dashed
-/// ring holds the place until the agent reports one.
 struct UsageRing: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit?
@@ -47,7 +45,6 @@ struct UsageRing: View {
     }
 }
 
-/// One limit as a small dial: the ring with the used percent inside it.
 struct UsageDial: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit?
@@ -74,7 +71,6 @@ struct UsageDial: View {
     }
 }
 
-/// The used percent of an account's headline limit, as the launcher's account list shows it.
 struct UsagePercent: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit

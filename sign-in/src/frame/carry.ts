@@ -1,3 +1,4 @@
+import { CARRY_FRESH_MS, CARRY_KEY } from "./carry-storage";
 import { still } from "./motion";
 
 interface Carry {
@@ -22,20 +23,16 @@ export interface Box {
   h: number;
 }
 
-const KEY = "kodosi.carry";
-// index.html reads the same key with the same age.
-const FRESH_MS = 6000;
-
 let taken: Carry | null | undefined;
 
 export function carried(): Carry | null {
   if (taken !== undefined) return taken;
   taken = null;
   try {
-    const stored = sessionStorage.getItem(KEY);
-    sessionStorage.removeItem(KEY);
+    const stored = sessionStorage.getItem(CARRY_KEY);
+    sessionStorage.removeItem(CARRY_KEY);
     const carry = stored ? (JSON.parse(stored) as Carry) : null;
-    if (carry && Date.now() - carry.t < FRESH_MS && carry.vw === innerWidth && !still())
+    if (carry && Date.now() - carry.t < CARRY_FRESH_MS && carry.vw === innerWidth && !still())
       taken = carry;
   } catch {}
   return taken;
@@ -64,7 +61,7 @@ export function handOver(shell: Element | null, cursor: Box | null, title: strin
     vw: innerWidth,
   };
   try {
-    sessionStorage.setItem(KEY, JSON.stringify(carry));
+    sessionStorage.setItem(CARRY_KEY, JSON.stringify(carry));
   } catch {}
 }
 

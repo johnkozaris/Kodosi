@@ -26,7 +26,6 @@ fn validate_participants(users: &[String]) -> Result<()> {
 pub const VERSION: u32 = 73;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
-/// A message travels to another computer in one terminal control, with its sender.
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
 

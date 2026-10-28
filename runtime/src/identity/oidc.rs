@@ -41,7 +41,6 @@ pub struct DeviceLogin {
 }
 
 impl DeviceLogin {
-    /// The sign-in page reads the code from the fragment to show it at each step.
     pub fn code_page(&self) -> String {
         format!("{}#{}", self.verification_uri, self.user_code)
     }

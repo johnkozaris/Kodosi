@@ -11,7 +11,6 @@ use crate::{Error, agents::Agent, terminal::TerminalSession, worktree::Worktree}
 const FILE: &str = "terminals.json";
 const MOST_BYTES: usize = 1024 * 1024;
 
-/// A terminal that an app starts again after its host stopped.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Saved {
@@ -27,7 +26,6 @@ pub(super) struct Saved {
     pub worktree: Option<Worktree>,
 }
 
-/// The room or the people of a terminal, for the account that chose them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Sharing {
@@ -53,7 +51,6 @@ impl Sharing {
     }
 }
 
-/// The terminals of the last host, kept until an app asks for them, and the live terminals.
 pub(super) struct Restore {
     file: PathBuf,
     pending: Vec<Saved>,
@@ -77,12 +74,10 @@ impl Restore {
         }
     }
 
-    /// The saved terminals to start, when an app asks for them.
     pub(super) fn take(&mut self) -> Vec<Saved> {
         std::mem::take(&mut self.pending)
     }
 
-    /// Saves the terminals that come back, when they changed since the last save.
     pub(super) fn save(&mut self, live: Vec<Saved>) {
         let terminals = self
             .pending
@@ -104,7 +99,6 @@ impl Restore {
     }
 }
 
-/// The command that continues the agent conversation that a terminal shows.
 pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
@@ -130,13 +124,11 @@ pub(super) async fn agent_line(
     resume_line(agent, &command, conversation.as_deref())
 }
 
-/// The line for a terminal whose agent was not asked, as when its host ended without a stop.
 pub(super) fn usual_line(program: &str, shell: &Path) -> Option<String> {
     let agent = Agent::named(program)?;
     resume_line(agent, &agent.with_context(agent.program(), shell), None)
 }
 
-/// Without a known conversation, the agent lists its conversations in that folder to continue.
 pub(super) fn resume_line(
     agent: Agent,
     command: &str,
@@ -153,7 +145,6 @@ pub(super) fn resume_line(
     Some(format!("{command} {resume}"))
 }
 
-/// The saved folder, or the nearest folder above it that is still there.
 pub(super) fn nearest_folder(folder: Option<&str>) -> Option<String> {
     Path::new(folder?)
         .ancestors()

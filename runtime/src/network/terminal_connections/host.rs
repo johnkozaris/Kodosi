@@ -286,7 +286,6 @@ async fn review(
     close_when_asked(network, publication, credentials).await
 }
 
-// A person who can use the terminal asked one of their devices to close it while this computer was away.
 async fn close_when_asked(
     network: &BackendClient,
     publication: &Publication,

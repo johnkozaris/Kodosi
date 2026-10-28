@@ -2,8 +2,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Shapes
 
-// The used share of a limit as an arc that fills clockwise from the top. Without a limit, a dashed
-// ring holds the place until the agent reports one.
 Item {
     id: root
 

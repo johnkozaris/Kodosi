@@ -349,7 +349,6 @@ export function isMessage(i18n: I18n, text: string | undefined, key: string): bo
   return words !== key && plain(text) === plain(words);
 }
 
-// The value in the last place of the sentence `key`, when `text` is that sentence.
 export function valueIn(
   i18n: I18n,
   text: string | undefined,

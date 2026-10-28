@@ -20,7 +20,6 @@ mod terminal;
 
 const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
 
-/// The Kodosi terminal that this command runs in, if any.
 fn this_terminal() -> Option<String> {
     std::env::var("KODOSI_SESSION_ID")
         .ok()

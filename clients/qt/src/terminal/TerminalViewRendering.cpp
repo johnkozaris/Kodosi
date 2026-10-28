@@ -45,7 +45,7 @@ QSGNode* TerminalView::updatePaintNode(
         QElapsedTimer rasterTimer;
         rasterTimer.start();
         const auto painted = sameRaster
-            ? TerminalRasterizer::update(
+            ? TerminalRasterizer::repaintChangedRows(
                   m_renderedImage,
                   *m_renderedFrame,
                   m_renderedOptions,

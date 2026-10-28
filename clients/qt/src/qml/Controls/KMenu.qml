@@ -5,7 +5,6 @@ import QtQuick.Controls
 Menu {
     id: root
 
-    // As a submenu: the mark beside its title in the parent menu, and whether that row shows.
     property Component mark: null
     property bool available: true
 

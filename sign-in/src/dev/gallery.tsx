@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { Account } from "../account/account";
 import type { AccountService } from "../account/service";
+import { CARRY_KEY } from "../frame/carry-storage";
 import { themeNames } from "../kc.gen";
 import { dropCode, keepCode } from "../login/device";
 import type { KcContext } from "../login/KcContext";
@@ -462,7 +463,7 @@ function openSample(): Promise<AccountService> {
 }
 
 function Sheet({ names }: { names: string[] }) {
-  sessionStorage.removeItem("kodosi.carry");
+  sessionStorage.removeItem(CARRY_KEY);
   document.getElementById("carry")?.remove();
   document.getElementById("logo")?.remove();
   return (

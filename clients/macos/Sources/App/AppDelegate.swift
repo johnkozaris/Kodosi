@@ -57,7 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    /// Sparkle cannot replace an app that runs from the disk image.
     private func warnWhenUpdatesCannotInstall() {
         let path = Bundle.main.bundlePath
         if path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") {

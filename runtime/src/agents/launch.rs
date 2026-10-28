@@ -98,7 +98,6 @@ impl Launcher {
         self.state().resolved()
     }
 
-    /// The plan usage of each signed-in account, read again when the last try is older than a minute.
     pub async fn usage(&self) -> Result<AgentUsageReply, String> {
         let catalog = self.known_catalog(false).await?;
         Ok(self.usage.refresh(&catalog, &self.shell, &self.home).await)

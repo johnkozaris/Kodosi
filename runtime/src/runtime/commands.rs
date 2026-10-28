@@ -423,7 +423,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Gives the agent in a terminal a message with who sends it and from where.
     #[cfg(feature = "host")]
     fn send_message(&mut self, command: &Command) -> Result<()> {
         let Command::Message {

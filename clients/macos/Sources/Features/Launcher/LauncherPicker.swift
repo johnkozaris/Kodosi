@@ -287,8 +287,6 @@ struct PickerIcon: View {
     }
 }
 
-/// A person mark for an account. With a usage limit, the ring of that limit circles the mark inside the
-/// same size.
 struct AccountMark: View {
     let initial: String
     let key: String

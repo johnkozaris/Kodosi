@@ -49,7 +49,6 @@ impl Agent {
         }
     }
 
-    /// The agent with this name, as a terminal reports its program.
     pub(crate) fn named(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|agent| agent.name() == name)
     }
@@ -85,8 +84,6 @@ impl Agent {
         }
     }
 
-    /// The words that give this agent Kodosi's note with its own instructions, as the shell of
-    /// a Kodosi terminal reads them. Copilot CLI finds the note through its variable instead.
     #[cfg(feature = "host")]
     pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
         match self {
@@ -102,7 +99,6 @@ impl Agent {
         }
     }
 
-    /// The command and Kodosi's note for this agent, as one line for the shell.
     #[cfg(feature = "host")]
     pub(crate) fn with_context(self, command: &str, shell: &Path) -> String {
         self.context_words(shell)
@@ -124,18 +120,13 @@ pub(crate) fn is_agent_name(name: &str) -> bool {
     Agent::named(name).is_some()
 }
 
-/// The note that agents in a Kodosi terminal get with their own instructions: what Kodosi is,
-/// that messages can come, and that they decide what to do with them.
 #[cfg(feature = "host")]
 pub(crate) const CONTEXT: &str = include_str!("../../skills/kodosi/CONTEXT.md");
-/// Each terminal has the note in this variable, so the typed command line stays short.
 #[cfg(feature = "host")]
 pub(crate) const CONTEXT_VARIABLE: &str = "KODOSI_AGENT_CONTEXT";
-/// Copilot CLI reads more instructions from the folders in this variable.
 #[cfg(feature = "host")]
 pub(crate) const COPILOT_INSTRUCTIONS: &str = "COPILOT_CUSTOM_INSTRUCTIONS_DIRS";
 
-/// Writes the note where Copilot CLI finds it, in the folder that terminals name for it.
 #[cfg(feature = "host")]
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let text = format!("# Kodosi\n\n{}\n", CONTEXT.trim());
@@ -147,7 +138,6 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     kodosi_os::fs::write_private(&file, text.as_bytes())
 }
 
-/// One word that the shell reads as `prefix` and then the value of `variable`.
 #[cfg(feature = "host")]
 pub(crate) fn variable_word(shell: &Path, prefix: &str, variable: &str) -> String {
     match shell_name(shell).as_str() {
@@ -167,7 +157,6 @@ fn shell_name(shell: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-/// The command that starts `agent` with the account in `folder`, as the launcher types it.
 #[cfg(feature = "host")]
 pub(crate) fn account_command(agent: Agent, home: &Path, folder: &Path) -> String {
     agent
