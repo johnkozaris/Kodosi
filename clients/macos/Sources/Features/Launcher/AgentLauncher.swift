@@ -326,7 +326,6 @@ struct AgentLauncher: View {
                 HStack(spacing: 8) {
                     Text(startTitle)
                     Image(systemName: "return").font(.system(size: 11, weight: .bold)).opacity(0.6)
-                        .bounce(on: draft.prompt.isEmpty)
                 }
                 .shimmer(starting)
             }
