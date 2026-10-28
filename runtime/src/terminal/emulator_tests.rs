@@ -104,7 +104,7 @@ fn a_program_that_asks_for_the_terminal_version_is_told_ghostty() {
     assert!(matches!(
         output.effects.as_slice(),
         [TerminalEffect::PtyWrite(reply)]
-            if reply == b"\x1bP>|ghostty 1.3.2-dev\x1b\\"
+            if reply == b"\x1bP>|ghostty 1.4.0\x1b\\"
     ));
 }
 
