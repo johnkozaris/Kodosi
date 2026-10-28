@@ -63,10 +63,12 @@ and `--help` lists every option.
   name a task in the same way. A task is its ID, the end of the ID that `task list`
   shows, or its title. A task that you had in a terminal that ended, such as one
   that Kodosi started again after a restart, you can claim again from your new terminal.
-- `kodosi room repo list`, `kodosi room repo add [URL]` (by default this checkout's
-  origin) and `kodosi room repo issues <repository>`.
-  `kodosi room task import <repository> <issue-number>` links a GitHub or Gitea issue;
-  changing the task updates the issue.
+- `kodosi room repo list` lists the room's repositories. With `--available` it lists
+  the ones that you can add: the origins of this computer's terminals, then your GitHub
+  repositories. `kodosi room repo add [repository]` adds one by its name or address, by
+  default this checkout's origin, and `kodosi room repo issues <repository>` lists its
+  open issues. `kodosi room task import <repository> <issue-number>` links a GitHub or
+  Gitea issue; changing the task updates the issue.
 - `kodosi room share [terminal]`: give every member full control of a terminal, by
   default this one. `kodosi terminal start --room <name>` starts a terminal in the room;
   `--agent claude --prompt "task"` starts an agent in it.
