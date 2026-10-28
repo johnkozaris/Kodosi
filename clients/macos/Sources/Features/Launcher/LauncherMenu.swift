@@ -90,11 +90,12 @@ enum LauncherMenu: String, Equatable {
 }
 
 @MainActor
-func recentFolders(_ deps: AppDependencies, chosen: String?) -> [String] {
-    var seen = Set<String>()
+func recentFolders(_ deps: AppDependencies, chosen: String?, saved: [String]) -> [String] {
+    let home = deps.storageBootstrap.defaultWorkingDirectory?.path
+    var seen = Set([home].compactMap(\.self))
     let local: [String?] = deps.sessions.filter { $0.kind == .local }.map(\.localDirectory)
-    let candidates: [String?] = [chosen, deps.settings.lastWorkingDir] + local + [deps.storageBootstrap.defaultWorkingDirectory?.path]
-    return Array(candidates.compactMap(\.self).filter { seen.insert($0).inserted }.prefix(6))
+    let candidates: [String?] = [chosen, deps.settings.lastWorkingDir] + saved + local
+    return Array(candidates.compactMap(\.self).filter { seen.insert($0).inserted }.prefix(7)) + [home].compactMap(\.self)
 }
 
 func folderName(_ path: String) -> String {

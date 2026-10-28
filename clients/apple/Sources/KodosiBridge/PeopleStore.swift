@@ -83,6 +83,15 @@ public final class PeopleStore {
         armSettle()
     }
 
+    public nonisolated static func handle(in text: String) -> String? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        let handle = parts.count == 3 && parts[0] == "kodosi" ? String(parts[1]) : text.hasPrefix("@") ? String(text.dropFirst()) : text
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard !handle.isEmpty, handle.count <= 64, handle.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
+        return handle
+    }
+
     @discardableResult
     public func add(_ text: String) -> Bool {
         let username = text.trimmingCharacters(in: .whitespacesAndNewlines)

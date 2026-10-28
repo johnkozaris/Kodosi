@@ -102,9 +102,7 @@ struct AgentLauncher: View {
         .animation(theme.motion.spring, value: launcher.usageRead)
         .task(id: computer ?? "") {
             await launcher.refresh()
-            if computer != nil {
-                _ = try? await launcher.folders()
-            }
+            _ = try? await launcher.folders()
         }
         .onChange(of: computer) { closeMenu() }
         .task(id: [computer ?? ""] + launcher.usageAccounts.map { AccountUsage.key($0.info.agent, $0.account.name) }) {
@@ -235,9 +233,13 @@ struct AgentLauncher: View {
             }
             .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
                 PickerList(
-                    rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
+                    rows: LauncherMenu.folder.rows(
+                        plan, recents: recentFolders(deps, chosen: folder, saved: launcher.places?.recent ?? []),
+                        directory: directory, loading: false,
+                    ),
                     identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu,
                 )
+                .task { _ = try? await launcher.folders() }
             }
         }
     }

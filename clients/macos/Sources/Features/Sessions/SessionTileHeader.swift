@@ -124,6 +124,17 @@ struct SessionTileHeader: View {
             IconButton(title: "Details", symbol: "info.circle", identifier: "\(stageId).details", size: 26) {
                 deps.workbench.detailsSessionId = session.id
             }
+            if roomEmbedded, session.isOwner {
+                IconButton(title: "Remove from room", symbol: "rectangle.portrait.and.arrow.right",
+                           identifier: "\(stageId).removeFromRoom", size: 26)
+                {
+                    Task { @MainActor in
+                        do {
+                            try await deps.removeFromRoom(session)
+                        } catch { deps.errorMessage = error.localizedDescription }
+                    }
+                }
+            }
             IconButton(title: "Minimize", symbol: "minus", identifier: "\(stageId).minimize", size: 26) {
                 deps.dismissSession(session.id)
             }

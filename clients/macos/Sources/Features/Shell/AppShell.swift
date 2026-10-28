@@ -47,6 +47,18 @@ struct AppShell: View {
         .kodosiPopoverLayer()
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
+        .confirmationDialog(
+            roomShareTitle, isPresented: Binding(get: { workbench.roomShare != nil }, set: {
+                if !$0 {
+                    workbench.roomShare = nil
+                }
+            }), titleVisibility: .visible, presenting: workbench.roomShare,
+        ) { share in
+            Button("Share") { deps.share(share) }
+            Button("Cancel", role: .cancel) {}
+        } message: { share in
+            Text(roomShareMessage(share))
+        }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.selectedSessionId) { _, _ in deps.reportVisible() }
@@ -66,12 +78,29 @@ struct AppShell: View {
         }
     }
 
+    private var roomShareTitle: String {
+        guard let share = deps.workbench.roomShare else { return "" }
+        let terminal = deps.session(share.sessionId)?.name ?? String(localized: "this terminal")
+        return String(localized: "Share \(terminal) with \(roomName(share.roomId))?")
+    }
+
+    private func roomShareMessage(_ share: RoomShare) -> String {
+        let room = roomName(share.roomId)
+        let control = String(localized: "Everyone in \(room) gets full control of it.")
+        guard let other = deps.session(share.sessionId)?.missionId else { return control }
+        return control + " " + String(localized: "It leaves \(roomName(other)).")
+    }
+
+    private func roomName(_ id: String) -> String {
+        deps.missions.first { $0.id == id }?.name ?? String(localized: "the room")
+    }
+
     private var terminalsInteractive: Bool {
         sheet == nil && !deps.workbench.showsPalette && deps.workbench.sharingSessionId == nil
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, details(String), newRoom, history, launcher
+        case signIn, recoveryKey, trust(FriendTrust), details(String), newRoom, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -81,6 +110,9 @@ struct AppShell: View {
         }
         if deps.account.newRecoveryKey != nil {
             return .recoveryKey
+        }
+        if let trust = workbench.trusting {
+            return .trust(trust)
         }
         if let id = workbench.detailsSessionId, deps.session(id) != nil {
             return .details(id)
@@ -102,6 +134,8 @@ struct AppShell: View {
             SheetLayer(close: deps.dismissSignIn, cancel: deps.cancelSignIn) { SignInSheet() }
         case .recoveryKey:
             SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.account.newRecoveryKey ?? "", done: deps.account.dismissRecoveryKey) })
+        case let .trust(trust):
+            SheetLayer(close: { workbench.trusting = nil }, content: { FriendTrustSheet(trust: trust) })
         case let .details(id):
             SheetLayer(close: { workbench.detailsSessionId = nil }, content: {
                 if let session = deps.session(id) {

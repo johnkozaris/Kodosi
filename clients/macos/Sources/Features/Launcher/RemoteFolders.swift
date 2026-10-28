@@ -29,11 +29,12 @@ struct RemoteFolders: View {
             }
         }
         .task {
-            guard launcher.places == nil else { return }
             do {
                 _ = try await launcher.folders()
             } catch {
-                failure = error.localizedDescription
+                if launcher.places == nil {
+                    failure = error.localizedDescription
+                }
             }
         }
     }

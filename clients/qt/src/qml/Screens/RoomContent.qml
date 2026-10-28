@@ -35,6 +35,10 @@ Item {
     function newTerminal() {
         root.newTerminalRequested(Models.Missions.selectedMissionId);
     }
+    function openTerminalMenu(sessionId) {
+        terminalMenu.sessionId = sessionId
+        terminalMenu.popup()
+    }
 
     objectName: "room"
     Accessible.id: objectName
@@ -237,20 +241,72 @@ Item {
                     }
                 }
                 KIconButton {
+                    visible: root.conversation
                     glyph: "chat"
                     size: 30
-                    active: root.conversation
-                    Accessible.name: root.conversation ? qsTr("Hide conversation") : qsTr("Show conversation")
-                    Accessible.description: !root.conversation && root.unread > 0 ? qsTr("%n new messages", "", root.unread) : ""
-                    onClicked: Models.Missions.setPresentation("conversation", !root.conversation)
+                    active: true
+                    Accessible.name: qsTr("Hide conversation")
+                    onClicked: Models.Missions.setPresentation("conversation", false)
+                    objectName: "room.conversation.hide"
+                    Accessible.id: objectName
+                }
+                AbstractButton {
+                    id: conversationKey
+
+                    readonly property var last: (root.room.messages || []).slice(-1)[0] || null
+                    readonly property var terminal: last && last.terminalId ? Models.Sessions.presentationForSession(last.terminalId) : ({})
+
+                    visible: !root.conversation
+                    implicitHeight: 30
+                    implicitWidth: keyRow.implicitWidth + (root.unread > 0 ? 14 : 10)
+                    hoverEnabled: true
+                    scale: pressed ? 0.96 : 1
                     objectName: "room.conversation.toggle"
                     Accessible.id: objectName
-
-                    CountBadge {
-                        x: parent.width - width + 6
-                        y: -4
-                        count: root.conversation ? 0 : root.unread
+                    Accessible.name: qsTr("Show conversation")
+                    Accessible.description: root.unread > 0 ? qsTr("%n new messages", "", root.unread) : ""
+                    background: Raised {
+                        radius: height / 2
+                        fill: conversationKey.hovered ? KodosiTheme.lifted : KodosiTheme.raised
+                        elevation: conversationKey.hovered ? 2 : 1
                     }
+                    contentItem: Item {
+                        RowLayout {
+                            id: keyRow
+                            x: 5
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 6
+
+                            AgentMark {
+                                visible: !!conversationKey.terminal.id
+                                program: conversationKey.terminal.program || ""
+                                session: conversationKey.terminal
+                                size: 20
+                            }
+                            PersonAvatar {
+                                visible: !!conversationKey.last && !conversationKey.terminal.id
+                                name: conversationKey.last ? conversationKey.last.agent || conversationKey.last.authorName || "" : ""
+                                key: conversationKey.last ? conversationKey.last.authorId || "" : ""
+                                isSelf: !!conversationKey.last && !conversationKey.last.agent && conversationKey.last.authorId === Models.Account.userId
+                                size: 20
+                            }
+                            KIcon {
+                                visible: !conversationKey.last
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 14
+                                name: "chat"
+                                color: KodosiTheme.inkMuted
+                            }
+                            RollingText {
+                                visible: root.unread > 0
+                                text: String(root.unread)
+                                color: KodosiTheme.accentStrong
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                    }
+                    onClicked: Models.Missions.setPresentation("conversation", true)
                 }
                 KIconButton {
                     id: optionsButton
@@ -289,6 +345,16 @@ Item {
                 anchors.left: parent.left
                 width: root.narrow ? parent.width : parent.width - (root.conversation ? root.sheetWidth + 8 : 0)
                 visible: !root.narrow || !root.conversation
+
+                TerminalDropArea {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    z: 2
+                    radius: KodosiTheme.radiusXl
+                    label: qsTr("Share with %1").arg(root.mission.name || "")
+                    objectName: "room.canvas.drop"
+                    onTerminalDropped: id => roomShare.ask(id, Models.Missions.selectedMissionId)
+                }
 
                 StackLayout {
                     anchors.fill: parent
@@ -366,6 +432,12 @@ Item {
                                                     Raised { anchors.fill: parent; radius: 14; visible: tab.selected }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(sessionId)
+
+                                                TapHandler {
+                                                    acceptedButtons: Qt.RightButton
+                                                    enabled: tab.session.isOwner === true
+                                                    onTapped: root.openTerminalMenu(tab.sessionId)
+                                                }
                                             }
                                         }
                                     }
@@ -527,6 +599,12 @@ Item {
                                                     AvatarStack { Layout.rightMargin: 12; visible: card.viewers.length > 0; userIds: card.viewers; size: 20; limit: 2; ring: KodosiTheme.raised }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(modelData)
+
+                                                TapHandler {
+                                                    acceptedButtons: Qt.RightButton
+                                                    enabled: card.session.isOwner === true
+                                                    onTapped: root.openTerminalMenu(card.modelData)
+                                                }
                                             }
                                         }
                                     }
@@ -594,6 +672,22 @@ Item {
                     }
                 }
             }
+        }
+    }
+    RoomShareDialog {
+        id: roomShare
+        onShared: Models.SessionActions.activateInRoom(roomShare.sessionId)
+    }
+    KMenu {
+        id: terminalMenu
+
+        property string sessionId: ""
+
+        KMenuItem {
+            text: qsTr("Remove from room")
+            iconName: "leave"
+            objectName: "room.terminal.remove"
+            onTriggered: Models.SessionActions.attachMission(terminalMenu.sessionId, "")
         }
     }
     KDialog {

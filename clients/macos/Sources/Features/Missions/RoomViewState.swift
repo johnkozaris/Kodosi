@@ -36,17 +36,17 @@ final class RoomViewState {
         didSet { taskRevision += 1 }
     }
 
-    var taskRevision = 0
-    var repositoryURL = "" {
-        didSet { repositoryRevision += 1 }
+    var taskIssueRepository: String? {
+        didSet { taskRevision += 1 }
     }
 
-    var repositoryRevision = 0
+    var taskRevision = 0
     var selectedRepository: String?
     var expandedTask: String?
     var completionNotes: [String: String] = [:]
     var taskFilter = ""
-    var showsRepositoryForm = false
+    var showsRepositoryPicker = false
+    var showsIssuePicker = false
     var showsCompleted = false
     var followsLatest = true
     var readingMessage: String?

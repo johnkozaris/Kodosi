@@ -15,21 +15,40 @@ Linux and Windows app follows this app.
 - The account key in the launcher shows how much of the account's plan limit is used.
   Provider Usage in the account menu shows each limit of each signed-in account, and a
   click on an account opens the launcher with it.
-- The sidebar groups terminals by folder and names the computer of a remote terminal. A
-  repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals, rooms,
-  people and actions. A terminal is renamed in place.
+- The sidebar groups terminals by folder, and by computer when they run on more than
+  one: this Mac, then your other computers, then each friend with the friend's face. A
+  friend's terminal that you have not opened has no folder yet and shows directly under
+  the friend. The + of a folder on this Mac or on another computer of yours starts a
+  terminal there. A small square on a terminal's mark has the color of its room, or is
+  grey when the terminal is shared with people. Pinned terminals stay at the top. A
+  repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals,
+  rooms, people and actions. A terminal is renamed in place.
+- Drag a terminal by its header onto another terminal to take its place in the grid, or
+  drag it from the sidebar onto a terminal to open it there.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs
   beside the mark, also on a closed folder. Done, failed and a bell keep a sign until you
   look. Faces show who else has a terminal open.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning.
-- One share sheet puts a terminal in a room or shares it with friends.
+- One share sheet puts a terminal in a room or shares it with friends. Dragging your
+  terminal onto a room asks first, and its tab in the room removes it again.
 
 ## Rooms
 
 The conversation stays beside the room's terminals, tasks and repositories. "@"
 mentions a person or a terminal, and a terminal mention opens it. A message can become a
-task.
+task. Hidden, the conversation folds into a key in the header that shows who wrote last
+and how many messages are new.
+
+Linking a repository lists the checkouts of your terminals and your GitHub repositories,
+or takes a pasted address; Connect GitHub opens a terminal for `gh auth login`. The Tasks
+tab adds the newest open issues of the room's repositories, or any issue by its number,
+and a new task can open an issue.
+
+## Friends
+
+Before you add or accept a friend, a sheet stops you: a friend can type in each terminal
+that you share with them, so add only a person that you trust completely.
 
 ## Dosi
 

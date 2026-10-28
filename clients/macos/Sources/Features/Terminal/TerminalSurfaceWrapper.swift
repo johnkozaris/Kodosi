@@ -27,6 +27,7 @@ struct TerminalSurfaceWrapper: View {
     @Environment(\.terminalTileVisible) private var tileVisible
     @Environment(\.terminalStageVisible) private var stageVisible
     @Environment(\.terminalInteractionEnabled) private var terminalInteractionEnabled
+    @State private var view = UUID()
 
     private var interactionAllowed: Bool {
         terminalInteractionEnabled && stageVisible && tileVisible
@@ -53,7 +54,7 @@ struct TerminalSurfaceWrapper: View {
         )
         .background(theme.colors.terminal)
         .onChange(of: inputAllowed, initial: true) { _, enabled in
-            token.setInputAllowed(enabled)
+            token.setInputAllowed(enabled, by: view)
             renderer.setAllowsInput(enabled)
             if !enabled {
                 TerminalInputQueue.shared.cancel(sessionId: sessionId)
@@ -61,7 +62,7 @@ struct TerminalSurfaceWrapper: View {
             }
         }
         .onDisappear {
-            token.setInputAllowed(false)
+            token.setInputAllowed(false, by: view)
             TerminalInputQueue.shared.cancel(sessionId: sessionId)
         }
     }

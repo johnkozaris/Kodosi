@@ -1411,11 +1411,30 @@ impl BackendClient {
             Action::CreateTask {
                 title,
                 description,
-                repository_ids,
+                mut repository_ids,
                 terminal_id,
+                issue_repository_id,
             } => {
                 let id = Uuid::parse_str(request).map_err(|_| invalid("Invalid task identity."))?;
-                let task = rooms::Task {
+                let created = match &issue_repository_id {
+                    Some(repository_id) => {
+                        let repository = snapshot
+                            .repositories
+                            .iter()
+                            .find(|repo| &repo.id == repository_id)
+                            .ok_or_else(|| invalid("This repository is unavailable."))?;
+                        if !repository_ids.contains(repository_id) {
+                            repository_ids.insert(0, repository_id.clone());
+                        }
+                        Some((
+                            repository,
+                            rooms::providers::create_issue(repository, &title, &description)
+                                .await?,
+                        ))
+                    }
+                    None => None,
+                };
+                let mut task = rooms::Task {
                     id: id.to_string(),
                     version: 1,
                     title,
@@ -1428,6 +1447,9 @@ impl BackendClient {
                     note: None,
                     issue: None,
                 };
+                if let Some((repository, issue)) = created {
+                    Self::apply_linked_issue(&mut task, repository, issue);
+                }
                 written = Some(
                     self.room_write(&credentials, room, id, "task", 0, &Payload::Task { task })
                         .await?,

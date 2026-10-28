@@ -111,6 +111,7 @@ private struct RoomTerminals: View {
                                         PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
                                     }
                                 }
+                                .contextMenu { removeButton(session) }
                                 .accessibilityIdentifier("room.terminal.card.\(AccessibilityIdentifier.token(session.id))")
                             }
                         }
@@ -169,6 +170,22 @@ private struct RoomTerminals: View {
             if deps.workbench.stagedSessionIds.contains(session.id) {
                 Button("Minimize") { deps.dismissSession(session.id) }
             }
+            removeButton(session)
+        }
+    }
+
+    @ViewBuilder
+    private func removeButton(_ session: RuntimeSession) -> some View {
+        if session.isOwner {
+            Button("Remove from room") { remove(session) }
+        }
+    }
+
+    private func remove(_ session: RuntimeSession) {
+        Task { @MainActor in
+            do {
+                try await deps.removeFromRoom(session)
+            } catch { state.failure = error.localizedDescription }
         }
     }
 

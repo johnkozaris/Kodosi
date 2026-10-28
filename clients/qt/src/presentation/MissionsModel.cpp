@@ -93,7 +93,8 @@ void MissionsModel::open(const QString& id)
     const bool changed = m_selectedId != id;
     m_selectedId = id;
     if (changed) {
-        m_room = m_rooms.value(id); m_issues.clear(); m_issueRepository.clear();
+        m_room = m_rooms.value(id); m_issues.clear(); m_issueRepository.clear(); m_issuesByRepository.clear();
+        m_repositoryChoices.clear(); emit repositoryChoicesChanged();
         m_selected.clear(); m_members.clear();
         for (const auto& room : m_missions) { if (room.toMap().value(QStringLiteral("id")).toString() == id) { m_selected = room.toMap(); break; } }
     }
@@ -181,6 +182,17 @@ void MissionsModel::roomAction(const QVariantMap& action)
         { { QStringLiteral("roomId"), m_selectedId }, { QStringLiteral("action"), QJsonObject::fromVariantMap(action) } }, {}, m_selectedId);
 }
 
+void MissionsModel::listRepositories()
+{
+    if (m_selectedId.isEmpty()) return;
+    m_repositoryChoices = { { QStringLiteral("loading"), true } };
+    emit repositoryChoicesChanged();
+    if (!m_workspace.sendUntracked(QStringLiteral("repositories.list"), { { QStringLiteral("missionId"), m_selectedId } })) {
+        m_repositoryChoices = { { QStringLiteral("failure"), tr("Kodosi could not ask for the repositories.") } };
+        emit repositoryChoicesChanged();
+    }
+}
+
 void MissionsModel::setPresentation(const QString& key, const QVariant& value)
 {
     if (m_selectedId.isEmpty()) return;
@@ -188,7 +200,7 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
     if (state.value(key) == value) return;
     state.insert(key, value);
     const auto group = key == QStringLiteral("taskTitle") || key == QStringLiteral("taskDescription")
-            || key == QStringLiteral("taskRepositories") ? QStringLiteral("taskRevision")
+            || key == QStringLiteral("taskRepositories") || key == QStringLiteral("taskIssueRepository") ? QStringLiteral("taskRevision")
         : key == QStringLiteral("message") ? QStringLiteral("messageRevision")
         : key == QStringLiteral("repositoryUrl") ? QStringLiteral("repositoryRevision") : QString {};
     if (!group.isEmpty()) state.insert(group, state.value(group).toULongLong() + 1);
@@ -223,7 +235,8 @@ void MissionsModel::completeAction(const QString& room, const QString& action, c
     };
     if (action == QStringLiteral("post")) clear(QStringLiteral("messageRevision"), {QStringLiteral("message")});
     if (action == QStringLiteral("createTask"))
-        clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle"), QStringLiteral("taskDescription"), QStringLiteral("taskRepositories")});
+        clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle"), QStringLiteral("taskDescription"), QStringLiteral("taskRepositories"),
+            QStringLiteral("taskIssueRepository")});
     if (action == QStringLiteral("addRepository")) clear(QStringLiteral("repositoryRevision"), {QStringLiteral("repositoryUrl"), QStringLiteral("newRepository")});
     if (room == m_selectedId) emit presentationChanged();
 }
@@ -329,7 +342,7 @@ void MissionsModel::reset()
     m_invitations.clear();
     m_selected.clear();
     m_members.clear();
-    m_selectedId.clear(); m_room.clear(); m_rooms.clear(); m_presentations.clear(); m_issueRepository.clear(); m_issues.clear(); emit roomChanged(); emit presentationChanged();
+    m_selectedId.clear(); m_room.clear(); m_rooms.clear(); m_presentations.clear(); m_issueRepository.clear(); m_issues.clear(); m_issuesByRepository.clear(); m_repositoryChoices.clear(); emit roomChanged(); emit presentationChanged(); emit repositoryChoicesChanged();
     m_seen.clear();
     m_catalogTruncated = false;
     emit catalogChanged();

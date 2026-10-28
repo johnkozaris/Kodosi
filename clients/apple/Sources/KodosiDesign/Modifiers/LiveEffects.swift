@@ -391,6 +391,27 @@ private struct Bounce<Value: Equatable>: ViewModifier {
     }
 }
 
+private struct Hop: ViewModifier {
+    @Environment(\.theme) private var theme
+    let on: Bool
+    @State private var hops = 0
+
+    func body(content: Content) -> some View {
+        content
+            .keyframeAnimator(initialValue: 0.0, trigger: hops) { view, lift in
+                view.offset(y: -lift)
+            } keyframes: { _ in
+                SpringKeyframe(4, duration: 0.16, spring: .snappy)
+                SpringKeyframe(0, duration: 0.34, spring: .bouncy)
+            }
+            .onChange(of: on) { _, now in
+                if now, !theme.motion.reduced {
+                    hops += 1
+                }
+            }
+    }
+}
+
 private struct Arrive: ViewModifier {
     @Environment(\.theme) private var theme
     @State private var shown = false
@@ -424,6 +445,10 @@ public extension View {
 
     func bounce(on value: some Equatable) -> some View {
         modifier(Bounce(value: value))
+    }
+
+    func hop(when on: Bool) -> some View {
+        modifier(Hop(on: on))
     }
 }
 

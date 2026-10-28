@@ -14,18 +14,22 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String = "/remote/project", restoredFrom: String? = nil,
-                    ownerUserId: String? = nil, hostDeviceId: String? = nil) throws -> RuntimeSession
+                    directory: String? = "/remote/project", restoredFrom: String? = nil,
+                    ownerUserId: String? = nil, hostDeviceId: String? = nil, ownerName: String? = nil,
+                    hostName: String? = nil) throws -> RuntimeSession
 {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-        "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string(directory),
+        "kind": .string(kind), "name": .string("Terminal"),
         "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]
+    fields["workingDir"] = directory.map(JSONValue.string)
+    fields["ownerName"] = ownerName.map(JSONValue.string)
     fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
     fields["ownerUserId"] = ownerUserId.map(JSONValue.string)
     fields["hostDeviceId"] = hostDeviceId.map(JSONValue.string)
+    fields["hostName"] = hostName.map(JSONValue.string)
     return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
 }
 
@@ -124,10 +128,10 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     let first = try runtimeSession(kind: "local", connection: "local")
     let second = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local")
     let remote = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b31")
-    let groups = SessionFolderGroup.groups([first, second, remote])
-    #expect(groups.count == 2)
-    #expect(groups[0].sessions.map(\.id) == [first.id, second.id])
-    #expect(groups[1].host != nil)
+    let computers = SessionComputerGroup.groups([first, second, remote])
+    #expect(computers.count == 2)
+    #expect(computers[0].folders.flatMap(\.sessions).map(\.id) == [first.id, second.id])
+    #expect(computers[1].computer != nil && computers[1].owner == nil)
     let defaults = try #require(EphemeralUserDefaults(prefix: "FolderNavigation"))
     let workbench = WorkbenchState(defaults: defaults)
     workbench.showSession(first.id)
@@ -136,6 +140,24 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(workbench.selectedSessionId == first.id)
     workbench.sidebarCollapsed = true
     #expect(workbench.stagedSessionIds == [first.id, second.id])
+}
+
+@Test func `terminals group by computer, then by folder`() throws {
+    let here = try runtimeSession(kind: "local", connection: "local", directory: "/Users/ana/kodosi")
+    let studio = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b31", directory: "/Users/ana/website",
+                                    hostDeviceId: "studio", hostName: "Studio")
+    let unopened = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b32", owner: false, directory: nil,
+                                      ownerUserId: "ben", hostDeviceId: "bens-mac", ownerName: "Ben Okafor", hostName: "Ben's Mac")
+    let laptop = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b33", owner: false, directory: "/home/ben/api",
+                                    ownerUserId: "ben", hostDeviceId: "bens-laptop", ownerName: "Ben Okafor", hostName: "Laptop")
+
+    let computers = SessionComputerGroup.groups([laptop, unopened, studio, here])
+
+    #expect(computers.map(\.title) == ["This Mac", "Studio", "Ben Okafor · Ben's Mac", "Ben Okafor · Laptop"])
+    #expect(computers[1].folders.map(\.computerId) == ["studio"])
+    #expect(computers.map { $0.folders.map(\.canStartTerminal) } == [[true], [true], [false], [false]])
+    #expect(computers[2].owner == SessionFolderGroup.Owner(name: "Ben Okafor", userId: "ben"))
+    #expect(computers[2].folders.map(\.directory) == [nil])
 }
 
 @Test func `each host folder shows its last folder`() throws {
@@ -148,7 +170,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     }
     let windows = try runtimeSession(directory: #"C:\Users\ada\project"#)
     #expect(windows.folderName == "project")
-    #expect(SessionFolderGroup.groups([windows]).map(\.name) == ["project"])
+    #expect(SessionComputerGroup.groups([windows]).flatMap(\.folders).map(\.name) == ["project"])
 }
 
 @Test func `provider title does not replace the sidebar name`() throws {

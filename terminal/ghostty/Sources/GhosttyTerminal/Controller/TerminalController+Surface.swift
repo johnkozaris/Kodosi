@@ -13,8 +13,7 @@ extension TerminalController {
         surfaceConfig.userdata = Unmanaged.passUnretained(bridge).toOpaque()
         surfaceConfig.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
         surfaceConfig.backend = GHOSTTY_SURFACE_IO_BACKEND_HOST_MANAGED
-        surfaceConfig.receive_userdata =
-            Unmanaged.passUnretained(configuration.session).toOpaque()
+        surfaceConfig.receive_userdata = Unmanaged.passUnretained(bridge).toOpaque()
         surfaceConfig.receive_buffer = InMemoryTerminalSession.receiveBufferCallback
         surfaceConfig.receive_resize = InMemoryTerminalSession.receiveResizeCallback
         bridge.session = configuration.session
@@ -23,13 +22,15 @@ extension TerminalController {
             surfaceConfig.font_size = fontSize
         }
 
-        return buildSurface(
+        let surface = buildSurface(
             app: app,
             bridge: bridge,
             configuration: configuration,
             config: &surfaceConfig,
             platformSetup: platformSetup
         )
+        bridge.rawSurface = surface
+        return surface
     }
 
     func retain(_ bridge: TerminalCallbackBridge) {

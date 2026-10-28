@@ -10,7 +10,6 @@ struct RoomRepositoriesView: View {
     @Bindable var state: RoomViewState
     @State private var loadingIssues = false
     @State private var issueFailure: String?
-    @FocusState private var connecting: Bool
 
     private var repositories: [RoomRepository] {
         deps.rooms[roomId]?.repositories ?? []
@@ -23,10 +22,14 @@ struct RoomRepositoriesView: View {
     var body: some View {
         VStack(spacing: 0) {
             if repositories.isEmpty {
-                EmptyState(title: "Connect a repository", message: "Its issues can become room tasks. Your sign-in for it stays on this Mac.") {
-                    IconTile(symbol: "shippingbox.fill", tint: TileTint.purple, size: 52)
-                } actions: {
-                    connectField.frame(width: 380)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        IconTile(symbol: "shippingbox.fill", tint: TileTint.purple, size: 52)
+                        Text("Link a repository").appTextStyle(.title).foregroundStyle(theme.colors.ink)
+                        RepositoryPicker(roomId: roomId)
+                            .padding(12).raised(Radius.xl)
+                    }
+                    .frame(width: 440).padding(.top, 48).frame(maxWidth: .infinity)
                 }
             } else {
                 HStack(spacing: 8) {
@@ -38,13 +41,14 @@ struct RoomRepositoriesView: View {
                     }
                     .scrollIndicators(.never).wellCapsule().fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
-                    if state.showsRepositoryForm {
-                        connectField.frame(width: 320).transition(.opacity.combined(with: .move(edge: .trailing)))
-                    } else {
-                        IconButton(title: "Connect a repository", symbol: "plus", identifier: "room.repository.new", size: 30) {
-                            withAnimation(theme.motion.spring) { state.showsRepositoryForm = true }
-                            connecting = true
-                        }
+                    IconButton(title: "Link a repository", symbol: "plus", identifier: "room.repository.new", size: 30,
+                               open: state.showsRepositoryPicker)
+                    {
+                        state.showsRepositoryPicker = true
+                    }
+                    .kodosiPopover(isPresented: $state.showsRepositoryPicker, alignment: .trailing) {
+                        RepositoryPicker(roomId: roomId) { state.showsRepositoryPicker = false }
+                            .padding(12).frame(width: 400)
                     }
                 }
                 .padding(.horizontal, 8).padding(.bottom, 6)
@@ -98,21 +102,6 @@ struct RoomRepositoriesView: View {
         .accessibilityIdentifier("room.repository.\(AccessibilityIdentifier.token(repository.id))")
     }
 
-    private var connectField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "link").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
-            TextField("Paste a repository address", text: $state.repositoryURL)
-                .textFieldStyle(.plain).appTextStyle(.body).focused($connecting)
-                .onSubmit(connect).onExitCommand { state.showsRepositoryForm = false }
-                .accessibilityIdentifier("room.repository.url")
-            Button("Connect", action: connect)
-                .buttonStyle(.kodosi(.primary, size: .small)).disabled(state.busy || state.repositoryURL.isEmpty)
-                .accessibilityIdentifier("room.repository.add")
-        }
-        .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
-        .wellCapsule()
-    }
-
     private func issues(_ repository: RoomRepository) -> some View {
         let entries = deps.roomIssues[repository.id] ?? []
         return ScrollView {
@@ -147,16 +136,6 @@ struct RoomRepositoriesView: View {
             }
             .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 24)
             .frame(maxWidth: 760).frame(maxWidth: .infinity)
-        }
-    }
-
-    private func connect() {
-        guard !state.repositoryURL.isEmpty, !state.busy else { return }
-        let revision = state.repositoryRevision
-        perform(RoomAction.addRepository(state.repositoryURL)) {
-            if state.repositoryRevision == revision {
-                state.repositoryURL = ""; state.showsRepositoryForm = false
-            }
         }
     }
 

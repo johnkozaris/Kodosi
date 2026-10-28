@@ -285,3 +285,6 @@ async fn serve(
         }
     }
 }
+
+#[cfg(all(test, feature = "host"))]
+mod tests;
