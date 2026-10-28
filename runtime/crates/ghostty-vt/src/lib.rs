@@ -20,6 +20,7 @@ pub const IMAGE_STORAGE_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[H";
 const CLI_REPLAY_SUFFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m";
+const LEAVE_ALTERNATE_SCREEN: &[u8] = b"\x1b[?1049l";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalPolicy {
@@ -205,6 +206,36 @@ impl Terminal {
         output.extend_from_slice(CLI_REPLAY_SUFFIX);
         Ok(output)
     }
+
+    /// Leaves the alternate screen, then gives the primary screen and its history as VT text
+    /// with styles and links. Soft-wrapped lines stay whole, so another terminal wraps them at
+    /// its own width.
+    pub fn primary_history(&mut self) -> Result<Vec<u8>, Error> {
+        if self.state()?.active_screen == Screen::Alternate {
+            self.write(LEAVE_ALTERNATE_SCREEN)?;
+        }
+        self.raw.format(
+            FormatOptions {
+                format: Format::Vt,
+                unwrap: true,
+                trim: true,
+                palette: false,
+                modes: false,
+                scrolling_region: false,
+                tabstops: false,
+                pwd: false,
+                keyboard: false,
+                cursor: false,
+                style: true,
+                hyperlink: true,
+                protection: false,
+                kitty_keyboard: false,
+                charsets: false,
+                screen_only: false,
+            },
+            FORMATTER_PROFILE_MAX_BYTES,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -318,6 +349,24 @@ mod tests {
         assert!(!text.contains("\x1b[3J"));
         assert!(text.contains("line 27") && text.contains("line 29"));
         assert!(!text.contains("line 26"));
+    }
+
+    #[test]
+    fn primary_history_leaves_the_alternate_screen_and_wraps_again_at_another_width() {
+        let mut host = Terminal::new(10, 3, TerminalPolicy::default()).expect("host");
+        host.write(b"\x1b[31mred\x1b[0m and a long line\r\nsecond\r\nthird\r\nfourth\r\n")
+            .expect("output");
+        host.write(b"\x1b[?1049hfull screen").expect("full screen");
+
+        let history = host.primary_history().expect("history");
+        let mut replay = Terminal::new(30, 3, TerminalPolicy::default()).expect("replay");
+        replay.write(&history).expect("replay");
+
+        assert_eq!(
+            replay.text(true).expect("text"),
+            "red and a long line\nsecond\nthird\nfourth"
+        );
+        assert!(String::from_utf8_lossy(&history).contains("\x1b[38;5;1mred"));
     }
 
     #[test]

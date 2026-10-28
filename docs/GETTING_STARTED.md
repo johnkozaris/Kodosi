@@ -41,10 +41,12 @@ A terminal is a real shell on the computer that runs it. Minimize hides a termin
 keeps it running; Close ends it and its programs. When you close the window, Kodosi and
 your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
 on a desktop without a system tray, closing the window quits Kodosi. When you quit
-Kodosi, your terminals stop. When you open Kodosi again, they start again in their
-folders, rooms and places on the stage. Claude Code continues its conversation, and Codex
-and Copilot CLI show their conversations so that you can continue one. In Settings, you
-can choose what closing the window does.
+Kodosi, your terminals stop; Kodosi saves what they show on your computer and nowhere
+else. When you open Kodosi again, they start again in their folders, rooms and places on
+the stage, with their earlier screen and history above a new prompt (on Windows, scroll
+up to see it). Claude Code continues its conversation, and Codex and Copilot CLI show
+their conversations so that you can continue one. In Settings, you can choose what
+closing the window does.
 
 ## 3. See which agent needs you
 

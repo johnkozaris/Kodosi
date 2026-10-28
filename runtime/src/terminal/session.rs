@@ -60,6 +60,7 @@ enum Request {
         history: bool,
         reply: oneshot::Sender<Result<String>>,
     },
+    PrimaryHistory(oneshot::Sender<Result<Vec<u8>>>),
     Resize {
         connection: Uuid,
         size: TerminalSize,
@@ -103,7 +104,9 @@ pub(crate) struct TerminalSession {
 
 impl TerminalSession {
     /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
-    /// reads; the note itself is in each terminal's environment.
+    /// reads; the note itself is in each terminal's environment. The terminal shows `screen`
+    /// above the output of its program.
+    #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
     pub(crate) async fn spawn(
         id: Uuid,
         incarnation_id: Uuid,
@@ -112,6 +115,7 @@ impl TerminalSession {
         directory: PathBuf,
         prompt_marks: Option<PathBuf>,
         notes: Option<PathBuf>,
+        screen: Vec<u8>,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -121,7 +125,7 @@ impl TerminalSession {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
-            let emulator = SessionTerminalHandle::spawn(size)?;
+            let emulator = SessionTerminalHandle::spawn(size, screen)?;
             let session_id = id.to_string();
             let command_path = command_path();
             let copilot_notes = notes.as_deref().and_then(copilot_notes);
@@ -294,6 +298,13 @@ impl TerminalSession {
     ) -> impl Future<Output = Result<String>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(self.send(Request::Read { history, reply }), response)
+    }
+
+    /// The primary screen and its history as VT text, for the terminal that replaces this one.
+    /// It leaves the alternate screen, so ask only when the terminal stops.
+    pub(crate) fn primary_history(&self) -> impl Future<Output = Result<Vec<u8>>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::PrimaryHistory(reply)), response)
     }
 
     pub(crate) fn resize(
@@ -1228,6 +1239,7 @@ impl LocalActor {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "one dispatch for every request")]
     async fn command(&mut self, command: Request) -> Option<String> {
         match command {
             Request::Subscribe(reply) => {
@@ -1264,6 +1276,11 @@ impl LocalActor {
             Request::Read { history, reply } => {
                 if !reply.is_closed() {
                     drop(reply.send(self.emulator.text(history).await));
+                }
+            }
+            Request::PrimaryHistory(reply) => {
+                if !reply.is_closed() {
+                    drop(reply.send(self.emulator.primary_history().await));
                 }
             }
             Request::Resize {

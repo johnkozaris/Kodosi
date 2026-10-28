@@ -18,6 +18,9 @@ use tokio::{
 const TERMINAL_COMMAND_CAPACITY: usize = 64;
 const TERMINAL_COMMAND_SEND_TIMEOUT: Duration = Duration::from_millis(50);
 const COMPRESSION_IDLE: Duration = Duration::from_secs(2);
+/// `ConPTY` draws from the top left as if the screen were empty, so a console terminal moves a
+/// screen it starts with into its history.
+const CONSOLE_START: &[u8] = b"\x1b[22J\x1b[H";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum TerminalEffect {
@@ -73,13 +76,17 @@ enum TerminalCommand {
         history: bool,
         reply_tx: oneshot::Sender<Result<String>>,
     },
+    PrimaryHistory {
+        reply_tx: oneshot::Sender<Result<Vec<u8>>>,
+    },
     Shutdown {
         reply_tx: oneshot::Sender<Result<()>>,
     },
 }
 
 impl SessionTerminalHandle {
-    pub(super) fn spawn(size: TerminalSize) -> Result<Self> {
+    /// Starts a terminal that shows `screen` above the output of its program.
+    pub(super) fn spawn(size: TerminalSize, screen: Vec<u8>) -> Result<Self> {
         let rows = size.rows();
         let cols = size.cols();
         let (command_tx, command_rx) = tokio_mpsc::channel(TERMINAL_COMMAND_CAPACITY);
@@ -96,7 +103,7 @@ impl SessionTerminalHandle {
                     ))));
                     return;
                 };
-                runtime.block_on(terminal_actor_main(command_rx, rows, cols, init_tx));
+                runtime.block_on(terminal_actor_main(command_rx, rows, cols, screen, init_tx));
             })
             .map_err(|error| {
                 Error::Other(format!(
@@ -162,6 +169,13 @@ impl SessionTerminalHandle {
 
     pub(super) async fn text(&self, history: bool) -> Result<String> {
         self.request(|reply_tx| TerminalCommand::Text { history, reply_tx })
+            .await
+    }
+
+    /// The primary screen and its history as VT text. It leaves the alternate screen, so ask
+    /// only when the terminal stops.
+    pub(super) async fn primary_history(&self) -> Result<Vec<u8>> {
+        self.request(|reply_tx| TerminalCommand::PrimaryHistory { reply_tx })
             .await
     }
 
@@ -240,6 +254,22 @@ impl SessionTerminal {
             terminal,
             applied: 0,
         })
+    }
+
+    /// A screen that the terminal cannot show is left out.
+    fn showing(rows: u16, cols: u16, screen: &[u8]) -> Result<Self> {
+        let mut session = Self::new(rows, cols)?;
+        if screen.is_empty() {
+            return Ok(session);
+        }
+        let mut shown = session.terminal.write(screen);
+        if kodosi_pty::CONSOLE_HOST && shown.is_ok() {
+            shown = session.terminal.write(CONSOLE_START);
+        }
+        if shown.is_err() {
+            session = Self::new(rows, cols)?;
+        }
+        Ok(session)
     }
 
     fn process_output(&mut self, bytes: &[u8]) -> Result<ProcessedTerminalOutput> {
@@ -449,9 +479,11 @@ async fn terminal_actor_main(
     mut command_rx: tokio_mpsc::Receiver<TerminalCommand>,
     rows: u16,
     cols: u16,
+    screen: Vec<u8>,
     init_tx: std::sync::mpsc::SyncSender<Result<()>>,
 ) {
-    let terminal = SessionTerminal::new(rows, cols);
+    let terminal = SessionTerminal::showing(rows, cols, &screen);
+    drop(screen);
     let Ok(mut terminal) = terminal else {
         drop(init_tx.send(terminal.map(|_| ())));
         return;
@@ -506,6 +538,9 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::Text { history, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.text(history).map_err(terminal_error)));
+                    }
+                    TerminalCommand::PrimaryHistory { reply_tx } => {
+                        drop(reply_tx.send(terminal.terminal.primary_history().map_err(terminal_error)));
                     }
                     TerminalCommand::Shutdown { reply_tx } => {
                         drop(terminal);
