@@ -1,8 +1,8 @@
 diff --git a/src/terminal/kitty/graphics_exec.zig b/src/terminal/kitty/graphics_exec.zig
-index 9f1e72efd..3077ffaed 100644
+index 13bdaf142..3bf95f1b6 100644
 --- a/src/terminal/kitty/graphics_exec.zig
 +++ b/src/terminal/kitty/graphics_exec.zig
-@@ -166,7 +166,7 @@ fn query(
+@@ -179,7 +179,7 @@ fn query(
      // changing image storage.
      // https://sw.kovidgoyal.net/kitty/graphics-protocol/#querying-support-and-available-transmission-mediums
      const storage = &terminal.screens.active.kitty_images;
@@ -11,7 +11,7 @@ index 9f1e72efd..3077ffaed 100644
          encodeError(&result, err);
          return result;
      };
-@@ -463,6 +463,7 @@ fn transmitAnimationFrame(
+@@ -477,6 +477,7 @@ fn transmitAnimationFrame(
          // but this is for a subsequent frame.
          var result = loading.response;
          loading.addData(alloc, cmd.data) catch |err| {
@@ -19,7 +19,7 @@ index 9f1e72efd..3077ffaed 100644
              encodeError(&result, err);
              return result;
          };
-@@ -515,7 +516,7 @@ fn transmitAnimationFrame(
+@@ -529,7 +530,7 @@ fn transmitAnimationFrame(
          io,
          alloc,
          cmd,
@@ -28,7 +28,7 @@ index 9f1e72efd..3077ffaed 100644
      ) catch |err| {
          encodeError(&result, err);
          return result;
-@@ -1008,7 +1009,10 @@ fn loadAndAddImage(
+@@ -1022,7 +1023,10 @@ fn loadAndAddImage(
      var loading: LoadingImage = if (storage.loading) |loading| loading: {
          // Note: we do NOT want to call "cmd.toOwnedData" here because
          // we're _copying_ the data. We want the command data to be freed.
@@ -40,7 +40,7 @@ index 9f1e72efd..3077ffaed 100644
  
          // If we have more then we're done
          if (t.more_chunks) return .{ .image = loading.image, .more = true };
-@@ -1032,7 +1036,7 @@ fn loadAndAddImage(
+@@ -1046,7 +1050,7 @@ fn loadAndAddImage(
              } });
          }
  
@@ -49,8 +49,8 @@ index 9f1e72efd..3077ffaed 100644
      };
  
      // We only want to deinit on error. If we're chunking, then we don't
-@@ -1487,6 +1491,45 @@ test "kittygfx delete aborts chunked image load" {
-     try testing.expectEqual(@as(usize, 6), storage.imageById(1).?.data.len());
+@@ -1570,6 +1574,45 @@ fn testFilePayload(
+     return result;
  }
  
 +test "kittygfx a transmission larger than the storage fails and ends" {
@@ -96,7 +96,7 @@ index 9f1e72efd..3077ffaed 100644
      const testing = std.testing;
      const alloc = testing.allocator;
 diff --git a/src/terminal/kitty/graphics_image.zig b/src/terminal/kitty/graphics_image.zig
-index a3a024fec..210929f86 100644
+index d0e325291..741ade103 100644
 --- a/src/terminal/kitty/graphics_image.zig
 +++ b/src/terminal/kitty/graphics_image.zig
 @@ -34,6 +34,9 @@ pub const LoadingImage = struct {
@@ -139,10 +139,10 @@ index a3a024fec..210929f86 100644
          }
  
 diff --git a/src/terminal/kitty/graphics_storage.zig b/src/terminal/kitty/graphics_storage.zig
-index fbd74c530..a64027ce4 100644
+index a2db22715..f17b80aa6 100644
 --- a/src/terminal/kitty/graphics_storage.zig
 +++ b/src/terminal/kitty/graphics_storage.zig
-@@ -166,6 +166,13 @@ pub const ImageStorage = struct {
+@@ -171,6 +171,13 @@ pub const ImageStorage = struct {
      total_bytes: usize = 0,
      total_limit: usize = 320 * 1000 * 1000, // 320MB
  
@@ -156,7 +156,7 @@ index fbd74c530..a64027ce4 100644
      /// A ticket for attaching pixels to an image that was added before its
      /// pixels arrived. `addPendingImage` returns one.
      ///
-@@ -351,7 +358,7 @@ pub const ImageStorage = struct {
+@@ -356,7 +363,7 @@ pub const ImageStorage = struct {
          if (limit < self.total_bytes) {
              const req_bytes = self.total_bytes - limit;
              log.info("evicting images to lower limit, evicting={}", .{req_bytes});
@@ -165,7 +165,7 @@ index fbd74c530..a64027ce4 100644
                  log.warn("failed to evict enough images for required bytes", .{});
              }
          }
-@@ -359,6 +366,23 @@ pub const ImageStorage = struct {
+@@ -364,6 +371,23 @@ pub const ImageStorage = struct {
          self.total_limit = limit;
      }
  
@@ -189,7 +189,7 @@ index fbd74c530..a64027ce4 100644
      /// Returns the next ID to automatically assign to an image that
      /// was transmitted without an explicit ID (i=). The result is
      /// never zero (zero means "no ID") and never an ID currently in
-@@ -424,12 +448,14 @@ pub const ImageStorage = struct {
+@@ -429,12 +453,14 @@ pub const ImageStorage = struct {
              try self.images.ensureUnusedCapacity(alloc, 1);
          }
  
@@ -208,7 +208,7 @@ index fbd74c530..a64027ce4 100644
                  log.warn("failed to evict enough images for required bytes", .{});
                  return error.OutOfMemory;
              }
-@@ -530,6 +556,9 @@ pub const ImageStorage = struct {
+@@ -535,6 +561,9 @@ pub const ImageStorage = struct {
              },
          };
  
@@ -218,7 +218,7 @@ index fbd74c530..a64027ce4 100644
          const gop = try self.placements.getOrPut(alloc, key);
          if (gop.found_existing) {
              gop.value_ptr.deinit(s);
-@@ -1161,6 +1190,7 @@ pub const ImageStorage = struct {
+@@ -1207,6 +1236,7 @@ pub const ImageStorage = struct {
                  alloc,
                  s,
                  req_bytes,
@@ -226,7 +226,7 @@ index fbd74c530..a64027ce4 100644
                  image_id,
              )) {
                  log.warn("failed to evict enough images for animation frame", .{});
-@@ -1761,15 +1791,16 @@ pub const ImageStorage = struct {
+@@ -1807,15 +1837,16 @@ pub const ImageStorage = struct {
      /// published Kitty spec.
      ///
      /// This will evict as many images as necessary to make space for
@@ -245,7 +245,7 @@ index fbd74c530..a64027ce4 100644
      }
  
      /// Evict images while preserving `exclude_id`, used when replacing an
-@@ -1780,6 +1811,7 @@ pub const ImageStorage = struct {
+@@ -1826,6 +1857,7 @@ pub const ImageStorage = struct {
          alloc: Allocator,
          s: *terminal.Screen,
          req: usize,
@@ -253,7 +253,7 @@ index fbd74c530..a64027ce4 100644
          exclude_id: ?u32,
      ) bool {
          assert(req <= self.total_limit);
-@@ -1824,7 +1856,8 @@ pub const ImageStorage = struct {
+@@ -1870,7 +1902,8 @@ pub const ImageStorage = struct {
          };
  
          var evicted: usize = 0;
@@ -263,7 +263,7 @@ index fbd74c530..a64027ce4 100644
              const c = candidate: {
                  var best: ?Candidate = null;
                  var it = self.images.iterator();
-@@ -1850,6 +1883,7 @@ pub const ImageStorage = struct {
+@@ -1896,6 +1929,7 @@ pub const ImageStorage = struct {
              log.info("evicting image id={} bytes={}", .{ c.id, image_len });
  
              evicted += image_len;
@@ -271,7 +271,7 @@ index fbd74c530..a64027ce4 100644
              self.total_bytes -= image_len;
  
              entry.value_ptr.deinit(alloc);
-@@ -2416,6 +2450,54 @@ test "storage: placement count limit permits replacement" {
+@@ -2462,6 +2496,54 @@ test "storage: placement count limit permits replacement" {
      try testing.expectEqual(@as(usize, 1), s.placements.count());
  }
  
@@ -326,7 +326,7 @@ index fbd74c530..a64027ce4 100644
  test "storage: delete all visible placements and matching images" {
      const testing = std.testing;
      const alloc = testing.allocator;
-@@ -3682,7 +3764,7 @@ test "storage: evicts images in priority order" {
+@@ -3801,7 +3883,7 @@ test "storage: evicts images in priority order" {
  
      const gen = s.generation;
      const dirty = s.dirty;
@@ -335,7 +335,7 @@ index fbd74c530..a64027ce4 100644
      try testing.expect(s.dirty != dirty);
      try testing.expect(s.generation > gen);
      try testing.expectEqual(true, result);
-@@ -4026,7 +4108,7 @@ test "storage: pending images share exact eviction ordering" {
+@@ -4145,7 +4227,7 @@ test "storage: pending images share exact eviction ordering" {
      });
  
      // ID 3 is transient and unused, so one exact-size eviction is enough.

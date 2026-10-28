@@ -1165,8 +1165,8 @@
     "ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json": {
       "sha256": "e897417237700d353327bedbe9dce12a5a8d2141a1c3f4a6022ecb3f823a4958"
     },
-    "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz": {
-      "sha256": "0d2ea2ef74e090ca152b88fadd7fed8b699df27d59c019656f1521fda2e36498"
+    "ThirdPartyNotices/corresponding-source/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz": {
+      "sha256": "fdaca4e2789bb8b781eef2cc76eab5ef3490d8cceec699e40d1cc96b53ad3f74"
     },
     "scripts/relink-libintl.sh": {
       "sha256": "b581144466d07a310d4c5c5321575ddaff98a602ac2ed2bbf44d91042b1ded13"
@@ -1175,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:f54340ad77814fe319d136e5e915d6a48de8dd23;patch_set:29af92da01e9459e8e8db9f50a1ec670ef2449c93127acd37e907b8de1f689ac;patch_application:01365808f967e4205e3593ce270cc3951cfd6df630ab96bf340860bb546c7ee8",
+      "identity": "ghostty:83fb95624b0439ee660c2679b43b38c8b63769cd;patch_set:8d78d2a6e09878ad574d21d5c9146a368c5aa546412bba6ab69557f88e3dd165;patch_application:8c9d94d5947aaed1f7e1da8c67751769b2cedc0ac2552ba9d040b3b468ea5598",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"
@@ -1188,7 +1188,7 @@
         "pinned-source:pkg/wuffs/src/"
       ],
       "spdx": "MIT",
-      "version": "commit f54340ad77814fe319d136e5e915d6a48de8dd23"
+      "version": "commit 83fb95624b0439ee660c2679b43b38c8b63769cd"
     },
     {
       "id": "freetype",
@@ -1387,7 +1387,7 @@
     },
     {
       "id": "z2d",
-      "identity": "z2d-0.12.2-pre-j5P_HilCEQDH_2RC0PZqYQd4rHTl13b-VXpaDQ1sE4kZ",
+      "identity": "z2d-0.13.0-j5P_HgsRFABzZDH54gI35P0OSrg7HFyJwS2bXX5uBdU4",
       "name": "z2d",
       "notices": [
         "z2d-NOTICE.txt",
@@ -1395,12 +1395,12 @@
       ],
       "scope": "archive",
       "sourcePaths": [
-        "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
-        "pinned-source:https://deps.files.ghostty.org/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
-        "pinned-source:https://codeload.github.com/vancluever/z2d/tar.gz/f3cf28188dae39946964c81475ff234c008125a6"
+        "ThirdPartyNotices/corresponding-source/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz",
+        "pinned-source:https://deps.files.ghostty.org/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz",
+        "pinned-source:https://codeload.github.com/vancluever/z2d/tar.gz/40af3e84a4e15a9f31d126b3f281f23ce6a3dae5"
       ],
       "spdx": "MPL-2.0",
-      "version": "0.12.2-pre / f3cf28188dae39946964c81475ff234c008125a6"
+      "version": "0.13.0 / 40af3e84a4e15a9f31d126b3f281f23ce6a3dae5"
     },
     {
       "id": "zf",
@@ -1613,7 +1613,7 @@
     },
     {
       "id": "freetype-gl-atlas",
-      "identity": "ghostty:f54340ad77814fe319d136e5e915d6a48de8dd23:Atlas.zig:ae86d92e2af4b5ce7360855737833b80442d715dd0bdc1ad4c6a3eba6f8071e3;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
+      "identity": "ghostty:83fb95624b0439ee660c2679b43b38c8b63769cd:Atlas.zig:ae86d92e2af4b5ce7360855737833b80442d715dd0bdc1ad4c6a3eba6f8071e3;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
       "name": "Ghostty texture atlas derived from freetype-gl with RectangleBinPack lineage",
       "notices": [
         "freetype-gl-BSD-2-Clause.txt",
@@ -1663,7 +1663,7 @@
       "version": "Unicode 6.0.0 / Kitty d63eeada73bacce2374c6b1f1523e0551dbbd5b6 / Ghostty d29073d999e88f8a35cd3c368f97f6a3bfa8a0fc"
     }
   ],
-  "ghosttyCommit": "f54340ad77814fe319d136e5e915d6a48de8dd23",
+  "ghosttyCommit": "83fb95624b0439ee660c2679b43b38c8b63769cd",
   "notices": {
     "RectangleBinPack-Public-Domain.txt": {
       "path": "ThirdPartyNotices/licenses/RectangleBinPack-Public-Domain.txt",
@@ -1825,17 +1825,17 @@
   "schemaVersion": 2,
   "sourceAcquisitions": {
     "z2d": {
-      "acquiredOn": "2026-10-22",
-      "archivePath": "ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
-      "byteSize": 1947171,
-      "commit": "f3cf28188dae39946964c81475ff234c008125a6",
-      "corroboratingUrl": "https://codeload.github.com/vancluever/z2d/tar.gz/f3cf28188dae39946964c81475ff234c008125a6",
+      "acquiredOn": "2026-10-28",
+      "archivePath": "ThirdPartyNotices/corresponding-source/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz",
+      "byteSize": 2039859,
+      "commit": "40af3e84a4e15a9f31d126b3f281f23ce6a3dae5",
+      "corroboratingUrl": "https://codeload.github.com/vancluever/z2d/tar.gz/40af3e84a4e15a9f31d126b3f281f23ce6a3dae5",
       "method": "HTTPS GET; both responses retained and compared byte-for-byte",
-      "primaryUrl": "https://deps.files.ghostty.org/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz",
-      "sha256": "0d2ea2ef74e090ca152b88fadd7fed8b699df27d59c019656f1521fda2e36498",
-      "version": "0.12.2-pre",
-      "zigIdentity": "z2d-0.12.2-pre-j5P_HilCEQDH_2RC0PZqYQd4rHTl13b-VXpaDQ1sE4kZ"
+      "primaryUrl": "https://deps.files.ghostty.org/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz",
+      "sha256": "fdaca4e2789bb8b781eef2cc76eab5ef3490d8cceec699e40d1cc96b53ad3f74",
+      "version": "0.13.0",
+      "zigIdentity": "z2d-0.13.0-j5P_HgsRFABzZDH54gI35P0OSrg7HFyJwS2bXX5uBdU4"
     }
   },
-  "zigStoreSha256": "597cde1a0800a9d27e876206038302c16fc02262334d82ab3633a9a1607f681c"
+  "zigStoreSha256": "a97884e4ca2fd9471f578a8948edfe18d7da50b5bd061e49274cd95cb8417a52"
 }

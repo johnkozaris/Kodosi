@@ -394,10 +394,28 @@ index 4ffa63911..ffb6b2938 100644
      try testing.expect(entry.generation > gen1);
      try testing.expectEqualSlices(
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 514b6c84d..f5bb20a4e 100644
+index dad57cea2..b6edca61c 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -719,6 +719,7 @@ pub fn restoreCheckpointLocked(
+@@ -297,7 +297,7 @@ pub fn init(self: *Termio, alloc: Allocator, opts: termio.Options) !void {
+                 .palette = .default,
+             },
+             .kitty_image_storage_limit = opts.config.image_storage_limit,
+-            .kitty_image_loading_limits = .allWithTempDir(global.tmpDirPath()),
++            .kitty_image_loading_limits = kittyImageLoadingLimits(opts.backend),
+         };
+     });
+     errdefer term.deinit(alloc);
+@@ -518,7 +518,7 @@ pub fn changeConfig(self: *Termio, td: *ThreadData, config: *DerivedConfig) !voi
+     self.terminal.setScrollbackMaxBytes(config.scrollback_max_bytes);
+     self.terminal.setScrollbackMaxLines(config.scrollback_max_lines);
+     self.terminal.setKittyGraphicsSizeLimit(self.alloc, config.image_storage_limit);
+-    self.terminal.setKittyGraphicsLoadingLimits(.allWithTempDir(global.tmpDirPath()));
++    self.terminal.setKittyGraphicsLoadingLimits(kittyImageLoadingLimits(self.backend));
+ 
+     // The config could have changed any of our colors so update mode 2031.
+     // This is written directly rather than queued as a color_scheme_report
+@@ -727,6 +727,7 @@ pub fn restoreCheckpointLocked(
      var decoder: terminalpkg.snapshot.Decoder = .init(&reader);
      var decoded = decoder.ready(self.alloc, global.io(), .{
          .max_continuation_bytes = checkpoint_continuation_max_bytes,
@@ -405,7 +423,7 @@ index 514b6c84d..f5bb20a4e 100644
      }) catch |err| return snapshotResult(err);
      defer decoded.deinit(self.alloc);
      var new_terminal = decoded.toOwned();
-@@ -749,19 +750,9 @@ pub fn restoreCheckpointLocked(
+@@ -757,19 +758,7 @@ pub fn restoreCheckpointLocked(
      new_terminal.flags.focused = self.terminal.flags.focused;
      new_terminal.flags.visible = self.terminal.flags.visible;
      new_terminal.flags.resize_pull_scrollback = resize_pull_scrollback;
@@ -422,13 +440,11 @@ index 514b6c84d..f5bb20a4e 100644
 -            screen.kitty_images.image_limits = .allWithTempDir(global.tmpDirPath());
 -        }
 -    }
-+    // The output reaches every view, so images come only in it, and never
-+    // from this computer's files or shared memory.
-+    new_terminal.setKittyGraphicsLoadingLimits(.direct);
++    new_terminal.setKittyGraphicsLoadingLimits(kittyImageLoadingLimits(self.backend));
  
      var handler = freshStreamHandler(self);
      handler.terminal = &new_terminal;
-@@ -798,8 +789,8 @@ pub fn restoreCheckpointLocked(
+@@ -806,8 +795,8 @@ pub fn restoreCheckpointLocked(
          .cell = self.size.cell,
          .padding = self.size.padding,
      };
@@ -439,3 +455,22 @@ index 514b6c84d..f5bb20a4e 100644
  
      preCommit(pre_commit_context);
      var old_terminal = self.terminal;
+@@ -842,6 +831,18 @@ fn snapshotResult(err: anyerror) Result {
+     };
+ }
+ 
++/// The output of a host-managed terminal reaches every view, so its images
++/// come only in that output, and never from this computer's files or
++/// shared memory.
++fn kittyImageLoadingLimits(
++    backend: termio.Backend,
++) terminalpkg.kitty.graphics.LoadingImage.Limits {
++    return switch (backend) {
++        .exec => .allWithTempDir(global.tmpDirPath()),
++        .host_managed => .direct,
++    };
++}
++
+ fn freshStreamHandler(self: *Termio) StreamHandler {
+     const current = &self.terminal_stream.handler;
+     return .{

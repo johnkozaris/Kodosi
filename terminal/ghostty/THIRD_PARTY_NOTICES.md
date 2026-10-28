@@ -38,7 +38,7 @@ or application/runtime dependencies.
 - Wuffs `0.4.0-alpha.10+3966.20260623` — MIT (also offered under Apache-2.0).
 - libxev commit `819ffa180ca20e31c7eded74e2e1aceb1eab557f` — MIT.
 - vaxis 0.6.0 / commit `6fd944a27fb3d6f596e981076381a3131f2448b4` — MIT (macOS archive only).
-- z2d 0.12.2-pre / commit `f3cf28188dae39946964c81475ff234c008125a6` — MPL-2.0,
+- z2d 0.13.0 / commit `40af3e84a4e15a9f31d126b3f281f23ce6a3dae5` — MPL-2.0,
   including the additional upstream notices preserved in
   `ThirdPartyNotices/licenses/z2d-NOTICE.txt`.
 - zf 0.11.0 / commit `87153bb86b75d21fbac897b738f316d449f5d0c9` — MIT (macOS archive only).
@@ -82,7 +82,7 @@ these materials and the required relinking means with their distribution.
 
 z2d is incorporated in executable form under MPL-2.0. Its exact corresponding source is
 retained at
-`ThirdPartyNotices/corresponding-source/z2d-f3cf28188dae39946964c81475ff234c008125a6.tar.gz`.
+`ThirdPartyNotices/corresponding-source/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz`.
 `ThirdPartyNotices/inventory.json` records the upstream and mirror URLs, acquisition method
 and date, exact commit, byte size, and SHA-256. Binary distributors must make that source,
 including any modifications to MPL-covered files, available as required by MPL-2.0 section
