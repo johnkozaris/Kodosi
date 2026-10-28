@@ -996,7 +996,7 @@ void TerminalView::activateLink(const QString& link)
     switch (decision.action) {
     case TerminalLinkDecision::Action::Open:
         if (!QDesktopServices::openUrl(decision.url)) {
-            emit operationError(QStringLiteral("The terminal link could not be opened."));
+            emit operationError(QStringLiteral("Kodosi could not open the terminal link."));
         }
         return;
     case TerminalLinkDecision::Action::Ask:

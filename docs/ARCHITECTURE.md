@@ -35,12 +35,12 @@ host also gives `restoredFrom` to the backend, so that views on other devices ca
 the terminal. A restored terminal joins its room or its people again when the account
 that chose them is signed in.
 
-As it stops, the host also keeps the primary screen and history of each terminal that
-comes back, as VT text of at most 1 MiB with the newest lines, in `screens/` in its data
-folder, readable only by the user. A restored terminal starts with that text and a
-`Restored` line above the output of its shell, and the host then deletes the file. A
-Windows terminal moves the text into its history first, because ConPTY draws the screen as
-if it were empty.
+As it stops, the host also saves the primary screen and history of each terminal that
+comes back. It writes them as VT text to a file in `screens/` in its data folder. The file
+has at most 1 MiB of the newest lines, and only the user can read it. A restored terminal
+starts with that text and a `Restored` line above the output of its shell, and the host
+then deletes the file. A Windows terminal moves the text into its history first, because
+ConPTY draws the screen as if it were empty.
 
 ## Terminals
 
