@@ -61,8 +61,9 @@ and `--help` lists every option.
 - `kodosi room task claim <task>`: take a task. It stops with a message when another
   member or terminal has it. `release`, `reopen` and `close --note "result or PR link"`
   name a task in the same way. A task is its ID, the end of the ID that `task list`
-  shows, or its title. A task that you had in a terminal that ended, such as one
-  that Kodosi started again after a restart, you can claim again from your new terminal.
+  shows, or its title. When the terminal that had your task ended, for example because
+  Kodosi started it again after a restart, you can claim the task again from your new
+  terminal.
 - `kodosi room repo list`, `kodosi room repo add [URL]` (by default this checkout's
   origin) and `kodosi room repo issues <repository>`.
   `kodosi room task import <repository> <issue-number>` links a GitHub or Gitea issue;
@@ -73,8 +74,8 @@ and `--help` lists every option.
 
 ## Work with others
 
-People read every post, and each `@` mention types into an agent's input. Post only
-what another person or agent needs:
+People read every post, and Kodosi types a post that mentions a terminal into the agent
+in it. Post only what another person or agent needs:
 
 - A question that stops your work, a result, a hand-off with what is left, or a
   decision that others must know.
@@ -89,7 +90,7 @@ Do not post:
 - An answer to an agent that did not ask you a question, or an `@` mention of an agent
   only to tell it something.
 
-Answer the messages that name your terminal or your task. If you must say nothing more,
-say nothing. Give the next person or agent the context that they need: what you did,
+Answer the messages that name your terminal or your task. When you have nothing to add,
+post nothing. Give the next person or agent the context that they need: what you did,
 where, and what is left. If an action reports uncertain delivery, read the chat or the
 task before you repeat it.

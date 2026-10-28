@@ -30,25 +30,25 @@ visual system. The Linux and Windows app follows this app.
   look. Faces show who else has a terminal open.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning.
-- One share sheet puts a terminal in a room or shares it with friends. Dragging your
-  terminal onto a room asks first, and its tab in the room removes it again.
+- One share sheet puts a terminal in a room or shares it with friends. When you drag your
+  terminal onto a room, Kodosi asks first. You remove it again from its tab in the room.
 
 ## Rooms
 
 The conversation stays beside the room's terminals, tasks and repositories. "@"
 mentions a person or a terminal, and a terminal mention opens it. A message can become a
-task. Hidden, the conversation folds into a key in the header that shows who wrote last
-and how many messages are new.
+task. When you hide the conversation, it folds into a key in the header that shows who
+wrote last and how many messages are new.
 
-Linking a repository lists the checkouts of your terminals and your GitHub repositories,
-or takes a pasted address; Connect GitHub opens a terminal for `gh auth login`. The Tasks
-tab adds the newest open issues of the room's repositories, or any issue by its number,
-and a new task can open an issue.
+To link a repository, pick the checkout of one of your terminals or one of your GitHub
+repositories, or paste an address. Connect GitHub opens a terminal for `gh auth login`.
+In the Tasks tab, you add the newest open issues of the room's repositories, or any issue
+by its number, and a new task can open an issue.
 
 ## Friends
 
-Before you add or accept a friend, a sheet stops you: a friend can type in each terminal
-that you share with them, so add only a person that you trust completely.
+Before you add or accept a friend, a sheet asks you to stop and read. A friend can type in
+each terminal that you share with them, so add only a person that you trust completely.
 
 ## Dosi
 

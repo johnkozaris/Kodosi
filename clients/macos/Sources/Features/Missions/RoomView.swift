@@ -368,7 +368,7 @@ struct ConversationKey: View {
         .animation(theme.motion.snappy, value: last?.id)
         .animation(theme.motion.snappy, value: state.unread)
         .animation(theme.motion.hover, value: hovered)
-        .help(last.map { String(localized: "Show conversation. Last: \($0.agent ?? $0.authorName)") } ?? String(localized: "Show conversation"))
+        .help(last.map { String(localized: "Show conversation. Last message from \($0.agent ?? $0.authorName)") } ?? String(localized: "Show conversation"))
         .accessibilityLabel(Text("Show conversation"))
         .accessibilityValue(state.unread > 0 ? Text("\(state.unread) new") : Text(verbatim: ""))
         .accessibilityIdentifier("room.conversation.toggle")
