@@ -365,6 +365,20 @@ private slots:
         QVERIFY(hosted.value(QStringLiteral("workingDirectory")).toString().isEmpty());
         QCOMPARE(hosted.value(QStringLiteral("displayDirectory")).toString(), QStringLiteral("/host/project"));
     }
+    void aFriendWithoutANameGetsNoNewTerminalButton()
+    {
+        Fixture f;
+        auto shared = test::session(1, true, false);
+        shared.insert(QStringLiteral("workingDir"), QStringLiteral("/home/ben/project"));
+        shared.insert(QStringLiteral("ownerUserId"), test::id(50));
+        shared.insert(QStringLiteral("hostDeviceId"), QStringLiteral("laptop"));
+        shared.insert(QStringLiteral("hostName"), QStringLiteral("Laptop"));
+        f.sessions.apply(test::snapshot({ shared }));
+        const auto group = f.sessions.folderGroups().first().toMap();
+        QVERIFY(!group.value(QStringLiteral("canStart")).toBool());
+        QCOMPARE(group.value(QStringLiteral("owner")).toString(), QStringLiteral("Shared"));
+        QCOMPARE(group.value(QStringLiteral("computerTitle")).toString(), QStringLiteral("Shared"));
+    }
     void detailsNameTheRoomOfATerminal()
     {
         Fixture f;

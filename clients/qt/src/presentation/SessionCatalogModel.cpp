@@ -34,8 +34,9 @@ QVariantList SessionCatalogModel::folderGroups() const
 {
     if (m_groupsCache)
         return *m_groupsCache;
+    enum class Place { Here, Mine, Friend };
     struct Folder {
-        int rank = 0;
+        Place place = Place::Here;
         QString computer;
         QString title;
         QVariantMap group;
@@ -55,7 +56,7 @@ QVariantList SessionCatalogModel::folderGroups() const
         auto& group = entry.group;
         const bool away = presentation(session).away && !local;
         const auto folder = session.workingDirectory.isEmpty() ? QString {} : folderName(session.workingDirectory);
-        entry.rank = local ? 0 : friends ? 2 : 1;
+        entry.place = local ? Place::Here : friends ? Place::Friend : Place::Mine;
         entry.computer = computer;
         group.insert(QStringLiteral("offline"), away && group.value(QStringLiteral("offline"), true).toBool());
         group.insert(QStringLiteral("key"), computer + QLatin1Char(':') + session.workingDirectory);
@@ -65,7 +66,8 @@ QVariantList SessionCatalogModel::folderGroups() const
         group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : session.workingDirectory);
         group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
         group.insert(QStringLiteral("computerId"), local || friends ? QString {} : session.hostDeviceId);
-        group.insert(QStringLiteral("owner"), friends ? session.ownerName : QString {});
+        group.insert(QStringLiteral("owner"),
+            !friends ? QString {} : session.ownerName.isEmpty() ? tr("Shared") : session.ownerName);
         group.insert(QStringLiteral("ownerUserId"), friends ? session.ownerUserId : QString {});
         if (local && session.repository)
             group.insert(QStringLiteral("repository"), true);
@@ -75,7 +77,7 @@ QVariantList SessionCatalogModel::folderGroups() const
     }
     QHash<QString, bool> computerOffline;
     for (const auto& entry : std::as_const(folders)) {
-        const bool offline = entry.rank > 0 && entry.group.value(QStringLiteral("offline")).toBool();
+        const bool offline = entry.place != Place::Here && entry.group.value(QStringLiteral("offline")).toBool();
         computerOffline.insert(entry.computer, computerOffline.value(entry.computer, true) && offline);
     }
     std::vector<Folder> sorted;
@@ -84,19 +86,19 @@ QVariantList SessionCatalogModel::folderGroups() const
         const auto owner = group.value(QStringLiteral("owner")).toString();
         const auto host = group.value(QStringLiteral("host")).toString();
         const bool several = friendComputers.value(group.value(QStringLiteral("ownerUserId")).toString()).size() > 1;
-        entry.title = entry.rank == 0 ? tr("This computer")
-            : owner.isEmpty() ? (host.isEmpty() ? tr("Remote computer") : host)
+        entry.title = entry.place == Place::Here ? tr("This computer")
+            : entry.place == Place::Mine ? (host.isEmpty() ? tr("Remote computer") : host)
             : several && !host.isEmpty() ? tr("%1 · %2").arg(owner, host) : owner;
         group.insert(QStringLiteral("computerTitle"), entry.title);
         group.insert(QStringLiteral("computerOffline"), computerOffline.value(entry.computer));
-        group.insert(QStringLiteral("canStart"), group.value(QStringLiteral("folder")).toBool() && owner.isEmpty()
-            && !group.value(QStringLiteral("offline")).toBool());
+        group.insert(QStringLiteral("canStart"), group.value(QStringLiteral("folder")).toBool()
+            && entry.place != Place::Friend && !group.value(QStringLiteral("offline")).toBool());
         sorted.push_back(entry);
     }
     std::ranges::sort(sorted, [](const Folder& a, const Folder& b) {
         const auto order = [](const Folder& folder) {
             const bool named = folder.group.value(QStringLiteral("folder")).toBool();
-            return std::tuple(folder.rank, folder.title, folder.computer, named ? 0 : 1,
+            return std::tuple(folder.place, folder.title, folder.computer, named ? 0 : 1,
                 folder.group.value(QStringLiteral("directory")).toString());
         };
         return order(a) < order(b);
