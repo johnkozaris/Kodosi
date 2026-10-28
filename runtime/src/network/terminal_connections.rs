@@ -161,7 +161,7 @@ pub(crate) fn spawn_host(
                 ()=publication.cancel.cancelled()=>break,
                 ()=publication.requests.closed()=>break,
                 ()=network.inner.shutdown.cancelled()=>break,
-                ()=tokio::time::sleep(Duration::from_secs(delay))=>{}
+                ()=tokio::time::sleep(super::stagger(Duration::from_secs(delay)))=>{}
             }
             delay = (delay * 2).min(15);
         }

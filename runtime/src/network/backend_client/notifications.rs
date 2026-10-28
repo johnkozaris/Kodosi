@@ -140,7 +140,7 @@ impl BackendClient {
                 tokio::select! {
                     ()=cancel.cancelled()=>break,
                     ()=network.inner.shutdown.cancelled()=>break,
-                    ()=tokio::time::sleep(Duration::from_secs(delay))=>{},
+                    ()=tokio::time::sleep(crate::network::stagger(Duration::from_secs(delay)))=>{},
                 }
                 delay = (delay * 2).min(15);
             }
@@ -192,7 +192,7 @@ impl BackendClient {
                     }
                     Err(error) if retried(&error) => {
                         tracing::debug!(%error, "the refresh will be tried again");
-                        retry = Some(tokio::time::Instant::now() + delay);
+                        retry = Some(tokio::time::Instant::now() + crate::network::stagger(delay));
                         delay = (delay * 2).min(RETRY_LIMIT);
                     }
                     Err(error) => return Err(error),

@@ -853,7 +853,7 @@ struct Starting {
 
 impl Reconnect {
     fn delay(failures: u32) -> Duration {
-        Duration::from_millis(250 << failures.min(7))
+        crate::network::stagger(Duration::from_millis(250 << failures.min(7)))
     }
 }
 

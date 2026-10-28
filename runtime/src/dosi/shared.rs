@@ -185,7 +185,7 @@ impl Shared {
     pub(super) fn backoff(&mut self) -> Duration {
         let delay = self.delay;
         self.delay = (self.delay * 2).min(LONGEST_DELAY);
-        delay
+        crate::network::stagger(delay)
     }
 }
 
