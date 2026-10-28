@@ -26,8 +26,14 @@ Item {
         }
         const rest = all.map(group => Object.assign({}, group, { sessions: (group.sessions || []).filter(entry => pins.indexOf(entry.id) < 0) }))
             .filter(group => group.sessions.length > 0)
-        return pinned.length > 0 ? [{ key: "pinned", name: qsTr("Pinned"), pinned: true, sessions: pinned }].concat(rest) : rest
+        let previous = null
+        for (const group of rest) {
+            group.computerStart = group.computer !== previous
+            previous = group.computer
+        }
+        return pinned.length > 0 ? [{ key: "pinned", name: qsTr("Pinned"), pinned: true, folder: true, sessions: pinned }].concat(rest) : rest
     }
+    readonly property bool titled: groups.some(group => !group.pinned && group.computer !== "local")
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
@@ -805,15 +811,64 @@ Item {
 
                         required property int index
                         readonly property var group: root.groups[index] || ({})
-                        readonly property bool folded: root.collapsedFolders[group.key] === true
+                        readonly property bool folded: group.folder === true && root.collapsedFolders[group.key] === true
 
                         width: content.width
                         spacing: 2
 
+                        Item {
+                            width: parent.width
+                            height: 30
+                            visible: root.titled && folder.group.computerStart === true && !folder.group.pinned
+                            objectName: "sidebar.computer." + (folder.group.computer || "")
+                            Accessible.id: objectName
+                            Accessible.role: Accessible.Heading
+                            Accessible.name: folder.group.computerOffline === true
+                                ? qsTr("%1 is offline").arg(folder.group.computerTitle || "") : folder.group.computerTitle || ""
+
+                            RowLayout {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 3
+                                spacing: 5
+
+                                PersonAvatar {
+                                    visible: !!folder.group.owner
+                                    name: folder.group.owner || ""
+                                    key: folder.group.ownerUserId || ""
+                                    size: 13
+                                }
+                                KIcon {
+                                    visible: !folder.group.owner
+                                    Layout.preferredWidth: 12
+                                    Layout.preferredHeight: 12
+                                    name: "laptop"
+                                    color: KodosiTheme.inkFaint
+                                }
+                                PlainLabel {
+                                    Layout.fillWidth: true
+                                    text: folder.group.computerTitle || ""
+                                    color: KodosiTheme.inkFaint
+                                    font.pixelSize: KodosiTheme.fontCaption
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                }
+                                KIcon {
+                                    visible: folder.group.computerOffline === true
+                                    Layout.preferredWidth: 10
+                                    Layout.preferredHeight: 10
+                                    name: "offline"
+                                    color: KodosiTheme.inkFaint
+                                }
+                            }
+                        }
                         AbstractButton {
                             id: folderHeader
                             width: parent.width
                             height: 24
+                            visible: folder.group.folder === true
                             hoverEnabled: true
                             objectName: "sidebar.folder." + folder.group.key
                             Accessible.id: objectName
@@ -830,17 +885,10 @@ Item {
                                     rotation: folder.folded ? -90 : 0
                                     Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                                 }
-                                PersonAvatar {
-                                    visible: !folder.group.folder && !!folder.group.owner
-                                    name: folder.group.owner || ""
-                                    key: folder.group.ownerUserId || ""
-                                    size: 13
-                                }
                                 KIcon {
-                                    visible: folder.group.folder || !folder.group.owner
                                     Layout.preferredWidth: 12
                                     Layout.preferredHeight: 12
-                                    name: folder.group.pinned ? "pin" : folder.group.folder ? "folder" : "terminal"
+                                    name: folder.group.pinned ? "pin" : "folder"
                                     color: KodosiTheme.inkFaint
                                 }
                                 PlainLabel {
@@ -865,46 +913,6 @@ Item {
                                         ? (folder.group.sessions || []).find(entry => entry.asks) || null
                                         : null
                                 }
-                                Item {
-                                    visible: !!folder.group.host
-                                    Layout.rightMargin: 2
-                                    Layout.minimumWidth: 36
-                                    Layout.maximumWidth: 124
-                                    implicitWidth: chipRow.implicitWidth + chipRow.x + 7
-                                    implicitHeight: 18
-                                    opacity: folder.group.offline === true ? 0.7 : 1
-
-                                    Well { anchors.fill: parent; radius: height / 2 }
-                                    RowLayout {
-                                        id: chipRow
-                                        x: chipOwner.visible ? 3 : 6
-                                        width: parent.width - x - 7
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 4
-
-                                        PersonAvatar {
-                                            id: chipOwner
-                                            visible: folder.group.folder && !!folder.group.owner
-                                            name: folder.group.owner || ""
-                                            key: folder.group.ownerUserId || ""
-                                            size: 13
-                                        }
-                                        KIcon {
-                                            visible: !chipOwner.visible
-                                            Layout.preferredWidth: 10
-                                            Layout.preferredHeight: 10
-                                            name: "laptop"
-                                            color: KodosiTheme.inkFaint
-                                        }
-                                        PlainLabel {
-                                            Layout.fillWidth: true
-                                            text: folder.group.host || ""
-                                            color: KodosiTheme.inkFaint
-                                            font.pixelSize: KodosiTheme.fontCaption
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
                                 KIconButton {
                                     id: branchButton
                                     size: 20
@@ -924,11 +932,11 @@ Item {
                                     Layout.rightMargin: 2
                                     size: 20
                                     glyph: "plus"
-                                    visible: !!folder.group.directory && folderHover.hovered
+                                    visible: folder.group.canStart === true && folderHover.hovered
                                     objectName: "sidebar.folder.new." + folder.group.key
                                     Accessible.id: objectName
                                     Accessible.name: qsTr("New terminal in %1").arg(folder.group.name)
-                                    onClicked: Models.SessionActions.create("", folder.group.directory)
+                                    onClicked: Models.SessionActions.create("", folder.group.directory, "", "", "", ({}), folder.group.computerId || "")
                                 }
                                 KIconButton {
                                     Layout.rightMargin: 2
@@ -997,6 +1005,16 @@ Item {
                                         session: row.session
                                         opacity: rowSpot.hidden ? 0 : 1
 
+                                        ShareBadge {
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            anchors.rightMargin: -4
+                                            anchors.bottomMargin: -4
+                                            visible: !!row.session.missionId
+                                                || (row.session.isOwner !== false && (row.session.sharedWith || []).length > 0)
+                                            room: row.session.missionId || ""
+                                            ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
+                                        }
                                         FoldSpot {
                                             id: rowSpot
                                             anchors.fill: parent
@@ -1111,20 +1129,6 @@ Item {
                                         key: row.session.ownerUserId || ""
                                         size: 15
                                         Accessible.name: qsTr("Shared by %1").arg(row.session.ownerName || "")
-                                    }
-                                    RoomSigil {
-                                        visible: !row.signed && !row.troubled && !row.sharedBy
-                                            && !!row.session.missionId && !actions.visible && !row.renaming
-                                        key: row.session.missionId || ""
-                                        size: 14
-                                    }
-                                    KIcon {
-                                        Layout.preferredWidth: 11
-                                        Layout.preferredHeight: 11
-                                        visible: !row.signed && !row.troubled && !row.sharedBy
-                                            && !row.session.missionId && row.session.isOwner !== false && (row.session.sharedWith || []).length > 0 && !actions.visible && !row.renaming
-                                        name: "people"
-                                        color: KodosiTheme.inkFaint
                                     }
                                     Row {
                                         id: actions

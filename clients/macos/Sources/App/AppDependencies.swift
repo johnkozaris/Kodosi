@@ -328,10 +328,10 @@ final class AppDependencies {
         }
     }
 
-    func openTerminal(in directory: String) {
+    func openTerminal(in directory: String, computer: String? = nil) {
         Task { @MainActor [weak self] in
             do {
-                try await self?.createSession(name: generateSessionName(), directory: directory)
+                try await self?.createSession(name: generateSessionName(), directory: directory, computer: computer)
             } catch {
                 self?.errorMessage = error.localizedDescription
             }

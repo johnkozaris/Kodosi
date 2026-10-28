@@ -67,6 +67,7 @@ Item {
         case "play": return "M8 5 L19 12 L8 19 Z"
         case "link": return "M10 14 A4 4 0 0 0 15.7 14.3 L19 11 A4 4 0 0 0 13.3 5.3 L12 6.6 M14 10 A4 4 0 0 0 8.3 9.7 L5 13 A4 4 0 0 0 10.7 18.7 L12 17.4"
         case "laptop": return "M5 6 H19 V16 H5 Z M2.5 19 H21.5"
+        case "offline": return "M2.5 9 Q12 1.5 21.5 9 M6 12.5 Q12 8 18 12.5 M9.5 16 Q12 14 14.5 16 M12 19.5 H12.1 M4 4 L20 20"
         case "server": return "M4 4.5 H20 V10.5 H4 Z M4 13.5 H20 V19.5 H4 Z M7.5 7.5 H7.6 M7.5 16.5 H7.6"
         case "container": return "M12 3.5 L20 7.5 V16.5 L12 20.5 L4 16.5 V7.5 Z M4 7.5 L12 11.5 L20 7.5 M12 11.5 V20.5 M8 5.5 L16 9.5"
         case "hash": return "M10 4 L8 20 M16 4 L14 20 M5 9 H19.5 M4.5 15 H19"

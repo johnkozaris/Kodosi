@@ -306,6 +306,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/SessionPlace.qml
+        qml/Controls/ShareBadge.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/Squircle.qml

@@ -341,14 +341,23 @@ private slots:
         unopened.insert(QStringLiteral("id"), test::id(3));
         unopened.insert(QStringLiteral("incarnationId"), test::id(103));
         unopened.remove(QStringLiteral("workingDir"));
-        f.sessions.apply(test::snapshot({ local, remote, unopened }));
+        auto mine = test::session(4, true, true);
+        mine.insert(QStringLiteral("workingDir"), QStringLiteral("/home/me/website"));
+        mine.insert(QStringLiteral("hostName"), QStringLiteral("Mini"));
+        mine.insert(QStringLiteral("hostDeviceId"), QStringLiteral("mini"));
+        f.sessions.apply(test::snapshot({ unopened, remote, mine, local }));
         QStringList labels;
         for (const auto& group : f.sessions.folderGroups()) {
             const auto fields = group.toMap();
-            labels.append(QStringList { fields.value(QStringLiteral("name")).toString(), fields.value(QStringLiteral("owner")).toString(),
-                fields.value(QStringLiteral("host")).toString() }.join(QLatin1Char('|')));
+            labels.append(QStringList { fields.value(QStringLiteral("computerTitle")).toString(),
+                fields.value(QStringLiteral("computerStart")).toBool() ? QStringLiteral("start") : QString {},
+                fields.value(QStringLiteral("name")).toString(),
+                fields.value(QStringLiteral("canStart")).toBool() ? fields.value(QStringLiteral("directory")).toString() : QString {},
+                fields.value(QStringLiteral("computerId")).toString() }.join(QLatin1Char('|')));
         }
-        QCOMPARE(labels, (QStringList { QStringLiteral("project||"), QStringLiteral("Ana|Ana|Studio"), QStringLiteral("project|Ana|Studio") }));
+        QCOMPARE(labels, (QStringList { QStringLiteral("This computer|start|project|/repo/project|"),
+            QStringLiteral("Mini|start|website|/home/me/website|mini"), QStringLiteral("Ana|start|project||"),
+            QStringLiteral("Ana||||") }));
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
         QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));

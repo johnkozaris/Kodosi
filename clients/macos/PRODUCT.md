@@ -15,11 +15,14 @@ Linux and Windows app follows this app.
 - The account key in the launcher shows how much of the account's plan limit is used.
   Provider Usage in the account menu shows each limit of each signed-in account, and a
   click on an account opens the launcher with it.
-- The sidebar groups terminals by folder. A folder on another computer ends with that
-  computer's name, and a friend's folder with the friend's face. A friend's terminal that
-  you have not opened has no folder yet and stays under the friend's name. Pinned
-  terminals stay at the top. A repository folder offers a terminal on a new branch. Go
-  to (⌘K) finds terminals, rooms, people and actions. A terminal is renamed in place.
+- The sidebar groups terminals by folder, and by computer when they run on more than
+  one: this Mac, then your other computers, then each friend with the friend's face. A
+  friend's terminal that you have not opened has no folder yet and shows directly under
+  the friend. The + of a folder on this Mac or on another computer of yours starts a
+  terminal there. A small square on a terminal's mark has the color of its room, or is
+  grey when the terminal is shared with people. Pinned terminals stay at the top. A
+  repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals,
+  rooms, people and actions. A terminal is renamed in place.
 - Drag a terminal by its header onto another terminal to take its place in the grid, or
   drag it from the sidebar onto a terminal to open it there.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs

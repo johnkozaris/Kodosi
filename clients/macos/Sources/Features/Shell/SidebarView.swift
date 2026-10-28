@@ -186,33 +186,47 @@ struct SidebarView: View {
                         .transition(AnyTransition.rise)
                 }
             }
-            ForEach(SessionFolderGroup.groups(listed.filter { !deps.workbench.isPinned($0.id) })) { group in
-                let collapsed = collapsedFolders.contains(group.id)
-                SidebarFolderHeader(group: group, collapsed: collapsed) {
-                    withAnimation(theme.motion.spring) {
-                        if collapsed {
-                            collapsedFolders.remove(group.id)
-                        } else {
-                            collapsedFolders.insert(group.id)
-                        }
-                    }
+            let computers = SessionComputerGroup.groups(listed.filter { !deps.workbench.isPinned($0.id) })
+            let titled = computers.contains { $0.computer != nil }
+            ForEach(computers) { computer in
+                if titled {
+                    SidebarComputerHeader(group: computer)
                 }
-                .background(alignment: .leading) {
+                ForEach(computer.folders) { group in
+                    folder(group)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func folder(_ group: SessionFolderGroup) -> some View {
+        let collapsed = group.directory != nil && collapsedFolders.contains(group.id)
+        if group.directory != nil {
+            SidebarFolderHeader(group: group, collapsed: collapsed) {
+                withAnimation(theme.motion.spring) {
                     if collapsed {
-                        ZStack {
-                            ForEach(group.sessions) { session in
-                                Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
-                            }
+                        collapsedFolders.remove(group.id)
+                    } else {
+                        collapsedFolders.insert(group.id)
+                    }
+                }
+            }
+            .background(alignment: .leading) {
+                if collapsed {
+                    ZStack {
+                        ForEach(group.sessions) { session in
+                            Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
                         }
-                        .padding(.leading, 4)
                     }
+                    .padding(.leading, 4)
                 }
-                if !collapsed {
-                    ForEach(group.sessions) { session in
-                        SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill, showsOwner: false)
-                            .transition(AnyTransition.rise)
-                    }
-                }
+            }
+        }
+        if !collapsed {
+            ForEach(group.sessions) { session in
+                SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill, showsOwner: false)
+                    .transition(AnyTransition.rise)
             }
         }
     }
