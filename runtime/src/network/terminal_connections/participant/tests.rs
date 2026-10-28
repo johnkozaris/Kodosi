@@ -250,7 +250,7 @@ async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_co
     view.host.close().await;
     let (result, reason) = view.ended.await.unwrap();
     assert!(result.is_err());
-    assert_eq!(reason, "Lost. Some of your last input was not sent.");
+    assert_eq!(reason, "Lost. Kodosi did not send some of your last input.");
 }
 
 #[tokio::test]

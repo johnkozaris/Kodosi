@@ -1,7 +1,7 @@
 # Kodosi
 
 Kodosi is a native place for people and their coding agents to work together through
-shared terminals and a room conversation. Keep it lean: make useful actions available
+shared terminals and a room conversation. Keep it lean. Make useful actions available
 and let people and agents decide how to use them.
 
 ## Terminals and rooms
@@ -11,8 +11,8 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
 - A terminal is a real process on the computer that hosts it. Full control means typing,
   resizing, interrupting and closing, with the host user's operating-system privileges.
 - A person's approved devices can use all of that person's terminals.
-- A terminal can be shared with friends or with a room, and everyone it is shared with
-  gets full control. Room sharing follows the room's membership, including people invited
+- A person can share a terminal with friends or with a room, and everyone it is shared
+  with gets full control. Room sharing follows the room's membership, including people invited
   later. Sharing a terminal shares nothing else of its computer.
 - A room holds a conversation, tasks, repositories and terminals from many computers,
   folders and repositories. Every member can share their own terminals into it, and new
@@ -21,7 +21,7 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
   them. A task can carry context, repositories and a result. People and agents decide
   what to do next.
 - A room can link GitHub or Gitea repositories and turn their issues into tasks. The
-  provider stays authoritative: changing a linked task updates the issue. Provider
+  provider stays authoritative, so changing a linked task updates the issue. Provider
   credentials stay on the participant's computer, and tasks need no Git provider.
 
 ## People and agents
@@ -63,9 +63,9 @@ conversation follows the person to all their computers.
   conversations. An open view of such a terminal on another device moves to it. When a
   terminal ends by itself, no other terminal takes its keyboard focus. The `kodosi`
   command starts a host but never the earlier terminals.
-- The apps and the `kodosi` command are equal clients of the computer's host: what one
-  does, the others show. A person's typing comes first: input from the command stops with
-  a message while a person types in that terminal.
+- The apps and the `kodosi` command are equal clients of the computer's host. What one
+  does, the others show. A person's typing comes first, so input from the command stops
+  with a message while a person types in that terminal.
 - Reconnecting restores the current state without disturbing other viewers or repeating
   input whose delivery is uncertain. A stale connection never controls a replacement
   terminal. A lost connection does not change sharing.
@@ -90,12 +90,12 @@ conversation follows the person to all their computers.
 - The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
   account has used. The agent's own program reads the numbers when the person looks;
   Kodosi reads no credentials, and the numbers do not go to the backend.
-- Saved Claude Code and Copilot CLI conversations can be previewed and resumed through
-  the provider's own CLI.
+- A person can preview saved Claude Code and Copilot CLI conversations and resume them
+  through the provider's own CLI.
 
 ## Encryption
 
-Terminal traffic and room content are end-to-end encrypted between participants.
+The participants' devices encrypt terminal traffic and room content end to end.
 Private keys stay on devices. The backend connects participants and relays encrypted
 content; it does not run commands or read terminal or room plaintext. It sees only each
 terminal's agent and reported state, such as working or waiting for an approval.
@@ -126,7 +126,8 @@ progress where work happens and give each failure a clear recovery action.
   shell what the apps do.
 - Apps update themselves in the background and never restart without asking, because a
   restart stops the host's terminals. An app too old for the backend asks for an update.
-- Until it is approved, a new device says so and shares nothing. The person's approved
+- Until an approved device of the person approves it, a new device says so and shares
+  nothing. The person's approved
   computers show its request.
 - A server can define plans that limit an account's devices, rooms, people, friends and
   room data. A full room loses its oldest messages first; tasks and repositories stay.

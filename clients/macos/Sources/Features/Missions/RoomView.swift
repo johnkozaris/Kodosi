@@ -103,7 +103,7 @@ struct RoomHeader: View {
                     Text(verbatim: "\(Counted.people(detail.members.count)) · \(Counted.terminals(sessions.count))").contentTransition(.numericText())
                 }
                 .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
-                .help("Everything in this room is encrypted end to end.")
+                .help("Kodosi encrypts everything in this room end to end.")
             }
             .layoutPriority(1)
             Spacer(minLength: 8)

@@ -10,13 +10,13 @@ public enum TerminalInputFailure: Equatable, Sendable {
         switch self {
         case let .budgetExceeded(perSession):
             if perSession {
-                return String(localized: "This terminal still waits for earlier typing. Your paste was not sent.", bundle: .module)
+                return String(localized: "This terminal still waits for earlier typing. Kodosi did not send your paste.", bundle: .module)
             }
-            return String(localized: "That paste is too large. It was not sent.", bundle: .module)
+            return String(localized: "That paste is too large, so Kodosi did not send it.", bundle: .module)
         case .runtimeUnavailable:
             return String(localized: "Kodosi stopped before it sent your typing.", bundle: .module)
         case let .rejected(code):
-            return String(localized: "Your typing was not sent (error \(code)).", bundle: .module)
+            return String(localized: "Kodosi did not send your typing (error \(code)).", bundle: .module)
         }
     }
 }

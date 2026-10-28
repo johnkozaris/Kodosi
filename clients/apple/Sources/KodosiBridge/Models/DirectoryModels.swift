@@ -53,7 +53,7 @@ public struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
         if recoveryKey {
             return String(localized: "The recovery key stops working. You can make a new one.", bundle: .module)
         }
-        let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.", bundle: .module)
+        let removal = String(localized: "It disconnects. Approve it again to use it. Kodosi does not undo the commands that it already ran.", bundle: .module)
         guard hasRecoveryKey else { return removal }
         return removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.", bundle: .module)
     }

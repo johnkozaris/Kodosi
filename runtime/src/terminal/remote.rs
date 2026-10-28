@@ -250,7 +250,7 @@ async fn wait_for<T>(
         .await
         .map_err(|_| {
             Error::Other(
-                "The remote terminal did not confirm the request. It was not retried.".to_owned(),
+                "The remote terminal did not confirm the request, and Kodosi did not send it again.".to_owned(),
             )
         })?
         .map_err(|_| Error::Stopped)?
@@ -675,7 +675,8 @@ impl RemoteActor {
                 return Ok(());
             }
             return Err(Error::Other(
-                "Remote input exceeded its connection buffer. It was not retried.".to_owned(),
+                "Remote input exceeded its connection buffer, and Kodosi did not send it again."
+                    .to_owned(),
             ));
         }
         let resize = match (&queued.connection, &queued.control) {
@@ -970,7 +971,7 @@ impl RemoteActor {
             )
         {
             fatal = result.as_ref().err().map(|error| {
-                format!("Remote control was not confirmed: {error}. It was not retried.")
+                format!("The remote terminal did not confirm the control ({error}), and Kodosi did not send it again.")
             });
         }
         let failure = result.as_ref().err().map(ToString::to_string);
@@ -1059,7 +1060,7 @@ impl RemoteActor {
                 Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
                 Some(Request::Control(queued)) if interrupted => {
                     if let Some(reply) = queued.reply {
-                        drop(reply.send(Err(Error::Other("The remote terminal is connecting again. The operation was not sent.".to_owned()))));
+                        drop(reply.send(Err(Error::Other("The remote terminal is connecting again, so Kodosi did not send the operation.".to_owned()))));
                     }
                     Ok(())
                 }

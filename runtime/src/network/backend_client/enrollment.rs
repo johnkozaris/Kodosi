@@ -186,7 +186,9 @@ impl BackendClient {
         let credentials = self.replace_local_keys(credentials).await?;
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
-            return Err(invalid("This device could not be trusted after the reset."));
+            return Err(invalid(
+                "Kodosi could not trust this device after the reset.",
+            ));
         }
         let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);

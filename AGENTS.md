@@ -18,7 +18,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails. Keep
   Keycloak's form field names and ids.
 - `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the
-  `kodosi-ffi-c` build writes the C header, and the rest are written by hand.
+  `kodosi-ffi-c` build writes the C header, and people write the rest by hand.
 - `VERSION`: the one version of all apps and the CLI.
 - `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
   its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned

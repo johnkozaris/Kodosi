@@ -122,7 +122,7 @@ public sealed class ConnectionDirectory
             }
             else
             {
-                if (hosted.Count >= MaximumHostedTerminals) throw new ApiException(503, "Terminal connection capacity reached.");
+                if (hosted.Count >= MaximumHostedTerminals) throw new ApiException(503, "The server has reached its limit of terminal connections.");
                 hosted[session.Id] = new Hosted(session.IncarnationId, entry);
             }
             entry.Hosted.Add(session.Id);

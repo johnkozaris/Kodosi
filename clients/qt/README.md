@@ -1,6 +1,6 @@
 # Kodosi for Linux and Windows
 
-The native Qt app. It embeds the Rust runtime and the Ghostty terminal engine. Build
+This is the native Qt app. It embeds the Rust runtime and the Ghostty terminal engine. Build
 each platform on that platform.
 
 ## Linux

@@ -283,7 +283,7 @@ impl<T: Transport> Viewer<T> {
                 let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
                 for id in expired {
                     if let Some(pending) = self.pending.remove(&id) {
-                        drop(pending.reply.send(Err(invalid("The host did not confirm the operation; it was not retried."))));
+                        drop(pending.reply.send(Err(invalid("The host did not confirm the operation, and Kodosi did not send it again."))));
                     }
                 }
             }

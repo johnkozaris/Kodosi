@@ -88,7 +88,7 @@ const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
 #[derive(Subcommand)]
 enum DosiAction {
-    /// Print the skill that lets an agent act as Dosi: it sees your terminals and rooms and acts on them.
+    /// Print the skill that lets an agent act as Dosi, which sees your terminals and rooms and acts on them.
     Skill,
     /// Tell Dosi something and print what it says and does until it answers.
     Say {
@@ -317,7 +317,7 @@ enum DeviceAction {
         /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
         device: String,
     },
-    /// Start fresh on this device: every other device loses access until it is approved again.
+    /// Start fresh on this device. Every other device loses access until you approve it again.
     Reset,
     /// Make a recovery key and show it one time. An earlier recovery key stops working.
     RecoveryKey,
@@ -339,7 +339,7 @@ enum FriendAction {
     Cancel { username: String },
     /// Remove a friend. Terminals that you shared with this friend close for them.
     Remove { username: String },
-    /// Print your invite text. A friend who adds you with it is verified at once.
+    /// Print your invite text. A friend who adds you with it becomes verified at once.
     Invite,
     /// Verify a friend with the invite text that they sent you.
     Verify { username: String, invite: String },
@@ -1450,7 +1450,9 @@ async fn wait_answer(
         }
     })
     .await
-    .map_err(|_| Error::Other("No answer arrived in time. The command was not retried.".into()))?
+    .map_err(|_| {
+        Error::Other("No answer arrived in time, and Kodosi did not send the command again.".into())
+    })?
 }
 
 #[derive(Clone, Copy, ValueEnum)]

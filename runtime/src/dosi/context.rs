@@ -30,7 +30,7 @@ pub(super) fn catch_up(items: &[&DosiItem], whole: bool) -> Option<String> {
     };
     let mut text = format!("({heading}\n");
     if left_out {
-        text.push_str("[Older messages are left out.]\n");
+        text.push_str("[Kodosi left out older messages.]\n");
     }
     text.push_str(&lines.join("\n"));
     text.push(')');

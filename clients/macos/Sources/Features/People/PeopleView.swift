@@ -73,7 +73,7 @@ struct PeopleView: View {
                         pendingRemoval = nil
                     }
                 }
-            } message: { Text("They lose the terminals you shared. Commands they already ran stay done.") }
+            } message: { Text("They lose the terminals you shared. Kodosi does not undo the commands that they already ran.") }
             .onChange(of: deps.inviteCopies) { _, _ in copied = true }
             .task(id: copied) {
                 guard copied else { return }
@@ -88,7 +88,7 @@ struct PeopleView: View {
         return HStack(spacing: 10) {
             Image(systemName: "person.badge.plus").font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(adding ? theme.colors.accentStrong : theme.colors.inkFaint)
-            TextField("Paste a friend’s invite, or type a username", text: $username)
+            TextField("Paste a friend's invite, or type a username", text: $username)
                 .textFieldStyle(.plain).appTextStyle(.callout).focused($adding)
                 .onSubmit { add(trimmed) }
                 .accessibilityIdentifier("people.username")

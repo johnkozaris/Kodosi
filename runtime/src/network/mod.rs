@@ -47,13 +47,13 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Http(reqwest::Error),
-    #[error("The server address could not be resolved. Check your connection and try again.")]
+    #[error("Kodosi could not find the server address. Check your connection and try again.")]
     Dns,
     #[error("Kodosi cannot reach the server. Check your connection and try again.")]
     Unreachable,
-    #[error("The server did not respond in time. The operation was not confirmed.")]
+    #[error("The server did not respond in time, so Kodosi cannot tell if the operation worked.")]
     Timeout,
-    #[error("The connection to the server dropped. The operation was not confirmed.")]
+    #[error("The connection to the server dropped, so Kodosi cannot tell if the operation worked.")]
     Dropped,
     #[error("{0}")]
     Json(#[from] serde_json::Error),
@@ -66,7 +66,7 @@ pub enum Error {
     #[error("{}", if *.peer_newer {
         "The other computer has a newer version of Kodosi. Update Kodosi to open this terminal."
     } else {
-        "The other computer has an older version of Kodosi. Kodosi must be updated there."
+        "The other computer has an older version of Kodosi. Update Kodosi there."
     })]
     ChannelVersion { peer_newer: bool },
 }
@@ -361,9 +361,9 @@ impl RemoteControl {
         tokio::select! {
             biased;
             result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
-                result.map_err(|_|invalid("The host did not confirm the operation; it was not retried."))?
-                    .map_err(|_|invalid("The connection closed before confirming the operation; it was not retried."))?,
-            ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before confirming the operation; it was not retried.")),
+                result.map_err(|_|invalid("The host did not confirm the operation, and Kodosi did not send it again."))?
+                    .map_err(|_|invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again."))?,
+            ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again.")),
         }
     }
 

@@ -19,7 +19,7 @@ and `--help` lists every option.
   starting with `[Kodosi]`, with who sent it and from where: a room's chat, or the
   terminal of another agent with its folder and title. A message can arrive while you
   work.
-- A message does not mean that you must stop. Someone wanted to reach you: use your own
+- A message does not mean that you must stop. Someone wanted to reach you, so use your own
   judgment and your current work to decide if, when and how to act on it. Finish a step
   first when that is better, and say so when you will not do what someone asks.
 - Answer a message from a room's chat in that room: `kodosi room post "answer"`. Answer

@@ -40,8 +40,8 @@ that chose them is signed in.
 The computer that starts a terminal hosts it: it owns the process, the terminal state
 and the order of its output. Each view gets a checkpoint and then ordered updates, with
 bounded buffering; a view on another device gets them over its own end-to-end encrypted
-channel through the backend. Input whose delivery is uncertain is not replayed, and a
-stale view cannot control a replacement terminal.
+channel through the backend. The host does not replay input whose delivery is uncertain,
+and a stale view cannot control a replacement terminal.
 
 The view in focus sets the size of its terminal. When that view leaves, the focused
 view whose size the terminal had before sets it again. Input from a view is a person's;
@@ -59,7 +59,7 @@ to the backend, which shows the newest to everyone who can open the terminal whi
 host is connected.
 
 A device can call another computer of the same person whose host is connected. The call
-is an end-to-end encrypted channel like a view, but to the host itself: the caller sends
+is an end-to-end encrypted channel like a view, but to the host itself. The caller sends
 the launcher's requests (agents and choices, folders, a new terminal) as desktop
 commands, and the host answers them as one more client. The host takes calls only from
 the person's own approved devices and runs no other command.
@@ -70,15 +70,14 @@ One ASP.NET Core process serves the API and the WebSockets, holds the live conne
 under a PostgreSQL lease, and stores its records in PostgreSQL. It relays terminal
 traffic without storing it.
 
-Room messages, tasks and repository links are encrypted and signed on devices. The
-backend stores the ciphertext, numbers the items and tells members' devices that a room
+Devices encrypt and sign room messages, tasks and repository links. The backend stores the ciphertext, numbers the items and tells members' devices that a room
 changed; each device fetches the newer items. Issue actions run on the participant's
 computer with its own credentials. See [Security](SECURITY.md) and the
 [encryption design](CRYPTOGRAPHY.md).
 
 ## Agents
 
-Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`: the launcher passes
+Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`. The launcher passes
 it to Claude Code and Codex, and Copilot CLI reads it from the host's `agents` folder
 through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`. A host types the new room messages that name
 one of its terminals with `@` into the agent in that terminal, as one line with who wrote
@@ -92,5 +91,5 @@ Enter follows as a key of its own.
 The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)
 and the [C header](../clients/apple/Sources/KodosiKit/kodosi_runtime.h); change them
 together. The backend's `/health/live` names the range of API and terminal protocol
-versions it serves: an older app asks the person to update, and a newer one says that
+versions it serves. An older app asks the person to update, and a newer one says that
 the server is behind.

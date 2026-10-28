@@ -130,7 +130,7 @@ fn stop_permission(
     local_sessions: usize,
 ) -> std::result::Result<(), String> {
     if kind == HostKind::Foreground {
-        return Err("This host was started with `kodosi host`. Stop it from its terminal.".into());
+        return Err("You started this host with `kodosi host`. Stop it from its terminal.".into());
     }
     if force {
         return Ok(());

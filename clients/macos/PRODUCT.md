@@ -1,23 +1,23 @@
 # Kodosi for macOS
 
-Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN.md). The
-Linux and Windows app follows this app.
+[PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
+visual system. The Linux and Windows app follows this app.
 
 ## Terminals
 
 - New Terminal (⌘N) opens the launcher, the terminal about to open: a tab for each agent
   after the plain terminal, then one line with the folder, the account, the model with
-  its effort, and the first prompt. With nothing open it sits in the middle of the main
+  its effort, and the first prompt. With nothing open it is in the middle of the main
   area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
 - When another of your computers runs Kodosi, the launcher's band names the computer.
   Another computer shows its own agents, choices, recent folders and home folders. The
   launcher keeps the last computer; Resume stays on this Mac.
-- The account key in the launcher shows how much of the account's plan limit is used.
+- The account key in the launcher shows how much of its plan limit the account has used.
   Provider Usage in the account menu shows each limit of each signed-in account, and a
   click on an account opens the launcher with it.
 - The sidebar groups terminals by folder and names the computer of a remote terminal. A
   repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals, rooms,
-  people and actions. A terminal is renamed in place.
+  people and actions. You rename a terminal in place.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs
   beside the mark, also on a closed folder. Done, failed and a bell keep a sign until you
   look. Faces show who else has a terminal open.
@@ -40,8 +40,8 @@ button for each answer and a field for your own words. A question about a termin
 shows its short answers on that terminal's header, and an answer there types into the
 terminal; your own words go to Dosi. Settings › Dosi chooses its agent, account, model
 and effort, which Dosi uses from the next message, edits its instructions and shows its
-folder. Turned off there, Dosi leaves the sidebar, the rail and the terminal tiles of
-this computer.
+folder. When you turn Dosi off there, it leaves the sidebar, the rail and the terminal
+tiles of this computer.
 
 ## Providers
 

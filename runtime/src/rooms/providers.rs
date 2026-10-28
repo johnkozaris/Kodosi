@@ -202,8 +202,8 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
             401 => if repo.provider == "github" { "Connect your GitHub account with gh auth login, then try again.".to_owned() }
                 else { "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.".to_owned() },
             404 => "The repository or issue is unavailable to your account.".to_owned(),
-            409 | 422 => "The issue changed or the requested update could not be applied. Refresh and try again.".to_owned(),
-            429 => "The issue provider is busy. Try again shortly.".to_owned(),
+            409 | 422 => "The issue changed, or the provider could not apply the update. Refresh and try again.".to_owned(),
+            429 => "The issue provider is busy. Try again in a moment.".to_owned(),
             _ => format!("The issue provider returned HTTP {}.", status.as_u16()),
         }));
     }
@@ -317,7 +317,7 @@ pub(crate) async fn update_issue(
     _number: u64,
     _change: TaskChange,
 ) -> Result<Issue> {
-    Err(invalid("Linked issues are changed from a computer."))
+    Err(invalid("Change linked issues from a computer."))
 }
 
 #[cfg(test)]
@@ -348,7 +348,7 @@ mod tests {
                 .await
                 .unwrap_err()
                 .to_string(),
-            "Linked issues are changed from a computer."
+            "Change linked issues from a computer."
         );
     }
 

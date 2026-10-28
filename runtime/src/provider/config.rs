@@ -80,7 +80,7 @@ pub(super) fn inspect(
             provider.executable()
         ))
     } else if unavailable {
-        Some("Some settings files cannot be opened by this user".to_owned())
+        Some("This user cannot open some settings files".to_owned())
     } else {
         None
     };

@@ -210,7 +210,7 @@ pub(crate) fn build_replacement_list(
     )?;
     if next_entries.is_empty() {
         return Err(Error::Invalid {
-            reason: "device list cannot be empty — at least one device must remain".to_owned(),
+            reason: "device list cannot be empty; at least one device must remain".to_owned(),
         });
     }
     if !previous_entries
@@ -219,14 +219,14 @@ pub(crate) fn build_replacement_list(
     {
         return Err(Error::Invalid {
             reason: format!(
-                "list signer {signer_device_id} is not in the previous list — cannot replace"
+                "list signer {signer_device_id} is not in the previous list, so it cannot replace it"
             ),
         });
     }
     if !next_entries.iter().any(|e| e.device_id == signer_device_id) {
         return Err(Error::Invalid {
             reason: format!(
-                "list signer {signer_device_id} is not in the new entry set — would invalidate the list"
+                "list signer {signer_device_id} is not in the new entry set, which would invalidate the list"
             ),
         });
     }

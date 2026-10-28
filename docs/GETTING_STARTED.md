@@ -84,7 +84,7 @@ question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi
 ## 5. Add your other computers
 
 Sign in on the new computer with the same account. It shows a code, and the computers
-that you already use ask you to approve it: choose Approve on one of them and enter the
+that you already use ask you to approve it. Choose Approve on one of them and enter the
 code. An iPhone or iPad joins the same way. Then each computer shows the terminals of all
 your computers.
 
@@ -162,6 +162,6 @@ terminal is still shared. A new device can need approval, and a friend with a ch
 identity can need verification in Friends. After a lost connection, Kodosi shows the
 current state again. When Kodosi says that a computer is offline, its terminals open
 again when it is back, unless they ended there. To take such a terminal out of your list,
-select its X: Hide until it's back shows it again when the computer is back, and Close
+select its X. Hide until it's back shows it again when the computer is back, and Close
 forever closes it then. If Kodosi says that it is not sure your input arrived, look at
 the terminal before you type the command again.

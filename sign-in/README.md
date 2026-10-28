@@ -1,8 +1,8 @@
 # Sign-in pages, account page and e-mails
 
-The Keycloak theme `kodosi`, built with [Keycloakify](https://www.keycloakify.dev) and
-React in the look of the apps: the sign-in pages, one account page in place of
-Keycloak's account console, and the e-mails.
+This folder is the Keycloak theme `kodosi`, built with
+[Keycloakify](https://www.keycloakify.dev) and React in the look of the apps. It has the
+sign-in pages, one account page in place of Keycloak's account console, and the e-mails.
 
 ## Use it in Keycloak
 
@@ -31,7 +31,8 @@ You need [Bun](https://bun.sh) 1.4 and Docker.
   `./keycloak.sh down` removes it all.
 - `just sign-in-check` from the repository root checks and builds.
 
-Keep Keycloak's field names and ids: its scripts and password managers rely on them.
+Keep Keycloak's field names and ids, because its scripts and password managers rely on
+them.
 Wording never reveals whether an account exists. In `src/email/messages/`, write an
 apostrophe twice. Keycloak caches e-mail pictures for 30 days, so give a changed picture
 a new file name. After a Keycloak update, set its version in `keycloak.sh` and check the

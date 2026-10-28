@@ -158,7 +158,7 @@ struct DeviceSettingsView: View {
         } message: {
             Text(deps.account.deletionSummary(
                 rooms: deps.missions,
-                terminals: String(localized: "Terminals on this Mac keep running. This cannot be undone."),
+                terminals: String(localized: "Terminals on this Mac keep running. You cannot undo this."),
             ))
         }
         .onAppear {

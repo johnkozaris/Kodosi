@@ -1,7 +1,7 @@
 # Kodosi Ghostty
 
-Kodosi's integration of [Ghostty](https://github.com/ghostty-org/ghostty), based on
-[Lakr233/libghostty-spm](https://github.com/Lakr233/libghostty-spm). It provides the
+This folder is Kodosi's integration of [Ghostty](https://github.com/ghostty-org/ghostty),
+based on [Lakr233/libghostty-spm](https://github.com/Lakr233/libghostty-spm). It provides the
 macOS and iOS terminal views and the Linux and Windows terminal engine.
 
 ```sh

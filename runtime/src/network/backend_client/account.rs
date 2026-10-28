@@ -464,7 +464,7 @@ impl BackendClient {
             let outcome = loop {
                 tokio::select! {
                     () = this.inner.shutdown.cancelled() => return,
-                    () = credentials.cancel.cancelled() => break Err("The account changed before the deletion was confirmed."),
+                    () = credentials.cancel.cancelled() => break Err("The account changed before you confirmed the deletion."),
                     () = tokio::time::sleep(DELETION_POLL) => {}
                 }
                 let _operation = this.inner.operations.lock().await;
@@ -480,7 +480,7 @@ impl BackendClient {
                     Err(error) if error.user_facing() => {
                         tracing::warn!(%error, "the account deletion was not read; it will be tried again");
                     }
-                    Err(_) => break Err("The account deletion could not be confirmed."),
+                    Err(_) => break Err("Kodosi could not confirm the account deletion."),
                 }
             };
             let answer = match outcome {

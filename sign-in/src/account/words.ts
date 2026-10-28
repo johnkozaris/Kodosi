@@ -15,7 +15,7 @@ const en = {
   added: "Added {0}",
   passkey: "Passkey",
   passkeyAdd: "Add a passkey",
-  passkeyHint: "Your fingerprint, your face or your PIN. No password.",
+  passkeyHint: "Your fingerprint, your face or your PIN, with no password.",
   authenticator: "Authenticator app",
   authenticatorAdd: "Add an authenticator app",
   authenticatorHint: "A code from an app on your phone, for each sign-in.",

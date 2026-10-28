@@ -197,7 +197,7 @@ fn a_catch_up_keeps_the_newest_lines_within_its_bounds() {
         .collect::<Vec<_>>();
     let shown = context::catch_up(&items.iter().collect::<Vec<_>>(), true).unwrap();
     assert!(shown.len() <= 13 * 1024);
-    assert!(shown.contains("Older messages are left out."));
+    assert!(shown.contains("Kodosi left out older messages."));
     assert!(shown.contains("message 99") && !shown.contains("message 0 "));
     assert_eq!(context::catch_up(&[], false), None);
 }

@@ -91,7 +91,7 @@ struct TerminalSettingsView: View {
                 .buttonStyle(.kodosi(changed ? .primary : .ghost)).disabled(!changed)
                 .accessibilityIdentifier("settings.terminal.apply")
             }
-            ListGroup(footer: "A terminal on a new branch gets its own folder. A folder with no changes goes away when its terminal ends.") {
+            ListGroup(footer: "A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.") {
                 ListRow(String(localized: "Branch folders"), subtitle: deps.settings.branchFolder ?? String(localized: "Beside the repository"),
                         monoSubtitle: deps.settings.branchFolder != nil, symbol: "arrow.triangle.branch", tint: TileTint.pink)
                 {
