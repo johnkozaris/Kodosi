@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Usage: ./keycloak.sh [code | check pass|block|ask|refuse|off | down]
 set -euo pipefail
 cd "$(dirname "$0")"
 

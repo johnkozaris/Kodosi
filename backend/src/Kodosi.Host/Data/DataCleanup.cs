@@ -6,7 +6,6 @@ namespace Kodosi.Data;
 internal sealed class DataCleanup(IServiceScopeFactory scopes, TimeProvider clock, ILogger<DataCleanup> logger)
     : PeriodicWork(TimeSpan.FromSeconds(30), clock, logger)
 {
-    // An expired link request stays so that its new device reads "expired", not "missing".
     internal static readonly TimeSpan LinkRequestMemory = TimeSpan.FromDays(1);
 
     protected internal override async Task RunAsync(CancellationToken ct)

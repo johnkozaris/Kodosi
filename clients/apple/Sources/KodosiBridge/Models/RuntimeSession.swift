@@ -180,6 +180,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
             : hostName ?? ownerName ?? String(localized: "Remote computer", bundle: .module)
     }
 
+    /// The computer that runs the terminal, when it is not this device.
+    public var otherComputer: String? {
+        kind == .local ? nil : hostLabel
+    }
+
     public var statusLabel: String {
         switch (connectionState, status) {
         case (.blocked, _): String(localized: "No access", bundle: .module)

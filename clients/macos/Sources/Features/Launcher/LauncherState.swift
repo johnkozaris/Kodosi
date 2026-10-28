@@ -39,7 +39,6 @@ final class LauncherState {
     }
 
     func refresh(force: Bool = false) async {
-        // A forced refresh during another asks again afterwards: the answer under way can predate the change.
         if refreshing {
             refreshesAgain = refreshesAgain || force
             return
@@ -66,7 +65,6 @@ final class LauncherState {
         } while refreshesAgain
     }
 
-    /// The signed-in accounts of the agents that report plan usage, in the catalog's order.
     var usageAccounts: [(info: AgentInfo, account: AgentAccount)] {
         installed.filter(\.reportsUsage).flatMap { info in
             info.accounts.filter { $0.identity != nil }.map { (info, $0) }

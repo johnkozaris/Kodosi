@@ -423,7 +423,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Gives the agent in a terminal a message with who sends it and from where.
     #[cfg(feature = "host")]
     fn send_message(&mut self, command: &Command) -> Result<()> {
         let Command::Message {
@@ -700,11 +699,16 @@ impl Runtime {
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
                 return Err(Error::Invalid("This provider conversation is already running in Kodosi.".to_owned()));
             }
-        self.begin_creation(command).map(drop)
+        self.begin_creation(command, None).map(drop)
     }
 
+    /// `screen` is the file of the saved screen that the new terminal shows first.
     #[cfg(feature = "host")]
-    pub(super) fn begin_creation(&mut self, command: Command) -> Result<Uuid> {
+    pub(super) fn begin_creation(
+        &mut self,
+        command: Command,
+        screen: Option<PathBuf>,
+    ) -> Result<Uuid> {
         if self.local.len() + self.creating.len() >= MAX_SESSIONS {
             return Err(Error::Busy);
         }
@@ -715,7 +719,7 @@ impl Runtime {
         let launcher = Arc::clone(&self.launcher);
         self.creating.insert(id, command.clone());
         self.spawn(async move {
-            let result = create_session(id, config, &launcher, &command, changes).await;
+            let result = create_session(id, config, &launcher, &command, screen, changes).await;
             Completion::Created { id, result }
         });
         Ok(id)
@@ -1115,6 +1119,9 @@ impl Runtime {
             return;
         };
         let restored = self.restore.starting.remove(&id);
+        if let Some(saved) = &restored {
+            self.restore.forget_screen(saved.id);
+        }
         let result = if current || restored.is_some() {
             result
         } else {
@@ -1579,6 +1586,7 @@ async fn create_session(
     config: Config,
     launcher: &Arc<Launcher>,
     command: &Command,
+    screen: Option<PathBuf>,
     changes: mpsc::Sender<SessionChange>,
 ) -> Result<StartedSession> {
     let Command::CreateSession {
@@ -1629,6 +1637,12 @@ async fn create_session(
     let directory = worktree
         .as_ref()
         .map_or(directory, |worktree| worktree.path.clone());
+    let screen = match screen {
+        Some(file) => tokio::task::spawn_blocking(move || super::restore::earlier_screen(&file))
+            .await
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
     let terminal = match TerminalSession::spawn(
         id,
         Uuid::now_v7(),
@@ -1637,6 +1651,7 @@ async fn create_session(
         directory.clone(),
         Some(config.data_root.join("shell")),
         Some(config.data_root.join("agents")),
+        screen,
         changes,
     )
     .await

@@ -22,6 +22,7 @@ async fn shell(
         directory,
         None,
         None,
+        Vec::new(),
         changes,
     )
     .await
@@ -631,7 +632,8 @@ fn byte_budget_covers_admitted_input_before_the_actor_polls() {
 async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let root = tempfile::tempdir().expect("cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical");
-    let emulator = SessionTerminalHandle::spawn(TerminalSize::default()).expect("emulator");
+    let emulator =
+        SessionTerminalHandle::spawn(TerminalSize::default(), Vec::new()).expect("emulator");
     let (pty, reader) = KodosiPty::spawn_program(
         Path::new("/bin/sh"),
         &["-c".to_owned(), "stty raw -echo; exec /bin/cat".to_owned()],
@@ -962,6 +964,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
         None,
         None,
+        Vec::new(),
         changes,
     )
     .await
@@ -997,6 +1000,39 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
 }
 
 #[tokio::test]
+async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
+    let root = tempfile::tempdir().expect("temp cwd");
+    let (changes, _changes) = mpsc::channel(128);
+    let session = TerminalSession::spawn(
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        PathBuf::from("/bin/sh"),
+        vec!["-c".to_owned(), "printf 'now\\n'; exec /bin/cat".to_owned()],
+        kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
+        None,
+        b"\x1b[1mbefore\x1b[0m\r\n".to_vec(),
+        changes,
+    )
+    .await
+    .expect("real shell");
+    let text = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let text = session.read(true).await.expect("text");
+            if text.contains("now") {
+                break text;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("program output");
+    session.close().await.expect("close");
+    drop(session);
+    assert_eq!(text, "before\nnow");
+}
+
+#[tokio::test]
 async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
     let (program, arguments) = if Path::new("/bin/zsh").exists() {
         ("/bin/zsh", vec!["-f".to_owned(), "-i".to_owned()])
@@ -1013,6 +1049,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
         None,
         None,
+        Vec::new(),
         changes,
     )
     .await
@@ -1242,6 +1279,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         root.path().to_owned(),
         None,
         None,
+        Vec::new(),
         changes,
     )
     .await

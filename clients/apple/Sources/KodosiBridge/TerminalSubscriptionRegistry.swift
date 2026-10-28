@@ -2,8 +2,7 @@ import Foundation
 
 public final class TerminalSubscriptionRegistry: @unchecked Sendable {
     public typealias ConnectionResult = @Sendable (Bool, String?) -> Void
-    /// Receives a Ghostty snapshot and whether the host terminal is a console.
-    public typealias CheckpointHandler = @Sendable (Data, Bool) -> Int32
+    public typealias CheckpointHandler = @Sendable (_ snapshot: Data, _ console: Bool) -> Int32
 
     public struct Connection: Sendable {
         public let subscriptionId: String

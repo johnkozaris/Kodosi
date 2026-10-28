@@ -133,7 +133,6 @@ struct UsageLimit: Decodable, Equatable, Identifiable {
         return String(localized: "\(name): \(used)% used")
     }
 
-    /// The limit nearest to stopping its account: the worst level, then the most use; the first one wins a tie.
     static func nearest(of limits: [Self]) -> Self? {
         limits.max { ($0.level, $0.used) < ($1.level, $1.used) }
     }

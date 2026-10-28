@@ -61,10 +61,11 @@ conversation follows the person to all their computers.
   can change what closing the window does.
 - Quit stops the computer's host and its terminals, but not a host that runs in a
   terminal with `kodosi host`. When the app opens again, the host starts those terminals
-  again with their names, folders, rooms and sharing, and agents continue their
-  conversations. An open view of such a terminal on another device moves to it. When a
-  terminal ends by itself, no other terminal takes its keyboard focus. The `kodosi`
-  command starts a host but never the earlier terminals.
+  again with their names, folders, rooms and sharing, and with their earlier screens and
+  history above a new prompt. Agents continue their conversations. An open view of such
+  a terminal on another device moves to it. When a terminal ends by itself, no other
+  terminal takes its keyboard focus. The `kodosi` command starts a host but never the
+  earlier terminals.
 - The apps and the `kodosi` command are equal clients of the computer's host. What one
   does, the others show. A person's typing comes first, so input from the command stops
   with a message while a person types in that terminal.
@@ -77,6 +78,13 @@ conversation follows the person to all their computers.
   still shows its hidden terminals.
 - Programs get what Ghostty gives them, such as Kitty images and clipboard writes. A
   clipboard read asks first only in another person's terminal.
+- Any program can show a link, so a link opens by Ghostty's rules. A web or mail link
+  opens at once. A file or folder opens, but not a file that can run a program. A link to
+  another app asks first. A link with hidden characters or an incomplete address does not
+  open; the app tells why and can copy the link.
+- A link opens on the device where the person selects it. In a terminal of another
+  computer, a file or a local address such as `localhost` is on that computer, so it does
+  not open; the app names that computer.
 
 ## Starting work
 

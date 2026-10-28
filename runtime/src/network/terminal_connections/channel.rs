@@ -122,7 +122,6 @@ impl<T: Transport> Channel<T> {
         self.tls.handshake_kind() == Some(HandshakeKind::Resumed)
     }
 
-    /// A peer that does not choose the channel protocol has an older version of Kodosi.
     pub(super) fn version(&self) -> Result<u32> {
         if self.tls.alpn_protocol() == Some(channel_protocol().as_slice()) {
             Ok(crate::protocol::CHANNEL_VERSION)
@@ -419,8 +418,6 @@ pub(super) mod tests {
             .collect()
     }
 
-    /// The first record of a real snapshot and then noise, `length` bytes in all.
-    /// A checkpoint reads only that record, and these tests restore nothing.
     pub(in crate::network::terminal_connections) fn stand_in_snapshot(length: usize) -> Vec<u8> {
         let mut snapshot = ghostty_vt::Terminal::new(80, 24, ghostty_vt::TerminalPolicy::default())
             .and_then(|mut terminal| {

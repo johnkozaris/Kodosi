@@ -1,8 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// The menu row that opens the usage panel beside the menu. Its small ring shows the account that is
-/// nearest to a limit.
 struct UsageMenuRow: View {
     @Environment(\.theme) private var theme
     let launcher: LauncherState
@@ -48,8 +46,6 @@ struct UsageMenuRow: View {
     }
 }
 
-/// How much of each signed-in account's plan limits is used, one dial for each limit. A click on an
-/// account opens the launcher with it.
 struct UsagePanel: View {
     @Environment(\.theme) private var theme
     let launcher: LauncherState
@@ -67,8 +63,6 @@ struct UsagePanel: View {
         }
     }
 
-    /// One section for each agent. Until the first answer, every signed-in account waits with a dashed
-    /// ring; after it, only the accounts with plan limits stay.
     private var sections: [Section] {
         var sections: [Section] = []
         for (info, account) in launcher.usageAccounts {

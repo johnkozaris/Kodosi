@@ -52,13 +52,15 @@ enum Request {
         connection: Uuid,
         write: PendingWrite,
     },
-    /// Input from a command; `true` makes it a message, which only an agent that takes messages
-    /// gets.
-    Send(PendingWrite, bool),
+    Send {
+        write: PendingWrite,
+        message: bool,
+    },
     Read {
         history: bool,
         reply: oneshot::Sender<Result<String>>,
     },
+    PrimaryHistory(oneshot::Sender<Result<Vec<u8>>>),
     Resize {
         connection: Uuid,
         size: TerminalSize,
@@ -83,7 +85,6 @@ enum Request {
     },
 }
 
-/// The process group in front of a terminal's shell, and one variable of its leader.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Foreground {
     pub group: Option<u32>,
@@ -103,7 +104,9 @@ pub(crate) struct TerminalSession {
 
 impl TerminalSession {
     /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
-    /// reads; the note itself is in each terminal's environment.
+    /// reads; the note itself is in each terminal's environment. The terminal shows `screen`
+    /// above the output of its program.
+    #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
     pub(crate) async fn spawn(
         id: Uuid,
         incarnation_id: Uuid,
@@ -112,6 +115,7 @@ impl TerminalSession {
         directory: PathBuf,
         prompt_marks: Option<PathBuf>,
         notes: Option<PathBuf>,
+        screen: Vec<u8>,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -121,7 +125,7 @@ impl TerminalSession {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
-            let emulator = SessionTerminalHandle::spawn(size)?;
+            let emulator = SessionTerminalHandle::spawn(size, screen)?;
             let session_id = id.to_string();
             let command_path = command_path();
             let copilot_notes = notes.as_deref().and_then(copilot_notes);
@@ -268,18 +272,22 @@ impl TerminalSession {
         let (reply, response) = oneshot::channel();
         let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
             write.completion = Some(InputCompletion::Local(reply));
-            self.send(Request::Send(write, false))
+            self.send(Request::Send {
+                write,
+                message: false,
+            })
         });
         await_reply(admission, response)
     }
 
-    /// Types a message for the agent in this terminal, unless it waits for a person's answer
-    /// or a person types here.
     pub(crate) fn message(&self, bytes: Bytes) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
             write.completion = Some(InputCompletion::Local(reply));
-            self.send(Request::Send(write, true))
+            self.send(Request::Send {
+                write,
+                message: true,
+            })
         });
         await_reply(admission, response)
     }
@@ -290,6 +298,13 @@ impl TerminalSession {
     ) -> impl Future<Output = Result<String>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(self.send(Request::Read { history, reply }), response)
+    }
+
+    /// The primary screen and its history as VT text, for the terminal that replaces this one.
+    /// It leaves the alternate screen, so ask only when the terminal stops.
+    pub(crate) fn primary_history(&self) -> impl Future<Output = Result<Vec<u8>>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::PrimaryHistory(reply)), response)
     }
 
     pub(crate) fn resize(
@@ -1208,8 +1223,6 @@ impl LocalActor {
         self.queue.push_back(write);
     }
 
-    /// Typed text answers a question that waits, so a message goes only to an agent that reports
-    /// its state and does not wait for a person's answer, and never while a person types.
     fn takes_message(&self) -> Result<()> {
         if self.typing() {
             return Err(Error::Invalid(SOMEONE_TYPING.to_owned()));
@@ -1226,6 +1239,7 @@ impl LocalActor {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "one dispatch for every request")]
     async fn command(&mut self, command: Request) -> Option<String> {
         match command {
             Request::Subscribe(reply) => {
@@ -1258,10 +1272,15 @@ impl LocalActor {
                 return self.release(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
-            Request::Send(write, message) => self.accept_command_input(write, message),
+            Request::Send { write, message } => self.accept_command_input(write, message),
             Request::Read { history, reply } => {
                 if !reply.is_closed() {
                     drop(reply.send(self.emulator.text(history).await));
+                }
+            }
+            Request::PrimaryHistory(reply) => {
+                if !reply.is_closed() {
+                    drop(reply.send(self.emulator.primary_history().await));
                 }
             }
             Request::Resize {

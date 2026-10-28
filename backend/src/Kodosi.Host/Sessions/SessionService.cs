@@ -31,7 +31,6 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> DescribeAsync(Session session, Guid viewer, CancellationToken ct) =>
         (await DescribeAsync(db.Sessions.Where(x => x.Id == session.Id), viewer, 1, ct)).Single();
 
-    // A terminal that someone asked to close leaves every list but that of the computer that closes it.
     public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, string deviceId, CancellationToken ct)
     {
         var usable = TerminalAccess.People(db).Where(x => x.UserId == userId).Select(x => x.SessionId);
@@ -198,8 +197,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (connections.Live(id).Online || await hidden.AnyAsync(ct)) return;
         db.HiddenSessions.Add(new HiddenSession { UserId = userId, SessionId = id });
         await db.SaveChangesAsync(ct);
-        // A host that came back before the write showed the terminal without this mark.
-        if (connections.Live(id).Online) await hidden.ExecuteDeleteAsync(ct);
+        var hostReturnedDuringWrite = connections.Live(id).Online;
+        if (hostReturnedDuringWrite) await hidden.ExecuteDeleteAsync(ct);
         else connections.Notify([userId], "sessions");
     }
 

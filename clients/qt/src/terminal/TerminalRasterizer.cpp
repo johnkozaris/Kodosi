@@ -23,6 +23,7 @@ namespace {
 constexpr int maximumTextureDimension = 16'384;
 constexpr std::uint64_t maximumImageBytes = 256ULL * 1024ULL * 1024ULL;
 constexpr QStringView kittyPlaceholder = u"\U0010EEEE";
+constexpr int minimumScrollGain = 2;
 
 struct CellMetrics {
     qreal width;
@@ -32,7 +33,6 @@ struct CellMetrics {
 
 CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devicePixelRatio)
 {
-    // Whole device pixels keep every cell on one grid at fractional display scales.
     const auto ratio = devicePixelRatio > 0.0 && std::isfinite(devicePixelRatio)
         ? devicePixelRatio
         : 1.0;
@@ -49,8 +49,6 @@ CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devic
     };
 }
 
-// The edges of a block fall on whole device pixels counted from the corner of its cell, so a block
-// has the same pixels in every row, and a row moved in the image matches the row painted there.
 void fillBlock(
     QPainter& painter,
     const QRectF& bounds,
@@ -200,8 +198,6 @@ void drawPowerlineSeparator(
     painter.restore();
 }
 
-// Block elements and Powerline separators fill their cell exactly, whatever font
-// would draw them, so neighbouring cells join without gaps or overhang.
 bool drawCellShape(
     QPainter& painter,
     const QRectF& bounds,
@@ -244,8 +240,6 @@ void drawImages(
     }
 }
 
-// The four faces of the font. Each cell that starts a run of another face sets the painter's
-// font, so a row of plain text sets it once.
 struct Faces {
     explicit Faces(const QFont& font)
         : regular(font)
@@ -496,16 +490,13 @@ std::vector<std::size_t> rowHashes(const TerminalFrame& frame)
     return hashes;
 }
 
-// How far the rows moved: row r of the frame shows row r + shift of the earlier frame. A move
-// counts only when it keeps at least two more rows than no move, so it needs at least three rows
-// that changed in place.
 int scrollOf(const TerminalFrame& earlier, const TerminalFrame& frame)
 {
     auto changedInPlace = 0;
-    for (std::uint16_t row = 0; row < frame.rows && changedInPlace < 3; ++row) {
+    for (std::uint16_t row = 0; row < frame.rows && changedInPlace <= minimumScrollGain; ++row) {
         changedInPlace += sameRow(frame, row, earlier, row) ? 0 : 1;
     }
-    if (changedInPlace < 3) {
+    if (changedInPlace <= minimumScrollGain) {
         return 0;
     }
     const auto before = rowHashes(earlier);
@@ -519,14 +510,14 @@ int scrollOf(const TerminalFrame& earlier, const TerminalFrame& frame)
         return count;
     };
     auto best = 0;
-    auto bestKept = kept(0) + 1;
+    auto bestKept = 0;
     for (auto shift = 1 - rows; shift < rows; ++shift) {
         if (const auto count = shift == 0 ? 0 : kept(shift); count > bestKept) {
             best = shift;
             bestKept = count;
         }
     }
-    return best;
+    return bestKept >= kept(0) + minimumScrollGain ? best : 0;
 }
 
 void moveRows(QImage& image, const int shift, const int rowPixels)
@@ -544,18 +535,23 @@ void moveRows(QImage& image, const int shift, const int rowPixels)
     }
 }
 
-// What a row needs: its own pixels painted again, or also the rows next to it, which its glyphs
-// can reach into.
 enum class RowChange : std::uint8_t {
     None,
     Pixels,
     Glyphs,
 };
 
-// The rows whose pixels can differ between two frames, once the rows of the earlier image have
-// moved by shift: rows with other cells or with no earlier row and the rows of the text being
-// composed when it changes, with the rows next to them; an edge row that lost the text reaching in
-// from beyond the edge, the rows of the cursor when it changes, and the rows under changed images.
+bool cursorChanged(
+    const TerminalFrame& earlier,
+    const TerminalRasterizer::Options& earlierOptions,
+    const TerminalFrame& frame,
+    const TerminalRasterizer::Options& options)
+{
+    return cursorDrawn(earlier, earlierOptions) != cursorDrawn(frame, options)
+        || earlier.cursor != frame.cursor || earlier.cursorColor != frame.cursorColor
+        || cursorStyle(earlier, earlierOptions) != cursorStyle(frame, options);
+}
+
 std::vector<RowChange> changedRows(
     const TerminalFrame& earlier,
     const TerminalRasterizer::Options& earlierOptions,
@@ -579,20 +575,15 @@ std::vector<RowChange> changedRows(
             mark(row, RowChange::Glyphs);
         }
     }
-    if (shift > 0) {
-        mark(0, RowChange::Pixels);
-    } else if (shift < 0) {
-        mark(rows - 1, RowChange::Pixels);
+    if (shift != 0) {
+        const auto edgeWithoutEarlierNeighbour = shift > 0 ? 0 : rows - 1;
+        mark(edgeWithoutEarlierNeighbour, RowChange::Pixels);
     }
-    const auto earlierCursor = cursorDrawn(earlier, earlierOptions);
-    const auto cursor = cursorDrawn(frame, options);
-    if (shift != 0 || earlierCursor != cursor || earlier.cursor != frame.cursor
-        || earlier.cursorColor != frame.cursorColor
-        || cursorStyle(earlier, earlierOptions) != cursorStyle(frame, options)) {
-        if (earlierCursor) {
+    if (shift != 0 || cursorChanged(earlier, earlierOptions, frame, options)) {
+        if (cursorDrawn(earlier, earlierOptions)) {
             mark(earlier.cursor.row - shift, RowChange::Pixels);
         }
-        if (cursor) {
+        if (cursorDrawn(frame, options)) {
             mark(frame.cursor.row, RowChange::Pixels);
         }
     }
@@ -633,8 +624,8 @@ std::vector<RowChange> changedRows(
                 }
             }
         }
-        // Images that stay but change their order overlap in another order.
-        if (kept != keeps) {
+        const auto reordered = kept != keeps;
+        if (reordered) {
             std::ranges::for_each(kept, markImage);
         }
     }
@@ -728,9 +719,7 @@ QImage TerminalRasterizer::render(
     return image;
 }
 
-// Glyphs can reach into the next row, so each painted row also draws the text of its
-// neighbours, clipped to itself.
-std::optional<int> TerminalRasterizer::update(
+std::optional<int> TerminalRasterizer::repaintChangedRows(
     QImage& image,
     const TerminalFrame& earlier,
     const Options& earlierOptions,

@@ -18,7 +18,6 @@ KDialog {
         standardButton(Dialog.Cancel).text = qsTr("Don't Allow");
     }
     onAccepted: allow = true
-    // The terminal takes input again only once the dialog has closed.
     onClosed: answered(allow)
 
     PlainLabel {

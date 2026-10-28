@@ -722,7 +722,6 @@ impl TerminalTarget {
         })
     }
 
-    /// Input as a person types it, or a message, which only an agent that takes messages gets.
     fn write(
         &self,
         bytes: Bytes,
@@ -1379,6 +1378,8 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.save_terminals(self.agent_lines().await);
         #[cfg(feature = "host")]
+        self.save_screens().await;
+        #[cfg(feature = "host")]
         self.stop_locals().await;
         self.network.shutdown().await;
     }
@@ -1405,7 +1406,6 @@ impl Runtime {
         while stopping.join_next().await.is_some() {}
     }
 
-    /// Asks each terminal's agent which conversation it shows, so the conversation continues.
     #[cfg(feature = "host")]
     async fn agent_lines(&self) -> HashMap<Uuid, String> {
         let mut asking = JoinSet::new();
@@ -1434,6 +1434,25 @@ impl Runtime {
             tracing::warn!("an agent conversation was not found before the host stopped");
         }
         lines
+    }
+
+    /// Keeps the screen and history of each terminal that comes back, on this computer only.
+    #[cfg(feature = "host")]
+    async fn save_screens(&self) {
+        let mut asking = JoinSet::new();
+        for (id, local) in &self.local {
+            if local.comes_back() {
+                let (id, history) = (*id, local.terminal.primary_history());
+                asking.spawn(async move { (id, history.await) });
+            }
+        }
+        let mut screens = Vec::new();
+        while let Some(answer) = asking.join_next().await {
+            if let Ok((id, Ok(screen))) = answer {
+                screens.push((id, screen));
+            }
+        }
+        self.restore.keep_screens(screens);
     }
 
     #[cfg(feature = "host")]
@@ -1475,7 +1494,6 @@ impl Runtime {
         self.restore.save(live);
     }
 
-    /// Starts the terminals of the last host again when an app asks.
     #[cfg(feature = "host")]
     pub(super) fn restore_saved(&mut self) {
         let saved = self.restore.take();
@@ -1498,18 +1516,18 @@ impl Runtime {
                 agent: None,
                 prompt: None,
             };
-            match self.begin_creation(command) {
+            match self.begin_creation(command, Some(self.restore.screen_file(saved.id))) {
                 Ok(id) => {
                     self.restore.starting.insert(id, saved);
                 }
                 Err(error) => {
+                    self.restore.forget_screen(saved.id);
                     tracing::warn!(%error, name = %saved.name, "a terminal did not come back");
                 }
             }
         }
     }
 
-    /// Keeps the new messages of a room that name terminals of this computer for their agents.
     #[cfg(feature = "host")]
     fn note_mentions(&mut self, room: &Value) {
         let Some(id) = room["roomId"].as_str() else {
@@ -1582,8 +1600,6 @@ impl Runtime {
         self.tell_mentions();
     }
 
-    /// The name, folder and title of a terminal that this computer knows, for the agents that
-    /// get a message from it.
     #[cfg(feature = "host")]
     fn place(&self, id: Uuid) -> Option<messages::Place> {
         let entry = self
@@ -1598,8 +1614,6 @@ impl Runtime {
         })
     }
 
-    /// Who sends a message: the agent that names itself or runs in the sending terminal of
-    /// this computer, or else the person.
     #[cfg(feature = "host")]
     fn sender(&self, from: Option<Uuid>, agent: Option<&str>) -> messages::Sender {
         let person = self
@@ -1633,8 +1647,6 @@ impl Runtime {
             .map(str::to_owned)
     }
 
-    /// Types the messages that name a terminal into its agent as soon as it takes messages, one
-    /// line for each room, and not more often than every few seconds.
     #[cfg(feature = "host")]
     fn tell_mentions(&mut self) {
         let now = tokio::time::Instant::now();
@@ -1703,7 +1715,6 @@ impl Runtime {
         }
     }
 
-    /// Gives restored terminals their room or people when the account that chose them is signed in.
     #[cfg(feature = "host")]
     fn apply_wanted(&mut self) {
         let Some(user) = self.scope.user.clone() else {

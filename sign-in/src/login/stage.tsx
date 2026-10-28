@@ -111,8 +111,8 @@ export function Stage({
     document.title = `${name} · Kodosi`;
   }, [name]);
 
-  // oxlint-disable-next-line react-hooks/exhaustive-deps -- what index.html drew is there one time
-  useLayoutEffect(() => (banner ? undefined : dropDrawn()), []);
+  const [bannerAtStart] = useState(banner);
+  useLayoutEffect(() => (bannerAtStart ? undefined : dropDrawn()), [bannerAtStart]);
 
   useLayoutEffect(() => {
     if (!ended) return;

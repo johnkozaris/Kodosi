@@ -64,7 +64,6 @@ bool Workspace::sendUntracked(QString type, QJsonObject values)
     return !sendRequest(std::move(type), std::move(values)).isEmpty();
 }
 
-// The host starts the terminals of its last run again only when an app asks.
 void Workspace::askRestore()
 {
     if (!m_restoreAsked)

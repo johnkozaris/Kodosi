@@ -39,8 +39,12 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
         stopMomentumScrolling()
+        let point = gesture.location(in: self)
+        if let surface, !surface.isMouseCaptured, let link = link(at: point, on: surface) {
+            (delegate as? any TerminalSurfaceOpenURLDelegate)?.terminalDidRequestOpenURL(link, kind: .unknown)
+            return
+        }
         if let surface, surface.hasSelection(), !surface.isMouseCaptured {
-            let point = gesture.location(in: self)
             let mods = ghostty_input_mods_e(rawValue: 0)
             surface.sendMousePos(x: point.x, y: point.y, mods: mods)
             surface.sendMouseButton(state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT, mods: mods)
@@ -49,6 +53,19 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
         if !isFirstResponder {
             becomeFirstResponder()
         }
+    }
+
+    /// A tap opens a link as a ⌘-click does. Ghostty names the link under a pointer
+    /// only while the link key is down, and only when the pointer moved, so the tap
+    /// takes the pointer away, asks with the key down, and takes the pointer away again.
+    private func link(at point: CGPoint, on surface: TerminalSurface) -> String? {
+        let none = ghostty_input_mods_e(rawValue: 0)
+        surface.sendMousePos(x: -1, y: -1, mods: none)
+        core.bridge.hoverLink = nil
+        surface.sendMousePos(x: point.x, y: point.y, mods: TerminalInputModifiers.super_.ghosttyMods)
+        let link = core.bridge.hoverLink
+        surface.sendMousePos(x: -1, y: -1, mods: none)
+        return link
     }
 
     @objc private func handleTouchSelection(_ gesture: UILongPressGestureRecognizer) {

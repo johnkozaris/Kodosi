@@ -1,5 +1,6 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
+    io::Read as _,
     path::{Path, PathBuf},
 };
 
@@ -10,8 +11,10 @@ use crate::{Error, agents::Agent, terminal::TerminalSession, worktree::Worktree}
 
 const FILE: &str = "terminals.json";
 const MOST_BYTES: usize = 1024 * 1024;
+const SCREENS: &str = "screens";
+const SCREEN_MOST_BYTES: usize = 1024 * 1024;
+const RESTORED: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\r\n\x1b[2mRestored\x1b[0m\r\n";
 
-/// A terminal that an app starts again after its host stopped.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Saved {
@@ -27,7 +30,6 @@ pub(super) struct Saved {
     pub worktree: Option<Worktree>,
 }
 
-/// The room or the people of a terminal, for the account that chose them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Sharing {
@@ -53,9 +55,9 @@ impl Sharing {
     }
 }
 
-/// The terminals of the last host, kept until an app asks for them, and the live terminals.
 pub(super) struct Restore {
     file: PathBuf,
+    screens: PathBuf,
     pending: Vec<Saved>,
     pub starting: BTreeMap<Uuid, Saved>,
     written: Vec<Saved>,
@@ -71,18 +73,17 @@ impl Restore {
             .unwrap_or_default();
         Self {
             file,
+            screens: data_root.join(SCREENS),
             written: pending.clone(),
             pending,
             starting: BTreeMap::new(),
         }
     }
 
-    /// The saved terminals to start, when an app asks for them.
     pub(super) fn take(&mut self) -> Vec<Saved> {
         std::mem::take(&mut self.pending)
     }
 
-    /// Saves the terminals that come back, when they changed since the last save.
     pub(super) fn save(&mut self, live: Vec<Saved>) {
         let terminals = self
             .pending
@@ -102,9 +103,74 @@ impl Restore {
             Err(error) => tracing::warn!(%error, "could not save the terminals that come back"),
         }
     }
+
+    pub(super) fn screen_file(&self, id: Uuid) -> PathBuf {
+        self.screens.join(id.to_string())
+    }
+
+    /// Keeps the newest lines of each screen, and removes the screens of terminals that no
+    /// longer come back.
+    pub(super) fn keep_screens(&self, screens: Vec<(Uuid, Vec<u8>)>) {
+        let saved = self
+            .written
+            .iter()
+            .map(|terminal| terminal.id)
+            .collect::<HashSet<_>>();
+        for file in std::fs::read_dir(&self.screens)
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let id = file
+                .file_name()
+                .to_str()
+                .and_then(|name| Uuid::parse_str(name).ok());
+            if !id.is_some_and(|id| saved.contains(&id)) {
+                drop(std::fs::remove_file(file.path()));
+            }
+        }
+        for (id, screen) in screens {
+            let screen = newest_lines(&screen, SCREEN_MOST_BYTES);
+            if screen.is_empty() {
+                continue;
+            }
+            if let Err(error) = kodosi_os::fs::write_private(&self.screen_file(id), screen) {
+                tracing::warn!(%error, "could not save the screen of a terminal");
+            }
+        }
+    }
+
+    pub(super) fn forget_screen(&self, id: Uuid) {
+        drop(std::fs::remove_file(self.screen_file(id)));
+    }
 }
 
-/// The command that continues the agent conversation that a terminal shows.
+/// The newest whole lines of a screen that fit in `most` bytes.
+pub(super) fn newest_lines(screen: &[u8], most: usize) -> &[u8] {
+    if screen.len() <= most {
+        return screen;
+    }
+    let start = screen.len() - most;
+    screen[start..]
+        .windows(2)
+        .position(|pair| pair == b"\r\n")
+        .map_or(&[], |line| &screen[start + line + 2..])
+}
+
+/// A saved screen and a line that ends it, for the terminal that comes back in its place.
+pub(super) fn earlier_screen(file: &Path) -> Vec<u8> {
+    let mut screen = Vec::new();
+    let read = std::fs::File::open(file).and_then(|file| {
+        file.take(SCREEN_MOST_BYTES as u64 + 1)
+            .read_to_end(&mut screen)
+    });
+    if read.is_err() || screen.is_empty() || screen.len() > SCREEN_MOST_BYTES {
+        return Vec::new();
+    }
+    screen.extend_from_slice(RESTORED);
+    screen
+}
+
 pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
@@ -130,13 +196,11 @@ pub(super) async fn agent_line(
     resume_line(agent, &command, conversation.as_deref())
 }
 
-/// The line for a terminal whose agent was not asked, as when its host ended without a stop.
 pub(super) fn usual_line(program: &str, shell: &Path) -> Option<String> {
     let agent = Agent::named(program)?;
     resume_line(agent, &agent.with_context(agent.program(), shell), None)
 }
 
-/// Without a known conversation, the agent lists its conversations in that folder to continue.
 pub(super) fn resume_line(
     agent: Agent,
     command: &str,
@@ -153,7 +217,6 @@ pub(super) fn resume_line(
     Some(format!("{command} {resume}"))
 }
 
-/// The saved folder, or the nearest folder above it that is still there.
 pub(super) fn nearest_folder(folder: Option<&str>) -> Option<String> {
     Path::new(folder?)
         .ancestors()

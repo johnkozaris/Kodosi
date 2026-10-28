@@ -23,6 +23,8 @@ computer.
   agent waits for an answer, 1, 2 and 3 answer it without the keyboard. In landscape,
   the header hides while you type. A hardware keyboard types into the terminal, without
   the composer.
+- A tap on a link opens it by the shared link rules, except in a program that uses the
+  mouse.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,

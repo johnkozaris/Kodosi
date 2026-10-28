@@ -14,7 +14,6 @@ case "$2" in
     Debug) profile=dev ;;
     Release | WorkingTreeValidation)
         profile=release
-        # A release names ~ in place of the home folder of the person who builds it.
         export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~"
         ;;
     *)

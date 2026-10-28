@@ -32,8 +32,6 @@ pub(super) const fn reports(agent: Agent) -> bool {
     matches!(agent, Agent::Claude | Agent::Codex | Agent::Copilot)
 }
 
-/// The last reading of each signed-in account. One refresh runs at a time, so a second caller gets
-/// the readings of the first.
 #[derive(Default)]
 pub(super) struct Readings(tokio::sync::Mutex<HashMap<(Agent, AgentAccount), Reading>>);
 
@@ -43,8 +41,6 @@ struct Reading {
 }
 
 impl Readings {
-    /// Reads each signed-in account whose last try is older than a minute, a few at a time, and
-    /// answers with the accounts that have plan limits. A failed read keeps the last reading.
     pub(super) async fn refresh(
         &self,
         catalog: &AgentCatalog,
@@ -126,8 +122,6 @@ async fn read_account(
     read(agent, &runner, home).await
 }
 
-/// Asks the agent's own program for the plan usage of one account. An empty list means that the
-/// account has no plan limits, such as an account that pays by use.
 pub(super) async fn read(
     agent: Agent,
     runner: &Runner,
@@ -494,8 +488,6 @@ fn scope_name(name: &str) -> Option<String> {
     .then(|| name.to_owned())
 }
 
-/// Marks the headline, the limit that an account shows: the worst level, then the most use; the
-/// first one wins a tie.
 pub(super) fn headlined(mut limits: Vec<UsageLimit>) -> Vec<UsageLimit> {
     let chosen = limits
         .iter()
