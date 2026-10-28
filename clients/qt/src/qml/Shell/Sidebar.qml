@@ -815,6 +815,7 @@ Item {
 
                         width: content.width
                         spacing: 2
+                        onYChanged: Qt.callLater(root.syncPill)
 
                         Item {
                             width: parent.width
@@ -992,6 +993,7 @@ Item {
                                 onSelectedChanged: root.claimPill(row, selected)
                                 Component.onCompleted: root.claimPill(row, selected)
                                 Component.onDestruction: root.claimPill(row, false)
+                                onYChanged: Qt.callLater(root.syncPill)
                                 onHeightChanged: Qt.callLater(root.syncPill)
 
                                 contentItem: RowLayout {
