@@ -98,7 +98,7 @@ final class CanvasCopy {
                 1
             }
 
-            func previewItem(at _: Int) -> any QLPreviewItem {
+            func previewController(_: QLPreviewController, previewItemAt _: Int) -> any QLPreviewItem {
                 url as NSURL
             }
         }

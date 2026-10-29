@@ -32,6 +32,9 @@ private struct TerminalScreenContent: View {
     @State private var controller: TerminalController
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
+    @State private var showsCanvas = false
+    @State private var opensCanvas = false
+    @State private var canvasOpen = false
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
@@ -109,6 +112,9 @@ private struct TerminalScreenContent: View {
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel(Text("Here now: \(viewers.map(\.name).joined(separator: ", "))"))
                     }
+                    if session.canvas != nil {
+                        CanvasKey(session: session, canvas: model.terminals.canvas) { showsCanvas = true }
+                    }
                     TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt)
                 }
             }
@@ -137,10 +143,25 @@ private struct TerminalScreenContent: View {
         .sheet(isPresented: $showsSharing) {
             TerminalSharingSheet(sessionId: controller.sessionId)
         }
+        .sheet(isPresented: $showsCanvas, onDismiss: openCanvas, content: {
+            CanvasSheet(sessionId: controller.sessionId) { key in
+                model.terminals.canvas.pick(key, in: controller.sessionId)
+                opensCanvas = true
+                showsCanvas = false
+            }
+        })
+        .fullScreenCover(isPresented: $canvasOpen) {
+            CanvasScreen(sessionId: controller.sessionId)
+        }
         .sensoryFeedback(.selection, trigger: controller.presses)
         .sensoryFeedback(.impact(flexibility: .solid), trigger: controller.sent)
         .sensoryFeedback(.impact(weight: .light), trigger: controller.bells)
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
+    }
+
+    private func openCanvas() {
+        canvasOpen = opensCanvas
+        opensCanvas = false
     }
 
     private func stage(_ session: RuntimeSession?) -> some View {

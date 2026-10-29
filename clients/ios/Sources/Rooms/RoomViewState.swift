@@ -10,7 +10,7 @@ enum RoomSection: Int, Hashable {
 @Observable
 final class RoomViewState {
     var section: RoomSection = .conversation
-    var canvas: RoomSection = .terminals
+    var shownSection: RoomSection = .terminals
     var message = "" {
         didSet {
             if message != oldValue {

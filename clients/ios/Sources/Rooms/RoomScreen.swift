@@ -56,7 +56,7 @@ struct RoomScreen: View {
             .navigationDestination(item: $terminal) { TerminalScreen(sessionId: $0.sessionId) }
             .environment(\.openURL, OpenURLAction(handler: open))
             .sensoryFeedback(.selection, trigger: state.section) { _, _ in !wide }
-            .sensoryFeedback(.selection, trigger: state.canvas) { _, _ in wide }
+            .sensoryFeedback(.selection, trigger: state.shownSection) { _, _ in wide }
     }
 
     @ViewBuilder
@@ -80,8 +80,8 @@ struct RoomScreen: View {
         } else if wide {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 0) {
-                    dock(state, sections: [.terminals, .tasks], selection: state.canvas) { state.canvas = $0 }
-                    section(state.canvas == .conversation ? .terminals : state.canvas)
+                    dock(state, sections: [.terminals, .tasks], selection: state.shownSection) { state.shownSection = $0 }
+                    section(state.shownSection == .conversation ? .terminals : state.shownSection)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 RoomConversation(roomId: roomId)

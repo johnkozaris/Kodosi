@@ -1,6 +1,12 @@
 import KodosiBridge
 import SwiftUI
 
+#if os(iOS)
+    private let control: CGFloat = 40
+#else
+    private let control: CGFloat = 26
+#endif
+
 /// The shared browser of a terminal: the bar, and the picture that people click and type in.
 public struct CanvasBrowserView: View {
     @Environment(\.theme) private var theme
@@ -50,9 +56,9 @@ public struct CanvasBrowserView: View {
 
     private var bar: some View {
         HStack(spacing: 4) {
-            IconButton(title: "Back", symbol: "chevron.left", identifier: "canvas.browser.back", size: 26) { act(.back) }
-            IconButton(title: "Forward", symbol: "chevron.right", identifier: "canvas.browser.forward", size: 26) { act(.forward) }
-            IconButton(title: "Reload", symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: 26) { act(.reload) }
+            IconButton(title: "Back", symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { act(.back) }
+            IconButton(title: "Forward", symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { act(.forward) }
+            IconButton(title: "Reload", symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { act(.reload) }
             HStack(spacing: 6) {
                 Image(systemName: "globe").font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                 TextField(String(localized: "Address", bundle: .module), text: $address)
@@ -61,7 +67,7 @@ public struct CanvasBrowserView: View {
                     .onSubmit { open() }
                     .accessibilityIdentifier("canvas.browser.address")
             }
-            .padding(.horizontal, 10).frame(height: 26).frame(maxWidth: 560).wellCapsule()
+            .padding(.horizontal, 10).frame(height: control).frame(maxWidth: 560).wellCapsule()
             .layoutPriority(1)
             tabs
             if let failure = feed.failure ?? browser.problem {
@@ -77,7 +83,7 @@ public struct CanvasBrowserView: View {
             }
         }
         .disabled(browser.state != .awake)
-        .padding(.horizontal, 6).frame(height: 36)
+        .padding(.horizontal, 6).frame(height: control + 10)
     }
 
     @ViewBuilder
@@ -98,7 +104,7 @@ public struct CanvasBrowserView: View {
             .menuStyle(.button).buttonStyle(.plain).fixedSize()
             .accessibilityIdentifier("canvas.browser.tabs")
         } else {
-            IconButton(title: "New tab", symbol: "plus", identifier: "canvas.browser.newTab", size: 26) { act(.newTab) }
+            IconButton(title: "New tab", symbol: "plus", identifier: "canvas.browser.newTab", size: control) { act(.newTab) }
         }
     }
 
