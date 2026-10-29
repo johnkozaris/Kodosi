@@ -4,8 +4,9 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserInput, CanvasAnswer, CanvasKind, CanvasRequest, KeyEvent, MOST_ITEMS,
-    MouseButton, MouseEvent, PART_BYTES, browser, files::Files, files::Stamp, kind_of, page,
+    BrowserAct, BrowserDoingKind, BrowserInput, BrowserPoint, CanvasAnswer, CanvasKind,
+    CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES, browser,
+    files::Files, files::Stamp, kind_of, page,
 };
 
 #[test]
@@ -282,6 +283,62 @@ fn the_browser_keeps_its_session_and_hides_what_an_agent_types() {
     );
     assert_eq!(words(&["fill", "@e3", "secret"]), "fill");
     assert_eq!(words(&["click", "@e2", "--new-tab"]), "click @e2");
+}
+
+#[test]
+fn people_see_what_the_agent_does_and_where() {
+    let doing = |arguments: &[&str]| {
+        browser::doing(
+            &arguments
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+        )
+    };
+    let at = |target: &str| Some(target.to_owned());
+    assert_eq!(
+        doing(&["open", "https://example.com"]),
+        Some((BrowserDoingKind::Open, None))
+    );
+    assert_eq!(
+        doing(&["click", "@e2", "--new-tab"]),
+        Some((BrowserDoingKind::Click, at("@e2")))
+    );
+    assert_eq!(
+        doing(&["fill", "#email", "ana@example.com"]),
+        Some((BrowserDoingKind::Type, at("#email")))
+    );
+    assert_eq!(
+        doing(&["press", "Enter"]),
+        Some((BrowserDoingKind::Type, None))
+    );
+    assert_eq!(
+        doing(&["snapshot", "-i"]),
+        Some((BrowserDoingKind::Read, None))
+    );
+    assert_eq!(
+        doing(&["find", "role", "button", "click", "--name", "Send"]),
+        Some((BrowserDoingKind::Click, None))
+    );
+    assert_eq!(doing(&["tab"]), Some((BrowserDoingKind::Read, None)));
+    assert_eq!(doing(&["tab", "new"]), Some((BrowserDoingKind::Open, None)));
+    assert_eq!(doing(&["session", "info"]), None);
+
+    let box_at = r#"{ "x": 100.5, "y": 40, "width": 200, "height": 20 }"#;
+    assert_eq!(
+        browser::middle(box_at, 1280, 720),
+        Some(BrowserPoint { x: 200, y: 50 })
+    );
+    assert_eq!(browser::middle(box_at, 1280, 45), None);
+    assert_eq!(
+        browser::middle(
+            r#"{ "x": -300, "y": 10, "width": 100, "height": 10 }"#,
+            1280,
+            720
+        ),
+        None
+    );
+    assert_eq!(browser::middle("Could not find @e9", 1280, 720), None);
 }
 
 #[test]

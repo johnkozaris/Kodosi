@@ -28,6 +28,7 @@ const MOST_EVENTS: usize = 64;
 const MOST_TYPED: usize = 16 * 1024;
 const MOST_PROBLEM: usize = 1024;
 const MOST_PICTURE: usize = 400 * 1024;
+const MOST_SIDE: u32 = 4096;
 const MOST_TEXT: usize = 1024 * 1024;
 const MOST_POSITION: i32 = 100_000;
 
@@ -73,6 +74,8 @@ pub struct CanvasBrowser {
     pub width: u32,
     pub height: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doing: Option<BrowserDoing>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<BrowserAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem: Option<String>,
@@ -100,6 +103,36 @@ pub struct BrowserTab {
 pub struct BrowserAction {
     pub agent: String,
     pub words: String,
+}
+
+/// What the agent does in the browser while its command runs, and the middle of the element
+/// that it acts on, in the browser's CSS pixels.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserDoing {
+    pub agent: String,
+    pub kind: BrowserDoingKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub point: Option<BrowserPoint>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum BrowserDoingKind {
+    Open,
+    Click,
+    Type,
+    Scroll,
+    Read,
+    Wait,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(deny_unknown_fields)]
+pub struct BrowserPoint {
+    pub x: u32,
+    pub y: u32,
 }
 
 /// What a device that shows a terminal asks of its canvas, on this computer or across the network.
@@ -310,6 +343,12 @@ impl CanvasBrowser {
                 bounded(&tab.id, 64)
                     && bounded(&tab.title, MOST_TITLE)
                     && bounded(&tab.url, MOST_URL)
+            })
+            && self.doing.as_ref().is_none_or(|doing| {
+                bounded(&doing.agent, 64)
+                    && doing
+                        .point
+                        .is_none_or(|point| point.x <= MOST_SIDE && point.y <= MOST_SIDE)
             })
             && self
                 .last

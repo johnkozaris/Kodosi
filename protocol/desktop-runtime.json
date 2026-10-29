@@ -6357,6 +6357,76 @@
                                   "format": "u64",
                                   "type": "integer"
                                 },
+                                "doing": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "agent": {
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "oneOf": [
+                                            {
+                                              "const": "open"
+                                            },
+                                            {
+                                              "const": "click"
+                                            },
+                                            {
+                                              "const": "type"
+                                            },
+                                            {
+                                              "const": "scroll"
+                                            },
+                                            {
+                                              "const": "read"
+                                            },
+                                            {
+                                              "const": "wait"
+                                            },
+                                            {
+                                              "const": "other"
+                                            }
+                                          ]
+                                        },
+                                        "point": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "x": {
+                                                  "format": "u32",
+                                                  "type": "integer"
+                                                },
+                                                "y": {
+                                                  "format": "u32",
+                                                  "type": "integer"
+                                                }
+                                              },
+                                              "required": [
+                                                "x",
+                                                "y"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "agent",
+                                        "kind"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "height": {
                                   "format": "u32",
                                   "type": "integer"

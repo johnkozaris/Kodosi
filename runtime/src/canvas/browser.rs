@@ -14,8 +14,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
-    BrowserAct, BrowserAction, BrowserFrame, BrowserInput, BrowserState, BrowserTab, CanvasAnswer,
-    CanvasBrowser, KeyEvent, MouseButton, MouseEvent, files::Stamp,
+    BrowserAct, BrowserAction, BrowserDoing, BrowserDoingKind, BrowserFrame, BrowserInput,
+    BrowserPoint, BrowserState, BrowserTab, CanvasAnswer, CanvasBrowser, KeyEvent, MouseButton,
+    MouseEvent, files::Stamp,
 };
 
 const COMMAND_LIMIT: Duration = Duration::from_mins(2);
@@ -26,6 +27,8 @@ const PICTURE_WAIT: Duration = Duration::from_secs(8);
 const WATCH_KEPT: Duration = Duration::from_secs(20);
 /// The time that a moved page gets to load before its tabs are read.
 const SETTLE: Duration = Duration::from_secs(1);
+/// While people look, the agent's pointer reaches the element before the agent acts on it.
+const POINTER_LEAD: Duration = Duration::from_millis(280);
 const MOST_OUTPUT: usize = 1024 * 1024;
 const FIRST_SIZE: (u32, u32) = (1280, 720);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
@@ -259,6 +262,7 @@ impl Browser {
                 tabs: Vec::new(),
                 width,
                 height,
+                doing: None,
                 last: None,
                 problem: None,
             }),
@@ -303,6 +307,34 @@ impl Browser {
 
     fn awake(&self) -> bool {
         self.state.borrow().state == BrowserState::Awake
+    }
+
+    /// Whether a device asked for pictures lately.
+    fn watched(&self) -> bool {
+        self.activity(|activity| {
+            activity
+                .watched_at
+                .is_some_and(|at| at.elapsed() < PICTURE_WAIT + SETTLE)
+        })
+    }
+
+    /// The middle of the element that a command names, when it is in view.
+    async fn point(&self, folder: &Path, target: &str) -> Option<BrowserPoint> {
+        let run = self
+            .agent_browser(
+                folder,
+                &["get".into(), "box".into(), target.to_owned()],
+                Reach::Daemon,
+                QUICK_LIMIT,
+            )
+            .await
+            .ok()
+            .filter(|run| run.code == 0)?;
+        let (width, height) = {
+            let state = self.state.borrow();
+            (state.width, state.height)
+        };
+        middle(&run.output, width, height)
     }
 
     /// Runs an agent's agent-browser command on this terminal's browser.
@@ -357,6 +389,24 @@ impl Browser {
             }
             (used, std::mem::replace(&mut activity.introduced, true))
         });
+        let agent = agent.unwrap_or_else(|| "The agent".to_owned());
+        if let Some((kind, target)) = doing(&arguments) {
+            let point = match target {
+                Some(target) if self.awake() => self.point(&folder, &target).await,
+                _ => None,
+            };
+            let doer = agent.clone();
+            self.change(|state| {
+                state.doing = Some(BrowserDoing {
+                    agent: doer,
+                    kind,
+                    point,
+                });
+            });
+            if point.is_some() && self.watched() {
+                tokio::time::sleep(POINTER_LEAD).await;
+            }
+        }
         let run = match self
             .agent_browser(&folder, &arguments, Reach::Launch, COMMAND_LIMIT)
             .await
@@ -368,7 +418,7 @@ impl Browser {
             }
         };
         let action = acting.then(|| BrowserAction {
-            agent: agent.unwrap_or_else(|| "The agent".to_owned()),
+            agent,
             words: words(&arguments),
         });
         self.refresh(action).await;
@@ -628,6 +678,7 @@ impl Browser {
                 }
                 None => state.state = BrowserState::Asleep,
             }
+            state.doing = None;
             if let Some(action) = action {
                 state.last = Some(action);
             }
@@ -1128,6 +1179,68 @@ pub(super) fn words(arguments: &[String]) -> String {
     );
     let shown = if typed { &words[..1] } else { &words[..] };
     shown.join(" ").chars().take(80).collect()
+}
+
+/// What a command does, for the people who look, and the element that it acts on.
+pub(super) fn doing(arguments: &[String]) -> Option<(BrowserDoingKind, Option<String>)> {
+    let words = arguments
+        .iter()
+        .filter(|word| !word.starts_with('-'))
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let (&command, rest) = words.split_first()?;
+    let target = rest.first().map(|word| (*word).to_owned());
+    Some(match command {
+        "open" | "goto" | "navigate" | "back" | "forward" | "reload" => {
+            (BrowserDoingKind::Open, None)
+        }
+        "tab" if rest.is_empty() => (BrowserDoingKind::Read, None),
+        "tab" => (BrowserDoingKind::Open, None),
+        "click" | "dblclick" | "check" | "uncheck" | "hover" | "focus" | "select" | "drag"
+        | "upload" | "tap" => (BrowserDoingKind::Click, target),
+        "fill" | "type" => (BrowserDoingKind::Type, target),
+        "press" | "key" | "keyboard" | "keydown" | "keyup" => (BrowserDoingKind::Type, None),
+        "scrollintoview" => (BrowserDoingKind::Scroll, target),
+        "scroll" | "swipe" => (BrowserDoingKind::Scroll, None),
+        "find"
+            if rest.iter().any(|word| {
+                matches!(
+                    *word,
+                    "click" | "dblclick" | "check" | "uncheck" | "hover" | "tap"
+                )
+            }) =>
+        {
+            (BrowserDoingKind::Click, None)
+        }
+        "find" if rest.iter().any(|word| matches!(*word, "fill" | "type")) => {
+            (BrowserDoingKind::Type, None)
+        }
+        "snapshot" | "get" | "is" | "screenshot" | "find" | "console" | "errors" | "pdf" => {
+            (BrowserDoingKind::Read, None)
+        }
+        "wait" => (BrowserDoingKind::Wait, None),
+        "session" | "close" => return None,
+        _ => (BrowserDoingKind::Other, None),
+    })
+}
+
+/// The middle of the box that `get box` prints, when it is inside the browser's view.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the point is checked to be inside the browser's view"
+)]
+pub(super) fn middle(output: &str, width: u32, height: u32) -> Option<BrowserPoint> {
+    let found = serde_json::from_str::<Value>(output.trim()).ok()?;
+    let side = |name: &str| found[name].as_f64().filter(|value| value.is_finite());
+    let x = side("x")? + side("width")? / 2.0;
+    let y = side("y")? + side("height")? / 2.0;
+    (x >= 0.0 && y >= 0.0 && x < f64::from(width) && y < f64::from(height)).then_some(
+        BrowserPoint {
+            x: x as u32,
+            y: y as u32,
+        },
+    )
 }
 
 pub(super) fn sized(width: u32, height: u32) -> Option<(u32, u32)> {
