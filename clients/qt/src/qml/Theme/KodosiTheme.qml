@@ -13,6 +13,7 @@ QtObject {
     readonly property color raised: isDark ? "#251d19" : "#fefbf5"
     readonly property color lifted: isDark ? "#2e241f" : "#fffdf9"
     readonly property color well: isDark ? "#0c0a08" : "#e8e0d2"
+    readonly property color sheet: mix(raised, surface, 0.45)
     readonly property color hairline: isDark ? "#3b2f29" : "#d9ccba"
     readonly property color ink: isDark ? "#f1e9e3" : "#25160e"
     readonly property color inkMuted: isDark ? "#b3a094" : "#5f4838"

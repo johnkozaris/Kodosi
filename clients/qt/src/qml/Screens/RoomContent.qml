@@ -734,7 +734,7 @@ Item {
 
                 Behavior on anchors.rightMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } }
 
-                Raised { anchors.fill: parent; radius: KodosiTheme.radiusXl; fill: KodosiTheme.raised; elevation: 2 }
+                Raised { anchors.fill: parent; radius: KodosiTheme.radiusXl; fill: KodosiTheme.sheet; elevation: 2 }
                 RoomConversation {
                     anchors.fill: parent
                     onTerminalRequested: id => {

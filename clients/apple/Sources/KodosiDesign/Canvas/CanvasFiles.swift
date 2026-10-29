@@ -237,7 +237,7 @@ struct CanvasCard: View {
         .overlay(alignment: .topLeading) {
             if hovered {
                 RemoveKey(size: 18, identifier: "canvas.card.remove.\(AccessibilityIdentifier.token(file.key))", action: remove)
-                    .background(theme.colors.surface, in: Circle())
+                    .background(theme.colors.sheet, in: Circle())
                     .offset(x: -6, y: -6)
                     .transition(.opacity.combined(with: .scale(scale: 0.6)))
             }

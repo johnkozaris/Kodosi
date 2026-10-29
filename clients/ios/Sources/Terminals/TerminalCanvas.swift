@@ -82,7 +82,7 @@ struct CanvasScreen: View {
                 .animation(theme.motion.fade, value: current?.key)
                 .animation(theme.motion.fade, value: shelf)
             }
-            .background(theme.colors.surface)
+            .background(theme.colors.sheet)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -33,7 +33,7 @@ WebEngineView {
     }
 
     profile: Models.CanvasWeb.profile
-    backgroundColor: KodosiTheme.surface
+    backgroundColor: KodosiTheme.sheet
     settings.javascriptCanOpenWindows: false
     settings.javascriptCanAccessClipboard: false
     settings.localContentCanAccessFileUrls: false

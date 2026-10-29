@@ -406,7 +406,7 @@ private struct CanvasContentGround: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        theme.colors.surface
+        theme.colors.sheet
     }
 }
 

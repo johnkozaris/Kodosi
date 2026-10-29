@@ -66,9 +66,9 @@ struct CanvasBody: View, Animatable {
 }
 
 extension AppTheme.Colors {
-    /// The header bar of a terminal's body.
+    /// The header bar of a terminal's body, in the copper of a raised surface.
     var band: Color {
-        terminal.mix(with: raised, by: 0.75)
+        hex(0x221A16)
     }
 }
 

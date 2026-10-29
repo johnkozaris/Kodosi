@@ -176,7 +176,7 @@ Item {
             Layout.rightMargin: 5
             Layout.bottomMargin: 5
             radius: KodosiTheme.radiusSm
-            color: KodosiTheme.surface
+            color: KodosiTheme.sheet
             clip: true
 
             ColumnLayout {

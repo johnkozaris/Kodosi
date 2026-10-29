@@ -181,7 +181,7 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: root.browserState === "awake" ? KodosiTheme.terminal : KodosiTheme.surface
+            color: root.browserState === "awake" ? KodosiTheme.terminal : KodosiTheme.sheet
             activeFocusOnTab: true
             objectName: "canvas.browser.page"
             Accessible.id: objectName
