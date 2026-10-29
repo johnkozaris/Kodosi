@@ -268,6 +268,11 @@ impl Browser {
         self.state.send_modify(change);
     }
 
+    /// The page that the browser opens when it wakes.
+    pub(super) fn reopen_at(&self, address: Option<String>) {
+        self.activity(|activity| activity.address = address);
+    }
+
     fn activity<T>(&self, use_it: impl FnOnce(&mut Activity) -> T) -> T {
         use_it(
             &mut self
@@ -633,12 +638,25 @@ impl Browser {
         self.change(|state| state.state = BrowserState::Asleep);
     }
 
-    /// Closes Chrome and deletes the profile with its sign-ins.
+    /// Closes Chrome and deletes the profile with its sign-ins, and what agent-browser keeps of
+    /// the session, such as its last address.
     pub(super) async fn remove(&self) {
         self.closed.cancel();
         self.sleep().await;
         let profile = self.places.profile.clone();
-        drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(profile)).await);
+        let sockets = self.places.sockets.clone();
+        let session = format!("{}.", self.id.simple());
+        drop(
+            tokio::task::spawn_blocking(move || {
+                drop(std::fs::remove_dir_all(profile));
+                for file in std::fs::read_dir(sockets).into_iter().flatten().flatten() {
+                    if file.file_name().to_string_lossy().starts_with(&session) {
+                        drop(std::fs::remove_file(file.path()));
+                    }
+                }
+            })
+            .await,
+        );
     }
 
     async fn stream(&self) -> Result<tokio::sync::mpsc::Sender<Value>, String> {

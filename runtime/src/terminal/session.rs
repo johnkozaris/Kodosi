@@ -539,7 +539,6 @@ fn command_path() -> Option<String> {
     )
 }
 
-/// Kodosi's notes folder after the folders that Copilot CLI already reads.
 /// What a program in a Kodosi terminal reads from Kodosi: its terminal, the note and the plugin
 /// for agents, and the kodosi command first on the path.
 fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String)> {
@@ -567,6 +566,7 @@ fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String
     variables
 }
 
+/// Kodosi's notes folder after the folders that Copilot CLI already reads.
 fn copilot_notes(folder: &Path) -> Option<String> {
     let folder = folder.to_str()?;
     Some(
@@ -695,12 +695,8 @@ impl LocalActor {
             program: self.live_program(),
             status: self.status.summary(),
             context: self.published_context.clone(),
-            canvas: self.shown_canvas().map(Box::new),
+            canvas: self.canvas.current().map(Box::new),
         }
-    }
-
-    fn shown_canvas(&self) -> Option<Canvas> {
-        Some(self.canvas_state.borrow().clone()).filter(|canvas| !canvas.is_empty())
     }
 
     fn publish_canvas(&mut self) {
@@ -710,10 +706,7 @@ impl LocalActor {
         self.metadata_dirty = true;
         if self
             .changes
-            .try_send(SessionChange::Canvas {
-                id: self.id,
-                canvas: self.shown_canvas(),
-            })
+            .try_send(SessionChange::Canvas { id: self.id })
             .is_ok()
         {
             self.canvas_state.mark_unchanged();

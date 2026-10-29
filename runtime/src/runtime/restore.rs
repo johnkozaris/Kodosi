@@ -30,6 +30,8 @@ pub(super) struct Saved {
     pub worktree: Option<Worktree>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub canvas: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -39,6 +39,7 @@ enum Job {
     },
     Restore {
         paths: Vec<PathBuf>,
+        address: Option<String>,
         from: Uuid,
     },
     End {
@@ -73,6 +74,11 @@ impl CanvasHandle {
 
     pub(crate) fn state(&self) -> watch::Receiver<Canvas> {
         self.state.clone()
+    }
+
+    /// What the canvas shows now; none when it is empty.
+    pub(crate) fn current(&self) -> Option<Canvas> {
+        Some(self.state.borrow().clone()).filter(|canvas| !canvas.is_empty())
     }
 
     pub(crate) fn paths(&self) -> Vec<PathBuf> {
@@ -119,8 +125,25 @@ impl CanvasHandle {
     }
 
     /// Brings back the files and the browser of the terminal that this one replaces.
-    pub(crate) fn restore(&self, paths: Vec<PathBuf>, from: Uuid) {
-        drop(self.jobs.try_send(Job::Restore { paths, from }));
+    /// The web address of the page that the browser shows.
+    pub(crate) fn address(&self) -> Option<String> {
+        self.state
+            .borrow()
+            .browser
+            .as_ref()?
+            .tabs
+            .iter()
+            .find(|tab| tab.active)
+            .map(|tab| tab.url.clone())
+            .filter(|address| address.starts_with("http"))
+    }
+
+    pub(crate) fn restore(&self, paths: Vec<PathBuf>, address: Option<String>, from: Uuid) {
+        drop(self.jobs.try_send(Job::Restore {
+            paths,
+            address,
+            from,
+        }));
     }
 
     /// Closes the browser. `remove` also deletes its profile, because the terminal does not
@@ -243,7 +266,11 @@ impl Actor {
                 });
             }
             Job::Request { request, reply } => self.request(request, reply).await,
-            Job::Restore { paths, from } => {
+            Job::Restore {
+                paths,
+                address,
+                from,
+            } => {
                 self.files.restore(paths, &self.stamp);
                 let earlier = Places::of(&self.data_root, from).profile;
                 let profile = Places::of(&self.data_root, self.id).profile;
@@ -255,7 +282,7 @@ impl Actor {
                 .await
                 .unwrap_or(false);
                 if moved {
-                    self.browser();
+                    self.browser().reopen_at(address);
                 }
                 self.publish();
             }

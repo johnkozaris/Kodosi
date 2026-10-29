@@ -1185,6 +1185,8 @@ impl Runtime {
             Completion::Read { command, .. } => self.error(&command, &Error::Stale),
             Completion::Canvas { command, result } if current => match result {
                 Ok(answer) => {
+                    #[cfg(feature = "host")]
+                    self.sync_canvas(command.session_id().unwrap_or_default());
                     let mut value = super::answer(&command, Ok(()));
                     value["answer"] = json!(answer);
                     self.emit(value);
@@ -1278,9 +1280,11 @@ impl Runtime {
                     self.recent.remember(folder);
                 }
                 if let Some(saved) = &restored {
-                    terminal
-                        .canvas
-                        .restore(saved.canvas.iter().map(PathBuf::from).collect(), saved.id);
+                    terminal.canvas.restore(
+                        saved.canvas.iter().map(PathBuf::from).collect(),
+                        saved.browser.clone(),
+                        saved.id,
+                    );
                 }
                 let (kept, wanted) = restored.map_or((None, None), |saved| {
                     (

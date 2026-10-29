@@ -160,17 +160,18 @@ fn listed(canvas: &Value) -> String {
             )
         })
         .collect::<Vec<_>>();
-    if let Some(browser) = canvas["browser"].as_object() {
+    let browser = &canvas["browser"];
+    if browser.is_object() {
+        let state = browser["state"].as_str().unwrap_or_default();
         let tab = browser["tabs"]
             .as_array()
             .into_iter()
             .flatten()
             .find(|tab| tab["active"] == true)
-            .and_then(|tab| tab["url"].as_str())
-            .unwrap_or_default();
-        lines.push(format!(
-            "browser  {}  {tab}",
-            browser["state"].as_str().unwrap_or_default()
+            .and_then(|tab| tab["url"].as_str());
+        lines.push(tab.map_or_else(
+            || format!("browser  {state}"),
+            |tab| format!("browser  {state}  {tab}"),
         ));
     }
     if lines.is_empty() {

@@ -1208,6 +1208,22 @@ impl Runtime {
         entries
     }
 
+    /// Lists what the canvas of a terminal on this computer shows now.
+    #[cfg(feature = "host")]
+    fn sync_canvas(&mut self, id: &str) {
+        let Some(local) = Uuid::parse_str(id)
+            .ok()
+            .and_then(|id| self.local.get_mut(&id))
+        else {
+            return;
+        };
+        let canvas = local.terminal.canvas.current();
+        if local.entry.canvas != canvas {
+            local.entry.canvas = canvas;
+            self.publish_catalog();
+        }
+    }
+
     fn publish_catalog(&mut self) {
         let entries = self.entries();
         let mut activity = HashMap::with_capacity(entries.len());
@@ -1535,6 +1551,7 @@ impl Runtime {
                         .into_iter()
                         .filter_map(|path| path.into_os_string().into_string().ok())
                         .collect(),
+                    browser: local.terminal.canvas.address(),
                 }
             })
             .collect();
@@ -2693,12 +2710,7 @@ impl Runtime {
                 }
             }
             #[cfg(feature = "host")]
-            SessionChange::Canvas { id, canvas } => {
-                if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.canvas = canvas;
-                    self.publish_catalog();
-                }
-            }
+            SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
             #[cfg(feature = "host")]
             SessionChange::Notification { id, title, body } => {
                 if let Some(local) = self.local.get(&id) {

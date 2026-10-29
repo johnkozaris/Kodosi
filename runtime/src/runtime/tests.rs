@@ -1830,6 +1830,7 @@ fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         line: None,
         worktree: None,
         canvas: Vec::new(),
+        browser: None,
     };
     let (first, second) = (saved("first"), saved("second"));
     restore::Restore::load(root.path()).save(vec![first.clone()]);
@@ -1855,6 +1856,7 @@ fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         line: None,
         worktree: None,
         canvas: Vec::new(),
+        browser: None,
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
