@@ -160,38 +160,45 @@ struct CanvasScreen: View {
     }
 
     private func chips(_ session: RuntimeSession, current: CanvasShown?) -> some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                ForEach(session.canvas?.shown ?? []) { shown in
-                    let selected = shown.key == current?.key
-                    Button { model.terminals.canvas.pick(shown.key, in: session.id) } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: shown.symbol).font(.system(size: 12, weight: .semibold))
-                            Text(shown.title).lineLimit(1).truncationMode(.middle)
-                        }
-                        .appTextStyle(.footnote).fontWeight(.medium)
-                        .foregroundStyle(shown.missing ? theme.colors.inkFaint : selected ? theme.colors.ink : theme.colors.inkMuted)
-                        .padding(.horizontal, 12).frame(minHeight: 36).frame(maxWidth: 220)
-                        .background {
-                            if selected {
-                                RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+        ScrollViewReader { chips in
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(session.canvas?.shown ?? []) { shown in
+                        let selected = shown.key == current?.key
+                        Button { model.terminals.canvas.pick(shown.key, in: session.id) } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: shown.symbol).font(.system(size: 12, weight: .semibold))
+                                Text(shown.title).lineLimit(1).truncationMode(.middle)
                             }
-                        }
-                        .overlay(alignment: .topTrailing) {
-                            if !selected, model.terminals.canvas.isNew(shown, in: session.id) {
-                                BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -2, y: 2)
+                            .appTextStyle(.footnote).fontWeight(.medium)
+                            .foregroundStyle(shown.missing ? theme.colors.inkFaint : selected ? theme.colors.ink : theme.colors.inkMuted)
+                            .padding(.horizontal, 12).frame(minHeight: 36).frame(maxWidth: 220)
+                            .background {
+                                if selected {
+                                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                                }
                             }
+                            .overlay(alignment: .topTrailing) {
+                                if !selected, model.terminals.canvas.isNew(shown, in: session.id) {
+                                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -2, y: 2)
+                                }
+                            }
+                            .contentShape(Capsule())
                         }
-                        .contentShape(Capsule())
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .accessibilityIdentifier("canvas.chip.\(AccessibilityIdentifier.token(shown.key))")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityIdentifier("canvas.chip.\(AccessibilityIdentifier.token(shown.key))")
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+            }
+            .scrollIndicators(.never)
+            .onChange(of: current?.key, initial: true) { _, key in
+                if let key {
+                    withAnimation(theme.motion.snappy) { chips.scrollTo(key) }
                 }
             }
-            .padding(.horizontal, 12).padding(.vertical, 6)
         }
-        .scrollIndicators(.never)
         .background(theme.colors.surface)
     }
 

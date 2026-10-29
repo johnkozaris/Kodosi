@@ -67,15 +67,22 @@ struct CanvasTileView: View {
             if !roomEmbedded {
                 Text(session.name).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
             }
-            ScrollView(.horizontal) {
-                HStack(spacing: 2) {
-                    ForEach(session.canvas?.shown ?? []) { shown in
-                        chip(shown, selected: shown.key == current?.key)
+            ScrollViewReader { chips in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 2) {
+                        ForEach(session.canvas?.shown ?? []) { shown in
+                            chip(shown, selected: shown.key == current?.key)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.never)
+                .onChange(of: current?.key, initial: true) { _, key in
+                    if let key {
+                        withAnimation(theme.motion.snappy) { chips.scrollTo(key) }
                     }
                 }
-                .padding(.vertical, 2)
             }
-            .scrollIndicators(.never)
             .animation(theme.motion.snappy, value: current?.key)
             Spacer(minLength: 4)
             actions(current).opacity(hovered ? 1 : 0.28)
