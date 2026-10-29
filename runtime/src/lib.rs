@@ -19,6 +19,7 @@ compile_error!(
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
 pub mod agents;
+pub mod canvas;
 #[cfg(feature = "cli")]
 pub mod cli;
 mod config;

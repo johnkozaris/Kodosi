@@ -15,6 +15,7 @@ pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
 const CALL_REQUEST: usize = 64 * 1024;
 const CALL_ANSWER: usize = 512 * 1024;
+const CONTROL_LIMIT: usize = 32 * 1024;
 const HEADER: usize = 7;
 const PACK_FROM: usize = 256;
 const OUTPUT_LEVEL: u32 = 3;
@@ -95,6 +96,16 @@ pub(crate) enum Frame {
     ControlResult(ControlResult),
     Request(Value),
     Answer(Value),
+    ControlValue {
+        request_id: Uuid,
+        value: Value,
+    },
+}
+
+/// Whether a control's answer fits one frame.
+#[cfg(any(feature = "host", test))]
+pub(crate) fn answer_fits(value: &Value) -> bool {
+    value.is_object() && serde_json::to_vec(value).is_ok_and(|body| body.len() <= CALL_ANSWER)
 }
 
 impl Frame {
@@ -173,6 +184,9 @@ impl Frame {
                 }
                 let mut body = request_id.as_bytes().to_vec();
                 body.extend_from_slice(&encode_control(control)?);
+                if body.len() > 16 + CONTROL_LIMIT {
+                    return Err(invalid("Terminal control exceeds its bound."));
+                }
                 (12, body)
             }
             Self::Refresh => (13, Vec::new()),
@@ -180,6 +194,11 @@ impl Frame {
             Self::ControlResult(result) => (15, serde_json::to_vec(result)?),
             Self::Request(request) => (16, call_json(request, CALL_REQUEST)?),
             Self::Answer(answer) => (17, call_json(answer, CALL_ANSWER)?),
+            Self::ControlValue { request_id, value } => {
+                let mut body = request_id.as_bytes().to_vec();
+                body.extend_from_slice(&call_json(value, CALL_ANSWER)?);
+                (18, body)
+            }
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -275,7 +294,7 @@ impl Frame {
                 }
             }
             12 => {
-                if body.len() < 16 || body.len() > 16 + 4096 {
+                if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
                     return Err(invalid("Terminal control frame is invalid."));
                 }
                 let request_id = Uuid::from_slice(&body[..16])
@@ -302,6 +321,16 @@ impl Frame {
             15 => Self::ControlResult(serde_json::from_slice(json(4096)?)?),
             16 => Self::Request(call_value(json(CALL_REQUEST)?)?),
             17 => Self::Answer(call_value(json(CALL_ANSWER)?)?),
+            18 => {
+                if body.len() < 16 || body.len() > 16 + CALL_ANSWER {
+                    return Err(invalid("Terminal control answer is invalid."));
+                }
+                Self::ControlValue {
+                    request_id: Uuid::from_slice(&body[..16])
+                        .map_err(|_| invalid("Terminal control answer is invalid."))?,
+                    value: call_value(&body[16..])?,
+                }
+            }
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
     }
@@ -500,6 +529,50 @@ mod tests {
                 next_sequence: 12
             }
         ));
+    }
+
+    #[test]
+    fn a_canvas_request_goes_as_a_control_and_its_answer_as_a_value() {
+        let request_id = Uuid::now_v7();
+        let request = crate::canvas::CanvasRequest::Picture { after: 4 };
+        let Frame::Control {
+            request_id: id,
+            control: TerminalControl::Canvas { request: decoded },
+        } = round_trip(&Frame::Control {
+            request_id,
+            control: TerminalControl::Canvas {
+                request: request.clone(),
+            },
+        })
+        else {
+            panic!("canvas control");
+        };
+        assert_eq!((id, decoded), (request_id, request));
+
+        let value = serde_json::json!({"answer": "picture", "sequence": 5,
+            "frame": {"width": 2, "height": 1, "data": "x".repeat(400 * 1024)}});
+        assert!(answer_fits(&value));
+        let Frame::ControlValue {
+            request_id: id,
+            value: decoded,
+        } = round_trip(&Frame::ControlValue {
+            request_id,
+            value: value.clone(),
+        })
+        else {
+            panic!("control value");
+        };
+        assert_eq!((id, decoded), (request_id, value));
+        let too_large = serde_json::json!({"data": "x".repeat(CALL_ANSWER)});
+        assert!(!answer_fits(&too_large));
+        assert!(
+            Frame::ControlValue {
+                request_id,
+                value: too_large
+            }
+            .encode()
+            .is_err()
+        );
     }
 
     #[test]

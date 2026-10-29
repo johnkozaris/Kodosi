@@ -166,5 +166,10 @@ pub use framing::{
 pub use server::{LocalServer, serve};
 use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};
 
+/// The name of the private folder of this data root's sockets.
+pub(crate) fn namespace(root: &Path) -> String {
+    root_identity(root)[..24].to_owned()
+}
+
 #[cfg(test)]
 mod tests;

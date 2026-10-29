@@ -10,6 +10,8 @@ use crate::terminal::{
 mod frame;
 mod packing;
 #[cfg(feature = "host")]
+pub(crate) use frame::answer_fits;
+#[cfg(feature = "host")]
 pub(crate) use frame::{Accept, OUTPUT_FRAME, Refuse};
 pub(crate) use frame::{ControlResult, Frame};
 #[cfg(any(feature = "host", test))]
@@ -17,7 +19,7 @@ pub(crate) use frame::{End, KEYFRAME_PART};
 
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
-const METADATA_LIMIT: usize = 16_384;
+const METADATA_LIMIT: usize = 96 * 1024;
 const CHECKPOINT_HEADER: usize = 9;
 const SNAPSHOT_LIMIT: usize = TERMINAL_SNAPSHOT_MAX_BYTES + CHECKPOINT_HEADER + METADATA_LIMIT;
 pub(crate) const PACKED_SNAPSHOT_LIMIT: usize = 2 * SNAPSHOT_LIMIT;
@@ -136,6 +138,12 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
         TerminalControl::Focus { focused } => json!({"type":"focus","focused":focused}),
         TerminalControl::Interrupt => json!({"type":"interrupt"}),
         TerminalControl::Close => json!({"type":"close"}),
+        TerminalControl::Canvas { request } => {
+            if !request.is_valid() {
+                return Err(invalid("The canvas request is not valid."));
+            }
+            json!({"type":"canvas","request":request})
+        }
     };
     serde_json::to_vec(&value).map_err(Into::into)
 }
@@ -177,6 +185,18 @@ pub(crate) fn decode_control(value: &[u8]) -> Result<TerminalControl> {
         }),
         "interrupt" => Ok(TerminalControl::Interrupt),
         "close" => Ok(TerminalControl::Close),
+        "canvas" => {
+            let request: crate::canvas::CanvasRequest = serde_json::from_value(
+                value
+                    .get("request")
+                    .cloned()
+                    .ok_or_else(|| invalid("Missing request."))?,
+            )?;
+            if !request.is_valid() {
+                return Err(invalid("The canvas request is not valid."));
+            }
+            Ok(TerminalControl::Canvas { request })
+        }
         _ => Err(invalid("Unsupported terminal operation.")),
     }
 }

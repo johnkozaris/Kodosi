@@ -28,6 +28,8 @@ pub(super) struct Saved {
     pub line: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worktree: Option<Worktree>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub canvas: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,6 +84,11 @@ impl Restore {
 
     pub(super) fn take(&mut self) -> Vec<Saved> {
         std::mem::take(&mut self.pending)
+    }
+
+    /// The terminals of the last host that come back.
+    pub(super) fn returning(&self) -> HashSet<Uuid> {
+        self.pending.iter().map(|terminal| terminal.id).collect()
     }
 
     pub(super) fn save(&mut self, live: Vec<Saved>) {

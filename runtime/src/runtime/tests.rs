@@ -1750,6 +1750,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
                 message: Some("Building".to_owned()),
             }),
             context: None,
+            canvas: None,
         },
     });
     let generation = runtime.network.generation();
@@ -1808,7 +1809,7 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     let zsh = Path::new("/bin/zsh");
     assert_eq!(
         restore::usual_line("copilot", zsh).unwrap(),
-        "copilot --resume"
+        "copilot --plugin-dir \"$KODOSI_PLUGIN_DIR\" --resume"
     );
     assert_eq!(
         restore::usual_line("claude", zsh).unwrap(),
@@ -1828,6 +1829,7 @@ fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         sharing: None,
         line: None,
         worktree: None,
+        canvas: Vec::new(),
     };
     let (first, second) = (saved("first"), saved("second"));
     restore::Restore::load(root.path()).save(vec![first.clone()]);
@@ -1852,6 +1854,7 @@ fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         sharing: None,
         line: None,
         worktree: None,
+        canvas: Vec::new(),
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
@@ -2103,6 +2106,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         None,
         None,
         Vec::new(),
+        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )
     .await
@@ -2333,6 +2337,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         None,
         None,
         Vec::new(),
+        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )
     .await
@@ -2435,6 +2440,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         None,
         None,
         Vec::new(),
+        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )
     .await

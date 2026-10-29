@@ -54,6 +54,10 @@ enum Request {
     },
     Unsubscribe(Uuid),
     Control(QueuedControl),
+    Canvas {
+        request: crate::canvas::CanvasRequest,
+        reply: oneshot::Sender<Result<Value>>,
+    },
 }
 
 struct QueuedControl {
@@ -221,6 +225,20 @@ impl RemoteTerminal {
             }))
         };
         wait_for(admission, result, CONTROL_TIMEOUT)
+    }
+
+    /// Asks the canvas of the terminal. Canvas requests do not wait for the terminal's own
+    /// operations, which keep their order.
+    pub(crate) fn canvas(
+        &self,
+        request: crate::canvas::CanvasRequest,
+    ) -> impl Future<Output = Result<Value>> + Send + use<> {
+        let (reply, result) = oneshot::channel();
+        wait_for(
+            self.send(Request::Canvas { request, reply }),
+            result,
+            CONTROL_TIMEOUT,
+        )
     }
 
     pub(crate) fn disconnect(&self) {
@@ -798,7 +816,8 @@ impl RemoteActor {
                 }
                 TerminalControl::Message { .. }
                 | TerminalControl::Interrupt
-                | TerminalControl::Close => {}
+                | TerminalControl::Close
+                | TerminalControl::Canvas { .. } => {}
             }
             if let Some(reply) = queued.reply {
                 replies.insert(0, reply);
@@ -1063,6 +1082,18 @@ impl RemoteActor {
                     Ok(())
                 }
                 Some(Request::Control(queued)) => self.queue(queued),
+                Some(Request::Canvas { reply, .. }) if interrupted => {
+                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
+                    Ok(())
+                }
+                Some(Request::Canvas { request, reply }) => {
+                    let controls = self.controls.clone();
+                    tokio::spawn(async move {
+                        let answer = controls.send_control(TerminalControl::Canvas { request }).await;
+                        drop(reply.send(answer.map_err(Error::from)));
+                    });
+                    Ok(())
+                }
                 None => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
             },
             _ = tick.tick() => self.maintain().await,

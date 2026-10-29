@@ -206,6 +206,8 @@ pub struct TerminalMetadata {
     pub status: Option<super::ProgramStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<super::TerminalContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas: Option<Box<crate::canvas::Canvas>>,
 }
 
 impl TerminalMetadata {
@@ -229,6 +231,10 @@ impl TerminalMetadata {
                 .context
                 .as_ref()
                 .is_none_or(super::TerminalContext::is_valid)
+            && self
+                .canvas
+                .as_deref()
+                .is_none_or(crate::canvas::Canvas::is_valid)
     }
 }
 

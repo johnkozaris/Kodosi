@@ -389,6 +389,7 @@ impl<T: Transport> Viewer<T> {
         Ok(())
     }
 
+    #[expect(clippy::too_many_lines, reason = "one match reads every host frame")]
     async fn frame(&mut self, frame: Frame, size: u64) -> Result<()> {
         self.heard = tokio::time::Instant::now();
         if frame.carries_output() {
@@ -483,6 +484,11 @@ impl<T: Transport> Viewer<T> {
                     } else {
                         Err(invalid(message))
                     }));
+                }
+            }
+            Frame::ControlValue { request_id, value } => {
+                if let Some(pending) = self.pending.remove(&request_id) {
+                    drop(pending.reply.send(Ok(value)));
                 }
             }
             _ => return Err(invalid("Unsupported terminal host frame.")),

@@ -49,10 +49,7 @@ pub(super) fn endpoint(root: &Path) -> Result<kodosi_os::ipc::Endpoint> {
 }
 
 pub(super) fn role_endpoint(root: &Path, role: &str) -> Result<kodosi_os::ipc::Endpoint> {
-    Ok(kodosi_os::ipc::Endpoint::new(
-        &root_identity(root)[..24],
-        role,
-    )?)
+    Ok(kodosi_os::ipc::Endpoint::new(&namespace(root), role)?)
 }
 
 pub(super) fn lock_root(root: &Path) -> Result<File> {

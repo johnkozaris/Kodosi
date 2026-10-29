@@ -17,6 +17,7 @@ async fn runs_start_line(shell: PathBuf, arguments: Vec<String>, line: &str, out
         None,
         None,
         Vec::new(),
+        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await
@@ -59,6 +60,7 @@ async fn a_screen_that_a_console_starts_with_stays_in_its_history() {
         None,
         None,
         b"before quit\r\n".to_vec(),
+        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await

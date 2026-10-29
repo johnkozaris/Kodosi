@@ -623,6 +623,8 @@ mod tests {
                 ("workingDir", json!(DIRECTORY)),
                 ("workingDirectory", json!(DIRECTORY)),
                 ("path", json!(DIRECTORY)),
+                ("paths", json!([DIRECTORY])),
+                ("folder", json!(DIRECTORY)),
                 ("worktrees", json!(WORKTREES)),
                 ("branch", json!("fix/login")),
                 ("rows", json!(24)),

@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 73;
+pub const VERSION: u32 = 74;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -375,6 +375,31 @@ pub enum Command {
         room_id: String,
         action: crate::rooms::Action,
     },
+    #[serde(rename = "canvas.show")]
+    CanvasShow {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        paths: Vec<String>,
+    },
+    #[serde(rename = "canvas.browser")]
+    CanvasBrowse {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        folder: String,
+        arguments: Vec<String>,
+    },
+    #[serde(rename = "canvas.request")]
+    CanvasAsk {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        request: crate::canvas::CanvasRequest,
+    },
     #[serde(rename = "mission.show")]
     ShowMission {
         #[serde(rename = "requestId")]
@@ -686,6 +711,8 @@ pub struct SessionEntry {
     pub program_status: Option<crate::terminal::ProgramStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<crate::terminal::TerminalContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas: Option<crate::canvas::Canvas>,
     pub id: String,
     pub incarnation_id: String,
     pub kind: SessionKind,
@@ -936,6 +963,21 @@ pub enum EventBody {
         message: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mission_id: Option<String>,
+    },
+    #[serde(rename = "canvas.result")]
+    CanvasResult {
+        request_id: String,
+        operation: String,
+        session_id: String,
+        answer: crate::canvas::CanvasAnswer,
+    },
+    #[serde(rename = "canvas.error")]
+    CanvasError {
+        request_id: String,
+        operation: String,
+        message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     #[serde(rename = "provider.result")]
     ProviderResult {
@@ -1274,7 +1316,9 @@ impl EventBody {
             | Self::FoldersResult { request_id, .. }
             | Self::FoldersError { request_id, .. }
             | Self::DosiResult { request_id, .. }
-            | Self::DosiError { request_id, .. } => Some(request_id),
+            | Self::DosiError { request_id, .. }
+            | Self::CanvasResult { request_id, .. }
+            | Self::CanvasError { request_id, .. } => Some(request_id),
             _ => None,
         }
     }
@@ -1328,6 +1372,8 @@ impl EventBody {
             Self::DosiItem { .. } => "dosi.item",
             Self::DosiResult { .. } => "dosi.result",
             Self::DosiError { .. } => "dosi.error",
+            Self::CanvasResult { .. } => "canvas.result",
+            Self::CanvasError { .. } => "canvas.error",
             Self::TerminalBell { .. } => "term.bell",
             Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
@@ -1425,6 +1471,9 @@ impl Command {
             Self::HideSession { .. } => "session.hide",
             Self::AttachSession { .. } => "session.attachMission",
             Self::Room { .. } => "room.command",
+            Self::CanvasShow { .. } => "canvas.show",
+            Self::CanvasBrowse { .. } => "canvas.browser",
+            Self::CanvasAsk { .. } => "canvas.request",
             Self::ShowMission { .. } => "mission.show",
             Self::ListMissions { .. } => "mission.list",
             Self::CreateMission { .. } => "mission.create",
@@ -1537,6 +1586,9 @@ impl Command {
             | Self::HideSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
             | Self::Room { request_id, .. }
+            | Self::CanvasShow { request_id, .. }
+            | Self::CanvasBrowse { request_id, .. }
+            | Self::CanvasAsk { request_id, .. }
             | Self::ListMissions { request_id }
             | Self::ShowMission { request_id, .. }
             | Self::CreateMission { request_id, .. }
@@ -1589,6 +1641,9 @@ impl Command {
             | Self::LeaveSession { session_id, .. }
             | Self::HideSession { session_id, .. }
             | Self::AttachSession { session_id, .. }
+            | Self::CanvasShow { session_id, .. }
+            | Self::CanvasBrowse { session_id, .. }
+            | Self::CanvasAsk { session_id, .. }
             | Self::Resize { session_id, .. }
             | Self::Focus { session_id, .. }
             | Self::Blur { session_id, .. } => Some(session_id),
@@ -1730,6 +1785,43 @@ impl Command {
                 path: Some(directory),
                 ..
             } => directory_input(directory)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn validate_canvas(&self) -> Result<()> {
+        match self {
+            Self::CanvasShow { paths, .. } => {
+                if paths.is_empty() || paths.len() > crate::canvas::MOST_PATHS {
+                    return Err(Error::Invalid(format!(
+                        "Show 1 to {} files at once.",
+                        crate::canvas::MOST_PATHS
+                    )));
+                }
+                for path in paths {
+                    absolute_input(path, "file")?;
+                }
+            }
+            Self::CanvasBrowse {
+                folder, arguments, ..
+            } => {
+                absolute_input(folder, "working directory")?;
+                if arguments.len() > crate::canvas::MOST_ARGUMENTS
+                    || arguments.iter().any(|argument| {
+                        argument.len() > MAX_COMMAND_BYTES / 2 || argument.contains('\0')
+                    })
+                {
+                    return Err(Error::Invalid(
+                        "The browser command has too many or too long words.".to_owned(),
+                    ));
+                }
+            }
+            Self::CanvasAsk { request, .. } if !request.is_valid() => {
+                return Err(Error::Invalid(
+                    "The canvas request is not valid.".to_owned(),
+                ));
+            }
             _ => {}
         }
         Ok(())
@@ -1907,6 +1999,7 @@ impl Command {
         self.validate_resource_ids()?;
         self.validate_provider()?;
         self.validate_dosi()?;
+        self.validate_canvas()?;
         match self {
             Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
@@ -2098,7 +2191,11 @@ fn agent_start(start: &AgentStart) -> Result<()> {
 }
 
 fn directory_input(value: &str) -> Result<()> {
-    text(value, "working directory", 4096)?;
+    absolute_input(value, "working directory")
+}
+
+fn absolute_input(value: &str, label: &str) -> Result<()> {
+    text(value, label, 4096)?;
     let bytes = value.as_bytes();
     let absolute = value.starts_with('/')
         || value.starts_with(r"\\")
@@ -2107,9 +2204,9 @@ fn directory_input(value: &str) -> Result<()> {
             && bytes[1] == b':'
             && matches!(bytes[2], b'\\' | b'/'));
     if !absolute || value.split(['/', '\\']).any(|part| part == "..") {
-        return Err(Error::Invalid(
-            "working directory must be absolute without parent traversal".to_owned(),
-        ));
+        return Err(Error::Invalid(format!(
+            "{label} must be absolute without parent traversal"
+        )));
     }
     Ok(())
 }
@@ -2119,6 +2216,7 @@ pub fn answer_time(operation: &str) -> std::time::Duration {
         "auth.login.start" => crate::network::SIGN_IN_LIFE + std::time::Duration::from_mins(1),
         "auth.deleteAccount" => crate::network::DELETION_LIFE + std::time::Duration::from_mins(1),
         "room.command" => std::time::Duration::from_mins(1),
+        "canvas.browser" => std::time::Duration::from_mins(3),
         _ => std::time::Duration::from_secs(30),
     }
 }

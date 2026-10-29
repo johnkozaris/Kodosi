@@ -23,6 +23,7 @@ use super::{
 };
 use crate::{
     Error, Result,
+    canvas::{Canvas, CanvasHandle},
     network::{CheckpointCut, HostRequest, PublishedFrame, TerminalControl},
 };
 
@@ -94,6 +95,7 @@ pub(crate) struct Foreground {
 #[derive(Clone)]
 pub(crate) struct TerminalSession {
     pub incarnation_id: Uuid,
+    pub canvas: CanvasHandle,
     commands: mpsc::Sender<Request>,
     pub host_requests: mpsc::Sender<HostRequest>,
     output: broadcast::Sender<PublishedFrame>,
@@ -104,8 +106,9 @@ pub(crate) struct TerminalSession {
 
 impl TerminalSession {
     /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
-    /// reads; the note itself is in each terminal's environment. The terminal shows `screen`
-    /// above the output of its program.
+    /// reads; the note itself is in each terminal's environment. Its `plugin` folder holds the
+    /// skills of Kodosi for agents that load plugins. The terminal shows `screen` above the
+    /// output of its program.
     #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
     pub(crate) async fn spawn(
         id: Uuid,
@@ -116,6 +119,7 @@ impl TerminalSession {
         prompt_marks: Option<PathBuf>,
         notes: Option<PathBuf>,
         screen: Vec<u8>,
+        canvas: CanvasHandle,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -126,23 +130,11 @@ impl TerminalSession {
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator = SessionTerminalHandle::spawn(size, screen)?;
-            let session_id = id.to_string();
-            let command_path = command_path();
-            let copilot_notes = notes.as_deref().and_then(copilot_notes);
-            let mut environment = vec![
-                ("KODOSI_SESSION_ID", session_id.as_str()),
-                ("KODOSI_VERSION", env!("KODOSI_VERSION")),
-                (
-                    crate::agents::CONTEXT_VARIABLE,
-                    crate::agents::CONTEXT.trim(),
-                ),
-            ];
-            if let Some(path) = &command_path {
-                environment.push(("PATH", path.as_str()));
-            }
-            if let Some(folders) = &copilot_notes {
-                environment.push((crate::agents::COPILOT_INSTRUCTIONS, folders.as_str()));
-            }
+            let variables = kodosi_variables(id, notes.as_deref());
+            let environment = variables
+                .iter()
+                .map(|(name, value)| (*name, value.as_str()))
+                .collect::<Vec<_>>();
             let (pty, reader) = KodosiPty::spawn_program(
                 &program,
                 &arguments,
@@ -162,8 +154,10 @@ impl TerminalSession {
         let cancellation = CancellationToken::new();
         let (completed, completion) = watch::channel(None);
         let input_budget = Arc::new(Semaphore::new(MAX_PENDING_BYTES));
+        let canvas_state = canvas.state();
         let session = Self {
             incarnation_id,
+            canvas: canvas.clone(),
             commands,
             host_requests,
             output: output.clone(),
@@ -210,6 +204,8 @@ impl TerminalSession {
             published_status: None,
             contexts: Contexts::default(),
             published_context: None,
+            canvas,
+            canvas_state,
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
             next_refresh: tokio::time::Instant::now(),
@@ -544,6 +540,33 @@ fn command_path() -> Option<String> {
 }
 
 /// Kodosi's notes folder after the folders that Copilot CLI already reads.
+/// What a program in a Kodosi terminal reads from Kodosi: its terminal, the note and the plugin
+/// for agents, and the kodosi command first on the path.
+fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String)> {
+    let mut variables = vec![
+        ("KODOSI_SESSION_ID", id.to_string()),
+        ("KODOSI_VERSION", env!("KODOSI_VERSION").to_owned()),
+        (
+            crate::agents::CONTEXT_VARIABLE,
+            crate::agents::CONTEXT.trim().to_owned(),
+        ),
+    ];
+    variables.extend(command_path().map(|path| ("PATH", path)));
+    if let Some(notes) = notes {
+        variables.extend(
+            copilot_notes(notes).map(|folders| (crate::agents::COPILOT_INSTRUCTIONS, folders)),
+        );
+        variables.extend(
+            crate::agents::plugin_dirs(notes)
+                .map(|folders| (crate::agents::CLAUDE_PLUGINS, folders)),
+        );
+        variables.extend(
+            crate::agents::plugin_dir(notes).map(|folder| (crate::agents::PLUGIN_VARIABLE, folder)),
+        );
+    }
+    variables
+}
+
 fn copilot_notes(folder: &Path) -> Option<String> {
     let folder = folder.to_str()?;
     Some(
@@ -624,6 +647,8 @@ struct LocalActor {
     published_status: Option<super::ProgramStatus>,
     contexts: Contexts,
     published_context: Option<TerminalContext>,
+    canvas: CanvasHandle,
+    canvas_state: watch::Receiver<Canvas>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
     next_refresh: tokio::time::Instant,
@@ -670,6 +695,28 @@ impl LocalActor {
             program: self.live_program(),
             status: self.status.summary(),
             context: self.published_context.clone(),
+            canvas: self.shown_canvas().map(Box::new),
+        }
+    }
+
+    fn shown_canvas(&self) -> Option<Canvas> {
+        Some(self.canvas_state.borrow().clone()).filter(|canvas| !canvas.is_empty())
+    }
+
+    fn publish_canvas(&mut self) {
+        if !self.canvas_state.has_changed().unwrap_or(false) {
+            return;
+        }
+        self.metadata_dirty = true;
+        if self
+            .changes
+            .try_send(SessionChange::Canvas {
+                id: self.id,
+                canvas: self.shown_canvas(),
+            })
+            .is_ok()
+        {
+            self.canvas_state.mark_unchanged();
         }
     }
 
@@ -1058,6 +1105,7 @@ impl LocalActor {
         }
         self.publish_status();
         self.publish_context();
+        self.publish_canvas();
         if !titles_look_same(self.title.as_deref(), self.published_title.as_deref())
             && let Some(title) = &self.title
             && self
@@ -1456,6 +1504,23 @@ impl LocalActor {
         None
     }
 
+    /// A canvas request of a person on another computer. It does not wait for the terminal.
+    fn ask_canvas(
+        &self,
+        request: crate::canvas::CanvasRequest,
+        reply: oneshot::Sender<std::result::Result<serde_json::Value, String>>,
+    ) {
+        let canvas = self.canvas.clone();
+        tokio::spawn(async move {
+            let answer = canvas
+                .request(request)
+                .await
+                .and_then(|answer| serde_json::to_value(answer).map_err(|error| error.to_string()));
+            drop(reply.send(answer));
+        });
+    }
+
+    #[expect(clippy::too_many_lines, reason = "one match applies every control")]
     async fn host_control(
         &mut self,
         connection_id: Uuid,
@@ -1543,6 +1608,10 @@ impl LocalActor {
             TerminalControl::Close => {
                 self.host_stop_reply = Some(reply);
                 return Some("The terminal was closed.".to_owned());
+            }
+            TerminalControl::Canvas { request } => {
+                self.ask_canvas(request, reply);
+                return None;
             }
         };
         let reason = result.as_ref().err().map(ToString::to_string);

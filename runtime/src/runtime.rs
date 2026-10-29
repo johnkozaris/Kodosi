@@ -441,13 +441,14 @@ struct Local {
 
 #[cfg(feature = "host")]
 impl Local {
-    fn stop(&self, keeps_worktree: bool) -> impl Future<Output = ()> + use<> {
+    fn stop(&self, comes_back: bool) -> impl Future<Output = ()> + use<> {
         let terminal = self.terminal.clone();
-        let worktree = self.worktree.clone().filter(|_| !keeps_worktree);
+        let worktree = self.worktree.clone().filter(|_| !comes_back);
         async move {
             if terminal.close().await.is_err() {
                 terminal.cancel();
             }
+            terminal.canvas.end(!comes_back).await;
             if let Some(worktree) = worktree {
                 crate::worktree::remove_unchanged(worktree).await;
             }
@@ -601,6 +602,10 @@ enum Completion {
         command: Command,
         result: Result<String>,
     },
+    Canvas {
+        command: Command,
+        result: std::result::Result<crate::canvas::CanvasAnswer, String>,
+    },
     #[cfg(feature = "host")]
     Provider {
         command: Command,
@@ -690,6 +695,32 @@ impl TerminalTarget {
             #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.read(history)),
             Self::Remote(terminal) => Box::pin(terminal.read(history)),
+        }
+    }
+
+    /// Asks the canvas of the terminal. An answer from another computer is checked first.
+    fn canvas(
+        &self,
+        request: crate::canvas::CanvasRequest,
+    ) -> Pin<
+        Box<dyn Future<Output = std::result::Result<crate::canvas::CanvasAnswer, String>> + Send>,
+    > {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => {
+                let canvas = terminal.canvas.clone();
+                Box::pin(async move { canvas.request(request).await })
+            }
+            Self::Remote(terminal) => {
+                let answer = terminal.canvas(request);
+                Box::pin(async move {
+                    let value = answer.await.map_err(|error| error.to_string())?;
+                    serde_json::from_value::<crate::canvas::CanvasAnswer>(value)
+                        .ok()
+                        .filter(crate::canvas::CanvasAnswer::is_valid)
+                        .ok_or_else(|| crate::protocol::OTHER_VERSION.to_owned())
+                })
+            }
         }
     }
 
@@ -994,6 +1025,13 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         tracing::warn!(%error, "the note for agents was not written");
     }
     #[cfg(feature = "host")]
+    let restore = restore::Restore::load(&config.data_root);
+    #[cfg(feature = "host")]
+    {
+        crate::canvas::close_left(&config.data_root).await;
+        crate::canvas::keep_profiles(&config.data_root, &restore.returning());
+    }
+    #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
     #[cfg(not(feature = "host"))]
     let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
@@ -1004,7 +1042,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
-        restore: restore::Restore::load(&config.data_root),
+        restore,
         #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
         #[cfg(feature = "host")]
@@ -1381,6 +1419,8 @@ impl Runtime {
         self.save_screens().await;
         #[cfg(feature = "host")]
         self.stop_locals().await;
+        #[cfg(feature = "host")]
+        crate::canvas::close_left(&self.config.data_root).await;
         self.network.shutdown().await;
     }
 
@@ -1488,6 +1528,13 @@ impl Runtime {
                             .and_then(|program| restore::usual_line(program, &shell))
                     }),
                     worktree: local.worktree.clone(),
+                    canvas: local
+                        .terminal
+                        .canvas
+                        .paths()
+                        .into_iter()
+                        .filter_map(|path| path.into_os_string().into_string().ok())
+                        .collect(),
                 }
             })
             .collect();
@@ -2495,6 +2542,11 @@ impl Runtime {
             } else {
                 None
             },
+            canvas: if live {
+                previous.and_then(|entry| entry.canvas.clone())
+            } else {
+                None
+            },
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -2522,10 +2574,11 @@ impl Runtime {
     #[cfg(feature = "host")]
     fn ended(&mut self, id: Uuid) {
         self.mentions.forget(id);
-        let (published, worktree) = self
-            .local
-            .remove(&id)
-            .map_or((false, None), |local| (local.published, local.worktree));
+        let (published, worktree) = self.local.remove(&id).map_or((false, None), |local| {
+            let canvas = local.terminal.canvas.clone();
+            tokio::spawn(async move { canvas.end(true).await });
+            (local.published, local.worktree)
+        });
         if published || self.publishing.contains(&id) {
             self.retiring.insert(id);
         }
@@ -2640,6 +2693,13 @@ impl Runtime {
                 }
             }
             #[cfg(feature = "host")]
+            SessionChange::Canvas { id, canvas } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.canvas = canvas;
+                    self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
             SessionChange::Notification { id, title, body } => {
                 if let Some(local) = self.local.get(&id) {
                     self.emit(json!({"type":"term.notification", "sessionId":id,
@@ -2668,6 +2728,7 @@ impl Runtime {
                     entry.program = metadata.program;
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
+                    entry.canvas = metadata.canvas.map(|canvas| *canvas);
                     self.publish_catalog();
                 }
             }
