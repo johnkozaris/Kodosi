@@ -12,6 +12,8 @@ public final class BrowserFeed {
     /// The size of the browser that the picture shows, in CSS pixels.
     public private(set) var pictureSize = CGSize.zero
     public private(set) var failure: String?
+    /// Counts each press, key and scroll of a person on this device.
+    public private(set) var touches = 0
     @ObservationIgnored public var viewSize = CGSize.zero
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored private let session: String
@@ -63,10 +65,15 @@ public final class BrowserFeed {
     }
 
     public func send(_ event: BrowserInput) {
-        if case .mouse(.mouseMoved, _, _, _, _, _, _, _) = event, case .mouse(.mouseMoved, _, _, _, _, _, _, _)? = pending.last {
-            pending[pending.count - 1] = event
+        if case .mouse(.mouseMoved, _, _, _, _, _, _, _) = event {
+            if case .mouse(.mouseMoved, _, _, _, _, _, _, _)? = pending.last {
+                pending[pending.count - 1] = event
+            } else {
+                pending.append(event)
+            }
         } else {
             pending.append(event)
+            touches += 1
         }
         guard !sending else { return }
         sending = true
@@ -77,6 +84,19 @@ public final class BrowserFeed {
     /// picture scaled to fit; none outside the picture.
     public func browserPoint(_ point: CGPoint, in size: CGSize) -> BrowserInput.Point? {
         image.flatMap { Self.point(point, in: size, picture: CGSize(width: $0.width, height: $0.height), browser: pictureSize) }
+    }
+
+    /// Where a point of the browser is in a view of `size` that shows the picture scaled to fit.
+    public func viewPoint(_ point: BrowserDoing.Point, in size: CGSize) -> CGPoint? {
+        image.flatMap { Self.viewPoint(point, in: size, picture: CGSize(width: $0.width, height: $0.height), browser: pictureSize) }
+    }
+
+    public nonisolated static func viewPoint(_ point: BrowserDoing.Point, in size: CGSize, picture: CGSize, browser: CGSize) -> CGPoint? {
+        guard picture.width > 0, picture.height > 0, browser.height > 0, size.width > 0, size.height > 0 else { return nil }
+        let fit = min(size.width / picture.width, size.height / picture.height)
+        let origin = CGPoint(x: (size.width - picture.width * fit) / 2, y: (size.height - picture.height * fit) / 2)
+        let perPixel = picture.height / browser.height
+        return CGPoint(x: origin.x + CGFloat(point.x) * perPixel * fit, y: origin.y + CGFloat(point.y) * perPixel * fit)
     }
 
     /// The picture can have more pixels than the browser has CSS pixels, so its height gives the

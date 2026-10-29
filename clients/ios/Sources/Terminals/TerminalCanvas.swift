@@ -27,74 +27,8 @@ struct CanvasKey: View {
     }
 }
 
-/// The items of a terminal's canvas. A tap opens one full screen.
-struct CanvasSheet: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.theme) private var theme
-    let sessionId: String
-    let open: (String) -> Void
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if let session = model.terminals.session(sessionId), let canvas = session.canvas {
-                    List(canvas.shown) { shown in
-                        Button { open(shown.key) } label: { row(shown, in: session) }
-                            .swipeActions { Button("Remove", role: .destructive) { remove(shown, from: session) } }
-                            .accessibilityIdentifier("canvas.item.\(AccessibilityIdentifier.token(shown.key))")
-                    }
-                } else {
-                    ContentUnavailableView("The canvas shows nothing.", systemImage: CanvasSymbol.canvas)
-                }
-            }
-            .navigationTitle("Canvas")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.accessibilityIdentifier("canvas.done")
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
-    }
-
-    private func row(_ shown: CanvasShown, in session: RuntimeSession) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: shown.symbol).font(.system(size: 17, weight: .medium))
-                .foregroundStyle(theme.colors.accentStrong).frame(width: 36, height: 36).well(Radius.md)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(shown.title).appTextStyle(.body).foregroundStyle(shown.missing ? theme.colors.inkFaint : theme.colors.ink)
-                    .lineLimit(1).truncationMode(.middle)
-                Text(detail(shown)).appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            if model.terminals.canvas.isNew(shown, in: session.id) {
-                BreathingDot(color: theme.colors.glowOrange, size: 7)
-            }
-        }
-        .contentShape(Rectangle())
-    }
-
-    private func detail(_ shown: CanvasShown) -> String {
-        switch shown {
-        case let .item(item) where item.missing: String(localized: "Missing")
-        case let .item(item): item.kind.label
-        case let .browser(browser): browser.activeTab?.url ?? String(localized: "Shared browser")
-        }
-    }
-
-    private func remove(_ shown: CanvasShown, from session: RuntimeSession) {
-        Task {
-            do {
-                try await model.terminals.canvas.remove([shown.key], in: session.id)
-            } catch { model.notices.show(error) }
-        }
-    }
-}
-
-/// One item of a canvas full screen, with the other items as chips above it.
+/// The canvas of a terminal full screen: its parts in the bar, the files as tabs or cards, and
+/// the part that it shows.
 struct CanvasScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -103,41 +37,75 @@ struct CanvasScreen: View {
     @State private var frame: CanvasFrame?
     @State private var typing = false
 
+    private var store: CanvasStore {
+        model.terminals.canvas
+    }
+
     var body: some View {
         let session = model.terminals.session(sessionId)
-        let current = session.flatMap(model.terminals.canvas.current)
+        let current = session.flatMap(store.current)
+        let shelf = current?.section == .files && store.showsShelf(sessionId)
         NavigationStack {
-            Group {
-                if let session, let current, let frame {
-                    CanvasItemView(session: session, shown: current, store: model.terminals.canvas, frame: frame, typing: typing)
+            VStack(spacing: 0) {
+                if let session, current?.section == .files {
+                    CanvasFilesBar(session: session, store: store, chosen: current?.key) { key in
+                        store.pick(key, in: session.id)
+                    } remove: { item in
+                        remove([item.key], from: session)
+                    } actions: { item in
+                        actions(item, in: session)
+                    }
+                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                }
+                ZStack {
+                    if let session, shelf {
+                        CanvasShelf(session: session, store: store) { key in
+                            store.pick(key, in: session.id)
+                        } remove: { item in
+                            remove([item.key], from: session)
+                        } actions: { item in
+                            actions(item, in: session)
+                        }
+                        .transition(.opacity)
+                    } else if let session, let current, let frame {
+                        CanvasItemView(session: session, shown: current, store: store, frame: frame, typing: typing,
+                                       ask: ask(current, in: session))
+                        {
+                            remove([CanvasShown.browserKey], from: session)
+                        }
                         .id(current.key)
-                } else if session?.canvas == nil {
-                    ContentUnavailableView("The canvas shows nothing.", systemImage: CanvasSymbol.canvas)
+                        .transition(.opacity)
+                    } else if store.opensBrowser(sessionId) {
+                        Spinner(size: 22)
+                    } else if session?.canvas == nil {
+                        ContentUnavailableView("The canvas shows nothing.", systemImage: CanvasSymbol.canvas)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .animation(theme.motion.fade, value: current?.key)
+                .animation(theme.motion.fade, value: shelf)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(theme.colors.surface)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if let session {
-                    chips(session, current: current)
-                }
-            }
-            .navigationTitle(current?.title ?? String(localized: "Canvas"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }.accessibilityIdentifier("canvas.done")
                 }
-                if let session, let current, session.canControl {
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        if case .browser = current {
-                            Button { typing.toggle() } label: {
-                                Label("Keyboard", systemImage: typing ? "keyboard.chevron.compact.down" : "keyboard")
-                            }
-                            .accessibilityIdentifier("canvas.keyboard")
+                if let session, session.canvas != nil {
+                    ToolbarItem(placement: .principal) {
+                        CanvasDock(session: session, store: store, chosen: current?.section, identifier: "canvas.key") { section in
+                            store.show(section, in: session)
+                        } open: { _ in
+                            openBrowser(of: session)
                         }
-                        Button { ask(about: current, in: session) } label: { Label("Ask about this", systemImage: "text.bubble") }
-                            .accessibilityIdentifier("canvas.ask")
+                    }
+                }
+                if let session, let current, session.canControl, case .browser = current {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { typing.toggle() } label: {
+                            Label("Keyboard", systemImage: typing ? "keyboard.chevron.compact.down" : "keyboard")
+                        }
+                        .accessibilityIdentifier("canvas.keyboard")
                     }
                 }
             }
@@ -149,66 +117,33 @@ struct CanvasScreen: View {
         }
         .onChange(of: current, initial: true) { _, current in
             if let current {
-                model.terminals.canvas.saw(current, in: sessionId)
+                store.saw(current, in: sessionId)
             }
         }
         .onChange(of: session?.canvas == nil) { _, gone in
-            if gone {
+            if gone, !store.opensBrowser(sessionId) {
                 dismiss()
             }
         }
     }
 
-    private func chips(_ session: RuntimeSession, current: CanvasShown?) -> some View {
-        ScrollViewReader { chips in
-            ScrollView(.horizontal) {
-                HStack(spacing: 6) {
-                    ForEach(session.canvas?.shown ?? []) { shown in
-                        let selected = shown.key == current?.key
-                        Button { model.terminals.canvas.pick(shown.key, in: session.id) } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: shown.symbol).font(.system(size: 12, weight: .semibold))
-                                Text(shown.title).lineLimit(1).truncationMode(.middle)
-                            }
-                            .appTextStyle(.footnote).fontWeight(.medium)
-                            .foregroundStyle(shown.missing ? theme.colors.inkFaint : selected ? theme.colors.ink : theme.colors.inkMuted)
-                            .padding(.horizontal, 12).frame(minHeight: 36).frame(maxWidth: 220)
-                            .background {
-                                if selected {
-                                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                                }
-                            }
-                            .overlay(alignment: .topTrailing) {
-                                if !selected, model.terminals.canvas.isNew(shown, in: session.id) {
-                                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -2, y: 2)
-                                }
-                            }
-                            .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("canvas.chip.\(AccessibilityIdentifier.token(shown.key))")
-                    }
-                }
-                .padding(.horizontal, 12).padding(.vertical, 6)
-            }
-            .scrollIndicators(.never)
-            .onChange(of: current?.key, initial: true) { _, key in
-                if let key {
-                    withAnimation(theme.motion.snappy) { chips.scrollTo(key) }
-                }
-            }
+    @ViewBuilder
+    private func actions(_ item: CanvasItem, in session: RuntimeSession) -> some View {
+        if session.canControl, session.agent.isAgent {
+            Button(session.askTitle, systemImage: "text.bubble") { ask(about: .item(item), words: nil, in: session) }
         }
-        .background(theme.colors.surface)
+        Button("Remove from Canvas", systemImage: "xmark", role: .destructive) { remove([item.key], from: session) }
     }
 
-    private func ask(about shown: CanvasShown, in session: RuntimeSession) {
+    private func ask(_ current: CanvasShown, in session: RuntimeSession) -> CanvasAsk? {
+        guard session.canControl, session.agent.isAgent else { return nil }
+        return CanvasAsk(title: session.askTitle, agent: session.agent) { words in
+            ask(about: current, words: words, in: session)
+        }
+    }
+
+    private func ask(about shown: CanvasShown, words: String?, in session: RuntimeSession) {
         Task {
-            let words: String? = if case let .item(item) = shown, item.kind == .page {
-                await frame?.selection()
-            } else {
-                nil
-            }
             do {
                 try await model.terminals.mutate("session.input", session: session,
                                                  fields: ["text": .string(CanvasQuestion.about(shown, words: words))])
@@ -216,15 +151,20 @@ struct CanvasScreen: View {
             } catch { model.notices.show(error) }
         }
     }
-}
 
-extension CanvasItem.Kind {
-    var label: String {
-        switch self {
-        case .page: String(localized: "Page")
-        case .picture: String(localized: "Picture")
-        case .pdf: String(localized: "PDF")
-        case .office: String(localized: "Office file")
+    private func openBrowser(of session: RuntimeSession) {
+        Task {
+            do {
+                try await store.openBrowser(in: session.id)
+            } catch { model.notices.show(error) }
+        }
+    }
+
+    private func remove(_ keys: [String], from session: RuntimeSession) {
+        Task {
+            do {
+                try await store.remove(keys, in: session.id)
+            } catch { model.notices.show(error) }
         }
     }
 }

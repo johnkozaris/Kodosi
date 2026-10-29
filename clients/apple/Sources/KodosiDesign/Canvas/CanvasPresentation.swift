@@ -33,10 +33,59 @@ public extension CanvasItem.Kind {
         case .office: "doc"
         }
     }
+
+    var label: String {
+        switch self {
+        case .page: String(localized: "Page", bundle: .module)
+        case .picture: String(localized: "Picture", bundle: .module)
+        case .pdf: String(localized: "PDF", bundle: .module)
+        case .office: String(localized: "Office file", bundle: .module)
+        }
+    }
+}
+
+public extension CanvasSection {
+    var title: String {
+        switch self {
+        case .files: String(localized: "Files", bundle: .module)
+        case .browser: String(localized: "Browser", bundle: .module)
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .files: "doc.on.doc"
+        case .browser: "globe"
+        }
+    }
 }
 
 public enum CanvasSymbol {
     public static let canvas = "photo.artframe"
+}
+
+public extension BrowserDoing.Kind {
+    /// What the agent does, in a few words.
+    var words: String {
+        switch self {
+        case .open: String(localized: "Opening a page", bundle: .module)
+        case .click: String(localized: "Clicking", bundle: .module)
+        case .type: String(localized: "Typing", bundle: .module)
+        case .scroll: String(localized: "Scrolling", bundle: .module)
+        case .read: String(localized: "Reading the page", bundle: .module)
+        case .wait: String(localized: "Waiting for the page", bundle: .module)
+        case .other: String(localized: "Using the browser", bundle: .module)
+        }
+    }
+}
+
+public extension RuntimeSession {
+    /// "Ask Claude Code about this", or "Ask about this" in a shell.
+    var askTitle: String {
+        let agent = AgentKind(program: program)
+        return agent.isAgent ? String(localized: "Ask \(agent.label) about this", bundle: .module)
+            : String(localized: "Ask about this", bundle: .module)
+    }
 }
 
 /// The words that "Ask about this" types into the terminal: one line, which the person

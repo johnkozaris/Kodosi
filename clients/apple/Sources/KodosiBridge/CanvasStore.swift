@@ -35,6 +35,16 @@ public final class CanvasStore {
     private var marks: [String: [String: UInt64]] = [:]
     private var firstSeen: [String: UInt64] = [:]
     public private(set) var picks: [String: String] = [:]
+    /// The terminals whose canvas shows all its files as cards.
+    public private(set) var shelves: Set<String> = []
+    private var lastFiles: [String: String] = [:]
+    /// The part of each item that this device read so far, while it reads.
+    public private(set) var reads: [String: Double] = [:]
+    /// The terminals whose browser a person on this device opens: the canvas shows it when it comes.
+    private var opening: Set<String> = []
+    /// The parts of each canvas that a person closed on this device, with the newest change in
+    /// each part then. A part opens again when it changes.
+    private var closed: [String: [CanvasSection: UInt64]] = [:]
     @ObservationIgnored private var stored: [Stored: Data] = [:]
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
@@ -53,11 +63,19 @@ public final class CanvasStore {
         firstSeen = firstSeen.filter { ids.contains($0.key) }
         marks = marks.filter { ids.contains($0.key) }
         for session in sessions {
+            if opening.contains(session.id), session.canvas?.browser != nil {
+                opening.remove(session.id)
+                picks[session.id] = CanvasShown.browserKey
+            }
             if let pick = picks[session.id], session.canvas?.shown(pick) == nil {
                 picks[session.id] = nil
             }
         }
+        opening.formIntersection(ids)
+        closed = closed.filter { ids.contains($0.key) }
         picks = picks.filter { ids.contains($0.key) }
+        lastFiles = lastFiles.filter { ids.contains($0.key) }
+        shelves.formIntersection(ids)
         let browsing = Set(sessions.filter { $0.canvas?.browser != nil }.map(\.id))
         feeds = feeds.filter { browsing.contains($0.key) }
         for key in stored.keys where !ids.contains(key.session) {
@@ -78,10 +96,43 @@ public final class CanvasStore {
         marks[session, default: [:]][shown.key] = shown.changed
     }
 
-    /// What an open canvas shows: the item that the person picked, or else the newest.
+    /// What an open canvas shows: the item that the person picked, or else the newest, in the
+    /// parts that are open.
     public func current(_ session: RuntimeSession) -> CanvasShown? {
         guard let canvas = session.canvas else { return nil }
-        return picks[session.id].flatMap(canvas.shown) ?? canvas.newest
+        let open = sections(session)
+        if let pick = picks[session.id].flatMap(canvas.shown), open.contains(pick.section) {
+            return pick
+        }
+        return canvas.shown.filter { open.contains($0.section) }.max { $0.changed < $1.changed }
+    }
+
+    /// The parts of a canvas that are open on this device.
+    public func sections(_ session: RuntimeSession) -> [CanvasSection] {
+        guard let canvas = session.canvas else { return [] }
+        return canvas.sections.filter { section in
+            closed[session.id]?[section].map { (canvas.changed(of: section) ?? 0) > $0 } ?? true
+        }
+    }
+
+    /// The parts that a person can open on a canvas: the ones they closed, and a browser.
+    public func closedSections(_ session: RuntimeSession) -> [CanvasSection] {
+        let open = sections(session)
+        return [CanvasSection.files, .browser].filter { section in
+            !open.contains(section) && (section == .browser || session.canvas?.sections.contains(section) == true)
+        }
+    }
+
+    /// Closes a part of a canvas on this device until it changes.
+    public func close(_ section: CanvasSection, in session: RuntimeSession) {
+        guard let canvas = session.canvas else { return }
+        closed[session.id, default: [:]][section] = canvas.changed(of: section) ?? 0
+        if picks[session.id].flatMap(canvas.shown)?.section == section {
+            picks[session.id] = nil
+        }
+        if section == .files {
+            shelves.remove(session.id)
+        }
     }
 
     /// The pictures and input of a terminal's browser on this device.
@@ -96,6 +147,51 @@ public final class CanvasStore {
 
     public func pick(_ key: String?, in session: String) {
         picks[session] = key
+        if let key, key != CanvasShown.browserKey {
+            lastFiles[session] = key
+            shelves.remove(session)
+        }
+    }
+
+    /// Shows a part of a canvas, which opens if it was closed: the browser, or the file that the
+    /// person saw last there, else the newest file.
+    public func show(_ section: CanvasSection, in session: RuntimeSession) {
+        closed[session.id]?[section] = nil
+        switch section {
+        case .browser:
+            pick(CanvasShown.browserKey, in: session.id)
+        case .files:
+            let canvas = session.canvas
+            picks[session.id] = lastFiles[session.id].flatMap { canvas?.shown($0) == nil ? nil : $0 }
+                ?? canvas?.items.max { $0.changed < $1.changed }?.key
+        }
+    }
+
+    /// Whether the canvas of a terminal shows all its files as cards.
+    public func showsShelf(_ session: String) -> Bool {
+        shelves.contains(session)
+    }
+
+    public func showShelf(_ shown: Bool, in session: String) {
+        if shown {
+            shelves.insert(session)
+        } else {
+            shelves.remove(session)
+        }
+    }
+
+    /// The content of an item that this device already has, for its card.
+    public func stored(_ item: CanvasItem, in session: String) -> Data? {
+        stored[Stored(session: session, key: item.key, revision: item.revision)]
+    }
+
+    /// How much of an item's content came, from 0 to 1, while this device reads it.
+    public func read(_ key: String, in session: String) -> Double? {
+        reads[Self.place(session, key)]
+    }
+
+    private static func place(_ session: String, _ key: String) -> String {
+        session + "\u{1F}" + key
     }
 
     /// The bytes of an item and their revision, which can be newer than the item's.
@@ -135,6 +231,23 @@ public final class CanvasStore {
         ]))
     }
 
+    /// Whether a person on this device opens the browser of a terminal, which did not come yet.
+    public func opensBrowser(_ session: String) -> Bool {
+        opening.contains(session)
+    }
+
+    /// Opens the shared browser of a terminal, which then shows on its canvas.
+    public func openBrowser(in session: String) async throws {
+        closed[session]?[.browser] = nil
+        opening.insert(session)
+        do {
+            try await act(.wake(width: 0, height: 0), in: session)
+        } catch {
+            opening.remove(session)
+            throw error
+        }
+    }
+
     public func act(_ act: BrowserAct, in session: String) async throws {
         _ = try await ask(session, .object(["type": .string("act"), "action": act.json]))
     }
@@ -149,6 +262,8 @@ public final class CanvasStore {
     }
 
     private func read(_ item: CanvasItem, in session: String) async throws -> (UInt64, Data) {
+        let place = Self.place(session, item.key)
+        defer { reads[place] = nil }
         var revision = item.revision
         var data = Data()
         var total: UInt64?
@@ -169,6 +284,7 @@ public final class CanvasStore {
                 else { throw CanvasError.unreadable }
                 data.append(part)
                 total = size
+                reads[place] = size > 0 ? Double(data.count) / Double(size) : 1
             }
             if let total, UInt64(data.count) == total {
                 return (revision, data)

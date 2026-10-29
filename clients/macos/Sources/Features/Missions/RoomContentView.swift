@@ -39,8 +39,14 @@ private struct RoomTerminals: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @Namespace private var tab
+    @Namespace private var keys
     let roomId: String
     @Bindable var state: RoomViewState
+    @State private var adding = false
+    @State private var tabFrame: CGRect?
+    @State private var stageFrame = CGRect.zero
+
+    private static let space = "room.terminals"
 
     private var sessions: [RuntimeSession] {
         deps.roomSessions(roomId)
@@ -55,33 +61,20 @@ private struct RoomTerminals: View {
         let current = sessions.first { $0.id == state.selectedTerminal && deps.workbench.stagedSessionIds.contains($0.id) }
         VStack(spacing: 0) {
             if !sessions.isEmpty {
-                HStack(spacing: 4) {
+                HStack(spacing: 0) {
                     ViewThatFits(in: .horizontal) {
                         tabs(sessions, current: current)
                         ScrollView(.horizontal) { tabs(sessions, current: current) }.scrollIndicators(.never)
                     }
                     .wellCapsule()
                     .fixedSize(horizontal: false, vertical: true)
-                    addMenu
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 8).padding(.bottom, 6)
+                .padding(.horizontal, 8).padding(.bottom, 8)
                 .animation(theme.motion.spring, value: sessions.map(\.id))
             }
-            if let current, state.showsCanvas, current.canvas != nil {
-                CanvasTileView(session: current, roomEmbedded: true) {
-                    withAnimation(theme.motion.snappy) { state.showsCanvas = false }
-                }
-                .id("canvas." + current.id)
-                .padding([.horizontal, .bottom], 6)
-            } else if let current {
-                SessionTileView(session: current, isFocused: false, roomEmbedded: true)
-                    .environment(\.terminalStageVisible, deps.workbench.section == .missions)
-                    .environment(\.terminalInteractionEnabled, interactive)
-                    .id(current.id)
-                    .transition(.identity)
-                    .terminalScope()
-                    .padding([.horizontal, .bottom], 6)
+            if let current {
+                pair(current)
             } else if sessions.isEmpty {
                 EmptyState(title: "No terminals here yet", message: "Add one. Everyone in the room gets full control.") {
                     TerminalGhost()
@@ -126,6 +119,34 @@ private struct RoomTerminals: View {
                 }
             }
         }
+        .coordinateSpace(.named(Self.space))
+    }
+
+    /// The terminal, with its canvas beside it when it is open, flowing out of its tab.
+    private func pair(_ current: RuntimeSession) -> some View {
+        CanvasStage(canvas: state.showsCanvas && current.canvas != nil ? current : nil, wide: $state.canvasWide,
+                    width: $state.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
+        {
+            state.showsCanvas = false
+            state.canvasWide = false
+        } terminal: {
+            SessionTileView(session: current, isFocused: false, roomEmbedded: true)
+                .environment(\.terminalStageVisible, deps.workbench.section == .missions)
+                .transformEnvironment(\.terminalInteractionEnabled) { $0 = $0 && interactive }
+                .id(current.id)
+                .transition(.identity)
+                .terminalScope()
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { stageFrame = $0 }
+        .padding([.horizontal, .bottom], 6)
+        .environment(\.tileRadius, Radius.xl)
+        .environment(\.canvasPlace, CanvasPlace(flight: keys, open: state.showsCanvas && current.canvas != nil ? current.id : nil) { session, section in
+            if let section {
+                deps.canvas.show(section, in: session)
+            }
+            state.selectedTerminal = session.id
+            state.showsCanvas = true
+        })
     }
 
     private var interactive: Bool {
@@ -137,76 +158,42 @@ private struct RoomTerminals: View {
     private func tabs(_ sessions: [RuntimeSession], current: RuntimeSession?) -> some View {
         HStack(spacing: 2) {
             ForEach(sessions) { session in
-                let shown = current?.id == session.id
-                tabChip(session, selected: shown && !(state.showsCanvas && session.canvas != nil)).transition(AnyTransition.pop)
-                if session.canvas != nil {
-                    canvasChip(session, selected: shown && state.showsCanvas).transition(AnyTransition.pop)
-                }
+                tabChip(session, selected: current?.id == session.id).transition(AnyTransition.pop)
             }
+            addMenu
         }
         .padding(3)
     }
 
-    private func canvasChip(_ session: RuntimeSession, selected: Bool) -> some View {
-        let news = !selected && deps.canvas.hasNews(session)
-        return Button { openCanvas(session) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: CanvasSymbol.canvas).font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
-                    .hop(when: news)
-                Text("Canvas").appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
-                    .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-            }
-            .padding(.horizontal, 11).frame(height: 28)
-            .background {
-                if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                        .matchedGeometryEffect(id: "tab", in: tab)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if news {
-                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -3, y: 3).transition(AnyTransition.pop)
-                }
-            }
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .help(String(localized: "The canvas of \(session.name)"))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("room.canvas.\(AccessibilityIdentifier.token(session.id))")
-    }
-
     private func tabChip(_ session: RuntimeSession, selected: Bool) -> some View {
         Button { open(session) } label: {
-            HStack(spacing: 7) {
-                AgentMark(session: session, size: 18, activity: session.mark(rested: selected ? .awake : .asleep))
-                Text(session.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
-                    .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-                if !session.isOwner, let owner = session.ownerName {
-                    PersonAvatar(name: owner, key: session.ownerUserId, size: 15)
+            TabLabel(session: session, selected: selected)
+                .modifier(TabScope(terminal: selected))
+                .background {
+                    if selected {
+                        TabPill()
+                            .terminalScope()
+                            .matchedGeometryEffect(id: "tab", in: tab)
+                            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { frame in
+                                withAnimation(tabFrame == nil ? nil : theme.motion.snappy) { tabFrame = frame }
+                            }
+                    }
                 }
-                if let sign = deps.sign(of: session) {
-                    StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
-                } else if session.isTroubled {
-                    Circle().fill(theme.colors.caution).frame(width: 5, height: 5)
-                }
-            }
-            .padding(.leading, 6).padding(.trailing, 11).frame(height: 28)
-            .background {
-                if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                        .matchedGeometryEffect(id: "tab", in: tab)
-                }
-            }
-            .contentShape(Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help("\(session.hostLabel) · \(session.folderName ?? "")")
+        .help(session.folderName.map { String(localized: "\($0) on \(session.hostLabel)") } ?? session.hostLabel)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("room.terminal.\(AccessibilityIdentifier.token(session.id))")
         .contextMenu {
             Button("Details") { deps.workbench.detailsSessionId = session.id }
+            if session.canControl, session.canOpen {
+                Button("Open Browser") {
+                    open(session)
+                    state.showsCanvas = true
+                    deps.openBrowser(of: session)
+                }
+            }
             if deps.workbench.stagedSessionIds.contains(session.id) {
                 Button("Minimize") { deps.dismissSession(session.id) }
             }
@@ -230,33 +217,39 @@ private struct RoomTerminals: View {
     }
 
     private var addMenu: some View {
-        Menu {
-            Button("New terminal") { deps.openLauncher(roomId: roomId) }
-            if !mine.isEmpty {
-                Section("Share one of mine") {
-                    ForEach(mine) { session in Button(session.name) { share(session) } }
+        Button { adding.toggle() } label: {
+            Image(systemName: "plus").font(.system(size: 11.5, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
+                .frame(width: 28, height: 28).contentShape(Circle())
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.9))
+        .help("Add a terminal").accessibilityLabel(Text("Add terminal")).accessibilityIdentifier("room.terminal.add")
+        .kodosiPopover(isPresented: $adding, arrowEdge: .bottom, alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
+                PanelMenuRow(Text("New terminal"), icon: .symbol("plus"), identifier: "room.terminal.add.new") {
+                    deps.openLauncher(roomId: roomId)
+                }
+                if !mine.isEmpty {
+                    PanelMenuDivider()
+                    PanelMenuHeader(title: "Share one of mine")
+                    ForEach(mine) { session in
+                        PanelMenuRow(Text(session.name), icon: .agent(AgentKind(program: session.program)),
+                                     identifier: "room.terminal.add.\(AccessibilityIdentifier.token(session.id))")
+                        {
+                            share(session)
+                        }
+                    }
                 }
             }
-        } label: {
-            Image(systemName: "plus").font(.system(size: 12, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
-                .frame(width: 30, height: 30).contentShape(Circle())
+            .padding(6).frame(width: 220)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Add a terminal").accessibilityLabel(Text("Add terminal")).accessibilityIdentifier("room.terminal.add")
     }
 
     private func open(_ session: RuntimeSession) {
         withAnimation(theme.motion.snappy) {
             state.selectedTerminal = session.id
-            state.showsCanvas = false
-        }
-        deps.activateSession(session.id, inRoom: roomId)
-    }
-
-    private func openCanvas(_ session: RuntimeSession) {
-        withAnimation(theme.motion.snappy) {
-            state.selectedTerminal = session.id
-            state.showsCanvas = true
+            if session.canvas == nil {
+                state.showsCanvas = false
+            }
         }
         deps.activateSession(session.id, inRoom: roomId)
     }
@@ -267,6 +260,53 @@ private struct RoomTerminals: View {
                 try await deps.mutateSession("session.attachMission", session: session, fields: ["missionId": .string(roomId)])
                 state.shownSection = 0; deps.activateSession(session.id, inRoom: roomId)
             } catch { state.failure = error.localizedDescription }
+        }
+    }
+}
+
+/// A room tab: the terminal's mark, its name and its status.
+private struct TabLabel: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    let session: RuntimeSession
+    let selected: Bool
+
+    var body: some View {
+        HStack(spacing: 7) {
+            AgentMark(session: session, size: 18, activity: session.mark(rested: selected ? .awake : .asleep))
+            Text(session.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
+                .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
+            if !session.isOwner, let owner = session.ownerName {
+                PersonAvatar(name: owner, key: session.ownerUserId, size: 15)
+            }
+            if let sign = deps.sign(of: session) {
+                StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
+            } else if session.isTroubled {
+                Circle().fill(theme.colors.caution).frame(width: 5, height: 5)
+            }
+        }
+        .padding(.leading, 6).padding(.trailing, 11).frame(height: 28)
+    }
+}
+
+/// The chosen tab: a pill of the terminal's header bar, which flows down into the terminal.
+private struct TabPill: View {
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Capsule().fill(theme.colors.band)
+    }
+}
+
+/// The chosen tab is in the terminal's colors.
+private struct TabScope: ViewModifier {
+    let terminal: Bool
+
+    func body(content: Content) -> some View {
+        if terminal {
+            content.terminalScope()
+        } else {
+            content
         }
     }
 }

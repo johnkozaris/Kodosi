@@ -16,6 +16,8 @@ final class RoomViewState {
     var renaming = false
     var selectedTerminal: String?
     var showsCanvas = false
+    var canvasWide = false
+    var canvasWidth: CGFloat?
     var message = "" {
         didSet {
             if message != oldValue {

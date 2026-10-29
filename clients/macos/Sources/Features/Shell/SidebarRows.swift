@@ -444,6 +444,13 @@ struct SidebarTerminalRow: View {
             Button("Share…") { deps.activateSession(session.id); deps.workbench.sharingSessionId = session.id }
         }
         Button("Details") { deps.workbench.detailsSessionId = session.id }
+        if session.canControl, session.canOpen {
+            Button("Open Browser") {
+                deps.activateSession(session.id)
+                deps.workbench.openCanvas(session.id)
+                deps.openBrowser(of: session)
+            }
+        }
         if staged {
             Button("Minimize") { deps.dismissSession(session.id) }
         }

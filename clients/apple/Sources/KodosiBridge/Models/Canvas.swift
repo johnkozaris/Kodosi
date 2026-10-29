@@ -30,8 +30,34 @@ public struct Canvas: Decodable, Equatable, Sendable {
         shown.max { $0.changed < $1.changed }
     }
 
+    /// The files from the first shown to the last.
+    public var files: [CanvasItem] {
+        items.reversed()
+    }
+
+    /// The parts of the canvas: its files, and its browser.
+    public var sections: [CanvasSection] {
+        (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser])
+    }
+
+    /// The newest change in a part of the canvas.
+    public func changed(of section: CanvasSection) -> UInt64? {
+        switch section {
+        case .files: items.map(\.changed).max()
+        case .browser: browser?.changed
+        }
+    }
+
     public func shown(_ key: String) -> CanvasShown? {
         shown.first { $0.key == key }
+    }
+}
+
+public enum CanvasSection: String, Identifiable, Sendable {
+    case files, browser
+
+    public var id: String {
+        rawValue
     }
 }
 
@@ -57,6 +83,13 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
         case let .item(item): item.changed
         case let .browser(browser): browser.changed
         }
+    }
+
+    public var section: CanvasSection {
+        if case .browser = self {
+            return .browser
+        }
+        return .files
     }
 }
 
@@ -107,6 +140,7 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
     public let tabs: [BrowserTab]
     public let width: Int
     public let height: Int
+    public let doing: BrowserDoing?
     public let last: BrowserAction?
     public let problem: String?
 
@@ -117,11 +151,12 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
         tabs = try container.decodeIfPresent([BrowserTab].self, forKey: .tabs) ?? []
         width = try container.decode(Int.self, forKey: .width)
         height = try container.decode(Int.self, forKey: .height)
+        doing = try container.decodeIfPresent(BrowserDoing.self, forKey: .doing)
         last = try container.decodeIfPresent(BrowserAction.self, forKey: .last)
         problem = try container.decodeIfPresent(String.self, forKey: .problem)
     }
 
-    private enum CodingKeys: String, CodingKey { case state, changed, tabs, width, height, last, problem }
+    private enum CodingKeys: String, CodingKey { case state, changed, tabs, width, height, doing, last, problem }
 
     public var activeTab: BrowserTab? {
         tabs.first(where: \.active)
@@ -138,6 +173,32 @@ public struct BrowserTab: Decodable, Equatable, Identifiable, Sendable {
 public struct BrowserAction: Decodable, Equatable, Sendable {
     public let agent: String
     public let words: String
+}
+
+/// What the agent does in the browser while its command runs, and the middle of the element that
+/// it acts on, in the browser's CSS pixels.
+public struct BrowserDoing: Decodable, Equatable, Sendable {
+    public enum Kind: String, Decodable, Sendable { case open, click, type, scroll, read, wait, other }
+
+    public struct Point: Decodable, Equatable, Sendable {
+        public let x: Int
+        public let y: Int
+
+        public init(x: Int, y: Int) {
+            self.x = x
+            self.y = y
+        }
+    }
+
+    public let agent: String
+    public let kind: Kind
+    public let point: Point?
+
+    public init(agent: String, kind: Kind, point: Point?) {
+        self.agent = agent
+        self.kind = kind
+        self.point = point
+    }
 }
 
 /// One picture of the shared browser, a JPEG at the browser's size in CSS pixels.

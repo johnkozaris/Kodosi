@@ -16,9 +16,9 @@ private func item(_ name: String, changed: UInt64, revision: UInt64 = 1, missing
     return .object(fields)
 }
 
-private func terminal(canvas: [String: JSONValue]?) throws -> RuntimeSession {
+private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", canvas: [String: JSONValue]?) throws -> RuntimeSession {
     var fields: [String: JSONValue] = [
-        "id": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "incarnationId": .string(UUIDv7.generate()),
+        "id": .string(id), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("checkout"), "program": .string("claude"),
         "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
         "connectionState": .string("local"), "sharedWith": .array([]),
@@ -81,27 +81,90 @@ private func terminal(canvas: [String: JSONValue]?) throws -> RuntimeSession {
     #expect(BrowserFeed.point(CGPoint(x: 75.8, y: 103.3), in: narrow, picture: window, browser: page) == .init(x: 84, y: 77))
 }
 
-@Test func `an open canvas shares the place of its terminal`() {
-    let wide = TerminalTilesLayout.split(CGRect(x: 0, y: 0, width: 1206, height: 800), count: 2)
-    #expect(wide == [CGRect(x: 0, y: 0, width: 600, height: 800), CGRect(x: 606, y: 0, width: 600, height: 800)])
-    let tall = TerminalTilesLayout.split(CGRect(x: 0, y: 0, width: 600, height: 806), count: 2)
-    #expect(tall == [CGRect(x: 0, y: 0, width: 600, height: 400), CGRect(x: 0, y: 406, width: 600, height: 400)])
-    #expect(TerminalTilesLayout.split(CGRect(x: 0, y: 0, width: 10, height: 10), count: 1) == [CGRect(x: 0, y: 0, width: 10, height: 10)])
+@Test func `the agent's point of the browser lands where the person sees it`() {
+    let wide = CGSize(width: 1000, height: 500)
+    let picture = CGSize(width: 1280, height: 720)
+    let middle = BrowserFeed.viewPoint(.init(x: 640, y: 360), in: wide, picture: picture, browser: picture)
+    #expect(middle == CGPoint(x: 500, y: 250))
+    let sharp = CGSize(width: 2560, height: 1440)
+    #expect(BrowserFeed.viewPoint(.init(x: 640, y: 360), in: wide, picture: sharp, browser: picture) == CGPoint(x: 500, y: 250))
+    #expect(BrowserFeed.viewPoint(.init(x: 1, y: 1), in: .zero, picture: picture, browser: picture) == nil)
 }
 
-@Test @MainActor func `the open canvases follow their terminals`() throws {
+@Test func `a canvas and its terminal share the stage, or the canvas fills it`() {
+    let even = CanvasPair(width: 1200, chosen: nil)
+    #expect(even.panel == 600 && !even.narrow)
+    #expect(CanvasPair(width: 1200, chosen: 1000).panel == 820)
+    #expect(CanvasPair(width: 1200, chosen: 100).panel == CanvasPair.narrowest)
+    #expect(CanvasPair(width: 700, chosen: nil).narrow)
+}
+
+@Test func `the terminal of a canvas that fills the stage zooms out to its corner`() {
+    #expect(CanvasPair.zoom(tile: CGSize(width: 600, height: 700), stage: CGSize(width: 1200, height: 700)) == 0.4)
+    #expect(CanvasPair.zoom(tile: CGSize(width: 1600, height: 900), stage: CGSize(width: 1600, height: 900)) == 0.2)
+    #expect(CanvasPair.zoom(tile: CGSize(width: 300, height: 200), stage: CGSize(width: 2000, height: 1600)) == 0.45)
+    #expect(CanvasPair.zoom(tile: .zero, stage: CGSize(width: 1200, height: 700)) == 1)
+}
+
+@Test @MainActor func `a canvas opens beside its terminal alone, which stays alone when it hides`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvas"))
     let workbench = WorkbenchState(defaults: defaults)
     workbench.switchAccount(nil)
-    let session = try terminal(canvas: ["sequence": .uint(1), "items": .array([item("plan.md", changed: 1)])])
-    workbench.showSession(session.id)
-    workbench.toggleCanvas(session.id)
-    #expect(workbench.canvasSessionIds == [session.id])
-    _ = try workbench.reconcile([terminal(canvas: nil)])
-    #expect(workbench.canvasSessionIds.isEmpty)
-    workbench.toggleCanvas(session.id)
-    workbench.dismissSession(session.id)
-    #expect(workbench.canvasSessionIds.isEmpty)
+    let plain = try terminal("01992e43-53db-7040-8e02-f6ebf4149b29", canvas: nil)
+    let shown = try terminal(canvas: ["sequence": .uint(1), "items": .array([item("plan.md", changed: 1)])])
+    _ = workbench.reconcile([shown, plain])
+    workbench.showSession(shown.id)
+    workbench.showSession(plain.id)
+    #expect(workbench.focusedSessionId == nil)
+    workbench.openCanvas(shown.id)
+    #expect(workbench.canvasSessionId == shown.id && workbench.focusedSessionId == shown.id)
+    workbench.showSession(plain.id)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == plain.id)
+    workbench.toggleFocus(plain.id)
+    workbench.openCanvas(shown.id)
+    workbench.hideCanvas()
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == shown.id)
+    workbench.openCanvas(shown.id)
+    workbench.toggleFocus(shown.id)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == nil)
+    workbench.openCanvas(shown.id)
+    _ = try workbench.reconcile([terminal(canvas: nil), plain])
+    #expect(workbench.canvasSessionId == nil)
+}
+
+@Test @MainActor func `a canvas that a person opens before it has anything shows when it comes`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasLater"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount(nil)
+    let empty = try terminal(canvas: nil)
+    let other = try terminal("01992e43-53db-7040-8e02-f6ebf4149b29", canvas: nil)
+    _ = workbench.reconcile([empty, other])
+    workbench.showSession(empty.id)
+    workbench.showSession(other.id)
+    workbench.openCanvas(empty.id)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == empty.id)
+    let browsing = try terminal(canvas: [
+        "sequence": .uint(2),
+        "browser": .object(["state": .string("starting"), "changed": .uint(2), "width": .uint(1280), "height": .uint(720)]),
+    ])
+    _ = workbench.reconcile([browsing, other])
+    #expect(workbench.canvasSessionId == browsing.id)
+}
+
+@Test @MainActor func `a canvas opens by itself once, for a terminal alone on the stage`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasArrival"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount(nil)
+    let empty = try terminal(canvas: nil)
+    _ = workbench.reconcile([empty])
+    workbench.showSession(empty.id)
+    let first = try terminal(canvas: ["sequence": .uint(1), "items": .array([item("plan.md", changed: 1)])])
+    _ = workbench.reconcile([first])
+    #expect(workbench.canvasSessionId == first.id)
+    workbench.hideCanvas()
+    _ = workbench.reconcile([empty])
+    _ = workbench.reconcile([first])
+    #expect(workbench.canvasSessionId == nil)
 }
 
 @Test func `ask about this types one line for the person to finish`() throws {

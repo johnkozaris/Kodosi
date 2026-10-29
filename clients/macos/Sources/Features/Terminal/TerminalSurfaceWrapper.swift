@@ -8,6 +8,12 @@ extension EnvironmentValues {
     @Entry var terminalInteractionEnabled: Bool = true
     @Entry var terminalStageVisible: Bool = true
     @Entry var terminalTileVisible: Bool = true
+    /// The stage shows this terminal alone, so it needs no mark of the selection.
+    @Entry var terminalAlone: Bool = false
+    /// The terminal's canvas is joined to its right edge: one tile with two panes.
+    @Entry var terminalJoined: Bool = false
+    /// The corner radius of the terminal's tile.
+    @Entry var tileRadius: CGFloat = 12
 }
 
 struct TerminalSurfaceWrapper: View {
