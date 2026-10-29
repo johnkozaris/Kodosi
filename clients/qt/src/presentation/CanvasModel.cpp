@@ -129,6 +129,11 @@ void CanvasModel::observe()
             m_sequences.insert(id, sequence);
             moved = true;
         }
+        if (m_opening.contains(id) && std::ranges::any_of(entries, [](const Shown& entry) { return entry.key == browserItem; })) {
+            m_opening.remove(id);
+            m_picks.insert(id, browserItem);
+            moved = true;
+        }
         const auto pick = m_picks.value(id);
         if (!pick.isEmpty() && std::ranges::none_of(entries, [&](const Shown& entry) { return entry.key == pick; })) {
             m_picks.remove(id);
@@ -142,6 +147,10 @@ void CanvasModel::observe()
     m_marks.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_sequences.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_picks.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    m_lastFiles.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    m_closed.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    m_opening.removeIf(gone);
+    m_shelves.removeIf(gone);
     m_feeds.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_readings.removeIf([&](const auto& entry) { return gone(entry.value().sessionId); });
     for (const auto& id : QStringList(m_storedOrder)) {
@@ -154,9 +163,38 @@ void CanvasModel::observe()
         touch();
 }
 
-QString CanvasModel::current(const QString& sessionId) const
+QString CanvasModel::sectionOf(const QString& key)
+{
+    return key == browserItem ? browserItem : QStringLiteral("files");
+}
+
+QStringList CanvasModel::present(const QString& sessionId) const
 {
     const auto entries = shown(sessionId);
+    const auto browsing = [](const Shown& entry) { return entry.key == browserItem; };
+    QStringList result;
+    if (!std::ranges::all_of(entries, browsing))
+        result.append(QStringLiteral("files"));
+    if (std::ranges::any_of(entries, browsing))
+        result.append(browserItem);
+    return result;
+}
+
+quint64 CanvasModel::changedOf(const QString& sessionId, const QString& section) const
+{
+    quint64 newest = 0;
+    for (const auto& entry : shown(sessionId)) {
+        if (sectionOf(entry.key) == section)
+            newest = std::max(newest, entry.changed);
+    }
+    return newest;
+}
+
+QString CanvasModel::current(const QString& sessionId) const
+{
+    const auto open = sections(sessionId);
+    auto entries = shown(sessionId);
+    entries.removeIf([&](const Shown& entry) { return !open.contains(sectionOf(entry.key)); });
     const auto pick = m_picks.value(sessionId);
     if (!pick.isEmpty() && std::ranges::any_of(entries, [&](const Shown& entry) { return entry.key == pick; }))
         return pick;
@@ -166,10 +204,101 @@ QString CanvasModel::current(const QString& sessionId) const
 
 void CanvasModel::pick(const QString& sessionId, const QString& key)
 {
-    if (m_picks.value(sessionId) == key)
+    const bool file = !key.isEmpty() && key != browserItem;
+    if (m_picks.value(sessionId) == key && !(file && m_shelves.contains(sessionId)))
         return;
     m_picks.insert(sessionId, key);
+    if (file) {
+        m_lastFiles.insert(sessionId, key);
+        m_shelves.remove(sessionId);
+    }
     touch();
+}
+
+QStringList CanvasModel::sections(const QString& sessionId) const
+{
+    const auto closed = m_closed.value(sessionId);
+    auto result = present(sessionId);
+    result.removeIf([&](const QString& section) {
+        return closed.contains(section) && changedOf(sessionId, section) <= closed.value(section);
+    });
+    return result;
+}
+
+QStringList CanvasModel::closedSections(const QString& sessionId) const
+{
+    const auto open = sections(sessionId);
+    const auto there = present(sessionId);
+    QStringList result;
+    for (const auto& section : { QStringLiteral("files"), browserItem }) {
+        if (!open.contains(section) && (section == browserItem || there.contains(section)))
+            result.append(section);
+    }
+    return result;
+}
+
+void CanvasModel::close(const QString& sessionId, const QString& section)
+{
+    m_closed[sessionId].insert(section, changedOf(sessionId, section));
+    if (const auto pick = m_picks.value(sessionId); !pick.isEmpty() && sectionOf(pick) == section)
+        m_picks.remove(sessionId);
+    if (section != browserItem)
+        m_shelves.remove(sessionId);
+    touch();
+}
+
+void CanvasModel::show(const QString& sessionId, const QString& section)
+{
+    m_closed[sessionId].remove(section);
+    if (section == browserItem) {
+        m_picks.insert(sessionId, browserItem);
+    } else {
+        const auto entries = shown(sessionId);
+        const auto last = m_lastFiles.value(sessionId);
+        auto files = entries;
+        files.removeIf([](const Shown& entry) { return entry.key == browserItem; });
+        const auto newest = std::ranges::max_element(files, {}, &Shown::changed);
+        if (std::ranges::any_of(files, [&](const Shown& entry) { return entry.key == last; }))
+            m_picks.insert(sessionId, last);
+        else if (newest != files.end())
+            m_picks.insert(sessionId, newest->key);
+        else
+            m_picks.remove(sessionId);
+    }
+    touch();
+}
+
+bool CanvasModel::showsShelf(const QString& sessionId) const
+{
+    return m_shelves.contains(sessionId);
+}
+
+void CanvasModel::showShelf(const QString& sessionId, bool shown)
+{
+    if (shown == m_shelves.contains(sessionId))
+        return;
+    if (shown)
+        m_shelves.insert(sessionId);
+    else
+        m_shelves.remove(sessionId);
+    touch();
+}
+
+void CanvasModel::openBrowser(const QString& sessionId)
+{
+    if (present(sessionId).contains(browserItem)) {
+        show(sessionId, browserItem);
+        return;
+    }
+    m_closed[sessionId].remove(browserItem);
+    m_opening.insert(sessionId);
+    touch();
+    wake(sessionId);
+}
+
+bool CanvasModel::opensBrowser(const QString& sessionId) const
+{
+    return m_opening.contains(sessionId);
 }
 
 bool CanvasModel::isNew(const QString& sessionId, const QString& key) const
@@ -547,6 +676,26 @@ std::optional<QPoint> CanvasModel::browserPoint(QPointF point, QSizeF view, QSiz
     return QPoint(static_cast<int>(x), static_cast<int>(y));
 }
 
+std::optional<QPointF> CanvasModel::pointInView(QPoint point, QSizeF view, QSizeF picture, QSizeF browser)
+{
+    if (picture.width() <= 0 || picture.height() <= 0 || browser.height() <= 0 || view.width() <= 0
+        || view.height() <= 0)
+        return std::nullopt;
+    const auto fit = std::min(view.width() / picture.width(), view.height() / picture.height());
+    const QPointF origin((view.width() - picture.width() * fit) / 2, (view.height() - picture.height() * fit) / 2);
+    const auto perPixel = picture.height() / browser.height();
+    return QPointF(origin.x() + point.x() * perPixel * fit, origin.y() + point.y() * perPixel * fit);
+}
+
+QVariant CanvasModel::viewPoint(const QString& sessionId, int x, int y) const
+{
+    const auto feed = m_feeds.constFind(sessionId);
+    if (feed == m_feeds.cend())
+        return {};
+    const auto at = pointInView(QPoint(x, y), feed->view, QSizeF(feed->image.size()), feed->browser);
+    return at ? QVariant(*at) : QVariant {};
+}
+
 std::optional<QPoint> CanvasModel::point(const QString& sessionId, qreal x, qreal y) const
 {
     const auto feed = m_feeds.constFind(sessionId);
@@ -777,7 +926,10 @@ void CanvasModel::apply(const QJsonObject& event)
         }
         return;
     case Asked::Act:
-        if (failed)
+        if (failed && m_opening.remove(request.sessionId)) {
+            emit problem(message);
+            touch();
+        } else if (failed)
             failBrowser(request.sessionId, message);
         else if (const auto feed = m_feeds.find(request.sessionId); feed != m_feeds.end() && !feed->failure.isEmpty()) {
             feed->failure.clear();
@@ -797,6 +949,10 @@ void CanvasModel::reset()
     m_firstSeen.clear();
     m_sequences.clear();
     m_picks.clear();
+    m_lastFiles.clear();
+    m_closed.clear();
+    m_opening.clear();
+    m_shelves.clear();
     m_stored.clear();
     m_storedOrder.clear();
     m_readings.clear();

@@ -23,7 +23,9 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(QString selectedSessionId READ selectedSessionId NOTIFY selectedSessionIdChanged)
     Q_PROPERTY(QStringList stagedSessionIds READ stagedSessionIds NOTIFY stagedSessionIdsChanged)
     Q_PROPERTY(QStringList pinnedSessionIds READ pinnedSessionIds NOTIFY pinnedSessionIdsChanged)
-    Q_PROPERTY(QStringList openCanvases READ openCanvases NOTIFY openCanvasesChanged)
+    Q_PROPERTY(QString canvasSessionId READ canvasSessionId NOTIFY canvasChanged)
+    Q_PROPERTY(bool canvasWide READ canvasWide WRITE setCanvasWide NOTIFY canvasChanged)
+    Q_PROPERTY(qreal canvasWidth READ canvasWidth WRITE setCanvasWidth NOTIFY canvasChanged)
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
@@ -47,9 +49,13 @@ public:
     QStringList pinnedSessionIds() const { return m_pins; }
     Q_INVOKABLE void togglePin(const QString& id);
     Q_INVOKABLE bool moveStaged(const QString& id, const QString& target);
-    QStringList openCanvases() const { return m_canvases; }
-    Q_INVOKABLE void toggleCanvas(const QString& id);
-    Q_INVOKABLE void closeCanvas(const QString& id);
+    QString canvasSessionId() const { return m_canvas; }
+    bool canvasWide() const { return m_canvasWide; }
+    qreal canvasWidth() const { return m_canvasWidth; }
+    void setCanvasWide(bool value);
+    void setCanvasWidth(qreal value);
+    Q_INVOKABLE void openCanvas(const QString& id);
+    Q_INVOKABLE void hideCanvas();
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }
     void setActiveView(ActiveView value);
@@ -86,7 +92,7 @@ signals:
     void selectedSessionIdChanged();
     void stagedSessionIdsChanged();
     void pinnedSessionIdsChanged();
-    void openCanvasesChanged();
+    void canvasChanged();
     void stageLayoutModeChanged();
     void lastErrorChanged();
     void modalOpenChanged();
@@ -115,7 +121,11 @@ private:
     QString m_selected;
     QStringList m_staged;
     QStringList m_pins;
-    QStringList m_canvases;
+    QString m_canvas;
+    bool m_canvasWide = false;
+    qreal m_canvasWidth = 0;
+    QSet<QString> m_hiddenCanvases;
+    QHash<QString, bool> m_canvasesSeen;
     QHash<QString, Computer> m_pinComputers;
     QString m_stageKey;
     QStringList m_restoring;
@@ -135,6 +145,9 @@ private:
     qreal m_dosiWidth = 420;
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
+    void endCanvas();
+    void followCanvas(const QString& id);
+    void reconcileCanvas();
     void reconcile();
     void remember(const QString& id);
     void depart(const QString& id, qsizetype place);

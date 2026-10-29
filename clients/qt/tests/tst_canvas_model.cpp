@@ -147,6 +147,8 @@ private slots:
         QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(500, 250), wide, QSizeF(2560, 1440), picture), QPoint(640, 360));
         QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(75.8, 103.3), QSizeF(451, 690), QSizeF(500, 690), QSizeF(451, 690)),
             QPoint(84, 77));
+        QCOMPARE(kodosi::CanvasModel::pointInView(QPoint(640, 360), wide, QSizeF(2560, 1440), picture), QPointF(500, 250));
+        QCOMPARE(kodosi::CanvasModel::pointInView(QPoint(0, 0), wide, picture, picture), QPointF(55.5555555555555, 0));
     }
 
     void theBrowserGetsTheKeysOfAUsKeyboardAndOneBatchOfInputAtATime()
@@ -234,7 +236,57 @@ private slots:
         QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("javascript:alert(1)")), false));
     }
 
-    void theOpenCanvasesFollowTheirTerminals()
+    void aPartClosesOnThisDeviceUntilItChanges()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        const auto files = QStringLiteral("files");
+        const auto web = QStringLiteral("browser");
+        QJsonObject browser { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), 3 },
+            { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
+        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
+        QCOMPARE(model.sections(id), (QStringList { files, web }));
+        QCOMPARE(model.current(id), web);
+        model.close(id, web);
+        QCOMPARE(model.sections(id), QStringList { files });
+        QCOMPARE(model.closedSections(id), QStringList { web });
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
+        browser.insert(QStringLiteral("changed"), 4);
+        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
+        QCOMPARE(model.sections(id), (QStringList { files, web }));
+        model.showShelf(id, true);
+        model.close(id, files);
+        QVERIFY(!model.showsShelf(id));
+        QCOMPARE(model.closedSections(id), QStringList { files });
+        model.show(id, files);
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
+        model.showShelf(id, true);
+        model.pick(id, QStringLiteral("/work/plan.md"));
+        QVERIFY(!model.showsShelf(id));
+    }
+
+    void aPersonOpensTheBrowserAndSeesItWhenItComes()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 2) })) }));
+        QCOMPARE(model.closedSections(id), QStringList { QStringLiteral("browser") });
+        model.openBrowser(id);
+        QVERIFY(model.opensBrowser(id));
+        QCOMPARE(commands.request().value(QStringLiteral("action")).toObject().value(QStringLiteral("do")).toString(),
+            QStringLiteral("wake"));
+        const QJsonObject browser { { QStringLiteral("state"), QStringLiteral("starting") }, { QStringLiteral("changed"), 1 },
+            { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
+        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
+        QVERIFY(!model.opensBrowser(id));
+        QCOMPARE(model.current(id), QStringLiteral("browser"));
+    }
+
+    void oneCanvasOpensWithItsTerminalAloneAndHidesWithoutLeavingIt()
     {
         QTemporaryDir directory;
         kodosi::SessionCatalogModel sessions;
@@ -243,15 +295,27 @@ private slots:
         desktop.attachSessionCatalog(&sessions);
         const auto id = test::id(1);
         sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })) }));
-        desktop.toggleCanvas(id);
-        QCOMPARE(desktop.openCanvases(), QStringList { id });
+        desktop.openCanvas(id);
+        QCOMPARE(desktop.canvasSessionId(), id);
         QCOMPARE(desktop.selectedSessionId(), id);
+        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        desktop.hideCanvas();
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        desktop.openCanvas(id);
         sessions.apply(test::snapshot({ terminal({}) }));
-        QVERIFY(desktop.openCanvases().isEmpty());
+        QVERIFY(desktop.canvasSessionId().isEmpty());
         sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
-        desktop.toggleCanvas(id);
+        QCOMPARE(desktop.canvasSessionId(), id);
+        desktop.toggleFocusForSelectedSession();
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
+        sessions.apply(test::snapshot({ terminal({}) }));
+        sessions.apply(test::snapshot({ terminal(canvas(3, { item(QStringLiteral("plan.md"), 3) })) }));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        desktop.openCanvas(id);
         QVERIFY(desktop.unstageSession(id));
-        QVERIFY(desktop.openCanvases().isEmpty());
+        QVERIFY(desktop.canvasSessionId().isEmpty());
     }
 };
 

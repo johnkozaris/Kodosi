@@ -335,7 +335,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/Squircle.qml
-        qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
         qml/Controls/TerminalDragSource.qml
@@ -357,11 +356,13 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/CanvasBody.qml
         qml/Workbench/CanvasBrowser.qml
+        qml/Workbench/CanvasDock.qml
         qml/Workbench/CanvasFile.qml
-        qml/Workbench/CanvasKey.qml
         qml/Workbench/CanvasPage.qml
-        qml/Workbench/CanvasTile.qml
+        qml/Workbench/CanvasPanel.qml
+        qml/Workbench/CanvasStage.qml
         qml/Workbench/ClipboardReadDialog.qml
         qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/EffortMeter.qml
@@ -372,6 +373,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
+        qml/Workbench/RemoveKey.qml
         qml/Workbench/RoomShareDialog.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml

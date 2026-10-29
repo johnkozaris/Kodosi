@@ -117,6 +117,8 @@ bool DesktopStateModel::stageSession(const QString& id, bool revealStage)
         m_selected = id;
         emit selectedSessionIdChanged();
     }
+    if (m_mode == Focus)
+        followCanvas(id);
     if (revealStage) setActiveView(Sessions);
     clearError();
     return true;
@@ -125,27 +127,68 @@ bool DesktopStateModel::selectSession(const QString& id)
 {
     return stageSession(id, false);
 }
-void DesktopStateModel::toggleCanvas(const QString& id)
+void DesktopStateModel::openCanvas(const QString& id)
 {
-    if (m_canvases.contains(id)) {
-        closeCanvas(id);
-        return;
-    }
     if (!selectSession(id))
         return;
-    m_canvases.append(id);
-    emit openCanvasesChanged();
+    m_hiddenCanvases.remove(id);
+    if (m_mode != Focus) {
+        m_mode = Focus;
+        emit stageLayoutModeChanged();
+    }
+    const auto session = m_sessions->session(id);
+    if (session && !session->canvas.isEmpty() && m_canvas != id) {
+        m_canvas = id;
+        emit canvasChanged();
+    }
 }
-void DesktopStateModel::closeCanvas(const QString& id)
+void DesktopStateModel::hideCanvas()
 {
-    if (m_canvases.removeOne(id))
-        emit openCanvasesChanged();
+    if (m_canvas.isEmpty())
+        return;
+    m_hiddenCanvases.insert(m_canvas);
+    endCanvas();
+}
+void DesktopStateModel::endCanvas()
+{
+    if (m_canvas.isEmpty() && !m_canvasWide)
+        return;
+    m_canvas.clear();
+    m_canvasWide = false;
+    emit canvasChanged();
+}
+void DesktopStateModel::followCanvas(const QString& id)
+{
+    if (m_canvas.isEmpty() || m_canvas == id)
+        return;
+    const auto session = m_sessions ? m_sessions->session(id) : std::nullopt;
+    if (session && !session->canvas.isEmpty()) {
+        m_canvas = id;
+        emit canvasChanged();
+    } else {
+        endCanvas();
+    }
+}
+void DesktopStateModel::setCanvasWide(bool value)
+{
+    if (m_canvasWide == value || (value && m_canvas.isEmpty()))
+        return;
+    m_canvasWide = value;
+    emit canvasChanged();
+}
+void DesktopStateModel::setCanvasWidth(qreal value)
+{
+    if (qFuzzyCompare(m_canvasWidth, value))
+        return;
+    m_canvasWidth = value;
+    emit canvasChanged();
 }
 bool DesktopStateModel::unstageSession(const QString& id)
 {
     if (!m_staged.removeOne(id))
         return false;
-    closeCanvas(id);
+    if (m_canvas == id)
+        endCanvas();
     m_computers.remove(id);
     emit stagedSessionIdsChanged();
     saveStage();
@@ -159,6 +202,7 @@ bool DesktopStateModel::unstageSession(const QString& id)
 }
 void DesktopStateModel::exitFocusMode()
 {
+    endCanvas();
     if (m_mode != Grid) {
         m_mode = Grid;
         emit stageLayoutModeChanged();
@@ -167,6 +211,7 @@ void DesktopStateModel::exitFocusMode()
 void DesktopStateModel::toggleFocusForSelectedSession()
 {
     if (m_mode == Focus) {
+        hideCanvas();
         exitFocusMode();
     } else if (!m_selected.isEmpty()) {
         m_mode = Focus;
@@ -197,9 +242,12 @@ void DesktopStateModel::switchAccount(const QString& userId)
     saveStage();
     m_staged.clear();
     m_selected.clear();
-    m_canvases.clear();
+    m_canvas.clear();
+    m_canvasWide = false;
+    m_hiddenCanvases.clear();
+    m_canvasesSeen.clear();
     m_mode = Grid;
-    emit openCanvasesChanged();
+    emit canvasChanged();
     emit stagedSessionIdsChanged();
     emit selectedSessionIdChanged();
     emit stageLayoutModeChanged();
@@ -325,11 +373,7 @@ void DesktopStateModel::reconcile()
             unstageSession(id);
     }
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
-    for (const auto& id : QStringList(m_canvases)) {
-        const auto session = m_sessions->session(id);
-        if (!session || session->canvas.isEmpty())
-            closeCanvas(id);
-    }
+    reconcileCanvas();
     followPins();
     const auto followed = follow();
     const auto rank = [this](const QString& id) {
@@ -363,6 +407,23 @@ void DesktopStateModel::reconcile()
         emit this->restored(followed + restored);
     saveStage();
 }
+void DesktopStateModel::reconcileCanvas()
+{
+    QHash<QString, bool> seen;
+    for (const auto& value : m_sessions->sessions()) {
+        const auto id = value.toMap().value(QStringLiteral("id")).toString();
+        const auto session = m_sessions->session(id);
+        seen.insert(id, session && !session->canvas.isEmpty());
+    }
+    if (!m_canvas.isEmpty() && !seen.value(m_canvas))
+        endCanvas();
+    const bool appeared = seen.value(m_selected) && m_canvasesSeen.contains(m_selected) && !m_canvasesSeen.value(m_selected);
+    if (appeared && m_canvas.isEmpty() && !m_hiddenCanvases.contains(m_selected) && m_activeView == Sessions
+        && (m_mode == Focus || m_staged == QStringList { m_selected }))
+        openCanvas(m_selected);
+    m_hiddenCanvases.removeIf([&](const QString& id) { return !seen.contains(id); });
+    m_canvasesSeen = seen;
+}
 void DesktopStateModel::remember(const QString& id)
 {
     if (const auto session = m_sessions ? m_sessions->session(id) : std::nullopt)
@@ -380,7 +441,8 @@ void DesktopStateModel::depart(const QString& id, qsizetype place)
     if (m_departures.size() > 64)
         m_departures.removeFirst();
     m_staged.removeAt(place);
-    closeCanvas(id);
+    if (m_canvas == id)
+        endCanvas();
     emit stagedSessionIdsChanged();
     if (selected) {
         m_selected.clear();

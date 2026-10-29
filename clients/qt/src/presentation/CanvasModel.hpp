@@ -7,6 +7,7 @@
 #include <QList>
 #include <QObject>
 #include <QPoint>
+#include <QSet>
 #include <QSizeF>
 #include <QStringList>
 #include <QUrl>
@@ -38,6 +39,14 @@ public:
     [[nodiscard]] int revision() const { return m_revision; }
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
+    Q_INVOKABLE [[nodiscard]] QStringList sections(const QString& sessionId) const;
+    Q_INVOKABLE [[nodiscard]] QStringList closedSections(const QString& sessionId) const;
+    Q_INVOKABLE void close(const QString& sessionId, const QString& section);
+    Q_INVOKABLE void show(const QString& sessionId, const QString& section);
+    Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
+    Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
+    Q_INVOKABLE void openBrowser(const QString& sessionId);
+    Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool hasNews(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
@@ -59,6 +68,7 @@ public:
     Q_INVOKABLE void act(const QString& sessionId, const QVariantMap& action);
     Q_INVOKABLE void wake(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] QVariantMap picture(const QString& sessionId) const;
+    Q_INVOKABLE [[nodiscard]] QVariant viewPoint(const QString& sessionId, int x, int y) const;
     Q_INVOKABLE void pointer(const QString& sessionId, const QString& type, qreal x, qreal y, int button, int clicks,
         int modifiers);
     Q_INVOKABLE void wheel(const QString& sessionId, qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers);
@@ -71,6 +81,7 @@ public:
     void reset();
 
     [[nodiscard]] static std::optional<QPoint> browserPoint(QPointF point, QSizeF view, QSizeF picture, QSizeF browser);
+    [[nodiscard]] static std::optional<QPointF> pointInView(QPoint point, QSizeF view, QSizeF picture, QSizeF browser);
     [[nodiscard]] static std::optional<BrowserKey> browserKey(int key);
     [[nodiscard]] static QString about(const QString& place, const QString& words);
     [[nodiscard]] static bool followable(const QUrl& link, bool otherComputer);
@@ -134,6 +145,10 @@ private:
     QHash<QString, quint64> m_firstSeen;
     QHash<QString, quint64> m_sequences;
     QHash<QString, QString> m_picks;
+    QHash<QString, QString> m_lastFiles;
+    QHash<QString, QHash<QString, quint64>> m_closed;
+    QSet<QString> m_opening;
+    QSet<QString> m_shelves;
     QHash<QString, Stored> m_stored;
     QStringList m_storedOrder;
     QHash<QString, Reading> m_readings;
@@ -143,6 +158,9 @@ private:
     int m_publishedCount = 0;
 
     [[nodiscard]] QList<Shown> shown(const QString& sessionId) const;
+    [[nodiscard]] QStringList present(const QString& sessionId) const;
+    [[nodiscard]] quint64 changedOf(const QString& sessionId, const QString& section) const;
+    [[nodiscard]] static QString sectionOf(const QString& key);
     [[nodiscard]] QVariantMap item(const QString& sessionId, const QString& key) const;
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();

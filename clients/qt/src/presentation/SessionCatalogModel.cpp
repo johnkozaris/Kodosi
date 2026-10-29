@@ -505,6 +505,8 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
         const auto tabs = browser.value(QStringLiteral("tabs"));
         const auto last = browser.value(QStringLiteral("last"));
         const auto problem = browser.value(QStringLiteral("problem"));
+        const auto doing = browser.value(QStringLiteral("doing"));
+        const auto point = doing.toObject().value(QStringLiteral("point"));
         if (!browserValue.isObject()
             || !QStringList { QStringLiteral("starting"), QStringLiteral("awake"), QStringLiteral("asleep") }
                     .contains(browser.value(QStringLiteral("state")).toString())
@@ -515,7 +517,15 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
                 && (!last.isObject() || !text(last.toObject().value(QStringLiteral("agent")), 512)
                     || !last.toObject().value(QStringLiteral("words")).isString()
                     || last.toObject().value(QStringLiteral("words")).toString().size() > 512))
-            || (!problem.isUndefined() && !problem.isNull() && !text(problem, 1024)))
+            || (!problem.isUndefined() && !problem.isNull() && !text(problem, 1024))
+            || (!doing.isUndefined() && !doing.isNull()
+                && (!doing.isObject() || !text(doing.toObject().value(QStringLiteral("agent")), 512)
+                    || !QStringList { QStringLiteral("open"), QStringLiteral("click"), QStringLiteral("type"),
+                        QStringLiteral("scroll"), QStringLiteral("read"), QStringLiteral("wait"), QStringLiteral("other") }
+                            .contains(doing.toObject().value(QStringLiteral("kind")).toString())
+                    || (!point.isUndefined() && !point.isNull()
+                        && (!point.isObject() || !count(point.toObject().value(QStringLiteral("x")))
+                            || !count(point.toObject().value(QStringLiteral("y"))))))))
             return std::nullopt;
         for (const auto& entry : tabs.toArray()) {
             const auto tab = entry.toObject();

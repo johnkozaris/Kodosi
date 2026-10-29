@@ -4,6 +4,7 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 // The shared browser of a terminal: the bar, and the picture that people click and type in.
@@ -190,6 +191,7 @@ Item {
             onWidthChanged: root.resized()
             onHeightChanged: root.resized()
             Keys.onPressed: event => {
+                pointer.shown = null;
                 if (event.matches(StandardKey.Paste)) {
                     Models.Canvas.paste(root.sessionId);
                     event.accepted = true;
@@ -219,6 +221,7 @@ Item {
 
                 onPressed: mouse => {
                     surface.forceActiveFocus();
+                    pointer.shown = null;
                     root.press(mouse);
                 }
                 onReleased: mouse => Models.Canvas.pointer(root.sessionId, "mouseReleased", mouse.x, mouse.y, mouse.button, root.clicks, mouse.modifiers)
@@ -227,7 +230,117 @@ Item {
                         : mouse.buttons & Qt.MiddleButton ? Qt.MiddleButton : Qt.NoButton;
                     Models.Canvas.pointer(root.sessionId, "mouseMoved", mouse.x, mouse.y, held, 0, mouse.modifiers);
                 }
-                onWheel: wheel => Models.Canvas.wheel(root.sessionId, wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers)
+                onWheel: wheel => {
+                    pointer.shown = null;
+                    Models.Canvas.wheel(root.sessionId, wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers);
+                }
+            }
+            Item {
+                id: pointer
+
+                readonly property var doing: root.browser.doing || null
+                readonly property string doingKey: doing ? JSON.stringify(doing) : ""
+                readonly property string page: root.activeTab ? root.activeTab.url || "" : ""
+                property var shown: null
+                property real atX: 0
+                property real atY: 0
+                readonly property string kind: {
+                    const name = (shown ? shown.agent : "").toLowerCase();
+                    return ["claude", "codex", "copilot", "cursor", "gemini", "opencode"].find(kind => name.indexOf(kind) >= 0) || "shell";
+                }
+                readonly property color tint: Identity.kindTint(kind)
+
+                function place() {
+                    if (!doing || !doing.point)
+                        return;
+                    const at = Models.Canvas.viewPoint(root.sessionId, doing.point.x, doing.point.y);
+                    if (at === undefined || at === null)
+                        return;
+                    glide.enabled = shown !== null;
+                    atX = at.x;
+                    atY = at.y;
+                    shown = doing;
+                    if (doing.kind === "click" && !KodosiTheme.reduceMotion)
+                        ring.restart();
+                }
+
+                anchors.fill: parent
+                enabled: false
+                opacity: shown ? 1 : 0
+                visible: opacity > 0
+                Accessible.ignored: true
+                onDoingKeyChanged: doing ? place() : leave.restart()
+                onPageChanged: shown = null
+
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                Timer {
+                    id: leave
+
+                    interval: 1000
+                    onTriggered: {
+                        if (!root.browser.doing)
+                            pointer.shown = null;
+                    }
+                }
+                Item {
+                    x: pointer.atX
+                    y: pointer.atY
+
+                    Behavior on x { id: glide; NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } }
+                    Behavior on y { enabled: glide.enabled; NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } }
+
+                    Rectangle {
+                        id: ringShape
+
+                        x: -17
+                        y: -17
+                        width: 34
+                        height: 34
+                        radius: 17
+                        color: "transparent"
+                        border.width: 2
+                        border.color: pointer.tint
+                        opacity: 0
+                        scale: 0.3
+
+                        SequentialAnimation {
+                            id: ring
+
+                            PauseAnimation { duration: 240 }
+                            ParallelAnimation {
+                                NumberAnimation { target: ringShape; property: "scale"; from: 0.3; to: 1.25; duration: 420; easing.type: Easing.OutCubic }
+                                SequentialAnimation {
+                                    NumberAnimation { target: ringShape; property: "opacity"; from: 0; to: 0.9; duration: 40 }
+                                    NumberAnimation { target: ringShape; property: "opacity"; to: 0; duration: 380; easing.type: Easing.OutCubic }
+                                }
+                            }
+                        }
+                    }
+                    Shape {
+                        width: 15
+                        height: 21
+                        scale: pointer.shown && root.browser.doing && root.browser.doing.kind === "click" ? 0.86 : 1
+                        transformOrigin: Item.TopLeft
+                        preferredRendererType: Shape.CurveRenderer
+
+                        ShapePath {
+                            fillColor: pointer.tint
+                            strokeColor: "#ffffff"
+                            strokeWidth: 1.4
+                            joinStyle: ShapePath.RoundJoin
+
+                            PathSvg { path: "M 0 0 L 0 17 L 4.3 13.2 L 7.4 20 L 10.4 18.7 L 7.4 12.1 L 13 12.1 Z" }
+                        }
+                    }
+                    AgentMark {
+                        x: 13
+                        y: 17
+                        program: pointer.kind
+                        size: 18
+                        working: root.browser.doing !== undefined && root.browser.doing !== null
+                    }
+                }
             }
             EmptyState {
                 anchors.centerIn: parent

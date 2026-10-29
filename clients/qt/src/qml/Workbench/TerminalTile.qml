@@ -4,12 +4,15 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
 
     property bool roomEmbedded: false
+    property bool joined: false
+    property bool canvasOpen: false
     property bool accessibilitySuppressed: false
     property bool interactionEnabled: true
     readonly property bool active: Models.DesktopState.selectedSessionId === sessionId
@@ -33,6 +36,7 @@ Item {
 
     signal inspectSessionRequested(string sessionId)
     signal shareSessionRequested(string sessionId)
+    signal canvasRequested(string section)
 
     function bindTerminal() {
         terminalError = "";
@@ -117,6 +121,7 @@ Item {
     HoverHandler { id: tileHover }
     Raised {
         anchors.fill: parent
+        visible: !root.joined
         radius: KodosiTheme.radiusTile
         fill: KodosiTheme.terminal
         rim: false
@@ -127,10 +132,10 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 36
+            Layout.preferredHeight: root.joined ? 38 : 36
             topLeftRadius: KodosiTheme.radiusTile
             topRightRadius: KodosiTheme.radiusTile
-            color: root.active ? KodosiTheme.terminalBandSelected : KodosiTheme.terminalBand
+            color: root.joined ? "transparent" : root.active ? KodosiTheme.terminalBandSelected : KodosiTheme.terminalBand
 
             TapHandler { onTapped: root.select() }
             TerminalDragSource {
@@ -140,37 +145,92 @@ Item {
             }
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 9
-                anchors.rightMargin: 6
+                anchors.leftMargin: root.roomEmbedded ? 11 : 9
+                anchors.rightMargin: root.canvasOpen ? 16 : 6
                 spacing: 8
 
                 AgentMark {
+                    visible: !root.roomEmbedded
                     program: root.session.program || ""
                     size: 20
                     session: root.session
                 }
                 PlainLabel {
                     Layout.maximumWidth: Math.max(80, root.width * 0.4)
+                    visible: !root.roomEmbedded
                     text: root.sessionName
                     color: KodosiTheme.terminalInk
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
-                Rectangle {
-                    Layout.maximumWidth: Math.max(60, root.width * 0.25)
-                    implicitWidth: placeTag.implicitWidth + 14
-                    implicitHeight: 18
-                    radius: height / 2
-                    color: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.07)
-                    visible: placeTag.shown
+                RowLayout {
+                    id: location
 
-                    SessionPlace {
-                        id: placeTag
-                        anchors.fill: parent
-                        anchors.leftMargin: 7
-                        anchors.rightMargin: 7
-                        session: root.session
+                    readonly property string host: root.roomEmbedded || root.session.kind === "remote" ? root.session.hostLabel || "" : ""
+                    readonly property string place: root.roomEmbedded ? root.session.folderName || "" : root.session.placeName || ""
+                    readonly property string placeGlyph: root.roomEmbedded ? "folder" : root.session.placeKind === "container" ? "container"
+                        : root.session.placeKind === "vm" ? "cube" : "server"
+
+                    Layout.maximumWidth: Math.max(80, root.width * 0.45)
+                    visible: host.length > 0 || place.length > 0
+                    spacing: 4
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: host.length > 0 && place.length > 0 ? qsTr("%1 on %2").arg(place).arg(host) : host + place
+                    ToolTip.text: root.roomEmbedded ? root.session.displayDirectory || host : root.session.placeLabel || host
+                    ToolTip.visible: locationHover.hovered && ToolTip.text.length > 0
+                    ToolTip.delay: Tip.delay
+
+                    HoverHandler { id: locationHover }
+                    KIcon {
+                        Layout.preferredWidth: 11
+                        Layout.preferredHeight: 11
+                        visible: location.host.length > 0
+                        name: "laptop"
+                        strokeWidth: 2.2
                         color: KodosiTheme.terminalInkMuted
+                    }
+                    PlainLabel {
+                        visible: location.host.length > 0
+                        text: location.host
+                        color: KodosiTheme.terminalInkMuted
+                        font.pixelSize: KodosiTheme.fontCaption
+                        font.weight: Font.Medium
+                    }
+                    Shape {
+                        Layout.preferredWidth: 10
+                        Layout.preferredHeight: 11
+                        Layout.leftMargin: 2
+                        Layout.rightMargin: 2
+                        Layout.topMargin: -4
+                        visible: location.host.length > 0 && location.place.length > 0
+                        preferredRendererType: Shape.CurveRenderer
+
+                        ShapePath {
+                            strokeColor: KodosiTheme.terminalInkFaint
+                            strokeWidth: 1.2
+                            fillColor: "transparent"
+                            capStyle: ShapePath.RoundCap
+                            joinStyle: ShapePath.RoundJoin
+
+                            PathSvg { path: "M 2 1.1 L 2 4.95 Q 2 8.8 5.5 8.8 L 10 8.8" }
+                        }
+                    }
+                    KIcon {
+                        Layout.preferredWidth: 11
+                        Layout.preferredHeight: 11
+                        visible: location.place.length > 0
+                        name: location.placeGlyph
+                        strokeWidth: 2.2
+                        color: KodosiTheme.mix(KodosiTheme.terminalInk, KodosiTheme.terminalInkMuted, 0.35)
+                    }
+                    PlainLabel {
+                        Layout.fillWidth: true
+                        visible: location.place.length > 0
+                        text: location.place
+                        color: KodosiTheme.mix(KodosiTheme.terminalInk, KodosiTheme.terminalInkMuted, 0.35)
+                        font.pixelSize: KodosiTheme.fontCaption
+                        font.weight: Font.Medium
+                        elide: Text.ElideMiddle
                     }
                 }
                 ActivityLine {
@@ -200,31 +260,125 @@ Item {
                     limit: 3
                     ring: KodosiTheme.terminalBand
                 }
-                CanvasKey {
-                    Accessible.id: objectName
-                    objectName: root.objectName + ".canvas"
+                CanvasDock {
                     sessionId: root.sessionId
-                    visible: !!root.session.canvas && !root.roomEmbedded
-                    active: Models.DesktopState.openCanvases.indexOf(root.sessionId) >= 0
-                    onClicked: Models.DesktopState.toggleCanvas(root.sessionId)
+                    identifier: root.objectName + ".canvas"
+                    visible: !!root.session.canvas && !root.canvasOpen
+                    onPressed: section => root.canvasRequested(section)
                 }
                 Row {
                     spacing: 0
-                    opacity: tileHover.hovered || root.active ? 1 : 0.35
+                    opacity: tileHover.hovered || root.active && !root.joined ? 1 : 0.35
 
                     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
-                    Repeater {
-                        model: root.session.atPrompt === true ? Models.Launcher.agents.filter(agent => agent.installed) : []
+                    AbstractButton {
+                        id: actionsKey
 
-                        delegate: StartMark {
-                            required property var modelData
+                        implicitWidth: 26
+                        implicitHeight: 26
+                        hoverEnabled: true
+                        activeFocusOnTab: true
+                        scale: pressed ? 0.9 : 1
+                        objectName: root.objectName + ".actions"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Actions")
+                        ToolTip.text: Accessible.name
+                        ToolTip.visible: hovered && !actionsMenu.visible
+                        ToolTip.delay: Tip.delay
 
-                            agent: modelData.agent
-                            onTerminal: true
-                            objectName: root.objectName + ".start." + modelData.agent
-                            Accessible.id: objectName
-                            onClicked: Models.SessionActions.startAgent(root.sessionId, modelData.agent)
+                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
+                        contentItem: Item {
+                            KIcon {
+                                anchors.centerIn: parent
+                                width: 14
+                                height: 14
+                                name: "sliders"
+                                strokeWidth: 1.9
+                                color: KodosiTheme.terminalAccentStrong
+                            }
+                        }
+                        background: Rectangle {
+                            radius: KodosiTheme.radiusXs
+                            color: actionsKey.hovered || actionsMenu.visible ? KodosiTheme.terminalAccentSoft : "transparent"
+                            border.width: actionsKey.visualFocus ? 1.5 : 0
+                            border.color: KodosiTheme.terminalAccentStrong
+
+                            Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+                        }
+                        onClicked: actionsMenu.popup(actionsKey, actionsKey.width - actionsMenu.width, actionsKey.height + 4)
+
+                        KMenu {
+                            id: actionsMenu
+
+                            readonly property var agents: root.session.atPrompt === true ? Models.Launcher.agents.filter(agent => agent.installed) : []
+
+                            PlainLabel {
+                                visible: actionsMenu.agents.length > 0
+                                height: visible ? implicitHeight : 0
+                                leftPadding: 10
+                                topPadding: 4
+                                bottomPadding: 2
+                                text: qsTr("Start an agent")
+                                color: KodosiTheme.inkFaint
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.Medium
+                            }
+                            Instantiator {
+                                model: actionsMenu.agents
+                                onObjectAdded: (index, item) => actionsMenu.insertItem(index + 1, item)
+                                onObjectRemoved: (index, item) => actionsMenu.removeItem(item)
+                                delegate: KMenuItem {
+                                    required property var modelData
+
+                                    text: Models.DesktopSettings.agentLabel(modelData.agent)
+                                    agent: modelData.agent
+                                    objectName: root.objectName + ".start." + modelData.agent
+                                    onTriggered: Models.SessionActions.startAgent(root.sessionId, modelData.agent)
+                                }
+                            }
+                            MenuSeparator {
+                                visible: actionsMenu.agents.length > 0
+                                height: visible ? implicitHeight : 0
+                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                            }
+                            KMenuItem {
+                                text: qsTr("Share…")
+                                iconName: "share"
+                                visible: root.shareable
+                                objectName: root.objectName + ".share"
+                                onTriggered: root.shareSessionRequested(root.sessionId)
+                            }
+                            KMenuItem {
+                                text: qsTr("Open Browser")
+                                iconName: "globe"
+                                visible: root.session.canControl === true
+                                objectName: root.objectName + ".browser"
+                                onTriggered: {
+                                    Models.Canvas.openBrowser(root.sessionId);
+                                    root.canvasRequested("");
+                                }
+                            }
+                            KMenuItem {
+                                text: qsTr("Details")
+                                iconName: "info"
+                                objectName: root.objectName + ".details"
+                                onTriggered: root.inspectSessionRequested(root.sessionId)
+                            }
+                            MenuSeparator {
+                                visible: root.roomEmbedded && root.session.isOwner === true
+                                height: visible ? implicitHeight : 0
+                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                            }
+                            KMenuItem {
+                                text: qsTr("Remove from room")
+                                iconName: "leave"
+                                destructive: true
+                                visible: root.roomEmbedded && root.session.isOwner === true
+                                objectName: root.objectName + ".removeFromRoom"
+                                onTriggered: Models.SessionActions.attachMission(root.sessionId, "")
+                            }
                         }
                     }
                     KIconButton {
@@ -238,29 +392,11 @@ Item {
                     }
                     KIconButton {
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Share")
-                        glyph: "share"
-                        size: 26
-                        onTerminal: true
-                        objectName: root.objectName + ".share"
-                        visible: root.shareable
-                        onClicked: root.shareSessionRequested(root.sessionId)
-                    }
-                    KIconButton {
-                        Accessible.id: objectName
-                        Accessible.name: qsTr("Details")
-                        glyph: "info"
-                        size: 26
-                        onTerminal: true
-                        objectName: root.objectName + ".details"
-                        onClicked: root.inspectSessionRequested(root.sessionId)
-                    }
-                    KIconButton {
-                        Accessible.id: objectName
                         Accessible.name: qsTr("Minimize")
                         glyph: "minus"
                         size: 26
                         onTerminal: true
+                        visible: !root.canvasOpen
                         objectName: root.objectName + ".minimize"
                         onClicked: Models.SessionActions.minimize(root.sessionId)
                     }
@@ -272,7 +408,7 @@ Item {
                         onTerminal: true
                         active: root.zoomed
                         objectName: root.objectName + ".focus"
-                        visible: !root.roomEmbedded
+                        visible: !root.roomEmbedded && !root.canvasOpen
 
                         onClicked: {
                             Models.DesktopState.selectSession(root.sessionId);
@@ -422,6 +558,7 @@ Item {
     }
     Rectangle {
         anchors.fill: parent
+        visible: !root.joined
         radius: KodosiTheme.radiusTile
         color: "transparent"
         border.width: 1
@@ -478,6 +615,7 @@ Item {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
             fill: KodosiTheme.terminalLifted
+            dark: true
             elevation: 2
         }
         RowLayout {

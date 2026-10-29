@@ -23,7 +23,7 @@ AbstractButton {
     scale: pressed && enabled ? 0.95 : 1
     Accessible.selected: active
     ToolTip.text: Accessible.name
-    ToolTip.visible: hovered && ToolTip.text.length > 0
+    ToolTip.visible: hovered && !open && ToolTip.text.length > 0
     ToolTip.delay: Tip.delay
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
@@ -47,6 +47,7 @@ AbstractButton {
             anchors.fill: parent
             radius: root.radius
             fill: root.onTerminal ? KodosiTheme.terminalLifted : KodosiTheme.raised
+            dark: root.onTerminal || KodosiTheme.isDark
             opacity: root.active || root.open ? 1 : 0
             visible: opacity > 0
 
@@ -56,6 +57,7 @@ AbstractButton {
             anchors.fill: parent
             radius: root.radius
             quiet: true
+            dark: root.onTerminal || KodosiTheme.isDark
             pressed: root.pressed
             fill: root.lit && root.destructive ? KodosiTheme.dangerSoft
                 : root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : KodosiTheme.buttonFace(true)

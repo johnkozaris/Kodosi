@@ -115,7 +115,8 @@ bool SessionActionsModel::activateInRoom(const QString& id)
     if (opened) {
         m_workspace.missions().setPresentation(QStringLiteral("terminal"), id);
         m_workspace.missions().setPresentation(QStringLiteral("section"), 0);
-        m_workspace.missions().setPresentation(QStringLiteral("showsCanvas"), false);
+        if (const auto session = m_sessions.session(id); !session || session->canvas.isEmpty())
+            m_workspace.missions().setPresentation(QStringLiteral("showsCanvas"), false);
         m_desktop.setActiveView(DesktopStateModel::Missions);
     }
     return opened;
