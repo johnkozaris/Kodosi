@@ -70,11 +70,8 @@ struct CanvasScreen: View {
                     } else if let session, let current, let frame {
                         CanvasItemView(session: session, shown: current, store: store, frame: frame, typing: typing,
                                        ask: ask(current, in: session))
-                        {
-                            remove([CanvasShown.browserKey], from: session)
-                        }
-                        .id(current.key)
-                        .transition(.opacity)
+                            .id(current.key)
+                            .transition(.opacity)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
@@ -95,8 +92,17 @@ struct CanvasScreen: View {
                     ToolbarItem(placement: .principal) {
                         CanvasDock(session: session, store: store, chosen: current?.section, identifier: "canvas.key") { section in
                             store.show(section, in: session)
-                        } open: { _ in
-                            openBrowser(of: session)
+                        } close: { section in
+                            store.close(section, in: session)
+                            if store.sections(session).isEmpty {
+                                dismiss()
+                            }
+                        } open: { section in
+                            if section == .browser {
+                                openBrowser(of: session)
+                            } else {
+                                store.show(section, in: session)
+                            }
                         }
                     }
                 }
@@ -153,6 +159,10 @@ struct CanvasScreen: View {
     }
 
     private func openBrowser(of session: RuntimeSession) {
+        if session.canvas?.browser != nil {
+            store.show(.browser, in: session)
+            return
+        }
         Task {
             do {
                 try await store.openBrowser(in: session.id)

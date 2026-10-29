@@ -196,7 +196,7 @@ private struct TerminalScreenContent: View {
                         sessionName: session.name,
                         accessibilityIdentifier: "terminal.surface",
                         shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType,
-                        allowsFocus: controller.allowsKeyboard,
+                        allowsFocus: controller.allowsKeyboard && !canvasOpen,
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         otherComputer: session.otherComputer,

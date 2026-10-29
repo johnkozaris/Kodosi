@@ -156,6 +156,7 @@ public struct CanvasDock: View {
                 Button { close(section) } label: { Text("Close", bundle: .module) }
             }
         }
+        .modifier(CloseMenu(close: close.map { close in { close(section) } }))
         .overlay(alignment: .trailing) {
             if closing, let close {
                 RemoveKey(size: 14, title: String(localized: "Close", bundle: .module),
@@ -207,6 +208,23 @@ public struct CanvasDock: View {
                 .accessibilityLabel(Text("Open", bundle: .module))
                 .accessibilityIdentifier("\(identifier).open")
         #endif
+    }
+}
+
+/// Closes a part from the menu of its key too, for a touch screen that has no pointer.
+private struct CloseMenu: ViewModifier {
+    let close: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let close {
+            content.contextMenu {
+                Button(action: close) {
+                    Label { Text("Close", bundle: .module) } icon: { Image(systemName: "xmark") }
+                }
+            }
+        } else {
+            content
+        }
     }
 }
 
