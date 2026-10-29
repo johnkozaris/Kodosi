@@ -278,10 +278,10 @@ Item {
                                         onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
                                     }
                                     Loader {
-                                        x: cell.wide ? terminalTile.width + cell.gap : 0
-                                        y: cell.wide ? 0 : terminalTile.height + cell.gap
-                                        width: terminalTile.width
-                                        height: terminalTile.height
+                                        x: cell.wide ? width + cell.gap : 0
+                                        y: cell.wide ? 0 : height + cell.gap
+                                        width: cell.wide ? (cell.width - cell.gap) / 2 : cell.width
+                                        height: cell.wide ? cell.height : (cell.height - cell.gap) / 2
                                         active: cell.canvasOpen
                                         sourceComponent: CanvasTile {
                                             sessionId: cell.sessionId
