@@ -19,6 +19,7 @@ set_tests_properties(kodosi-runtime-tests PROPERTIES
     ENVIRONMENT_MODIFICATION "${KODOSI_TEST_ENVIRONMENT_MODIFICATION}")
 
 kodosi_test(kodosi-workspace-tests tst_workspace.cpp)
+kodosi_test(kodosi-canvas-model-tests tst_canvas_model.cpp)
 kodosi_test(kodosi-dosi-model-tests tst_dosi_model.cpp)
 kodosi_test(kodosi-keyed-list-tests tst_keyed_list.cpp)
 kodosi_test(kodosi-provider-models-tests tst_provider_models.cpp)

@@ -11,12 +11,15 @@ toolchain, Python 3, `uv`, `just`, a desktop D-Bus session and these libraries:
 ```sh
 sudo apt-get install build-essential git curl unzip zstd pkg-config \
   libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev libfontconfig1-dev \
-  libglib2.0-dev libdbus-1-3 dbus-x11 libxcb-cursor0 libxkbcommon-x11-0
+  libglib2.0-dev libdbus-1-3 dbus-x11 libxcb-cursor0 libxkbcommon-x11-0 \
+  libnss3 libasound2t64 libgbm1 libxcb-dri3-0 libxcomposite1 libxdamage1 \
+  libxrandr2 libxtst6 libxkbfile1
 just linux-build
 ./clients/qt/build/dev/src/kodosi-qt
 ```
 
-The first build puts the pinned Qt, CMake, Ninja and Python tools in `.tools/` here.
+The first build puts the pinned Qt with Qt WebEngine, CMake, Ninja and Python tools in
+`.tools/` here, and builds the pinned agent-browser of the shared browser next to the app.
 `just linux-check` builds, tests and lints. Here, `just release-package` makes the
 Debian, Arch and portable packages in `build/release/`; it needs `patchelf`, `dpkg-deb`,
 `binutils`, `zstd`, `desktop-file-utils` and `appstream`. The Debian package needs

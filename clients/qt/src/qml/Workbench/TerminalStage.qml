@@ -248,18 +248,47 @@ Item {
                             Component {
                                 id: tileComponent
 
-                                TerminalTile {
-                                    sessionId: layoutEntry.sessionId
-                                    interactionEnabled: root.interactionEnabled && layoutEntry.entryVisible
-                                    accessibilitySuppressed:
-                                        !layoutEntry.entryVisible
-                                    zoomed:
-                                        root.focusMode
-                                        && layoutEntry.sessionId
-                                            === Models.DesktopState
-                                                .selectedSessionId
-                                    onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
-                                    onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
+                                Item {
+                                    id: cell
+
+                                    readonly property string sessionId: layoutEntry.sessionId
+                                    readonly property bool canvasOpen: Models.DesktopState.openCanvases.indexOf(sessionId) >= 0
+                                    readonly property bool wide: width >= height
+                                    readonly property real gap: 6
+
+                                    function forceTerminalFocus() {
+                                        terminalTile.forceTerminalFocus()
+                                    }
+
+                                    TerminalTile {
+                                        id: terminalTile
+
+                                        width: cell.canvasOpen && cell.wide ? (cell.width - cell.gap) / 2 : cell.width
+                                        height: cell.canvasOpen && !cell.wide ? (cell.height - cell.gap) / 2 : cell.height
+                                        sessionId: cell.sessionId
+                                        interactionEnabled: root.interactionEnabled && layoutEntry.entryVisible
+                                        accessibilitySuppressed:
+                                            !layoutEntry.entryVisible
+                                        zoomed:
+                                            root.focusMode
+                                            && cell.sessionId
+                                                === Models.DesktopState
+                                                    .selectedSessionId
+                                        onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
+                                        onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
+                                    }
+                                    Loader {
+                                        x: cell.wide ? terminalTile.width + cell.gap : 0
+                                        y: cell.wide ? 0 : terminalTile.height + cell.gap
+                                        width: terminalTile.width
+                                        height: terminalTile.height
+                                        active: cell.canvasOpen
+                                        sourceComponent: CanvasTile {
+                                            sessionId: cell.sessionId
+                                            onCloseRequested: Models.DesktopState.closeCanvas(cell.sessionId)
+                                            onAsked: terminalTile.forceTerminalFocus()
+                                        }
+                                    }
                                 }
                             }
 

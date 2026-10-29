@@ -200,6 +200,14 @@ Item {
                     limit: 3
                     ring: KodosiTheme.terminalBand
                 }
+                CanvasKey {
+                    Accessible.id: objectName
+                    objectName: root.objectName + ".canvas"
+                    sessionId: root.sessionId
+                    visible: !!root.session.canvas && !root.roomEmbedded
+                    active: Models.DesktopState.openCanvases.indexOf(root.sessionId) >= 0
+                    onClicked: Models.DesktopState.toggleCanvas(root.sessionId)
+                }
                 Row {
                     spacing: 0
                     opacity: tileHover.hovered || root.active ? 1 : 0.35

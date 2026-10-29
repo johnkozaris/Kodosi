@@ -23,6 +23,7 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(QString selectedSessionId READ selectedSessionId NOTIFY selectedSessionIdChanged)
     Q_PROPERTY(QStringList stagedSessionIds READ stagedSessionIds NOTIFY stagedSessionIdsChanged)
     Q_PROPERTY(QStringList pinnedSessionIds READ pinnedSessionIds NOTIFY pinnedSessionIdsChanged)
+    Q_PROPERTY(QStringList openCanvases READ openCanvases NOTIFY openCanvasesChanged)
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
@@ -46,6 +47,9 @@ public:
     QStringList pinnedSessionIds() const { return m_pins; }
     Q_INVOKABLE void togglePin(const QString& id);
     Q_INVOKABLE bool moveStaged(const QString& id, const QString& target);
+    QStringList openCanvases() const { return m_canvases; }
+    Q_INVOKABLE void toggleCanvas(const QString& id);
+    Q_INVOKABLE void closeCanvas(const QString& id);
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }
     void setActiveView(ActiveView value);
@@ -82,6 +86,7 @@ signals:
     void selectedSessionIdChanged();
     void stagedSessionIdsChanged();
     void pinnedSessionIdsChanged();
+    void openCanvasesChanged();
     void stageLayoutModeChanged();
     void lastErrorChanged();
     void modalOpenChanged();
@@ -110,6 +115,7 @@ private:
     QString m_selected;
     QStringList m_staged;
     QStringList m_pins;
+    QStringList m_canvases;
     QHash<QString, Computer> m_pinComputers;
     QString m_stageKey;
     QStringList m_restoring;

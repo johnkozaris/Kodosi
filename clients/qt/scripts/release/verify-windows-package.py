@@ -42,11 +42,15 @@ REQUIRED_FILES = (
     "qt.conf",
     "plugins/platforms/qwindows.dll",
     "resources.pri",
+    "QtWebEngineProcess.exe",
+    "resources/qtwebengine_resources.pak",
+    "translations/qtwebengine_locales/en-US.pak",
 )
 # Windows may hold an older copy of the C runtime.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
-QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg")
+QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel", "qtwebengine")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
+CHROMIUM_SBOMS = ("qtwebengine-chromium-pdf", "qtwebengine-chromium-webengine")
 
 Reader = Callable[[str], bytes]
 
@@ -222,10 +226,10 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
         for path in qt_licenses.rglob("*")
         if path.is_file()
     }
-    for module in QT_SBOM_MODULES:
-        for suffix in QT_SBOM_FORMATS:
-            sbom = f"{module}-{qt_version}.{suffix}"
-            expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
+    sboms = [f"{module}-{qt_version}.{suffix}" for module in QT_SBOM_MODULES for suffix in QT_SBOM_FORMATS]
+    sboms += [f"{part}-{qt_version}.{suffix}" for part in CHROMIUM_SBOMS for suffix in ("spdx", "spdx.json")]
+    for sbom in sboms:
+        expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
     if {name for name in files if name.startswith("doc/qt/")} != set(expected):
         fail("the Qt notices and SBOMs are incomplete or have extra files")
     for name, source in expected.items():

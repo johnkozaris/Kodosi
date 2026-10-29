@@ -125,10 +125,27 @@ bool DesktopStateModel::selectSession(const QString& id)
 {
     return stageSession(id, false);
 }
+void DesktopStateModel::toggleCanvas(const QString& id)
+{
+    if (m_canvases.contains(id)) {
+        closeCanvas(id);
+        return;
+    }
+    if (!selectSession(id))
+        return;
+    m_canvases.append(id);
+    emit openCanvasesChanged();
+}
+void DesktopStateModel::closeCanvas(const QString& id)
+{
+    if (m_canvases.removeOne(id))
+        emit openCanvasesChanged();
+}
 bool DesktopStateModel::unstageSession(const QString& id)
 {
     if (!m_staged.removeOne(id))
         return false;
+    closeCanvas(id);
     m_computers.remove(id);
     emit stagedSessionIdsChanged();
     saveStage();
@@ -180,7 +197,9 @@ void DesktopStateModel::switchAccount(const QString& userId)
     saveStage();
     m_staged.clear();
     m_selected.clear();
+    m_canvases.clear();
     m_mode = Grid;
+    emit openCanvasesChanged();
     emit stagedSessionIdsChanged();
     emit selectedSessionIdChanged();
     emit stageLayoutModeChanged();
@@ -306,6 +325,11 @@ void DesktopStateModel::reconcile()
             unstageSession(id);
     }
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
+    for (const auto& id : QStringList(m_canvases)) {
+        const auto session = m_sessions->session(id);
+        if (!session || session->canvas.isEmpty())
+            closeCanvas(id);
+    }
     followPins();
     const auto followed = follow();
     const auto rank = [this](const QString& id) {
@@ -356,6 +380,7 @@ void DesktopStateModel::depart(const QString& id, qsizetype place)
     if (m_departures.size() > 64)
         m_departures.removeFirst();
     m_staged.removeAt(place);
+    closeCanvas(id);
     emit stagedSessionIdsChanged();
     if (selected) {
         m_selected.clear();

@@ -13,7 +13,7 @@ Item {
     readonly property var room: Models.Missions.room
     readonly property var members: Models.Missions.members
     readonly property var sessionIds: Models.Missions.sessionIds
-    readonly property int canvas: presentation.canvas || 0
+    readonly property int section: presentation.section || 0
     readonly property bool conversation: presentation.conversation !== false
     readonly property bool narrow: width < 720
     readonly property bool owner: mission.ownerUserId === Models.Account.userId
@@ -21,6 +21,8 @@ Item {
     readonly property var tasks: room.tasks || []
     readonly property int doneTasks: tasks.filter(task => task.closed).length
     readonly property string shownTerminal: presentation.terminal || ""
+    readonly property bool terminalShown: visible && section === 0 && shownTerminal.length > 0
+        && Models.DesktopState.stagedSessionIds.indexOf(shownTerminal) >= 0 && sessionIds.indexOf(shownTerminal) >= 0
     readonly property var fresh: presentation.fresh || []
     readonly property int unread: presentation.unread || 0
     readonly property real sheetWidth: Math.max(300, Math.min(540, presentation.conversationWidth || 372))
@@ -123,8 +125,8 @@ Item {
                 Item { Layout.fillWidth: true }
                 SegmentedPill {
                     dock: true
-                    identifier: "room.canvas"
-                    currentValue: root.canvas
+                    identifier: "room.section"
+                    currentValue: root.section
                     options: [
                         { value: 0, label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
                         { value: 1, label: qsTr("Tasks"), count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0,
@@ -133,7 +135,7 @@ Item {
                             fresh: root.fresh.indexOf(2) >= 0 }
                     ]
                     onActivated: value => {
-                        Models.Missions.setPresentation("canvas", value);
+                        Models.Missions.setPresentation("section", value);
                         if (root.narrow)
                             Models.Missions.setPresentation("conversation", false);
                     }
@@ -339,7 +341,7 @@ Item {
             Layout.fillHeight: true
 
             Item {
-                id: canvasArea
+                id: workArea
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -352,13 +354,13 @@ Item {
                     z: 2
                     radius: KodosiTheme.radiusXl
                     label: qsTr("Share with %1").arg(root.mission.name || "")
-                    objectName: "room.canvas.drop"
+                    objectName: "room.drop"
                     onTerminalDropped: id => roomShare.ask(id, Models.Missions.selectedMissionId)
                 }
 
                 StackLayout {
                     anchors.fill: parent
-                    currentIndex: root.canvas
+                    currentIndex: root.section
 
                     ColumnLayout {
                         spacing: 0
@@ -372,7 +374,7 @@ Item {
                             spacing: 4
 
                             Item {
-                                Layout.maximumWidth: canvasArea.width - 60
+                                Layout.maximumWidth: workArea.width - 60
                                 implicitWidth: tabs.implicitWidth + 6
                                 implicitHeight: 34
 
@@ -391,52 +393,112 @@ Item {
                                         Repeater {
                                             model: root.sessionIds.length
 
-                                            AbstractButton {
-                                                id: tab
+                                            Row {
+                                                id: entry
 
                                                 required property int index
                                                 readonly property string sessionId: root.sessionIds[index] || ""
-                                                readonly property var session: Models.Sessions.sessions.find(entry => entry.id === sessionId) || ({})
-                                                readonly property bool selected: root.shownTerminal === sessionId && terminal.active
-                                                readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
+                                                readonly property var session: Models.Sessions.sessions.find(item => item.id === sessionId) || ({})
 
-                                                height: 28
-                                                implicitWidth: tabRow.implicitWidth + 20
-                                                hoverEnabled: true
-                                                activeFocusOnTab: true
-                                                objectName: "room.terminal." + sessionId
-                                                Accessible.id: objectName
-                                                Accessible.name: session.name || qsTr("Terminal")
-                                                Accessible.role: Accessible.PageTab
-                                                Accessible.selected: selected
+                                                spacing: 2
 
-                                                contentItem: Item {
-                                                    RowLayout {
-                                                        id: tabRow
-                                                        x: 8
-                                                        anchors.verticalCenter: parent.verticalCenter
-                                                        spacing: 7
+                                                AbstractButton {
+                                                    id: tab
 
-                                                        AgentMark { program: tab.session.program || ""; size: 18; asleep: !tab.selected; session: tab.session }
-                                                        PlainLabel {
-                                                            text: tab.session.name || qsTr("Terminal")
-                                                            color: tab.selected || tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                                            font.pixelSize: KodosiTheme.fontFootnote
-                                                            font.weight: tab.selected ? Font.DemiBold : Font.Medium
+                                                    readonly property string sessionId: entry.sessionId
+                                                    readonly property var session: entry.session
+                                                    readonly property bool selected: root.shownTerminal === sessionId && terminal.active
+                                                    readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
+
+                                                    height: 28
+                                                    implicitWidth: tabRow.implicitWidth + 20
+                                                    hoverEnabled: true
+                                                    activeFocusOnTab: true
+                                                    objectName: "room.terminal." + sessionId
+                                                    Accessible.id: objectName
+                                                    Accessible.name: session.name || qsTr("Terminal")
+                                                    Accessible.role: Accessible.PageTab
+                                                    Accessible.selected: selected
+
+                                                    contentItem: Item {
+                                                        RowLayout {
+                                                            id: tabRow
+                                                            x: 8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            spacing: 7
+
+                                                            AgentMark { program: tab.session.program || ""; size: 18; asleep: !tab.selected; session: tab.session }
+                                                            PlainLabel {
+                                                                text: tab.session.name || qsTr("Terminal")
+                                                                color: tab.selected || tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                                                font.pixelSize: KodosiTheme.fontFootnote
+                                                                font.weight: tab.selected ? Font.DemiBold : Font.Medium
+                                                            }
+                                                            AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; ring: tab.selected ? KodosiTheme.raised : KodosiTheme.well }
+                                                            StatusSign { session: tab.session; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
                                                         }
-                                                        AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; ring: tab.selected ? KodosiTheme.raised : KodosiTheme.well }
-                                                        StatusSign { session: tab.session; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
+                                                    }
+                                                    background: Item {
+                                                        Raised { anchors.fill: parent; radius: 14; visible: tab.selected }
+                                                    }
+                                                    onClicked: Models.SessionActions.activateInRoom(sessionId)
+
+                                                    TapHandler {
+                                                        acceptedButtons: Qt.RightButton
+                                                        enabled: tab.session.isOwner === true
+                                                        onTapped: root.openTerminalMenu(tab.sessionId)
                                                     }
                                                 }
-                                                background: Item {
-                                                    Raised { anchors.fill: parent; radius: 14; visible: tab.selected }
-                                                }
-                                                onClicked: Models.SessionActions.activateInRoom(sessionId)
+                                                AbstractButton {
+                                                    id: canvasTab
 
-                                                TapHandler {
-                                                    acceptedButtons: Qt.RightButton
-                                                    enabled: tab.session.isOwner === true
-                                                    onTapped: root.openTerminalMenu(tab.sessionId)
+                                                    readonly property bool selected: root.shownTerminal === entry.sessionId && canvas.active
+                                                    readonly property bool fresh: !selected && Models.Canvas.revision >= 0 && Models.Canvas.hasNews(entry.sessionId)
+
+                                                    visible: !!entry.session.canvas
+                                                    height: 28
+                                                    implicitWidth: canvasRow.implicitWidth + 22
+                                                    hoverEnabled: true
+                                                    activeFocusOnTab: true
+                                                    objectName: "room.canvas." + entry.sessionId
+                                                    Accessible.id: objectName
+                                                    Accessible.name: qsTr("Canvas of %1").arg(entry.session.name || qsTr("Terminal"))
+                                                    Accessible.role: Accessible.PageTab
+                                                    Accessible.selected: selected
+                                                    ToolTip.text: Accessible.name
+                                                    ToolTip.visible: hovered
+                                                    ToolTip.delay: Tip.delay
+
+                                                    contentItem: Item {
+                                                        RowLayout {
+                                                            id: canvasRow
+                                                            x: 11
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            spacing: 6
+
+                                                            KIcon {
+                                                                Layout.preferredWidth: 13
+                                                                Layout.preferredHeight: 13
+                                                                name: "canvas"
+                                                                strokeWidth: 2.2
+                                                                color: canvasTab.selected ? KodosiTheme.accentStrong : KodosiTheme.inkMuted
+                                                            }
+                                                            PlainLabel {
+                                                                text: qsTr("Canvas")
+                                                                color: canvasTab.selected || canvasTab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                                                font.pixelSize: KodosiTheme.fontFootnote
+                                                                font.weight: canvasTab.selected ? Font.DemiBold : Font.Medium
+                                                            }
+                                                        }
+                                                    }
+                                                    background: Item {
+                                                        Raised { anchors.fill: parent; radius: 14; visible: canvasTab.selected }
+                                                        BreathingDot { x: parent.width - 9; y: 3; size: 6; color: KodosiTheme.glowOrange; visible: canvasTab.fresh }
+                                                    }
+                                                    onClicked: {
+                                                        if (Models.SessionActions.activateInRoom(entry.sessionId))
+                                                            Models.Missions.setPresentation("showsCanvas", true);
+                                                    }
                                                 }
                                             }
                                         }
@@ -475,12 +537,27 @@ Item {
                             Layout.fillHeight: true
 
                             Loader {
+                                id: canvas
+                                anchors.fill: parent
+                                anchors.leftMargin: 6
+                                anchors.rightMargin: 6
+                                anchors.bottomMargin: 6
+                                active: root.terminalShown && root.presentation.showsCanvas === true
+                                    && !!Models.Sessions.presentationForSession(root.shownTerminal).canvas
+                                sourceComponent: CanvasTile {
+                                    sessionId: root.shownTerminal
+                                    roomEmbedded: true
+                                    onCloseRequested: Models.Missions.setPresentation("showsCanvas", false)
+                                    onAsked: Models.Missions.setPresentation("showsCanvas", false)
+                                }
+                            }
+                            Loader {
                                 id: terminal
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
                                 anchors.rightMargin: 6
                                 anchors.bottomMargin: 6
-                                active: root.visible && root.canvas === 0 && root.shownTerminal.length > 0 && Models.DesktopState.stagedSessionIds.indexOf(root.shownTerminal) >= 0 && root.sessionIds.indexOf(root.shownTerminal) >= 0
+                                active: root.terminalShown && !canvas.active
                                 sourceComponent: TerminalTile {
                                     sessionId: root.shownTerminal
                                     roomEmbedded: true
@@ -540,7 +617,7 @@ Item {
                             KScrollView {
                                 id: openGrid
                                 anchors.fill: parent
-                                visible: !terminal.active && root.sessionIds.length > 0
+                                visible: !terminal.active && !canvas.active && root.sessionIds.length > 0
                                 contentWidth: availableWidth
 
                                 ColumnLayout {
@@ -624,7 +701,7 @@ Item {
                 EmptyState {
                     anchors.centerIn: parent
                     width: Math.min(340, parent.width - 40)
-                    visible: !root.loaded && !!root.presentation.failure && root.canvas !== 0
+                    visible: !root.loaded && !!root.presentation.failure && root.section !== 0
                     title: qsTr("The room did not load")
                     message: root.presentation.failure || ""
 
@@ -646,7 +723,7 @@ Item {
                 RoomConversation {
                     anchors.fill: parent
                     onTerminalRequested: id => {
-                        Models.Missions.setPresentation("canvas", 0);
+                        Models.Missions.setPresentation("section", 0);
                         Models.SessionActions.activateInRoom(id);
                         if (root.narrow)
                             Models.Missions.setPresentation("conversation", false);

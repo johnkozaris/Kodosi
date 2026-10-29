@@ -219,7 +219,7 @@ private slots:
         repositories = { QJsonObject { { QStringLiteral("id"), test::id(2) } } };
         room(0);
         QCOMPARE(fresh(), (QVariantList { 1, 2 }));
-        missions.setPresentation(QStringLiteral("canvas"), 1);
+        missions.setPresentation(QStringLiteral("section"), 1);
         QCOMPARE(fresh(), QVariantList { 2 });
         tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 3 } } };
         room(0);

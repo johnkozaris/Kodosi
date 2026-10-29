@@ -78,6 +78,13 @@ Item {
         case "sun": return "M12 8 A4 4 0 1 0 12 16 A4 4 0 1 0 12 8 M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M18.7 5.3 L17 7 M7 17 L5.3 18.7"
         case "leave": return "M14 4 H7 Q5 4 5 6 V18 Q5 20 7 20 H14 M10 12 H20 M16.5 8.5 L20 12 L16.5 15.5"
         case "trash": return "M4 7 H20 M9.5 7 V4.5 H14.5 V7 M6.5 7 L7.5 20 H16.5 L17.5 7 M10 11 V16 M14 11 V16"
+        case "canvas": return "M3 4 H21 V20 H3 Z M6.5 7.5 H17.5 V16.5 H6.5 Z M6.5 14.5 L10 11 L12.5 13.5 L14.5 11.5 L17.5 14.5"
+        case "page": return "M6 3 H14 L19 8 V21 H6 Z M14 3 V8 H19 M9 12 H16 M9 15 H16 M9 18 H13"
+        case "picture": return "M4 5 H20 V19 H4 Z M4 16 L9 11 L13 15 L16 12 L20 16 M15.5 7.5 A1.5 1.5 0 1 0 15.5 10.5 A1.5 1.5 0 1 0 15.5 7.5"
+        case "office": return "M6 3 H14 L19 8 V21 H6 Z M14 3 V8 H19 M9 12 H16 V18 H9 Z M9 15 H16 M12.5 12 V18"
+        case "globe": return "M12 3.5 A8.5 8.5 0 1 0 12 20.5 A8.5 8.5 0 1 0 12 3.5 M3.5 12 H20.5 M12 3.5 Q7 12 12 20.5 M12 3.5 Q17 12 12 20.5"
+        case "save": return "M12 4 V15 M7.5 10.5 L12 15 L16.5 10.5 M5 14 V19 H19 V14"
+        case "open": return "M14 4 H20 V10 M20 4 L11 13 M18 14 V19 H5 V6 H10"
         default: return ""
         }
     }

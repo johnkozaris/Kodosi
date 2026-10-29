@@ -4,6 +4,9 @@ set(QT_DEPLOY_BIN_DIR "lib/kodosi/bin" CACHE STRING "" FORCE)
 set(QT_DEPLOY_LIB_DIR "lib/kodosi/lib" CACHE STRING "" FORCE)
 set(QT_DEPLOY_PLUGINS_DIR "lib/kodosi/plugins" CACHE STRING "" FORCE)
 set(QT_DEPLOY_QML_DIR "lib/kodosi/qml" CACHE STRING "" FORCE)
+set(QT_DEPLOY_LIBEXEC_DIR "lib/kodosi/libexec" CACHE STRING "" FORCE)
+set(QT_DEPLOY_DATA_DIR "lib/kodosi" CACHE STRING "" FORCE)
+set(QT_DEPLOY_TRANSLATIONS_DIR "lib/kodosi/translations" CACHE STRING "" FORCE)
 
 set(KODOSI_PLATFORM_QT_COMPONENTS DBus)
 set(KODOSI_RUST_TARGET "x86_64-unknown-linux-gnu")
@@ -20,7 +23,7 @@ set(KODOSI_PLATFORM_SOURCES
     platform/linux/FreedesktopNotificationDriver.hpp
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus)
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel qtwebengine)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR share/licenses/kodosi-qt/provider-icons)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
 
@@ -40,8 +43,29 @@ function(kodosi_install app)
     set(private_deploy_script "${CMAKE_CURRENT_BINARY_DIR}/deploy-kodosi-private-runtime.cmake")
     file(GENERATE
         OUTPUT "${private_deploy_script}"
-        CONTENT
-            "set(QT_DEPLOY_PLUGINS_DIR \"lib/kodosi/plugins\")\nset(QT_DEPLOY_QML_DIR \"lib/kodosi/qml\")\ninclude(\"${deploy_script}\")\n"
+        CONTENT "set(QT_DEPLOY_PLUGINS_DIR lib/kodosi/plugins)
+set(QT_DEPLOY_QML_DIR lib/kodosi/qml)
+set(QT_DEPLOY_LIBEXEC_DIR lib/kodosi/libexec)
+set(QT_DEPLOY_DATA_DIR lib/kodosi)
+set(QT_DEPLOY_TRANSLATIONS_DIR lib/kodosi/translations)
+include(\"${deploy_script}\")
+foreach(folder bin libexec)
+    qt6_deploy_qt_conf(\"\${QT_DEPLOY_PREFIX}/lib/kodosi/\${folder}/qt.conf\"
+        PREFIX ../../..
+        BIN_DIR lib/kodosi/bin
+        LIB_DIR lib/kodosi/lib
+        PLUGINS_DIR lib/kodosi/plugins
+        QML_DIR lib/kodosi/qml
+        LIBEXEC_DIR lib/kodosi/libexec
+        DATA_DIR lib/kodosi
+        TRANSLATIONS_DIR lib/kodosi/translations
+    )
+endforeach()
+file(REMOVE_RECURSE \"\${QT_DEPLOY_PREFIX}/lib/kodosi/plugins/position\")
+file(GLOB locales \"\${QT_DEPLOY_PREFIX}/lib/kodosi/translations/qtwebengine_locales/*.pak\")
+list(FILTER locales EXCLUDE REGEX \"/en-US[.]pak$\")
+file(REMOVE \${locales})
+"
     )
     install(SCRIPT "${private_deploy_script}")
     install(
@@ -141,7 +165,7 @@ set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
-    "libc6 (>= 2.39), libstdc++6, libgcc-s1, desktop-file-utils, libatk1.0-0t64, libbrotli1, libcairo-gobject2, libcairo2, libdbus-1-3, libdrm2, libegl1, libfontconfig1, libfreetype6, libgbm1, libgdk-pixbuf-2.0-0, libgl1, libglib2.0-0t64, libgssapi-krb5-2, libgtk-3-0t64, libharfbuzz0b, libopengl0, libpango-1.0-0, libpangocairo-1.0-0, libwayland-client0, libwayland-cursor0, libwayland-egl1, libx11-6, libx11-xcb1, libxcb-cursor0, libxcb-glx0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-render0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xkb1, libxcb1, libxkbcommon-x11-0, libxkbcommon0, libzstd1, xdg-desktop-portal, xdg-utils, zlib1g"
+    "libc6 (>= 2.39), libstdc++6, libgcc-s1, desktop-file-utils, libasound2t64, libatk1.0-0t64, libbrotli1, libcairo-gobject2, libcairo2, libdbus-1-3, libdrm2, libegl1, libexpat1, libfontconfig1, libfreetype6, libgbm1, libgdk-pixbuf-2.0-0, libgl1, libglib2.0-0t64, libgssapi-krb5-2, libgtk-3-0t64, libharfbuzz0b, libnspr4, libnss3, libopengl0, libpango-1.0-0, libpangocairo-1.0-0, libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libx11-6, libx11-xcb1, libxcb-cursor0, libxcb-dri3-0, libxcb-glx0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-render0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xkb1, libxcb1, libxcomposite1, libxdamage1, libxext6, libxfixes3, libxkbcommon-x11-0, libxkbcommon0, libxkbfile1, libxrandr2, libxtst6, libzstd1, xdg-desktop-portal, xdg-utils, zlib1g"
 )
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://kodosi.com")
 set(CPACK_ARCHIVE_FILE_NAME
@@ -149,7 +173,10 @@ set(CPACK_ARCHIVE_FILE_NAME
 )
 set(CPACK_THREADS 1)
 set(CPACK_KODOSI_LINUX_PACKAGING "${PROJECT_SOURCE_DIR}/packaging/linux")
-set(CPACK_PRE_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake/AptRepository.cmake")
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/packaging/linux/conffiles")
+set(CPACK_PRE_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake/AptRepository.cmake" "${PROJECT_SOURCE_DIR}/cmake/AppArmor.cmake")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+    "${PROJECT_SOURCE_DIR}/packaging/linux/conffiles"
+    "${PROJECT_SOURCE_DIR}/packaging/linux/postinst"
+)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
 include(CPack)

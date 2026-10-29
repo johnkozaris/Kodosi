@@ -114,7 +114,8 @@ bool SessionActionsModel::activateInRoom(const QString& id)
     const bool opened = activateSession(id, true);
     if (opened) {
         m_workspace.missions().setPresentation(QStringLiteral("terminal"), id);
-        m_workspace.missions().setPresentation(QStringLiteral("canvas"), 0);
+        m_workspace.missions().setPresentation(QStringLiteral("section"), 0);
+        m_workspace.missions().setPresentation(QStringLiteral("showsCanvas"), false);
         m_desktop.setActiveView(DesktopStateModel::Missions);
     }
     return opened;
@@ -292,6 +293,11 @@ bool SessionActionsModel::startAgent(const QString& id, const QString& agent)
 {
     return command(QStringLiteral("session.run"), id,
         { { QStringLiteral("agent"), QJsonObject { { QStringLiteral("agent"), agent } } } });
+}
+
+bool SessionActionsModel::input(const QString& id, const QString& text)
+{
+    return !text.isEmpty() && command(QStringLiteral("session.input"), id, { { QStringLiteral("text"), text } });
 }
 
 bool SessionActionsModel::share(

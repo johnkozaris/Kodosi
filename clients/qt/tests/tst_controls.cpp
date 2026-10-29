@@ -346,6 +346,8 @@ void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTermi
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
+    kodosi::CanvasModel canvas(commands, sessions);
+    kodosi::qml::CanvasModelForeign::instance = &canvas;
     workspace.apply(test::snapshot({test::session(1), test::session(2, true, false)}), 0);
     QQmlEngine engine;
     QQmlComponent component(&engine);
@@ -416,6 +418,8 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
+    kodosi::CanvasModel canvas(commands, sessions);
+    kodosi::qml::CanvasModelForeign::instance = &canvas;
     workspace.apply(test::snapshot({test::session(1)}), 0);
     QVERIFY(workspace.sessionActions().activate(test::id(1)));
     QQmlEngine engine;
@@ -528,6 +532,8 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     kodosi::qml::DesktopFileIntegrationForeign::instance = &files;
     kodosi::qml::TerminalTilingLayoutModelForeign::instance = &tiling;
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
+    kodosi::CanvasModel canvas(commands, sessions);
+    kodosi::qml::CanvasModelForeign::instance = &canvas;
     workspace.apply(test::snapshot({test::session(1)}), 0);
     QVERIFY(workspace.sessionActions().activate(test::id(1)));
     QQmlEngine engine;

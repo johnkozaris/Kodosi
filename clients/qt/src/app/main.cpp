@@ -2,10 +2,13 @@
 #include "app/ApplicationLifecycleModel.hpp"
 #include "app/DeepLinkRouter.hpp"
 #include "app/QmlModelTypes.hpp"
+#include "canvas/CanvasImages.hpp"
+#include "canvas/CanvasWeb.hpp"
 #include "logging/QtLogForwarder.hpp"
 #include "platform/TerminalNotifications.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include "presentation/AppearanceModel.hpp"
+#include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
@@ -30,6 +33,7 @@
 #include <QSettings>
 #include <QSystemTrayIcon>
 #include <QWindow>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -103,6 +107,8 @@ int main(int argc, char* argv[])
         qputenv("QT_QPA_PLATFORM", "windows:altgr");
 #endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+    kodosi::CanvasWeb::registerScheme();
+    QtWebEngineQuick::initialize();
     QApplication app(argc, argv);
 #ifdef Q_OS_WIN
     QFont::insertSubstitutions(
@@ -179,6 +185,8 @@ int main(int argc, char* argv[])
     desktop.attachSessionCatalog(&sessions);
     kodosi::DesktopSettings desktopSettings(settings(), QSystemTrayIcon::isSystemTrayAvailable());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
+    kodosi::CanvasModel canvas(runtime, sessions);
+    kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
     kodosi::AgentLauncherModel launcher(runtime);
@@ -203,6 +211,8 @@ int main(int argc, char* argv[])
         workspace.apply(event, accountEpoch);
         terminalNotifications.apply(event);
         const auto type = event.value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("canvas.result") || type == QStringLiteral("canvas.error"))
+            canvas.apply(event);
         if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);
@@ -219,20 +229,24 @@ int main(int argc, char* argv[])
     QObject::connect(&runtime, &kodosi::RuntimeBridge::runningChanged, &app, [&](bool running) {
         if (!running) {
             workspace.reset();
+            canvas.reset();
             history.reset();
             providerFiles.reset();
             launcher.reset();
         }
     });
     QObject::connect(&workspace, &kodosi::Workspace::hostReady, &launcher, [&] { launcher.refresh(true); });
+    QObject::connect(&canvas, &kodosi::CanvasModel::copyReady, &files, &kodosi::DesktopFileIntegration::saveCopy);
+    QObject::connect(&canvas, &kodosi::CanvasModel::problem, &workspace, &kodosi::Workspace::setError);
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
         if (state == Qt::ApplicationActive)
             workspace.missions().readWatched();
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
-        lifecycle, surfaces, tray);
+        lifecycle, surfaces, tray, canvas, canvasWeb);
     QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("canvas"), new kodosi::CanvasImages(canvas));
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(EXIT_FAILURE); }, Qt::QueuedConnection);

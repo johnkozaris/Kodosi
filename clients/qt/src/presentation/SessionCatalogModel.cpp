@@ -359,7 +359,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
-        { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden } };
+        { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
+        { QStringLiteral("canvas"), s->canvas.isEmpty() ? QVariant {} : QVariant(s->canvas) } };
 }
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJsonObject& o)
 {
@@ -468,7 +469,64 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             return std::nullopt;
         s.sharedWith.append(v.toString());
     }
+    const auto canvas = decodeCanvas(o.value(QStringLiteral("canvas")));
+    if (!canvas)
+        return std::nullopt;
+    s.canvas = *canvas;
     return s;
+}
+std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& value)
+{
+    if (value.isUndefined() || value.isNull())
+        return QVariantMap {};
+    const auto canvas = value.toObject();
+    const auto count = [](const QJsonValue& number) { return number.isDouble() && number.toDouble() >= 0; };
+    const auto text = [](const QJsonValue& field, qsizetype most) {
+        return field.isString() && !field.toString().isEmpty() && field.toString().size() <= most;
+    };
+    const auto items = canvas.value(QStringLiteral("items"));
+    if (!value.isObject() || !count(canvas.value(QStringLiteral("sequence")))
+        || (!items.isUndefined() && (!items.isArray() || items.toArray().size() > 20)))
+        return std::nullopt;
+    for (const auto& entry : items.toArray()) {
+        const auto item = entry.toObject();
+        const auto missing = item.value(QStringLiteral("missing"));
+        if (!entry.isObject() || !text(item.value(QStringLiteral("key")), 1024)
+            || !text(item.value(QStringLiteral("name")), 512)
+            || !QStringList { QStringLiteral("page"), QStringLiteral("picture"), QStringLiteral("pdf"), QStringLiteral("office") }
+                    .contains(item.value(QStringLiteral("kind")).toString())
+            || !count(item.value(QStringLiteral("revision"))) || !count(item.value(QStringLiteral("bytes")))
+            || !count(item.value(QStringLiteral("changed"))) || (!missing.isUndefined() && !missing.isBool()))
+            return std::nullopt;
+    }
+    const auto browserValue = canvas.value(QStringLiteral("browser"));
+    if (!browserValue.isUndefined() && !browserValue.isNull()) {
+        const auto browser = browserValue.toObject();
+        const auto tabs = browser.value(QStringLiteral("tabs"));
+        const auto last = browser.value(QStringLiteral("last"));
+        const auto problem = browser.value(QStringLiteral("problem"));
+        if (!browserValue.isObject()
+            || !QStringList { QStringLiteral("starting"), QStringLiteral("awake"), QStringLiteral("asleep") }
+                    .contains(browser.value(QStringLiteral("state")).toString())
+            || !count(browser.value(QStringLiteral("changed"))) || !count(browser.value(QStringLiteral("width")))
+            || !count(browser.value(QStringLiteral("height")))
+            || (!tabs.isUndefined() && (!tabs.isArray() || tabs.toArray().size() > 10))
+            || (!last.isUndefined() && !last.isNull()
+                && (!last.isObject() || !text(last.toObject().value(QStringLiteral("agent")), 512)
+                    || !last.toObject().value(QStringLiteral("words")).isString()
+                    || last.toObject().value(QStringLiteral("words")).toString().size() > 512))
+            || (!problem.isUndefined() && !problem.isNull() && !text(problem, 1024)))
+            return std::nullopt;
+        for (const auto& entry : tabs.toArray()) {
+            const auto tab = entry.toObject();
+            if (!entry.isObject() || !text(tab.value(QStringLiteral("id")), 512)
+                || !tab.value(QStringLiteral("title")).isString() || tab.value(QStringLiteral("title")).toString().size() > 512
+                || !tab.value(QStringLiteral("url")).isString() || tab.value(QStringLiteral("url")).toString().size() > 512
+                || !tab.value(QStringLiteral("active")).isBool())
+                return std::nullopt;
+        }
+    }
+    return canvas.toVariantMap();
 }
 void SessionCatalogModel::apply(const QJsonObject& event)
 {
