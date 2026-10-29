@@ -76,6 +76,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let title: ProgramTitle?
     public let programStatus: ProgramStatus?
     public let context: TerminalContext?
+    public let canvas: Canvas?
     public let name: String
     public let workingDir: String?
     public let ownerUserId: String?

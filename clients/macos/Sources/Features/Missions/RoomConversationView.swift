@@ -55,7 +55,7 @@ struct RoomConversationView: View {
         .environment(\.openURL, OpenURLAction { url in
             guard let id = RoomMentions.terminalId(in: url) else { return .systemAction }
             if deps.session(id) != nil {
-                state.canvas = 0
+                state.shownSection = 0
                 state.selectedTerminal = id
                 deps.activateSession(id, inRoom: roomId)
             }

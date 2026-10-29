@@ -10,7 +10,7 @@ struct RoomContentView: View {
 
     var body: some View {
         Group {
-            if state.canvas == 0 {
+            if state.shownSection == 0 {
                 RoomTerminals(roomId: roomId, state: state)
             } else if deps.rooms[roomId] == nil {
                 if let failure = state.failure {
@@ -20,16 +20,16 @@ struct RoomContentView: View {
                 } else {
                     RoomSkeleton()
                 }
-            } else if state.canvas == 1 {
+            } else if state.shownSection == 1 {
                 RoomTasksView(roomId: roomId, state: state)
             } else {
                 RoomRepositoriesView(roomId: roomId, state: state)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .id(state.canvas)
+        .id(state.shownSection)
         .transition(.asymmetric(
-            insertion: state.canvas == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
+            insertion: state.shownSection == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
             removal: .identity,
         ))
     }
@@ -68,7 +68,13 @@ private struct RoomTerminals: View {
                 .padding(.horizontal, 8).padding(.bottom, 6)
                 .animation(theme.motion.spring, value: sessions.map(\.id))
             }
-            if let current {
+            if let current, state.showsCanvas, current.canvas != nil {
+                CanvasTileView(session: current, roomEmbedded: true) {
+                    withAnimation(theme.motion.snappy) { state.showsCanvas = false }
+                }
+                .id("canvas." + current.id)
+                .padding([.horizontal, .bottom], 6)
+            } else if let current {
                 SessionTileView(session: current, isFocused: false, roomEmbedded: true)
                     .environment(\.terminalStageVisible, deps.workbench.section == .missions)
                     .environment(\.terminalInteractionEnabled, interactive)
@@ -131,10 +137,44 @@ private struct RoomTerminals: View {
     private func tabs(_ sessions: [RuntimeSession], current: RuntimeSession?) -> some View {
         HStack(spacing: 2) {
             ForEach(sessions) { session in
-                tabChip(session, selected: current?.id == session.id).transition(AnyTransition.pop)
+                let shown = current?.id == session.id
+                tabChip(session, selected: shown && !(state.showsCanvas && session.canvas != nil)).transition(AnyTransition.pop)
+                if session.canvas != nil {
+                    canvasChip(session, selected: shown && state.showsCanvas).transition(AnyTransition.pop)
+                }
             }
         }
         .padding(3)
+    }
+
+    private func canvasChip(_ session: RuntimeSession, selected: Bool) -> some View {
+        let news = !selected && deps.canvas.hasNews(session)
+        return Button { openCanvas(session) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: CanvasSymbol.canvas).font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
+                    .hop(when: news)
+                Text("Canvas").appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
+                    .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
+            }
+            .padding(.horizontal, 11).frame(height: 28)
+            .background {
+                if selected {
+                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                        .matchedGeometryEffect(id: "tab", in: tab)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if news {
+                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -3, y: 3).transition(AnyTransition.pop)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(String(localized: "The canvas of \(session.name)"))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("room.canvas.\(AccessibilityIdentifier.token(session.id))")
     }
 
     private func tabChip(_ session: RuntimeSession, selected: Bool) -> some View {
@@ -206,7 +246,18 @@ private struct RoomTerminals: View {
     }
 
     private func open(_ session: RuntimeSession) {
-        withAnimation(theme.motion.snappy) { state.selectedTerminal = session.id }
+        withAnimation(theme.motion.snappy) {
+            state.selectedTerminal = session.id
+            state.showsCanvas = false
+        }
+        deps.activateSession(session.id, inRoom: roomId)
+    }
+
+    private func openCanvas(_ session: RuntimeSession) {
+        withAnimation(theme.motion.snappy) {
+            state.selectedTerminal = session.id
+            state.showsCanvas = true
+        }
         deps.activateSession(session.id, inRoom: roomId)
     }
 
@@ -214,7 +265,7 @@ private struct RoomTerminals: View {
         Task { @MainActor in
             do {
                 try await deps.mutateSession("session.attachMission", session: session, fields: ["missionId": .string(roomId)])
-                state.canvas = 0; deps.activateSession(session.id, inRoom: roomId)
+                state.shownSection = 0; deps.activateSession(session.id, inRoom: roomId)
             } catch { state.failure = error.localizedDescription }
         }
     }

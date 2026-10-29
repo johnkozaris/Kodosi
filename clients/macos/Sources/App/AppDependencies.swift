@@ -17,6 +17,7 @@ final class AppDependencies {
     let account: AccountStore
     let people: PeopleStore
     let dosi: DosiStore
+    let canvas: CanvasStore
     var sessions: [RuntimeSession] = []
     var inviteRequested: Date?
     var inviteCopies = 0
@@ -80,6 +81,7 @@ final class AppDependencies {
         account = AccountStore(commands: commands, browser: "system")
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
+        canvas = CanvasStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox
@@ -359,7 +361,7 @@ final class AppDependencies {
         }
         var fields: [String: JSONValue] = ["name": .string(name)]
         if let roomId {
-            roomView(roomId).canvas = 0
+            roomView(roomId).shownSection = 0
             fields["missionId"] = .string(roomId)
         }
         for (key, value) in [("workingDir", directory), ("computer", computer), ("command", command), ("prompt", prompt)] {

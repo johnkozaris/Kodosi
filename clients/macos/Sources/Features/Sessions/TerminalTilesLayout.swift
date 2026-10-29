@@ -4,6 +4,11 @@ struct TerminalTileVisibility: LayoutValueKey {
     static let defaultValue = true
 }
 
+/// A tile that shares the place of the tile before it, as a canvas shares its terminal's.
+struct TerminalTileCompanion: LayoutValueKey {
+    static let defaultValue = false
+}
+
 struct TerminalTilesLayout: Layout {
     func makeCache(subviews _: Subviews) -> [Int: CGSize] {
         [:]
@@ -14,16 +19,37 @@ struct TerminalTilesLayout: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache: inout [Int: CGSize]) {
-        let visible = subviews.indices.filter { subviews[$0][TerminalTileVisibility.self] }
-        let frames = Self.frames(count: visible.count, in: bounds)
-        for (index, frame) in zip(visible, frames) {
-            cache[index] = frame.size
-            subviews[index].place(at: frame.origin, anchor: .topLeading, proposal: ProposedViewSize(frame.size))
+        var places: [[Int]] = []
+        for index in subviews.indices where subviews[index][TerminalTileVisibility.self] {
+            if subviews[index][TerminalTileCompanion.self], !places.isEmpty {
+                places[places.count - 1].append(index)
+            } else {
+                places.append([index])
+            }
+        }
+        for (place, frame) in zip(places, Self.frames(count: places.count, in: bounds)) {
+            for (index, part) in zip(place, Self.split(frame, count: place.count)) {
+                cache[index] = part.size
+                subviews[index].place(at: part.origin, anchor: .topLeading, proposal: ProposedViewSize(part.size))
+            }
         }
         for index in subviews.indices where !subviews[index][TerminalTileVisibility.self] {
             let size = cache[index] ?? bounds.size
             subviews[index].place(at: CGPoint(x: bounds.maxX + 10000, y: bounds.maxY + 10000), anchor: .topLeading,
                                   proposal: ProposedViewSize(size))
+        }
+    }
+
+    /// Side by side in a wide place, one above the other in a tall one.
+    static func split(_ frame: CGRect, count: Int) -> [CGRect] {
+        guard count > 1 else { return [frame] }
+        let gap: CGFloat = 6
+        let wide = frame.width >= frame.height
+        let length = ((wide ? frame.width : frame.height) - CGFloat(count - 1) * gap) / CGFloat(count)
+        return (0 ..< count).map { index in
+            let offset = CGFloat(index) * (length + gap)
+            return wide ? CGRect(x: frame.minX + offset, y: frame.minY, width: length, height: frame.height)
+                : CGRect(x: frame.minX, y: frame.minY + offset, width: frame.width, height: length)
         }
     }
 

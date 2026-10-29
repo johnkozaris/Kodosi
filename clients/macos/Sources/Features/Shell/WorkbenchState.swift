@@ -28,6 +28,7 @@ final class WorkbenchState {
     var settingsSection: SettingsSection = .terminal
     var selectedSessionId: String?
     var stagedSessionIds: [String] = []
+    private(set) var canvasSessionIds: [String] = []
     var focusedSessionId: String?
     var detailsSessionId: String?
     var sharingSessionId: String?
@@ -186,8 +187,22 @@ final class WorkbenchState {
         save()
     }
 
+    func toggleCanvas(_ id: String) {
+        if canvasSessionIds.contains(id) {
+            closeCanvas(id)
+        } else {
+            canvasSessionIds.append(id)
+            selectedSessionId = id
+        }
+    }
+
+    func closeCanvas(_ id: String) {
+        canvasSessionIds.removeAll { $0 == id }
+    }
+
     func dismissSession(_ id: String) {
         stagedSessionIds.removeAll { $0 == id }
+        canvasSessionIds.removeAll { $0 == id }
         if selectedSessionId == id {
             selectedSessionId = stagedSessionIds.first
         }
@@ -244,6 +259,7 @@ final class WorkbenchState {
         departures = []
         closing = []
         stagedSessionIds.removeAll()
+        canvasSessionIds.removeAll()
         selectedSessionId = nil
         focusedSessionId = nil
         detailsSessionId = nil
@@ -281,6 +297,7 @@ final class WorkbenchState {
         }
         followPins(sessions, current: current, restarted: restarted)
         known = current
+        canvasSessionIds.removeAll { current[$0]?.canvas == nil }
         closing.formIntersection(current.keys)
         let followed = follow(sessions)
         let listed = Set(sessions.filter { !$0.hidden }.map(\.id))

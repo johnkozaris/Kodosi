@@ -317,6 +317,14 @@ fn input_reaches_the_browser_in_its_own_form() {
 }
 
 #[test]
+fn the_browser_takes_the_size_of_a_view_but_stays_as_wide_as_its_window() {
+    assert_eq!(browser::sized(1200, 800), Some((1200, 800)));
+    assert_eq!(browser::sized(451, 690), Some((500, 690)));
+    assert_eq!(browser::sized(120, 690), None);
+    assert_eq!(browser::sized(1200, 9000), None);
+}
+
+#[test]
 fn tabs_and_pictures_from_agent_browser_are_bounded() {
     let tabs = browser::read_tabs(&json!({"success": true, "data": {"tabs": [
         {"tabId": "t1", "title": "Docs", "url": "https://example.com", "type": "page", "active": true},

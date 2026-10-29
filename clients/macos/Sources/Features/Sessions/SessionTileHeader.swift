@@ -52,6 +52,12 @@ struct SessionTileHeader: View {
             status
             AvatarStack(people: viewers, size: 20, limit: 3, ring: theme.colors.terminal)
                 .help(viewers.isEmpty ? "" : String(localized: "Here now: \(viewers.map(\.name).joined(separator: ", "))"))
+            if session.canvas != nil, !roomEmbedded {
+                CanvasKey(session: session, open: deps.workbench.canvasSessionIds.contains(session.id), identifier: "\(stageId).canvas") {
+                    withAnimation(theme.motion.spring) { deps.workbench.toggleCanvas(session.id) }
+                }
+                .transition(AnyTransition.pop)
+            }
             actions
         }
         .padding(.leading, 11).padding(.trailing, 6).frame(height: 38)

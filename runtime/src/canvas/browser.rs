@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use super::{
     BrowserAct, BrowserAction, BrowserFrame, BrowserInput, BrowserState, BrowserTab, CanvasAnswer,
-    CanvasBrowser, KeyEvent, files::Stamp,
+    CanvasBrowser, KeyEvent, MouseButton, MouseEvent, files::Stamp,
 };
 
 const COMMAND_LIMIT: Duration = Duration::from_mins(2);
@@ -27,6 +27,9 @@ const WATCH_KEPT: Duration = Duration::from_secs(20);
 const MOST_OUTPUT: usize = 1024 * 1024;
 const FIRST_SIZE: (u32, u32) = (1280, 720);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
+/// Chrome keeps its window at least this wide, and a narrower page leaves the rest of the
+/// picture empty.
+const NARROWEST: u32 = 500;
 const DAEMON_IDLE_MS: &str = "1200000";
 const NO_CHROMIUM: &str = "There is no Chrome, Chromium, Edge or Brave on this computer. Install one of them for the shared browser.";
 const NO_AGENT_BROWSER: &str = "This Kodosi has no agent-browser for the shared browser.";
@@ -324,6 +327,7 @@ impl Browser {
                 state.problem = None;
             });
         }
+        self.free_profile().await;
         let acting =
             !(LOOKS.contains(&command.as_str()) || (command == "tab" && arguments.len() == 1));
         let (used, introduced) = self.activity(|activity| {
@@ -421,8 +425,16 @@ impl Browser {
         if !self.awake() {
             return Err(ASLEEP.to_owned());
         }
-        self.activity(|activity| activity.used_at = Some(Instant::now()));
-        self.fit(width, height).await;
+        let used = events.iter().any(|event| {
+            !matches!(
+                event,
+                BrowserInput::Mouse {
+                    event_type: MouseEvent::MouseMoved,
+                    button: MouseButton::None,
+                    ..
+                }
+            )
+        });
         let stream = self.stream().await?;
         for event in events {
             match stream_input(event) {
@@ -442,6 +454,10 @@ impl Browser {
                     .await?;
                 }
             }
+        }
+        if used {
+            self.activity(|activity| activity.used_at = Some(Instant::now()));
+            self.fit(width, height).await;
         }
         Ok(CanvasAnswer::Done)
     }
@@ -488,6 +504,7 @@ impl Browser {
             state.state = BrowserState::Starting;
             state.problem = None;
         });
+        self.free_profile().await;
         let (width, height) = sized(width, height).unwrap_or(FIRST_SIZE);
         let address = self
             .activity(|activity| activity.address.clone())
@@ -625,6 +642,22 @@ impl Browser {
         })
     }
 
+    /// A Chrome that runs on the profile while the daemon of this session does not is lost.
+    /// Closes it, so the daemon can start Chrome on the profile.
+    async fn free_profile(&self) {
+        let pid = tokio::fs::read_to_string(
+            self.places
+                .sockets
+                .join(format!("{}.pid", self.id.simple())),
+        )
+        .await
+        .ok()
+        .and_then(|pid| pid.trim().parse::<u32>().ok());
+        if !pid.is_some_and(kodosi_os::process::is_running) {
+            close_lost_chrome(&self.places.profile).await;
+        }
+    }
+
     /// Closes Chrome and keeps the profile, so the browser wakes with the same sign-ins.
     pub(super) async fn sleep(&self) {
         let home = self.places.sockets.clone();
@@ -634,6 +667,7 @@ impl Browser {
                     .await,
             );
         }
+        close_lost_chrome(&self.places.profile).await;
         self.stop_stream().await;
         self.change(|state| state.state = BrowserState::Asleep);
     }
@@ -1046,8 +1080,8 @@ pub(super) fn words(arguments: &[String]) -> String {
     shown.join(" ").chars().take(80).collect()
 }
 
-fn sized(width: u32, height: u32) -> Option<(u32, u32)> {
-    (SIZES.contains(&width) && SIZES.contains(&height)).then_some((width, height))
+pub(super) fn sized(width: u32, height: u32) -> Option<(u32, u32)> {
+    (SIZES.contains(&width) && SIZES.contains(&height)).then_some((width.max(NARROWEST), height))
 }
 
 fn first_line(text: &str) -> String {
@@ -1084,6 +1118,52 @@ pub(super) async fn close_left(data_root: &Path) {
         }
     }
     drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(sockets)).await);
+    let profiles = data_root.join("browser").join("profiles");
+    for entry in std::fs::read_dir(profiles).into_iter().flatten().flatten() {
+        close_lost_chrome(&entry.path()).await;
+    }
+}
+
+/// Closes a Chrome that still runs on a profile after its agent-browser ended, for example
+/// when the agent-browser crashed, so the browser can start on the profile again. Chrome
+/// writes the address of its developer tools into the profile, and only that Chrome answers
+/// at it.
+async fn close_lost_chrome(profile: &Path) {
+    let Ok(address) = tokio::fs::read_to_string(profile.join("DevToolsActivePort")).await else {
+        return;
+    };
+    let mut lines = address.lines();
+    let (Some(port), Some(path)) = (
+        lines
+            .next()
+            .and_then(|port| port.trim().parse::<u16>().ok()),
+        lines.next().map(str::trim),
+    ) else {
+        return;
+    };
+    if !path.starts_with("/devtools/browser/") {
+        return;
+    }
+    let connected = tokio::time::timeout(
+        Duration::from_secs(2),
+        tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}{path}")),
+    )
+    .await;
+    let Ok(Ok((mut socket, _))) = connected else {
+        return;
+    };
+    if socket
+        .send(Message::text(r#"{"id":1,"method":"Browser.close"}"#))
+        .await
+        .is_ok()
+    {
+        drop(
+            tokio::time::timeout(Duration::from_secs(5), async {
+                while socket.next().await.is_some_and(|message| message.is_ok()) {}
+            })
+            .await,
+        );
+    }
 }
 
 /// The profile folders of terminals that do not come back.

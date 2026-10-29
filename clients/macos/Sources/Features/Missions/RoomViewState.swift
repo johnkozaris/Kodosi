@@ -4,8 +4,8 @@ import Observation
 @MainActor
 @Observable
 final class RoomViewState {
-    var canvas = 0 {
-        didSet { fresh.remove(canvas) }
+    var shownSection = 0 {
+        didSet { fresh.remove(shownSection) }
     }
 
     var fresh: Set<Int> = []
@@ -15,6 +15,7 @@ final class RoomViewState {
     var optionsVisible = false
     var renaming = false
     var selectedTerminal: String?
+    var showsCanvas = false
     var message = "" {
         didSet {
             if message != oldValue {
