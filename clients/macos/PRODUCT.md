@@ -33,6 +33,16 @@ visual system. The Linux and Windows app follows this app.
 - One share sheet puts a terminal in a room or shares it with friends. When you drag your
   terminal onto a room, Kodosi asks first. You remove it again from its tab in the room.
 
+## Canvas
+
+The canvas key in a terminal's header opens the canvas as a tile next to the terminal;
+in a room, the canvas is a tab after the terminal's tab. Chips at its top pick an item,
+and Remove from canvas in a chip's menu takes it off. Pictures, PDFs and Office files
+show with Quick Look. Open in its app opens a file of this Mac, and Save a copy saves a
+file of another computer. In the shared browser, the bar has back, forward, reload, the
+address, the tabs and the last action of the agent, and the picture takes clicks,
+scrolling and keys. Ask about this names the terminal's agent.
+
 ## Rooms
 
 The conversation stays beside the room's terminals, tasks and repositories. "@"

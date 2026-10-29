@@ -14,6 +14,14 @@ terminal or a room, and the programs and agents in their terminals, and does not
 what they do. Each of your approved devices controls
 all your terminals and can start new ones on your other computers that run Kodosi.
 
+Everyone who can open a terminal also sees the files on its canvas and uses its shared
+browser with the sign-ins in it, so sign in there only where all of them may act. A page
+on the canvas runs in a closed frame with no network, no files and no storage that
+stays. While a shared browser is awake, its Chrome and agent-browser's picture stream
+listen on `127.0.0.1`, where other accounts of that computer can reach them. The Linux
+app shows pages only where Chromium can sandbox them; on Ubuntu its AppArmor profile lets
+the app and its page process make the user namespaces that the sandbox needs.
+
 ## What the service sees
 
 The service sees account and device records, room membership, room and terminal

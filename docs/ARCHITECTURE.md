@@ -93,6 +93,34 @@ agent on any computer, as a terminal control. The terminal types a message only 
 its agent reports a state other than waiting for a person and nobody types there, and
 Enter follows as a key of its own.
 
+The host also writes a plugin folder with the `kodosi` and `kodosi-canvas` skills in its
+`agents` folder at each start. Claude Code finds it through `CLAUDE_CODE_PLUGIN_DIRS`, after
+the person's own folders, and the launcher gives it to Copilot CLI with `--plugin-dir`.
+Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
+own folders, so an agent outside a Kodosi terminal does not change.
+
+## Canvas
+
+The host keeps the canvas of each terminal: the files that an agent showed with
+`kodosi show <file>`, by path, each with a revision. Once a second, while the canvas has
+files, it compares their size and change time, and a change gives a new revision.
+Markdown, text and data files become pages with the style of the skill's page template.
+The list goes with the terminal's state to each client and to each device on the
+terminal's encrypted channel. An app asks for the content of one revision with
+`canvas.request` and gets it in parts of 256 KiB, so a device of another computer reads
+it over the same channel. Each app keeps what it read by revision.
+
+The shared browser is the agent-browser program next to the `kodosi` program, with the
+terminal's own session, a profile in the host's data folder, Kodosi's settings and none of
+the person's `AGENT_BROWSER_*` variables. agent-browser starts the computer's Chrome,
+Chromium, Edge or Brave. The host runs each `kodosi browser <command>` in the agent's
+folder, and reads the tabs after each command and when a page moves. While a device looks,
+the host relays the JPEG pictures of agent-browser's stream to it and the person's
+input back. After 10 minutes with no command, no input and nobody looking, the host closes
+the browser and keeps its profile. When the host stops, it closes every browser; the
+terminal's restore record keeps the canvas and the browser's last page. Closing the
+terminal deletes the profile, and a new host deletes the profiles that no terminal has.
+
 ## Contracts
 
 The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)

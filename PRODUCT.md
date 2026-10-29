@@ -86,6 +86,27 @@ conversation follows the person to all their computers.
   computer, a file or a local address such as `localhost` is on that computer, so it does
   not open; the app names that computer.
 
+## Canvas
+
+- Each terminal has a canvas. Its agent puts files there with `kodosi show`: a web page,
+  Markdown or text, a picture, a PDF or an Office file. The canvas shows the newest
+  first and keeps 20. When a file changes, each device shows the new version.
+- The canvas never opens by itself. A key on the terminal shows that its canvas has
+  something, with a dot for news. An open canvas follows the newest item until the
+  person picks one. Each device keeps its own state of the key and the canvas.
+- A page runs its scripts in a closed frame. It reaches no network, no files and no
+  storage that stays. A link in a page opens on the device by the link rules.
+- A terminal can have one shared browser. The agent uses it with `kodosi browser` and
+  agent-browser's commands, and the people see it on the canvas and click and type in it,
+  with the same sign-ins. It has one size: the view where a person used it last. When a
+  person used it, the agent's next browser command says so. It runs the Chrome, Chromium,
+  Edge or Brave of the terminal's computer, sleeps after 10 minutes with no use and
+  nobody looking, and opens its last page again when it wakes.
+- Ask about this types the item and the selected words into the terminal, and the person
+  writes the question.
+- Everyone who can open the terminal sees its canvas and uses its browser. Closing the
+  terminal removes its canvas and deletes its browser's sign-ins.
+
 ## Starting work
 
 - New terminal opens the launcher. The host finds the installed agents (Claude Code,
