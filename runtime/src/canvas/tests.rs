@@ -4,9 +4,9 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserDoingKind, BrowserInput, BrowserPoint, CanvasAnswer, CanvasKind,
-    CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES, browser,
-    files::Files, files::Stamp, kind_of, page,
+    BrowserAct, BrowserDoingKind, BrowserInput, BrowserPoint, CanvasAnswer, CanvasHandle,
+    CanvasKind, CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES,
+    browser, files::Files, files::Stamp, kind_of, page,
 };
 
 #[test]
@@ -146,6 +146,24 @@ async fn the_canvas_refuses_what_it_cannot_show() {
             .is_err()
     );
     assert!(files.is_empty());
+}
+
+#[tokio::test]
+async fn a_person_opens_the_browser_by_waking_it() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path());
+    let act = |action| CanvasRequest::Act { action };
+    let reload = canvas.request(act(BrowserAct::Reload)).await.unwrap_err();
+    assert!(reload.contains("has no browser"), "{reload}");
+    let wake = canvas
+        .request(act(BrowserAct::Wake {
+            width: 0,
+            height: 0,
+        }))
+        .await;
+    assert_eq!(wake, Err(browser::missing().unwrap().to_owned()));
+    assert!(canvas.current().is_none());
+    canvas.end(true).await;
 }
 
 #[tokio::test]
@@ -324,7 +342,7 @@ fn people_see_what_the_agent_does_and_where() {
     assert_eq!(doing(&["tab", "new"]), Some((BrowserDoingKind::Open, None)));
     assert_eq!(doing(&["session", "info"]), None);
 
-    let box_at = r#"{ "x": 100.5, "y": 40, "width": 200, "height": 20 }"#;
+    let box_at = r#"{"success":true,"data":{"height":20,"width":200,"x":100.5,"y":40},"error":null}"#;
     assert_eq!(
         browser::middle(box_at, 1280, 720),
         Some(BrowserPoint { x: 200, y: 50 })
@@ -332,13 +350,20 @@ fn people_see_what_the_agent_does_and_where() {
     assert_eq!(browser::middle(box_at, 1280, 45), None);
     assert_eq!(
         browser::middle(
-            r#"{ "x": -300, "y": 10, "width": 100, "height": 10 }"#,
+            r#"{"success":true,"data":{"height":10,"width":100,"x":-300,"y":10},"error":null}"#,
             1280,
             720
         ),
         None
     );
-    assert_eq!(browser::middle("Could not find @e9", 1280, 720), None);
+    assert_eq!(
+        browser::middle(
+            r#"{"success":false,"data":null,"error":"Unknown ref: e9"}"#,
+            1280,
+            720
+        ),
+        None
+    );
 }
 
 #[test]

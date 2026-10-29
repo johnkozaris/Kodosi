@@ -336,11 +336,19 @@ impl Actor {
                 });
             }
             CanvasRequest::Act { action } => {
-                let Some(browser) = self.existing() else {
-                    drop(reply.send(Err(NO_BROWSER.to_owned())));
-                    return;
-                };
                 let waking = matches!(action, BrowserAct::Wake { .. });
+                let browser = match (self.existing(), browser::missing()) {
+                    (Some(browser), _) => browser,
+                    (None, None) if waking => self.browser(),
+                    (None, Some(missing)) if waking => {
+                        drop(reply.send(Err(missing.to_owned())));
+                        return;
+                    }
+                    (None, _) => {
+                        drop(reply.send(Err(NO_BROWSER.to_owned())));
+                        return;
+                    }
+                };
                 tokio::spawn(async move { drop(reply.send(browser.act(action).await)) });
                 if waking {
                     self.publish();
