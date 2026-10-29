@@ -24,6 +24,8 @@ const SLEEP_AFTER: Duration = Duration::from_mins(10);
 const SLEEP_CHECK: Duration = Duration::from_secs(30);
 const PICTURE_WAIT: Duration = Duration::from_secs(8);
 const WATCH_KEPT: Duration = Duration::from_secs(20);
+/// The time that a moved page gets to load before its tabs are read.
+const SETTLE: Duration = Duration::from_secs(1);
 const MOST_OUTPUT: usize = 1024 * 1024;
 const FIRST_SIZE: (u32, u32) = (1280, 720);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
@@ -189,6 +191,13 @@ pub(super) fn chromium() -> Option<PathBuf> {
     }
 }
 
+/// What the picture stream of agent-browser sends that the host uses.
+pub(super) enum Streamed {
+    Picture(Picture),
+    /// A page moved or the tabs changed, for example after a person's click.
+    Moved,
+}
+
 #[derive(Clone)]
 pub(super) struct Picture {
     sequence: u64,
@@ -234,6 +243,7 @@ pub(super) struct Browser {
     pictures: watch::Sender<Option<Picture>>,
     activity: Mutex<Activity>,
     stream: tokio::sync::Mutex<Option<Stream>>,
+    moved: Arc<tokio::sync::Notify>,
     closed: CancellationToken,
 }
 
@@ -257,9 +267,15 @@ impl Browser {
             pictures: watch::Sender::new(None),
             activity: Mutex::new(Activity::default()),
             stream: tokio::sync::Mutex::new(None),
+            moved: Arc::new(tokio::sync::Notify::new()),
             closed: CancellationToken::new(),
         });
         tokio::spawn(sleeper(Arc::downgrade(&browser), browser.closed.clone()));
+        tokio::spawn(follow(
+            Arc::downgrade(&browser),
+            Arc::clone(&browser.moved),
+            browser.closed.clone(),
+        ));
         browser
     }
 
@@ -717,7 +733,13 @@ impl Browser {
             .map_err(|_| "The browser does not send pictures now. Open it again.".to_owned())?;
         let (input, inputs) = tokio::sync::mpsc::channel(256);
         let cancel = self.closed.child_token();
-        tokio::spawn(relay(socket, inputs, self.pictures.clone(), cancel.clone()));
+        tokio::spawn(relay(
+            socket,
+            inputs,
+            self.pictures.clone(),
+            Arc::clone(&self.moved),
+            cancel.clone(),
+        ));
         *stream = Some(Stream {
             input: input.clone(),
             cancel,
@@ -886,12 +908,38 @@ async fn sleeper(browser: Weak<Browser>, closed: CancellationToken) {
     }
 }
 
+/// Reads the tabs again after a page moved, so the bar shows the page that a person's click
+/// opened.
+async fn follow(
+    browser: Weak<Browser>,
+    moved: Arc<tokio::sync::Notify>,
+    closed: CancellationToken,
+) {
+    loop {
+        tokio::select! {
+            () = closed.cancelled() => return,
+            () = async {
+                moved.notified().await;
+                tokio::time::sleep(SETTLE).await;
+            } => {}
+        }
+        let Some(browser) = browser.upgrade() else {
+            return;
+        };
+        let _one = browser.commands.lock().await;
+        if browser.awake() {
+            browser.refresh(None).await;
+        }
+    }
+}
+
 async fn relay(
     socket: tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
     mut inputs: tokio::sync::mpsc::Receiver<Value>,
     pictures: watch::Sender<Option<Picture>>,
+    moved: Arc<tokio::sync::Notify>,
     cancel: CancellationToken,
 ) {
     let (mut sink, mut source) = socket.split();
@@ -913,14 +961,14 @@ async fn relay(
                 None => break,
             },
             message = source.next() => match message {
-                Some(Ok(Message::Text(text))) => {
-                    if let Some(picture) = picture_of(text.as_str()) {
-                        pictures.send_modify(|current| {
-                            let sequence = current.as_ref().map_or(0, |current| current.sequence) + 1;
-                            *current = Some(Picture { sequence, ..picture });
-                        });
-                    }
-                }
+                Some(Ok(Message::Text(text))) => match streamed(text.as_str()) {
+                    Some(Streamed::Picture(picture)) => pictures.send_modify(|current| {
+                        let sequence = current.as_ref().map_or(0, |current| current.sequence) + 1;
+                        *current = Some(Picture { sequence, ..picture });
+                    }),
+                    Some(Streamed::Moved) => moved.notify_one(),
+                    None => {}
+                },
                 Some(Ok(Message::Close(_)) | Err(_)) | None => break,
                 Some(Ok(_)) => {}
             },
@@ -929,22 +977,24 @@ async fn relay(
     cancel.cancel();
 }
 
-pub(super) fn picture_of(text: &str) -> Option<Picture> {
+pub(super) fn streamed(text: &str) -> Option<Streamed> {
     let frame: Value = serde_json::from_str(text).ok()?;
-    if frame["type"].as_str() != Some("frame") {
-        return None;
+    match frame["type"].as_str()? {
+        "frame" => {}
+        "url" | "tabs" => return Some(Streamed::Moved),
+        _ => return None,
     }
     let data = frame["data"].as_str()?;
     if data.len() > super::MOST_PICTURE {
         return None;
     }
     let size = |field: &str| pixels(&frame["metadata"][field]);
-    Some(Picture {
+    Some(Streamed::Picture(Picture {
         sequence: 0,
         width: size("deviceWidth")?,
         height: size("deviceHeight")?,
         data: Arc::from(data),
-    })
+    }))
 }
 
 #[expect(

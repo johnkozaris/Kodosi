@@ -333,11 +333,16 @@ fn tabs_and_pictures_from_agent_browser_are_bounded() {
     assert_eq!(tabs.len(), 1);
     assert_eq!(tabs[0].id, "t1");
     assert!(tabs[0].active);
-    let picture = browser::picture_of(
+    let Some(browser::Streamed::Picture(picture)) = browser::streamed(
         &json!({"type": "frame", "data": "abc", "metadata": {"deviceWidth": 800, "deviceHeight": 600}})
             .to_string(),
-    )
-    .unwrap();
+    ) else {
+        panic!("a frame is a picture");
+    };
     assert_eq!((picture.width, picture.height), (800, 600));
-    assert!(browser::picture_of(&json!({"type": "status"}).to_string()).is_none());
+    assert!(matches!(
+        browser::streamed(&json!({"type": "url", "url": "https://example.com/next"}).to_string()),
+        Some(browser::Streamed::Moved)
+    ));
+    assert!(browser::streamed(&json!({"type": "status"}).to_string()).is_none());
 }
