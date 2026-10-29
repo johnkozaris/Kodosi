@@ -23,7 +23,7 @@ set(KODOSI_PLATFORM_SOURCES
     platform/linux/FreedesktopNotificationDriver.hpp
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus)
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel qtwebengine)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR share/licenses/kodosi-qt/provider-icons)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
 

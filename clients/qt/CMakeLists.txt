@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_DISABLE_FIND_PACKAGE_WrapVulkanHeaders TRUE)
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/dependencies.lock.json" KODOSI_DEPENDENCIES)
 string(JSON KODOSI_QT_VERSION GET "${KODOSI_DEPENDENCIES}" frameworks qt version)
+string(JSON KODOSI_QT_WEBENGINE_VERSION GET "${KODOSI_DEPENDENCIES}" frameworks qtwebengine version)
 set_property(
     DIRECTORY
     APPEND

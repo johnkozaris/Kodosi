@@ -445,7 +445,7 @@ def check_debian_dependencies(package: Path) -> None:
         fail(f"the package does not depend on {', '.join(missing)}")
 
 
-def check_files(root: Path, qt_version: str) -> None:
+def check_files(root: Path, qt_version: str, webengine_version: str) -> None:
     for name in (
         "usr/bin/kodosi",
         "usr/bin/kodosi-qt",
@@ -463,7 +463,8 @@ def check_files(root: Path, qt_version: str) -> None:
         DESKTOP,
         METAINFO,
         "usr/share/icons/hicolor/256x256/apps/com.kodosi.Kodosi.png",
-        *(f"{PRIVATE}/lib/libQt6{module}.so.{qt_version}" for module in ("Core", "DBus", "WebEngineCore", "Widgets")),
+        *(f"{PRIVATE}/lib/libQt6{module}.so.{qt_version}" for module in ("Core", "DBus", "Widgets")),
+        f"{PRIVATE}/lib/libQt6WebEngineCore.so.{webengine_version}",
         *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS),
         f"{PRIVATE}/resources/qtwebengine_resources.pak",
         f"{PRIVATE}/translations/qtwebengine_locales/en-US.pak",
@@ -558,7 +559,9 @@ def main() -> None:
         try:
             checkout = source_identity(ROOT)
             version = product_version(ROOT)
-            qt_version = json.loads((ROOT / "dependencies.lock.json").read_bytes())["frameworks"]["qt"]["version"]
+            frameworks = json.loads((ROOT / "dependencies.lock.json").read_bytes())["frameworks"]
+            qt_version = frameworks["qt"]["version"]
+            webengine_version = frameworks["qtwebengine"]["version"]
         except (OSError, ValueError, KeyError) as error:
             fail(f"cannot read the checkout: {error}")
         (ROOT / "build").mkdir(exist_ok=True)
@@ -570,7 +573,7 @@ def main() -> None:
             if kind == "deb":
                 check_debian_dependencies(package)
                 check_repository(package, root)
-            check_files(root, qt_version)
+            check_files(root, qt_version, webengine_version)
             check_links(root)
             check_home(root)
             check_desktop(root)

@@ -24,6 +24,7 @@ sys.stdout.write(value)
 CMAKE_VERSION=$(lock_value tools cmake version)
 NINJA_VERSION=$(lock_value tools ninja version)
 QT_VERSION=$(lock_value frameworks qt version)
+WEBENGINE_VERSION=$(lock_value frameworks qtwebengine version)
 read -r -a QT_MODULES <<< "$(python3 -c '
 import json
 
@@ -76,10 +77,12 @@ esac
 
 CMAKE_SHA256=$(lock_value tools cmake sha256 "$TOOL_HOST")
 NINJA_SHA256=$(lock_value tools ninja sha256 "$TOOL_HOST")
+WEBENGINE_SHA256=$(lock_value frameworks qtwebengine sha256 "$TOOL_HOST")
 CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${CMAKE_ARCHIVE}"
 CMAKE_ROOT="$PWD/.tools/cmake"
 NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/${NINJA_ARCHIVE}"
 NINJA_ROOT="$PWD/.tools/ninja"
+WEBENGINE_URL="$(lock_value frameworks qtwebengine source)$(lock_value frameworks qtwebengine archives "$TOOL_HOST")"
 QT_ROOT="$PWD/.tools/Qt/$QT_DIR"
 AQT_ROOT="$PWD/.tools/aqt-${AQTINSTALL_COMMIT:0:12}"
 DOWNLOAD_ROOT="$PWD/.tools/downloads"
@@ -165,6 +168,8 @@ fi
 
 qt_ready() {
     local root=$1
+    grep -qF "set(PACKAGE_VERSION \"$WEBENGINE_VERSION\")" \
+        "$root/lib/cmake/Qt6WebEngineCore/Qt6WebEngineCoreConfigVersionImpl.cmake" 2>/dev/null || return 1
     if [ "$HOST" = windows ]; then
         [ -f "$root/lib/cmake/Qt6/Qt6Config.cmake" ] &&
             [ -x "$root/bin/qmllint.exe" ] &&
@@ -177,7 +182,7 @@ qt_ready() {
             [ -x "$root/bin/qmllint" ] &&
             [ -f "$root/lib/libQt6Core.so.$QT_VERSION" ] &&
             [ -f "$root/lib/libQt6Quick.so.$QT_VERSION" ] &&
-            [ -f "$root/lib/libQt6WebEngineCore.so.$QT_VERSION" ] &&
+            [ -f "$root/lib/libQt6WebEngineCore.so.$WEBENGINE_VERSION" ] &&
             [ "$("$root/bin/qtpaths6" --qt-version)" = "$QT_VERSION" ]
     fi
 }
@@ -200,6 +205,11 @@ if ! qt_ready "$QT_ROOT"; then
     rm -rf "$stage"
     "$aqt" install-qt "$QT_HOST" desktop "$QT_VERSION" "$QT_ARCH" -m "${QT_MODULES[@]}" --outputdir "$stage"
     staged_qt="$stage/$QT_VERSION/$QT_DIR"
+    # aqtinstall would take an older Qt WebEngine build that Qt 6.12.0 cannot load on Windows.
+    archive=$(download "qtwebengine-${WEBENGINE_VERSION}-${TOOL_HOST}.7z" "$WEBENGINE_URL" "$WEBENGINE_SHA256")
+    "$environment/python$EXE" -c 'import sys, py7zr; py7zr.SevenZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+        "$archive" "$staged_qt"
+    rm -f "$archive"
     if ! qt_ready "$staged_qt"; then
         echo "Qt install verification failed" >&2
         exit 1
@@ -210,4 +220,4 @@ if ! qt_ready "$QT_ROOT"; then
     rm -rf "$stage"
 fi
 
-echo "CMake $CMAKE_VERSION, Ninja $NINJA_VERSION, and Qt $QT_VERSION ($QT_DIR) are ready"
+echo "CMake $CMAKE_VERSION, Ninja $NINJA_VERSION, and Qt $QT_VERSION with Qt WebEngine $WEBENGINE_VERSION ($QT_DIR) are ready"

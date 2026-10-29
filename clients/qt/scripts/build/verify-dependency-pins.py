@@ -37,8 +37,9 @@ def main() -> None:
     try:
         cmake_version = dependencies["tools"]["cmake"]["version"]
         qt_version = dependencies["frameworks"]["qt"]["version"]
+        webengine_version = dependencies["frameworks"]["qtwebengine"]["version"]
     except (KeyError, TypeError) as error:
-        fail(f"{DEPENDENCIES} has no CMake or Qt version: {error}")
+        fail(f"{DEPENDENCIES} has no CMake, Qt or Qt WebEngine version: {error}")
 
     minimum = load_json(PRESETS).get("cmakeMinimumRequired")
     if not isinstance(minimum, dict) or set(minimum) != {"major", "minor", "patch"}:
@@ -56,8 +57,12 @@ def main() -> None:
         if named != {qt_version}:
             found = ", ".join(sorted(named)) or "no version"
             fail(f"{relative} names Qt {found}, but {DEPENDENCIES} pins {qt_version}")
+        named = set(re.findall(r"\bQt WebEngine ([0-9]+\.[0-9]+\.[0-9]+)\b", text))
+        if named - {webengine_version}:
+            found = ", ".join(sorted(named))
+            fail(f"{relative} names Qt WebEngine {found}, but {DEPENDENCIES} pins {webengine_version}")
 
-    print(f"[*] the copies of CMake {cmake_version} and Qt {qt_version} agree with {DEPENDENCIES}")
+    print(f"[*] the copies of CMake {cmake_version}, Qt {qt_version} and Qt WebEngine {webengine_version} agree with {DEPENDENCIES}")
 
 
 if __name__ == "__main__":

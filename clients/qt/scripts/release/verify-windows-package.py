@@ -48,9 +48,9 @@ REQUIRED_FILES = (
 )
 # Windows may hold an older copy of the C runtime.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
-QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel", "qtwebengine")
+QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
-CHROMIUM_SBOMS = ("qtwebengine-chromium-pdf", "qtwebengine-chromium-webengine")
+WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 
 Reader = Callable[[str], bytes]
 
@@ -219,7 +219,8 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
     for name in ("conpty.dll", "OpenConsole.exe"):
         same(files, read, name, build_dir / "conpty" / name)
 
-    qt_version = json.loads((ROOT / "dependencies.lock.json").read_text(encoding="utf-8"))["frameworks"]["qt"]["version"]
+    frameworks = json.loads((ROOT / "dependencies.lock.json").read_text(encoding="utf-8"))["frameworks"]
+    qt_version = frameworks["qt"]["version"]
     qt_licenses = ROOT / "packaging/licenses/qt" / qt_version
     expected = {
         f"doc/qt/{path.relative_to(qt_licenses).as_posix()}": path
@@ -227,7 +228,9 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
         if path.is_file()
     }
     sboms = [f"{module}-{qt_version}.{suffix}" for module in QT_SBOM_MODULES for suffix in QT_SBOM_FORMATS]
-    sboms += [f"{part}-{qt_version}.{suffix}" for part in CHROMIUM_SBOMS for suffix in ("spdx", "spdx.json")]
+    sboms += [
+        f"{part}-{frameworks['qtwebengine']['version']}.{suffix}" for part in WEBENGINE_SBOMS for suffix in QT_SBOM_FORMATS
+    ]
     for sbom in sboms:
         expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
     if {name for name in files if name.startswith("doc/qt/")} != set(expected):
