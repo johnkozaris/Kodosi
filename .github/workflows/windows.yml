@@ -12,6 +12,8 @@ on:
       - VERSION
       - justfile
       - rust-toolchain.toml
+      - AgentBrowser.lock
+      - scripts/build-agent-browser.py
       - scripts/build-runtime-library.py
       - scripts/windows-env.sh
       - .github/workflows/windows.yml
@@ -58,6 +60,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: runtime
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tools/agent-browser
+          key: agent-browser-windows-${{ hashFiles('AgentBrowser.lock', 'rust-toolchain.toml') }}
       - name: Make a test certificate like the release certificate
         run: clients/qt/scripts/release/make-signing-certificate.sh "$(cygpath -u "$RUNNER_TEMP")/certificate"
       - name: Put the test key in the certificate store

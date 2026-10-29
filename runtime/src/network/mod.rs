@@ -250,6 +250,9 @@ pub enum TerminalControl {
     },
     Interrupt,
     Close,
+    Canvas {
+        request: crate::canvas::CanvasRequest,
+    },
 }
 
 #[derive(Debug)]

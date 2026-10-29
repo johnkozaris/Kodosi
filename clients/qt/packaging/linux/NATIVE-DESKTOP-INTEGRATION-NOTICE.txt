@@ -5,6 +5,7 @@ This package was built from the Kodosi repository together with the exact depend
 recorded in /usr/share/doc/kodosi/provenance/dependencies.lock.json:
 
 - Qt 6.12.0
+- Qt WebEngine 6.140.0
 - The Kodosi source commit is recorded in the installed provenance.
 - The Linux upstream commit is recorded in the installed ghostty/LinuxGhostty.ref.
 
@@ -13,13 +14,14 @@ exact Linux dependency closure is recorded under
 /usr/share/doc/kodosi/ghostty/ThirdPartyNotices. The bundled private Kodosi CLI
 comes from the same pinned Rust runtime checkout as the GUI's C ABI library.
 
-This package uses the dynamically linked Qt 6.12.0 libraries and plugins
-shipped in its private runtime, including Qt Widgets QFileDialog, the GTK 3
-platform theme, and the XDG Desktop Portal platform theme. Kodosi selects the
-portal theme only when QT_QPA_PLATFORMTHEME is unset. The system
-xdg-desktop-portal service discovers the active desktop backend, including a
-KDE backend when installed; Kodosi does not ship a KDE Qt platform-theme
-plugin. The GTK 3 platform theme remains available as an explicit fallback.
+This package uses the dynamically linked Qt 6.12.0 and Qt WebEngine 6.140.0
+libraries and plugins shipped in its private runtime, including Qt Widgets
+QFileDialog, the GTK 3 platform theme, and the XDG Desktop Portal platform
+theme. Kodosi selects the portal theme only when QT_QPA_PLATFORMTHEME is
+unset. The system xdg-desktop-portal service discovers the active desktop
+backend, including a KDE backend when installed; Kodosi does not ship a KDE Qt
+platform-theme plugin. The GTK 3 platform theme remains available as an
+explicit fallback.
 
 Kodosi uses the Qt open-source redistribution terms and does not claim a Qt
 commercial license. Applicable LGPL/GPL and third-party texts, exact

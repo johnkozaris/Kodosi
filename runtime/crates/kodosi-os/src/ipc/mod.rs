@@ -19,18 +19,30 @@ pub struct Endpoint(imp::Endpoint);
 
 impl Endpoint {
     pub fn new(namespace: &str, role: &str) -> io::Result<Self> {
-        for part in [namespace, role] {
-            if part.is_empty()
-                || part.len() > 64
-                || !part
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-            {
-                return Err(crate::fs::invalid("invalid local endpoint name"));
-            }
-        }
+        checked(namespace)?;
+        checked(role)?;
         imp::Endpoint::new(namespace, role).map(Self)
     }
+}
+
+/// The short private folder of this user's endpoints in a namespace. Other programs that Kodosi
+/// runs keep their sockets in folders under it.
+#[cfg(unix)]
+pub fn private_dir(namespace: &str) -> io::Result<std::path::PathBuf> {
+    checked(namespace)?;
+    imp::private_dir(namespace)
+}
+
+fn checked(part: &str) -> io::Result<()> {
+    if part.is_empty()
+        || part.len() > 64
+        || !part
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return Err(crate::fs::invalid("invalid local endpoint name"));
+    }
+    Ok(())
 }
 
 pub struct Listener(imp::Listener);

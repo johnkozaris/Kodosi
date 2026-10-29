@@ -134,6 +134,17 @@ impl Runtime {
                 ));
             }
             Command::Read { .. } => self.read(command)?,
+            Command::CanvasAsk { .. } => self.ask_canvas(command)?,
+            #[cfg(feature = "host")]
+            Command::CanvasShow { .. } | Command::CanvasBrowse { .. } => {
+                self.use_canvas(command)?;
+            }
+            #[cfg(not(feature = "host"))]
+            Command::CanvasShow { .. } | Command::CanvasBrowse { .. } => {
+                return Err(Error::Invalid(
+                    "Agents show files on the canvas of their own terminal.".to_owned(),
+                ));
+            }
             Command::Show { session_id, .. } => {
                 if !self.listed(&parse_id(session_id)?) {
                     return Err(Error::NotFound);
@@ -388,6 +399,75 @@ impl Runtime {
                 command,
                 result: read.await,
             }
+        });
+        Ok(())
+    }
+
+    fn ask_canvas(&mut self, command: &Command) -> Result<()> {
+        let Command::CanvasAsk {
+            session_id,
+            request,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a canvas request".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        let answer = self.target(id)?.canvas(request.clone());
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Canvas {
+                command,
+                result: answer.await,
+            }
+        });
+        Ok(())
+    }
+
+    /// An agent's `kodosi show` and `kodosi browser`, on the canvas of its own terminal.
+    #[cfg(feature = "host")]
+    fn use_canvas(&mut self, command: &Command) -> Result<()> {
+        let id = parse_id(command.session_id().unwrap_or_default())?;
+        let (canvas, terminal, agent) = self
+            .local
+            .get(&id)
+            .map(|local| {
+                let agent = local
+                    .entry
+                    .program
+                    .as_deref()
+                    .and_then(crate::agents::Agent::named)
+                    .map(|agent| agent.label().to_owned());
+                (
+                    local.terminal.canvas.clone(),
+                    local.entry.name.clone(),
+                    agent,
+                )
+            })
+            .ok_or_else(|| {
+                Error::Invalid("Use the canvas of a terminal on this computer.".to_owned())
+            })?;
+        self.job_capacity()?;
+        let command = command.clone();
+        self.spawn(async move {
+            let result = match &command {
+                Command::CanvasShow { paths, .. } => {
+                    canvas
+                        .show(paths.iter().map(PathBuf::from).collect(), terminal)
+                        .await
+                }
+                Command::CanvasBrowse {
+                    folder, arguments, ..
+                } => {
+                    canvas
+                        .browse(PathBuf::from(folder), arguments.clone(), terminal, agent)
+                        .await
+                }
+                _ => Err("expected a canvas command".to_owned()),
+            };
+            Completion::Canvas { command, result }
         });
         Ok(())
     }
@@ -1103,6 +1183,17 @@ impl Runtime {
                 Err(error) => self.error(&command, &error),
             },
             Completion::Read { command, .. } => self.error(&command, &Error::Stale),
+            Completion::Canvas { command, result } if current => match result {
+                Ok(answer) => {
+                    #[cfg(feature = "host")]
+                    self.sync_canvas(command.session_id().unwrap_or_default());
+                    let mut value = super::answer(&command, Ok(()));
+                    value["answer"] = json!(answer);
+                    self.emit(value);
+                }
+                Err(message) => self.error(&command, &Error::Invalid(message)),
+            },
+            Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
@@ -1114,6 +1205,7 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
+    #[expect(clippy::too_many_lines, reason = "the parts of one new terminal")]
     fn created(&mut self, id: Uuid, result: Result<StartedSession>, current: bool) {
         let Some(command) = self.creating.remove(&id) else {
             return;
@@ -1163,6 +1255,7 @@ impl Runtime {
                     title: None,
                     program_status: None,
                     context: None,
+                    canvas: None,
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,
@@ -1185,6 +1278,13 @@ impl Runtime {
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 if let Some(folder) = &entry.working_dir {
                     self.recent.remember(folder);
+                }
+                if let Some(saved) = &restored {
+                    terminal.canvas.restore(
+                        saved.canvas.iter().map(PathBuf::from).collect(),
+                        saved.browser.clone(),
+                        saved.id,
+                    );
                 }
                 let (kept, wanted) = restored.map_or((None, None), |saved| {
                     (
@@ -1652,6 +1752,7 @@ async fn create_session(
         Some(config.data_root.join("shell")),
         Some(config.data_root.join("agents")),
         screen,
+        crate::canvas::CanvasHandle::spawn(id, &config.data_root),
         changes,
     )
     .await

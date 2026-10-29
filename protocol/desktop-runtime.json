@@ -2543,6 +2543,590 @@
               }
             ]
           },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "canvas.show"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "paths"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "arguments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "folder": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "canvas.browser"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "folder",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "revision": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "type": {
+                    "const": "read"
+                  }
+                },
+                "required": [
+                  "type",
+                  "key",
+                  "revision",
+                  "offset"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "keys": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "const": "remove"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "after": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "type": {
+                    "const": "picture"
+                  }
+                },
+                "required": [
+                  "type",
+                  "after"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "events": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "button": {
+                              "oneOf": [
+                                {
+                                  "const": "none"
+                                },
+                                {
+                                  "const": "left"
+                                },
+                                {
+                                  "const": "middle"
+                                },
+                                {
+                                  "const": "right"
+                                }
+                              ]
+                            },
+                            "clickCount": {
+                              "format": "u8",
+                              "type": "integer"
+                            },
+                            "deltaX": {
+                              "format": "i32",
+                              "type": "integer"
+                            },
+                            "deltaY": {
+                              "format": "i32",
+                              "type": "integer"
+                            },
+                            "eventType": {
+                              "oneOf": [
+                                {
+                                  "const": "mousePressed"
+                                },
+                                {
+                                  "const": "mouseReleased"
+                                },
+                                {
+                                  "const": "mouseMoved"
+                                },
+                                {
+                                  "const": "mouseWheel"
+                                }
+                              ]
+                            },
+                            "modifiers": {
+                              "format": "u8",
+                              "type": "integer"
+                            },
+                            "type": {
+                              "const": "mouse"
+                            },
+                            "x": {
+                              "format": "i32",
+                              "type": "integer"
+                            },
+                            "y": {
+                              "format": "i32",
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "eventType",
+                            "x",
+                            "y"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "eventType": {
+                              "oneOf": [
+                                {
+                                  "const": "keyDown"
+                                },
+                                {
+                                  "const": "keyUp"
+                                },
+                                {
+                                  "const": "rawKeyDown"
+                                },
+                                {
+                                  "const": "char"
+                                }
+                              ]
+                            },
+                            "key": {
+                              "type": "string"
+                            },
+                            "keyCode": {
+                              "format": "u32",
+                              "type": "integer"
+                            },
+                            "modifiers": {
+                              "format": "u8",
+                              "type": "integer"
+                            },
+                            "text": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "type": {
+                              "const": "key"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "eventType",
+                            "key",
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "eventType": {
+                              "oneOf": [
+                                {
+                                  "const": "touchStart"
+                                },
+                                {
+                                  "const": "touchMove"
+                                },
+                                {
+                                  "const": "touchEnd"
+                                },
+                                {
+                                  "const": "touchCancel"
+                                }
+                              ]
+                            },
+                            "modifiers": {
+                              "format": "u8",
+                              "type": "integer"
+                            },
+                            "points": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "x": {
+                                    "format": "i32",
+                                    "type": "integer"
+                                  },
+                                  "y": {
+                                    "format": "i32",
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "type": {
+                              "const": "touch"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "eventType",
+                            "points"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "text": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "const": "text"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "height": {
+                    "format": "u32",
+                    "type": "integer"
+                  },
+                  "type": {
+                    "const": "input"
+                  },
+                  "width": {
+                    "format": "u32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "type",
+                  "events",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "open"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "do",
+                          "url"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "back"
+                          }
+                        },
+                        "required": [
+                          "do"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "forward"
+                          }
+                        },
+                        "required": [
+                          "do"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "reload"
+                          }
+                        },
+                        "required": [
+                          "do"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "tab"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "do",
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "newTab"
+                          }
+                        },
+                        "required": [
+                          "do"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "closeTab"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "do",
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "do": {
+                            "const": "wake"
+                          },
+                          "height": {
+                            "format": "u32",
+                            "type": "integer"
+                          },
+                          "width": {
+                            "format": "u32",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "do",
+                          "width",
+                          "height"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "const": "act"
+                  }
+                },
+                "required": [
+                  "type",
+                  "action"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "canvas.request"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "request"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "type": "string"
           },
@@ -5759,6 +6343,254 @@
                 "attention": {
                   "type": "boolean"
                 },
+                "canvas": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "browser": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "changed": {
+                                  "format": "u64",
+                                  "type": "integer"
+                                },
+                                "doing": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "agent": {
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "oneOf": [
+                                            {
+                                              "const": "open"
+                                            },
+                                            {
+                                              "const": "click"
+                                            },
+                                            {
+                                              "const": "type"
+                                            },
+                                            {
+                                              "const": "scroll"
+                                            },
+                                            {
+                                              "const": "read"
+                                            },
+                                            {
+                                              "const": "wait"
+                                            },
+                                            {
+                                              "const": "other"
+                                            }
+                                          ]
+                                        },
+                                        "point": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "x": {
+                                                  "format": "u32",
+                                                  "type": "integer"
+                                                },
+                                                "y": {
+                                                  "format": "u32",
+                                                  "type": "integer"
+                                                }
+                                              },
+                                              "required": [
+                                                "x",
+                                                "y"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "agent",
+                                        "kind"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "height": {
+                                  "format": "u32",
+                                  "type": "integer"
+                                },
+                                "last": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "agent": {
+                                          "type": "string"
+                                        },
+                                        "words": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "agent",
+                                        "words"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "problem": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "state": {
+                                  "oneOf": [
+                                    {
+                                      "const": "starting"
+                                    },
+                                    {
+                                      "const": "awake"
+                                    },
+                                    {
+                                      "const": "asleep"
+                                    }
+                                  ]
+                                },
+                                "tabs": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "active": {
+                                        "type": "boolean"
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "url": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "url",
+                                      "active"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "width": {
+                                  "format": "u32",
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "changed",
+                                "width",
+                                "height"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "items": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "bytes": {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              "changed": {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              "key": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "oneOf": [
+                                  {
+                                    "const": "page"
+                                  },
+                                  {
+                                    "const": "picture"
+                                  },
+                                  {
+                                    "const": "pdf"
+                                  },
+                                  {
+                                    "const": "office"
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "revision": {
+                                "format": "u64",
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "name",
+                              "kind",
+                              "revision",
+                              "bytes",
+                              "changed"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "sequence": {
+                          "format": "u64",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "sequence"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "connectedUsers": {
                   "items": {
                     "type": "string"
@@ -7210,6 +8042,257 @@
           },
           "type": {
             "const": "mission.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "const": "done"
+                  }
+                },
+                "required": [
+                  "answer"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "const": "text"
+                  },
+                  "code": {
+                    "format": "i32",
+                    "type": "integer"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "text",
+                  "code"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "const": "part"
+                  },
+                  "data": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "oneOf": [
+                      {
+                        "const": "page"
+                      },
+                      {
+                        "const": "picture"
+                      },
+                      {
+                        "const": "pdf"
+                      },
+                      {
+                        "const": "office"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "revision": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "total": {
+                    "format": "u64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "key",
+                  "name",
+                  "kind",
+                  "revision",
+                  "offset",
+                  "total",
+                  "data"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "const": "stale"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "format": "u64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "key",
+                  "revision"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "answer": {
+                    "const": "picture"
+                  },
+                  "frame": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "data": {
+                            "type": "string"
+                          },
+                          "height": {
+                            "format": "u32",
+                            "type": "integer"
+                          },
+                          "width": {
+                            "format": "u32",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "width",
+                          "height",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sequence": {
+                    "format": "u64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "answer",
+                  "sequence"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "canvas.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "sessionId",
+          "answer"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "canvas.error"
           }
         },
         "required": [
@@ -10408,7 +11491,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 73,
+  "protocolVersion": 74,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

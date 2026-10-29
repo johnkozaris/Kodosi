@@ -30,7 +30,7 @@ bool MissionsModel::watching(const QString& roomId) const
 void MissionsModel::readWatched()
 {
     see(m_selectedId);
-    seeCanvas();
+    seeSection();
 }
 
 void MissionsModel::see(const QString& roomId)
@@ -209,8 +209,8 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
     emit presentationChanged();
     if (key == QStringLiteral("conversation") || key == QStringLiteral("followLatest"))
         readWatched();
-    if (key == QStringLiteral("canvas"))
-        seeCanvas();
+    if (key == QStringLiteral("section"))
+        seeSection();
 }
 
 void MissionsModel::followTerminal(const QString& replaced, const QString& id)
@@ -301,11 +301,11 @@ void MissionsModel::applyRoom(const QJsonObject& room)
             }
             return result;
         };
-        const auto canvas = view.value(QStringLiteral("canvas")).toInt();
+        const auto section = view.value(QStringLiteral("section")).toInt();
         auto fresh = view.value(QStringLiteral("fresh")).toList();
-        const auto mark = [&](int section) {
-            if (!(shown && canvas == section) && !fresh.contains(section))
-                fresh.append(section);
+        const auto mark = [&](int changed) {
+            if (!(shown && section == changed) && !fresh.contains(changed))
+                fresh.append(changed);
         };
         if (keys(previous, QStringLiteral("tasks"), QStringLiteral("version")) != keys(next, QStringLiteral("tasks"), QStringLiteral("version")))
             mark(1);
@@ -324,13 +324,13 @@ void MissionsModel::applyRoom(const QJsonObject& room)
     see(roomId);
 }
 
-void MissionsModel::seeCanvas()
+void MissionsModel::seeSection()
 {
     if (m_selectedId.isEmpty() || m_workspace.m_desktop.activeView() != DesktopStateModel::Missions)
         return;
     auto& view = m_presentations[m_selectedId];
     auto fresh = view.value(QStringLiteral("fresh")).toList();
-    if (fresh.removeAll(view.value(QStringLiteral("canvas")).toInt()) == 0)
+    if (fresh.removeAll(view.value(QStringLiteral("section")).toInt()) == 0)
         return;
     view.insert(QStringLiteral("fresh"), fresh);
     emit presentationChanged();

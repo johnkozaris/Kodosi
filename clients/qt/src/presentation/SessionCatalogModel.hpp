@@ -51,6 +51,7 @@ public:
         QString message;
         QStringList sharedWith;
         QString restoredFrom;
+        QVariantMap canvas;
         bool isOwner = false;
         bool attention = false;
         bool hidden = false;
@@ -116,6 +117,7 @@ private:
     AuthorityState m_state = Loading;
     QString m_error;
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);
+    [[nodiscard]] static std::optional<QVariantMap> decodeCanvas(const QJsonValue& value);
     [[nodiscard]] static PresentationSession presentation(const Session& session);
     [[nodiscard]] static bool isWorking(const Session& session);
     [[nodiscard]] static QString waitState(const Session& session);

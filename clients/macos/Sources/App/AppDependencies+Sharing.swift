@@ -24,7 +24,7 @@ extension AppDependencies {
                 if workbench.selectedMissionId != share.roomId || missionDetail?.mission.id != share.roomId {
                     openMission(id: share.roomId)
                 }
-                roomView(share.roomId).canvas = 0
+                roomView(share.roomId).shownSection = 0
                 activateSession(share.sessionId, inRoom: share.roomId)
             } catch { errorMessage = error.localizedDescription }
         }

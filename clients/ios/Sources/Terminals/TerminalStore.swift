@@ -21,12 +21,14 @@ final class TerminalStore {
 
     @ObservationIgnored let commands: CommandSink
     @ObservationIgnored let notices: NoticeCenter
+    let canvas: CanvasStore
     @ObservationIgnored let focus: TerminalProcessFocusCoordinator
     @ObservationIgnored let live: TerminalSessionManager
 
     init(commands: CommandSink, notices: NoticeCenter, runtime: RuntimeHandle) {
         self.commands = commands
         self.notices = notices
+        canvas = CanvasStore(commands: commands)
         let focus = TerminalProcessFocusCoordinator(commands: commands)
         self.focus = focus
         live = TerminalSessionManager(
@@ -47,6 +49,7 @@ final class TerminalStore {
         releaseLive()
         self.userId = userId
         sessions = []
+        canvas.observe([])
         bells = [:]
         loaded = false
         watchingSessionId = nil
@@ -102,6 +105,7 @@ final class TerminalStore {
         let before = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
         let ids = Set(received.map(\.id))
         sessions = received
+        canvas.observe(received)
         loaded = true
         bells = bells.filter { ids.contains($0.key) }
         for value in received {

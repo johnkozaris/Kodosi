@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 23,
   "oldestTerminalConnectionProtocolVersion": 23,
-  "channelProtocolVersion": 3,
+  "channelProtocolVersion": 4,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a side whose channel has no selected protocol closes the channel and shows that the other computer must update Kodosi. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
@@ -118,7 +118,7 @@
       "metadata": {
         "type": 7,
         "direction": "host",
-        "body": "JSON terminal metadata (directory, title, program, status, context, connectedUsers); maximum 16384 bytes"
+        "body": "JSON terminal metadata (directory, title, program, status, context, connectedUsers, canvas); maximum 98304 bytes"
       },
       "heartbeat": {
         "type": 8,
@@ -144,7 +144,8 @@
       "control": {
         "type": 12,
         "direction": "viewer",
-        "body": "requestId:16 bytes, JSON control (resize, focus, interrupt, close)"
+        "body": "requestId:16 bytes, JSON control (resize, focus, message, interrupt, close, canvas); at most 32768 bytes of JSON",
+        "canvas": "a request to the canvas of the terminal (read, remove, picture, input, act); the host answers it with controlValue, or with controlResult when it refuses"
       },
       "refresh": {
         "type": 13,
@@ -170,6 +171,11 @@
         "type": 17,
         "direction": "host",
         "body": "JSON: the desktop-runtime answer to one request, with the requestId of the request; only on a call"
+      },
+      "controlValue": {
+        "type": 18,
+        "direction": "host",
+        "body": "requestId:16 bytes, the JSON answer of a canvas control: a part of a file, a picture of the browser or done; at most 524288 bytes"
       }
     }
   },

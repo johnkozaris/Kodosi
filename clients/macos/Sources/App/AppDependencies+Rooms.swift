@@ -65,10 +65,10 @@ extension AppDependencies {
                     state.unread += added
                 }
                 next.merge(previous)
-                if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.canvas == 1) {
+                if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.shownSection == 1) {
                     state.fresh.insert(1)
                 }
-                if previous.repositories.map(\.id) != next.repositories.map(\.id), !(watching && state.canvas == 2) {
+                if previous.repositories.map(\.id) != next.repositories.map(\.id), !(watching && state.shownSection == 2) {
                     state.fresh.insert(2)
                 }
             }

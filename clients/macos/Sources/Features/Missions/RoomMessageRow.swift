@@ -121,7 +121,7 @@ struct RoomMessageRow: View {
             }
             if let terminal {
                 Button {
-                    state.canvas = 0
+                    state.shownSection = 0
                     state.selectedTerminal = terminal.id
                     deps.activateSession(terminal.id, inRoom: roomId)
                 } label: {

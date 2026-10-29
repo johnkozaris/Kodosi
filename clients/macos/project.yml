@@ -108,6 +108,10 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           python3 "$PROJECT_DIR/../apple/scripts/install-notices.py" "$PLATFORM_NAME" "$CONFIGURATION" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+      - name: Install agent-browser
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/install-agent-browser.sh" "$CONFIGURATION" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
       - name: Verify Final Ghostty Image
         basedOnDependencyAnalysis: false
         script: |

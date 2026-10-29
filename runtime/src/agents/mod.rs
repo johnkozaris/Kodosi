@@ -95,7 +95,11 @@ impl Agent {
                 "-c {}",
                 variable_word(shell, "developer_instructions=", CONTEXT_VARIABLE)
             )),
-            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Copilot => Some(format!(
+                "--plugin-dir {}",
+                variable_word(shell, "", PLUGIN_VARIABLE)
+            )),
+            Self::Cursor | Self::Gemini | Self::Opencode => None,
         }
     }
 
@@ -128,14 +132,87 @@ pub(crate) const CONTEXT_VARIABLE: &str = "KODOSI_AGENT_CONTEXT";
 pub(crate) const COPILOT_INSTRUCTIONS: &str = "COPILOT_CUSTOM_INSTRUCTIONS_DIRS";
 
 #[cfg(feature = "host")]
+pub(crate) const PLUGIN_VARIABLE: &str = "KODOSI_PLUGIN_DIR";
+#[cfg(feature = "host")]
+pub(crate) const CLAUDE_PLUGINS: &str = "CLAUDE_CODE_PLUGIN_DIRS";
+#[cfg(feature = "host")]
+pub(crate) const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
+#[cfg(feature = "host")]
+pub(crate) const CANVAS_SKILL: &str = include_str!("../../skills/kodosi-canvas/SKILL.md");
+#[cfg(feature = "host")]
+pub(crate) const PAGE: &str = include_str!("../../skills/kodosi-canvas/assets/page.html");
+#[cfg(feature = "host")]
+const PLUGIN: &str = "plugin";
+
+/// Writes Kodosi's note for agents, and the plugin with its skills for agents that load plugins
+/// from a folder. Agents read both only in Kodosi terminals; nothing goes into their own folders.
+#[cfg(feature = "host")]
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
-    let text = format!("# Kodosi\n\n{}\n", CONTEXT.trim());
-    let file = folder.join("AGENTS.md");
-    if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
-        return Ok(());
+    let plugin = folder.join(PLUGIN);
+    let manifest = format!(
+        "{{\n  \"name\": \"kodosi\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them files and a shared browser on the canvas of a terminal.\"\n}}\n",
+        env!("KODOSI_VERSION")
+    );
+    let files = [
+        (
+            folder.join("AGENTS.md"),
+            format!("# Kodosi\n\n{}\n", CONTEXT.trim()),
+        ),
+        (plugin.join(".claude-plugin").join("plugin.json"), manifest),
+        (
+            plugin.join("skills").join("kodosi").join("SKILL.md"),
+            SKILL.to_owned(),
+        ),
+        (
+            plugin.join("skills").join("kodosi-canvas").join("SKILL.md"),
+            CANVAS_SKILL.to_owned(),
+        ),
+        (
+            plugin
+                .join("skills")
+                .join("kodosi-canvas")
+                .join("assets")
+                .join("page.html"),
+            PAGE.to_owned(),
+        ),
+    ];
+    for (file, text) in files {
+        if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
+            continue;
+        }
+        if let Some(parent) = file.parent() {
+            kodosi_os::fs::create_private_dir(parent)?;
+        }
+        kodosi_os::fs::write_private(&file, text.as_bytes())?;
     }
-    kodosi_os::fs::create_private_dir(folder)?;
-    kodosi_os::fs::write_private(&file, text.as_bytes())
+    Ok(())
+}
+
+/// The plugin folders for Claude Code in a Kodosi terminal: the person's own, then Kodosi's.
+#[cfg(feature = "host")]
+pub(crate) fn plugin_dirs(notes: &Path) -> Option<String> {
+    let plugin = plugin_dir(notes)?;
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    Some(
+        std::env::var(CLAUDE_PLUGINS)
+            .ok()
+            .filter(|folders| !folders.is_empty())
+            .map_or_else(
+                || plugin.clone(),
+                |folders| format!("{folders}{separator}{plugin}"),
+            ),
+    )
+}
+
+#[cfg(feature = "host")]
+pub(crate) fn plugin_dir(notes: &Path) -> Option<String> {
+    let plugin = notes.join(PLUGIN);
+    plugin
+        .join(".claude-plugin")
+        .join("plugin.json")
+        .is_file()
+        .then(|| plugin.to_str().map(str::to_owned))
+        .flatten()
 }
 
 #[cfg(feature = "host")]

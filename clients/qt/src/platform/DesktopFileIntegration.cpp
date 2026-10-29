@@ -5,6 +5,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QSaveFile>
+#include <QStandardPaths>
 #include <QWindow>
 
 namespace kodosi {
@@ -104,6 +106,40 @@ bool DesktopFileIntegration::openPath(const QString& path)
     }
     clearError();
     return true;
+}
+void DesktopFileIntegration::saveCopy(const QString& name, const QByteArray& content)
+{
+    if (m_dialog) {
+        fail(tr("A file dialog is already open."));
+        return;
+    }
+    clearError();
+    auto* dialog = new QFileDialog;
+    m_dialog = dialog;
+    dialog->setWindowTitle(tr("Save a copy"));
+    dialog->setAccessibleName(dialog->windowTitle());
+    dialog->setAcceptMode(QFileDialog::AcceptSave);
+    dialog->setFileMode(QFileDialog::AnyFile);
+    dialog->setSupportedSchemes({ QStringLiteral("file") });
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->setDirectory(QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
+    dialog->selectFile(QFileInfo(name).fileName());
+    connect(dialog, &QDialog::finished, this, [this, dialog, content](int result) {
+        m_dialog.clear();
+        emit busyChanged();
+        const auto urls = dialog->selectedUrls();
+        if (result == QDialog::Accepted && urls.size() == 1 && urls.first().isLocalFile()) {
+            QSaveFile file(urls.first().toLocalFile());
+            if (!file.open(QIODevice::WriteOnly) || file.write(content) != content.size() || !file.commit())
+                fail(tr("Kodosi could not save the copy."));
+        }
+        dialog->deleteLater();
+    });
+    dialog->setAttribute(Qt::WA_NativeWindow);
+    if (dialog->windowHandle() && m_window)
+        dialog->windowHandle()->setTransientParent(m_window);
+    dialog->show();
+    emit busyChanged();
 }
 void DesktopFileIntegration::copyText(const QString& text)
 {

@@ -73,7 +73,7 @@ extension AppDependencies {
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
-        guard delivery == .app, !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
+        guard delivery == .app, !["provider.", "room.", "canvas."].contains(where: event.type.hasPrefix) else { return }
         people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage
@@ -192,6 +192,7 @@ extension AppDependencies {
         guard received != sessions else { return }
         let previous = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
         sessions = received
+        canvas.observe(received)
         freshTerminals.formIntersection(received.map(\.id))
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
         for value in received {
@@ -253,7 +254,7 @@ extension AppDependencies {
         case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
         case .missions:
             guard let room = workbench.selectedMissionId, session(id)?.missionId == room else { return false }
-            return roomView(room).canvas == 0 && roomView(room).selectedTerminal == id
+            return roomView(room).shownSection == 0 && roomView(room).selectedTerminal == id
         case .people, .settings: return false
         }
     }

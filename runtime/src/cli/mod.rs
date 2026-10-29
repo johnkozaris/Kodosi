@@ -13,12 +13,11 @@ use std::{
 };
 use uuid::Uuid;
 
+mod canvas;
 mod dosi;
 mod render;
 mod rooms;
 mod terminal;
-
-const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
 
 fn this_terminal() -> Option<String> {
     std::env::var("KODOSI_SESSION_ID")
@@ -71,9 +70,33 @@ enum Action {
     )]
     Provider(ProviderAction),
     #[command(
-        about = "Print the skill that lets an agent work with the people and agents in Kodosi."
+        about = "Print the skill that lets an agent work with the people and agents in Kodosi, or another part of it."
     )]
-    Skill,
+    Skill {
+        /// canvas: how to show files and use the shared browser; page: the page template of the canvas.
+        #[arg(value_enum)]
+        topic: Option<SkillTopic>,
+    },
+    #[command(
+        about = "Show files on the canvas of this terminal: pages, pictures, PDFs and Office files."
+    )]
+    Show {
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
+    #[command(about = "List or remove what the canvas of this terminal shows.")]
+    Canvas {
+        #[command(subcommand)]
+        action: Option<canvas::CanvasAction>,
+    },
+    #[command(
+        about = "Run an agent-browser command on the shared browser of this terminal.",
+        disable_help_flag = true
+    )]
+    Browser {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
+        arguments: Vec<String>,
+    },
     #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
     Host {
         #[command(subcommand)]
@@ -85,6 +108,12 @@ enum Action {
 
 const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
+
+#[derive(Clone, Copy, ValueEnum)]
+enum SkillTopic {
+    Canvas,
+    Page,
+}
 #[derive(Subcommand)]
 enum DosiAction {
     /// Print the skill that lets an agent act as Dosi, which sees your terminals and rooms and acts on them.
@@ -381,7 +410,7 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
     };
     let json_output = args.json;
     match dispatch(args).await {
-        Ok(()) => 0,
+        Ok(code) => code,
         Err(error) => {
             let message = match error {
                 Error::HostOutdated {
@@ -438,26 +467,30 @@ const fn hosted_kind(action: &Action) -> Option<HostKind> {
     clippy::future_not_send,
     reason = "terminal attach runs the Ghostty mirror on the main thread"
 )]
-async fn dispatch(args: Arguments) -> Result<()> {
+#[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
+async fn dispatch(args: Arguments) -> Result<u8> {
     let mut config = Config::load()?;
     if let Some(kind) = hosted_kind(&args.command) {
         config.host = kind;
-        return run_host(config, args.json).await;
+        return run_host(config, args.json).await.map(|()| 0);
     }
     if let Action::Host {
         action: Some(HostAction::Stop { force }),
     } = args.command
     {
-        return stop_host(&config, force, args.json).await;
+        return stop_host(&config, force, args.json).await.map(|()| 0);
     }
     if let Some(skill) = skill(&args.command) {
-        return print_text(skill);
+        return print_text(skill).map(|()| 0);
     }
     refuse_for_dosi(&args.command)?;
     let mut client = local_host::connect_or_start(&config.data_root).await?;
     let mut context = Context::from_events(&client.initial_events);
     list_terminals(&args.command, &mut client, &mut context).await;
     let json_output = args.json;
+    if let Action::Browser { arguments } = args.command {
+        return canvas::browse(arguments, &mut client, &mut context, json_output).await;
+    }
     match args.command {
         Action::Room(arguments) => {
             rooms::run(arguments, &mut client, &mut context, json_output).await
@@ -524,17 +557,28 @@ async fn dispatch(args: Arguments) -> Result<()> {
             link_device(&mut client, &mut context, json_output).await
         }
         Action::Dosi(action) => dosi::run(action, &mut client, &mut context, json_output).await,
+        Action::Show { files } => canvas::show(files, &mut client, &mut context, json_output).await,
+        Action::Canvas { action } => {
+            canvas::run(action, &mut client, &mut context, json_output).await
+        }
         action => {
             let command = command(action, &mut client, &mut context).await?;
             let event = request(&mut client, &mut context, command, json_output).await?;
             output(&event, json_output, &render::result(&event, &context))
         }
     }
+    .map(|()| 0)
 }
 
 const fn skill(action: &Action) -> Option<&'static str> {
     match action {
-        Action::Skill => Some(SKILL),
+        Action::Skill { topic: None } => Some(crate::agents::SKILL),
+        Action::Skill {
+            topic: Some(SkillTopic::Canvas),
+        } => Some(crate::agents::CANVAS_SKILL),
+        Action::Skill {
+            topic: Some(SkillTopic::Page),
+        } => Some(crate::agents::PAGE),
         Action::Dosi(DosiAction::Skill) => Some(dosi::SKILL),
         _ => None,
     }
@@ -599,7 +643,10 @@ async fn command(
         Action::Provider(action) => provider_command(action, &request)?,
         Action::Room(_)
         | Action::Dosi(_)
-        | Action::Skill
+        | Action::Skill { .. }
+        | Action::Show { .. }
+        | Action::Canvas { .. }
+        | Action::Browser { .. }
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status => {
@@ -1660,6 +1707,7 @@ mod tests {
             include_str!("../../skills/kodosi-dosi/INSTRUCTIONS.md"),
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
             include_str!("../../skills/kodosi/SKILL.md"),
+            include_str!("../../skills/kodosi-canvas/SKILL.md"),
             include_str!("../../../README.md"),
             include_str!("../../../docs/GETTING_STARTED.md"),
             include_str!("../../../docs/ARCHITECTURE.md"),

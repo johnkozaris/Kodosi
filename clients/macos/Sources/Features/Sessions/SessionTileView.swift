@@ -10,6 +10,9 @@ struct SessionTileView: View {
     @Environment(\.theme) private var theme
     @Environment(\.terminalTileVisible) private var tileVisible
     @Environment(\.terminalStageVisible) private var stageVisible
+    @Environment(\.terminalAlone) private var alone
+    @Environment(\.terminalJoined) private var joinsCanvas
+    @Environment(\.tileRadius) private var radius
     let session: RuntimeSession
     let isFocused: Bool
     var roomEmbedded = false
@@ -28,7 +31,7 @@ struct SessionTileView: View {
     }
 
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
     }
 
     var body: some View {
@@ -36,7 +39,7 @@ struct SessionTileView: View {
         VStack(spacing: 0) {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
-                showsActions: hovered || isSelected, viewers: viewers, isClosing: isClosing,
+                showsActions: hovered || isSelected && !joinsCanvas, viewers: viewers, isClosing: isClosing,
             ) {
                 if session.hostOffline {
                     choosingOffline = true
@@ -45,8 +48,10 @@ struct SessionTileView: View {
                 }
             }
             .background {
-                UnevenRoundedRectangle(topLeadingRadius: Self.radius, topTrailingRadius: Self.radius, style: .continuous)
-                    .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
+                if !joinsCanvas {
+                    UnevenRoundedRectangle(topLeadingRadius: radius, topTrailingRadius: radius, style: .continuous)
+                        .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
+                }
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)
             .terminalDrag(session, when: !roomEmbedded)
@@ -54,14 +59,18 @@ struct SessionTileView: View {
                 .padding(.top, 3).padding([.horizontal, .bottom], 5)
         }
         .background {
-            shape.fill(theme.colors.terminal)
-                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
+            if !joinsCanvas {
+                shape.fill(theme.colors.terminal)
+                    .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
+            }
         }
         .overlay {
-            let selected = isSelected && !roomEmbedded
-            shape.strokeBorder(selected ? theme.colors.accent.mix(with: theme.colors.hairline, by: 0.55) : theme.colors.hairline.opacity(0.7),
-                               lineWidth: selected ? 1 : 0.5)
-                .allowsHitTesting(false)
+            if !joinsCanvas {
+                let selected = isSelected && !roomEmbedded && !alone
+                shape.strokeBorder(selected ? theme.colors.accent.mix(with: theme.colors.hairline, by: 0.55) : theme.colors.hairline.opacity(0.7),
+                                   lineWidth: selected ? 1 : 0.5)
+                    .allowsHitTesting(false)
+            }
         }
         .overlay {
             shape.fill(theme.colors.accent)
@@ -69,7 +78,7 @@ struct SessionTileView: View {
                 .scaleEffect(born ? 1 : 0.03, anchor: UnitPoint(x: 0.04, y: 0.16))
                 .allowsHitTesting(false)
         }
-        .dosiTouch(deps.dosiTouches[session.id] ?? DosiTouch(), radius: Self.radius)
+        .dosiTouch(deps.dosiTouches[session.id] ?? DosiTouch(), radius: radius)
         .overlay(alignment: .topTrailing) {
             if let joined {
                 JoinCard(person: joined)

@@ -137,7 +137,7 @@ struct RoomConversation: View {
 
     private func show(_ section: RoomSection, in state: RoomViewState) {
         state.section = section
-        state.canvas = section
+        state.shownSection = section
     }
 
     private func earlier(before first: RoomMessage, state: RoomViewState) -> some View {

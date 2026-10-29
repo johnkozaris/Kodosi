@@ -24,8 +24,8 @@ the shell of the new terminal.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
-- A terminal at its prompt shows a mark for each installed agent. Select a mark to start
-  that agent with your last choice.
+- In a terminal at its prompt, the actions key (two sliders) in its header lists the
+  installed agents. Select one to start it with your last choice.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
@@ -65,7 +65,29 @@ or fails. Programs report their state with the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or a
 progress bar. A program that reports nothing shows no state.
 
-## 4. Ask Dosi
+## 4. See what an agent shows
+
+An agent can show you a page, Markdown, a picture, a PDF or an Office file on the canvas
+of its terminal, and use a browser that you share with it. Agents that Kodosi starts know
+how; tell another agent to read `kodosi skill canvas`. When the canvas has something, the
+terminal's header shows a key for its files and one for its browser, with a copper dot for
+news. Select one to open the canvas beside the terminal; More room gives the canvas the
+stage and keeps the terminal small in its corner. Close a part with the × on its key, and
+open it again with +. Open Browser in the actions key opens the browser before the agent
+uses it. On the iPhone, the canvas key is in the terminal's bar.
+
+- A page has no network. Its links open in your own browser.
+- Select words on a page, then Ask about this. Kodosi types the file and the words into
+  the terminal, and you write the question.
+- Click and type in the shared browser as in your own. The agent sees the same pages and
+  sign-ins, and its next command tells it that you used the browser. After 10 minutes with
+  no use the browser sleeps, and it opens its last page again when you look at it or the
+  agent uses it. The browser needs Chrome, Chromium, Edge or Brave on the computer of the
+  terminal.
+- Everyone who can open the terminal sees its canvas and uses its browser. When the
+  terminal closes, its canvas and the browser's sign-ins go.
+
+## 5. Ask Dosi
 
 Dosi is your agent for your other agents. Select Dosi's face at the bottom of the sidebar
 (⌘J). Dosi runs on Claude Code or Codex; Settings › Dosi chooses which, with its account,
@@ -86,7 +108,7 @@ same on all your computers.
 The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
 question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
-## 5. Add your other computers
+## 6. Add your other computers
 
 Sign in on the new computer with the same account. It shows a code, and the computers
 that you already use ask you to approve it. Choose Approve on one of them and enter the
@@ -102,14 +124,15 @@ Make a recovery key there too, and keep it safe. If you lose all your devices, s
 on a new one and choose "Use my recovery key" to keep your friends and rooms. Remove a
 lost device from another device. If a device was stolen, also make a new recovery key.
 
-## 6. Work with friends
+## 7. Work with friends
 
 Open Friends from the menu beside your account. Send your invite, or paste the invite or
 username of a friend. An invite lets Kodosi verify your friend.
 
 <p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
 
-To share a terminal, select the share button in its header and choose friends or rooms.
+To share a terminal, select Share in the actions key of its header and choose friends or
+rooms.
 The people you share with get full control, with your privileges on that computer. Your
 other terminals stay private.
 
@@ -133,7 +156,7 @@ friends, then start a terminal in the room or share one into it.
   the [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent take part. In a
   Kodosi terminal, the command finds the room; elsewhere, add `--room <name>`.
 
-## 7. Use the command line
+## 8. Use the command line
 
 The `kodosi` command works on the same terminals as the app, and the app shows what it
 does.
@@ -153,7 +176,9 @@ does.
 | `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |
 | `kodosi terminal show <terminal>` | Shows the terminal in the app. |
 | `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
-| `kodosi skill` | Prints the skill that lets an agent work with the people and agents in Kodosi. |
+| `kodosi show <file>` | Shows a file on the canvas of this terminal. `kodosi canvas` lists what it shows, and `kodosi canvas remove <file>` takes a file off. |
+| `kodosi browser open <address>` | Opens a page in the shared browser of this terminal. The other agent-browser commands work too. |
+| `kodosi skill` | Prints the skill that lets an agent work with the people and agents in Kodosi. `kodosi skill canvas` prints the skill for the canvas. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
 | `kodosi host` | Keeps your terminals running after you quit the app. `kodosi host stop` stops a host that runs in the background. |
 

@@ -23,6 +23,7 @@ async fn shell(
         None,
         None,
         Vec::new(),
+        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await
@@ -626,6 +627,10 @@ fn byte_budget_covers_admitted_input_before_the_actor_polls() {
     clippy::significant_drop_tightening,
     reason = "actor.run consumes the actor and reaps the real PTY; there is no value left to drop"
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the test builds an actor with every field"
+)]
 async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let root = tempfile::tempdir().expect("cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical");
@@ -647,6 +652,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let (changes, _) = mpsc::channel(16);
     let (completed, _) = watch::channel(None);
     let authorization = CancellationToken::new();
+    let canvas = CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir());
     let mut actor = LocalActor {
         id: Uuid::now_v7(),
         incarnation: Uuid::now_v7(),
@@ -686,6 +692,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         published_status: None,
         contexts: Contexts::default(),
         published_context: None,
+        canvas: canvas.clone(),
+        canvas_state: canvas.state(),
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
         next_refresh: tokio::time::Instant::now(),
@@ -962,6 +970,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await
@@ -1009,6 +1018,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         None,
         None,
         b"\x1b[1mbefore\x1b[0m\r\n".to_vec(),
+        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await
@@ -1047,6 +1057,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await
@@ -1277,6 +1288,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         None,
         None,
         Vec::new(),
+        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
     .await

@@ -584,20 +584,35 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         Agent::Codex.with_context("codex", zsh),
         "codex -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
-    assert_eq!(Agent::Copilot.with_context("copilot", zsh), "copilot");
+    assert_eq!(
+        Agent::Copilot.with_context("copilot", zsh),
+        "copilot --plugin-dir \"$KODOSI_PLUGIN_DIR\""
+    );
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
 }
 
 #[test]
-fn copilot_finds_the_note_in_the_folder_that_kodosi_writes() {
+fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     let folder = tempfile::tempdir().unwrap();
     let notes = kodosi_os::fs::canonicalize(folder.path())
         .unwrap()
         .join("agents");
+    assert_eq!(plugin_dir(&notes), None);
     write_notes(&notes).unwrap();
     write_notes(&notes).unwrap();
     let text = fs::read_to_string(notes.join("AGENTS.md")).unwrap();
     assert_eq!(text, format!("# Kodosi\n\n{}\n", CONTEXT.trim()));
+    let plugin = notes.join("plugin");
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(plugin.join(".claude-plugin").join("plugin.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["name"], "kodosi");
+    for (skill, text) in [("kodosi", SKILL), ("kodosi-canvas", CANVAS_SKILL)] {
+        let file = plugin.join("skills").join(skill).join("SKILL.md");
+        assert_eq!(fs::read_to_string(file).unwrap(), text);
+    }
+    assert_eq!(plugin_dir(&notes).as_deref(), plugin.to_str());
 }
 
 fn claude_with_accounts() -> AgentInfo {

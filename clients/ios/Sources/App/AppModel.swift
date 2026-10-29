@@ -191,7 +191,7 @@ final class AppModel {
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
-        guard delivery == .app, !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
+        guard delivery == .app, !["provider.", "room.", "canvas."].contains(where: event.type.hasPrefix) else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)
         guard !account.absorb(error: event, message: message) else { return }

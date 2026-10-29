@@ -126,6 +126,13 @@ public extension AppTheme {
     }
 }
 
+public extension AppTheme.Colors {
+    /// The ground of what shows beside the work: a room's conversation and a canvas.
+    var sheet: Color {
+        raised.mix(with: surface, by: 0.45)
+    }
+}
+
 public extension AppTheme {
     struct Motion: Sendable {
         public let reduced: Bool

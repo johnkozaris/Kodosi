@@ -25,7 +25,7 @@ const STATUS_SPACING: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
 type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
-type Controls = FuturesUnordered<std::pin::Pin<Box<dyn Future<Output = ControlResult> + Send>>>;
+type Controls = FuturesUnordered<std::pin::Pin<Box<dyn Future<Output = Frame> + Send>>>;
 
 #[derive(Clone)]
 struct Admitted {
@@ -648,8 +648,8 @@ impl<'a, T: Transport> Stream<'a, T> {
                     self.input_confirmed = offset;
                     self.channel.send(&Frame::InputAck { offset }).await?;
                 }
-                Some(result) = self.controls.next(), if !self.controls.is_empty() => {
-                    self.channel.send(&Frame::ControlResult(result)).await?;
+                Some(answer) = self.controls.next(), if !self.controls.is_empty() => {
+                    self.channel.send(&answer).await?;
                 }
                 _ = heartbeat.tick() => {
                     if self.heard.elapsed() >= CHANNEL_SILENCE {
@@ -990,20 +990,31 @@ impl<'a, T: Transport> Stream<'a, T> {
                 if self.controls.len() >= 64 {
                     return Err(Error::Busy);
                 }
+                let answers = matches!(control, TerminalControl::Canvas { .. });
                 let response = self.submit(control).await?;
                 let authorization = self.controller.authorization.clone();
                 self.controls.push(Box::pin(async move {
                     let result = tokio::select! {
                         () = authorization.cancelled() => Err("This terminal connection is no longer authorized.".to_owned()),
                         result = tokio::time::timeout(CONTROL_TIMEOUT, response) => match result {
-                            Ok(Ok(result)) => result.map(|_| ()),
+                            Ok(Ok(result)) => result,
                             _ => Err("The terminal did not confirm the operation, and Kodosi did not send it again.".to_owned()),
                         },
                     };
-                    ControlResult {
-                        request_id,
-                        accepted: result.is_ok(),
-                        message: result.err().unwrap_or_default(),
+                    match result {
+                        Ok(value) if answers && wire::answer_fits(&value) => {
+                            Frame::ControlValue { request_id, value }
+                        }
+                        Ok(_) if answers => Frame::ControlResult(ControlResult {
+                            request_id,
+                            accepted: false,
+                            message: "The answer does not fit one message.".to_owned(),
+                        }),
+                        result => Frame::ControlResult(ControlResult {
+                            request_id,
+                            accepted: result.is_ok(),
+                            message: result.err().unwrap_or_default(),
+                        }),
                     }
                 }));
             }

@@ -92,6 +92,10 @@ pub(crate) enum SessionChange {
         prompt: bool,
     },
     #[cfg(feature = "host")]
+    Canvas {
+        id: Uuid,
+    },
+    #[cfg(feature = "host")]
     Ended {
         id: Uuid,
         reason: String,

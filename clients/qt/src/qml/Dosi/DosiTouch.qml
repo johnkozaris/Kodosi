@@ -72,6 +72,7 @@ Item {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
             fill: KodosiTheme.terminalLifted
+            dark: true
             elevation: 2
         }
         Row {

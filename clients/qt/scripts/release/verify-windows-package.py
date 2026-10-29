@@ -35,16 +35,22 @@ NAMESPACES = {
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
+    "agent-browser.exe",
+    "doc/agent-browser/LICENSE",
     "conpty.dll",
     "OpenConsole.exe",
     "qt.conf",
     "plugins/platforms/qwindows.dll",
     "resources.pri",
+    "QtWebEngineProcess.exe",
+    "resources/qtwebengine_resources.pak",
+    "translations/qtwebengine_locales/en-US.pak",
 )
 # Windows may hold an older copy of the C runtime.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
-QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg")
+QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
+WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 
 Reader = Callable[[str], bytes]
 
@@ -182,7 +188,7 @@ def verify_payload(files: dict[str, zipfile.ZipInfo], read: Reader, logos: list[
 
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in ("kodosi-qt.exe", "kodosi.exe"):
+    for name in ("kodosi-qt.exe", "kodosi.exe", "agent-browser.exe"):
         data = read(name)
         if (start := data.find(home)) >= 0:
             path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
@@ -213,17 +219,20 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
     for name in ("conpty.dll", "OpenConsole.exe"):
         same(files, read, name, build_dir / "conpty" / name)
 
-    qt_version = json.loads((ROOT / "dependencies.lock.json").read_text(encoding="utf-8"))["frameworks"]["qt"]["version"]
+    frameworks = json.loads((ROOT / "dependencies.lock.json").read_text(encoding="utf-8"))["frameworks"]
+    qt_version = frameworks["qt"]["version"]
     qt_licenses = ROOT / "packaging/licenses/qt" / qt_version
     expected = {
         f"doc/qt/{path.relative_to(qt_licenses).as_posix()}": path
         for path in qt_licenses.rglob("*")
         if path.is_file()
     }
-    for module in QT_SBOM_MODULES:
-        for suffix in QT_SBOM_FORMATS:
-            sbom = f"{module}-{qt_version}.{suffix}"
-            expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
+    sboms = [f"{module}-{qt_version}.{suffix}" for module in QT_SBOM_MODULES for suffix in QT_SBOM_FORMATS]
+    sboms += [
+        f"{part}-{frameworks['qtwebengine']['version']}.{suffix}" for part in WEBENGINE_SBOMS for suffix in QT_SBOM_FORMATS
+    ]
+    for sbom in sboms:
+        expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
     if {name for name in files if name.startswith("doc/qt/")} != set(expected):
         fail("the Qt notices and SBOMs are incomplete or have extra files")
     for name, source in expected.items():

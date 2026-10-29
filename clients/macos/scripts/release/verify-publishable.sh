@@ -35,7 +35,9 @@ if [[ $feed != https://* || -z $key ]]; then
     echo "Refusing a Kodosi artifact without the update feed and its public key" >&2
     exit 1
 fi
-if LC_ALL=C grep -q -F "$HOME/" "$app/Contents/MacOS/Kodosi"; then
-    echo "Refusing a Kodosi artifact that names the home folder of the build, $HOME" >&2
-    exit 1
-fi
+for program in Kodosi agent-browser; do
+    if LC_ALL=C grep -q -F "$HOME/" "$app/Contents/MacOS/$program"; then
+        echo "Refusing a Kodosi artifact whose $program names the home folder of the build, $HOME" >&2
+        exit 1
+    fi
+done

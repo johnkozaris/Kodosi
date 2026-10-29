@@ -5,6 +5,7 @@ import SwiftUI
 struct SessionTileHeader: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
+    @Environment(\.canvasPlace) private var canvasPlace
     let session: RuntimeSession
     let isFocused: Bool
     let roomEmbedded: Bool
@@ -17,10 +18,18 @@ struct SessionTileHeader: View {
         AccessibilityIdentifier.stageSession(session.id)
     }
 
+    private var canvasOpen: Bool {
+        canvasPlace.open == session.id
+    }
+
     var body: some View {
         HStack(spacing: 9) {
             if roomEmbedded {
-                place
+                Location(host: session.hostLabel, glyph: "folder", name: session.folderName)
+                    .help(session.workingDir ?? session.hostLabel)
+                if session.activity != nil || session.progress != nil {
+                    SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                }
             } else {
                 AgentMark(session: session, size: 20, activity: session.mark(rested: .awake))
                 Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
@@ -32,17 +41,12 @@ struct SessionTileHeader: View {
                 if let sign = deps.sign(of: session) {
                     StatusSign(form: sign).transition(AnyTransition.pop)
                 }
-                if session.kind == .remote {
-                    tag {
-                        HStack(spacing: 4) {
-                            DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .semibold))
-                            Text(session.hostLabel).lineLimit(1)
-                        }
-                    }
-                }
                 if let place = session.place {
-                    tag { SessionPlace(place: place, glyphFont: .system(size: 9, weight: .semibold)) }
-                        .help(session.placeLabel ?? "")
+                    Location(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
+                        .help(session.placeLabel ?? session.hostLabel)
+                        .layoutPriority(1)
+                } else if session.kind == .remote {
+                    Location(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
             Spacer(minLength: 4)
@@ -52,34 +56,15 @@ struct SessionTileHeader: View {
             status
             AvatarStack(people: viewers, size: 20, limit: 3, ring: theme.colors.terminal)
                 .help(viewers.isEmpty ? "" : String(localized: "Here now: \(viewers.map(\.name).joined(separator: ", "))"))
+            if session.canvas != nil, !canvasOpen {
+                CanvasDock(session: session, store: deps.canvas, chosen: nil, flight: canvasPlace.flight, identifier: "\(stageId).canvas") { section in
+                    canvasPlace.show(session, section)
+                }
+                .transition(AnyTransition.pop)
+            }
             actions
         }
-        .padding(.leading, 11).padding(.trailing, 6).frame(height: 38)
-    }
-
-    private func tag(@ViewBuilder _ content: () -> some View) -> some View {
-        content()
-            .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-            .padding(.horizontal, 7).frame(height: 18).background(theme.colors.ink.opacity(0.07), in: Capsule())
-            .layoutPriority(1)
-    }
-
-    private var place: some View {
-        HStack(spacing: 6) {
-            DeviceGlyph(label: session.hostLabel).font(.system(size: 11, weight: .medium))
-            Text(session.hostLabel).lineLimit(1)
-            if let folder = session.folderName {
-                Text(verbatim: "·").foregroundStyle(theme.colors.inkFaint)
-                Image(systemName: "folder").font(.system(size: 10, weight: .medium))
-                Text(folder).lineLimit(1).truncationMode(.middle)
-            }
-            if session.activity != nil || session.progress != nil {
-                Text(verbatim: "·").foregroundStyle(theme.colors.inkFaint)
-                SessionActivityText(session: session)
-            }
-        }
-        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-        .help(session.workingDir ?? session.hostLabel)
+        .padding(.leading, 11).padding(.trailing, canvasOpen ? 6 + CanvasBody.clearance : 6).frame(height: 38)
     }
 
     @ViewBuilder
@@ -100,45 +85,13 @@ struct SessionTileHeader: View {
 
     private var actions: some View {
         HStack(spacing: 0) {
-            if session.atPrompt {
-                ForEach(deps.launcher.installed) { info in
-                    StartMark(kind: info.kind) { deps.start(info.agent, in: session) }
-                        .accessibilityIdentifier("\(stageId).start.\(info.agent)")
-                        .transition(AnyTransition.pop)
+            TerminalActions(session: session, roomEmbedded: roomEmbedded, stageId: stageId)
+            if !canvasOpen {
+                IconButton(title: "Minimize", symbol: "minus", identifier: "\(stageId).minimize", size: 26) {
+                    deps.dismissSession(session.id)
                 }
             }
-            if session.kind == .local, session.isOwner {
-                IconButton(title: "Share", symbol: "person.badge.plus", identifier: "\(stageId).share", size: 26,
-                           open: deps.workbench.sharingSessionId == session.id)
-                {
-                    deps.workbench.sharingSessionId = session.id
-                }
-                .kodosiPopover(isPresented: Binding(get: { deps.workbench.sharingSessionId == session.id }, set: {
-                    if !$0 {
-                        deps.workbench.sharingSessionId = nil
-                    }
-                })) {
-                    SessionSharingPopover(session: session).chromeScope()
-                }
-            }
-            IconButton(title: "Details", symbol: "info.circle", identifier: "\(stageId).details", size: 26) {
-                deps.workbench.detailsSessionId = session.id
-            }
-            if roomEmbedded, session.isOwner {
-                IconButton(title: "Remove from room", symbol: "rectangle.portrait.and.arrow.right",
-                           identifier: "\(stageId).removeFromRoom", size: 26)
-                {
-                    Task { @MainActor in
-                        do {
-                            try await deps.removeFromRoom(session)
-                        } catch { deps.errorMessage = error.localizedDescription }
-                    }
-                }
-            }
-            IconButton(title: "Minimize", symbol: "minus", identifier: "\(stageId).minimize", size: 26) {
-                deps.dismissSession(session.id)
-            }
-            if !roomEmbedded {
+            if !roomEmbedded, !canvasOpen {
                 IconButton(title: isFocused ? "Show all" : "Zoom",
                            symbol: isFocused ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                            identifier: "\(stageId).focus", size: 26)
@@ -150,7 +103,130 @@ struct SessionTileHeader: View {
                 .disabled(!session.canClose || isClosing)
         }
         .opacity(showsActions ? 1 : 0.28)
-        .animation(theme.motion.snappy, value: session.atPrompt)
+    }
+}
+
+/// Where a terminal runs: its computer, then the folder or place in it.
+private struct Location: View {
+    @Environment(\.theme) private var theme
+    let host: String?
+    let glyph: String
+    let name: String?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let host {
+                DeviceGlyph(label: host).font(.system(size: 9.5, weight: .semibold))
+                Text(host).lineLimit(1)
+            }
+            if host != nil, name != nil {
+                Image(systemName: "chevron.compact.right").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 1)
+            }
+            if let name {
+                HStack(spacing: 4) {
+                    Image(systemName: glyph).font(.system(size: 9.5, weight: .semibold))
+                    Text(name).lineLimit(1).truncationMode(.middle)
+                }
+                .foregroundStyle(theme.colors.ink.mix(with: theme.colors.inkMuted, by: 0.35))
+            }
+        }
+        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+    }
+
+    private var label: String {
+        switch (host, name) {
+        case let (host?, name?): String(localized: "\(name) on \(host)")
+        case let (host?, nil): host
+        case let (nil, name?): name
+        case (nil, nil): ""
+        }
+    }
+}
+
+/// One accent key for what a person does with a terminal: start an agent, share it, open its
+/// browser, see its details, or take it out of the room.
+private struct TerminalActions: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    @Environment(\.canvasPlace) private var canvasPlace
+    let session: RuntimeSession
+    let roomEmbedded: Bool
+    let stageId: String
+    @State private var open = false
+    @State private var hovered = false
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(theme.colors.accentStrong)
+                .frame(width: 26, height: 26)
+                .background {
+                    RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
+                        .fill(open || hovered ? theme.colors.accentSoft : .clear)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.9))
+        .onHover { hovered = $0 }
+        .animation(theme.motion.hover, value: hovered)
+        .help("Actions")
+        .accessibilityLabel(Text("Actions"))
+        .accessibilityIdentifier("\(stageId).actions")
+        .kodosiPopover(isPresented: $open, arrowEdge: .bottom, alignment: .trailing) { menu.chromeScope() }
+        .background {
+            Color.clear.kodosiPopover(isPresented: Binding(get: { deps.workbench.sharingSessionId == session.id }, set: {
+                if !$0 {
+                    deps.workbench.sharingSessionId = nil
+                }
+            })) {
+                SessionSharingPopover(session: session).chromeScope()
+            }
+        }
+    }
+
+    private var menu: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if session.atPrompt, !deps.launcher.installed.isEmpty {
+                PanelMenuHeader(title: "Start an agent")
+                ForEach(deps.launcher.installed) { info in
+                    PanelMenuRow(Text(info.kind.label), icon: .agent(info.kind), identifier: "\(stageId).start.\(info.agent)") {
+                        deps.start(info.agent, in: session)
+                    }
+                }
+                PanelMenuDivider()
+            }
+            if session.kind == .local, session.isOwner {
+                PanelMenuRow(Text("Share…"), icon: .symbol("person.badge.plus"), identifier: "\(stageId).share") {
+                    deps.workbench.sharingSessionId = session.id
+                }
+            }
+            if session.canControl {
+                PanelMenuRow(Text("Open Browser"), icon: .symbol("globe"), identifier: "\(stageId).browser") {
+                    deps.openBrowser(of: session)
+                    canvasPlace.show(session, nil)
+                }
+            }
+            PanelMenuRow(Text("Details"), icon: .symbol("info.circle"), identifier: "\(stageId).details") {
+                deps.workbench.detailsSessionId = session.id
+            }
+            if roomEmbedded, session.isOwner {
+                PanelMenuDivider()
+                PanelMenuRow(Text("Remove from room"), icon: .symbol("rectangle.portrait.and.arrow.right"),
+                             identifier: "\(stageId).removeFromRoom", destructive: true)
+                {
+                    Task { @MainActor in
+                        do {
+                            try await deps.removeFromRoom(session)
+                        } catch { deps.errorMessage = error.localizedDescription }
+                    }
+                }
+            }
+        }
+        .padding(6).frame(width: 220)
     }
 }
 
@@ -178,26 +254,5 @@ struct DosiKeys: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(question.question))
-    }
-}
-
-struct StartMark: View {
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let kind: AgentKind
-    var size: CGFloat = 16
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            AgentMark(kind: kind, size: size)
-                .frame(width: size + 10, height: size + 10)
-                .background(theme.colors.ink.opacity(hovered ? 0.08 : 0), in: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.9))
-        .onHover { hovered = $0 }
-        .help(String(localized: "Start \(kind.label)"))
-        .accessibilityLabel(Text("Start \(kind.label)"))
     }
 }

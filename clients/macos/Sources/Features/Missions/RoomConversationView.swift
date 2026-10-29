@@ -50,12 +50,12 @@ struct RoomConversationView: View {
                 RoomComposer(roomId: roomId, state: state, targets: targets)
             }
         }
-        .raised(Radius.xl, fill: theme.colors.raised.mix(with: theme.colors.surface, by: 0.45))
+        .raised(Radius.xl, fill: theme.colors.sheet)
         .animation(theme.motion.snappy, value: copied)
         .environment(\.openURL, OpenURLAction { url in
             guard let id = RoomMentions.terminalId(in: url) else { return .systemAction }
             if deps.session(id) != nil {
-                state.canvas = 0
+                state.shownSection = 0
                 state.selectedTerminal = id
                 deps.activateSession(id, inRoom: roomId)
             }

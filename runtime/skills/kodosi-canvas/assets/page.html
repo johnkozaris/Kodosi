@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Title of the page</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --ground: #f7f2e8;
+  --raised: #fefbf5;
+  --line: #d9ccba;
+  --ink: #25160e;
+  --muted: #5f4838;
+  --faint: #8a7262;
+  --accent: #b85a26;
+  --accent-soft: #f4dec8;
+  --good: #2f7d54;
+  --bad: #b23a32;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #110e0c;
+    --raised: #1c1613;
+    --line: #2c231e;
+    --ink: #f1e9e3;
+    --muted: #b3a094;
+    --faint: #8c7a6f;
+    --accent: #db8a62;
+    --accent-soft: #3e281c;
+    --good: #7dbb99;
+    --bad: #e77a75;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: clamp(18px, 5vw, 40px);
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.55 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 27px; line-height: 1.2; letter-spacing: -0.5px; margin: 6px 0 10px; }
+h2 { font-size: 17px; margin: 30px 0 10px; }
+h3 { font-size: 15px; margin: 22px 0 8px; }
+p, ul, ol { margin: 0 0 12px; }
+a { color: var(--accent); }
+code, pre { font-family: var(--mono); font-size: 13px; }
+code { background: var(--raised); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+pre { background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+pre code { background: none; border: 0; padding: 0; }
+blockquote { margin: 0 0 12px; padding: 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--faint); font-weight: 500; font-size: 12.5px; padding: 0 10px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+img, svg { max-width: 100%; height: auto; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
+.eyebrow { color: var(--faint); font-family: var(--mono); font-size: 12.5px; }
+.lead { color: var(--muted); font-size: 16px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 20px 0; }
+.card { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.card.pick { border-color: var(--accent); }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 9px; border-radius: 9px; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.note { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">project · folder</div>
+  <h1>Title of the page</h1>
+  <p class="lead">One or two sentences that say what the page shows.</p>
+  <div class="cards">
+    <div class="card"><strong>First option</strong><p class="note">What is good and what is not.</p></div>
+    <div class="card pick"><span class="tag">My pick</span><p><strong>Second option</strong></p><p class="note">Why this one.</p></div>
+  </div>
+  <h2>Facts</h2>
+  <table>
+    <tr><th>Case</th><th>Before</th><th>After</th></tr>
+    <tr><td>First case</td><td class="bad">wrong</td><td class="good">right</td></tr>
+  </table>
+  <p class="note">What the person must decide, or what comes next.</p>
+</main>
+</body>
+</html>

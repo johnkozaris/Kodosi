@@ -70,6 +70,8 @@ qt_add_library(kodosi-application STATIC
     presentation/Workspace.hpp
     presentation/AppearanceModel.cpp
     presentation/AppearanceModel.hpp
+    presentation/CanvasModel.cpp
+    presentation/CanvasModel.hpp
     presentation/DesktopSettings.cpp
     presentation/DesktopSettings.hpp
     presentation/DesktopStateModel.cpp
@@ -156,6 +158,27 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalView.hpp
 )
 
+qt_add_library(kodosi-canvas-web STATIC
+    canvas/CanvasImages.cpp
+    canvas/CanvasImages.hpp
+    canvas/CanvasWeb.cpp
+    canvas/CanvasWeb.hpp
+)
+
+target_include_directories(kodosi-canvas-web
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+target_link_libraries(kodosi-canvas-web
+    PUBLIC
+        Qt6::Quick
+        Qt6::WebEngineQuick
+        kodosi-application
+    PRIVATE
+        Qt6::WebEngineCore
+)
+
 qt_add_library(kodosi-qml-models STATIC)
 qt_add_qml_module(kodosi-qml-models
     URI Kodosi.Models
@@ -163,6 +186,7 @@ qt_add_qml_module(kodosi-qml-models
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Kodosi/Models"
     DEPENDENCIES
         QtQuick
+        QtWebEngine
     SOURCES
         app/QmlModelTypes.cpp
         app/QmlModelTypes.hpp
@@ -178,6 +202,7 @@ target_link_libraries(kodosi-qml-models
         Qt6::Qml
         kodosi-desktop-integration
         kodosi-application
+        kodosi-canvas-web
         kodosi-terminal-kernel
 )
 
@@ -310,7 +335,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/Squircle.qml
-        qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
         qml/Controls/TerminalDragSource.qml
@@ -332,6 +356,13 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/CanvasBody.qml
+        qml/Workbench/CanvasBrowser.qml
+        qml/Workbench/CanvasDock.qml
+        qml/Workbench/CanvasFile.qml
+        qml/Workbench/CanvasPage.qml
+        qml/Workbench/CanvasPanel.qml
+        qml/Workbench/CanvasStage.qml
         qml/Workbench/ClipboardReadDialog.qml
         qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/EffortMeter.qml
@@ -342,6 +373,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
+        qml/Workbench/RemoveKey.qml
         qml/Workbench/RoomShareDialog.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
@@ -360,7 +392,7 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/opencode-dark.svg
 )
 
-target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 kodosi-qml-modelsplugin)
+target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin)
 target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
 set_source_files_properties(controls/LightTrack.cpp PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
 
@@ -375,6 +407,7 @@ target_link_libraries(kodosi-qt
         kodosi-desktop-integration
         kodosi-application
         kodosi-terminal-kernel
+        kodosi-canvas-web
         kodosi-qml-modelsplugin
         kodosi-uiplugin
 )
@@ -386,17 +419,19 @@ target_compile_definitions(kodosi-runtime
         QT_NO_URL_CAST_FROM_STRING
 )
 target_compile_definitions(kodosi-qt PRIVATE KODOSI_VERSION="${PROJECT_VERSION}")
-foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
+foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-canvas-web kodosi-qt)
     target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${KODOSI_COMPILE_OPTIONS}>")
 endforeach()
 
 add_custom_target(kodosi-qt-host-program ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_RUNTIME_CLI}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_RUNTIME_CLI_NAME}"
-    COMMENT "Placing the kodosi program next to the app"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_AGENT_BROWSER}"
+        "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_AGENT_BROWSER_NAME}"
+    COMMENT "Placing the kodosi program and agent-browser next to the app"
     VERBATIM
 )
-add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build)
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build kodosi-agent-browser-build)
 
 kodosi_install(kodosi-qt)
 

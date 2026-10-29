@@ -23,6 +23,7 @@ public:
     Q_INVOKABLE bool openPath(const QString& path);
     Q_INVOKABLE bool openWebUrl(const QString& url);
     Q_INVOKABLE void copyText(const QString& text);
+    void saveCopy(const QString& name, const QByteArray& content);
     Q_INVOKABLE void clearError();
     void setTransientParent(QWindow* window);
     [[nodiscard]] static QString canonicalLocalPath(const QString& path, bool directoryOnly = false);

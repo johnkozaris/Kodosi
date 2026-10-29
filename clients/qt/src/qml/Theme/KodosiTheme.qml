@@ -13,6 +13,7 @@ QtObject {
     readonly property color raised: isDark ? "#251d19" : "#fefbf5"
     readonly property color lifted: isDark ? "#2e241f" : "#fffdf9"
     readonly property color well: isDark ? "#0c0a08" : "#e8e0d2"
+    readonly property color sheet: mix(raised, surface, 0.45)
     readonly property color hairline: isDark ? "#3b2f29" : "#d9ccba"
     readonly property color ink: isDark ? "#f1e9e3" : "#25160e"
     readonly property color inkMuted: isDark ? "#b3a094" : "#5f4838"
@@ -30,15 +31,19 @@ QtObject {
     readonly property color dangerSoft: isDark ? "#3f211f" : "#f4d9d4"
     readonly property color glowAmber: isDark ? "#f2bc55" : "#f2c14e"
     readonly property color glowOrange: isDark ? "#f08a4b" : "#e8793a"
-    readonly property color shadow: isDark ? "#000000" : "#2e1f0f"
+    readonly property color shadow: isDark ? terminalShadow : "#2e1f0f"
     readonly property real shadowStrength: isDark ? 1 : 0.36
-    readonly property color highlight: isDark ? Qt.rgba(1, 0.945, 0.863, 0.11) : Qt.rgba(1, 1, 1, 0.95)
-    readonly property color lowlight: isDark ? Qt.rgba(0, 0, 0, 0.34) : Qt.rgba(0.31, 0.19, 0.09, 0.12)
+    readonly property color highlight: isDark ? terminalHighlight : Qt.rgba(1, 1, 1, 0.95)
+    readonly property color lowlight: isDark ? terminalLowlight : Qt.rgba(0.31, 0.19, 0.09, 0.12)
 
     readonly property color terminal: "#0d0b09"
     readonly property color terminalBand: "#1a1512"
     readonly property color terminalBandSelected: "#221a16"
     readonly property color terminalLifted: "#2e241f"
+    readonly property color terminalShadow: "#000000"
+    readonly property color terminalHighlight: Qt.rgba(1, 0.945, 0.863, 0.11)
+    readonly property color terminalLowlight: Qt.rgba(0, 0, 0, 0.34)
+    readonly property color terminalWell: "#0c0a08"
     readonly property color terminalInk: "#f1e9e3"
     readonly property color terminalInkMuted: "#b3a094"
     readonly property color terminalInkFaint: "#8c7a6f"

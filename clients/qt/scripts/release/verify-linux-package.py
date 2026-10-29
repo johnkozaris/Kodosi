@@ -25,6 +25,7 @@ GHOSTTY = ROOT.parents[1] / "terminal/ghostty"
 KINDS = {".deb": "deb", ".tar.gz": "tgz", ".pkg.tar.zst": "arch"}
 DOC = "usr/share/doc/kodosi"
 PRIVATE = "usr/lib/kodosi"
+WEB_ENGINE_PROCESS = f"{PRIVATE}/libexec/QtWebEngineProcess"
 DESKTOP = "usr/share/applications/com.kodosi.Kodosi.desktop"
 METAINFO = "usr/share/metainfo/com.kodosi.Kodosi.metainfo.xml"
 PLUGINS = (
@@ -287,7 +288,7 @@ def validate_deb(path: Path, epoch: int) -> None:
                         ["./md5sums", "./control"],
                         ["./control", "./md5sums"],
                         [".", "./control"],
-                        ["./md5sums", "./control", "./conffiles"],
+                        ["./md5sums", "./control", "./conffiles", "./postinst"],
                     ]
                     if name == control_name
                     else None
@@ -444,21 +445,40 @@ def check_debian_dependencies(package: Path) -> None:
         fail(f"the package does not depend on {', '.join(missing)}")
 
 
-def check_files(root: Path, qt_version: str) -> None:
-    for name in ("usr/bin/kodosi", "usr/bin/kodosi-qt", f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
+def check_files(root: Path, qt_version: str, webengine_version: str) -> None:
+    for name in (
+        "usr/bin/kodosi",
+        "usr/bin/kodosi-qt",
+        f"{PRIVATE}/bin/kodosi",
+        f"{PRIVATE}/bin/kodosi-qt",
+        f"{PRIVATE}/bin/agent-browser",
+        WEB_ENGINE_PROCESS,
+    ):
         path = root / name
         if not path.is_file() or not os.access(path, os.X_OK):
             fail(f"{name} is missing or is not executable")
     for name in (
         f"{PRIVATE}/bin/qt.conf",
+        f"{DOC}/agent-browser/LICENSE",
         DESKTOP,
         METAINFO,
         "usr/share/icons/hicolor/256x256/apps/com.kodosi.Kodosi.png",
         *(f"{PRIVATE}/lib/libQt6{module}.so.{qt_version}" for module in ("Core", "DBus", "Widgets")),
+        f"{PRIVATE}/lib/libQt6WebEngineCore.so.{webengine_version}",
         *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS),
+        f"{PRIVATE}/resources/qtwebengine_resources.pak",
+        f"{PRIVATE}/translations/qtwebengine_locales/en-US.pak",
     ):
         if not (root / name).is_file():
             fail(f"{name} is missing")
+    settings = (root / PRIVATE / "bin/qt.conf").read_text(encoding="utf-8").splitlines()
+    for line in ("Prefix = ../../..", f"LibraryExecutables = {PRIVATE.removeprefix('usr/')}/libexec", f"Data = {PRIVATE.removeprefix('usr/')}"):
+        if line not in settings:
+            fail(f"{PRIVATE}/bin/qt.conf has no line {line!r}")
+    same(root, f"{PRIVATE}/libexec/qt.conf", root / PRIVATE / "bin/qt.conf")
+    outside = sorted(path.name for path in (root / "usr").iterdir() if path.name not in {"bin", "lib", "share"})
+    if outside:
+        fail(f"the package puts files outside usr/bin, usr/lib and usr/share: {', '.join(outside)}")
     escaped = sorted(
         path.name
         for path in (root / "usr/lib").iterdir()
@@ -471,6 +491,9 @@ def check_files(root: Path, qt_version: str) -> None:
 def check_repository(package: Path, root: Path) -> None:
     same(root, "etc/apt/sources.list.d/kodosi.sources", ROOT / "packaging/linux/kodosi.sources")
     same(root, "etc/apt/keyrings/kodosi-archive-keyring.pgp", ROOT / "packaging/linux/kodosi-archive-keyring.pgp")
+    same(root, "etc/apparmor.d/kodosi", ROOT / "packaging/linux/apparmor/kodosi")
+    if run("dpkg-deb", "-I", str(package), "postinst") != (ROOT / "packaging/linux/postinst").read_text("utf-8"):
+        fail("the postinst of the package differs from packaging/linux/postinst")
     if run("dpkg-deb", "-I", str(package), "conffiles") != (ROOT / "packaging/linux/conffiles").read_text("utf-8"):
         fail("the conffiles of the package differ from packaging/linux/conffiles")
 
@@ -480,7 +503,7 @@ def check_links(root: Path) -> None:
     if not re.search(r"^\s*Class:\s+ELF64$", run("readelf", "-h", str(cli)), re.MULTILINE):
         fail(f"{PRIVATE}/bin/kodosi is not a 64-bit ELF program")
     private = os.path.normpath(root / PRIVATE) + os.sep
-    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS)):
+    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", WEB_ENGINE_PROCESS, *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS)):
         output = run("ldd", str(root / name))
         if "not found" in output:
             fail(f"{name} needs a library that the system and the package do not have:\n{output}")
@@ -495,11 +518,14 @@ def check_links(root: Path) -> None:
 
 def check_home(root: Path) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
-        data = (root / name).read_bytes()
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        data = path.read_bytes()
         if (start := data.find(home)) >= 0:
-            path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
-            fail(f"{name} names the home folder of the build: {path}")
+            end = min(position for position in (data.find(b"\0", start), data.find(b"\n", start), len(data)) if position >= 0)
+            named = data[start:end][:300].decode("utf-8", "replace")
+            fail(f"{path.relative_to(root).as_posix()} names the home folder of the build: {named}")
 
 
 def check_desktop(root: Path) -> None:
@@ -533,7 +559,9 @@ def main() -> None:
         try:
             checkout = source_identity(ROOT)
             version = product_version(ROOT)
-            qt_version = json.loads((ROOT / "dependencies.lock.json").read_bytes())["frameworks"]["qt"]["version"]
+            frameworks = json.loads((ROOT / "dependencies.lock.json").read_bytes())["frameworks"]
+            qt_version = frameworks["qt"]["version"]
+            webengine_version = frameworks["qtwebengine"]["version"]
         except (OSError, ValueError, KeyError) as error:
             fail(f"cannot read the checkout: {error}")
         (ROOT / "build").mkdir(exist_ok=True)
@@ -545,7 +573,7 @@ def main() -> None:
             if kind == "deb":
                 check_debian_dependencies(package)
                 check_repository(package, root)
-            check_files(root, qt_version)
+            check_files(root, qt_version, webengine_version)
             check_links(root)
             check_home(root)
             check_desktop(root)

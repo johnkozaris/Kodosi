@@ -21,6 +21,7 @@ set(QT_DEPLOY_BIN_DIR "." CACHE STRING "" FORCE)
 set(KODOSI_PLATFORM_QT_COMPONENTS "")
 set(KODOSI_RUNTIME_ARCHIVE_NAME "kodosi_ffi_c.lib")
 set(KODOSI_RUNTIME_CLI_NAME "kodosi.exe")
+set(KODOSI_AGENT_BROWSER_NAME "agent-browser.exe")
 set(KODOSI_GHOSTTY_REF "WindowsGhostty.ref")
 set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "ghostty-vt-static.lib")
 set(KODOSI_RUNTIME_SYSTEM_LIBRARIES kernel32 ntdll userenv ws2_32 dbghelp)
@@ -41,7 +42,7 @@ set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi shell32)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtpositioning qtwebchannel)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
 set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
 # Windows installs an unsigned package only when its publisher carries this OID.
@@ -83,7 +84,7 @@ function(kodosi_install app)
         OUTPUT_SCRIPT deploy_script
         NO_TRANSLATIONS
         NO_COMPILER_RUNTIME
-        DEPLOY_TOOL_OPTIONS --no-opengl-sw --no-system-d3d-compiler --no-system-dxc-compiler
+        DEPLOY_TOOL_OPTIONS --no-opengl-sw --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types position
     )
     install(SCRIPT "${deploy_script}")
 
@@ -106,6 +107,7 @@ function(kodosi_install app)
 
     kodosi_install_evidence(doc)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        install(PROGRAMS "${KODOSI_RUNTIME_CLI}" DESTINATION .)
+        install(PROGRAMS "${KODOSI_RUNTIME_CLI}" "${KODOSI_AGENT_BROWSER}" DESTINATION .)
+        install(DIRECTORY "${KODOSI_AGENT_BROWSER_DIR}/notices/" DESTINATION doc/agent-browser)
     endif()
 endfunction()

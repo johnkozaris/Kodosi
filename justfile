@@ -59,6 +59,11 @@ ghostty-notices-check:
 rust-cli-build: conpty-install
     cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
 
+# Build the pinned agent-browser of the shared browser next to the development CLI.
+[group('rust')]
+agent-browser-build:
+    python3 scripts/build-agent-browser.py --target "$(rustc -vV | sed -n 's/^host: //p')" --output-dir runtime/target/debug
+
 # Compile the Rust workspace and each runtime feature set, and stop on a warning.
 [group('rust')]
 rust-compile-check: rust-features-check

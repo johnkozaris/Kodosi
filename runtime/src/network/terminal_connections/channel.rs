@@ -235,10 +235,28 @@ impl<T: Transport> Channel<T> {
         while self.tls.wants_write() {
             let mut wire = Vec::with_capacity(MESSAGE_BYTES);
             while self.tls.wants_write() && wire.len() < MESSAGE_BYTES {
-                self.tls.write_tls(&mut wire).map_err(|_| Error::Closed)?;
+                self.tls
+                    .write_tls(&mut Message(&mut wire))
+                    .map_err(|_| Error::Closed)?;
             }
             self.transport.send(wire).await?;
         }
+        Ok(())
+    }
+}
+
+/// One message of the channel. It takes TLS data only up to its size, so a large frame goes
+/// in several messages.
+struct Message<'a>(&'a mut Vec<u8>);
+
+impl std::io::Write for Message<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let taken = bytes.len().min(MESSAGE_BYTES.saturating_sub(self.0.len()));
+        self.0.extend_from_slice(&bytes[..taken]);
+        Ok(taken)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
 }
@@ -588,6 +606,42 @@ pub(super) mod tests {
 
         far.close().await;
         assert!(near.receive().await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn a_large_frame_goes_in_messages_that_the_other_device_takes() {
+        let (host, viewer) = (
+            DeviceKeys::generate().unwrap(),
+            DeviceKeys::generate().unwrap(),
+        );
+        let (host_keys, viewer_keys) = (channel_keys(&host), channel_keys(&viewer));
+        let (mut near, mut far) = pipes();
+        let bounded: fn(&mut Vec<u8>) = |message| assert!(message.len() <= MESSAGE_BYTES);
+        near.change = Some(bounded);
+        far.change = Some(bounded);
+        let (accepted, connected) = tokio::join!(
+            Channel::accept(far, &host_keys),
+            Channel::connect(near, &viewer_keys, "host-device", host.signing_public()),
+        );
+        let (mut view, mut hosted) = (connected.unwrap(), accepted.unwrap());
+        let value = serde_json::json!({"data": "a".repeat(400_000)});
+        hosted
+            .send(&Frame::ControlValue {
+                request_id: uuid::Uuid::nil(),
+                value: value.clone(),
+            })
+            .await
+            .unwrap();
+        let Some((
+            Frame::ControlValue {
+                value: received, ..
+            },
+            _,
+        )) = view.receive().await.unwrap()
+        else {
+            panic!("the value");
+        };
+        assert_eq!(received, value);
     }
 
     fn channel_keys_without_protocol(keys: &DeviceKeys) -> ChannelKeys {

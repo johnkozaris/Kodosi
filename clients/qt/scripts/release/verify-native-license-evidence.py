@@ -13,18 +13,29 @@ from canonical_json import canonical_json
 
 
 ROOT = Path(__file__).resolve().parents[2]
-QT_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtwayland")
+QT_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtwayland", "qtpositioning", "qtwebchannel", "qtwebengine")
 SBOM_FORMATS = {
     "spdx": "spdx-tag-value",
     "spdx.json": "spdx-json",
     "cdx.json": "cyclonedx-json",
 }
+# Qt WebEngine has a version of its own and ships its Chromium part in an SBOM of its own.
+WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 QT_ARCHIVE_SHA256 = {
     "qtbase": "a951bd163c7b80fc6b8c88d7668fb56abf91c152373e13c10666763238131307",
     "qtdeclarative": "311f3a2603e1973bb59baef9dfa740a376de713157d4782ee043681e889c9260",
     "qtsvg": "e4ab39534ec97987b1b9b60ef7f4d3253d5912a69f8c713a01753174a4029331",
     "qtwayland": "ae14d9bcf1bb3c300a3ab2e6a53f50284e5c6c966a4ac4cc5aedcb1bc74e4d02",
+    "qtpositioning": "b060d410fac7413b05a0e7938bbf3325f7ad08d7df14af3956270f0696e76763",
+    "qtwebchannel": "9afdfb64855b33c1cc16a4fdce69a556876f0d5b9df79d88de7306ffa2dca327",
 }
+# Qt WebEngine is released apart from Qt, as an extension of the Qt repository.
+QT_WEBENGINE_ARCHIVE = (
+    "https://download.qt.io/online/qtsdkrepository/all_os/extensions/qtwebengine/6120/61400/src_doc_examples/"
+    "extensions.qtwebengine.6120.61400.src/6.12.0-0-202609281005qtwebengine-everywhere-src-6.140.0.tar.xz",
+    "9a169a5eeded781fd7690fd4edd330be0302efaa",
+    "141e9b230e5ec9ee65a7357ca4b87d702e4badc515289eeade1047a788bb96e7",
+)
 REQUIRED_QT_LICENSES = {
     "GPL-2.0-only.txt",
     "GPL-3.0-only.txt",
@@ -140,10 +151,11 @@ def verify_source_archives(manifest: dict, qt_version: str) -> None:
         module: (
             f"{release}/submodules/{module}-everywhere-src-{qt_version}.tar.xz",
             f"v{qt_version}",
-            QT_ARCHIVE_SHA256[module],
+            sha256,
         )
-        for module in QT_MODULES
+        for module, sha256 in QT_ARCHIVE_SHA256.items()
     } | {
+        "qtwebengine": QT_WEBENGINE_ARCHIVE,
         "icu": (
             "https://github.com/unicode-org/icu/releases/download/"
             "release-73-2/icu4c-73_2-src.tgz",
@@ -171,17 +183,19 @@ def verify_source_archives(manifest: dict, qt_version: str) -> None:
         fail("native license source archive metadata changed")
 
 
-def verify_sboms(root: Path, folder: str, manifest: dict, qt_version: str) -> None:
+def verify_sboms(root: Path, folder: str, manifest: dict, qt_version: str, webengine_version: str) -> None:
     qt = manifest.get("qt")
     if (
         not isinstance(qt, dict)
         or set(qt) != {
             "version",
+            "webEngineVersion",
             "binaryDistribution",
             "modules",
             "sboms",
         }
         or qt["version"] != qt_version
+        or qt["webEngineVersion"] != webengine_version
         or qt["binaryDistribution"] != "linux_gcc_64"
         or qt["modules"] != list(QT_MODULES)
         or not isinstance(qt["sboms"], list)
@@ -190,6 +204,11 @@ def verify_sboms(root: Path, folder: str, manifest: dict, qt_version: str) -> No
     expected_names = {
         f"{module}-{qt_version}.{suffix}"
         for module in QT_MODULES
+        if module != "qtwebengine"
+        for suffix in SBOM_FORMATS
+    } | {
+        f"{part}-{webengine_version}.{suffix}"
+        for part in WEBENGINE_SBOMS
         for suffix in SBOM_FORMATS
     }
     actual_names: set[str] = set()
@@ -199,12 +218,13 @@ def verify_sboms(root: Path, folder: str, manifest: dict, qt_version: str) -> No
             or set(row) != {"filename", "format", "module", "sha256"}
             or row["module"] not in QT_MODULES
             or not isinstance(row["filename"], str)
+            or not row["filename"].startswith(f"{row['module']}-")
             or not isinstance(row["sha256"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
         ):
             fail("Qt SBOM evidence row is malformed")
-        suffix = row["filename"].removeprefix(f"{row['module']}-{qt_version}.")
-        if SBOM_FORMATS.get(suffix) != row["format"]:
+        suffix = next((suffix for suffix in SBOM_FORMATS if row["filename"].endswith(f".{suffix}")), None)
+        if suffix is None or SBOM_FORMATS[suffix] != row["format"]:
             fail(f"Qt SBOM format is inconsistent: {row['filename']}")
         actual_names.add(row["filename"])
         sbom = require_relative_file(root, f"{folder}/{row['filename']}")
@@ -245,7 +265,7 @@ def verify_packaged_evidence(
             fail(f"packaged native evidence differs: {row['path']}")
 
 
-def verify_runtime(installed_root: Path, manifest: dict, qt_version: str) -> None:
+def verify_runtime(installed_root: Path, manifest: dict, qt_version: str, webengine_version: str) -> None:
     runtime = manifest.get("deployedRuntime")
     if (
         not isinstance(runtime, dict)
@@ -270,9 +290,9 @@ def verify_runtime(installed_root: Path, manifest: dict, qt_version: str) -> Non
         )
         if actual != expected:
             fail(f"deployed {key} set differs from native evidence")
-    for key, prefix, version in (
-        ("qtLibraries", "libQt6", qt_version),
-        ("icuLibraries", "libicu", "73.2"),
+    for key, prefix, versions in (
+        ("qtLibraries", "libQt6", (qt_version, webengine_version)),
+        ("icuLibraries", "libicu", ("73.2",)),
     ):
         rows = runtime[key]
         if not isinstance(rows, list):
@@ -292,6 +312,7 @@ def verify_runtime(installed_root: Path, manifest: dict, qt_version: str) -> Non
             expected[row["filename"]] = row["soname"]
         actual_paths = sorted(
             path
+            for version in versions
             for path in (private_root / "lib").glob(f"{prefix}*.so.{version}")
             if path.is_file()
         )
@@ -337,6 +358,7 @@ def main() -> None:
     dependencies, _ = load_json(arguments.dependencies)
     try:
         qt_version = dependencies["frameworks"]["qt"]["version"]
+        webengine_version = dependencies["frameworks"]["qtwebengine"]["version"]
     except (KeyError, TypeError) as error:
         fail(f"Qt dependency pin is malformed: {error}")
     if qt_version != manifest["qt"]["version"]:
@@ -346,11 +368,11 @@ def main() -> None:
         verify_source_archives(manifest, qt_version)
         verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version)
         qt_root = arguments.qt_root or ROOT / ".tools/Qt/gcc_64"
-        verify_sboms(qt_root.resolve(strict=True), "sbom", manifest, qt_version)
-        print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence verified")
+        verify_sboms(qt_root.resolve(strict=True), "sbom", manifest, qt_version, webengine_version)
+        print(f"Qt {qt_version}, Qt WebEngine {webengine_version} and ICU 73.2 native license/SBOM evidence verified")
         return
     installed_root = arguments.installed_root.resolve(strict=True)
-    verify_sboms(installed_root, "usr/share/doc/kodosi/qt/sbom", manifest, qt_version)
+    verify_sboms(installed_root, "usr/share/doc/kodosi/qt/sbom", manifest, qt_version, webengine_version)
     verify_packaged_evidence(
         arguments.license_root.resolve(strict=True),
         arguments.manifest.resolve(strict=True),
@@ -358,8 +380,8 @@ def main() -> None:
         installed_root,
         qt_version,
     )
-    verify_runtime(installed_root, manifest, qt_version)
-    print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence of the package verified")
+    verify_runtime(installed_root, manifest, qt_version, webengine_version)
+    print(f"Qt {qt_version}, Qt WebEngine {webengine_version} and ICU 73.2 native license/SBOM evidence of the package verified")
 
 
 if __name__ == "__main__":

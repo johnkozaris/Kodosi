@@ -21,6 +21,7 @@ Run these from the repository root; `just --list` shows the rest.
 | Command | Does |
 | --- | --- |
 | `just rust-cli-build` | Build the development CLI |
+| `just agent-browser-build` | Build the pinned agent-browser of the shared browser next to the development CLI |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
 | `just check-all` | The Rust and backend checks |
@@ -66,6 +67,11 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 `kodosi-ffi-c` build writes to `clients/apple/Sources/KodosiKit/kodosi_runtime.h`.
 `just ghostty-check` checks the Ghostty pins, and
 [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) explains updates.
+
+[AgentBrowser.lock](../AgentBrowser.lock) pins the agent-browser that each desktop app
+ships next to the `kodosi` program, by its version and Git commit. Each app build makes
+it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
+pin, check the release and its tag first, change both lines and build each app.
 
 ## Isolated validation
 

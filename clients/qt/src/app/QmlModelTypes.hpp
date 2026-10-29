@@ -1,8 +1,10 @@
 #pragma once
 #include "accessibility/AccessibilityScope.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
+#include "canvas/CanvasWeb.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
+#include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
@@ -221,6 +223,26 @@ public:
     static kodosi::TerminalSurfaceController* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
+struct CanvasModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::CanvasModel)
+    QML_NAMED_ELEMENT(Canvas)
+    QML_SINGLETON
+public:
+    inline static kodosi::CanvasModel* instance = nullptr;
+    static kodosi::CanvasModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
+struct CanvasWebForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::CanvasWeb)
+    QML_NAMED_ELEMENT(CanvasWeb)
+    QML_SINGLETON
+public:
+    inline static kodosi::CanvasWeb* instance = nullptr;
+    static kodosi::CanvasWeb* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
 struct TerminalViewForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::TerminalView)
@@ -241,5 +263,5 @@ struct KeyedListModelForeign {
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
-    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&);
+    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasWeb&);
 }

@@ -100,7 +100,13 @@ def main() -> None:
         type=Path,
         default=ROOT / "packaging/licenses/rust-license-overrides.json",
     )
+    parser.add_argument(
+        "--root",
+        action="append",
+        help="a package of the manifest whose dependencies ship; the runtime and its C API by default",
+    )
     arguments = parser.parse_args()
+    root_names = sorted(arguments.root or ["kodosi-ffi-c", "kodosi-runtime"])
     try:
         overrides, override_payload = load_overrides(arguments.overrides)
     except (OSError, ValueError) as error:
@@ -130,11 +136,10 @@ def main() -> None:
     roots = [
         package["id"]
         for package in metadata["packages"]
-        if package["source"] is None
-        and package["name"] in {"kodosi-runtime", "kodosi-ffi-c"}
+        if package["source"] is None and package["name"] in root_names
     ]
-    if len(roots) != 2:
-        fail("the runtime and FFI roots were not both resolved")
+    if len(roots) != len(root_names):
+        fail(f"the roots {', '.join(root_names)} were not all resolved")
 
     closure: set[str] = set()
     pending = roots.copy()
@@ -251,7 +256,7 @@ def main() -> None:
     document = {
         "schemaVersion": 2,
         "target": arguments.target,
-        "roots": ["kodosi-ffi-c", "kodosi-runtime"],
+        "roots": root_names,
         "overrideManifest": {
             "path": "rust-license-overrides.json",
             "sha256": bytes_sha256(override_payload),

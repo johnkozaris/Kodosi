@@ -1,0 +1,14 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+profile kodosi-qt /usr/lib/kodosi/bin/kodosi-qt flags=(unconfined) {
+  userns,
+
+  include if exists <local/kodosi-qt>
+}
+
+profile kodosi-webengine /usr/lib/kodosi/libexec/QtWebEngineProcess flags=(unconfined) {
+  userns,
+
+  include if exists <local/kodosi-webengine>
+}

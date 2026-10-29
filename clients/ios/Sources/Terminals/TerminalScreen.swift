@@ -32,6 +32,7 @@ private struct TerminalScreenContent: View {
     @State private var controller: TerminalController
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
+    @State private var canvasOpen = false
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
@@ -88,7 +89,9 @@ private struct TerminalScreenContent: View {
                     actions: inputActions,
                     menu: input.showsHeader(compact: compact)
                         ? nil
-                        : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt),
+                        : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
+                            openBrowser(of: session)
+                        },
                 )
             }
         }
@@ -109,7 +112,12 @@ private struct TerminalScreenContent: View {
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel(Text("Here now: \(viewers.map(\.name).joined(separator: ", "))"))
                     }
-                    TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt)
+                    if session.canvas != nil {
+                        CanvasKey(session: session, canvas: model.terminals.canvas) { canvasOpen = true }
+                    }
+                    TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
+                        openBrowser(of: session)
+                    }
                 }
             }
         }
@@ -137,10 +145,27 @@ private struct TerminalScreenContent: View {
         .sheet(isPresented: $showsSharing) {
             TerminalSharingSheet(sessionId: controller.sessionId)
         }
+        .fullScreenCover(isPresented: $canvasOpen) {
+            CanvasScreen(sessionId: controller.sessionId)
+        }
         .sensoryFeedback(.selection, trigger: controller.presses)
         .sensoryFeedback(.impact(flexibility: .solid), trigger: controller.sent)
         .sensoryFeedback(.impact(weight: .light), trigger: controller.bells)
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
+    }
+
+    private func openBrowser(of session: RuntimeSession) {
+        let canvas = model.terminals.canvas
+        if session.canvas?.browser != nil {
+            canvas.show(.browser, in: session)
+        } else {
+            Task {
+                do {
+                    try await canvas.openBrowser(in: session.id)
+                } catch { model.notices.show(error) }
+            }
+        }
+        canvasOpen = true
     }
 
     private func stage(_ session: RuntimeSession?) -> some View {
@@ -171,7 +196,7 @@ private struct TerminalScreenContent: View {
                         sessionName: session.name,
                         accessibilityIdentifier: "terminal.surface",
                         shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType,
-                        allowsFocus: controller.allowsKeyboard,
+                        allowsFocus: controller.allowsKeyboard && !canvasOpen,
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         otherComputer: session.otherComputer,

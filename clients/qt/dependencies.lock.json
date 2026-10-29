@@ -4,7 +4,23 @@
     "qt": {
       "version": "6.12.0",
       "released": "2026-09-30",
-      "source": "https://download.qt.io/official_releases/qt/6.12/6.12.0/"
+      "source": "https://download.qt.io/official_releases/qt/6.12/6.12.0/",
+      "modules": ["qtwebchannel", "qtpositioning"]
+    },
+    "qtwebengine": {
+      "version": "6.140.0",
+      "released": "2026-09-28",
+      "source": "https://download.qt.io/online/qtsdkrepository/",
+      "archives": {
+        "linux-x86_64": "linux_x64/extensions/qtwebengine/6120/61400/x86_64/extensions.qtwebengine.6120.61400.linux_gcc_64/6.12.0-0-202609281005qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+        "windows-x86_64": "windows_x86/extensions/qtwebengine/6120/61400/msvc2022_64/extensions.qtwebengine.6120.61400.win64_msvc2022_64/6.12.0-0-202609281005qtwebengine-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "windows-arm64": "windows_arm64/extensions/qtwebengine/6120/61400/msvc2022_arm64/extensions.qtwebengine.6120.61400.win64_msvc2022_arm64/6.12.0-0-202609281005qtwebengine-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-ARM64.7z"
+      },
+      "sha256": {
+        "linux-x86_64": "dd7a7a1062152038bf37a3ab995d765b313112efca561c9041a6fe9c1951cb0d",
+        "windows-x86_64": "3b3b1fe362d6d20e97a8201c9bd2a7921f4de481cc0f3b919fcdd6f810557b18",
+        "windows-arm64": "6887473fec88b34eeb89b28eb3903d153fbb06a1a60e9ff3a7d2d65f6ba75df6"
+      }
     }
   },
   "tools": {

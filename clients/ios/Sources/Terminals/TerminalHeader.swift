@@ -61,6 +61,7 @@ struct TerminalMenu: View {
     @Binding var prompt: TerminalPrompt?
     @Binding var showsSharing: Bool
     let interrupt: () -> Void
+    let openBrowser: () -> Void
 
     var body: some View {
         Menu {
@@ -76,6 +77,8 @@ struct TerminalMenu: View {
             if session.canControl {
                 Button("Interrupt", systemImage: "stop.circle", action: interrupt)
                     .accessibilityIdentifier("terminal.menu.interrupt")
+                Button("Open Browser", systemImage: "globe", action: openBrowser)
+                    .accessibilityIdentifier("terminal.menu.browser")
             }
             if session.canLeave || session.canClose {
                 Divider()

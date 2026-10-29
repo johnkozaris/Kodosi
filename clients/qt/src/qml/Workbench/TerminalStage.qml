@@ -248,18 +248,52 @@ Item {
                             Component {
                                 id: tileComponent
 
-                                TerminalTile {
-                                    sessionId: layoutEntry.sessionId
-                                    interactionEnabled: root.interactionEnabled && layoutEntry.entryVisible
-                                    accessibilitySuppressed:
-                                        !layoutEntry.entryVisible
-                                    zoomed:
-                                        root.focusMode
-                                        && layoutEntry.sessionId
-                                            === Models.DesktopState
-                                                .selectedSessionId
-                                    onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
-                                    onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
+                                Item {
+                                    id: cell
+
+                                    readonly property string sessionId: layoutEntry.sessionId
+                                    readonly property string canvasId: Models.DesktopState.canvasSessionId === sessionId ? sessionId : ""
+
+                                    function forceTerminalFocus() {
+                                        terminalTile.forceTerminalFocus()
+                                    }
+
+                                    CanvasStage {
+                                        id: pair
+
+                                        anchors.fill: parent
+                                        canvasSessionId: cell.canvasId
+                                        wide: Models.DesktopState.canvasWide
+                                        chosenWidth: Models.DesktopState.canvasWidth
+                                        onHideRequested: Models.DesktopState.hideCanvas()
+                                        onWideChosen: chosen => Models.DesktopState.canvasWide = chosen
+                                        onWidthChosen: chosen => Models.DesktopState.canvasWidth = chosen
+                                        onAsked: terminalTile.forceTerminalFocus()
+
+                                        TerminalTile {
+                                            id: terminalTile
+
+                                            anchors.fill: parent
+                                            sessionId: cell.sessionId
+                                            joined: pair.joined
+                                            canvasOpen: pair.open
+                                            interactionEnabled: root.interactionEnabled && layoutEntry.entryVisible && !pair.zoomed
+                                            accessibilitySuppressed:
+                                                !layoutEntry.entryVisible
+                                            zoomed:
+                                                root.focusMode
+                                                && cell.sessionId
+                                                    === Models.DesktopState
+                                                        .selectedSessionId
+                                            onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
+                                            onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
+                                            onCanvasRequested: section => {
+                                                if (section.length > 0)
+                                                    Models.Canvas.show(cell.sessionId, section)
+                                                Models.DesktopState.openCanvas(cell.sessionId)
+                                            }
+                                        }
+                                    }
                                 }
                             }
 

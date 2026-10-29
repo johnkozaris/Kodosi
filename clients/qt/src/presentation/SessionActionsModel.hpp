@@ -43,6 +43,7 @@ public:
     Q_INVOKABLE bool hide(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
+    Q_INVOKABLE bool input(const QString& sessionId, const QString& text);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});
