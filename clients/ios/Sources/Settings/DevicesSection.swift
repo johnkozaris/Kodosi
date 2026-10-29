@@ -110,7 +110,7 @@ struct DeviceRow: View {
     var body: some View {
         SettingRow(
             symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-            tint: isThisDevice ? TileTint.orange : TileTint.graphite,
+            tint: isThisDevice ? TileTint.copper : TileTint.graphite,
             title: Text(title),
             subtitle: subtitle,
         ) {

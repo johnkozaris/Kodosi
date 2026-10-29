@@ -50,7 +50,7 @@ struct AboutSection: View {
 
     var body: some View {
         Section {
-            SettingRow(symbol: "info.circle.fill", tint: TileTint.blue, title: Text("Version")) {
+            SettingRow(symbol: "info.circle.fill", tint: TileTint.graphite, title: Text("Version")) {
                 Text(verbatim: version)
                     .appTextStyle(.body)
                     .monospacedDigit()

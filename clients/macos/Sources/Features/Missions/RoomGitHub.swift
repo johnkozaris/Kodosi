@@ -100,7 +100,7 @@ struct RepositoryPicker: View {
         let symbol = link ? "link" : choice.folder == nil ? "shippingbox.fill" : "folder.fill"
         return Button { add(url) } label: {
             HStack(spacing: 10) {
-                IconTile(symbol: symbol, tint: link ? TileTint.blue : choice.folder == nil ? TileTint.purple : TileTint.teal, size: 24)
+                IconTile(symbol: symbol, tint: choice.folder == nil || link ? TileTint.graphite : TileTint.amber, size: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(choice.name).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                     if let folder = choice.folder {

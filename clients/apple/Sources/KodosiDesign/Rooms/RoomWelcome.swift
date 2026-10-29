@@ -4,7 +4,6 @@ public struct RoomWelcome: View {
     public struct Step: Identifiable {
         public let title: LocalizedStringKey
         public let symbol: String
-        public let tint: Color
         public let done: Bool
         public let action: () -> Void
 
@@ -12,10 +11,9 @@ public struct RoomWelcome: View {
             symbol
         }
 
-        public init(title: LocalizedStringKey, symbol: String, tint: Color, done: Bool, action: @escaping () -> Void) {
+        public init(title: LocalizedStringKey, symbol: String, done: Bool, action: @escaping () -> Void) {
             self.title = title
             self.symbol = symbol
-            self.tint = tint
             self.done = done
             self.action = action
         }
@@ -58,7 +56,7 @@ public struct RoomWelcome: View {
     private func step(_ step: Step) -> some View {
         Button(action: step.action) {
             HStack(spacing: 12) {
-                IconTile(symbol: step.symbol, tint: step.tint, size: 30)
+                IconTile(symbol: step.symbol, tint: step.done ? TileTint.graphite : TileTint.copper, size: 30)
                 Text(step.title)
                     .appTextStyle(.body)
                     .foregroundStyle(step.done ? theme.colors.inkMuted : theme.colors.ink)

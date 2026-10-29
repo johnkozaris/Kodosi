@@ -98,16 +98,15 @@ public extension ListRow where Leading == IconTile, Trailing == EmptyView {
     }
 }
 
+/// The colors of icon tiles, from the app's own: copper for what is yours or starts something,
+/// amber for folders, files and care, green for what is safe, red for what removes, and
+/// graphite for the rest.
 public enum TileTint {
-    public static let orange = hex(0xD98A5F)
-    public static let amber = hex(0xD9A441)
-    public static let green = hex(0x5FA57E)
-    public static let teal = hex(0x4F9BB0)
-    public static let blue = hex(0x5B82C9)
-    public static let purple = hex(0x8C7BD1)
-    public static let pink = hex(0xC96F8E)
-    public static let red = hex(0xCF6A62)
-    public static let graphite = hex(0x6B6560)
+    public static let copper = hex(0xDB8A62)
+    public static let amber = hex(0xDDB866)
+    public static let green = hex(0x7DBB99)
+    public static let red = hex(0xE77A75)
+    public static let graphite = hex(0x8C7A6F)
 }
 
 public struct PageHeader<Trailing: View>: View {

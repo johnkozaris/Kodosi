@@ -33,13 +33,8 @@ public struct PersonAvatar: View {
             .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
             .foregroundStyle(isSelf ? theme.colors.onAccent : .white)
             .frame(width: size, height: size)
-            .background {
-                Circle().fill(LinearGradient(
-                    colors: [tint.mix(with: .white, by: 0.18), tint, tint.mix(with: .black, by: 0.16)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing,
-                ))
-            }
-            .overlay { Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.5) }
+            .background { Circle().fill(tint) }
+            .overlay { Circle().strokeBorder(LinearGradient.markEdge, lineWidth: 0.5) }
             .overlay {
                 if let ring {
                     Circle().stroke(ring, lineWidth: 2).padding(-1)
@@ -127,17 +122,8 @@ public struct AgentMark: View {
 
     public var body: some View {
         ZStack {
-            shape.fill(LinearGradient(
-                colors: asleep
-                    ? [theme.colors.raised.mix(with: kind.tint, by: 0.14), theme.colors.raised.mix(with: kind.tint, by: 0.3)]
-                    : [kind.tint.mix(with: .white, by: 0.2), kind.tint, kind.tint.mix(with: .black, by: 0.2)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
-            ))
-            shape.strokeBorder(
-                LinearGradient(colors: [.white.opacity(asleep ? 0.12 : 0.4), .clear, .black.opacity(0.18)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: max(0.5, size * 0.03),
-            )
+            shape.fill(asleep ? theme.colors.raised.mix(with: kind.tint, by: 0.22) : kind.tint)
+            shape.strokeBorder(LinearGradient.markEdge, lineWidth: max(0.5, size * 0.03))
             light
             glyph.foregroundStyle(asleep ? kind.tint.mix(with: theme.colors.ink, by: 0.35) : .white)
         }
@@ -274,6 +260,12 @@ private struct CheckStroke: Shape {
     }
 }
 
+extension LinearGradient {
+    /// The light on a colored mark: a fine light edge at the top left and a darker one at the bottom right.
+    static let markEdge = LinearGradient(colors: [.white.opacity(0.16), .clear, .black.opacity(0.18)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing)
+}
+
 public struct IconTile: View {
     @Environment(\.theme) private var theme
     public let symbol: String
@@ -290,22 +282,12 @@ public struct IconTile: View {
         let color = tint ?? theme.colors.accent
         let shape = RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
         Image(systemName: symbol)
-            .font(.system(size: size * 0.46, weight: .semibold))
-            .foregroundStyle(.white)
+            .font(.system(size: size * 0.44, weight: .semibold))
+            .foregroundStyle(color.mix(with: theme.colors.ink, by: theme.isDark ? 0.12 : 0.3))
             .frame(width: size, height: size)
             .background {
-                shape.fill(LinearGradient(
-                    colors: [color.mix(with: .white, by: 0.22), color, color.mix(with: .black, by: 0.2)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing,
-                ))
+                RaisedBackground(shape: shape, fill: theme.colors.raised.mix(with: color, by: theme.isDark ? 0.2 : 0.16), elevation: .resting)
             }
-            .overlay {
-                shape.strokeBorder(
-                    LinearGradient(colors: [.white.opacity(0.4), .clear, .black.opacity(0.18)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 0.75,
-                )
-            }
-            .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.4 : 0.18), radius: size * 0.08, x: 1, y: 2)
             .accessibilityHidden(true)
     }
 }
@@ -328,29 +310,21 @@ public struct RoomSigil: View {
         let inset = size * 0.2
         let cell = (size - inset * 2 - gap) / 2
         ZStack {
-            shape.fill(LinearGradient(
-                colors: [tint.mix(with: .white, by: 0.16), tint.mix(with: .black, by: 0.08), tint.mix(with: .black, by: 0.34)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
-            ))
+            RaisedBackground(shape: shape, fill: theme.colors.raised.mix(with: tint, by: theme.isDark ? 0.24 : 0.18), elevation: .resting)
             VStack(spacing: gap) {
                 ForEach(0 ..< 2, id: \.self) { row in
                     HStack(spacing: gap) {
                         ForEach(0 ..< 2, id: \.self) { column in
                             let lit = (seed >> UInt64(row * 2 + column + 3)) & 1 == 1 || row * 2 + column == Int(seed % 4)
                             RoundedRectangle(cornerRadius: cell * 0.28, style: .continuous)
-                                .fill(.white.opacity(lit ? 0.92 : 0.28))
+                                .fill(lit ? tint.mix(with: theme.colors.ink, by: theme.isDark ? 0.15 : 0.1) : tint.opacity(0.32))
                                 .frame(width: cell, height: cell)
                         }
                     }
                 }
             }
-            shape.strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.42), .clear, .black.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: max(0.5, size * 0.03),
-            )
         }
         .frame(width: size, height: size)
-        .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.2), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
         .accessibilityHidden(true)
     }
 }

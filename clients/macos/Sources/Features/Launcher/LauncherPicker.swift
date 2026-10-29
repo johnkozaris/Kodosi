@@ -276,7 +276,7 @@ struct PickerIcon: View {
         case .none:
             EmptyView()
         case .folder:
-            IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 26)
+            IconTile(symbol: "folder.fill", tint: TileTint.amber, size: 26)
         case let .account(initial, key, signedIn):
             AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage)
         case let .device(label):

@@ -176,22 +176,25 @@ struct CommandPalette: View {
     private var actionItems: [Item] {
         let group = String(localized: "Actions")
         var actions = [
-            Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus", TileTint.orange)) {
+            Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus", TileTint.copper)) {
                 deps.openLauncher()
             },
             Item(
                 id: "action.resume", group: group, title: String(localized: "Resume a conversation"),
-                icon: .symbol("clock.arrow.circlepath", TileTint.amber),
+                icon: .symbol("clock.arrow.circlepath", TileTint.graphite),
             ) {
                 deps.workbench.showsHistory = true
             },
         ]
         if deps.account.isReady {
-            actions.append(Item(id: "action.room", group: group, title: String(localized: "New room"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
+            actions.append(Item(
+                id: "action.room", group: group, title: String(localized: "New room"),
+                icon: .symbol("square.grid.2x2.fill", TileTint.graphite),
+            ) {
                 deps.workbench.showsNewRoom = true
             })
         }
-        actions.append(Item(id: "action.people", group: group, title: String(localized: "Friends"), icon: .symbol("person.2.fill", TileTint.blue)) {
+        actions.append(Item(id: "action.people", group: group, title: String(localized: "Friends"), icon: .symbol("person.2.fill", TileTint.graphite)) {
             deps.workbench.section = .people
         })
         actions.append(Item(id: "action.settings", group: group, title: String(localized: "Settings"), icon: .symbol("gearshape.fill", TileTint.graphite)) {

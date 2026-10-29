@@ -120,16 +120,16 @@ struct RoomConversation: View {
         var steps: [RoomWelcome.Step] = []
         if rooms.isOwner(of: roomId) {
             steps.append(RoomWelcome.Step(
-                title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
+                title: "Invite people", symbol: "person.badge.plus",
                 done: (rooms.details[roomId]?.members.count ?? 0) > 1,
             ) { state.showsInfo = true })
         }
         steps.append(RoomWelcome.Step(
-            title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
+            title: "Add a terminal", symbol: "apple.terminal",
             done: model.terminals.sessions.contains { $0.missionId == roomId },
         ) { show(.terminals, in: state) })
         steps.append(RoomWelcome.Step(
-            title: "Put up a task", symbol: "checklist", tint: TileTint.orange,
+            title: "Put up a task", symbol: "checklist",
             done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true),
         ) { show(.tasks, in: state) })
         return RoomWelcome(name: rooms.mission(roomId)?.name ?? "", key: roomId, steps: steps)

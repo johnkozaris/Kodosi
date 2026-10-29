@@ -210,7 +210,7 @@ struct AgentLauncher: View {
                 open: menu == .folder, identifier: "launcher.folder",
                 label: String(localized: "Folder"), help: directory.map { places?.shown($0) ?? $0 },
             ) {
-                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.amber)
             } action: {
                 toggle(.folder)
             }
@@ -227,7 +227,7 @@ struct AgentLauncher: View {
                 title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
                 label: String(localized: "Folder"), help: directory.map(tilde),
             ) {
-                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.amber)
             } action: {
                 toggle(.folder)
             }

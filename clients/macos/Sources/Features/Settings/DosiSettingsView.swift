@@ -45,7 +45,7 @@ struct DosiSettingsView: View {
             ListGroup {
                 Toggle(isOn: Binding(get: { deps.workbench.dosiOn }, set: turn)) {
                     HStack(spacing: 12) {
-                        IconTile(symbol: "eyes", tint: TileTint.orange, size: 28)
+                        IconTile(symbol: "eyes", tint: TileTint.copper, size: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Use Dosi")
                             Text("Off removes Dosi from this computer.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
@@ -109,7 +109,7 @@ struct DosiSettingsView: View {
                 .buttonStyle(.kodosi(.secondary, size: .small)).accessibilityIdentifier("settings.dosi.folder")
             }
             ListRow(String(localized: "Chat"), subtitle: conversationLine, symbol: "bubble.left.and.bubble.right.fill",
-                    tint: TileTint.orange)
+                    tint: TileTint.copper)
             {
                 Button("New chat") { renewing = true }
                     .buttonStyle(.kodosi(.secondary, size: .small)).disabled(deps.dosi.items.isEmpty)
@@ -154,7 +154,7 @@ struct DosiSettingsView: View {
                                        ?? String(localized: "Default")
                                }, identifier: "settings.dosi.account")
                 }
-                ListRow(String(localized: "Model"), symbol: "cpu", tint: TileTint.purple) {
+                ListRow(String(localized: "Model"), symbol: "cpu", tint: TileTint.graphite) {
                     MenuPicker(title: "Model", selection: Binding(get: { setup.model }, set: { pick(model: $0) }),
                                values: [nil] + (models?.models.map(\.id) ?? []),
                                label: { id in
@@ -162,7 +162,7 @@ struct DosiSettingsView: View {
                                }, identifier: "settings.dosi.model")
                 }
                 if !efforts.isEmpty {
-                    ListRow(String(localized: "Effort"), symbol: "gauge.with.dots.needle.67percent", tint: TileTint.teal) {
+                    ListRow(String(localized: "Effort"), symbol: "gauge.with.dots.needle.67percent", tint: TileTint.graphite) {
                         MenuPicker(title: "Effort", selection: Binding(get: { setup.effort }, set: { pick(effort: $0) }),
                                    values: [nil] + efforts.map(\.id),
                                    label: { id in
@@ -191,7 +191,7 @@ struct DosiSettingsView: View {
             ListGroup(footer: editing ? "Dosi reads these at the start of each conversation, on all your computers." : nil) {
                 ListRow(String(localized: "Instructions"),
                         subtitle: instructions?.edited == true ? String(localized: "Yours") : String(localized: "Standard"),
-                        symbol: "text.alignleft", tint: TileTint.teal)
+                        symbol: "text.alignleft", tint: TileTint.graphite)
                 {
                     HStack(spacing: 6) {
                         if editing, instructions?.edited == true {
