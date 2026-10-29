@@ -48,7 +48,7 @@ struct DeviceSettingsView: View {
                             ListRow(device.title,
                                     subtitle: subtitle(device),
                                     symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-                                    tint: device.deviceId == deps.account.selfDeviceId ? TileTint.copper : TileTint.graphite)
+                                    tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
                             {
                                 if deps.account.canRemove(device) {
                                     Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))

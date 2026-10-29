@@ -106,12 +106,12 @@ struct SessionDetailsView: View {
                     symbol: "lock.fill", tint: TileTint.graphite)
         } else if !current.isOwner {
             ListRow(String(localized: "Shared by \(current.ownerName ?? current.hostLabel)"),
-                    subtitle: current.missionName.map { String(localized: "In \($0)") }, symbol: "person.2.fill", tint: TileTint.graphite)
+                    subtitle: current.missionName.map { String(localized: "In \($0)") }, symbol: "person.2.fill", tint: TileTint.blue)
         } else {
             let names = current.sharedWith.map(deps.personName)
             let title = current.missionName.map { String(localized: "Shared with \($0)") }
                 ?? (names.isEmpty ? String(localized: "Only you and your devices") : names.joined(separator: ", "))
-            ListRow(title, subtitle: String(localized: "Encrypted end to end"), symbol: "person.2.fill", tint: TileTint.graphite) {
+            ListRow(title, subtitle: String(localized: "Encrypted end to end"), symbol: "person.2.fill", tint: TileTint.blue) {
                 if current.kind == .local {
                     Button("Share…") { sharing = true }
                         .buttonStyle(.kodosi(.tinted, size: .small))

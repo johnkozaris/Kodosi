@@ -38,14 +38,14 @@ struct GeneralSettingsView: View {
         @Bindable var settings = deps.settings
         VStack(alignment: .leading, spacing: 22) {
             ListGroup(footer: updatesFooter) {
-                ListRow(String(localized: "Version"), subtitle: version, symbol: "app.badge", tint: TileTint.graphite) {
+                ListRow(String(localized: "Version"), subtitle: version, symbol: "app.badge", tint: TileTint.blue) {
                     Button("Check for Updates…") { updater.check() }
                         .disabled(!updater.configured)
                         .accessibilityIdentifier("settings.updates.check")
                 }
                 Toggle(isOn: $updater.automatic) {
                     HStack(spacing: 12) {
-                        IconTile(symbol: "arrow.down.circle", tint: TileTint.graphite, size: 28)
+                        IconTile(symbol: "arrow.down.circle", tint: TileTint.green, size: 28)
                         Text("Update automatically")
                     }
                 }
@@ -56,7 +56,7 @@ struct GeneralSettingsView: View {
             ListGroup(footer: closeFooter) {
                 Toggle(isOn: $settings.keepRunning) {
                     HStack(spacing: 12) {
-                        IconTile(symbol: "macwindow", tint: TileTint.graphite, size: 28)
+                        IconTile(symbol: "macwindow", tint: TileTint.blue, size: 28)
                         Text("Keep running when the window closes")
                     }
                 }

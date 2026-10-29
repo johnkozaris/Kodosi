@@ -104,12 +104,12 @@ struct RoomConversationView: View {
             .overlay {
                 if messages.isEmpty {
                     RoomWelcome(name: detail.mission.name, key: roomId, steps: [
-                        RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus",
+                        RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
                                          done: detail.members.count > 1) { state.peopleVisible = true },
-                        RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal",
+                        RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
                                          done: !deps.roomSessions(roomId).isEmpty) { deps.openLauncher(roomId: roomId) },
                         RoomWelcome.Step(title: copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles",
-                                         done: copied, action: copyInvite),
+                                         tint: TileTint.orange, done: copied, action: copyInvite),
                     ])
                 }
             }

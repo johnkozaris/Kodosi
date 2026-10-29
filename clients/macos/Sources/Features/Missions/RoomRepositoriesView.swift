@@ -24,7 +24,7 @@ struct RoomRepositoriesView: View {
             if repositories.isEmpty {
                 ScrollView {
                     VStack(spacing: 14) {
-                        IconTile(symbol: "shippingbox.fill", tint: TileTint.graphite, size: 52)
+                        IconTile(symbol: "shippingbox.fill", tint: TileTint.purple, size: 52)
                         Text("Link a repository").appTextStyle(.title).foregroundStyle(theme.colors.ink)
                         RepositoryPicker(roomId: roomId)
                             .padding(12).raised(Radius.xl)

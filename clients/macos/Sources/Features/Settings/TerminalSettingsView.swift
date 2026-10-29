@@ -34,7 +34,7 @@ struct TerminalSettingsView: View {
                 }
                 Toggle(isOn: systemReducesMotion ? .constant(true) : $reducesMotion) {
                     HStack(spacing: 12) {
-                        IconTile(symbol: "wind", tint: TileTint.graphite, size: 28).bounce(on: reducesMotion)
+                        IconTile(symbol: "wind", tint: TileTint.teal, size: 28).bounce(on: reducesMotion)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Reduce motion")
                             if systemReducesMotion {
@@ -46,13 +46,13 @@ struct TerminalSettingsView: View {
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 .disabled(systemReducesMotion)
                 .accessibilityIdentifier("settings.reduceMotion")
-                ListRow(String(localized: "Font"), symbol: "textformat", tint: TileTint.graphite) {
+                ListRow(String(localized: "Font"), symbol: "textformat", tint: TileTint.blue) {
                     MenuPicker(title: "Font", selection: $draft.fontFamily, values: families, label: { $0 }, identifier: "settings.terminal.font")
                 }
-                ListRow(String(localized: "Size"), symbol: "textformat.size", tint: TileTint.graphite) {
+                ListRow(String(localized: "Size"), symbol: "textformat.size", tint: TileTint.teal) {
                     KodosiStepper(title: "Font size", value: $draft.fontSize, range: DesktopSettings.TerminalDefaults.fontSizeRange)
                 }
-                ListRow(String(localized: "Line height"), symbol: "arrow.up.and.down.text.horizontal", tint: TileTint.graphite) {
+                ListRow(String(localized: "Line height"), symbol: "arrow.up.and.down.text.horizontal", tint: TileTint.purple) {
                     Slider(value: $draft.lineHeight, in: DesktopSettings.TerminalDefaults.lineHeightRange, step: 0.05)
                         .frame(width: 170).accessibilityLabel(Text("Line height"))
                     Text(draft.lineHeight, format: .number.precision(.fractionLength(2))).appTextStyle(.subhead).monospacedDigit()
@@ -60,20 +60,20 @@ struct TerminalSettingsView: View {
                 }
             }
             ListGroup {
-                ListRow(String(localized: "Cursor"), symbol: "character.cursor.ibeam", tint: TileTint.copper) {
+                ListRow(String(localized: "Cursor"), symbol: "character.cursor.ibeam", tint: TileTint.orange) {
                     SegmentedPill(selection: $draft.cursorStyle, options: DesktopSettings.CursorStyle.allCases.map {
                         SegmentOption(value: $0, title: $0.label)
                     }, compact: true, identifier: "settings.terminal.cursor")
                 }
                 Toggle(isOn: $draft.cursorBlink) {
                     HStack(spacing: 12) {
-                        IconTile(symbol: "sparkle", tint: TileTint.copper, size: 28)
+                        IconTile(symbol: "sparkle", tint: TileTint.amber, size: 28)
                         Text("Blink the cursor")
                     }
                 }
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 ListRow(String(localized: "Scrollback"), subtitle: String(localized: "Lines kept for each terminal"),
-                        symbol: "arrow.up.to.line", tint: TileTint.graphite)
+                        symbol: "arrow.up.to.line", tint: TileTint.green)
                 {
                     KodosiStepper(title: "Scrollback lines", value: $draft.scrollbackLines,
                                   range: DesktopSettings.TerminalDefaults.scrollbackRange, step: 1000)
@@ -93,7 +93,7 @@ struct TerminalSettingsView: View {
             }
             ListGroup(footer: "A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.") {
                 ListRow(String(localized: "Branch folders"), subtitle: deps.settings.branchFolder ?? String(localized: "Beside the repository"),
-                        monoSubtitle: deps.settings.branchFolder != nil, symbol: "arrow.triangle.branch", tint: TileTint.amber)
+                        monoSubtitle: deps.settings.branchFolder != nil, symbol: "arrow.triangle.branch", tint: TileTint.pink)
                 {
                     if deps.settings.branchFolder != nil {
                         Button("Beside the repository") { setBranchFolder(nil) }.buttonStyle(.kodosi(.ghost, size: .small))

@@ -122,7 +122,7 @@ struct RoomRepositoriesSection: View {
 
     private func row(_ repository: RoomRepository) -> some View {
         HStack(spacing: 12) {
-            IconTile(symbol: "shippingbox.fill", tint: TileTint.graphite, size: 30)
+            IconTile(symbol: "shippingbox.fill", tint: TileTint.purple, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(repository.name)
                     .appTextStyle(.body)

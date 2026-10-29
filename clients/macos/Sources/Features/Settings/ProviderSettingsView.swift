@@ -53,7 +53,7 @@ struct ProviderSettingsView: View {
                 if let configuration {
                     ForEach(configuration.files) { file in
                         ListRow(file.label, subtitle: file.path, monoSubtitle: true, symbol: "doc.text.fill",
-                                tint: file.exists ? TileTint.amber : TileTint.graphite)
+                                tint: file.exists ? TileTint.blue : TileTint.graphite)
                         {
                             if file.exists {
                                 Button(file.editable ? String(localized: "Open") : String(localized: "View")) {
