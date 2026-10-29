@@ -55,10 +55,6 @@ int alphaAt(const Mesh& mesh, double degrees)
 
 class LightTrackTest final : public QObject {
     Q_OBJECT
-public:
-    // Qt WebEngine asks for OpenGL when it loads; these tests draw with the software renderer.
-    static void initMain() { QQuickWindow::setGraphicsApi(QSGRendererInterface::Software); }
-
 private slots:
     void theLightLeadsWithAShortEdgeAndTrailsALongerOne()
     {
