@@ -20,6 +20,10 @@ Q_IMPORT_QML_PLUGIN(KodosiPlugin)
 
 class ControlsTest final : public QObject {
     Q_OBJECT
+public:
+    // Qt WebEngine asks for OpenGL when it loads; these tests draw with the software renderer.
+    static void initMain() { QQuickWindow::setGraphicsApi(QSGRendererInterface::Software); }
+
 private slots:
     void keyboardFocusTracksButtonState();
     void modalControlsSuppressNativeTerminalAccessibility();
