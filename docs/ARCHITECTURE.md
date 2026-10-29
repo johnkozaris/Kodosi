@@ -114,9 +114,11 @@ The shared browser is the agent-browser program next to the `kodosi` program, wi
 terminal's own session, a profile in the host's data folder, Kodosi's settings and none of
 the person's `AGENT_BROWSER_*` variables. agent-browser starts the computer's Chrome,
 Chromium, Edge or Brave. The host runs each `kodosi browser <command>` in the agent's
-folder, and reads the tabs after each command and when a page moves. While a device looks,
-the host relays the JPEG pictures of agent-browser's stream to it and the person's
-input back. After 10 minutes with no command, no input and nobody looking, the host closes
+folder, and reads the tabs after each command and when a page moves. While a command runs,
+the browser's state names the agent, what it does and the point of its target, which
+agent-browser's `get box --json` gives; with a device looking, the command waits a moment
+after that state, so the agent's pointer arrives first. While a device looks, the host
+relays the JPEG pictures of agent-browser's stream to it and the person's input back. After 10 minutes with no command, no input and nobody looking, the host closes
 the browser and keeps its profile. When the host stops, it closes every browser; the
 terminal's restore record keeps the canvas and the browser's last page. Closing the
 terminal deletes the profile, and a new host deletes the profiles that no terminal has.

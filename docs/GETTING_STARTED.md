@@ -24,8 +24,8 @@ the shell of the new terminal.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
-- A terminal at its prompt shows a mark for each installed agent. Select a mark to start
-  that agent with your last choice.
+- In a terminal at its prompt, the actions key (two sliders) in its header lists the
+  installed agents. Select one to start it with your last choice.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
@@ -69,10 +69,12 @@ progress bar. A program that reports nothing shows no state.
 
 An agent can show you a page, Markdown, a picture, a PDF or an Office file on the canvas
 of its terminal, and use a browser that you share with it. Agents that Kodosi starts know
-how; tell another agent to read `kodosi skill canvas`. When the canvas has something, a
-canvas key shows in the terminal's header, with a copper dot for news. Select it to open
-the canvas beside the terminal. In a room, the canvas is a tab after its terminal. On the
-iPhone, the key is in the terminal's bar.
+how; tell another agent to read `kodosi skill canvas`. When the canvas has something, the
+terminal's header shows a key for its files and one for its browser, with a copper dot for
+news. Select one to open the canvas beside the terminal; More room gives the canvas the
+stage and keeps the terminal small in its corner. Close a part with the × on its key, and
+open it again with +. Open Browser in the actions key opens the browser before the agent
+uses it. On the iPhone, the canvas key is in the terminal's bar.
 
 - A page has no network. Its links open in your own browser.
 - Select words on a page, then Ask about this. Kodosi types the file and the words into
@@ -129,7 +131,8 @@ username of a friend. An invite lets Kodosi verify your friend.
 
 <p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
 
-To share a terminal, select the share button in its header and choose friends or rooms.
+To share a terminal, select Share in the actions key of its header and choose friends or
+rooms.
 The people you share with get full control, with your privileges on that computer. Your
 other terminals stay private.
 

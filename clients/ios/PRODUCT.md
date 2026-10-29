@@ -25,8 +25,10 @@ computer.
   the composer.
 - A tap on a link opens it by the shared link rules, except in a program that uses the
   mouse.
-- The canvas key in a terminal's bar lists the canvas in a sheet, where a swipe removes
-  an item. An item opens full screen with the others as chips. Pictures, PDFs and Office
+- The canvas key in a terminal's bar opens the canvas full screen with the keys of its
+  parts in the bar. A long press on a key closes its part, and the plus key opens a
+  closed part or the browser. The files are tabs over the file, or all as cards, and a
+  long press on one has Ask about this and Remove from canvas. Pictures, PDFs and Office
   files show with Quick Look. In the shared browser, taps and drags are clicks and
   scrolling, and the keyboard key types into it.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
