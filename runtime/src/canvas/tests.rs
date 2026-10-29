@@ -5,8 +5,8 @@ use serde_json::json;
 
 use super::{
     BrowserAct, BrowserDoingKind, BrowserInput, BrowserPoint, CanvasAnswer, CanvasHandle,
-    CanvasKind, CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES,
-    browser, files::Files, files::Stamp, kind_of, page,
+    CanvasKind, CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES, browser,
+    files::Files, files::Stamp, kind_of, page,
 };
 
 #[test]
@@ -342,7 +342,8 @@ fn people_see_what_the_agent_does_and_where() {
     assert_eq!(doing(&["tab", "new"]), Some((BrowserDoingKind::Open, None)));
     assert_eq!(doing(&["session", "info"]), None);
 
-    let box_at = r#"{"success":true,"data":{"height":20,"width":200,"x":100.5,"y":40},"error":null}"#;
+    let box_at =
+        r#"{"success":true,"data":{"height":20,"width":200,"x":100.5,"y":40},"error":null}"#;
     assert_eq!(
         browser::middle(box_at, 1280, 720),
         Some(BrowserPoint { x: 200, y: 50 })

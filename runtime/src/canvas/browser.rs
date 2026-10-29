@@ -1237,7 +1237,11 @@ pub(super) fn doing(arguments: &[String]) -> Option<(BrowserDoingKind, Option<St
 )]
 pub(super) fn middle(output: &str, width: u32, height: u32) -> Option<BrowserPoint> {
     let found = serde_json::from_str::<Value>(output.trim()).ok()?;
-    let side = |name: &str| found["data"][name].as_f64().filter(|value| value.is_finite());
+    let side = |name: &str| {
+        found["data"][name]
+            .as_f64()
+            .filter(|value| value.is_finite())
+    };
     let x = side("x")? + side("width")? / 2.0;
     let y = side("y")? + side("height")? / 2.0;
     (x >= 0.0 && y >= 0.0 && x < f64::from(width) && y < f64::from(height)).then_some(
