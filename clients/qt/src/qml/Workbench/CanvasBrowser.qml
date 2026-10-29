@@ -97,6 +97,10 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("Address")
                 text: root.activeTab ? root.activeTab.url : ""
+                onTextChanged: {
+                    if (!activeFocus)
+                        cursorPosition = 0;
+                }
                 onAccepted: root.open()
                 onActiveFocusChanged: {
                     if (!activeFocus)
