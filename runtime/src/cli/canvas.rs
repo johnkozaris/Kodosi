@@ -109,8 +109,10 @@ pub(super) async fn run(
             .await?;
             if json_output {
                 print_json(&event)
+            } else if names.is_empty() {
+                print_text("The canvas no longer shows its files.")
             } else {
-                print_text("The canvas no longer shows them.")
+                print_text(&format!("The canvas no longer shows {}.", names.join(", ")))
             }
         }
     }
