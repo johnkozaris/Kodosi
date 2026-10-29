@@ -25,7 +25,7 @@ const SLEEP_CHECK: Duration = Duration::from_secs(30);
 const PICTURE_WAIT: Duration = Duration::from_secs(8);
 const WATCH_KEPT: Duration = Duration::from_secs(20);
 const MOST_OUTPUT: usize = 1024 * 1024;
-const FIRST_SIZE: (u32, u32) = (1280, 800);
+const FIRST_SIZE: (u32, u32) = (1280, 720);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
 const DAEMON_IDLE_MS: &str = "1200000";
 const NO_CHROMIUM: &str = "There is no Chrome, Chromium, Edge or Brave on this computer. Install one of them for the shared browser.";

@@ -156,6 +156,23 @@ add_custom_target(kodosi-rust-cli-build ALL
 add_dependencies(kodosi-rust-cli-build kodosi-runtime-library-build)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(KODOSI_AGENT_BROWSER_DIR "${PROJECT_BINARY_DIR}/generated/agent-browser")
+    set(KODOSI_AGENT_BROWSER "${KODOSI_AGENT_BROWSER_DIR}/bin/${KODOSI_AGENT_BROWSER_NAME}")
+    add_custom_target(kodosi-agent-browser-build ALL
+        COMMAND
+            "${CMAKE_COMMAND}" -E env ${KODOSI_CARGO_ENVIRONMENT}
+            "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/scripts/build-agent-browser.py"
+            --target "${KODOSI_RUST_TARGET}"
+            --output-dir "${KODOSI_AGENT_BROWSER_DIR}/bin"
+            --notices "${KODOSI_AGENT_BROWSER_DIR}/notices"
+        BYPRODUCTS "${KODOSI_AGENT_BROWSER}"
+        COMMENT "Building the pinned agent-browser"
+        WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
+        VERBATIM
+    )
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(KODOSI_SOURCE_IDENTITY
         "${CMAKE_CURRENT_BINARY_DIR}/generated/source-identity.json"
     )

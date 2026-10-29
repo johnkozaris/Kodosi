@@ -35,6 +35,8 @@ NAMESPACES = {
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
+    "agent-browser.exe",
+    "doc/agent-browser/LICENSE",
     "conpty.dll",
     "OpenConsole.exe",
     "qt.conf",
@@ -182,7 +184,7 @@ def verify_payload(files: dict[str, zipfile.ZipInfo], read: Reader, logos: list[
 
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in ("kodosi-qt.exe", "kodosi.exe"):
+    for name in ("kodosi-qt.exe", "kodosi.exe", "agent-browser.exe"):
         data = read(name)
         if (start := data.find(home)) >= 0:
             path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")

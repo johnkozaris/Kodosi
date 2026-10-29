@@ -445,12 +445,19 @@ def check_debian_dependencies(package: Path) -> None:
 
 
 def check_files(root: Path, qt_version: str) -> None:
-    for name in ("usr/bin/kodosi", "usr/bin/kodosi-qt", f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
+    for name in (
+        "usr/bin/kodosi",
+        "usr/bin/kodosi-qt",
+        f"{PRIVATE}/bin/kodosi",
+        f"{PRIVATE}/bin/kodosi-qt",
+        f"{PRIVATE}/bin/agent-browser",
+    ):
         path = root / name
         if not path.is_file() or not os.access(path, os.X_OK):
             fail(f"{name} is missing or is not executable")
     for name in (
         f"{PRIVATE}/bin/qt.conf",
+        f"{DOC}/agent-browser/LICENSE",
         DESKTOP,
         METAINFO,
         "usr/share/icons/hicolor/256x256/apps/com.kodosi.Kodosi.png",
@@ -495,7 +502,7 @@ def check_links(root: Path) -> None:
 
 def check_home(root: Path) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
+    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", f"{PRIVATE}/bin/agent-browser"):
         data = (root / name).read_bytes()
         if (start := data.find(home)) >= 0:
             path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")

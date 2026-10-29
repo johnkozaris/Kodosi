@@ -9,6 +9,7 @@ set(KODOSI_PLATFORM_QT_COMPONENTS DBus)
 set(KODOSI_RUST_TARGET "x86_64-unknown-linux-gnu")
 set(KODOSI_RUNTIME_ARCHIVE_NAME "libkodosi_ffi_c.a")
 set(KODOSI_RUNTIME_CLI_NAME "kodosi")
+set(KODOSI_AGENT_BROWSER_NAME "agent-browser")
 set(KODOSI_GHOSTTY_REF "LinuxGhostty.ref")
 set(KODOSI_GHOSTTY_LAYOUT "linux-x86_64")
 set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "libghostty-vt.a")
@@ -116,8 +117,12 @@ function(kodosi_install app)
     )
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         install(
-            PROGRAMS "${KODOSI_RUNTIME_CLI}"
+            PROGRAMS "${KODOSI_RUNTIME_CLI}" "${KODOSI_AGENT_BROWSER}"
             DESTINATION lib/kodosi/bin
+        )
+        install(
+            DIRECTORY "${KODOSI_AGENT_BROWSER_DIR}/notices/"
+            DESTINATION share/doc/kodosi/agent-browser
         )
     endif()
 endfunction()
