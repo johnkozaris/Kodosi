@@ -185,7 +185,7 @@ public struct CanvasShelf<Actions: View>: View {
     public var body: some View {
         let files = (session.canvas?.files ?? []).reversed()
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128, maximum: 172), spacing: 18)], spacing: 22) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 120), spacing: 14)], spacing: 16) {
                 ForEach(Array(files)) { file in
                     CanvasCard(file: file, content: store.stored(file, in: session.id), news: store.isNew(.item(file), in: session.id),
                                remove: { remove(file) }, action: { pick(file.key) })
@@ -193,7 +193,7 @@ public struct CanvasShelf<Actions: View>: View {
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 22).padding(.vertical, 24)
+            .padding(.horizontal, 16).padding(.vertical, 18)
         }
         .animation(theme.motion.spring, value: files.map(\.key))
         .accessibilityIdentifier("canvas.shelf")
@@ -214,9 +214,9 @@ struct CanvasCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 sheet
-                    .frame(height: 104)
+                    .frame(height: 76)
                     .offset(y: hovered ? -2 : 0)
                     .rotationEffect(.degrees(hovered ? -1.2 : 0), anchor: .bottom)
                 VStack(spacing: 2) {
@@ -236,9 +236,9 @@ struct CanvasCard: View {
         .accessibilityIdentifier("canvas.card.\(AccessibilityIdentifier.token(file.key))")
         .overlay(alignment: .topLeading) {
             if hovered {
-                RemoveKey(size: 20, identifier: "canvas.card.remove.\(AccessibilityIdentifier.token(file.key))", action: remove)
+                RemoveKey(size: 18, identifier: "canvas.card.remove.\(AccessibilityIdentifier.token(file.key))", action: remove)
                     .background(theme.colors.surface, in: Circle())
-                    .offset(x: -7, y: -7)
+                    .offset(x: -6, y: -6)
                     .transition(.opacity.combined(with: .scale(scale: 0.6)))
             }
         }
@@ -267,18 +267,18 @@ struct CanvasCard: View {
             case let .picture(image):
                 Image(decorative: image, scale: 1).resizable().interpolation(.high).scaledToFill()
             case let .title(title):
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.ink).lineLimit(2)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title).font(.system(size: 9.5, weight: .bold)).foregroundStyle(theme.colors.ink).lineLimit(2)
                     ForEach([0.92, 0.8, 0.86, 0.5], id: \.self) { part in
                         GeometryReader { geometry in
-                            Capsule().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: geometry.size.width * part, height: 4)
+                            Capsule().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: geometry.size.width * part, height: 3)
                         }
-                        .frame(height: 4)
+                        .frame(height: 3)
                     }
                 }
-                .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(9).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             case nil:
-                IconTile(symbol: file.kind.symbol, tint: file.missing ? theme.colors.inkFaint : TileTint.amber, size: 34)
+                IconTile(symbol: file.kind.symbol, tint: file.missing ? theme.colors.inkFaint : TileTint.amber, size: 28)
             }
         }
         .clipShape(shape)

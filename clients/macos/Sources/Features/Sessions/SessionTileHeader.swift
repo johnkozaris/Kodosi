@@ -106,7 +106,7 @@ struct SessionTileHeader: View {
     }
 }
 
-/// Where a terminal runs: its computer, and a bend down into the folder or place in it.
+/// Where a terminal runs: its computer, then the folder or place in it.
 private struct Location: View {
     @Environment(\.theme) private var theme
     let host: String?
@@ -120,8 +120,8 @@ private struct Location: View {
                 Text(host).lineLimit(1)
             }
             if host != nil, name != nil {
-                Bend().stroke(theme.colors.inkFaint, style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
-                    .frame(width: 10, height: 11).offset(y: -2).padding(.horizontal, 2)
+                Image(systemName: "chevron.compact.right").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 1)
             }
             if let name {
                 HStack(spacing: 4) {
@@ -143,20 +143,6 @@ private struct Location: View {
         case let (nil, name?): name
         case (nil, nil): ""
         }
-    }
-}
-
-/// The bend from a computer down into a folder in it.
-private struct Bend: Shape {
-    func path(in rect: CGRect) -> Path {
-        let x = rect.minX + rect.width * 0.2
-        let y = rect.minY + rect.height * 0.8
-        var path = Path()
-        path.move(to: CGPoint(x: x, y: rect.minY + rect.height * 0.1))
-        path.addLine(to: CGPoint(x: x, y: rect.minY + rect.height * 0.45))
-        path.addQuadCurve(to: CGPoint(x: rect.minX + rect.width * 0.55, y: y), control: CGPoint(x: x, y: y))
-        path.addLine(to: CGPoint(x: rect.maxX, y: y))
-        return path
     }
 }
 

@@ -24,8 +24,11 @@ Item {
     readonly property bool necked: tab.width > tab.height && tab.y + tab.height < 0
     readonly property real neckMiddle: tab.x + tab.width / 2
     readonly property real neckTop: (tab.width - tab.height) / 2
-    readonly property real neckNarrow: Math.min(neckTop, Math.max(10, tab.width * 0.28))
+    readonly property real neckNarrow: Math.min(neckTop, Math.max(10, tab.width * 0.28), Math.max(4, neckMiddle - r),
+        Math.max(4, width - r - neckMiddle))
     readonly property real neckFlare: Math.min(10, -(tab.y + tab.height) + 4)
+    readonly property real flareLeft: Math.min(neckFlare, Math.max(0, neckMiddle - neckNarrow - r))
+    readonly property real flareRight: Math.min(neckFlare, Math.max(0, width - r - neckMiddle - neckNarrow))
     readonly property color face: KodosiTheme.terminal
     readonly property color bandColor: KodosiTheme.terminalBandSelected
 
@@ -127,7 +130,7 @@ Item {
     }
     // One side of the neck, from the tab down to the body's top edge.
     function neckSide(sign: real): string {
-        const m = neckMiddle, t = neckTop, w = neckNarrow, f = neckFlare;
+        const m = neckMiddle, t = neckTop, w = neckNarrow, f = sign < 0 ? flareLeft : flareRight;
         const low = tab.y + tab.height, gap = -low, waist = low + gap / 2;
         return "M " + n(m + sign * t) + " " + n(low) + " C " + n(m + sign * (t - (t - w) * 0.6)) + " " + n(low) + " "
             + n(m + sign * w) + " " + n(waist - gap * 0.3) + " " + n(m + sign * w) + " " + n(waist) + " C "
@@ -137,12 +140,12 @@ Item {
     function neck(): string {
         if (!necked)
             return "";
-        const m = neckMiddle, t = neckTop, w = neckNarrow, f = neckFlare;
+        const m = neckMiddle, t = neckTop, w = neckNarrow, fl = flareLeft, fr = flareRight;
         const low = tab.y + tab.height, gap = -low, waist = low + gap / 2;
         return "M " + n(m - t) + " " + n(low - 0.5) + " L " + n(m - t) + " " + n(low) + " C " + n(m - t + (t - w) * 0.6) + " "
             + n(low) + " " + n(m - w) + " " + n(waist - gap * 0.3) + " " + n(m - w) + " " + n(waist) + " C " + n(m - w) + " "
-            + n(waist + gap * 0.3) + " " + n(m - w - f * 0.4) + " 0 " + n(m - w - f) + " 0 L " + n(m - w - f) + " 1 L "
-            + n(m + w + f) + " 1 L " + n(m + w + f) + " 0 C " + n(m + w + f * 0.4) + " 0 " + n(m + w) + " " + n(waist + gap * 0.3)
+            + n(waist + gap * 0.3) + " " + n(m - w - fl * 0.4) + " 0 " + n(m - w - fl) + " 0 L " + n(m - w - fl) + " 1 L "
+            + n(m + w + fr) + " 1 L " + n(m + w + fr) + " 0 C " + n(m + w + fr * 0.4) + " 0 " + n(m + w) + " " + n(waist + gap * 0.3)
             + " " + n(m + w) + " " + n(waist) + " C " + n(m + w) + " " + n(waist - gap * 0.3) + " " + n(m + t - (t - w) * 0.6) + " "
             + n(low) + " " + n(m + t) + " " + n(low) + " L " + n(m + t) + " " + n(low - 0.5) + " Z";
     }
@@ -150,7 +153,7 @@ Item {
     function outline(): string {
         if (!necked)
             return lobes();
-        const left = neckMiddle - neckNarrow - neckFlare, right = neckMiddle + neckNarrow + neckFlare;
+        const left = neckMiddle - neckNarrow - flareLeft, right = neckMiddle + neckNarrow + flareRight;
         return "M " + n(right) + " 0" + around(right, left) + " " + neckSide(-1) + " " + neckSide(1);
     }
 

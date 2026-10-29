@@ -49,7 +49,7 @@ struct CanvasBody: View, Animatable {
             }
             .clipShape(lobes)
             if let tab {
-                Neck(tab: tab).fill(band)
+                Neck(tab: tab, radius: radius).fill(band)
             }
         }
         .compositingGroup()
@@ -80,7 +80,7 @@ private struct Outline: Shape {
     func path(in rect: CGRect) -> Path {
         var edge = lobes.path(in: rect)
         guard let tab else { return edge.strokedPath(StrokeStyle(lineWidth: 0.5)) }
-        edge = edge.union(Neck(tab: tab).path(in: rect))
+        edge = edge.union(Neck(tab: tab, radius: lobes.radius).path(in: rect))
         let above = CGRect(x: rect.minX - 1000, y: tab.maxY - 1000, width: rect.width + 2000, height: 1000.5)
         return edge.strokedPath(StrokeStyle(lineWidth: 0.5)).subtracting(Path(above))
     }
@@ -154,17 +154,24 @@ struct Lobes: Shape {
 }
 
 /// The neck from a tab above a body down into the body's top edge, narrow in the middle and
-/// wide where it meets each of them.
+/// wide where it meets each of them. It meets the body only where the body's edge is
+/// straight, between the rounded corners of `radius`.
 struct Neck: Shape {
     var tab: CGRect
+    var radius: CGFloat
 
-    func path(in _: CGRect) -> Path {
+    func path(in rect: CGRect) -> Path {
         let gap = -tab.maxY
         guard gap > 0, tab.width > tab.height else { return Path() }
         let middle = tab.midX
         let top = (tab.width - tab.height) / 2
-        let narrow = min(top, max(10, tab.width * 0.28))
+        let corner = min(radius, rect.width / 2, rect.height / 2)
+        let first = rect.minX + corner
+        let last = rect.maxX - corner
+        let narrow = min(top, max(10, tab.width * 0.28), max(4, middle - first), max(4, last - middle))
         let flare = min(10, gap + 4)
+        let left = min(flare, max(0, middle - narrow - first))
+        let right = min(flare, max(0, last - middle - narrow))
         let waist = tab.maxY + gap / 2
         var path = Path()
         path.move(to: CGPoint(x: middle - top, y: tab.maxY - 0.5))
@@ -172,14 +179,14 @@ struct Neck: Shape {
         path.addCurve(to: CGPoint(x: middle - narrow, y: waist),
                       control1: CGPoint(x: middle - top + (top - narrow) * 0.6, y: tab.maxY),
                       control2: CGPoint(x: middle - narrow, y: waist - gap * 0.3))
-        path.addCurve(to: CGPoint(x: middle - narrow - flare, y: 0),
+        path.addCurve(to: CGPoint(x: middle - narrow - left, y: 0),
                       control1: CGPoint(x: middle - narrow, y: waist + gap * 0.3),
-                      control2: CGPoint(x: middle - narrow - flare * 0.4, y: 0))
-        path.addLine(to: CGPoint(x: middle - narrow - flare, y: 1))
-        path.addLine(to: CGPoint(x: middle + narrow + flare, y: 1))
-        path.addLine(to: CGPoint(x: middle + narrow + flare, y: 0))
+                      control2: CGPoint(x: middle - narrow - left * 0.4, y: 0))
+        path.addLine(to: CGPoint(x: middle - narrow - left, y: 1))
+        path.addLine(to: CGPoint(x: middle + narrow + right, y: 1))
+        path.addLine(to: CGPoint(x: middle + narrow + right, y: 0))
         path.addCurve(to: CGPoint(x: middle + narrow, y: waist),
-                      control1: CGPoint(x: middle + narrow + flare * 0.4, y: 0),
+                      control1: CGPoint(x: middle + narrow + right * 0.4, y: 0),
                       control2: CGPoint(x: middle + narrow, y: waist + gap * 0.3))
         path.addCurve(to: CGPoint(x: middle + top, y: tab.maxY),
                       control1: CGPoint(x: middle + narrow, y: waist - gap * 0.3),

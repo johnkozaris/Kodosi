@@ -364,10 +364,10 @@ Item {
                         Accessible.id: objectName
 
                         Flow {
-                            x: 22
-                            y: 24
-                            width: shelfView.availableWidth - 44
-                            spacing: 18
+                            x: 16
+                            y: 18
+                            width: shelfView.availableWidth - 32
+                            spacing: 14
 
                             Repeater {
                                 model: root.files.slice().reverse()
@@ -378,20 +378,20 @@ Item {
                                     required property var modelData
                                     readonly property bool fresh: Models.Canvas.revision >= 0 && Models.Canvas.isNew(root.sessionId, modelData.key)
 
-                                    width: 140
-                                    height: 164
+                                    width: 104
+                                    height: 122
                                     hoverEnabled: true
                                     objectName: "canvas.card." + modelData.key
                                     Accessible.id: objectName
                                     Accessible.name: modelData.name
                                     contentItem: Column {
-                                        spacing: 10
+                                        spacing: 8
 
                                         Item {
                                             id: sheet
 
                                             width: card.width
-                                            height: 104
+                                            height: 76
                                             transform: [
                                                 Rotation {
                                                     origin.x: sheet.width / 2
@@ -423,7 +423,7 @@ Item {
                                                 anchors.centerIn: parent
                                                 iconName: root.glyph(card.modelData.kind)
                                                 tint: card.modelData.missing === true ? KodosiTheme.inkFaint : "#d9a441"
-                                                size: 34
+                                                size: 28
                                             }
                                             BreathingDot { x: parent.width - 4; y: -3; size: 7; color: KodosiTheme.glowOrange; visible: card.fresh }
                                         }
@@ -451,10 +451,10 @@ Item {
                                     onClicked: Models.Canvas.pick(root.sessionId, modelData.key)
 
                                     RemoveKey {
-                                        x: -7
-                                        y: -7
+                                        x: -6
+                                        y: -6
                                         z: 2
-                                        size: 20
+                                        size: 18
                                         visible: card.hovered
                                         backed: true
                                         objectName: "canvas.card.remove." + card.modelData.key

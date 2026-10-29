@@ -4,7 +4,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -196,24 +195,15 @@ Item {
                         font.pixelSize: KodosiTheme.fontCaption
                         font.weight: Font.Medium
                     }
-                    Shape {
-                        Layout.preferredWidth: 10
-                        Layout.preferredHeight: 11
-                        Layout.leftMargin: 2
-                        Layout.rightMargin: 2
-                        Layout.topMargin: -4
+                    KIcon {
+                        Layout.preferredWidth: 13
+                        Layout.preferredHeight: 13
+                        Layout.leftMargin: -2
+                        Layout.rightMargin: -2
                         visible: location.host.length > 0 && location.place.length > 0
-                        preferredRendererType: Shape.CurveRenderer
-
-                        ShapePath {
-                            strokeColor: KodosiTheme.terminalInkFaint
-                            strokeWidth: 1.2
-                            fillColor: "transparent"
-                            capStyle: ShapePath.RoundCap
-                            joinStyle: ShapePath.RoundJoin
-
-                            PathSvg { path: "M 2 1.1 L 2 4.95 Q 2 8.8 5.5 8.8 L 10 8.8" }
-                        }
+                        name: "chevron-compact-right"
+                        strokeWidth: 2.2
+                        color: KodosiTheme.terminalInkFaint
                     }
                     KIcon {
                         Layout.preferredWidth: 11

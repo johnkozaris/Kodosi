@@ -43,6 +43,7 @@ Item {
         case "stop": return "M7 7 H17 V17 H7 Z"
         case "chevron-left": return "M15 5 L8 12 L15 19"
         case "chevron-right": return "M9 5 L16 12 L9 19"
+        case "chevron-compact-right": return "M9.5 4 L14.5 12 L9.5 20"
         case "terminal": return "M4 5 H20 V19 H4 Z M7 9 L10 12 L7 15 M12 15 H17"
         case "refresh": return "M19 8 A8 8 0 1 0 20 14 M19 4 V8 H15"
         case "focus": return "M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"
