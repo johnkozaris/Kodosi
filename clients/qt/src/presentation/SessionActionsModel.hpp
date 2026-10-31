@@ -11,7 +11,9 @@
 #include <QStringList>
 #include <QVariantMap>
 
+#include <functional>
 #include <optional>
+#include <utility>
 
 namespace kodosi {
 class DesktopSettings;
@@ -28,6 +30,7 @@ public:
         DesktopStateModel& desktop, DesktopSettings& settings);
 
     bool busy() const;
+    void setStartSize(std::function<QJsonObject()> startSize) { m_startSize = std::move(startSize); }
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool activate(const QString& sessionId);
@@ -69,6 +72,7 @@ private:
     QHash<QString, QString> m_roomCreations;
     QSet<QString> m_created;
     TerminalTypeAhead m_typeAhead;
+    std::function<QJsonObject()> m_startSize;
     void completeCreation(const QString& sessionId, const QString& roomId);
     bool activateSession(const QString& sessionId, bool inRoom);
     bool opening(const QString& sessionId) const;

@@ -28,6 +28,10 @@ final class WorkbenchState {
     var settingsSection: SettingsSection = .terminal
     var selectedSessionId: String?
     var stagedSessionIds: [String] = []
+    /// The room that the terminal tiles share, in points.
+    @ObservationIgnored var tileRoom: CGSize?
+    /// The terminal whose tile asks now if it should close.
+    var closeRequest: String?
     /// The terminal whose canvas is open beside it. That terminal is alone on the stage.
     private(set) var canvasSessionId: String?
     /// The canvas fills the stage, and its terminal waits in a capsule.

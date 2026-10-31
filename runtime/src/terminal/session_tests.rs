@@ -11,6 +11,17 @@ async fn shell(
     mpsc::Receiver<SessionChange>,
     tempfile::TempDir,
 ) {
+    shell_at(script, Default::default()).await
+}
+
+async fn shell_at(
+    script: &str,
+    grid: (TerminalSize, CellPixels),
+) -> (
+    TerminalSession,
+    mpsc::Receiver<SessionChange>,
+    tempfile::TempDir,
+) {
     let root = tempfile::tempdir().expect("temporary cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd");
     let (changes, receiver) = mpsc::channel(128);
@@ -23,6 +34,7 @@ async fn shell(
         None,
         None,
         Vec::new(),
+        grid,
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -109,18 +121,6 @@ exec /bin/cat"#,
 }
 
 #[tokio::test]
-async fn invalid_geometry_is_rejected_without_stopping_the_process() {
-    let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    let size = TerminalSize::new(20, 80).expect("size");
-    let invalid = TerminalPixelGeometry::new(800, 400, 11, 20).expect("nonzero geometry");
-    assert!(matches!(
-        session
-            .resize(subscription.connection_id, size, Some(invalid), true)
-            .await,
-        Err(Error::Invalid(_))
-    ));
-#[tokio::test]
 async fn a_terminal_starts_at_the_grid_of_its_view() {
     let size = TerminalSize::new(20, 70).expect("size");
     let cell = CellPixels {
@@ -169,6 +169,18 @@ exec /bin/cat",
     session.close().await.expect("close");
 }
 
+#[tokio::test]
+async fn invalid_geometry_is_rejected_without_stopping_the_process() {
+    let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let size = TerminalSize::new(20, 80).expect("size");
+    let invalid = TerminalPixelGeometry::new(800, 400, 11, 20).expect("nonzero geometry");
+    assert!(matches!(
+        session
+            .resize(subscription.connection_id, size, Some(invalid), true)
+            .await,
+        Err(Error::Invalid(_))
+    ));
     assert!(!session.is_closed());
     session
         .input(
@@ -721,6 +733,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         resize_owner: None,
         requested: HashMap::new(),
         typed_at: None,
+        size: TerminalSize::default(),
         cell: CellPixels::default(),
         sequence: 0,
         host_stop_reply: None,
@@ -733,7 +746,6 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         owner: None,
         local_view: false,
         working_directory: directory.clone(),
-        size: TerminalSize::default(),
         observed_directory: None,
         title: None,
         published_title: None,
@@ -1020,6 +1032,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1068,6 +1081,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         None,
         None,
         b"\x1b[1mbefore\x1b[0m\r\n".to_vec(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1107,6 +1121,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1338,6 +1353,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )

@@ -62,7 +62,18 @@ final class DesktopSettings {
         didSet { defaults.set(keepRunning, forKey: Self.keepRunningKey) }
     }
 
+    var terminalCell: TerminalCell? {
+        didSet { defaults.set(try? JSONEncoder().encode(terminalCell), forKey: Self.terminalCellKey) }
+    }
+
     private static let keepRunningKey = "app.keepRunning"
+    private static let terminalCellKey = "terminal.cell"
+
+    struct TerminalCell: Codable, Equatable {
+        var width: UInt32
+        var height: UInt32
+        var scale: Double
+    }
 
     enum CursorStyle: String, CaseIterable, Codable {
         case block, bar, underline
@@ -110,5 +121,6 @@ final class DesktopSettings {
         lastComputer = d.string(forKey: "session.lastComputer")
         branchFolder = d.string(forKey: "session.branchFolder")
         keepRunning = d.object(forKey: Self.keepRunningKey) == nil || d.bool(forKey: Self.keepRunningKey)
+        terminalCell = d.data(forKey: Self.terminalCellKey).flatMap { try? JSONDecoder().decode(TerminalCell.self, from: $0) }
     }
 }

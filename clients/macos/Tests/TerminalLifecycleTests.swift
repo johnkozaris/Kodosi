@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import KodosiBridge
 @testable import KodosiDesktop
+import KodosiTerminal
 import KodosiTerminalSessions
 import Observation
 import Testing
@@ -99,6 +100,17 @@ import Testing
     #expect(reopened.runtimeIncarnationId == incarnation)
     #expect(reopened.token.subscriptionGeneration > first.token.subscriptionGeneration)
     manager.releaseSession(for: id)
+}
+
+@Test @MainActor func `a new terminal asks for the grid of the tile that it takes`() {
+    let style = KodosiTerminalStyle.make(settings: .defaults)
+    let cell = DesktopSettings.TerminalCell(width: 17, height: 41, scale: 2)
+    let grid = { tiles in
+        AppDependencies.startGrid(room: CGSize(width: 1240, height: 841), tiles: tiles, scale: 2, cell: cell, style: style)
+    }
+    for (tiles, size) in [(1, [143, 38]), (2, [143, 17]), (3, [143, 17]), (4, [70, 17])] {
+        #expect(grid(tiles).map { [Int($0.columns), Int($0.rows)] } == size, "\(tiles)")
+    }
 }
 
 @Test @MainActor func `terminal tiles fill the stage without changing session order`() {

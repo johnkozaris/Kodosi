@@ -387,6 +387,7 @@ final class AppDependencies {
         let created = try await commandSink.request("session.create", fields)
         if computer == nil {
             settings.lastWorkingDir = directory
+        fields["size"] = startSize(computer: computer, roomId: roomId)
             settings.save()
         }
         guard let id = created.string("sessionId") else { return nil }

@@ -148,6 +148,12 @@ public struct TerminalConfiguration: Sendable, Hashable {
         }
     }
 
+    #if os(macOS)
+        private static let ghosttyDotsPerInch = 72.0
+    #else
+        private static let ghosttyDotsPerInch = 96.0
+    #endif
+
     let commands: [TerminalConfigCommand]
 
     public init() {
@@ -187,6 +193,30 @@ public struct TerminalConfiguration: Sendable, Hashable {
             default: break
             }
         }
+    }
+
+    /// The grid that fits a view of this many pixels.
+    public func grid(
+        widthPixels: UInt32,
+        heightPixels: UInt32,
+        scale: Double,
+        cellWidthPixels: UInt32,
+        cellHeightPixels: UInt32
+    ) -> TerminalGridMetrics {
+        let padding = windowPadding
+        func count(_ length: UInt32, padding: Int, cell: UInt32) -> UInt16 {
+            let side = UInt32(Double(padding) * scale * Self.ghosttyDotsPerInch / 72)
+            let room = length > 2 * side ? length - 2 * side : 0
+            return UInt16(clamping: max(1, room / cell))
+        }
+        return TerminalGridMetrics(
+            columns: count(widthPixels, padding: padding.x, cell: cellWidthPixels),
+            rows: count(heightPixels, padding: padding.y, cell: cellHeightPixels),
+            widthPixels: widthPixels,
+            heightPixels: heightPixels,
+            cellWidthPixels: cellWidthPixels,
+            cellHeightPixels: cellHeightPixels
+        )
     }
 
     var isEmpty: Bool {

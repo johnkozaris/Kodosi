@@ -1,3 +1,6 @@
+import CoreGraphics
+import GhosttyTerminal
+
 public struct TerminalStyle: Sendable {
     public let fontFamily: String
     public let fontSize: Float
@@ -32,6 +35,32 @@ public struct TerminalStyle: Sendable {
         self.paddingY = paddingY
         self.minimumContrast = minimumContrast
         self.palette = palette
+    }
+
+    /// The grid of a terminal view of this size in points.
+    public func grid(
+        fitting size: CGSize,
+        scale: Double,
+        cellWidthPixels: UInt32,
+        cellHeightPixels: UInt32,
+    ) -> TerminalViewport {
+        let padding = TerminalConfiguration {
+            $0.withWindowPaddingX(paddingX)
+            $0.withWindowPaddingY(paddingY)
+        }
+        let grid = padding.grid(
+            widthPixels: UInt32((max(0, size.width) * scale).rounded(.down)),
+            heightPixels: UInt32((max(0, size.height) * scale).rounded(.down)),
+            scale: scale,
+            cellWidthPixels: cellWidthPixels,
+            cellHeightPixels: cellHeightPixels,
+        )
+        return TerminalViewport(
+            columns: grid.columns,
+            rows: grid.rows,
+            cellWidthPixels: cellWidthPixels,
+            cellHeightPixels: cellHeightPixels,
+        )
     }
 
     var ghosttyFontSize: Float {

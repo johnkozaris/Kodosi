@@ -5,6 +5,7 @@
 #include <QAbstractListModel>
 #include <QHash>
 #include <QRectF>
+#include <QSizeF>
 #include <QStringList>
 #include <QVector>
 
@@ -64,6 +65,7 @@ public:
     [[nodiscard]] qreal accessibilityTextScale() const noexcept;
     [[nodiscard]] qreal minimumTileWidth() const noexcept;
     [[nodiscard]] qreal minimumTileHeight() const noexcept;
+    [[nodiscard]] QSizeF nextTerminalSize() const;
 
     void setViewportWidth(qreal width);
     void setViewportHeight(qreal height);
@@ -72,6 +74,7 @@ public:
     void setLayoutMode(DesktopStateModel::StageLayoutMode mode);
     void setAccessibilityTextScale(qreal scale);
 
+    Q_INVOKABLE [[nodiscard]] QString neighbor(const QString& sessionId, const QString& direction) const;
     Q_INVOKABLE [[nodiscard]] qreal adjustDivider(
         const QString& stableId,
         qreal deltaPixels);

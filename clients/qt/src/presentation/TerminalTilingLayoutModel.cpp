@@ -20,6 +20,8 @@ constexpr qreal dividerSize = 6;
 constexpr qreal targetAspect = 1.3;
 constexpr qreal stageInset = 4;
 constexpr qreal singleColumnBreakpoint = 620;
+constexpr qreal tileSides = 5 + 5;
+constexpr qreal tileHeaderAndEdges = 36 + 3 + 5;
 
 qreal layoutPenalty(
     const int columns,
@@ -192,6 +194,56 @@ void TerminalTilingLayoutModel::setStagedSessionIds(QStringList sessionIds)
         return !m_stagedSessionIds.contains(entry.key());
     });
     rebuild();
+}
+
+/// The room for the terminal in the tile that a new terminal takes.
+QSizeF TerminalTilingLayoutModel::nextTerminalSize() const
+{
+    const auto next = QStringLiteral("next");
+    TerminalTilingLayoutModel stage;
+    stage.m_viewportWidth = m_viewportWidth;
+    stage.m_viewportHeight = m_viewportHeight;
+    stage.m_accessibilityTextScale = m_accessibilityTextScale;
+    stage.m_layoutMode = m_layoutMode;
+    stage.m_stagedSessionIds = m_stagedSessionIds;
+    stage.m_stagedSessionIds.append(next);
+    stage.m_selectedSessionId = next;
+    stage.rebuild();
+    const auto tile = std::ranges::find(stage.m_entries, next, &Entry::sessionId);
+    if (tile == stage.m_entries.end()) {
+        return {};
+    }
+    return {tile->width - tileSides, tile->height - tileHeaderAndEdges};
+}
+
+/// The nearest tile in a direction. A tile beside this one in that direction comes first.
+QString TerminalTilingLayoutModel::neighbor(const QString& sessionId, const QString& direction) const
+{
+    const auto from = std::ranges::find(m_entries, sessionId, &Entry::sessionId);
+    if (sessionId.isEmpty() || from == m_entries.end()) {
+        return {};
+    }
+    const auto left = direction == QStringLiteral("left");
+    const auto right = direction == QStringLiteral("right");
+    const auto up = direction == QStringLiteral("up");
+    QString nearest;
+    auto best = std::pair(std::numeric_limits<qreal>::max(), std::numeric_limits<qreal>::max());
+    for (const auto& tile : m_entries) {
+        if (tile.type != EntryType::Tile || !tile.visible || tile.sessionId == sessionId) {
+            continue;
+        }
+        const auto ahead = left ? from->x - tile.x - tile.width
+            : right             ? tile.x - from->x - from->width
+            : up                ? from->y - tile.y - tile.height
+                                : tile.y - from->y - from->height;
+        const auto offset = left || right ? std::abs(tile.y + tile.height / 2 - from->y - from->height / 2)
+                                          : std::abs(tile.x + tile.width / 2 - from->x - from->width / 2);
+        if (ahead >= 0 && std::pair(ahead, offset) < best) {
+            best = {ahead, offset};
+            nearest = tile.sessionId;
+        }
+    }
+    return nearest;
 }
 
 void TerminalTilingLayoutModel::setSelectedSessionId(QString sessionId)

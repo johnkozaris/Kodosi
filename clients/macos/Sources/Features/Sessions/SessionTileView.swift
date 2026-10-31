@@ -5,6 +5,15 @@ import SwiftUI
 
 struct SessionTileView: View {
     static let radius: CGFloat = 12
+    private static let terminalInsets = EdgeInsets(top: 3, leading: 5, bottom: 5, trailing: 5)
+
+    /// The room that a tile of this size has for its terminal.
+    static func terminalSize(in tile: CGSize) -> CGSize {
+        CGSize(
+            width: tile.width - terminalInsets.leading - terminalInsets.trailing,
+            height: tile.height - SessionTileHeader.height - terminalInsets.top - terminalInsets.bottom,
+        )
+    }
 
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -56,8 +65,7 @@ struct SessionTileView: View {
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)
             .terminalDrag(session, when: !roomEmbedded)
-            terminal.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 3).padding([.horizontal, .bottom], 5)
+            terminal.frame(maxWidth: .infinity, maxHeight: .infinity).padding(Self.terminalInsets)
         }
         .background {
             if !joinsCanvas {

@@ -5,6 +5,9 @@
 #include "terminal/TerminalSessionRegistry.hpp"
 
 #include <QFont>
+#include <QJsonObject>
+#include <QKeySequence>
+#include <QList>
 #include <QPoint>
 #include <QQuickItem>
 #include <QTimer>
@@ -74,6 +77,9 @@ public:
     [[nodiscard]] int fontPixelSize() const noexcept;
     [[nodiscard]] double lineHeight() const noexcept;
     [[nodiscard]] QSizeF terminalCellSize() const;
+    static void setAppKeys(const QList<QKeySequence>& keys);
+    [[nodiscard]] static QJsonObject startSize(
+        QSizeF view, const QString& fontFamily, int fontPixelSize, double lineHeight, qreal devicePixelRatio);
     [[nodiscard]] int cursorStyle() const noexcept;
     [[nodiscard]] bool cursorBlink() const noexcept;
     [[nodiscard]] int scrollbackLines() const noexcept;

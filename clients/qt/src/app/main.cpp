@@ -23,6 +23,7 @@
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
+#include "terminal/TerminalView.hpp"
 #include <QApplication>
 #include <QMessageBox>
 #include <QPushButton>
@@ -206,6 +207,12 @@ int main(int argc, char* argv[])
     kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
     kodosi::DesktopTray tray(desktopSettings);
     kodosi::installTerminalAccessibility();
+    workspace.sessionActions().setStartSize([&] {
+        const auto* window = QGuiApplication::focusWindow();
+        return kodosi::TerminalView::startSize(tiling.nextTerminalSize(), desktopSettings.fontFamily(),
+            desktopSettings.fontSize(), desktopSettings.lineHeight(),
+            window != nullptr ? window->devicePixelRatio() : qApp->devicePixelRatio());
+    });
 
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventReceived, &app, [&](const QJsonObject& event, quint64 accountEpoch, const QByteArray& payload) {
         workspace.apply(event, accountEpoch);

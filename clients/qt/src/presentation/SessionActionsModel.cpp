@@ -262,6 +262,10 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     }
     for (auto field = line.begin(); field != line.end(); ++field)
         values.insert(field.key(), field.value());
+    if (m_startSize && roomId.isEmpty() && !line.contains(QStringLiteral("computer"))) {
+        if (const auto size = m_startSize(); !size.isEmpty())
+            values.insert(QStringLiteral("size"), size);
+    }
     if (!nativeConversationId.isEmpty()) {
         if (provider != QStringLiteral("claude") && provider != QStringLiteral("copilot")) {
             m_workspace.setError(tr("Choose a supported provider."));

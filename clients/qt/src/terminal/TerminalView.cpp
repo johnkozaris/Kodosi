@@ -95,6 +95,32 @@ void configureTerminalFont(QFont& font, const QString& requestedFamily)
     font.setStyleHint(QFont::Monospace);
 }
 
+struct ViewGrid {
+    std::uint16_t columns = 0;
+    std::uint16_t rows = 0;
+    std::uint32_t cellWidthPixels = 0;
+    std::uint32_t cellHeightPixels = 0;
+};
+
+ViewGrid gridOfView(const QSizeF view, const QSizeF cell, const qreal devicePixelRatio)
+{
+    const auto count = [](const qreal length, const qreal size) {
+        return static_cast<std::uint16_t>(std::clamp(
+            std::floor(length / size),
+            1.0,
+            static_cast<double>(std::numeric_limits<std::uint16_t>::max())));
+    };
+    const auto pixels = [devicePixelRatio](const qreal size) {
+        return static_cast<std::uint32_t>(std::max(1LL, std::llround(size * devicePixelRatio)));
+    };
+    return {
+        .columns = count(view.width(), cell.width()),
+        .rows = count(view.height(), cell.height()),
+        .cellWidthPixels = pixels(cell.width()),
+        .cellHeightPixels = pixels(cell.height()),
+    };
+}
+
 void publishAccessibleTextChange(
     QObject* object,
     const QString& previous,
@@ -255,6 +281,33 @@ qreal TerminalView::devicePixelRatio() const
 QSizeF TerminalView::terminalCellSize() const
 {
     return TerminalRasterizer::cellSize(m_font, m_lineHeight, devicePixelRatio());
+}
+
+/// The grid that a view of this size will ask for, so that its program starts at its final width.
+QJsonObject TerminalView::startSize(
+    const QSizeF view,
+    const QString& fontFamily,
+    const int fontPixelSize,
+    const double lineHeight,
+    const qreal devicePixelRatio)
+{
+    if (view.width() <= 0.0 || view.height() <= 0.0) {
+        return {};
+    }
+    QFont font(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    configureTerminalFont(font, fontFamily.trimmed().isEmpty() ? QStringLiteral("JetBrains Mono") : fontFamily.trimmed());
+    font.setPixelSize(std::clamp(fontPixelSize, 8, 32));
+    const auto cell = TerminalRasterizer::cellSize(font, std::clamp(lineHeight, 0.8, 2.0), devicePixelRatio);
+    if (cell.width() <= 0.0 || cell.height() <= 0.0) {
+        return {};
+    }
+    const auto grid = gridOfView(view, cell, devicePixelRatio);
+    return {
+        {QStringLiteral("cols"), grid.columns},
+        {QStringLiteral("rows"), grid.rows},
+        {QStringLiteral("cellWidthPixels"), static_cast<qint64>(grid.cellWidthPixels)},
+        {QStringLiteral("cellHeightPixels"), static_cast<qint64>(grid.cellHeightPixels)},
+    };
 }
 
 qreal TerminalView::viewportScale() const
@@ -1177,19 +1230,8 @@ void TerminalView::dispatchResize()
     if (cell.width() <= 0.0 || cell.height() <= 0.0) {
         return;
     }
-    const auto columns = static_cast<std::uint16_t>(std::clamp(
-        std::floor(width() / cell.width()),
-        1.0,
-        static_cast<double>(std::numeric_limits<std::uint16_t>::max())));
-    const auto rows = static_cast<std::uint16_t>(std::clamp(
-        std::floor(height() / cell.height()),
-        1.0,
-        static_cast<double>(std::numeric_limits<std::uint16_t>::max())));
-    const auto dpr = devicePixelRatio();
-    const auto cellWidthPixels = static_cast<std::uint32_t>(
-        std::max(1LL, std::llround(cell.width() * dpr)));
-    const auto cellHeightPixels = static_cast<std::uint32_t>(
-        std::max(1LL, std::llround(cell.height() * dpr)));
+    const auto [columns, rows, cellWidthPixels, cellHeightPixels] =
+        gridOfView({width(), height()}, cell, devicePixelRatio());
     const auto widthProduct =
         static_cast<std::uint64_t>(columns) * cellWidthPixels;
     const auto heightProduct =

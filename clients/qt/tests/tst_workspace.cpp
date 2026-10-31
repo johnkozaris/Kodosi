@@ -741,6 +741,17 @@ private slots:
         QVERIFY(!sent.contains(QStringLiteral("command")));
         QVERIFY(!sent.contains(QStringLiteral("computer")));
     }
+    void aTerminalOfThisComputerAsksForTheGridOfItsTile()
+    {
+        Fixture f;
+        const QJsonObject size { { QStringLiteral("cols"), 70 }, { QStringLiteral("rows"), 17 } };
+        f.workspace.sessionActions().setStartSize([size] { return size; });
+        QVERIFY(f.workspace.sessionActions().create(QStringLiteral("Here"), f.dir.path()));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("size")).toObject(), size);
+        QVERIFY(f.workspace.sessionActions().create(
+            QStringLiteral("There"), f.dir.path(), {}, {}, {}, {}, QStringLiteral("device-2")));
+        QVERIFY(!f.commands.values.last().contains(QStringLiteral("size")));
+    }
     void aQuickTerminalStartsInTheLauncherFolderWithoutAFolderOfThisComputer_data()
     {
         QTest::addColumn<int>("selected");

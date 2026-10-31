@@ -214,6 +214,8 @@ pub enum Command {
         agent: Option<AgentStart>,
         #[serde(default)]
         prompt: Option<String>,
+        #[serde(default)]
+        size: Option<StartSize>,
     },
     #[serde(rename = "session.rename")]
     RenameSession {
@@ -672,6 +674,16 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+}
+
+/// The grid of the view that will show a new terminal, so its program starts at its final width.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StartSize {
+    pub cols: u16,
+    pub rows: u16,
+    pub cell_width_pixels: u32,
+    pub cell_height_pixels: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -2037,10 +2049,14 @@ impl Command {
                 command,
                 agent,
                 prompt,
+                size,
                 ..
             } => {
                 if let Some(id) = mission_id {
                     parse_id(id)?;
+                }
+                if let Some(size) = size {
+                    size.geometry()?;
                 }
                 if let Some(command) = command {
                     text(command, "command", 1024)?;
@@ -2143,6 +2159,20 @@ impl ResizeIdentity {
         .and_then(|geometry| geometry.validate_for_size(size))
         .map_err(|error| Error::Invalid(error.to_string()))?;
         Ok((size, geometry))
+    }
+}
+
+impl StartSize {
+    pub(crate) fn geometry(
+        self,
+    ) -> Result<(crate::terminal::TerminalSize, crate::terminal::CellPixels)> {
+        let size = crate::terminal::TerminalSize::new(self.rows, self.cols)
+            .map_err(|error| Error::Invalid(error.to_string()))?;
+        let cell = crate::terminal::CellPixels {
+            width: self.cell_width_pixels,
+            height: self.cell_height_pixels,
+        };
+        Ok((size, cell))
     }
 }
 
@@ -2596,6 +2626,15 @@ mod tests {
                 "{field}"
             );
         }
+        let create = |rows: u16, cols: u16| {
+            envelope(
+                json!({"type":"session.create","requestId":ID,"name":"Build",
+                "size":{"rows":rows,"cols":cols,"cellWidthPixels":17,"cellHeightPixels":41}}),
+            )
+        };
+        assert!(serde_json::from_value::<CommandEnvelope>(create(24, 70)).is_ok());
+        assert!(serde_json::from_value::<CommandEnvelope>(create(0, 70)).is_err());
+        assert!(serde_json::from_value::<CommandEnvelope>(create(24, 1025)).is_err());
         for name in [
             String::new(),
             " ".to_owned(),

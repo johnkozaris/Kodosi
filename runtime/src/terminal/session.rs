@@ -119,10 +119,10 @@ impl TerminalSession {
         prompt_marks: Option<PathBuf>,
         notes: Option<PathBuf>,
         screen: Vec<u8>,
+        (size, cell): (TerminalSize, CellPixels),
         canvas: CanvasHandle,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
-        let size = TerminalSize::default();
         let clear_line = clear_line_keys(&program);
         let launch_directory = directory.clone();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
@@ -144,6 +144,9 @@ impl TerminalSession {
                 &environment,
                 prompt_marks.as_deref(),
             )?;
+            if let (Some(width), Some(height)) = cell.pty_pixels(size) {
+                pty.resize(size.rows(), size.cols(), Some(width), Some(height))?;
+            }
             Ok((emulator, pty, reader))
         })
         .await
@@ -185,7 +188,7 @@ impl TerminalSession {
             requested: HashMap::new(),
             typed_at: None,
             size,
-            cell: CellPixels::default(),
+            cell,
             sequence: 0,
             host_stop_reply: None,
             program: None,
@@ -628,11 +631,11 @@ struct LocalActor {
     resize_owner: Option<ResizeOwner>,
     requested: HashMap<Controller, RequestedSize>,
     typed_at: Option<tokio::time::Instant>,
+    size: TerminalSize,
     cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
-    size: TerminalSize,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
     output_at: Option<tokio::time::Instant>,
@@ -835,10 +838,6 @@ impl LocalActor {
             .resize(size.rows(), size.cols(), width, height)
             .map_err(Error::from)
             .map_err(ResizeError::Rejected)?;
-        let effects = self
-            .emulator
-            .resize(size.rows(), size.cols(), cell)
-            .await
         // Ghostty clears a prompt after it reflows it, when a long prompt line has become rows
         // that its clear does not reach. A taller screen clears the prompt before the reflow.
         if size.cols() != self.size.cols()
@@ -855,12 +854,16 @@ impl LocalActor {
                 .map_err(ResizeError::Diverged)?;
             self.publish_size(taller, cell);
         }
+        let effects = self
+            .emulator
+            .resize(size.rows(), size.cols(), cell)
+            .await
             .map_err(ResizeError::Diverged)?;
+        self.size = size;
         self.cell = cell;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
-        self.size = size;
         }
         let taken_turn = self
             .requested
@@ -880,15 +883,15 @@ impl LocalActor {
             controller,
             authorization,
         });
-        self.subscribers.control(&ControlFrame::Resize {
-            rows: size.rows(),
-            cols: size.cols(),
-            cell,
         self.publish_size(size, cell);
         Ok(())
     }
 
     fn publish_size(&mut self, size: TerminalSize, cell: CellPixels) {
+        self.subscribers.control(&ControlFrame::Resize {
+            rows: size.rows(),
+            cols: size.cols(),
+            cell,
             at_sequence: self.sequence,
         });
         drop(self.output.send(PublishedFrame::Resize {
@@ -897,7 +900,6 @@ impl LocalActor {
             cell,
             at_sequence: self.sequence,
         }));
-        Ok(())
     }
 
     async fn set_focus(

@@ -1579,6 +1579,7 @@ impl Runtime {
                 command: saved.line.clone(),
                 agent: None,
                 prompt: None,
+                size: None,
             };
             match self.begin_creation(command, Some(self.restore.screen_file(saved.id))) {
                 Ok(id) => {

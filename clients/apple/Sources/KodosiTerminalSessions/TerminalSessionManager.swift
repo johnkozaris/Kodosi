@@ -278,7 +278,7 @@ public final class TerminalSessionManager {
               renderStateBySession[sessionId] == .rendered else { return }
         managed.pendingResize?.cancel()
         managed.pendingResize = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(80))
+            try? await Task.sleep(for: .milliseconds(25))
             guard let self, !Task.isCancelled, managed.token.isActive, managed.renderer.nativeSurfaceGeneration == surfaceGeneration else { return }
             deliverResize(viewport, to: managed, sessionId: sessionId, surfaceGeneration: surfaceGeneration)
         }
@@ -310,6 +310,11 @@ public final class TerminalSessionManager {
         }
         managed.runtimeConnected = true
         connectToRuntime(sessionId: sessionId, token: token)
+    }
+
+    /// The viewport of a terminal on screen, which has the cell size of them all.
+    public var viewportOnScreen: TerminalViewport? {
+        sessions.values.lazy.compactMap(\.renderer.currentViewport).first
     }
 
     public func renderState(for sessionId: String) -> TerminalRenderState {
