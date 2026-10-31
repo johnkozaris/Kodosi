@@ -63,6 +63,7 @@ Item {
                     identifier: "panel.settings"
                     options: [
                         { value: 0, label: qsTr("Terminal"), icon: "terminal" },
+                        { value: 5, label: qsTr("Keyboard"), icon: "keyboard" },
                         { value: 1, label: qsTr("Agents"), icon: "agent" },
                         { value: 4, label: "Dosi", icon: "eye" },
                         { value: 2, label: qsTr("Account"), icon: "people" },
@@ -82,6 +83,10 @@ Item {
             TerminalSettings {
                 Layout.fillWidth: true
                 visible: root.section === 0
+            }
+            KeyboardSettings {
+                Layout.fillWidth: true
+                visible: root.section === 5
             }
             ProviderSettings {
                 Layout.fillWidth: true

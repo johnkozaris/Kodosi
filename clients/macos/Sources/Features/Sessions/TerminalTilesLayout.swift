@@ -27,6 +27,35 @@ struct TerminalTilesLayout: Layout {
         }
     }
 
+    enum Direction {
+        case left, right, up, down
+    }
+
+    /// The nearest tile in a direction. A tile beside this one in that direction comes first.
+    static func neighbor(of index: Int, count: Int, in bounds: CGRect, _ direction: Direction) -> Int? {
+        let frames = frames(count: count, in: bounds)
+        guard frames.indices.contains(index) else { return nil }
+        let from = frames[index]
+        func ahead(_ frame: CGRect) -> CGFloat? {
+            let distance = switch direction {
+            case .left: from.minX - frame.maxX
+            case .right: frame.minX - from.maxX
+            case .up: from.minY - frame.maxY
+            case .down: frame.minY - from.maxY
+            }
+            return distance >= 0 ? distance : nil
+        }
+        func offset(_ frame: CGRect) -> CGFloat {
+            switch direction {
+            case .left, .right: abs(frame.midY - from.midY)
+            case .up, .down: abs(frame.midX - from.midX)
+            }
+        }
+        return frames.indices
+            .compactMap { candidate in ahead(frames[candidate]).map { (candidate, $0, offset(frames[candidate])) } }
+            .min { ($0.1, $0.2) < ($1.1, $1.2) }?.0
+    }
+
     static func frames(count: Int, in bounds: CGRect) -> [CGRect] {
         guard count > 0 else { return [] }
         let gap: CGFloat = 6

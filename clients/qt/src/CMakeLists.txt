@@ -10,6 +10,7 @@ set_source_files_properties(
     qml/Settings/GeneralSettings.qml
     qml/Settings/DeviceSettings.qml
     qml/Settings/TerminalSettings.qml
+    qml/Settings/KeyboardSettings.qml
     qml/Settings/ProviderSettings.qml
     qml/Settings/DosiSettings.qml
     PROPERTIES QT_QML_INTERNAL_TYPE TRUE
@@ -80,6 +81,8 @@ qt_add_library(kodosi-application STATIC
     presentation/DesktopStateModel.hpp
     presentation/SessionCatalogModel.cpp
     presentation/SessionCatalogModel.hpp
+    presentation/ShortcutsModel.cpp
+    presentation/ShortcutsModel.hpp
     presentation/TerminalTilingLayoutModel.cpp
     presentation/TerminalTilingLayoutModel.hpp
 )
@@ -269,6 +272,7 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/GeneralSettings.qml
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
+        qml/Settings/KeyboardSettings.qml
         qml/Settings/ProviderSettings.qml
         qml/Settings/DosiSettings.qml
         qml/Controls/AccountMark.qml

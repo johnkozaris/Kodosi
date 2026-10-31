@@ -14,6 +14,7 @@
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/ProviderFilesModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
+#include "presentation/ShortcutsModel.hpp"
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
@@ -22,8 +23,8 @@
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
-#include <kodosi_runtime.h>
 #include "terminal/TerminalView.hpp"
+#include <kodosi_runtime.h>
 #include <QApplication>
 #include <QMessageBox>
 #include <QPushButton>
@@ -192,6 +193,10 @@ int main(int argc, char* argv[])
     kodosi::ProviderFilesModel providerFiles(runtime);
     kodosi::AgentLauncherModel launcher(runtime);
     kodosi::AppearanceModel appearance(settings());
+    kodosi::ShortcutsModel shortcuts(settings());
+    kodosi::TerminalView::setAppKeys(shortcuts.taken());
+    QObject::connect(&shortcuts, &kodosi::ShortcutsModel::keysChanged, &shortcuts,
+        [&] { kodosi::TerminalView::setAppKeys(shortcuts.taken()); });
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
     const auto followStage = [&] {
@@ -202,17 +207,17 @@ int main(int argc, char* argv[])
     for (const auto signal : { &kodosi::DesktopStateModel::stagedSessionIdsChanged,
              &kodosi::DesktopStateModel::selectedSessionIdChanged, &kodosi::DesktopStateModel::stageLayoutModeChanged })
         QObject::connect(&desktop, signal, &tiling, followStage);
-    kodosi::SystemNotificationDriver notifications;
-    kodosi::TerminalNotifications terminalNotifications(sessions, notifications);
-    kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
-    kodosi::DesktopTray tray(desktopSettings);
-    kodosi::installTerminalAccessibility();
     workspace.sessionActions().setStartSize([&] {
         const auto* window = QGuiApplication::focusWindow();
         return kodosi::TerminalView::startSize(tiling.nextTerminalSize(), desktopSettings.fontFamily(),
             desktopSettings.fontSize(), desktopSettings.lineHeight(),
             window != nullptr ? window->devicePixelRatio() : qApp->devicePixelRatio());
     });
+    kodosi::SystemNotificationDriver notifications;
+    kodosi::TerminalNotifications terminalNotifications(sessions, notifications);
+    kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
+    kodosi::DesktopTray tray(desktopSettings);
+    kodosi::installTerminalAccessibility();
 
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventReceived, &app, [&](const QJsonObject& event, quint64 accountEpoch, const QByteArray& payload) {
         workspace.apply(event, accountEpoch);
@@ -251,7 +256,7 @@ int main(int argc, char* argv[])
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
-        lifecycle, surfaces, tray, canvas, canvasWeb);
+        lifecycle, surfaces, tray, canvas, canvasWeb, shortcuts);
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("canvas"), new kodosi::CanvasImages(canvas));
     QObject::connect(

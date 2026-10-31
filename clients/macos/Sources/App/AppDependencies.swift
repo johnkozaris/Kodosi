@@ -68,6 +68,8 @@ final class AppDependencies {
     let terminalFocus: TerminalProcessFocusCoordinator
     let terminalNotifications: TerminalNotifications
     let typeAhead = TerminalTypeAhead()
+    var shortcutMonitor: Any?
+    var shortcutRecorder: ((NSEvent) -> Bool)?
 
     init(defaults: UserDefaults, storageBootstrap: RuntimeStorageBootstrap,
          notificationDriver: any DesktopNotificationDriving = SystemNotificationDriver())
@@ -103,6 +105,7 @@ final class AppDependencies {
 
     func start() {
         guard eventTask == nil else { return }
+        startShortcuts()
         let currentInbox = inbox
         eventTask = Task { @MainActor [weak self] in
             while !Task.isCancelled, self?.runtimeHandle.isRunning == false {
@@ -384,10 +387,10 @@ final class AppDependencies {
         if let agent {
             fields["agent"] = agent.json
         }
+        fields["size"] = startSize(computer: computer, roomId: roomId)
         let created = try await commandSink.request("session.create", fields)
         if computer == nil {
             settings.lastWorkingDir = directory
-        fields["size"] = startSize(computer: computer, roomId: roomId)
             settings.save()
         }
         guard let id = created.string("sessionId") else { return nil }

@@ -274,7 +274,8 @@ struct NewTerminalButton: View {
                 Image(systemName: "plus").font(.system(size: 12, weight: .bold))
                 Text("New terminal")
                 Spacer(minLength: 0)
-                Text(verbatim: "⌘N").appTextStyle(.caption).opacity(0.6)
+                Text(verbatim: deps.settings.shortcuts.keys(for: .newTerminal).first?.label ?? "")
+                    .appTextStyle(.caption).opacity(0.6)
             }
             .frame(height: 34).contentShape(Rectangle())
         }

@@ -14,6 +14,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QQuickWindow>
+#include <QSet>
 #include <QStyleHints>
 #include <QTimer>
 #include <QWheelEvent>
@@ -291,6 +292,13 @@ int promptJump(const QKeyEvent* event)
     }
 }
 
+/// The keys of the app, which a program in a terminal does not get.
+QSet<int>& appKeys()
+{
+    static QSet<int> keys;
+    return keys;
+}
+
 bool isPasteShortcut(const QKeyEvent* event)
 {
     const auto modifiers = event->modifiers();
@@ -303,14 +311,23 @@ bool isPasteShortcut(const QKeyEvent* event)
 
 }
 
+void TerminalView::setAppKeys(const QList<QKeySequence>& keys)
+{
+    appKeys().clear();
+    for (const auto& key : keys) {
+        appKeys().insert(key[0].toCombined());
+    }
+}
+
 bool TerminalView::event(QEvent* event)
 {
     if (event->type() == QEvent::ShortcutOverride && hasActiveFocus() && interactionAvailable()) {
         const auto* key = static_cast<QKeyEvent*>(event);
         const auto modifiers = key->modifiers();
-        if (modifiers == Qt::ControlModifier
-            || modifiers == Qt::AltModifier
-            || modifiers == Qt::NoModifier) {
+        if ((modifiers == Qt::ControlModifier
+                || modifiers == Qt::AltModifier
+                || modifiers == Qt::NoModifier)
+            && !appKeys().contains(key->keyCombination().toCombined())) {
             event->accept();
             return true;
         }

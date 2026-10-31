@@ -10,48 +10,40 @@ struct KodosiCommands: Commands {
                 .disabled(!dependencies.updater.configured)
         }
         CommandGroup(replacing: .newItem) {
-            Button("New Terminal") { dependencies.openLauncher() }
-                .keyboardShortcut("n")
-            Button("Quick Terminal") { dependencies.openQuickTerminal() }
-                .keyboardShortcut("t")
-            Button("Resume a Conversation…") { dependencies.workbench.showsHistory = true }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
-            Button("Go to…") { dependencies.workbench.showsPalette.toggle() }
-                .keyboardShortcut("k")
+            item("New Terminal", .newTerminal)
+            item("Quick Terminal", .quickTerminal)
+            item("Resume a Conversation…", .resume)
+            item("Go to…", .goTo)
+        }
+        CommandGroup(replacing: .saveItem) {
+            item("Close Terminal", .close)
         }
         CommandMenu("Terminal") {
-            Button("Details") { dependencies.workbench.detailsSessionId = dependencies.workbench.selectedSessionId }
-                .keyboardShortcut("i")
-                .disabled(dependencies.workbench.selectedSessionId == nil)
-            Button("Zoom") {
-                if let id = dependencies.workbench.selectedSessionId {
-                    dependencies.workbench.toggleFocus(id)
-                }
-            }
-            .keyboardShortcut("f", modifiers: [.command, .shift])
-            .disabled(dependencies.workbench.selectedSessionId == nil)
-            Button("Minimize") {
-                if let id = dependencies.workbench.selectedSessionId {
-                    dependencies.dismissSession(id)
-                }
-            }
-            .keyboardShortcut("w", modifiers: [.command, .shift])
-            .disabled(dependencies.workbench.selectedSessionId == nil)
+            item("Details", .details)
+            item("Zoom", .zoom)
+            item("Minimize", .minimize)
         }
         CommandGroup(after: .sidebar) {
-            Button("Show or Hide Sidebar") { dependencies.workbench.sidebarCollapsed.toggle() }.keyboardShortcut("b")
-            Button("Dosi") { dependencies.workbench.toggleDosi() }.keyboardShortcut("j")
-                .disabled(!dependencies.workbench.dosiOn)
-            Button("Stop Dosi") { dependencies.dosi.stop() }.keyboardShortcut(".")
-                .disabled(!dependencies.dosi.busy || !dependencies.workbench.dosiOpen)
+            item("Show or Hide Sidebar", .sidebar)
+            item("Dosi", .dosi)
+            item("Stop Dosi", .stopDosi)
         }
         CommandMenu("Navigate") {
-            Button("Previous Terminal") { dependencies.workbench.selectAdjacentSession(offset: -1) }.keyboardShortcut("[", modifiers: [.command, .shift])
-            Button("Next Terminal") { dependencies.workbench.selectAdjacentSession(offset: 1) }.keyboardShortcut("]", modifiers: [.command, .shift])
+            item("Previous Terminal", .previousTerminal)
+            item("Next Terminal", .nextTerminal)
+            item("Terminal on the Left", .leftTerminal)
+            item("Terminal on the Right", .rightTerminal)
+            item("Terminal Above", .upTerminal)
+            item("Terminal Below", .downTerminal)
         }
         CommandGroup(replacing: .appSettings) {
-            Button("Settings…") { dependencies.workbench.section = .settings }
-                .keyboardShortcut(",")
+            item("Settings…", .settings)
         }
+    }
+
+    private func item(_ title: LocalizedStringKey, _ action: AppShortcut) -> some View {
+        Button(title) { dependencies.perform(action) }
+            .keyboardShortcut(dependencies.settings.shortcuts.keys(for: action).first?.keyboardShortcut)
+            .disabled(!dependencies.canPerform(action))
     }
 }

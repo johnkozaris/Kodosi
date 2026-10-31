@@ -50,13 +50,8 @@ struct SessionTileView: View {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
                 showsActions: hovered || lit && !joinsCanvas, viewers: viewers, isClosing: isClosing,
-            ) {
-                if session.hostOffline {
-                    choosingOffline = true
-                } else {
-                    confirmingClose = true
-                }
-            }
+                close: askToClose,
+            )
             .background {
                 if !joinsCanvas {
                     UnevenRoundedRectangle(topLeadingRadius: radius, topTrailingRadius: radius, style: .continuous)
@@ -99,6 +94,11 @@ struct SessionTileView: View {
         .onHover { inside in withAnimation(theme.motion.hover) { hovered = inside } }
         .onChange(of: isSelected) { _, selected in
             withAnimation(theme.motion.snappy) { lit = selected }
+        }
+        .onChange(of: deps.workbench.closeRequest) { _, id in
+            guard id == session.id, !roomEmbedded else { return }
+            deps.workbench.closeRequest = nil
+            askToClose()
         }
         .onAppear {
             lit = isSelected
@@ -229,6 +229,14 @@ struct SessionTileView: View {
     private func select() {
         deps.workbench.selectSession(session.id)
         deps.reportVisible()
+    }
+
+    private func askToClose() {
+        if session.hostOffline {
+            choosingOffline = true
+        } else {
+            confirmingClose = true
+        }
     }
 
     private func closeSession() {
