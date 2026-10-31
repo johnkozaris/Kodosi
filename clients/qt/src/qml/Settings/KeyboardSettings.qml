@@ -35,6 +35,10 @@ ColumnLayout {
             const sequence = Models.Shortcuts.sequence(event.key, event.modifiers);
             if (sequence.length === 0)
                 return;
+            if (recordingAction === "numberedTerminal" && !/[0-9]$/.test(sequence)) {
+                note = qsTr("Use a digit.");
+                return;
+            }
             const holder = Models.Shortcuts.bind(recordingAction, sequence, recordingKey);
             note = holder.length > 0 ? qsTr("%1 was %2.").arg(sequence).arg(holder) : "";
             stop();
@@ -48,6 +52,7 @@ ColumnLayout {
 
         Layout.preferredWidth: 0
         Layout.preferredHeight: 0
+        Keys.enabled: root.recordingAction.length > 0
         Keys.onPressed: event => root.receive(event)
         Keys.onShortcutOverride: event => event.accepted = true
         onActiveFocusChanged: {

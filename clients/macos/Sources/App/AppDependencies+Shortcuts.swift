@@ -14,20 +14,22 @@ extension AppDependencies {
         if let recorder = shortcutRecorder {
             return recorder(event)
         }
-        guard event.window === MainWindowLocator.mainWindow(), let chord = KeyChord(event: event),
-              let (action, number) = settings.shortcuts.match(chord), canPerform(action)
+        guard let chord = KeyChord(event: event), chord.canBeShortcut, let (action, number) = settings.shortcuts.match(chord),
+              event.window === MainWindowLocator.mainWindow(), canPerform(action),
+              chord.key != "↩" || !(event.window?.firstResponder is NSText)
         else { return false }
-        perform(action, number: number)
+        DispatchQueue.main.async { self.perform(action, number: number) }
         return true
     }
 
     func canPerform(_ action: AppShortcut) -> Bool {
-        let selected = workbench.selectedSessionId != nil
+        let selected = workbench.stageTakesKeys && workbench.selectedSessionId != nil
+        let staged = workbench.stageTakesKeys && !workbench.stagedSessionIds.isEmpty
         return switch action {
         case .details, .zoom, .minimize: selected
-        case .previousTerminal, .nextTerminal: !workbench.stagedSessionIds.isEmpty
-        case .numberedTerminal: !workbench.stagedSessionIds.isEmpty
+        case .previousTerminal, .nextTerminal, .numberedTerminal: staged
         case .leftTerminal, .rightTerminal, .upTerminal, .downTerminal: selected
+        case .close: workbench.stageTakesKeys
         case .dosi: workbench.dosiOn
         case .stopDosi: dosi.busy && workbench.dosiOpen
         default: true
@@ -74,10 +76,14 @@ extension AppDependencies {
     }
 
     private func closeSelected() {
-        if let selected = workbench.selectedSessionId, workbench.stagedSessionIds.contains(selected) {
+        let main = MainWindowLocator.mainWindow()
+        let window = NSApp.keyWindow ?? main
+        if window === main, workbench.section == .sessions, let selected = workbench.selectedSessionId,
+           workbench.stagedSessionIds.contains(selected)
+        {
             workbench.closeRequest = selected
         } else {
-            MainWindowLocator.mainWindow()?.performClose(nil)
+            window?.performClose(nil)
         }
     }
 

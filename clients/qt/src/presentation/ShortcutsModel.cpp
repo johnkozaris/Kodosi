@@ -43,7 +43,7 @@ const QList<Action>& actions()
         { u"dosi"_s, 2, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Dosi"), { u"Ctrl+Shift+J"_s } },
         { u"stopDosi"_s, 2, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Stop Dosi"), { u"Ctrl+Shift+."_s } },
         { u"settings"_s, 2, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Settings"), { u"Ctrl+Shift+,"_s } },
-        { u"fullScreen"_s, 2, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Full screen"), { u"F11"_s } },
+        { u"fullScreen"_s, 2, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Full screen"), { u"Ctrl+Shift+F11"_s } },
     };
     return list;
 }
@@ -155,7 +155,7 @@ QList<QKeySequence> ShortcutsModel::taken() const
 /// Gives a key to an action, in place of `old`. Returns the title of the action that had it.
 QString ShortcutsModel::bind(const QString& action, const QString& sequence, const QString& old)
 {
-    if (find(action) == nullptr || sequence.isEmpty())
+    if (find(action) == nullptr || sequence.isEmpty() || (action == numbered && !sequence.back().isDigit()))
         return {};
     const auto chord = action == numbered ? sequence.chopped(1) + QLatin1Char('1') : sequence;
     QString holder;

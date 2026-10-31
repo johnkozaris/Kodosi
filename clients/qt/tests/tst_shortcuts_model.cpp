@@ -45,6 +45,7 @@ private slots:
         QVERIFY(taken.contains(QKeySequence(QStringLiteral("Ctrl+Tab"))));
         QVERIFY(!taken.contains(QKeySequence(QStringLiteral("Ctrl+K"))));
         QVERIFY(!taken.contains(QKeySequence(QStringLiteral("Ctrl+C"))));
+        QVERIFY(!taken.contains(QKeySequence(QStringLiteral("F11"))));
     }
 
     void aKeyMovesToTheActionThatTakesIt()
@@ -73,6 +74,8 @@ private slots:
         }
         ShortcutsModel model(settingsIn(dir));
         QVERIFY(keysOf(model, QStringLiteral("close")).isEmpty());
+        QCOMPARE(keysOf(model, QStringLiteral("numberedTerminal")), QStringList(QStringLiteral("Ctrl+Alt+1")));
+        model.bind(QStringLiteral("numberedTerminal"), QStringLiteral("Ctrl+Alt+T"));
         QCOMPARE(keysOf(model, QStringLiteral("numberedTerminal")), QStringList(QStringLiteral("Ctrl+Alt+1")));
         QVERIFY(model.taken().contains(QKeySequence(QStringLiteral("Ctrl+Alt+9"))));
 

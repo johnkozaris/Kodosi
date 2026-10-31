@@ -32,6 +32,8 @@ final class WorkbenchState {
     @ObservationIgnored var tileRoom: CGSize?
     /// The terminal whose tile asks now if it should close.
     var closeRequest: String?
+    /// No sheet or palette covers the stage.
+    var stageTakesKeys = true
     /// The terminal whose canvas is open beside it. That terminal is alone on the stage.
     private(set) var canvasSessionId: String?
     /// The canvas fills the stage, and its terminal waits in a capsule.

@@ -111,6 +111,8 @@ import Testing
     for (tiles, size) in [(1, [143, 38]), (2, [143, 17]), (3, [143, 17]), (4, [70, 17])] {
         #expect(grid(tiles).map { [Int($0.columns), Int($0.rows)] } == size, "\(tiles)")
     }
+    let empty = DesktopSettings.TerminalCell(width: 0, height: 0, scale: 2)
+    #expect(AppDependencies.startGrid(room: CGSize(width: 1240, height: 841), tiles: 1, scale: 2, cell: empty, style: style) != nil)
 }
 
 @Test @MainActor func `terminal tiles fill the stage without changing session order`() {

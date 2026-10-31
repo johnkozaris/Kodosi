@@ -225,7 +225,7 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("New terminal")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("New terminal (%1)").arg(Models.Shortcuts.hints.newTerminal)
+                ToolTip.text: Models.Shortcuts.hints.newTerminal ? qsTr("New terminal (%1)").arg(Models.Shortcuts.hints.newTerminal) : qsTr("New terminal")
                 ToolTip.delay: Tip.delay
                 background: Bezel {
                     radius: KodosiTheme.radiusMd
@@ -484,7 +484,7 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("Go to…")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Go to… (%1)").arg(Models.Shortcuts.hints.goTo)
+                ToolTip.text: Models.Shortcuts.hints.goTo ? qsTr("Go to… (%1)").arg(Models.Shortcuts.hints.goTo) : qsTr("Go to…")
                 ToolTip.delay: Tip.delay
                 onClicked: root.paletteRequested()
             }

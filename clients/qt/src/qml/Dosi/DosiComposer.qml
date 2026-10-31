@@ -230,7 +230,7 @@ Item {
                         Accessible.id: objectName
                         Accessible.name: qsTr("Stop")
                         ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Stop (%1)").arg(Models.Shortcuts.hints.stopDosi)
+                        ToolTip.text: Models.Shortcuts.hints.stopDosi ? qsTr("Stop (%1)").arg(Models.Shortcuts.hints.stopDosi) : qsTr("Stop")
                         ToolTip.delay: Tip.delay
                         onClicked: Models.Dosi.stop()
 

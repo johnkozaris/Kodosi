@@ -207,7 +207,7 @@ public struct TerminalConfiguration: Sendable, Hashable {
         func count(_ length: UInt32, padding: Int, cell: UInt32) -> UInt16 {
             let side = UInt32(Double(padding) * scale * Self.ghosttyDotsPerInch / 72)
             let room = length > 2 * side ? length - 2 * side : 0
-            return UInt16(clamping: max(1, room / cell))
+            return UInt16(clamping: max(1, room / max(1, cell)))
         }
         return TerminalGridMetrics(
             columns: count(widthPixels, padding: padding.x, cell: cellWidthPixels),
