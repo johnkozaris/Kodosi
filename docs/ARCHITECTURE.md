@@ -50,8 +50,9 @@ bounded buffering; a view on another device gets them over its own end-to-end en
 channel through the backend. The host does not replay input whose delivery is uncertain,
 and a stale view cannot control a replacement terminal.
 
-The view in focus sets the size of its terminal. When that view leaves, the focused
-view whose size the terminal had before sets it again. Input from a view is a person's;
+A client asks for the grid of the view that will show a new terminal, so its program
+starts at its final width. The view in focus sets the size of its terminal. When that
+view leaves, the focused view whose size the terminal had before sets it again. Input from a view is a person's;
 input from the `kodosi` command stops with a message while a person types in the
 terminal. When a terminal stops working or starts to wait while no client shows it, the
 host marks it until a client shows it.

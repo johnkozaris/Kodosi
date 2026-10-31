@@ -60,7 +60,7 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-The Linux and Windows app looks and behaves like the [Mac app](../macos/DESIGN.md). Its overview, colors, typography, layout, shapes, components and rules apply here. A program in a terminal gets every plain Ctrl key, so each shortcut is Ctrl+Shift with the Mac's key: ⌘K and ⇧⌘[ become Ctrl+Shift+K and Ctrl+Shift+[. Resume a conversation (⇧⌘N) is Ctrl+Shift+R, because Ctrl+Shift+N opens a new terminal. Ctrl+K and Ctrl+, also work when no terminal has focus. On Linux the desktop draws the window frame; on Windows Kodosi draws a 36 px title zone with its own window buttons. The menu beside the account has no Check for Updates, because the package manager and App Installer update the app.
+The Linux and Windows app looks and behaves like the [Mac app](../macos/DESIGN.md). Its overview, colors, typography, layout, shapes, components and rules apply here. A program in a terminal gets every plain Ctrl key except Ghostty's Ctrl+Tab, Ctrl+PgUp and Ctrl+PgDown, so each other shortcut is Ctrl+Shift with the Mac's key: ⌘K and ⇧⌘[ become Ctrl+Shift+K and Ctrl+Shift+[. Ghostty's keys add Alt+1 to Alt+9 and Ctrl+Alt with an arrow. Resume a conversation (⇧⌘N) is Ctrl+Shift+R, because Ctrl+Shift+N opens a new terminal, and Minimize (⇧⌘W) is Ctrl+Shift+M, because Ctrl+Shift+W closes one. Ctrl+K and Ctrl+, also work when no terminal has focus. On Linux the desktop draws the window frame; on Windows Kodosi draws a 36 px title zone with its own window buttons. The menu beside the account has no Check for Updates, because the package manager and App Installer update the app.
 
 ## Colors
 Use `KodosiTheme` roles, not literals. Terminals use the `terminal*` roles in both themes.

@@ -76,6 +76,9 @@ enum TerminalCommand {
         history: bool,
         reply_tx: oneshot::Sender<Result<String>>,
     },
+    CursorAtPrompt {
+        reply_tx: oneshot::Sender<Result<bool>>,
+    },
     PrimaryHistory {
         reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
@@ -169,6 +172,11 @@ impl SessionTerminalHandle {
 
     pub(super) async fn text(&self, history: bool) -> Result<String> {
         self.request(|reply_tx| TerminalCommand::Text { history, reply_tx })
+            .await
+    }
+
+    pub(super) async fn cursor_at_prompt(&self) -> Result<bool> {
+        self.request(|reply_tx| TerminalCommand::CursorAtPrompt { reply_tx })
             .await
     }
 
@@ -535,6 +543,10 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
+                    }
+                    TerminalCommand::CursorAtPrompt { reply_tx } => {
+                        let state = terminal.terminal.state().map_err(terminal_error);
+                        drop(reply_tx.send(state.map(|state| state.cursor_at_prompt)));
                     }
                     TerminalCommand::Text { history, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.text(history).map_err(terminal_error)));

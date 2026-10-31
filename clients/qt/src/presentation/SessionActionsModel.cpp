@@ -5,6 +5,7 @@
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/Workspace.hpp"
 
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QRandomGenerator>
@@ -127,11 +128,17 @@ bool SessionActionsModel::takeCreated(const QString& id)
     return m_created.remove(id);
 }
 
+void SessionActionsModel::giveTypedKeys(const QString& id)
+{
+    m_typeAhead.deliver(id);
+}
+
 void SessionActionsModel::completeCreation(const QString& id, const QString& roomId)
 {
     if (m_created.size() > 64)
         m_created.clear();
     m_created.insert(id);
+    m_typeAhead.expect(id);
     if (roomId.isEmpty()) {
         if (m_sessions.containsSession(id)) activate(id);
         else m_activeLink = DeepLinkDestination {id};
@@ -217,6 +224,22 @@ bool SessionActionsModel::create(const QString& name, const QString& directory, 
     return true;
 }
 
+bool SessionActionsModel::createQuick()
+{
+    if (m_typeAhead.holding())
+        return false;
+    if (m_desktop.stagedSessionIds().size() >= 6) {
+        m_workspace.setError(tr("Six terminals are open. Minimize one to open another."));
+        return false;
+    }
+    const auto selected = m_sessions.session(m_desktop.selectedSessionId());
+    const auto folder = selected && selected->kind == QStringLiteral("local") ? selected->workingDirectory : QString();
+    if (!create({}, QFileInfo(folder).isDir() ? folder : m_settings.effectiveWorkingDirectory()))
+        return false;
+    m_typeAhead.hold();
+    return true;
+}
+
 bool SessionActionsModel::createInternal(const QString& name, const QString& directory,
     const QString& provider, const QString& nativeConversationId, const QString& roomId,
     const QString& branch, const QJsonObject& line)
@@ -239,6 +262,10 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     }
     for (auto field = line.begin(); field != line.end(); ++field)
         values.insert(field.key(), field.value());
+    if (m_startSize && roomId.isEmpty() && !line.contains(QStringLiteral("computer"))) {
+        if (const auto size = m_startSize(); !size.isEmpty())
+            values.insert(QStringLiteral("size"), size);
+    }
     if (!nativeConversationId.isEmpty()) {
         if (provider != QStringLiteral("claude") && provider != QStringLiteral("copilot")) {
             m_workspace.setError(tr("Choose a supported provider."));
@@ -375,6 +402,7 @@ void SessionActionsModel::activatePendingLink()
 void SessionActionsModel::reset(bool clearLinks)
 {
     m_created.clear();
+    m_typeAhead.drop();
     if (clearLinks) {
         m_roomCreations.clear();
         m_activeLink.reset();

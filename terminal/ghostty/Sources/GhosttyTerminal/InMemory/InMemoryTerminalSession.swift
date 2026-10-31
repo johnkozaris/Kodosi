@@ -80,6 +80,11 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         return shownLock.withLock { shownSurface == surface }
     }
 
+    /// The size that this terminal's view last asked for.
+    public var viewport: InMemoryTerminalViewport? {
+        resizeLock.withLock { lastResize }
+    }
+
     public func readViewportText() -> String? {
         surfaceAccess.withCurrentSurface { surface in
             let topLeft = ghostty_point_s(

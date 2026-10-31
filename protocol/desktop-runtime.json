@@ -1329,6 +1329,41 @@
               }
             ]
           },
+          "size": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "cellHeightPixels": {
+                    "format": "u32",
+                    "type": "integer"
+                  },
+                  "cellWidthPixels": {
+                    "format": "u32",
+                    "type": "integer"
+                  },
+                  "cols": {
+                    "format": "u16",
+                    "type": "integer"
+                  },
+                  "rows": {
+                    "format": "u16",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "cols",
+                  "rows",
+                  "cellWidthPixels",
+                  "cellHeightPixels"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "session.create"
           },

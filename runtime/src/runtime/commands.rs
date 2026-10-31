@@ -1697,11 +1697,16 @@ async fn create_session(
         command: start,
         agent,
         prompt,
+        size,
         ..
     } = command
     else {
         return Err(Error::Invalid("expected session creation".to_owned()));
     };
+    let grid = size
+        .map(crate::protocol::StartSize::geometry)
+        .transpose()?
+        .unwrap_or_default();
     let directory = start_folder(&config, working_dir.as_deref(), worktrees.as_deref()).await?;
     if branch.is_some() && resume.is_some() {
         return Err(Error::Invalid(
@@ -1752,6 +1757,7 @@ async fn create_session(
         Some(config.data_root.join("shell")),
         Some(config.data_root.join("agents")),
         screen,
+        grid,
         crate::canvas::CanvasHandle::spawn(id, &config.data_root),
         changes,
     )

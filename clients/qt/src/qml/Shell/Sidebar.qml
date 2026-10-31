@@ -225,7 +225,7 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("New terminal")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
+                ToolTip.text: Models.Shortcuts.hints.newTerminal ? qsTr("New terminal (%1)").arg(Models.Shortcuts.hints.newTerminal) : qsTr("New terminal")
                 ToolTip.delay: Tip.delay
                 background: Bezel {
                     radius: KodosiTheme.radiusMd
@@ -484,7 +484,7 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("Go to…")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Go to… (Ctrl+Shift+K)")
+                ToolTip.text: Models.Shortcuts.hints.goTo ? qsTr("Go to… (%1)").arg(Models.Shortcuts.hints.goTo) : qsTr("Go to…")
                 ToolTip.delay: Tip.delay
                 onClicked: root.paletteRequested()
             }
@@ -534,7 +534,7 @@ Item {
                     opacity: newSpot.hidden ? 0 : 1
                     KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
                     PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
-                    PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
+                    PlainLabel { Layout.rightMargin: 12; text: Models.Shortcuts.hints.newTerminal; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
                 onClicked: root.newTerminalRequested()
             }

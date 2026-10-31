@@ -11,6 +11,17 @@ async fn shell(
     mpsc::Receiver<SessionChange>,
     tempfile::TempDir,
 ) {
+    shell_at(script, Default::default()).await
+}
+
+async fn shell_at(
+    script: &str,
+    grid: (TerminalSize, CellPixels),
+) -> (
+    TerminalSession,
+    mpsc::Receiver<SessionChange>,
+    tempfile::TempDir,
+) {
     let root = tempfile::tempdir().expect("temporary cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd");
     let (changes, receiver) = mpsc::channel(128);
@@ -23,6 +34,7 @@ async fn shell(
         None,
         None,
         Vec::new(),
+        grid,
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -106,6 +118,55 @@ exec /bin/cat"#,
         std::fs::read_to_string(root.path().join("size")).expect("terminal size"),
         "32 120\n"
     );
+}
+
+#[tokio::test]
+async fn a_terminal_starts_at_the_grid_of_its_view() {
+    let size = TerminalSize::new(20, 70).expect("size");
+    let cell = CellPixels {
+        width: 17,
+        height: 41,
+    };
+    let (session, _changes, root) = shell_at(
+        r#"while [ ! -f ready ]; do sleep 0.01; done
+printf 'SIZE=%s\n' "$(stty size)"
+exec /bin/cat"#,
+        (size, cell),
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    std::fs::write(root.path().join("ready"), b"").expect("release shell");
+    wait_text(&mut subscription, b"SIZE=20 70").await;
+    let cut = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_resize_clears_every_row_of_a_long_prompt_line() {
+    let (session, _changes, _root) = shell(
+        r"stty -echo
+printf '\033]133;A;redraw=1\007%s\r\n> READY' $(head -c 100 /dev/zero | tr '\0' x)
+exec /bin/cat",
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    wait_text(&mut subscription, b"READY").await;
+    session
+        .resize(
+            subscription.connection_id,
+            TerminalSize::new(32, 40).expect("size"),
+            None,
+            true,
+        )
+        .await
+        .expect("resize");
+    let text = session.read(false).await.expect("text");
+    assert!(!text.contains('x'), "{text}");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -672,6 +733,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         resize_owner: None,
         requested: HashMap::new(),
         typed_at: None,
+        size: TerminalSize::default(),
         cell: CellPixels::default(),
         sequence: 0,
         host_stop_reply: None,
@@ -970,6 +1032,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1018,6 +1081,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         None,
         None,
         b"\x1b[1mbefore\x1b[0m\r\n".to_vec(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1057,6 +1121,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )
@@ -1288,6 +1353,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         changes,
     )

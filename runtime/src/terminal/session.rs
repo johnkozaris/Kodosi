@@ -119,10 +119,10 @@ impl TerminalSession {
         prompt_marks: Option<PathBuf>,
         notes: Option<PathBuf>,
         screen: Vec<u8>,
+        (size, cell): (TerminalSize, CellPixels),
         canvas: CanvasHandle,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
-        let size = TerminalSize::default();
         let clear_line = clear_line_keys(&program);
         let launch_directory = directory.clone();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
@@ -144,6 +144,9 @@ impl TerminalSession {
                 &environment,
                 prompt_marks.as_deref(),
             )?;
+            if let (Some(width), Some(height)) = cell.pty_pixels(size) {
+                pty.resize(size.rows(), size.cols(), Some(width), Some(height))?;
+            }
             Ok((emulator, pty, reader))
         })
         .await
@@ -184,7 +187,8 @@ impl TerminalSession {
             resize_owner: None,
             requested: HashMap::new(),
             typed_at: None,
-            cell: CellPixels::default(),
+            size,
+            cell,
             sequence: 0,
             host_stop_reply: None,
             program: None,
@@ -627,6 +631,7 @@ struct LocalActor {
     resize_owner: Option<ResizeOwner>,
     requested: HashMap<Controller, RequestedSize>,
     typed_at: Option<tokio::time::Instant>,
+    size: TerminalSize,
     cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
@@ -833,11 +838,28 @@ impl LocalActor {
             .resize(size.rows(), size.cols(), width, height)
             .map_err(Error::from)
             .map_err(ResizeError::Rejected)?;
+        // Ghostty clears a prompt after it reflows it, when a long prompt line has become rows
+        // that its clear does not reach. A taller screen clears the prompt before the reflow.
+        if size.cols() != self.size.cols()
+            && self
+                .emulator
+                .cursor_at_prompt()
+                .await
+                .map_err(ResizeError::Diverged)?
+            && let Ok(taller) = TerminalSize::new(self.size.rows() + 1, self.size.cols())
+        {
+            self.emulator
+                .resize(taller.rows(), taller.cols(), cell)
+                .await
+                .map_err(ResizeError::Diverged)?;
+            self.publish_size(taller, cell);
+        }
         let effects = self
             .emulator
             .resize(size.rows(), size.cols(), cell)
             .await
             .map_err(ResizeError::Diverged)?;
+        self.size = size;
         self.cell = cell;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
@@ -861,6 +883,11 @@ impl LocalActor {
             controller,
             authorization,
         });
+        self.publish_size(size, cell);
+        Ok(())
+    }
+
+    fn publish_size(&mut self, size: TerminalSize, cell: CellPixels) {
         self.subscribers.control(&ControlFrame::Resize {
             rows: size.rows(),
             cols: size.cols(),
@@ -873,7 +900,6 @@ impl LocalActor {
             cell,
             at_sequence: self.sequence,
         }));
-        Ok(())
     }
 
     async fn set_focus(

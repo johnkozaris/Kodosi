@@ -3,6 +3,8 @@ import KodosiDesign
 import SwiftUI
 
 struct TilingStage: View {
+    private static let edge: CGFloat = 6
+
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @Bindable var workbench: WorkbenchState
@@ -23,14 +25,17 @@ struct TilingStage: View {
     var body: some View {
         if presentedSessionIds.isEmpty {
             StageOverview().transition(.opacity)
+                .onGeometryChange(for: CGSize.self, of: \.size) { size in
+                    workbench.tileRoom = CGSize(width: size.width - 2 * Self.edge, height: size.height - 2 * Self.edge)
+                }
         } else {
             let alone = workbench.focusedSessionId != nil || presentedSessionIds.count == 1
             CanvasStage(canvas: canvasSession, wide: $workbench.canvasWide, width: $workbench.canvasWidth) {
                 workbench.hideCanvas()
             } terminal: {
-                tiles(alone: alone)
+                tiles(alone: alone).onGeometryChange(for: CGSize.self, of: \.size) { workbench.tileRoom = $0 }
             }
-            .padding(6)
+            .padding(Self.edge)
             .environment(\.canvasPlace, CanvasPlace(flight: keys, open: canvasSession?.id) { session, section in
                 if let section {
                     deps.canvas.show(section, in: session)

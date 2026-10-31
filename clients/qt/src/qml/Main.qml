@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import Kodosi 1.0
+import QtQml
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -81,6 +82,16 @@ ApplicationWindow {
     function openNewRoom() {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
         window.missionsView().openCreate();
+    }
+    function openTerminalBeside(direction) {
+        const id = Models.TerminalTiling.neighbor(Models.DesktopState.selectedSessionId, direction);
+        if (id.length > 0)
+            Models.SessionActions.activate(id);
+    }
+    function openNumberedTerminal(number) {
+        const staged = Models.DesktopState.stagedSessionIds;
+        if (staged.length > 0)
+            Models.SessionActions.activate(staged[number === 9 ? staged.length - 1 : Math.min(number, staged.length) - 1]);
     }
     function openAdjacentTerminal(offset) {
         const staged = Models.DesktopState.stagedSessionIds;
@@ -412,6 +423,12 @@ ApplicationWindow {
             onResumeRequested: window.historyView().openModal()
         }
     }
+    Timer {
+        interval: 1000
+        running: true
+
+        onTriggered: launcherLoader.active = true
+    }
     Loader {
         id: paletteLoader
         active: false
@@ -429,75 +446,126 @@ ApplicationWindow {
     StartupOverlay {}
     Shortcut {
         enabled: !window.modalOpen
-        sequence: "Ctrl+Shift+N"
+        sequences: Models.Shortcuts.keys.newTerminal
 
         onActivated: window.openLauncher()
     }
     Shortcut {
+        autoRepeat: false
         enabled: !window.modalOpen
-        sequences: ["Ctrl+Shift+K", "Ctrl+K"]
+        sequences: Models.Shortcuts.keys.quickTerminal
+
+        onActivated: Models.SessionActions.createQuick()
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequences: Models.Shortcuts.keys.goTo.concat(["Ctrl+K"])
 
         onActivated: window.commandPalette().open()
     }
     Shortcut {
         enabled: !window.modalOpen
-        sequence: "Ctrl+Shift+R"
+        sequences: Models.Shortcuts.keys.resume
 
         onActivated: window.historyView().openModal()
     }
     Shortcut {
         enabled: !window.modalOpen
-        sequences: ["Ctrl+Shift+,", "Ctrl+,"]
+        sequences: Models.Shortcuts.keys.settings.concat(["Ctrl+,"])
 
         onActivated: Models.DesktopState.activeView = Models.DesktopState.Settings
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
             && Models.DesktopState.selectedSessionId.length > 0
-        sequence: "Ctrl+Shift+I"
+        sequences: Models.Shortcuts.keys.details
 
         onActivated: window.sessionDetails().openSession(Models.DesktopState.selectedSessionId)
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
-        sequences: ["Ctrl+Shift+[", "Ctrl+{"]
+        sequences: Models.Shortcuts.keys.previousTerminal
 
         onActivated: window.openAdjacentTerminal(-1)
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
-        sequences: ["Ctrl+Shift+]", "Ctrl+}"]
+        sequences: Models.Shortcuts.keys.nextTerminal
 
         onActivated: window.openAdjacentTerminal(1)
     }
+    Instantiator {
+        model: ["left", "right", "up", "down"]
+
+        Shortcut {
+            required property string modelData
+
+            enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+            sequences: Models.Shortcuts.keys[modelData + "Terminal"]
+
+            onActivated: window.openTerminalBeside(modelData)
+        }
+    }
+    Instantiator {
+        model: 9
+
+        Shortcut {
+            required property int index
+
+            enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+            sequences: Models.Shortcuts.keys.numberedTerminal.map(key => key.slice(0, -1) + (index + 1))
+
+            onActivated: window.openNumberedTerminal(index + 1)
+        }
+    }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.dosiOn
-        sequence: "Ctrl+Shift+J"
+        sequences: Models.Shortcuts.keys.dosi
 
         onActivated: Models.DesktopState.toggleDosi()
     }
     Shortcut {
         enabled: !window.modalOpen && Models.Dosi.busy && Models.DesktopState.dosiOpen && Models.DesktopState.sidebarOpen
-        sequence: "Ctrl+Shift+."
+        sequences: Models.Shortcuts.keys.stopDosi
 
         onActivated: Models.Dosi.stop()
     }
     Shortcut {
         enabled: !window.modalOpen
-        sequence: "Ctrl+Shift+B"
+        sequences: Models.Shortcuts.keys.sidebar
 
         onActivated: Models.DesktopState.sidebarOpen = !Models.DesktopState.sidebarOpen
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
-        sequence: "Ctrl+Shift+F"
+        sequences: Models.Shortcuts.keys.zoom
 
         onActivated: Models.DesktopState.toggleFocusForSelectedSession()
     }
     Shortcut {
         enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
-        sequence: "Ctrl+Shift+W"
+        sequences: Models.Shortcuts.keys.minimize
 
         onActivated: Models.SessionActions.minimize(Models.DesktopState.selectedSessionId)
+    }
+    Shortcut {
+        enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+            && Models.DesktopState.selectedSessionId.length > 0
+        sequences: Models.Shortcuts.keys.close
+
+        onActivated: {
+            const id = Models.DesktopState.selectedSessionId;
+            closeConfirmation.ask(id, Models.Sessions.presentationForSession(id).name);
+        }
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequences: Models.Shortcuts.keys.fullScreen
+
+        onActivated: window.visibility = window.visibility === Window.FullScreen ? Window.Windowed : Window.FullScreen
+    }
+    CloseTerminalDialog {
+        id: closeConfirmation
+        objectName: "window.closeConfirmation"
     }
 }

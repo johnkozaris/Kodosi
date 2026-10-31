@@ -40,6 +40,7 @@ KPopover {
         const group = qsTr("Actions")
         const list = [
             { id: "action.terminal", group: group, title: qsTr("New terminal"), kind: "action", icon: "plus", tint: "#d98a5f" },
+            { id: "action.quickTerminal", group: group, title: qsTr("Quick terminal"), kind: "action", icon: "terminal", tint: "#d98a5f" },
             { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history", tint: "#d9a441" }
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
@@ -65,6 +66,7 @@ KPopover {
             break
         default:
             if (item.id === "action.terminal") root.newTerminalRequested()
+            else if (item.id === "action.quickTerminal") Models.SessionActions.createQuick()
             else if (item.id === "action.resume") root.resumeRequested()
             else if (item.id === "action.room") root.newRoomRequested()
             else if (item.id === "action.people") Models.DesktopState.activeView = Models.DesktopState.People

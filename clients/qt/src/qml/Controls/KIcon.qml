@@ -13,6 +13,7 @@ Item {
     readonly property string path1: {
         switch (name) {
         case "plus": return "M12 5 V19 M5 12 H19"
+        case "keyboard": return "M4 6 H20 Q22 6 22 8 V16 Q22 18 20 18 H4 Q2 18 2 16 V8 Q2 6 4 6 Z M6 10 H6.1 M10 10 H10.1 M14 10 H14.1 M18 10 H18.1 M8 14 H16"
         case "line-height": return "M11 6 H21 M11 12 H21 M11 18 H21 M5 5 V19 M3 7 L5 5 L7 7 M3 17 L5 19 L7 17"
         case "chat": return "M4 4 H20 V16 H10 L5 20 V16 H4 Z M8 8 H16 M8 12 H13"
         case "tasks": return "M3 6 L5 8 L8 4 M11 6 H21 M3 13 L5 15 L8 11 M11 13 H21 M4 20 H7 M11 20 H21"

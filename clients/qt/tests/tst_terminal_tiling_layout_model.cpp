@@ -10,6 +10,8 @@ class TerminalTilingLayoutModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
+    void knowsTheRoomOfTheNextTerminal();
+    void findsTheTileBesideThisOne();
     void laysOutOneThroughSixSessions_data();
     void laysOutOneThroughSixSessions();
     void choosesAdaptiveColumnsAndIncompleteRows();
@@ -76,6 +78,39 @@ qreal roleReal(
     return model.data(model.index(row), role).toReal();
 }
 
+}
+
+void TerminalTilingLayoutModelTest::knowsTheRoomOfTheNextTerminal()
+{
+    kodosi::TerminalTilingLayoutModel model;
+    model.setViewportWidth(1200);
+    model.setViewportHeight(800);
+    for (auto count = 0; count < 6; ++count) {
+        model.setStagedSessionIds(sessionIds(count));
+        const auto next = model.nextTerminalSize();
+        model.setStagedSessionIds(sessionIds(count + 1));
+        const auto row = rowForStableId(model, QStringLiteral("tile:session-%1").arg(count));
+        QVERIFY(row >= 0);
+        const auto index = model.index(row);
+        QCOMPARE(
+            next,
+            QSizeF(model.data(index, kodosi::TerminalTilingLayoutModel::WidthRole).toDouble() - 10,
+                model.data(index, kodosi::TerminalTilingLayoutModel::HeightRole).toDouble() - 44));
+    }
+}
+
+void TerminalTilingLayoutModelTest::findsTheTileBesideThisOne()
+{
+    kodosi::TerminalTilingLayoutModel model;
+    model.setViewportWidth(1200);
+    model.setViewportHeight(800);
+    model.setStagedSessionIds(sessionIds(4));
+    const auto id = [](const int index) { return QStringLiteral("session-%1").arg(index); };
+    QCOMPARE(model.neighbor(id(0), QStringLiteral("right")), id(1));
+    QCOMPARE(model.neighbor(id(0), QStringLiteral("down")), id(2));
+    QCOMPARE(model.neighbor(id(3), QStringLiteral("left")), id(2));
+    QCOMPARE(model.neighbor(id(3), QStringLiteral("up")), id(1));
+    QCOMPARE(model.neighbor(id(0), QStringLiteral("left")), QString());
 }
 
 void TerminalTilingLayoutModelTest::laysOutOneThroughSixSessions_data()

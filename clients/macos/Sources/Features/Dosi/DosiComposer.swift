@@ -81,7 +81,8 @@ struct DosiComposer: View {
                     .background { BezelBackground(shape: Circle(), fill: theme.buttonFace(), bezel: .quiet) }
             }
             .buttonStyle(PressScaleStyle())
-            .tip("Stop (⌘.)").accessibilityLabel(Text("Stop")).accessibilityIdentifier("dosi.stop")
+            .tip(deps.settings.shortcuts.keys(for: .stopDosi).first.map { Text("Stop (\($0.label))") } ?? Text("Stop"))
+            .accessibilityLabel(Text("Stop")).accessibilityIdentifier("dosi.stop")
             .transition(AnyTransition.pop)
         } else {
             Button { deps.sendToDosi() } label: {

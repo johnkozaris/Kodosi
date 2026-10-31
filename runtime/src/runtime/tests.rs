@@ -61,6 +61,7 @@ impl TestRuntime {
             command: None,
             agent: None,
             prompt: None,
+            size: None,
         })
         .await;
         let entry = created(&mut events, &request).await;
@@ -141,6 +142,7 @@ async fn a_terminal_on_a_new_branch_keeps_its_folder_until_it_closes_unchanged()
                 command: None,
                 agent: None,
                 prompt: None,
+                size: None,
             })
             .await;
         created(&mut events, &request).await
@@ -390,6 +392,7 @@ async fn a_stale_epoch_creates_nothing_and_hears_why() {
                 command: None,
                 agent: None,
                 prompt: None,
+                size: None,
             },
         })
         .unwrap();
@@ -453,6 +456,7 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
             command: None,
             agent: None,
             prompt: None,
+            size: None,
         })
         .await;
     runtime
@@ -530,6 +534,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         command: None,
         agent: None,
         prompt: None,
+        size: None,
     };
     runtime.send(command.clone()).await;
     runtime.send(command.clone()).await;
@@ -840,6 +845,7 @@ async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here()
         command: None,
         agent: None,
         prompt: None,
+        size: None,
     };
     runtime
         .expect_answer(&start, Uuid::now_v7(), CancellationToken::new())
@@ -1032,6 +1038,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         command: None,
         agent: None,
         prompt: None,
+        size: None,
     };
     runtime.send(command).await;
     assert_eq!(
@@ -1050,6 +1057,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             command: None,
             agent: None,
             prompt: None,
+            size: None,
         })
         .await;
     timeout(Duration::from_secs(2), async {
@@ -1929,6 +1937,7 @@ async fn create_named(
         command: line,
         agent: None,
         prompt: None,
+        size: None,
     };
     send_to(handle, command).await;
     created(&mut events, &request).await["id"]
@@ -2108,6 +2117,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         None,
         None,
         Vec::new(),
+        Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )
@@ -2339,6 +2349,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         None,
         None,
         Vec::new(),
+        Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )
@@ -2442,6 +2453,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         None,
         None,
         Vec::new(),
+        Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
         runtime.changes.clone(),
     )

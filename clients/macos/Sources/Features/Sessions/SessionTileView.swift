@@ -5,6 +5,15 @@ import SwiftUI
 
 struct SessionTileView: View {
     static let radius: CGFloat = 12
+    private static let terminalInsets = EdgeInsets(top: 3, leading: 5, bottom: 5, trailing: 5)
+
+    /// The room that a tile of this size has for its terminal.
+    static func terminalSize(in tile: CGSize) -> CGSize {
+        CGSize(
+            width: tile.width - terminalInsets.leading - terminalInsets.trailing,
+            height: tile.height - SessionTileHeader.height - terminalInsets.top - terminalInsets.bottom,
+        )
+    }
 
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -21,6 +30,7 @@ struct SessionTileView: View {
     @State private var choosingOffline = false
     @State private var isClosing = false
     @State private var hovered = false
+    @State private var lit = false
     @State private var born = true
     @State private var veil = 0.0
     @State private var joined: AvatarStack.Person?
@@ -39,24 +49,18 @@ struct SessionTileView: View {
         VStack(spacing: 0) {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
-                showsActions: hovered || isSelected && !joinsCanvas, viewers: viewers, isClosing: isClosing,
-            ) {
-                if session.hostOffline {
-                    choosingOffline = true
-                } else {
-                    confirmingClose = true
-                }
-            }
+                showsActions: hovered || lit && !joinsCanvas, viewers: viewers, isClosing: isClosing,
+                close: askToClose,
+            )
             .background {
                 if !joinsCanvas {
                     UnevenRoundedRectangle(topLeadingRadius: radius, topTrailingRadius: radius, style: .continuous)
-                        .fill(theme.colors.raised.opacity(isSelected ? 0.75 : 0.45))
+                        .fill(theme.colors.raised.opacity(lit ? 0.75 : 0.45))
                 }
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)
             .terminalDrag(session, when: !roomEmbedded)
-            terminal.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 3).padding([.horizontal, .bottom], 5)
+            terminal.frame(maxWidth: .infinity, maxHeight: .infinity).padding(Self.terminalInsets)
         }
         .background {
             if !joinsCanvas {
@@ -66,7 +70,7 @@ struct SessionTileView: View {
         }
         .overlay {
             if !joinsCanvas {
-                let selected = isSelected && !roomEmbedded && !alone
+                let selected = lit && !roomEmbedded && !alone
                 shape.strokeBorder(selected ? theme.colors.accent.mix(with: theme.colors.hairline, by: 0.55) : theme.colors.hairline.opacity(0.7),
                                    lineWidth: selected ? 1 : 0.5)
                     .allowsHitTesting(false)
@@ -87,15 +91,24 @@ struct SessionTileView: View {
                     .allowsHitTesting(false)
             }
         }
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .animation(theme.motion.snappy, value: isSelected)
+        .onHover { inside in withAnimation(theme.motion.hover) { hovered = inside } }
+        .onChange(of: isSelected) { _, selected in
+            withAnimation(theme.motion.snappy) { lit = selected }
+        }
+        .onChange(of: deps.workbench.closeRequest) { _, id in
+            guard id == session.id, !roomEmbedded else { return }
+            deps.workbench.closeRequest = nil
+            askToClose()
+        }
         .onAppear {
+            lit = isSelected
             guard deps.freshTerminals.remove(session.id) != nil, !theme.motion.reduced else { return }
             born = false
             veil = 0.6
-            withAnimation(theme.motion.snappy) { born = true }
-            withAnimation(theme.motion.fade) { veil = 0 }
+            withAnimation(theme.motion.hover) {
+                born = true
+                veil = 0
+            }
         }
         .onChange(of: tileVisible && stageVisible, initial: true) { _, _ in
             deps.reportVisible()
@@ -163,6 +176,7 @@ struct SessionTileView: View {
                             subscriptionId: managed.token.subscriptionId,
                             subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId,
                         )
+                        deps.typeAhead.deliver(to: session.id)
                     } else {
                         deps.terminalFocus.release(surfaceId: surfaceId)
                     }
@@ -179,10 +193,7 @@ struct SessionTileView: View {
                 .accessibilityHidden(state != .rendered)
                 switch state {
                 case .rendered: EmptyView()
-                case .connecting:
-                    TerminalStateCard(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
-                        .accessibilityLabel(Text("Connecting terminal"))
-                        .background(theme.colors.terminal)
+                case .connecting: ConnectingCard()
                 case let .closed(message):
                     failure(message: message ?? String(localized: "The terminal closed."), manager: manager)
                 case let .failed(message):
@@ -220,11 +231,39 @@ struct SessionTileView: View {
         deps.reportVisible()
     }
 
+    private func askToClose() {
+        if session.hostOffline {
+            choosingOffline = true
+        } else {
+            confirmingClose = true
+        }
+    }
+
     private func closeSession() {
         isClosing = true
         Task { @MainActor in
             await deps.close(session)
             isClosing = false
+        }
+    }
+}
+
+/// A terminal of this computer connects within a few frames, so this waits before it shows.
+private struct ConnectingCard: View {
+    @Environment(\.theme) private var theme
+    @State private var late = false
+
+    var body: some View {
+        ZStack {
+            if late {
+                TerminalStateCard(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
+                    .accessibilityLabel(Text("Connecting terminal"))
+                    .background(theme.colors.terminal)
+            }
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(300))
+            late = !Task.isCancelled
         }
     }
 }

@@ -36,12 +36,15 @@ struct AppShell: View {
                 CommandPalette()
             }
             ZStack {
-                if let sheet {
+                if let sheet, sheet != .launcher {
                     sheetLayer(sheet).transition(.opacity)
                 }
             }
             .animation(theme.motion.fade, value: sheet)
             .zIndex(1)
+            if sheet == .launcher {
+                sheetLayer(.launcher).zIndex(1)
+            }
         }
         .ignoresSafeArea()
         .kodosiPopoverLayer()
@@ -63,6 +66,7 @@ struct AppShell: View {
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.selectedSessionId) { _, _ in deps.reportVisible() }
         .onChange(of: workbench.section) { _, _ in deps.reportVisible() }
+        .onChange(of: terminalsInteractive, initial: true) { _, open in workbench.stageTakesKeys = open }
     }
 
     @ViewBuilder
@@ -147,7 +151,7 @@ struct AppShell: View {
         case .history:
             SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
         case .launcher:
-            SheetLayer(close: { workbench.launcher = nil }, content: {
+            SheetLayer(close: { workbench.launcher = nil }, rises: false, content: {
                 AgentLauncher(
                     roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
                     started: { workbench.launcher = nil }, close: { workbench.launcher = nil },

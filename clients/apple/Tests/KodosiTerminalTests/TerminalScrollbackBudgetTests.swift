@@ -18,6 +18,15 @@
     }
 
     @MainActor
+    private final class MenuActionRecorder: NSObject {
+        private(set) var count = 0
+
+        @objc func record() {
+            count += 1
+        }
+    }
+
+    @MainActor
     private final class AccessibilityUpdateRecorder {
         private(set) var count = 0
 
@@ -314,6 +323,48 @@
         #expect(view.menu(for: mouse)?.items.first?.action == NSSelectorFromString("copy:"))
         try await Task.sleep(for: .milliseconds(20))
         #expect(writes.values.isEmpty)
+    }
+
+    @MainActor
+    @Test func `a key of the app menu reaches the menu before the terminal`() async throws {
+        let session = TerminalRendererSession(write: { _ in }, resize: { _, _ in })
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false,
+        )
+        let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
+        view.delegateProxy.target = session.viewState
+        view.delegate = view.delegateProxy
+        view.controller = session.viewState.controller
+        view.configuration = session.viewState.configuration
+        window.contentView = view
+        window.makeKeyAndOrderFront(nil)
+        let recorder = MenuActionRecorder()
+        let item = NSMenuItem(title: "Quick Terminal", action: #selector(MenuActionRecorder.record), keyEquivalent: "t")
+        item.target = recorder
+        let items = NSMenu()
+        items.addItem(item)
+        let top = NSMenuItem()
+        top.submenu = items
+        let bar = NSMenu()
+        bar.addItem(top)
+        let earlierMenu = NSApplication.shared.mainMenu
+        NSApplication.shared.mainMenu = bar
+        defer {
+            NSApplication.shared.mainMenu = earlierMenu
+            view.tearDownSurface()
+            window.orderOut(nil)
+        }
+        for _ in 0 ..< 100 where session.nativeSurfaceGeneration == 0 {
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        #expect(window.makeFirstResponder(view))
+
+        #expect(try view.performKeyEquivalent(with: commandKey("t", keyCode: 17, timestamp: 1)))
+
+        #expect(recorder.count == 1)
     }
 
     @MainActor

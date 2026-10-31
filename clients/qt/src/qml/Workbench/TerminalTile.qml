@@ -18,6 +18,7 @@ Item {
     readonly property bool ringed: active && !roomEmbedded
     property bool componentReady: false
     readonly property bool watched: componentReady && visible && !accessibilitySuppressed && Window.active
+    readonly property bool takesKeys: terminal.activeFocus && terminal.terminalReady
     property string watchedId: ""
     property bool zoomed: false
     required property string sessionId
@@ -30,6 +31,7 @@ Item {
     readonly property string notice: session.kind === "remote" && session.connectionState === "connected"
         ? (away ? awayText : session.status === "reconnecting" ? qsTr("Reconnecting") : session.message || "") : ""
     property string terminalError: ""
+    property bool connectingLong: false
     property string terminalOperationError: ""
     property string joinedUser: ""
 
@@ -97,6 +99,7 @@ Item {
         reportWatched();
     }
     onWatchedChanged: reportWatched()
+    onTakesKeysChanged: if (takesKeys) Models.SessionActions.giveTypedKeys(sessionId)
 
     Connections {
         function onModelReset() {
@@ -461,6 +464,13 @@ Item {
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
             }
+            Timer {
+                interval: 300
+                running: !terminal.terminalReady && root.terminalError.length === 0 && !root.away
+
+                onRunningChanged: root.connectingLong = false
+                onTriggered: root.connectingLong = true
+            }
             Rectangle {
                 anchors.fill: parent
                 color: KodosiTheme.terminal
@@ -475,13 +485,13 @@ Item {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredWidth: 12
                         Layout.preferredHeight: 22
-                        visible: root.terminalError.length === 0 && !root.away
+                        visible: root.connectingLong
                         blinks: visible
                         color: KodosiTheme.terminalAccent
                     }
                     ShimmerText {
                         Layout.alignment: Qt.AlignHCenter
-                        visible: root.terminalError.length === 0 && !root.away
+                        visible: root.connectingLong
                         text: qsTr("Connecting")
                         active: visible
                         color: KodosiTheme.terminalInk
@@ -586,8 +596,8 @@ Item {
 
         ParallelAnimation {
             id: birth
-            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: KodosiTheme.motionSnappy; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
-            NumberAnimation { target: veil; property: "opacity"; from: 0.6; to: 0; duration: KodosiTheme.motionFade; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+            NumberAnimation { target: veil; property: "scale"; from: 0.04; to: 1; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+            NumberAnimation { target: veil; property: "opacity"; from: 0.6; to: 0; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
         }
     }
     Item {

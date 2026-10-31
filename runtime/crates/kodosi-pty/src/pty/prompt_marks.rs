@@ -161,7 +161,7 @@ mod tests {
             &[("HOME", home_path), ("ZDOTDIR", home_path)],
             folder.path(),
             &[
-                b"print -r -- \"probe=$FROM_ZSHENV:$ZDOTDIR:${KODOSI_ZSH_ZDOTDIR-none}\"\n",
+                b"print -r -- \"probe=$FROM_ZSHENV:$ZDOTDIR:${KODOSI_ZSH_ZDOTDIR-none}:${PERIOD-none}\"\n",
                 b"false\n",
                 b"print -r -- finished\n",
             ],
@@ -169,16 +169,44 @@ mod tests {
         ));
 
         assert!(
-            output.contains(&format!("probe=yes:{home_path}:none")),
+            output.contains(&format!("probe=yes:{home_path}:none:none")),
             "{output}"
         );
         assert!(
-            output.contains("\x1b]133;A;cl=line\x07T> \x1b]133;B\x07"),
+            output.contains("\x1b]133;A;redraw=1;cl=line\x07T> \x1b]133;B\x07"),
             "{output}"
         );
         assert!(output.contains("\x1b]133;C\x07probe="), "{output}");
         assert!(output.contains("\x1b]133;D;0\x07"), "{output}");
         assert!(output.contains("\x1b]133;D;1\x07"), "{output}");
+    }
+
+    #[test]
+    fn the_first_prompt_is_marked_when_a_hook_of_zshrc_sets_it() {
+        let Some(zsh) = shell("/bin/zsh") else {
+            return;
+        };
+        let home = tempfile::tempdir().unwrap();
+        let folder = tempfile::tempdir().unwrap();
+        fs::write(
+            home.path().join(".zshrc"),
+            "theme() { PS1='H> ' }\nprecmd_functions+=(theme)\n",
+        )
+        .unwrap();
+        let home_path = home.path().to_str().unwrap();
+
+        let output = block_on(run(
+            &zsh,
+            &[("HOME", home_path), ("ZDOTDIR", home_path)],
+            folder.path(),
+            &[],
+            "H> \x1b]133;B\x07",
+        ));
+
+        assert!(
+            output.contains("\x1b]133;A;redraw=1;cl=line\x07H> \x1b]133;B\x07"),
+            "{output}"
+        );
     }
 
     #[cfg(target_os = "linux")]

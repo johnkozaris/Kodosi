@@ -19,7 +19,7 @@ final class WorkbenchState {
         case sessions, missions, people, settings
     }
 
-    enum SettingsSection: String, CaseIterable { case terminal, providers, dosi, devices, general }
+    enum SettingsSection: String, CaseIterable { case terminal, keyboard, providers, dosi, devices, general }
 
     static let maximumStagedSessions = 6
     static let sidebarWidths: ClosedRange<CGFloat> = 220 ... 380
@@ -28,6 +28,12 @@ final class WorkbenchState {
     var settingsSection: SettingsSection = .terminal
     var selectedSessionId: String?
     var stagedSessionIds: [String] = []
+    /// The room that the terminal tiles share, in points.
+    @ObservationIgnored var tileRoom: CGSize?
+    /// The terminal whose tile asks now if it should close.
+    var closeRequest: String?
+    /// No sheet or palette covers the stage.
+    var stageTakesKeys = true
     /// The terminal whose canvas is open beside it. That terminal is alone on the stage.
     private(set) var canvasSessionId: String?
     /// The canvas fills the stage, and its terminal waits in a capsule.

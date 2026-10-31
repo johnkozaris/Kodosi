@@ -251,7 +251,8 @@ ColumnLayout {
         showDraft()
         askFolders()
         root.launcher.refresh(false)
-        root.launcher.refreshUsage()
+        if (visible)
+            root.launcher.refreshUsage()
         root.launcher.loadModels(agentId)
     }
     onComputerChanged: {

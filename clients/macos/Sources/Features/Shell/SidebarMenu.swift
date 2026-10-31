@@ -67,7 +67,8 @@ private struct SidebarMenuList: View {
             PanelMenuRow(Text("Settings"), icon: .symbol("gearshape"), identifier: "header.settings") {
                 deps.workbench.section = .settings
             } trailing: {
-                Text(verbatim: "⌘,").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                Text(verbatim: deps.settings.shortcuts.keys(for: .settings).first?.label ?? "")
+                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
             }
             .closesFlyout($usage)
             PanelMenuRow(Text("Friends"), icon: .symbol("person.2"), identifier: "header.people") {

@@ -185,6 +185,12 @@
                 copy(nil)
                 return true
             }
+            // Ghostty binds keys such as ⌘N and ⌘K to windows and screens of its own app.
+            if modifiers.contains(.command), window?.firstResponder === self,
+               NSApp.mainMenu?.performKeyEquivalent(with: event) == true
+            {
+                return true
+            }
             return super.performKeyEquivalent(with: event)
         }
 

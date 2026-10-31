@@ -60,7 +60,7 @@ final class TerminalRendererDelegateProxy:
     }
 
     func terminalDidAttachSurface(_ surface: TerminalSurface) {
-        forward { $0.terminalDidAttachSurface(surface) }
+        target?.terminalDidAttachSurface(surface)
     }
 
     func terminalDidDetachSurface() {

@@ -17,6 +17,7 @@
 #include "presentation/ProviderFilesModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
+#include "presentation/ShortcutsModel.hpp"
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
@@ -173,6 +174,16 @@ public:
     static kodosi::SessionCatalogModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
+struct ShortcutsModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::ShortcutsModel)
+    QML_NAMED_ELEMENT(Shortcuts)
+    QML_SINGLETON
+public:
+    inline static kodosi::ShortcutsModel* instance = nullptr;
+    static kodosi::ShortcutsModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
 struct TerminalTilingLayoutModelForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::TerminalTilingLayoutModel)
@@ -263,5 +274,5 @@ struct KeyedListModelForeign {
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
-    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasWeb&);
+    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasWeb&, ShortcutsModel&);
 }

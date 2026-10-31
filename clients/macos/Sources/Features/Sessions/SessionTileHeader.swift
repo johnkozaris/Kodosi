@@ -3,6 +3,8 @@ import KodosiDesign
 import SwiftUI
 
 struct SessionTileHeader: View {
+    static let height: CGFloat = 38
+
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @Environment(\.canvasPlace) private var canvasPlace
@@ -64,7 +66,7 @@ struct SessionTileHeader: View {
             }
             actions
         }
-        .padding(.leading, 11).padding(.trailing, canvasOpen ? 6 + CanvasBody.clearance : 6).frame(height: 38)
+        .padding(.leading, 11).padding(.trailing, canvasOpen ? 6 + CanvasBody.clearance : 6).frame(height: Self.height)
     }
 
     @ViewBuilder

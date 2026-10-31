@@ -224,14 +224,23 @@ final class TerminalSurfaceCoordinator {
         surface.setContentScale(x: scale, y: scale)
         surface.setSize(width: pixelWidth, height: pixelHeight)
 
-        guard let surfaceSize = surface.size(),
-              surfaceSize.columns > 0, surfaceSize.rows > 0
+        guard let reported = surface.size(),
+              reported.cellWidthPixels > 0, reported.cellHeightPixels > 0
         else {
             TerminalDebugLog.log(.metrics, "sync missing grid metrics after resize")
             onMetricsUpdate?()
             return
         }
 
+        // A host-managed surface reports the host's grid after a host resize, so only the cell
+        // size of its report counts here.
+        let surfaceSize = (configuration?.terminalConfiguration ?? TerminalConfiguration()).grid(
+            widthPixels: pixelWidth,
+            heightPixels: pixelHeight,
+            scale: scale,
+            cellWidthPixels: reported.cellWidthPixels,
+            cellHeightPixels: reported.cellHeightPixels
+        )
         let metrics = TerminalViewportMetrics(surfaceSize: surfaceSize, scale: scale)
         guard metrics != lastMetrics else {
             TerminalDebugLog.log(

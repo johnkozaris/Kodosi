@@ -119,6 +119,11 @@ conversation follows the person to all their computers.
   efforts, and keeps the last choice, so the apps and `kodosi terminal start --agent`
   start the same way. Kodosi types the agent's command into the shell of the new terminal
   and does no more.
+- Quick terminal skips the launcher and opens a plain terminal on this computer at once:
+  in the folder of the selected terminal, or else in the launcher's folder. What the
+  person types while it opens goes into it.
+- The app's keys are Ghostty's for the actions that Kodosi has too, plus Kodosi's own, and
+  Settings changes each of them. Any other key goes to the program in the terminal.
 - The launcher can also start the terminal on another of the person's computers where
   Kodosi runs.
 - A terminal can start on a new branch in its own Git worktree, which the host removes

@@ -25,6 +25,7 @@ struct SettingsView: View {
                     case .dosi: DosiSettingsView()
                     case .devices: DeviceSettingsView()
                     case .terminal: TerminalSettingsView()
+                    case .keyboard: KeyboardSettingsView()
                     case .general: GeneralSettingsView()
                     }
                 }
@@ -41,6 +42,7 @@ private extension WorkbenchState.SettingsSection {
     var title: String {
         switch self {
         case .terminal: String(localized: "Terminal")
+        case .keyboard: String(localized: "Keyboard")
         case .providers: String(localized: "Agents")
         case .dosi: String(localized: "Dosi")
         case .devices: String(localized: "Account")
@@ -51,6 +53,7 @@ private extension WorkbenchState.SettingsSection {
     var symbol: String {
         switch self {
         case .terminal: "apple.terminal"
+        case .keyboard: "keyboard"
         case .providers: "sparkles"
         case .dosi: "eyes"
         case .devices: "person.crop.circle"
