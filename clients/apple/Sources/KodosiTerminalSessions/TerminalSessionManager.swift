@@ -133,6 +133,9 @@ public final class TerminalSessionManager {
             if !isAllowed || previousResizeAuthority[sessionId] != isAllowed {
                 managed.resizeDelivery.reset()
             }
+            if isAllowed, previousResizeAuthority[sessionId] != true, let viewport = managed.renderer.currentViewport {
+                resizeViewport(viewport, sessionId: sessionId, surfaceGeneration: managed.renderer.nativeSurfaceGeneration)
+            }
         }
         for sessionId in replacedSessionIds {
             releaseSession(for: sessionId)
@@ -264,8 +267,9 @@ public final class TerminalSessionManager {
         else { return }
         managed.restoredSurfaceGeneration = surfaceGeneration
         renderStateBySession[sessionId] = .rendered
+        managed.pendingResize?.cancel()
         if let viewport = managed.renderer.currentViewport {
-            resizeViewport(viewport, sessionId: sessionId, surfaceGeneration: surfaceGeneration)
+            deliverResize(viewport, to: managed, sessionId: sessionId, surfaceGeneration: surfaceGeneration)
         }
     }
 
@@ -276,12 +280,18 @@ public final class TerminalSessionManager {
         managed.pendingResize = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(80))
             guard let self, !Task.isCancelled, managed.token.isActive, managed.renderer.nativeSurfaceGeneration == surfaceGeneration else { return }
-            TerminalResizeContext(
-                sessionId: sessionId, commandSink: commandSink, lastResize: managed.resizeDelivery,
-                resizeAuthority: managed.resizeAuthority, token: managed.token,
-                runtimeIncarnationId: managed.runtimeIncarnationId, surfaceGeneration: surfaceGeneration,
-            ).deliver(viewport)
+            deliverResize(viewport, to: managed, sessionId: sessionId, surfaceGeneration: surfaceGeneration)
         }
+    }
+
+    private func deliverResize(
+        _ viewport: TerminalViewport, to managed: ManagedTerminalSession, sessionId: String, surfaceGeneration: UInt64,
+    ) {
+        TerminalResizeContext(
+            sessionId: sessionId, commandSink: commandSink, lastResize: managed.resizeDelivery,
+            resizeAuthority: managed.resizeAuthority, token: managed.token,
+            runtimeIncarnationId: managed.runtimeIncarnationId, surfaceGeneration: surfaceGeneration,
+        ).deliver(viewport)
     }
 
     private func connectToRuntimeIfNeeded(

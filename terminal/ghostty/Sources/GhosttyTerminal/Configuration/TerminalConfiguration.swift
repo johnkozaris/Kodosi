@@ -178,6 +178,17 @@ public struct TerminalConfiguration: Sendable, Hashable {
         commands.map(\.renderedLine).joined(separator: "\n")
     }
 
+    /// The padding on each side of the terminal, in Ghostty's points.
+    var windowPadding: (x: Int, y: Int) {
+        commands.reduce(into: (x: 2, y: 2)) { padding, command in
+            switch command {
+            case let .windowPaddingX(value): padding.x = value
+            case let .windowPaddingY(value): padding.y = value
+            default: break
+            }
+        }
+    }
+
     var isEmpty: Bool {
         commands.isEmpty
     }

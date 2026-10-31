@@ -197,7 +197,7 @@ public final class TerminalRendererSession: ObservableObject {
     }
 
     public var currentViewport: TerminalViewport? {
-        viewState.surfaceSize.map {
+        backend.viewport.map {
             TerminalViewport(
                 columns: $0.columns,
                 rows: $0.rows,

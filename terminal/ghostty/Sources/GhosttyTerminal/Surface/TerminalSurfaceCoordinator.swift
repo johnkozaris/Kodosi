@@ -54,6 +54,11 @@ final class TerminalSurfaceCoordinator {
     var onPostRender: (() -> Void)?
 
     private static let minimumFrameInterval: Duration = .seconds(1) / 60
+    #if os(macOS)
+        private static let ghosttyDotsPerInch = 72.0
+    #else
+        private static let ghosttyDotsPerInch = 96.0
+    #endif
 
     private var lastMetrics: TerminalViewportMetrics?
     private var isDisplayVisible = true
@@ -224,14 +229,15 @@ final class TerminalSurfaceCoordinator {
         surface.setContentScale(x: scale, y: scale)
         surface.setSize(width: pixelWidth, height: pixelHeight)
 
-        guard let surfaceSize = surface.size(),
-              surfaceSize.columns > 0, surfaceSize.rows > 0
+        guard let reported = surface.size(),
+              reported.cellWidthPixels > 0, reported.cellHeightPixels > 0
         else {
             TerminalDebugLog.log(.metrics, "sync missing grid metrics after resize")
             onMetricsUpdate?()
             return
         }
 
+        let surfaceSize = viewGrid(width: pixelWidth, height: pixelHeight, scale: scale, cell: reported)
         let metrics = TerminalViewportMetrics(surfaceSize: surfaceSize, scale: scale)
         guard metrics != lastMetrics else {
             TerminalDebugLog.log(
@@ -246,6 +252,30 @@ final class TerminalSurfaceCoordinator {
         TerminalDebugLog.log(.metrics, "sync updated \(metrics.debugSummary)")
         reportViewport()
         onMetricsUpdate?()
+    }
+
+    /// The grid that fits this view. A host-managed surface reports the host's grid after a
+    /// host resize, so only the cell size of its report counts here.
+    private func viewGrid(
+        width: UInt32,
+        height: UInt32,
+        scale: Double,
+        cell: TerminalGridMetrics
+    ) -> TerminalGridMetrics {
+        let padding = (configuration?.terminalConfiguration ?? TerminalConfiguration()).windowPadding
+        func count(_ length: UInt32, padding: Int, cell: UInt32) -> UInt16 {
+            let side = UInt32(Double(padding) * scale * Self.ghosttyDotsPerInch / 72)
+            let room = length > 2 * side ? length - 2 * side : 0
+            return UInt16(clamping: max(1, room / cell))
+        }
+        return TerminalGridMetrics(
+            columns: count(width, padding: padding.x, cell: cell.cellWidthPixels),
+            rows: count(height, padding: padding.y, cell: cell.cellHeightPixels),
+            widthPixels: width,
+            heightPixels: height,
+            cellWidthPixels: cell.cellWidthPixels,
+            cellHeightPixels: cell.cellHeightPixels
+        )
     }
 
     private func reportViewport() {
