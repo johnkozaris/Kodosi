@@ -75,10 +75,10 @@ Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fre
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
 
 ## Layout
-The window has no title bar. The source list can shrink to a rail of marks or widen for Dosi, and its edge resizes it; one inset frame holds the work, and pages are one centered column. A room has a header, a work area, and the conversation on a 300 to 540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once.
+The window has no title bar. The source list can shrink to a rail of marks or widen for Dosi, and its edge resizes it; one inset frame holds the work, and pages are one centered column. A room has a header, a work area, and the conversation on a 300 to 540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves or a tile comes or goes, each terminal takes its final size at once.
 
 ## Elevation & Depth
-There are three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. A sheet rises in the middle of the dimmed window and a popover from its source; a click outside or Escape dismisses either, unless the sheet waits for a decision.
+There are three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. A sheet rises in the middle of the dimmed window, the launcher sits there at once, and a popover rises from its source; a click outside or Escape dismisses either, unless the sheet waits for a decision.
 
 ## Shapes
 Tags and pills are capsules, buttons are rounded rectangles, agents, rooms and kinds of things are squircles, and people are circles. A slot you can fill has a dashed outline.

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
@@ -9,6 +11,7 @@ Popup {
     property real radius: KodosiTheme.radiusXl
     property int elevation: 2
     property color fill: KodosiTheme.lifted
+    property bool instant: false
 
     Component.onCompleted: Models.DesktopState.setModalVisible(root, visible && modal)
     onVisibleChanged: Models.DesktopState.setModalVisible(root, visible && modal)
@@ -29,18 +32,24 @@ Popup {
     Overlay.modal: Rectangle {
         color: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.55 : 0.22)
 
-        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+        Behavior on opacity {
+            enabled: !root.instant
+            NumberAnimation { duration: KodosiTheme.motionFade }
+        }
     }
     background: Raised {
         radius: root.radius
         fill: root.fill
         elevation: root.elevation
     }
-    enter: Transition {
+    enter: root.instant ? null : opening
+    exit: root.instant ? null : closing
+
+    readonly property Transition opening: Transition {
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
         NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot }
     }
-    exit: Transition {
+    readonly property Transition closing: Transition {
         NumberAnimation { property: "opacity"; from: 1; to: 0; duration: KodosiTheme.motionHover; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
 }

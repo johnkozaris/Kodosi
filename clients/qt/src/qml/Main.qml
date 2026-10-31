@@ -412,6 +412,12 @@ ApplicationWindow {
             onResumeRequested: window.historyView().openModal()
         }
     }
+    Timer {
+        interval: 1000
+        running: true
+
+        onTriggered: launcherLoader.active = true
+    }
     Loader {
         id: paletteLoader
         active: false

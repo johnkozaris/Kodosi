@@ -133,7 +133,7 @@ final class TerminalAccessibilityUpdateRelay: @unchecked Sendable {
 
 @MainActor
 public final class TerminalRendererSession: ObservableObject {
-    @Published public private(set) var nativeSurfaceGeneration: UInt64 = 0
+    public private(set) var nativeSurfaceGeneration: UInt64 = 0
     #if os(iOS)
         @Published public private(set) var rowMetrics: TerminalRowMetrics?
         public let cursor = TerminalCursor()

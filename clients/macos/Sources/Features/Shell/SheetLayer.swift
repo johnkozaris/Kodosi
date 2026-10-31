@@ -6,6 +6,7 @@ struct SheetLayer<Content: View>: View {
     @Environment(\.theme) private var theme
     let close: () -> Void
     var cancel: (() -> Void)?
+    var rises = true
     @ViewBuilder let content: Content
     @State private var risen = false
     @State private var monitor: Any?
@@ -13,6 +14,7 @@ struct SheetLayer<Content: View>: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.sheet, style: .continuous)
+        let risen = risen || !rises
         GeometryReader { proxy in
             ZStack {
                 theme.colors.shadow.opacity(theme.isDark ? 0.55 : 0.22)
@@ -32,7 +34,7 @@ struct SheetLayer<Content: View>: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            withAnimation(theme.motion.spring) { risen = true }
+            withAnimation(theme.motion.spring) { self.risen = true }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard event.keyCode == 53, !KodosiPopoverState.shown else { return event }
                 (cancel ?? close)()

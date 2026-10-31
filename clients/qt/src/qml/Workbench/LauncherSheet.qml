@@ -14,6 +14,7 @@ KPopover {
     }
 
     focus: true
+    instant: true
     modal: true
     objectName: "launcher.sheet"
     padding: 24

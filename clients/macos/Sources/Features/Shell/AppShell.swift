@@ -36,12 +36,15 @@ struct AppShell: View {
                 CommandPalette()
             }
             ZStack {
-                if let sheet {
+                if let sheet, sheet != .launcher {
                     sheetLayer(sheet).transition(.opacity)
                 }
             }
             .animation(theme.motion.fade, value: sheet)
             .zIndex(1)
+            if sheet == .launcher {
+                sheetLayer(.launcher).zIndex(1)
+            }
         }
         .ignoresSafeArea()
         .kodosiPopoverLayer()
@@ -147,7 +150,7 @@ struct AppShell: View {
         case .history:
             SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
         case .launcher:
-            SheetLayer(close: { workbench.launcher = nil }, content: {
+            SheetLayer(close: { workbench.launcher = nil }, rises: false, content: {
                 AgentLauncher(
                     roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
                     started: { workbench.launcher = nil }, close: { workbench.launcher = nil },
