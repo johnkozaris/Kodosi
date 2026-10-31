@@ -440,6 +440,13 @@ ApplicationWindow {
         onActivated: window.openLauncher()
     }
     Shortcut {
+        autoRepeat: false
+        enabled: !window.modalOpen
+        sequence: "Ctrl+Shift+T"
+
+        onActivated: Models.SessionActions.createQuick()
+    }
+    Shortcut {
         enabled: !window.modalOpen
         sequences: ["Ctrl+Shift+K", "Ctrl+K"]
 

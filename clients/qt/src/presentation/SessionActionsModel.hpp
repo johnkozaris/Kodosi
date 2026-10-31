@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/DeepLinkRouter.hpp"
+#include "presentation/TerminalTypeAhead.hpp"
 
 #include <QJsonObject>
 #include <QHash>
@@ -35,6 +36,7 @@ public:
     Q_INVOKABLE bool create(const QString& name, const QString& directory, const QString& command = {},
         const QString& prompt = {}, const QString& roomId = {}, const QVariantMap& agent = {},
         const QString& computer = {});
+    Q_INVOKABLE bool createQuick();
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
     Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
@@ -45,6 +47,7 @@ public:
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool input(const QString& sessionId, const QString& text);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);
+    Q_INVOKABLE void giveTypedKeys(const QString& sessionId);
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});
     Q_INVOKABLE bool leave(const QString& sessionId);
@@ -65,6 +68,7 @@ private:
     QList<DeepLinkDestination> m_links;
     QHash<QString, QString> m_roomCreations;
     QSet<QString> m_created;
+    TerminalTypeAhead m_typeAhead;
     void completeCreation(const QString& sessionId, const QString& roomId);
     bool activateSession(const QString& sessionId, bool inRoom);
     bool opening(const QString& sessionId) const;

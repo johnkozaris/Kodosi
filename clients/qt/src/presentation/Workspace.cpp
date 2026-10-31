@@ -435,5 +435,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             == QStringLiteral("session.list")) {
         m_sessions.fail(m_error);
     }
+    if (type == QStringLiteral("session.error")
+        && event.value(QStringLiteral("operation")).toString()
+            == QStringLiteral("session.create")) {
+        m_sessionActions.m_typeAhead.drop();
+    }
 }
 }

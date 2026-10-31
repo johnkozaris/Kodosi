@@ -12,6 +12,8 @@ struct KodosiCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Terminal") { dependencies.openLauncher() }
                 .keyboardShortcut("n")
+            Button("Quick Terminal") { dependencies.openQuickTerminal() }
+                .keyboardShortcut("t")
             Button("Resume a Conversation…") { dependencies.workbench.showsHistory = true }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
             Button("Go to…") { dependencies.workbench.showsPalette.toggle() }

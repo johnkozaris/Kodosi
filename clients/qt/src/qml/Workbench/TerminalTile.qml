@@ -18,6 +18,7 @@ Item {
     readonly property bool ringed: active && !roomEmbedded
     property bool componentReady: false
     readonly property bool watched: componentReady && visible && !accessibilitySuppressed && Window.active
+    readonly property bool takesKeys: terminal.activeFocus && terminal.terminalReady
     property string watchedId: ""
     property bool zoomed: false
     required property string sessionId
@@ -98,6 +99,7 @@ Item {
         reportWatched();
     }
     onWatchedChanged: reportWatched()
+    onTakesKeysChanged: if (takesKeys) Models.SessionActions.giveTypedKeys(sessionId)
 
     Connections {
         function onModelReset() {

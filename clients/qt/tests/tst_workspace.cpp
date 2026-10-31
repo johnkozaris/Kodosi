@@ -726,6 +726,69 @@ private slots:
         QCOMPARE(f.desktop.selectedSessionId(), test::id(1));
         QVERIFY(!f.workspace.sessionActions().busy());
     }
+    void aQuickTerminalStartsPlainInTheFolderOfTheSelectedTerminalOfThisComputer()
+    {
+        Fixture f;
+        auto selected = test::session(1);
+        selected.insert(QStringLiteral("workingDir"), f.dir.path());
+        f.workspace.apply(test::snapshot({ selected }), 0);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().createQuick());
+        const auto sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
+        QCOMPARE(sent.value(QStringLiteral("workingDir")).toString(), f.dir.path());
+        QVERIFY(!sent.contains(QStringLiteral("agent")));
+        QVERIFY(!sent.contains(QStringLiteral("command")));
+        QVERIFY(!sent.contains(QStringLiteral("computer")));
+    }
+    void aQuickTerminalStartsInTheLauncherFolderWithoutAFolderOfThisComputer_data()
+    {
+        QTest::addColumn<int>("selected");
+        QTest::newRow("no selection") << 0;
+        QTest::newRow("a terminal of another computer") << 1;
+        QTest::newRow("a folder that is gone") << 2;
+    }
+    void aQuickTerminalStartsInTheLauncherFolderWithoutAFolderOfThisComputer()
+    {
+        QFETCH(int, selected);
+        Fixture f;
+        f.settings.setWorkingDirectory(f.dir.path());
+        auto gone = test::session(2);
+        gone.insert(QStringLiteral("workingDir"), f.dir.path() + QStringLiteral("/gone"));
+        f.workspace.apply(test::snapshot({ test::session(1, true), gone }), 0);
+        if (selected != 0)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(selected)));
+        QVERIFY(f.workspace.sessionActions().createQuick());
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("workingDir")).toString(),
+            f.settings.effectiveWorkingDirectory());
+    }
+    void aSecondQuickTerminalWaitsForTheFirst()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({}), 0);
+        QVERIFY(f.workspace.sessionActions().createQuick());
+        const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
+        QVERIFY(!f.workspace.sessionActions().createQuick());
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") }, { QStringLiteral("requestId"), request },
+            { QStringLiteral("operation"), QStringLiteral("session.create") }, { QStringLiteral("sessionId"), test::id(1) } }, 0);
+        f.workspace.sessionActions().giveTypedKeys(test::id(1));
+        QVERIFY(f.workspace.sessionActions().createQuick());
+    }
+    void aQuickTerminalSaysSoWhenTheStageIsFullAndStartsNothing()
+    {
+        Fixture f;
+        QJsonArray sessions;
+        for (int value = 1; value <= 6; ++value)
+            sessions.append(test::session(value));
+        f.workspace.apply(test::snapshot(sessions), 0);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        const auto before = f.commands.values.size();
+        QVERIFY(!f.workspace.sessionActions().createQuick());
+        QCOMPARE(f.commands.values.size(), before);
+        QVERIFY(!f.workspace.error().isEmpty());
+    }
     void aTerminalStartedForARoomJoinsThatRoom()
     {
         Fixture f;

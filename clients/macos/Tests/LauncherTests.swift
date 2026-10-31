@@ -131,6 +131,75 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.freshTerminals.contains(created))
 }
 
+@MainActor private func quickFolder(_ prefix: String, selected: RuntimeSession?, last: String? = nil) throws -> String? {
+    let (app, _) = try launcherApp(prefix)
+    defer { app.shutdownProcess() }
+    app.sessions = selected.map { [$0] } ?? []
+    app.workbench.selectedSessionId = selected?.id
+    app.settings.lastWorkingDir = last
+    return app.quickFolder
+}
+
+@Test @MainActor func `a quick terminal starts in the folder of the selected terminal of this computer`() throws {
+    let here = FileManager.default.temporaryDirectory.path
+    let local = try runtimeSession(kind: "local", connection: "local", directory: here)
+    #expect(try quickFolder("QuickLocal", selected: local, last: "/") == here)
+}
+
+@Test @MainActor func `a quick terminal starts where the launcher would without a folder of this computer`() throws {
+    let here = FileManager.default.temporaryDirectory.path
+    #expect(try quickFolder("QuickNone", selected: nil, last: here) == here)
+    #expect(try quickFolder("QuickRemote", selected: runtimeSession(), last: here) == here)
+    let gone = try runtimeSession(kind: "local", connection: "local", directory: "/no/such/folder")
+    #expect(try quickFolder("QuickGone", selected: gone, last: here) == here)
+    #expect(try quickFolder("QuickHome", selected: nil, last: "/no/such/folder") == nil)
+}
+
+@Test @MainActor func `a quick terminal is a plain terminal and skips the launcher`() async throws {
+    let (app, sent) = try launcherApp("QuickPlain")
+    defer { app.shutdownProcess() }
+    app.workbench.launcher = LauncherRequest()
+    app.openQuickTerminal()
+    app.openQuickTerminal()
+    var creates: [[String: JSONValue]] = []
+    for _ in 0 ..< 200 where creates.isEmpty {
+        await Task.yield()
+        creates = sent().filter { $0["type"] == .string("session.create") }
+    }
+    let fields = try #require(creates.first)
+    #expect(creates.count == 1)
+    #expect(fields["agent"] == nil)
+    #expect(fields["command"] == nil)
+    #expect(fields["computer"] == nil)
+    #expect(app.workbench.launcher == nil)
+    #expect(app.typeAhead.isHolding)
+    let created = UUIDv7.generate()
+    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(fields["requestId"]?.stringValue)), "sessionId": .string(created),
+        "operation": .string("session.create"),
+    ]))
+    for _ in 0 ..< 200 where !app.freshTerminals.contains(created) {
+        await Task.yield()
+    }
+    app.typeAhead.deliver(to: UUIDv7.generate())
+    #expect(app.typeAhead.isHolding)
+    app.typeAhead.deliver(to: created)
+    #expect(!app.typeAhead.isHolding)
+}
+
+@Test @MainActor func `a quick terminal says so when the stage is full and starts nothing`() async throws {
+    let (app, sent) = try launcherApp("QuickFull")
+    defer { app.shutdownProcess() }
+    app.workbench.stagedSessionIds = (0 ..< WorkbenchState.maximumStagedSessions).map { _ in UUIDv7.generate() }
+    app.openQuickTerminal()
+    for _ in 0 ..< 50 {
+        await Task.yield()
+    }
+    #expect(sent().allSatisfy { $0["type"] != .string("session.create") })
+    #expect(app.errorMessage != nil)
+    #expect(!app.typeAhead.isHolding)
+}
+
 @Test @MainActor func `a launcher for another computer asks that computer and starts there`() async throws {
     let (app, sent) = try launcherApp("LauncherComputer")
     defer { app.shutdownProcess() }

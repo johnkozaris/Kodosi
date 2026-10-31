@@ -5,6 +5,7 @@
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/Workspace.hpp"
 
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QRandomGenerator>
@@ -127,11 +128,17 @@ bool SessionActionsModel::takeCreated(const QString& id)
     return m_created.remove(id);
 }
 
+void SessionActionsModel::giveTypedKeys(const QString& id)
+{
+    m_typeAhead.deliver(id);
+}
+
 void SessionActionsModel::completeCreation(const QString& id, const QString& roomId)
 {
     if (m_created.size() > 64)
         m_created.clear();
     m_created.insert(id);
+    m_typeAhead.expect(id);
     if (roomId.isEmpty()) {
         if (m_sessions.containsSession(id)) activate(id);
         else m_activeLink = DeepLinkDestination {id};
@@ -214,6 +221,22 @@ bool SessionActionsModel::create(const QString& name, const QString& directory, 
         return false;
     if (computer.isEmpty())
         m_settings.setWorkingDirectory(directory);
+    return true;
+}
+
+bool SessionActionsModel::createQuick()
+{
+    if (m_typeAhead.holding())
+        return false;
+    if (m_desktop.stagedSessionIds().size() >= 6) {
+        m_workspace.setError(tr("Six terminals are open. Minimize one to open another."));
+        return false;
+    }
+    const auto selected = m_sessions.session(m_desktop.selectedSessionId());
+    const auto folder = selected && selected->kind == QStringLiteral("local") ? selected->workingDirectory : QString();
+    if (!create({}, QFileInfo(folder).isDir() ? folder : m_settings.effectiveWorkingDirectory()))
+        return false;
+    m_typeAhead.hold();
     return true;
 }
 
@@ -375,6 +398,7 @@ void SessionActionsModel::activatePendingLink()
 void SessionActionsModel::reset(bool clearLinks)
 {
     m_created.clear();
+    m_typeAhead.drop();
     if (clearLinks) {
         m_roomCreations.clear();
         m_activeLink.reset();

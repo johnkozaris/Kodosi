@@ -20,6 +20,8 @@ the shell of the new terminal.
 
 <p align="center"><img src="media/launcher.webp" width="580" alt="Claude Code chosen in the launcher, with a folder and a first prompt."></p>
 
+- For a plain terminal, press ⌘T (Ctrl+Shift+T on Linux and Windows). It opens at once in
+  the folder of the selected terminal.
 - If an agent is missing, the launcher shows its install command.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as

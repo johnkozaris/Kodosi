@@ -179,6 +179,9 @@ struct CommandPalette: View {
             Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus", TileTint.orange)) {
                 deps.openLauncher()
             },
+            Item(id: "action.quickTerminal", group: group, title: String(localized: "Quick terminal"), icon: .symbol("terminal.fill", TileTint.orange)) {
+                deps.openQuickTerminal()
+            },
             Item(
                 id: "action.resume", group: group, title: String(localized: "Resume a conversation"),
                 icon: .symbol("clock.arrow.circlepath", TileTint.amber),

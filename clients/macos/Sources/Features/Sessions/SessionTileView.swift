@@ -168,6 +168,7 @@ struct SessionTileView: View {
                             subscriptionId: managed.token.subscriptionId,
                             subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId,
                         )
+                        deps.typeAhead.deliver(to: session.id)
                     } else {
                         deps.terminalFocus.release(surfaceId: surfaceId)
                     }

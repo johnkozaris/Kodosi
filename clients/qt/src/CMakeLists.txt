@@ -66,6 +66,8 @@ qt_add_library(kodosi-application STATIC
     presentation/ProviderFilesModel.hpp
     presentation/SessionActionsModel.cpp
     presentation/SessionActionsModel.hpp
+    presentation/TerminalTypeAhead.cpp
+    presentation/TerminalTypeAhead.hpp
     presentation/Workspace.cpp
     presentation/Workspace.hpp
     presentation/AppearanceModel.cpp

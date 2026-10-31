@@ -67,6 +67,7 @@ final class AppDependencies {
     let terminalManager: TerminalSessionManager
     let terminalFocus: TerminalProcessFocusCoordinator
     let terminalNotifications: TerminalNotifications
+    let typeAhead = TerminalTypeAhead()
 
     init(defaults: UserDefaults, storageBootstrap: RuntimeStorageBootstrap,
          notificationDriver: any DesktopNotificationDriving = SystemNotificationDriver())
@@ -206,6 +207,7 @@ final class AppDependencies {
         for session in sessions {
             terminalFocus.releaseSession(sessionId: session.id); terminalManager.releaseSession(for: session.id)
         }
+        typeAhead.drop()
         commandSink.cancelPending()
         commandSink.transport = nil
         otherLaunchers.removeAll()
@@ -350,11 +352,12 @@ final class AppDependencies {
         return made
     }
 
+    @discardableResult
     func createSession(
         name: String, directory: String?, computer: String? = nil, roomId: String? = nil,
         resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil,
         agent: AgentStart? = nil, prompt: String? = nil,
-    ) async throws {
+    ) async throws -> String? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
@@ -386,9 +389,10 @@ final class AppDependencies {
             settings.lastWorkingDir = directory
             settings.save()
         }
-        guard let id = created.string("sessionId") else { return }
+        guard let id = created.string("sessionId") else { return nil }
         freshTerminals.insert(id)
         activateSession(id, inRoom: roomId)
+        return id
     }
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
