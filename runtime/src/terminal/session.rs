@@ -184,6 +184,7 @@ impl TerminalSession {
             resize_owner: None,
             requested: HashMap::new(),
             typed_at: None,
+            size,
             cell: CellPixels::default(),
             sequence: 0,
             host_stop_reply: None,
@@ -631,6 +632,7 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    size: TerminalSize,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
     output_at: Option<tokio::time::Instant>,
@@ -837,11 +839,28 @@ impl LocalActor {
             .emulator
             .resize(size.rows(), size.cols(), cell)
             .await
+        // Ghostty clears a prompt after it reflows it, when a long prompt line has become rows
+        // that its clear does not reach. A taller screen clears the prompt before the reflow.
+        if size.cols() != self.size.cols()
+            && self
+                .emulator
+                .cursor_at_prompt()
+                .await
+                .map_err(ResizeError::Diverged)?
+            && let Ok(taller) = TerminalSize::new(self.size.rows() + 1, self.size.cols())
+        {
+            self.emulator
+                .resize(taller.rows(), taller.cols(), cell)
+                .await
+                .map_err(ResizeError::Diverged)?;
+            self.publish_size(taller, cell);
+        }
             .map_err(ResizeError::Diverged)?;
         self.cell = cell;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
+        self.size = size;
         }
         let taken_turn = self
             .requested
@@ -865,6 +884,11 @@ impl LocalActor {
             rows: size.rows(),
             cols: size.cols(),
             cell,
+        self.publish_size(size, cell);
+        Ok(())
+    }
+
+    fn publish_size(&mut self, size: TerminalSize, cell: CellPixels) {
             at_sequence: self.sequence,
         });
         drop(self.output.send(PublishedFrame::Resize {

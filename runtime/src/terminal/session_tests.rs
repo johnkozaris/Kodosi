@@ -120,6 +120,55 @@ async fn invalid_geometry_is_rejected_without_stopping_the_process() {
             .await,
         Err(Error::Invalid(_))
     ));
+#[tokio::test]
+async fn a_terminal_starts_at_the_grid_of_its_view() {
+    let size = TerminalSize::new(20, 70).expect("size");
+    let cell = CellPixels {
+        width: 17,
+        height: 41,
+    };
+    let (session, _changes, root) = shell_at(
+        r#"while [ ! -f ready ]; do sleep 0.01; done
+printf 'SIZE=%s\n' "$(stty size)"
+exec /bin/cat"#,
+        (size, cell),
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    std::fs::write(root.path().join("ready"), b"").expect("release shell");
+    wait_text(&mut subscription, b"SIZE=20 70").await;
+    let cut = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_resize_clears_every_row_of_a_long_prompt_line() {
+    let (session, _changes, _root) = shell(
+        r"stty -echo
+printf '\033]133;A;redraw=1\007%s\r\n> READY' $(head -c 100 /dev/zero | tr '\0' x)
+exec /bin/cat",
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    wait_text(&mut subscription, b"READY").await;
+    session
+        .resize(
+            subscription.connection_id,
+            TerminalSize::new(32, 40).expect("size"),
+            None,
+            true,
+        )
+        .await
+        .expect("resize");
+    let text = session.read(false).await.expect("text");
+    assert!(!text.contains('x'), "{text}");
+    session.close().await.expect("close");
+}
+
     assert!(!session.is_closed());
     session
         .input(
@@ -684,6 +733,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         owner: None,
         local_view: false,
         working_directory: directory.clone(),
+        size: TerminalSize::default(),
         observed_directory: None,
         title: None,
         published_title: None,

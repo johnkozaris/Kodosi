@@ -134,6 +134,7 @@ pub struct TerminalState {
     pub cursor_visible: bool,
     pub active_screen: Screen,
     pub vt_processing_error: bool,
+    pub cursor_at_prompt: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -659,6 +660,7 @@ impl Terminal {
         let mut active_screen: GhosttyTerminalScreen = 0;
         let mut cursor_visible = false;
         let mut vt_processing_error = false;
+        let mut cursor_at_prompt = false;
         let keys = [
             GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLS,
             GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_ROWS,
@@ -667,6 +669,7 @@ impl Terminal {
             GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_ACTIVE_SCREEN,
             GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CURSOR_VISIBLE,
             GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_VT_PROCESSING_ERROR,
+            GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CURSOR_AT_PROMPT,
         ];
         let mut values = [
             ptr::from_mut(&mut cols).cast::<c_void>(),
@@ -676,6 +679,7 @@ impl Terminal {
             ptr::from_mut(&mut active_screen).cast::<c_void>(),
             ptr::from_mut(&mut cursor_visible).cast::<c_void>(),
             ptr::from_mut(&mut vt_processing_error).cast::<c_void>(),
+            ptr::from_mut(&mut cursor_at_prompt).cast::<c_void>(),
         ];
         let mut written = 0;
 
@@ -699,6 +703,7 @@ impl Terminal {
             cursor_visible,
             active_screen: screen_from_raw(active_screen)?,
             vt_processing_error,
+            cursor_at_prompt,
         })
     }
 
