@@ -1,0 +1,68 @@
+.slides-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.slides-list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 56px;
+  padding: 8px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.slides-item {
+  position: relative;
+  flex: none;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-behind);
+  color: inherit;
+  font: inherit;
+}
+
+.slides-item[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.slides-item[data-peer="true"]::after {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+}
+
+.slides-stage {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  place-items: center;
+  overflow: hidden;
+  outline: none;
+}
+
+.slides-text {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  transform-origin: 0 0;
+  outline: 1px solid var(--accent);
+}
+
+.slides-text .ProseMirror {
+  min-height: 1em;
+  outline: none;
+  white-space: pre-wrap;
+}

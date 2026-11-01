@@ -93,7 +93,10 @@ function randomBlock(random: Random, depth: number): Node {
   if (kind === 3)
     return schema.nodes.code_block.create({ params: "" }, schema.text(random.pick(WORDS)));
   if (kind === 4)
-    return schema.nodes.blockquote.create(null, randomBlocks(random, depth + 1, 1 + random.below(2)));
+    return schema.nodes.blockquote.create(
+      null,
+      randomBlocks(random, depth + 1, 1 + random.below(2)),
+    );
   const items: Node[] = [];
   for (let count = 1 + random.below(3); count > 0; count--) {
     items.push(

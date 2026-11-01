@@ -1,0 +1,13 @@
+{
+  "name": "@documents/pdf",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@documents/client": "workspace:*",
+    "@documents/contract": "workspace:*",
+    "pdfjs-dist": "6.4.299"
+  }
+}
