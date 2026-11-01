@@ -480,6 +480,7 @@ pub(crate) fn to_changes(model: &Model, ops: &[Op]) -> Result<Vec<Change>, Strin
                     line: None,
                     asset: None,
                     text: Some(plain_tree(text)?),
+                    look: Value::Null,
                     order: order as u64,
                 };
                 changes.push(Change::AddShape {

@@ -1,6 +1,6 @@
 use std::{fmt::Write as _, io::Write as _};
 
-use package::escape;
+use package::{escape, spans};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 const DRAWING: &str = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -49,6 +49,33 @@ fn placeholder(id: u32, name: &str, kind: &str, frame: [i64; 4], body: &str) -> 
     )
 }
 
+/// The look of text on the master: a heading, a body with bullets, and all other text.
+fn text_styles() -> String {
+    let level = |number: u32, margin: u32, size: u32| {
+        format!(
+            concat!(
+                r#"<a:lvl{number}pPr marL="{margin}" indent="-228600"><a:buChar char="•"/><a:defRPr sz="{size}">"#,
+                r#"<a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/></a:defRPr></a:lvl{number}pPr>"#,
+            ),
+            number = number,
+            margin = margin,
+            size = size,
+        )
+    };
+    format!(
+        concat!(
+            r#"<p:txStyles><p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill>"#,
+            r#"<a:latin typeface="+mj-lt"/></a:defRPr></a:lvl1pPr></p:titleStyle>"#,
+            r#"<p:bodyStyle>{one}{two}{three}</p:bodyStyle>"#,
+            r#"<p:otherStyle><a:lvl1pPr><a:defRPr sz="1800"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill>"#,
+            r#"<a:latin typeface="+mn-lt"/></a:defRPr></a:lvl1pPr></p:otherStyle></p:txStyles>"#,
+        ),
+        one = level(1, 228_600, 2800),
+        two = level(2, 685_800, 2400),
+        three = level(3, 1_143_000, 2000),
+    )
+}
+
 fn theme() -> String {
     format!(
         concat!(
@@ -74,18 +101,20 @@ const BODY_FRAME: [i64; 4] = [838_200, 1_825_625, 10_515_600, 4_351_338];
 fn master() -> String {
     let empty = "<a:p><a:endParaRPr/></a:p>";
     let shapes = placeholder(2, "Title", "title", TITLE_FRAME, empty)
+        .replace("<a:bodyPr/>", r#"<a:bodyPr anchor="ctr"/>"#)
         + &placeholder(3, "Body", "body", BODY_FRAME, empty);
     format!(
         concat!(
             r#"{header}<p:sldMaster xmlns:a="{a}" xmlns:r="{r}" xmlns:p="{p}">{tree}"#,
             r#"<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>"#,
-            r#"<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>"#,
+            r#"<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>{styles}</p:sldMaster>"#,
         ),
         header = HEADER,
         a = DRAWING,
         r = RELATIONSHIP,
         p = MAIN,
         tree = tree(&shapes),
+        styles = text_styles(),
     )
 }
 
@@ -104,7 +133,24 @@ fn paragraphs(lines: &[String]) -> String {
         return "<a:p><a:endParaRPr/></a:p>".to_owned();
     }
     lines.iter().fold(String::new(), |mut xml, line| {
-        let _ = write!(xml, "<a:p><a:r><a:t>{}</a:t></a:r></a:p>", escape(line));
+        xml.push_str("<a:p>");
+        for span in spans(line) {
+            let on = |set: bool, name: &str| {
+                if set {
+                    format!(r#" {name}="1""#)
+                } else {
+                    String::new()
+                }
+            };
+            let _ = write!(
+                xml,
+                r#"<a:r><a:rPr lang="en-US"{}{}/><a:t>{}</a:t></a:r>"#,
+                on(span.bold, "b"),
+                on(span.italic, "i"),
+                escape(&span.text)
+            );
+        }
+        xml.push_str("</a:p>");
         xml
     })
 }

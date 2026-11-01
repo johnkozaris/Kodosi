@@ -1,6 +1,6 @@
 use std::{fmt::Write as _, io::Write as _};
 
-use package::escape;
+use package::{escape, spans};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 const MAIN: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -63,20 +63,26 @@ fn numbering() -> String {
 }
 
 fn paragraph(properties: &str, text: &str) -> String {
-    let run = if text.is_empty() {
-        String::new()
-    } else {
-        format!(
-            r#"<w:r><w:t xml:space="preserve">{}</w:t></w:r>"#,
-            escape(text)
-        )
-    };
+    let mut runs = String::new();
+    for span in spans(text) {
+        let look = match (span.bold, span.italic) {
+            (false, false) => "",
+            (true, false) => "<w:rPr><w:b/></w:rPr>",
+            (false, true) => "<w:rPr><w:i/></w:rPr>",
+            (true, true) => "<w:rPr><w:b/><w:i/></w:rPr>",
+        };
+        let _ = write!(
+            runs,
+            r#"<w:r>{look}<w:t xml:space="preserve">{}</w:t></w:r>"#,
+            escape(&span.text)
+        );
+    }
     let properties = if properties.is_empty() {
         String::new()
     } else {
         format!("<w:pPr>{properties}</w:pPr>")
     };
-    format!("<w:p>{properties}{run}</w:p>")
+    format!("<w:p>{properties}{runs}</w:p>")
 }
 
 fn body_of(markdown: &str) -> String {

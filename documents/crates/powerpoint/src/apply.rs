@@ -19,19 +19,28 @@ fn no_shape(id: &str) -> Refused {
     Refused::Invalid(format!("no shape {id}"))
 }
 
-fn text_moved(since: &[Ordered<Change>], slide: &str, shape: &str) -> bool {
-    since.iter().any(|ordered| match &ordered.change {
+fn holds_text_of(change: &Change, slide: &str, shape: &str) -> bool {
+    match change {
         Change::Text {
             slide: other_slide,
             shape: other_shape,
             ..
         } => other_slide == slide && other_shape == shape,
-        Change::Group { changes } => changes.iter().any(|change| {
-            matches!(change, Change::Text { slide: other_slide, shape: other_shape, .. }
-                if other_slide == slide && other_shape == shape)
-        }),
+        Change::Group { changes } => changes
+            .iter()
+            .any(|change| holds_text_of(change, slide, shape)),
         _ => false,
-    })
+    }
+}
+
+fn is_behind(change: &Change, since: &[Ordered<Change>]) -> bool {
+    match change {
+        Change::Text { slide, shape, .. } => since
+            .iter()
+            .any(|ordered| holds_text_of(&ordered.change, slide, shape)),
+        Change::Group { changes } => changes.iter().any(|change| is_behind(change, since)),
+        _ => false,
+    }
 }
 
 pub(crate) fn apply(
@@ -39,9 +48,7 @@ pub(crate) fn apply(
     change: Change,
     since: &[Ordered<Change>],
 ) -> Result<Change, Refused> {
-    if let Change::Text { slide, shape, .. } = &change
-        && text_moved(since, slide, shape)
-    {
+    if is_behind(&change, since) {
         return Err(Refused::Behind(
             "The text moved. Move the steps and send them again.".to_owned(),
         ));

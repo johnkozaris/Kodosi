@@ -15,6 +15,8 @@ const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/re
 const LAYOUT_KIND: &str = "slideLayout";
 const MASTER_KIND: &str = "slideMaster";
 const SHORT_HASH: usize = 16;
+const TEXT_LEVELS: usize = 9;
+const WHOLE_SCALE: f64 = 100_000.0;
 
 fn broken(error: impl std::fmt::Display) -> Unreadable {
     Unreadable(error.to_string())
@@ -173,6 +175,121 @@ fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
     Ok(marks)
 }
 
+/// One look for each of the nine text levels. What a list does not set stays as it was.
+type Levels = Vec<Map<String, Value>>;
+
+fn merge_levels(levels: &mut Levels, list: Xml<'_, '_>) {
+    levels.resize(TEXT_LEVELS, Map::new());
+    for (index, level) in levels.iter_mut().enumerate() {
+        let Some(properties) = local(list, &format!("lvl{}pPr", index + 1)) else {
+            continue;
+        };
+        if let Some(align) = properties.attribute("algn") {
+            level.insert("align".to_owned(), json!(align));
+        }
+        if let Some(margin) = properties.attribute("marL") {
+            level.insert(
+                "margin".to_owned(),
+                json!(margin.parse::<i64>().unwrap_or(0)),
+            );
+        }
+        if local(properties, "buNone").is_some() {
+            level.insert("bullet".to_owned(), json!(false));
+        } else if local(properties, "buChar").is_some() || local(properties, "buAutoNum").is_some()
+        {
+            level.insert("bullet".to_owned(), json!(true));
+        }
+        let Some(run) = local(properties, "defRPr") else {
+            continue;
+        };
+        let look = run_look(run);
+        for (name, value) in [("bold", run.attribute("b")), ("italic", run.attribute("i"))] {
+            if let Some(value) = value {
+                level.insert(name.to_owned(), json!(matches!(value, "1" | "true")));
+            }
+        }
+        for (name, value) in [
+            ("size", look.size),
+            ("color", look.color),
+            ("font", look.font),
+        ] {
+            if let Some(value) = value {
+                level.insert(name.to_owned(), json!(value));
+            }
+        }
+    }
+}
+
+/// The text look of a placeholder in a layout or a master.
+#[derive(Debug, Clone, Default)]
+struct Placeholder {
+    frame: Option<Frame>,
+    levels: Levels,
+    anchor: Option<String>,
+}
+
+/// What a slide's shapes take from their layout and master.
+#[derive(Debug, Default)]
+struct Inherited {
+    master: HashMap<String, Placeholder>,
+    layout: HashMap<String, Placeholder>,
+    title: Levels,
+    body: Levels,
+    other: Levels,
+}
+
+impl Inherited {
+    fn frame(&self, key: &str) -> Option<Frame> {
+        let frame = |list: &HashMap<String, Placeholder>| list.get(key).and_then(|hold| hold.frame);
+        frame(&self.layout).or_else(|| frame(&self.master))
+    }
+
+    /// A placeholder matches by its type in the master, where its index often differs.
+    fn in_master(&self, key: &str) -> Option<&Placeholder> {
+        let kind = key.split(':').next().unwrap_or(key);
+        self.master.get(key).or_else(|| {
+            self.master
+                .iter()
+                .find(|(other, _)| other.split(':').next() == Some(kind))
+                .map(|(_, placeholder)| placeholder)
+        })
+    }
+
+    fn text_look(&self, key: Option<&str>, body: Xml<'_, '_>) -> Value {
+        let kind = key.and_then(|key| key.split(':').next());
+        let mut levels = match kind {
+            Some("title" | "ctrTitle") => self.title.clone(),
+            Some("dt" | "ftr" | "sldNum") | None => self.other.clone(),
+            Some(_) => self.body.clone(),
+        };
+        levels.resize(TEXT_LEVELS, Map::new());
+        let mut anchor = None;
+        let held = key.map_or([None, None], |key| {
+            [self.in_master(key), self.layout.get(key)]
+        });
+        for placeholder in held.into_iter().flatten() {
+            for (target, level) in levels.iter_mut().zip(&placeholder.levels) {
+                target.extend(level.clone());
+            }
+            anchor = placeholder.anchor.clone().or(anchor);
+        }
+        if let Some(list) = local(body, "lstStyle") {
+            merge_levels(&mut levels, list);
+        }
+        let properties = local(body, "bodyPr");
+        let scale = properties
+            .and_then(|node| local(node, "normAutofit"))
+            .and_then(|fit| fit.attribute("fontScale"))
+            .and_then(|scale| scale.parse::<f64>().ok())
+            .map(|scale| scale / WHOLE_SCALE);
+        json!({
+            "levels": levels,
+            "anchor": properties.and_then(|node| node.attribute("anchor")).map(str::to_owned).or(anchor),
+            "scale": scale,
+        })
+    }
+}
+
 struct Reader<'p, 'file, 'input> {
     source: &'input str,
     raws: &'p mut HashMap<String, String>,
@@ -276,7 +393,7 @@ impl<'input> Reader<'_, '_, 'input> {
         &mut self,
         element: Xml<'_, 'input>,
         order: u64,
-        inherited: &HashMap<String, Frame>,
+        inherited: &Inherited,
     ) -> Result<Option<Shape>, text::Failed> {
         let kind = match element.tag_name().name() {
             "sp" => "shape",
@@ -298,16 +415,16 @@ impl<'input> Reader<'_, '_, 'input> {
         let placeholder = placeholder_key(element);
         let frame = frame_of(properties)
             .or_else(|| frame_of(Some(element)))
-            .or_else(|| {
-                placeholder
-                    .as_ref()
-                    .and_then(|key| inherited.get(key).copied())
-            })
+            .or_else(|| placeholder.as_ref().and_then(|key| inherited.frame(key)))
             .unwrap_or_default();
-        let text = match local(element, "txBody") {
+        let body = local(element, "txBody");
+        let text = match body {
             Some(body) => Some(self.text_tree(body)?),
             None => None,
         };
+        let look = body.map_or(Value::Null, |body| {
+            inherited.text_look(placeholder.as_deref(), body)
+        });
         let asset = self.picture(element);
         Ok(Some(Shape {
             id: names.attribute("id").unwrap_or_default().to_owned(),
@@ -327,6 +444,7 @@ impl<'input> Reader<'_, '_, 'input> {
             line: properties.and_then(|node| color_of(local(node, "ln"))),
             asset,
             text,
+            look,
             order,
         }))
     }
@@ -345,7 +463,7 @@ impl<'input> Reader<'_, '_, 'input> {
     fn shapes(
         &mut self,
         root: Xml<'_, 'input>,
-        inherited: &HashMap<String, Frame>,
+        inherited: &Inherited,
     ) -> Result<Vec<Shape>, text::Failed> {
         let Some(tree) = descendant(root, "spTree") else {
             return Ok(Vec::new());
@@ -360,17 +478,50 @@ impl<'input> Reader<'_, '_, 'input> {
     }
 }
 
-/// The frames of placeholders in a layout or a master, which a slide's shape takes when it
-/// sets none.
-fn placeholder_frames(xml: &str) -> HashMap<String, Frame> {
+/// The placeholders of a layout or a master, which a slide's shape takes from.
+fn placeholders(xml: &str) -> HashMap<String, Placeholder> {
     let Ok(parsed) = Document::parse(xml) else {
         return HashMap::new();
     };
     parsed
         .descendants()
         .filter(|node| node.is_element() && node.tag_name().name() == "sp")
-        .filter_map(|shape| Some((placeholder_key(shape)?, frame_of(local(shape, "spPr"))?)))
+        .filter_map(|shape| {
+            let body = local(shape, "txBody");
+            let mut levels = Levels::new();
+            if let Some(list) = body.and_then(|body| local(body, "lstStyle")) {
+                merge_levels(&mut levels, list);
+            }
+            let placeholder = Placeholder {
+                frame: frame_of(local(shape, "spPr")),
+                levels,
+                anchor: body
+                    .and_then(|body| local(body, "bodyPr"))
+                    .and_then(|properties| properties.attribute("anchor"))
+                    .map(str::to_owned),
+            };
+            Some((placeholder_key(shape)?, placeholder))
+        })
         .collect()
+}
+
+/// The master's text styles for titles, bodies and all other text.
+fn text_styles(xml: &str) -> [Levels; 3] {
+    let mut styles = [Levels::new(), Levels::new(), Levels::new()];
+    let Ok(parsed) = Document::parse(xml) else {
+        return styles;
+    };
+    if let Some(list) = descendant(parsed.root_element(), "txStyles") {
+        for (levels, name) in styles
+            .iter_mut()
+            .zip(["titleStyle", "bodyStyle", "otherStyle"])
+        {
+            if let Some(style) = local(list, name) {
+                merge_levels(levels, style);
+            }
+        }
+    }
+    styles
 }
 
 fn background_of(root: Xml<'_, '_>) -> Option<String> {
@@ -378,8 +529,8 @@ fn background_of(root: Xml<'_, '_>) -> Option<String> {
     color_of(Some(background))
 }
 
-/// The theme's colors, by name.
-fn theme_colors(package: &mut Package<'_>, master: Option<&str>) -> Value {
+/// The theme's colors by name, with its heading font and its body font.
+fn theme_of(package: &mut Package<'_>, master: Option<&str>) -> Value {
     let Some(master) = master else {
         return Value::Null;
     };
@@ -396,7 +547,7 @@ fn theme_colors(package: &mut Package<'_>, master: Option<&str>) -> Value {
     let Some(scheme) = descendant(parsed.root_element(), "clrScheme") else {
         return Value::Null;
     };
-    let colors: Map<String, Value> = scheme
+    let mut theme: Map<String, Value> = scheme
         .children()
         .filter(Xml::is_element)
         .filter_map(|color| {
@@ -408,7 +559,17 @@ fn theme_colors(package: &mut Package<'_>, master: Option<&str>) -> Value {
             Some((color.tag_name().name().to_owned(), json!(hex)))
         })
         .collect();
-    Value::Object(colors)
+    if let Some(fonts) = descendant(parsed.root_element(), "fontScheme") {
+        for (part, name) in [("majorFont", "+mj-lt"), ("minorFont", "+mn-lt")] {
+            let face = local(fonts, part)
+                .and_then(|font| local(font, "latin"))
+                .and_then(|latin| latin.attribute("typeface"));
+            if let Some(face) = face {
+                theme.insert(name.to_owned(), json!(face));
+            }
+        }
+    }
+    Value::Object(theme)
 }
 
 fn linked_part(relations: &HashMap<String, Relation>, kind: &str) -> Option<String> {
@@ -461,16 +622,14 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
         if first_master.is_none() {
             first_master.clone_from(&master);
         }
-        let mut inherited = master_xml
-            .as_deref()
-            .map(placeholder_frames)
-            .unwrap_or_default();
-        inherited.extend(
-            layout_xml
-                .as_deref()
-                .map(placeholder_frames)
-                .unwrap_or_default(),
-        );
+        let [title, body, other] = master_xml.as_deref().map(text_styles).unwrap_or_default();
+        let inherited = Inherited {
+            master: master_xml.as_deref().map(placeholders).unwrap_or_default(),
+            layout: layout_xml.as_deref().map(placeholders).unwrap_or_default(),
+            title,
+            body,
+            other,
+        };
         let mut reader = Reader {
             source: &xml,
             raws: &mut model.raws,
@@ -517,6 +676,6 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
             background,
         });
     }
-    model.theme = theme_colors(&mut package, first_master.as_deref());
+    model.theme = theme_of(&mut package, first_master.as_deref());
     Ok(model)
 }

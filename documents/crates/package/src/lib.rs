@@ -152,6 +152,56 @@ pub fn join_part(folder: &str, target: &str) -> String {
 /// New bytes for parts of a package. `None` removes a part.
 pub type Parts = BTreeMap<String, Option<Vec<u8>>>;
 
+/// One stretch of a Markdown line with its look.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Span {
+    pub text: String,
+    pub bold: bool,
+    pub italic: bool,
+}
+
+/// Splits a Markdown line at its `**` and `*` marks. A mark with no partner stays as text.
+#[must_use]
+pub fn spans(line: &str) -> Vec<Span> {
+    let mut out = Vec::new();
+    let mut rest = line;
+    let mut text = String::new();
+    let (mut bold, mut italic) = (false, false);
+    while let Some(at) = rest.find('*') {
+        let mark = if rest[at..].starts_with("**") {
+            "**"
+        } else {
+            "*"
+        };
+        let after = &rest[at + mark.len()..];
+        let open = if mark == "**" { bold } else { italic };
+        if !open && !after.contains(mark) {
+            text.push_str(&rest[..at + mark.len()]);
+            rest = after;
+            continue;
+        }
+        text.push_str(&rest[..at]);
+        rest = after;
+        if !text.is_empty() {
+            out.push(Span {
+                text: std::mem::take(&mut text),
+                bold,
+                italic,
+            });
+        }
+        if mark == "**" {
+            bold = !bold;
+        } else {
+            italic = !italic;
+        }
+    }
+    text.push_str(rest);
+    if !text.is_empty() {
+        out.push(Span { text, bold, italic });
+    }
+    out
+}
+
 /// Writes a package with some parts changed. All others keep their compressed bytes.
 pub fn rewrite(file: &[u8], parts: &Parts) -> Result<Vec<u8>, PackageError> {
     let mut archive = ZipArchive::new(Cursor::new(file)).map_err(broken)?;
@@ -201,6 +251,26 @@ pub fn escape(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn marks_of_a_line_split_it_and_a_lone_mark_stays() {
+        let text = |line: &str| -> Vec<(String, bool, bool)> {
+            spans(line)
+                .into_iter()
+                .map(|span| (span.text, span.bold, span.italic))
+                .collect()
+        };
+        assert_eq!(
+            text("a **b** *c* 2*3"),
+            vec![
+                ("a ".to_owned(), false, false),
+                ("b".to_owned(), true, false),
+                (" ".to_owned(), false, false),
+                ("c".to_owned(), false, true),
+                (" 2*3".to_owned(), false, false),
+            ]
+        );
+    }
 
     fn package_of(entries: &[(&str, &[u8])]) -> Vec<u8> {
         let mut writer = ZipWriter::new(Cursor::new(Vec::new()));

@@ -21,6 +21,8 @@ const DRAWING_MAIN: &str = "http://schemas.openxmlformats.org/drawingml/2006/mai
 const WORD_DRAWING: &str = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
 const EMU_PER_PIXEL: f64 = 9525.0;
 const SHORT_HASH: usize = 16;
+/// Stands in the text of a run that holds a page break, so that a view can start a new page.
+const PAGE_BREAK: char = '\u{c}';
 
 fn broken(error: impl std::fmt::Display) -> Unreadable {
     Unreadable(error.to_string())
@@ -278,6 +280,9 @@ impl<'input> Reader<'_, 'input> {
             "numId": number_value("numId"),
             "ilvl": number_value("ilvl"),
             "props": self.keep_child(element, "pPr"),
+            "pageBreak": properties
+                .and_then(|node| word_child(node, "pageBreakBefore"))
+                .is_some_and(|node| !matches!(word_attribute(node, "val"), Some("0" | "false"))),
         });
         let mut inlines = Vec::new();
         for child in element.children().filter(Xml::is_element) {
@@ -374,9 +379,15 @@ impl<'input> Reader<'_, 'input> {
                 out.push(self.drawing(element, child, &marks)?);
             } else {
                 let raw = self.keep(self.xml_of(element));
+                let page_break =
+                    is_word(child, "br") && word_attribute(child, "type") == Some("page");
+                let mut text = all_text(element);
+                if page_break {
+                    text.push(PAGE_BREAK);
+                }
                 out.push(node(
                     "inlineOpaque",
-                    json!({ "raw": raw, "text": all_text(element) }),
+                    json!({ "raw": raw, "text": text }),
                     Vec::new(),
                 )?);
                 return Ok(());

@@ -37,6 +37,8 @@ pub struct Shape {
     pub line: Option<String>,
     pub asset: Option<String>,
     pub text: Option<Node>,
+    /// The look that its text takes from the master, the layout and the shape, by level.
+    pub look: Value,
     /// Where it stands among the shapes: higher is in front.
     pub order: u64,
 }
@@ -164,6 +166,7 @@ impl Shape {
             "line": self.line,
             "asset": self.asset,
             "text": self.text.as_ref().map(|text| text.to_json(schema())),
+            "look": self.look,
             "order": self.order,
         })
     }
@@ -190,6 +193,7 @@ impl Shape {
             line: text("line"),
             asset: text("asset"),
             text: tree,
+            look: json.get("look").cloned().unwrap_or(Value::Null),
             order: json["order"].as_u64().unwrap_or(0),
         })
     }

@@ -48,6 +48,11 @@ fn run_look(properties: Xml<'_, '_>, values: &mut Map<String, Value>) {
 }
 
 fn paragraph_look(properties: Xml<'_, '_>, values: &mut Map<String, Value>) {
+    for (name, key) in [("keepNext", "keepNext"), ("pageBreakBefore", "pageBreak")] {
+        if let Some(set) = on(properties, name) {
+            values.insert(key.to_owned(), json!(set));
+        }
+    }
     if let Some(align) = value(properties, "jc") {
         values.insert("align".to_owned(), json!(align));
     }

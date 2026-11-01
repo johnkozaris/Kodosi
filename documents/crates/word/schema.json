@@ -11,7 +11,8 @@
         "align": { "default": null },
         "numId": { "default": null },
         "ilvl": { "default": null },
-        "props": { "default": null }
+        "props": { "default": null },
+        "pageBreak": { "default": false }
       }
     },
     {
