@@ -2,6 +2,7 @@
 //! a save makes new XML only for blocks that changed, and each other byte stays.
 
 mod apply;
+mod blank;
 mod model;
 mod ops;
 mod read;
@@ -11,6 +12,7 @@ mod write;
 use document::{Answer, Assets, Format, Guide, Ordered, Refused, Snapshot, Unreadable, Unwritable};
 use serde_json::json;
 
+pub use blank::new_file;
 pub use model::{Change, Model, Query, Word};
 pub use ops::Op;
 

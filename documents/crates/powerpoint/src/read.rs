@@ -418,10 +418,6 @@ fn linked_part(relations: &HashMap<String, Relation>, kind: &str) -> Option<Stri
         .map(|relation| relation.target.clone())
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "one walk through the parts of a deck"
-)]
 pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable> {
     let mut package = Package::open(file).map_err(broken)?;
     let presentation_xml = package

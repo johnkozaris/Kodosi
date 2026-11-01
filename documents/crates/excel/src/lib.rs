@@ -3,6 +3,7 @@
 //! the server for the values that the file holds.
 
 mod apply;
+mod blank;
 mod formula;
 mod model;
 mod ops;
@@ -11,6 +12,7 @@ mod write;
 
 use document::{Answer, Assets, Format, Guide, Ordered, Refused, Snapshot, Unreadable, Unwritable};
 
+pub use blank::new_file;
 pub use model::{Cell, CellChange, Change, Excel, Model, Query, Value};
 pub use ops::Op;
 

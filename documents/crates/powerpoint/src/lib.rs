@@ -2,6 +2,7 @@
 //! tree with the same steps as Word. A save changes only the parts of a slide that changed.
 
 mod apply;
+mod blank;
 mod model;
 mod ops;
 mod read;
@@ -9,6 +10,7 @@ mod write;
 
 use document::{Answer, Assets, Format, Guide, Ordered, Refused, Snapshot, Unreadable, Unwritable};
 
+pub use blank::new_file;
 pub use model::{Change, Model, PowerPoint, Query, Shape, ShapeFields, Slide};
 pub use ops::Op;
 

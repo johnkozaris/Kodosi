@@ -707,6 +707,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "documents-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "document",
+ "documents",
+ "excel",
+ "getrandom 0.4.3",
+ "pdf",
+ "powerpoint",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "word",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
