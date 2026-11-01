@@ -1,0 +1,227 @@
+use std::{collections::BTreeMap, sync::Arc};
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, json};
+
+use crate::Op;
+
+/// The Excel format.
+pub struct Excel;
+
+/// What a cell holds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    Number(f64),
+    Bool(bool),
+    Text(String),
+    Error { error: String },
+}
+
+/// One cell. A cell that the file holds as a formula also holds its last value.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Cell {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<u32>,
+}
+
+impl Cell {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.value.is_none() && self.formula.is_none() && self.style.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct Sheet {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) part: Option<String>,
+    pub(crate) cells: BTreeMap<(u32, u32), Cell>,
+    pub(crate) merges: Vec<[u32; 4]>,
+    pub(crate) widths: BTreeMap<u32, f64>,
+    pub(crate) heights: BTreeMap<u32, f64>,
+    /// Rows or columns moved, so a save writes the whole sheet.
+    pub(crate) moved: bool,
+}
+
+/// One look that cells can share.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is one switch of a cell's look"
+)]
+pub struct Look {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bold: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub italic: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub underline: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number_format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub wrap: bool,
+}
+
+/// The live copy of an Excel file.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Model {
+    pub(crate) sheets: Vec<Sheet>,
+    pub(crate) looks: Vec<Look>,
+    /// Looks up to this index are in the file. Later ones are new.
+    pub(crate) file_looks: usize,
+    /// The file as it was read, which a read uses to work out current formula results.
+    pub(crate) base: Option<Arc<Vec<u8>>>,
+}
+
+/// A change to one cell, by its key. What it does not name stays.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct CellChange {
+    pub row: u32,
+    pub column: u32,
+    /// `null` empties the cell. Without it, the value stays.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<Option<Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formula: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<Option<u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look: Option<Look>,
+}
+
+/// One change. Cells name a key, so the last change wins. Rows and columns name positions, so
+/// a view moves its older cell changes across them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum Change {
+    Cells {
+        sheet: String,
+        cells: Vec<CellChange>,
+    },
+    Rows {
+        sheet: String,
+        at: u32,
+        /// Positive inserts, negative deletes.
+        count: i32,
+    },
+    Columns {
+        sheet: String,
+        at: u32,
+        count: i32,
+    },
+    AddSheet {
+        id: String,
+        name: String,
+    },
+    RenameSheet {
+        sheet: String,
+        name: String,
+    },
+    RemoveSheet {
+        sheet: String,
+    },
+    Size {
+        sheet: String,
+        #[serde(default)]
+        widths: BTreeMap<u32, f64>,
+        #[serde(default)]
+        heights: BTreeMap<u32, f64>,
+    },
+    Ops {
+        ops: Vec<Op>,
+    },
+    Group {
+        changes: Vec<Self>,
+    },
+}
+
+/// What read and check ask.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum Query {
+    Read {
+        #[serde(default)]
+        sheet: Option<String>,
+        /// Such as `A1:C9`.
+        #[serde(default)]
+        range: Option<String>,
+    },
+    Check,
+}
+
+impl Model {
+    pub(crate) fn sheet(&self, id: &str) -> Option<&Sheet> {
+        self.sheets.iter().find(|sheet| sheet.id == id)
+    }
+
+    pub(crate) fn sheet_mut(&mut self, id: &str) -> Option<&mut Sheet> {
+        self.sheets.iter_mut().find(|sheet| sheet.id == id)
+    }
+
+    pub(crate) fn snapshot(&self) -> serde_json::Value {
+        let sheets: Vec<serde_json::Value> = self.sheets.iter().map(Sheet::snapshot).collect();
+        json!({ "sheets": sheets, "looks": self.looks })
+    }
+}
+
+impl Sheet {
+    fn snapshot(&self) -> serde_json::Value {
+        let mut rows: BTreeMap<u32, Map<String, serde_json::Value>> = BTreeMap::new();
+        for ((row, column), cell) in &self.cells {
+            rows.entry(*row)
+                .or_default()
+                .insert(column.to_string(), json!(cell));
+        }
+        let (last_row, last_column) = self.size();
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "rows": last_row,
+            "columns": last_column,
+            "cells": rows,
+            "merges": self.merges,
+            "widths": self.widths,
+            "heights": self.heights,
+        })
+    }
+
+    pub(crate) fn size(&self) -> (u32, u32) {
+        let row = self
+            .cells
+            .keys()
+            .map(|(row, _)| *row + 1)
+            .max()
+            .unwrap_or(0);
+        let column = self
+            .cells
+            .keys()
+            .map(|(_, column)| *column + 1)
+            .max()
+            .unwrap_or(0);
+        (row, column)
+    }
+}
