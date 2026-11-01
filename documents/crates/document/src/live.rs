@@ -21,7 +21,7 @@ const MOST_SAVED_STATES: usize = 32;
 pub type PipeId = u64;
 
 /// What happens to a document.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Input {
     /// A pipe opened for this viewer. Its first message must be `join`.
     Connected {
@@ -63,9 +63,11 @@ pub enum Input {
 /// What a document asks its host to do, in this order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
+    /// `catchup` marks the large answer to `join`, which counts against no limit of its pipe.
     Send {
         to: Vec<PipeId>,
         frame: Arc<[u8]>,
+        catchup: bool,
     },
     /// Ends a pipe that broke the contract or that a newer pipe replaces.
     Drop {
@@ -77,6 +79,8 @@ pub enum Effect {
     KeepAsset(Hash),
     /// A change waits to be saved.
     Unsaved,
+    /// The new file reads well, so it is the file on disk now.
+    FileTaken,
     Write {
         rev: Rev,
         file: Vec<u8>,
@@ -236,6 +240,7 @@ impl<F: Format> Document<F> {
                 vec![Effect::Send {
                     to: self.seats.keys().copied().collect(),
                     frame: frame.into(),
+                    catchup: false,
                 }]
             }
         }
@@ -273,6 +278,7 @@ impl<F: Format> Document<F> {
                 vec![Effect::Send {
                     to: vec![pipe],
                     frame: contract::encode_asset(&hash, asset).into(),
+                    catchup: true,
                 }]
             });
         }
@@ -328,23 +334,33 @@ impl<F: Format> Document<F> {
             name: seat.viewer.name.clone(),
             place: Value::Null,
         });
-        effects.push(send_to(vec![pipe], &joined));
+        effects.push(Effect::Send {
+            to: vec![pipe],
+            frame: contract::encode_message(&joined).into(),
+            catchup: true,
+        });
         effects.push(send_to(self.others(pipe), &peer));
         effects
     }
 
     fn catchup(&self, epoch: u64, rev: Rev) -> Catchup {
-        if epoch == self.epoch && rev >= self.first_rev && rev <= self.rev && rev > 0 {
-            let changes = self.log[(rev - self.first_rev) as usize..]
-                .iter()
-                .map(changed_of)
-                .collect();
-            Catchup::Missed { changes }
-        } else {
-            Catchup::Snapshot {
+        let missed = (epoch == self.epoch && rev > 0)
+            .then(|| self.log_since(rev))
+            .flatten();
+        missed.map_or_else(
+            || Catchup::Snapshot {
                 snapshot: F::snapshot(&self.model).0,
-            }
-        }
+            },
+            |missed| Catchup::Missed {
+                changes: missed.iter().map(changed_of).collect(),
+            },
+        )
+    }
+
+    /// The changes after a rev, if the log still holds them.
+    fn log_since(&self, rev: Rev) -> Option<&[Ordered<F::Change>]> {
+        let skip = usize::try_from(rev.checked_sub(self.first_rev)?).ok()?;
+        self.log.get(skip..)
     }
 
     fn peers(&self) -> Vec<Peer> {
@@ -390,13 +406,11 @@ impl<F: Format> Document<F> {
         if base > self.rev {
             return vec![refuse(pipe, seq, RefusedReason::Invalid, None)];
         }
-        let Some(since) = base
-            .checked_sub(self.first_rev)
-            .and_then(|skip| self.log.get(skip as usize..))
-        else {
+        let Some(since) = self.log_since(base) else {
             return vec![refuse(pipe, seq, RefusedReason::Behind, None)];
         };
-        match F::apply(&mut self.model, change, since, &mut self.assets) {
+        let since = since.to_vec();
+        match F::apply(&mut self.model, change, &since, &mut self.assets) {
             Ok(change) => {
                 self.seqs.insert(client.clone(), seq);
                 self.ordered(change, author, client, seq)
@@ -490,7 +504,7 @@ impl<F: Format> Document<F> {
         let Some(changes) = self.nearest_changes(&new) else {
             return Vec::new();
         };
-        let mut effects = Vec::new();
+        let mut effects = vec![Effect::FileTaken];
         for change in changes {
             if let Ok(change) = F::apply(&mut self.model, change, &[], &mut self.assets) {
                 effects.extend(self.ordered(
@@ -504,7 +518,7 @@ impl<F: Format> Document<F> {
         effects
     }
 
-    fn nearest_changes(&mut self, new: &F::Model) -> Option<Vec<F::Change>> {
+    fn nearest_changes(&self, new: &F::Model) -> Option<Vec<F::Change>> {
         let mut assets = self.assets.clone();
         let mut state = F::read(&self.original, &mut assets).ok()?;
         let mut applied = self.first_rev;
@@ -580,6 +594,7 @@ fn send_to(to: Vec<PipeId>, message: &ToClient) -> Effect {
     Effect::Send {
         to,
         frame: contract::encode_message(message).into(),
+        catchup: false,
     }
 }
 

@@ -29,7 +29,7 @@ pub struct Viewer {
 }
 
 /// What a client sends to its document.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -65,7 +65,7 @@ pub enum ToDocument {
 }
 
 /// One change in the order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Changed {
@@ -79,7 +79,7 @@ pub struct Changed {
 }
 
 /// Someone who is here.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Peer {
@@ -89,7 +89,7 @@ pub struct Peer {
 }
 
 /// What a client needs after it joins.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -121,7 +121,7 @@ pub enum ClosedReason {
 }
 
 /// What a document sends to a client.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -177,7 +177,7 @@ pub type Hash = [u8; HASH_BYTES];
 
 /// One frame of a pipe: JSON, gzip JSON when it is large, or the raw bytes of an asset.
 /// An asset frame with no bytes asks for that asset.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Frame<T> {
     Message(T),
     Asset { hash: Hash, bytes: Vec<u8> },

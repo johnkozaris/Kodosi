@@ -76,12 +76,15 @@ impl Format for Sheet {
                 key: key.clone(),
                 value: value.clone(),
             });
-        let lines = to.lines.iter().enumerate().filter_map(|(at, line)| {
-            (!from.lines.contains(line)).then(|| Change::Insert {
+        let lines = to
+            .lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| !from.lines.contains(line))
+            .map(|(at, line)| Change::Insert {
                 at: at.min(from.lines.len()),
                 line: line.clone(),
-            })
-        });
+            });
         cells.chain(lines).collect()
     }
 
@@ -165,7 +168,7 @@ fn messages_for(pipe: PipeId, effects: &[Effect]) -> Vec<ToClient> {
     effects
         .iter()
         .filter_map(|effect| match effect {
-            Effect::Send { to, frame } if to.contains(&pipe) => {
+            Effect::Send { to, frame, .. } if to.contains(&pipe) => {
                 match contract::decode::<ToClient>(frame) {
                     Ok(Frame::Message(message)) => Some(message),
                     _ => None,
@@ -659,7 +662,7 @@ impl World {
     fn run_effects(&mut self, effects: Vec<Effect>) {
         for effect in effects {
             match effect {
-                Effect::Send { to, frame } => {
+                Effect::Send { to, frame, .. } => {
                     for pipe in to {
                         if let Some(view) = self.links.get(&pipe) {
                             self.views[*view].inbox.push_back(frame.to_vec());
@@ -677,7 +680,7 @@ impl World {
                     let effects = self.document.step(Input::Saved { rev });
                     self.run_effects(effects);
                 }
-                Effect::KeepAsset(_) | Effect::Unsaved | Effect::Seal => {}
+                Effect::KeepAsset(_) | Effect::Unsaved | Effect::FileTaken | Effect::Seal => {}
             }
         }
     }
@@ -826,7 +829,7 @@ impl World {
     }
 
     fn step(&mut self) {
-        let view = self.random.below(3) as usize;
+        let view = usize::try_from(self.random.below(3)).unwrap();
         match self.random.below(100) {
             0..=29 => self.edit(view),
             30..=54 => self.deliver_to_server(),

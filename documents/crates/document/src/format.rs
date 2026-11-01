@@ -51,11 +51,11 @@ pub struct Ordered<C> {
 }
 
 /// All that a view needs to show a document.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot(pub Value);
 
 /// What a query answers.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Answer(pub Value);
 
 /// Why a change does not go in the order.

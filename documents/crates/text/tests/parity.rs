@@ -43,10 +43,7 @@ fn each_step_gives_the_same_tree_as_prosemirror() {
                     node.to_json(&schema)
                 ),
                 (Err(failed), after) if !after.is_null() => {
-                    panic!(
-                        "case {case}, step {index}: {failed} in {}",
-                        entry["step"]
-                    )
+                    panic!("case {case}, step {index}: {failed} in {}", entry["step"])
                 }
                 (Ok(node), after) => {
                     assert_eq!(node.to_json(&schema), *after, "case {case}, step {index}");
