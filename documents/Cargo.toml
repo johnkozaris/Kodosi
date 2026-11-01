@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/document", "crates/documents", "crates/text"]
+members = ["crates/document", "crates/documents", "crates/package", "crates/text", "crates/word"]
 resolver = "3"
 
 [workspace.package]
@@ -39,8 +39,12 @@ missing_const_for_fn = "allow"
 [workspace.dependencies]
 document = { path = "crates/document" }
 flate2 = "1.1.10"
+package = { path = "crates/package" }
+roxmltree = "0.21.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
+text = { path = "crates/text" }
 thiserror = "2.0.21"
 ts-rs = { version = "12.0.1", features = ["serde-json-impl"] }
+zip = { version = "9.2.1", default-features = false, features = ["deflate"] }

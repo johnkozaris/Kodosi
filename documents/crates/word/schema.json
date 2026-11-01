@@ -1,0 +1,81 @@
+{
+  "nodes": [
+    { "name": "doc", "content": "block+" },
+    {
+      "name": "paragraph",
+      "content": "inline*",
+      "group": "block",
+      "attrs": {
+        "id": { "default": null },
+        "style": { "default": null },
+        "align": { "default": null },
+        "numId": { "default": null },
+        "ilvl": { "default": null },
+        "props": { "default": null }
+      }
+    },
+    {
+      "name": "table",
+      "content": "tableRow+",
+      "group": "block",
+      "attrs": { "id": { "default": null }, "props": { "default": null } }
+    },
+    { "name": "tableRow", "content": "tableCell+", "attrs": { "props": { "default": null } } },
+    {
+      "name": "tableCell",
+      "content": "block+",
+      "attrs": {
+        "props": { "default": null },
+        "span": { "default": 1 },
+        "merged": { "default": false }
+      }
+    },
+    {
+      "name": "opaque",
+      "group": "block",
+      "atom": true,
+      "attrs": { "id": { "default": null }, "raw": { "default": null }, "text": { "default": "" } }
+    },
+    { "name": "text", "group": "inline" },
+    { "name": "hardBreak", "group": "inline", "inline": true },
+    { "name": "tab", "group": "inline", "inline": true },
+    {
+      "name": "image",
+      "group": "inline",
+      "inline": true,
+      "atom": true,
+      "attrs": {
+        "asset": {},
+        "width": {},
+        "height": {},
+        "raw": { "default": null }
+      }
+    },
+    {
+      "name": "inlineOpaque",
+      "group": "inline",
+      "inline": true,
+      "atom": true,
+      "attrs": { "raw": {}, "text": { "default": "" } }
+    }
+  ],
+  "marks": [
+    { "name": "run", "excludes": "", "attrs": { "props": {} } },
+    { "name": "bold" },
+    { "name": "italic" },
+    { "name": "underline" },
+    { "name": "strike" },
+    {
+      "name": "textStyle",
+      "attrs": {
+        "color": { "default": null },
+        "size": { "default": null },
+        "font": { "default": null },
+        "highlight": { "default": null }
+      }
+    },
+    { "name": "link", "attrs": { "href": {}, "relation": { "default": null } } },
+    { "name": "insertion", "attrs": { "author": { "default": "" }, "date": { "default": "" } } },
+    { "name": "deletion", "attrs": { "author": { "default": "" }, "date": { "default": "" } } }
+  ]
+}

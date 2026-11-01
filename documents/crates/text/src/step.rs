@@ -271,6 +271,20 @@ impl Step {
         }
     }
 
+    /// The positions that this step reads or changes in the document before it.
+    pub fn range(&self) -> Option<(usize, usize)> {
+        match self {
+            Self::Replace { from, to, .. }
+            | Self::ReplaceAround { from, to, .. }
+            | Self::AddMark { from, to, .. }
+            | Self::RemoveMark { from, to, .. } => Some((*from, *to)),
+            Self::AddNodeMark { pos, .. }
+            | Self::RemoveNodeMark { pos, .. }
+            | Self::Attr { pos, .. } => Some((*pos, *pos)),
+            Self::DocAttr { .. } => None,
+        }
+    }
+
     pub fn map(&self) -> StepMap {
         match self {
             Self::Replace {
