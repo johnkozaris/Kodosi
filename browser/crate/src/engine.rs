@@ -244,6 +244,14 @@ impl Engine {
         }
     }
 
+    /// Stops a browser that started only for work with no window.
+    pub(crate) async fn stop_if_idle(&self) {
+        let idle = self.routes().windows.is_empty();
+        if idle {
+            self.stop().await;
+        }
+    }
+
     pub(crate) async fn stop(&self) {
         drop(self.devtools.call("Browser.close", json!({}), None).await);
         self.stopped.send_replace(true);

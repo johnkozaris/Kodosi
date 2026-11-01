@@ -21,10 +21,14 @@ mod flow;
 #[cfg(feature = "host")]
 mod input;
 #[cfg(feature = "host")]
+mod sign_ins;
+#[cfg(feature = "host")]
 mod window;
 
 #[cfg(feature = "host")]
 pub use host::{Browsers, Error, Place, Settings};
+#[cfg(feature = "host")]
+pub use sign_ins::{Copied, CopyError, SignInSource, sign_in_sources};
 #[cfg(feature = "host")]
 pub use window::{Pipe, Window};
 
@@ -34,7 +38,11 @@ mod host {
 
     use tokio::sync::Mutex;
 
-    use crate::{engine::Engine, window::Window};
+    use crate::{
+        engine::Engine,
+        sign_ins::{self, Copied, CopyError, SignInSource},
+        window::Window,
+    };
 
     #[derive(Debug, thiserror::Error)]
     pub enum Error {
@@ -107,6 +115,29 @@ mod host {
             engines.insert(profile.to_owned(), Arc::clone(&engine));
             drop(engines);
             Ok(engine)
+        }
+
+        /// Copies the sign-ins of another browser into a profile. A host starts this only for
+        /// a person's own action.
+        pub async fn copy_sign_ins(
+            &self,
+            profile: &str,
+            source: &SignInSource,
+        ) -> Result<Copied, CopyError> {
+            let engine = self.engine(profile).await?;
+            let folder = self.settings.profiles.join(profile);
+            let copied = sign_ins::copy(engine.devtools(), &folder, source).await;
+            engine.stop_if_idle().await;
+            copied
+        }
+
+        /// Removes what copies gave a profile, and returns how many cookies went.
+        pub async fn remove_copied_sign_ins(&self, profile: &str) -> Result<usize, CopyError> {
+            let engine = self.engine(profile).await?;
+            let folder = self.settings.profiles.join(profile);
+            let removed = sign_ins::remove(engine.devtools(), &folder).await;
+            engine.stop_if_idle().await;
+            removed
         }
 
         /// Closes all windows, and the browsers with them.
