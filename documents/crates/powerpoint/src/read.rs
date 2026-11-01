@@ -1,0 +1,526 @@
+use std::{collections::HashMap, fmt::Write as _};
+
+use document::{Assets, Unreadable};
+use package::{Package, Relation};
+use roxmltree::{Document, Node as Xml};
+use serde_json::{Map, Value, json};
+use sha2::{Digest as _, Sha256};
+use text::{Fragment, Mark, Node};
+
+use crate::model::{Model, Shape, Slide, schema};
+
+pub(crate) const PRESENTATION: &str = "ppt/presentation.xml";
+const RELATIONSHIPS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+const LAYOUT_KIND: &str = "slideLayout";
+const MASTER_KIND: &str = "slideMaster";
+const SHORT_HASH: usize = 16;
+
+fn broken(error: impl std::fmt::Display) -> Unreadable {
+    Unreadable(error.to_string())
+}
+
+pub(crate) fn local<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml<'a, 'input>> {
+    node.children()
+        .find(|child| child.is_element() && child.tag_name().name() == name)
+}
+
+fn descendant<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml<'a, 'input>> {
+    node.descendants()
+        .find(|child| child.is_element() && child.tag_name().name() == name)
+}
+
+fn relation_id<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
+    node.attributes()
+        .find(|attribute| {
+            attribute.name() == name
+                && matches!(
+                    attribute.namespace(),
+                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
+                )
+        })
+        .map(|attribute| attribute.value())
+}
+
+fn hash_of(text: &str) -> String {
+    let digest = Sha256::digest(text.as_bytes());
+    let mut hash = String::with_capacity(SHORT_HASH);
+    for byte in &digest[..SHORT_HASH / 2] {
+        let _ = write!(hash, "{byte:02x}");
+    }
+    hash
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::new(), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
+}
+
+/// A position and size from `a:xfrm`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct Frame {
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+    pub rotation: i64,
+}
+
+pub(crate) fn frame_of(properties: Option<Xml<'_, '_>>) -> Option<Frame> {
+    let transform = properties.and_then(|node| local(node, "xfrm"))?;
+    let number = |node: Option<Xml<'_, '_>>, name: &str| {
+        node.and_then(|node| node.attribute(name))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    };
+    let offset = local(transform, "off");
+    let extent = local(transform, "ext");
+    Some(Frame {
+        x: number(offset, "x"),
+        y: number(offset, "y"),
+        width: number(extent, "cx"),
+        height: number(extent, "cy"),
+        rotation: transform
+            .attribute("rot")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0),
+    })
+}
+
+fn color_of(fill: Option<Xml<'_, '_>>) -> Option<String> {
+    let solid = fill.and_then(|node| local(node, "solidFill"))?;
+    if let Some(color) = local(solid, "srgbClr") {
+        return color.attribute("val").map(str::to_owned);
+    }
+    local(solid, "schemeClr")
+        .and_then(|color| color.attribute("val"))
+        .map(|name| format!("scheme:{name}"))
+}
+
+fn placeholder_key(shape: Xml<'_, '_>) -> Option<String> {
+    let placeholder = descendant(local(shape, "nvSpPr")?, "ph")?;
+    let kind = placeholder.attribute("type").unwrap_or("body");
+    let index = placeholder.attribute("idx").unwrap_or("0");
+    Some(format!("{kind}:{index}"))
+}
+
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "each call builds its attributes here"
+)]
+fn node(name: &str, attrs: Value, content: Vec<Node>) -> Result<Node, text::Failed> {
+    let kind = schema().node_id(name).unwrap_or_default();
+    Node::new(
+        schema(),
+        kind,
+        Some(&attrs),
+        Fragment::from_array(content),
+        Vec::new(),
+    )
+}
+
+fn mark(name: &str, attrs: Option<&Value>) -> Result<Mark, text::Failed> {
+    let kind = schema().mark_id(name).unwrap_or_default();
+    Mark::new(schema(), kind, attrs)
+}
+
+/// The look of a run, which marks hold apart from its original XML.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct RunLook {
+    pub bold: bool,
+    pub italic: bool,
+    pub underline: bool,
+    pub color: Option<String>,
+    pub size: Option<String>,
+    pub font: Option<String>,
+}
+
+pub(crate) fn run_look(properties: Xml<'_, '_>) -> RunLook {
+    let on = |name: &str| matches!(properties.attribute(name), Some("1" | "true"));
+    RunLook {
+        bold: on("b"),
+        italic: on("i"),
+        underline: properties
+            .attribute("u")
+            .is_some_and(|value| value != "none"),
+        color: color_of(Some(properties)),
+        size: properties.attribute("sz").map(str::to_owned),
+        font: local(properties, "latin")
+            .and_then(|font| font.attribute("typeface"))
+            .map(str::to_owned),
+    }
+}
+
+fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
+    let mut marks = Vec::new();
+    for (on, name) in [
+        (look.bold, "bold"),
+        (look.italic, "italic"),
+        (look.underline, "underline"),
+    ] {
+        if on {
+            marks.push(mark(name, None)?);
+        }
+    }
+    if look.color.is_some() || look.size.is_some() || look.font.is_some() {
+        marks.push(mark(
+            "textStyle",
+            Some(&json!({ "color": look.color, "size": look.size, "font": look.font })),
+        )?);
+    }
+    Ok(marks)
+}
+
+struct Reader<'p, 'file, 'input> {
+    source: &'input str,
+    raws: &'p mut HashMap<String, String>,
+    relations: &'p HashMap<String, Relation>,
+    package: &'p mut Package<'file>,
+    assets: &'p mut Assets,
+}
+
+impl<'input> Reader<'_, '_, 'input> {
+    fn xml_of(&self, node: Xml<'_, 'input>) -> &'input str {
+        &self.source[node.range()]
+    }
+
+    fn keep(&mut self, xml: &str) -> String {
+        let hash = hash_of(xml);
+        self.raws
+            .entry(hash.clone())
+            .or_insert_with(|| xml.to_owned());
+        hash
+    }
+
+    fn text_tree(&mut self, body: Xml<'_, 'input>) -> Result<Node, text::Failed> {
+        let mut paragraphs = Vec::new();
+        for paragraph in body
+            .children()
+            .filter(|child| child.is_element() && child.tag_name().name() == "p")
+        {
+            paragraphs.push(self.paragraph(paragraph)?);
+        }
+        if paragraphs.is_empty() {
+            paragraphs.push(node("paragraph", json!({}), Vec::new())?);
+        }
+        node("doc", json!({}), paragraphs)
+    }
+
+    fn paragraph(&mut self, paragraph: Xml<'_, 'input>) -> Result<Node, text::Failed> {
+        let properties = local(paragraph, "pPr");
+        let bullet = properties.is_some_and(|node| {
+            local(node, "buChar").is_some() || local(node, "buAutoNum").is_some()
+        });
+        let attrs = json!({
+            "align": properties.and_then(|node| node.attribute("algn")),
+            "level": properties
+                .and_then(|node| node.attribute("lvl"))
+                .and_then(|level| level.parse::<u32>().ok())
+                .unwrap_or(0),
+            "bullet": bullet,
+            "props": properties.map(|node| self.keep(self.xml_of(node))),
+            "end": local(paragraph, "endParaRPr").map(|node| self.keep(self.xml_of(node))),
+        });
+        let mut inlines = Vec::new();
+        for child in paragraph.children().filter(Xml::is_element) {
+            match child.tag_name().name() {
+                "pPr" | "endParaRPr" => {}
+                "r" => self.run(child, &mut inlines)?,
+                "br" => {
+                    let kind = schema().node_id("hardBreak").unwrap_or_default();
+                    inlines.push(Node::new(
+                        schema(),
+                        kind,
+                        None,
+                        Fragment::default(),
+                        Vec::new(),
+                    )?);
+                }
+                _ => {
+                    let raw = self.keep(self.xml_of(child));
+                    let text: String = child
+                        .descendants()
+                        .filter(Xml::is_text)
+                        .filter_map(|node| node.text())
+                        .collect();
+                    inlines.push(node(
+                        "inlineOpaque",
+                        json!({ "raw": raw, "text": text }),
+                        Vec::new(),
+                    )?);
+                }
+            }
+        }
+        node("paragraph", attrs, inlines)
+    }
+
+    fn run(&mut self, run: Xml<'_, 'input>, out: &mut Vec<Node>) -> Result<(), text::Failed> {
+        let mut marks = Vec::new();
+        if let Some(properties) = local(run, "rPr") {
+            let props = self.keep(self.xml_of(properties));
+            marks.push(mark("run", Some(&json!({ "props": props })))?);
+            marks.extend(look_marks(&run_look(properties))?);
+        }
+        if let Some(text) = local(run, "t")
+            .and_then(|text| text.text())
+            .filter(|text| !text.is_empty())
+        {
+            out.push(Node::text(schema(), text, marks)?);
+        }
+        Ok(())
+    }
+
+    fn shape(
+        &mut self,
+        element: Xml<'_, 'input>,
+        order: u64,
+        inherited: &HashMap<String, Frame>,
+    ) -> Result<Option<Shape>, text::Failed> {
+        let kind = match element.tag_name().name() {
+            "sp" => "shape",
+            "pic" => "picture",
+            "graphicFrame" => "graphic",
+            "grpSp" => "group",
+            "cxnSp" => "connector",
+            _ => return Ok(None),
+        };
+        let names = element
+            .children()
+            .filter(Xml::is_element)
+            .find(|child| child.tag_name().name().starts_with("nv"))
+            .and_then(|names| descendant(names, "cNvPr"));
+        let Some(names) = names else {
+            return Ok(None);
+        };
+        let properties = local(element, "spPr").or_else(|| local(element, "grpSpPr"));
+        let placeholder = placeholder_key(element);
+        let frame = frame_of(properties)
+            .or_else(|| frame_of(Some(element)))
+            .or_else(|| {
+                placeholder
+                    .as_ref()
+                    .and_then(|key| inherited.get(key).copied())
+            })
+            .unwrap_or_default();
+        let text = match local(element, "txBody") {
+            Some(body) => Some(self.text_tree(body)?),
+            None => None,
+        };
+        let asset = self.picture(element);
+        Ok(Some(Shape {
+            id: names.attribute("id").unwrap_or_default().to_owned(),
+            name: names.attribute("name").unwrap_or_default().to_owned(),
+            kind: kind.to_owned(),
+            placeholder,
+            x: frame.x,
+            y: frame.y,
+            width: frame.width,
+            height: frame.height,
+            rotation: frame.rotation,
+            geometry: properties
+                .and_then(|node| local(node, "prstGeom"))
+                .and_then(|node| node.attribute("prst"))
+                .map(str::to_owned),
+            fill: color_of(properties),
+            line: properties.and_then(|node| color_of(local(node, "ln"))),
+            asset,
+            text,
+            order,
+        }))
+    }
+
+    fn picture(&mut self, element: Xml<'_, 'input>) -> Option<String> {
+        let blip = descendant(local(element, "blipFill")?, "blip")?;
+        let target = self
+            .relations
+            .get(relation_id(blip, "embed")?)?
+            .target
+            .clone();
+        let bytes = self.package.bytes(&target)?;
+        Some(hex(&self.assets.put(&bytes)))
+    }
+
+    fn shapes(
+        &mut self,
+        root: Xml<'_, 'input>,
+        inherited: &HashMap<String, Frame>,
+    ) -> Result<Vec<Shape>, text::Failed> {
+        let Some(tree) = descendant(root, "spTree") else {
+            return Ok(Vec::new());
+        };
+        let mut shapes = Vec::new();
+        for (order, element) in (0_u64..).zip(tree.children().filter(Xml::is_element)) {
+            if let Some(shape) = self.shape(element, order, inherited)? {
+                shapes.push(shape);
+            }
+        }
+        Ok(shapes)
+    }
+}
+
+/// The frames of placeholders in a layout or a master, which a slide's shape takes when it
+/// sets none.
+fn placeholder_frames(xml: &str) -> HashMap<String, Frame> {
+    let Ok(parsed) = Document::parse(xml) else {
+        return HashMap::new();
+    };
+    parsed
+        .descendants()
+        .filter(|node| node.is_element() && node.tag_name().name() == "sp")
+        .filter_map(|shape| Some((placeholder_key(shape)?, frame_of(local(shape, "spPr"))?)))
+        .collect()
+}
+
+fn background_of(root: Xml<'_, '_>) -> Option<String> {
+    let background = descendant(root, "bgPr")?;
+    color_of(Some(background))
+}
+
+/// The theme's colors, by name.
+fn theme_colors(package: &mut Package<'_>, master: Option<&str>) -> Value {
+    let Some(master) = master else {
+        return Value::Null;
+    };
+    let theme = package
+        .relations(master)
+        .into_values()
+        .find(|relation| relation.kind.ends_with("/theme"));
+    let Some(xml) = theme.and_then(|relation| package.text(&relation.target)) else {
+        return Value::Null;
+    };
+    let Ok(parsed) = Document::parse(&xml) else {
+        return Value::Null;
+    };
+    let Some(scheme) = descendant(parsed.root_element(), "clrScheme") else {
+        return Value::Null;
+    };
+    let colors: Map<String, Value> = scheme
+        .children()
+        .filter(Xml::is_element)
+        .filter_map(|color| {
+            let value = color.first_element_child()?;
+            let hex = value
+                .attribute("val")
+                .filter(|_| value.tag_name().name() == "srgbClr")
+                .or_else(|| value.attribute("lastClr"))?;
+            Some((color.tag_name().name().to_owned(), json!(hex)))
+        })
+        .collect();
+    Value::Object(colors)
+}
+
+fn linked_part(relations: &HashMap<String, Relation>, kind: &str) -> Option<String> {
+    relations
+        .values()
+        .find(|relation| relation.kind.ends_with(kind))
+        .map(|relation| relation.target.clone())
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "one walk through the parts of a deck"
+)]
+pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable> {
+    let mut package = Package::open(file).map_err(broken)?;
+    let presentation_xml = package
+        .text(PRESENTATION)
+        .ok_or_else(|| Unreadable("the file has no presentation".to_owned()))?;
+    let relations = package.relations(PRESENTATION);
+    let presentation = Document::parse(&presentation_xml).map_err(broken)?;
+    let root = presentation.root_element();
+    let size = local(root, "sldSz");
+    let number = |name: &str| {
+        size.and_then(|size| size.attribute(name))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0)
+    };
+    let mut model = Model {
+        width: number("cx"),
+        height: number("cy"),
+        ..Model::default()
+    };
+    let list = local(root, "sldIdLst");
+    let entries = list.iter().flat_map(Xml::children).filter(Xml::is_element);
+    let mut first_master = None;
+    for (index, entry) in entries.enumerate() {
+        let part = relation_id(entry, "id")
+            .and_then(|id| relations.get(id))
+            .map(|relation| relation.target.clone())
+            .ok_or_else(|| Unreadable("a slide has no part".to_owned()))?;
+        let xml = package
+            .text(&part)
+            .ok_or_else(|| Unreadable(format!("the part {part} is missing")))?;
+        let parsed = Document::parse(&xml).map_err(broken)?;
+        let slide_relations = package.relations(&part);
+        let layout = linked_part(&slide_relations, LAYOUT_KIND);
+        let layout_xml = layout.as_ref().and_then(|name| package.text(name));
+        let layout_relations = layout
+            .as_ref()
+            .map(|name| package.relations(name))
+            .unwrap_or_default();
+        let master = linked_part(&layout_relations, MASTER_KIND);
+        let master_xml = master.as_ref().and_then(|name| package.text(name));
+        if first_master.is_none() {
+            first_master.clone_from(&master);
+        }
+        let mut inherited = master_xml
+            .as_deref()
+            .map(placeholder_frames)
+            .unwrap_or_default();
+        inherited.extend(
+            layout_xml
+                .as_deref()
+                .map(placeholder_frames)
+                .unwrap_or_default(),
+        );
+        let mut reader = Reader {
+            source: &xml,
+            raws: &mut model.raws,
+            relations: &slide_relations,
+            package: &mut package,
+            assets,
+        };
+        let shapes = reader
+            .shapes(parsed.root_element(), &inherited)
+            .map_err(broken)?;
+        let background = background_of(parsed.root_element());
+        let mut behind = Vec::new();
+        for (source, relations) in [
+            (master_xml.as_deref(), None),
+            (layout_xml.as_deref(), Some(&layout_relations)),
+        ] {
+            let Some(source) = source else {
+                continue;
+            };
+            let parsed = Document::parse(source).map_err(broken)?;
+            let empty = HashMap::new();
+            let mut reader = Reader {
+                source,
+                raws: &mut model.raws,
+                relations: relations.unwrap_or(&empty),
+                package: &mut package,
+                assets,
+            };
+            let drawn = reader
+                .shapes(parsed.root_element(), &inherited)
+                .map_err(broken)?;
+            behind.extend(
+                drawn
+                    .into_iter()
+                    .filter(|shape| shape.placeholder.is_none()),
+            );
+        }
+        model.slides.push(Slide {
+            id: entry.attribute("id").unwrap_or_default().to_owned(),
+            part: Some(part),
+            position: f64::from(u32::try_from(index).unwrap_or(0)),
+            shapes,
+            behind,
+            background,
+        });
+    }
+    model.theme = theme_colors(&mut package, first_master.as_deref());
+    Ok(model)
+}

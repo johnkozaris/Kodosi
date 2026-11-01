@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    { "name": "doc", "content": "paragraph+" },
+    {
+      "name": "paragraph",
+      "content": "inline*",
+      "attrs": {
+        "align": { "default": null },
+        "level": { "default": 0 },
+        "bullet": { "default": false },
+        "props": { "default": null },
+        "end": { "default": null }
+      }
+    },
+    { "name": "text", "group": "inline" },
+    { "name": "hardBreak", "group": "inline", "inline": true },
+    {
+      "name": "inlineOpaque",
+      "group": "inline",
+      "inline": true,
+      "atom": true,
+      "attrs": { "raw": {}, "text": { "default": "" } }
+    }
+  ],
+  "marks": [
+    { "name": "run", "excludes": "", "attrs": { "props": {} } },
+    { "name": "bold" },
+    { "name": "italic" },
+    { "name": "underline" },
+    {
+      "name": "textStyle",
+      "attrs": {
+        "color": { "default": null },
+        "size": { "default": null },
+        "font": { "default": null }
+      }
+    }
+  ]
+}
