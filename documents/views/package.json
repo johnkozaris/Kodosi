@@ -1,0 +1,16 @@
+{
+  "name": "documents-views",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": ["contract", "text-parity"],
+  "scripts": {
+    "format": "biome check --write .",
+    "format:check": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "typescript": "7.0.2"
+  }
+}

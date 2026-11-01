@@ -1,0 +1,13 @@
+{
+  "name": "@documents/text-parity",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "dependencies": {
+    "prosemirror-model": "1.25.12",
+    "prosemirror-schema-basic": "1.2.4",
+    "prosemirror-schema-list": "1.5.1",
+    "prosemirror-transform": "1.12.0"
+  }
+}

@@ -1,0 +1,7 @@
+[install]
+minimumReleaseAge = 129600
+exact = true
+auto = "disable"
+
+[run]
+bun = true
