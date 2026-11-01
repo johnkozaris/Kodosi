@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/document", "crates/documents", "crates/package", "crates/text", "crates/word"]
+members = ["crates/document", "crates/documents", "crates/excel", "crates/package", "crates/pdf", "crates/powerpoint", "crates/text", "crates/word"]
 resolver = "3"
 
 [workspace.package]
