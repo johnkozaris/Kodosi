@@ -4,12 +4,12 @@ use std::{
 };
 
 use document::Unreadable;
-use package::Package;
+use package::{Package, escape};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
     formula::{parse_cell, parse_range, translate_shared},
-    model::{Cell, Look, Model, Sheet, Value},
+    model::{Anchor, Cell, Look, Model, Sheet, Value},
 };
 
 pub(crate) const WORKBOOK_PART: &str = "xl/workbook.xml";
@@ -17,6 +17,15 @@ pub(crate) const STYLES_PART: &str = "xl/styles.xml";
 const STRINGS_PART: &str = "xl/sharedStrings.xml";
 const RELATIONSHIPS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+pub(crate) const ANCHORS: [(&str, &str); 4] = [
+    ("autoFilter", "ref"),
+    ("conditionalFormatting", "sqref"),
+    ("dataValidation", "sqref"),
+    ("hyperlink", "ref"),
+];
+const ROW_FACTS: [&str; 4] = ["r", "spans", "ht", "customHeight"];
+const COLUMN_FACTS: [&str; 4] = ["min", "max", "width", "customWidth"];
+const MOST_COLUMNS_PER_ENTRY: u32 = 1024;
 
 fn broken(error: impl std::fmt::Display) -> Unreadable {
     Unreadable(error.to_string())
@@ -79,9 +88,16 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
             .attribute("name")
             .unwrap_or_default()
             .clone_into(&mut sheet.name);
+        sheet.number = sheet.id.parse().unwrap_or_default();
         sheet.part = Some(part);
         sheets.push(sheet);
     }
+    let names = local(workbook.root_element(), "definedNames").map_or_else(Vec::new, |names| {
+        locals(names, "definedName")
+            .map(|name| name.text().unwrap_or_default().to_owned())
+            .collect()
+    });
+    let last_number = sheets.iter().map(|sheet| sheet.number).max().unwrap_or(0);
     let looks = package
         .text(STYLES_PART)
         .map(|text| read_looks(&text))
@@ -91,6 +107,8 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         sheets,
         file_looks: looks.len(),
         looks,
+        names,
+        last_number,
         base: Some(Arc::new(file.to_vec())),
     })
 }
@@ -138,6 +156,52 @@ pub(crate) fn cell_of(element: Xml<'_, '_>, strings: &[String]) -> Cell {
     }
 }
 
+/// The attributes that this crate does not read, as XML text. Prefixed ones stay out of it,
+/// as their prefix has no meaning away from the file's own tag.
+fn kept_attributes(element: Xml<'_, '_>, read_here: &[&str]) -> String {
+    element
+        .attributes()
+        .filter(|attribute| attribute.namespace().is_none())
+        .filter(|attribute| !read_here.contains(&attribute.name()))
+        .map(|attribute| format!(r#"{}="{}""#, attribute.name(), escape(attribute.value())))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn column_entries<'a, 'input: 'a>(
+    root: Xml<'a, 'input>,
+) -> impl Iterator<Item = (u32, u32, f64, Xml<'a, 'input>)> {
+    local(root, "cols").into_iter().flat_map(|columns| {
+        locals(columns, "col").filter_map(|column| {
+            let number = |name: &str| column.attribute(name)?.parse::<u32>().ok();
+            let first = number("min")?.checked_sub(1)?;
+            let last = number("max")?.checked_sub(1)?;
+            let width = column.attribute("width")?.parse::<f64>().ok()?;
+            Some((
+                first,
+                last.min(first + MOST_COLUMNS_PER_ENTRY),
+                width,
+                column,
+            ))
+        })
+    })
+}
+
+/// The width of each column that the sheet names.
+pub(crate) fn widths_of(root: Xml<'_, '_>) -> BTreeMap<u32, f64> {
+    column_entries(root)
+        .flat_map(|(first, last, width, _)| (first..=last).map(move |index| (index, width)))
+        .collect()
+}
+
+pub(crate) fn merges_of(root: Xml<'_, '_>) -> Vec<[u32; 4]> {
+    local(root, "mergeCells").map_or_else(Vec::new, |merges| {
+        locals(merges, "mergeCell")
+            .filter_map(|merge| parse_range(merge.attribute("ref")?))
+            .collect()
+    })
+}
+
 fn read_sheet(xml: &str, strings: &[String]) -> Result<Sheet, Unreadable> {
     let parsed = Document::parse(xml).map_err(broken)?;
     let root = parsed.root_element();
@@ -145,11 +209,18 @@ fn read_sheet(xml: &str, strings: &[String]) -> Result<Sheet, Unreadable> {
     if let Some(data) = local(root, "sheetData") {
         let mut shared: HashMap<String, (String, u32, u32)> = HashMap::new();
         for row in locals(data, "row") {
-            if let Some(height) = row.attribute("ht").and_then(|height| height.parse().ok())
-                && let Some(number) = row.attribute("r").and_then(|row| row.parse::<u32>().ok())
-                && let Some(row) = number.checked_sub(1)
+            if let Some(line) = row
+                .attribute("r")
+                .and_then(|row| row.parse::<u32>().ok())
+                .and_then(|row| row.checked_sub(1))
             {
-                sheet.heights.insert(row, height);
+                if let Some(height) = row.attribute("ht").and_then(|height| height.parse().ok()) {
+                    sheet.heights.insert(line, height);
+                }
+                let look = kept_attributes(row, &ROW_FACTS);
+                if !look.is_empty() {
+                    sheet.row_looks.insert(line, look);
+                }
             }
             for element in locals(row, "c") {
                 let Some((row, column)) = element.attribute("r").and_then(parse_cell) else {
@@ -166,31 +237,30 @@ fn read_sheet(xml: &str, strings: &[String]) -> Result<Sheet, Unreadable> {
             }
         }
     }
-    if let Some(merges) = local(root, "mergeCells") {
-        sheet.merges = locals(merges, "mergeCell")
-            .filter_map(|merge| parse_range(merge.attribute("ref")?))
-            .collect();
-    }
-    if let Some(columns) = local(root, "cols") {
-        for column in locals(columns, "col") {
-            let (Some(first), Some(last), Some(width)) = (
-                column
-                    .attribute("min")
-                    .and_then(|value| value.parse::<u32>().ok()),
-                column
-                    .attribute("max")
-                    .and_then(|value| value.parse::<u32>().ok()),
-                column
-                    .attribute("width")
-                    .and_then(|value| value.parse::<f64>().ok()),
-            ) else {
-                continue;
-            };
-            for index in first..=last.min(first + 1024) {
-                sheet.widths.insert(index.saturating_sub(1), width);
-            }
+    sheet.merges = merges_of(root);
+    sheet.widths = widths_of(root);
+    for (first, last, _, column) in column_entries(root) {
+        let look = kept_attributes(column, &COLUMN_FACTS);
+        if !look.is_empty() {
+            sheet
+                .column_looks
+                .extend((first..=last).map(|index| (index, look.clone())));
         }
     }
+    sheet.anchors = root
+        .descendants()
+        .filter(Xml::is_element)
+        .filter_map(|element| {
+            let (tag, attribute) = ANCHORS
+                .iter()
+                .find(|(tag, _)| *tag == element.tag_name().name())?;
+            Some(Anchor {
+                tag,
+                attribute,
+                ranges: element.attribute(*attribute)?.to_owned(),
+            })
+        })
+        .collect();
     Ok(sheet)
 }
 

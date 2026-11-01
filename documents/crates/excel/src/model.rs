@@ -35,15 +35,29 @@ impl Cell {
     }
 }
 
+/// A range that some element of a sheet names, which moves with the rows and columns.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Anchor {
+    pub(crate) tag: &'static str,
+    pub(crate) attribute: &'static str,
+    pub(crate) ranges: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct Sheet {
     pub(crate) id: String,
+    /// The number that the file knows this sheet by.
+    pub(crate) number: u32,
     pub(crate) name: String,
     pub(crate) part: Option<String>,
     pub(crate) cells: BTreeMap<(u32, u32), Cell>,
     pub(crate) merges: Vec<[u32; 4]>,
     pub(crate) widths: BTreeMap<u32, f64>,
     pub(crate) heights: BTreeMap<u32, f64>,
+    /// The attributes of rows and columns that this crate only keeps.
+    pub(crate) row_looks: BTreeMap<u32, String>,
+    pub(crate) column_looks: BTreeMap<u32, String>,
+    pub(crate) anchors: Vec<Anchor>,
     /// Rows or columns moved, so a save writes the whole sheet.
     pub(crate) moved: bool,
 }
@@ -85,6 +99,10 @@ pub struct Model {
     pub(crate) looks: Vec<Look>,
     /// Looks up to this index are in the file. Later ones are new.
     pub(crate) file_looks: usize,
+    /// The text of each defined name, in the order of the file.
+    pub(crate) names: Vec<String>,
+    /// The highest sheet number so far, so that a new sheet never takes a removed one's.
+    pub(crate) last_number: u32,
     /// The file as it was read, which a read uses to work out current formula results.
     pub(crate) base: Option<Arc<Vec<u8>>>,
 }
@@ -147,6 +165,13 @@ pub enum Change {
         #[serde(default)]
         heights: BTreeMap<u32, f64>,
     },
+    Merges {
+        sheet: String,
+        #[serde(default)]
+        add: Vec<[u32; 4]>,
+        #[serde(default)]
+        remove: Vec<[u32; 4]>,
+    },
     Ops {
         ops: Vec<Op>,
     },
@@ -207,6 +232,13 @@ impl Sheet {
             "widths": self.widths,
             "heights": self.heights,
         })
+    }
+
+    /// The part of a sheet, which a sheet made here gets at its first save.
+    pub(crate) fn part_name(&self) -> String {
+        self.part
+            .clone()
+            .unwrap_or_else(|| format!("xl/worksheets/sheetN{}.xml", self.number))
     }
 
     pub(crate) fn size(&self) -> (u32, u32) {

@@ -46,6 +46,14 @@ pub(crate) fn parse_range(name: &str) -> Option<[u32; 4]> {
     Some([top, left, bottom, right])
 }
 
+/// `A1` for one cell, or `A1:C9`.
+pub(crate) fn range_name([top, left, bottom, right]: [u32; 4]) -> String {
+    if (top, left) == (bottom, right) {
+        return cell_name(top, left);
+    }
+    format!("{}:{}", cell_name(top, left), cell_name(bottom, right))
+}
+
 /// One end of a reference in a formula.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Reference {
@@ -271,7 +279,7 @@ impl Shift {
     }
 
     /// Where a range goes: it shrinks when part of it was deleted.
-    fn span(self, first: u32, last: u32) -> Option<(u32, u32)> {
+    pub(crate) fn span(self, first: u32, last: u32) -> Option<(u32, u32)> {
         if self.count >= 0 {
             return Some((self.line(first)?, self.line(last)?));
         }
@@ -320,6 +328,24 @@ pub(crate) fn shift_formula(
         }
         Some((first, second))
     })
+}
+
+/// Moves a list of ranges across inserted or deleted rows or columns. A deleted range goes.
+pub(crate) fn shift_ranges(ranges: &str, shift: Shift, rows: bool) -> String {
+    ranges
+        .split_whitespace()
+        .filter_map(|range| {
+            let [top, left, bottom, right] = parse_range(range)?;
+            if rows {
+                let (top, bottom) = shift.span(top, bottom)?;
+                Some(range_name([top, left, bottom, right]))
+            } else {
+                let (left, right) = shift.span(left, right)?;
+                Some(range_name([top, left, bottom, right]))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn move_axis(

@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use document::{Ordered, Refused};
 
 use crate::{
-    formula::{Shift, shift_formula},
+    formula::{Shift, shift_formula, shift_ranges},
     model::{CellChange, Change, Look, Model, Sheet},
     ops,
 };
@@ -14,11 +14,30 @@ fn no_sheet(id: &str) -> Refused {
     Refused::Invalid(format!("no sheet {id}"))
 }
 
-fn moved_lines(since: &[Ordered<Change>], sheet: &str) -> bool {
-    since.iter().any(|ordered| match &ordered.change {
+fn moves_lines(change: &Change, sheet: &str) -> bool {
+    match change {
         Change::Rows { sheet: moved, .. } | Change::Columns { sheet: moved, .. } => moved == sheet,
+        Change::Group { changes } => changes.iter().any(|change| moves_lines(change, sheet)),
         _ => false,
-    })
+    }
+}
+
+fn moved_lines(since: &[Ordered<Change>], sheet: &str) -> bool {
+    since
+        .iter()
+        .any(|ordered| moves_lines(&ordered.change, sheet))
+}
+
+fn is_behind(change: &Change, since: &[Ordered<Change>]) -> bool {
+    match change {
+        Change::Cells { sheet, .. }
+        | Change::Rows { sheet, .. }
+        | Change::Columns { sheet, .. }
+        | Change::Merges { sheet, .. }
+        | Change::Size { sheet, .. } => moved_lines(since, sheet),
+        Change::Group { changes } => changes.iter().any(|change| is_behind(change, since)),
+        _ => false,
+    }
 }
 
 pub(crate) fn apply(
@@ -26,17 +45,10 @@ pub(crate) fn apply(
     change: Change,
     since: &[Ordered<Change>],
 ) -> Result<Change, Refused> {
-    match &change {
-        Change::Cells { sheet, .. }
-        | Change::Rows { sheet, .. }
-        | Change::Columns { sheet, .. }
-            if moved_lines(since, sheet) =>
-        {
-            return Err(Refused::Behind(
-                "Rows or columns moved. Move the change and send it again.".to_owned(),
-            ));
-        }
-        _ => {}
+    if is_behind(&change, since) {
+        return Err(Refused::Behind(
+            "Rows or columns moved. Move the change and send it again.".to_owned(),
+        ));
     }
     let mut change = change;
     if let Change::Ops { ops } = &change {
@@ -75,8 +87,10 @@ fn apply_one(model: &mut Model, change: &mut Change) -> Result<(), Refused> {
             {
                 return Err(Refused::Invalid(format!("the sheet {name} exists")));
             }
+            model.last_number += 1;
             model.sheets.push(Sheet {
                 id: id.clone(),
+                number: model.last_number,
                 name: name.clone(),
                 ..Sheet::default()
             });
@@ -106,6 +120,15 @@ fn apply_one(model: &mut Model, change: &mut Change) -> Result<(), Refused> {
             target
                 .heights
                 .extend(heights.iter().map(|(at, height)| (*at, *height)));
+        }
+        Change::Merges { sheet, add, remove } => {
+            let target = model.sheet_mut(sheet).ok_or_else(|| no_sheet(sheet))?;
+            target.merges.retain(|merge| !remove.contains(merge));
+            for merge in add.iter() {
+                if !target.merges.contains(merge) {
+                    target.merges.push(*merge);
+                }
+            }
         }
         Change::Group { changes } => {
             for change in changes {
@@ -152,17 +175,15 @@ fn move_lines(model: &mut Model, id: &str, at: u32, count: i32, rows: bool) -> R
     }
     let shift = Shift { at, count };
     let name = model.sheet(id).ok_or_else(|| no_sheet(id))?.name.clone();
+    let (row_shift, column_shift) = (rows.then_some(shift), (!rows).then_some(shift));
+    for text in &mut model.names {
+        *text = shift_formula(text, false, &name, row_shift, column_shift);
+    }
     for sheet in &mut model.sheets {
         let own = sheet.id == id;
         for cell in sheet.cells.values_mut() {
             if let Some(formula) = &cell.formula {
-                cell.formula = Some(shift_formula(
-                    formula,
-                    own,
-                    &name,
-                    rows.then_some(shift),
-                    (!rows).then_some(shift),
-                ));
+                cell.formula = Some(shift_formula(formula, own, &name, row_shift, column_shift));
             }
         }
     }
@@ -190,7 +211,24 @@ fn move_lines(model: &mut Model, id: &str, at: u32, count: i32, rows: bool) -> R
             }
         })
         .collect();
+    let (sizes, looks) = if rows {
+        (&mut sheet.heights, &mut sheet.row_looks)
+    } else {
+        (&mut sheet.widths, &mut sheet.column_looks)
+    };
+    *sizes = moved_keys(sizes, shift);
+    *looks = moved_keys(looks, shift);
+    for anchor in &mut sheet.anchors {
+        anchor.ranges = shift_ranges(&anchor.ranges, shift, rows);
+    }
     Ok(())
+}
+
+fn moved_keys<Value: Clone>(lines: &BTreeMap<u32, Value>, shift: Shift) -> BTreeMap<u32, Value> {
+    lines
+        .iter()
+        .filter_map(|(line, value)| Some((shift.line(*line)?, value.clone())))
+        .collect()
 }
 
 /// What turns one state of the workbook into another, by cell.
@@ -203,6 +241,7 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
                 name: sheet.name.clone(),
             });
             changes.extend(cells_change(&Sheet::default(), sheet));
+            changes.extend(layout_changes(&Sheet::default(), sheet));
             continue;
         };
         if old.name != sheet.name {
@@ -212,6 +251,7 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
             });
         }
         changes.extend(cells_change(old, sheet));
+        changes.extend(layout_changes(old, sheet));
     }
     for sheet in &from.sheets {
         if to.sheet(&sheet.id).is_none() {
@@ -219,6 +259,42 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
                 sheet: sheet.id.clone(),
             });
         }
+    }
+    changes
+}
+
+fn sizes_change(old: &BTreeMap<u32, f64>, new: &BTreeMap<u32, f64>) -> BTreeMap<u32, f64> {
+    new.iter()
+        .filter(|(line, size)| old.get(line) != Some(size))
+        .map(|(line, size)| (*line, *size))
+        .collect()
+}
+
+fn layout_changes(old: &Sheet, new: &Sheet) -> Vec<Change> {
+    let mut changes = Vec::new();
+    let widths = sizes_change(&old.widths, &new.widths);
+    let heights = sizes_change(&old.heights, &new.heights);
+    if !widths.is_empty() || !heights.is_empty() {
+        changes.push(Change::Size {
+            sheet: new.id.clone(),
+            widths,
+            heights,
+        });
+    }
+    let others = |from: &[[u32; 4]], to: &[[u32; 4]]| -> Vec<[u32; 4]> {
+        from.iter()
+            .filter(|merge| !to.contains(merge))
+            .copied()
+            .collect()
+    };
+    let add = others(&new.merges, &old.merges);
+    let remove = others(&old.merges, &new.merges);
+    if !add.is_empty() || !remove.is_empty() {
+        changes.push(Change::Merges {
+            sheet: new.id.clone(),
+            add,
+            remove,
+        });
     }
     changes
 }

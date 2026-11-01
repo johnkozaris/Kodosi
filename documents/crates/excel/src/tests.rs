@@ -15,18 +15,22 @@ const TYPES: &str = r#"<?xml version="1.0"?><Types xmlns="http://schemas.openxml
 const ROOT_RELATIONS: &str = r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#;
 
 fn excel_file() -> Vec<u8> {
+    excel_file_with(
+        &SHEET.replace(" x14ac:custom=\"kept\"", " ht=\"20\""),
+        WORKBOOK,
+    )
+}
+
+fn excel_file_with(sheet: &str, workbook: &str) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
     for (name, bytes) in [
         ("[Content_Types].xml", TYPES),
         ("_rels/.rels", ROOT_RELATIONS),
-        ("xl/workbook.xml", WORKBOOK),
+        ("xl/workbook.xml", workbook),
         ("xl/_rels/workbook.xml.rels", RELATIONS),
-        (
-            "xl/worksheets/sheet1.xml",
-            &SHEET.replace(" x14ac:custom=\"kept\"", " ht=\"20\""),
-        ),
+        ("xl/worksheets/sheet1.xml", sheet),
         ("xl/sharedStrings.xml", STRINGS),
         ("xl/styles.xml", STYLES),
     ] {
@@ -223,6 +227,136 @@ fn inserted_rows_move_cells_and_formulas() {
 }
 
 #[test]
+fn sizes_and_merges_reach_the_file() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let mut apply = |change| Excel::apply(&mut model, change, &[], &mut Assets::default());
+    apply(Change::Size {
+        sheet: "1".to_owned(),
+        widths: [(1, 30.0)].into(),
+        heights: [(1, 44.0), (9, 12.0)].into(),
+    })
+    .unwrap();
+    apply(Change::Merges {
+        sheet: "1".to_owned(),
+        add: vec![[0, 2, 1, 3]],
+        remove: vec![[8, 0, 8, 1]],
+    })
+    .unwrap();
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(r#"<col min="2" max="2" width="30" customWidth="1"/>"#));
+    assert!(xml.contains(r#"<row r="2" ht="44" customHeight="1">"#));
+    assert!(xml.contains(r#"<row r="10" ht="12" customHeight="1">"#));
+    assert!(xml.contains(r#"<mergeCell ref="C1:D2"/>"#));
+    assert!(!xml.contains("A9:B9"));
+    let again = read(&new_file);
+    assert_eq!(saved(&again, &new_file), new_file);
+    let snapshot = Excel::snapshot(&again).0;
+    assert_eq!(snapshot["sheets"][0]["widths"]["1"], 30.0);
+    assert_eq!(snapshot["sheets"][0]["heights"]["1"], 44.0);
+    assert_eq!(snapshot["sheets"][0]["merges"], json!([[0, 2, 1, 3]]));
+}
+
+#[test]
+fn moved_rows_take_what_points_at_them() {
+    let sheet = SHEET
+        .replace(" x14ac:custom=\"kept\"", "")
+        .replace(
+            r#"<row r="2">"#,
+            r#"<row r="2" ht="33" s="1" customFormat="1">"#,
+        )
+        .replace(
+            "</mergeCells>",
+            r#"</mergeCells><conditionalFormatting sqref="A2:A3 B4"><cfRule type="cellIs" priority="1" operator="greaterThan"><formula>1</formula></cfRule></conditionalFormatting><conditionalFormatting sqref="A1"><cfRule type="cellIs" priority="2" operator="greaterThan"><formula>1</formula></cfRule></conditionalFormatting>"#,
+        );
+    let workbook = WORKBOOK.replace(
+        "</sheets>",
+        r#"</sheets><definedNames><definedName name="Top">Data!$A$2:$A$3</definedName></definedNames>"#,
+    );
+    let file = excel_file_with(&sheet, &workbook);
+    let mut model = read(&file);
+    ops(
+        &mut model,
+        vec![Op::InsertRows {
+            sheet: "Data".to_owned(),
+            at: 1,
+            count: 2,
+        }],
+    )
+    .unwrap();
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(r#"<row r="4" s="1" customFormat="1" ht="33" customHeight="1">"#));
+    assert!(xml.contains(r#"sqref="A4:A5 B6""#));
+    assert!(xml.contains(r#"sqref="A1""#));
+    assert!(xml.contains(r#"ref="A11:B11""#));
+    assert!(part(&new_file, "xl/workbook.xml").contains("Data!$A$4:$A$5"));
+    let again = read(&new_file);
+    assert_eq!(Excel::snapshot(&again).0["sheets"][0]["heights"]["3"], 33.0);
+}
+
+#[test]
+fn a_sheet_from_a_view_keeps_its_cells_across_saves() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let cell = |row, value: f64| Change::Cells {
+        sheet: "from-view".to_owned(),
+        cells: vec![CellChange {
+            row,
+            column: 0,
+            value: Some(Some(Value::Number(value))),
+            ..CellChange::default()
+        }],
+    };
+    let apply = |model: &mut Model, change| {
+        Excel::apply(model, change, &[], &mut Assets::default()).unwrap();
+    };
+    apply(
+        &mut model,
+        Change::AddSheet {
+            id: "from-view".to_owned(),
+            name: "Plan".to_owned(),
+        },
+    );
+    apply(&mut model, cell(0, 1.0));
+    let first = saved(&model, &file);
+    apply(&mut model, cell(1, 2.0));
+    let second = saved(&model, &first);
+    let snapshot = Excel::snapshot(&read(&second)).0;
+    assert_eq!(snapshot["sheets"].as_array().unwrap().len(), 2);
+    assert_eq!(snapshot["sheets"][1]["name"], "Plan");
+    assert_eq!(snapshot["sheets"][1]["cells"]["0"]["0"]["value"], 1.0);
+    assert_eq!(snapshot["sheets"][1]["cells"]["1"]["0"]["value"], 2.0);
+}
+
+#[test]
+fn a_new_sheet_never_takes_the_number_of_a_removed_one() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let mut apply = |change| {
+        Excel::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
+    };
+    apply(Change::AddSheet {
+        id: "first".to_owned(),
+        name: "First".to_owned(),
+    });
+    apply(Change::RemoveSheet {
+        sheet: "1".to_owned(),
+    });
+    apply(Change::AddSheet {
+        id: "second".to_owned(),
+        name: "Second".to_owned(),
+    });
+    let snapshot = Excel::snapshot(&read(&saved(&model, &file))).0;
+    let names = snapshot["sheets"].as_array().unwrap();
+    assert_eq!(names.len(), 2);
+    assert_eq!(names[0]["name"], "First");
+    assert_eq!(names[1]["name"], "Second");
+    assert_eq!(names[0]["cells"], json!({}));
+}
+
+#[test]
 fn a_new_sheet_goes_in_the_package() {
     let file = excel_file();
     let mut model = read(&file);
@@ -338,6 +472,41 @@ fn a_cell_change_is_behind_when_rows_moved() {
     };
     assert!(matches!(
         Excel::apply(&mut model, change, &[moved], &mut Assets::default()),
+        Err(Refused::Behind(_))
+    ));
+}
+
+#[test]
+fn a_group_of_cells_is_behind_when_rows_moved() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let moved = Change::Rows {
+        sheet: "1".to_owned(),
+        at: 0,
+        count: 1,
+    };
+    let since = [Ordered {
+        rev: 1,
+        author: "Ana".to_owned(),
+        client: "ana".to_owned(),
+        seq: 1,
+        change: Change::Group {
+            changes: vec![moved],
+        },
+    }];
+    let group = Change::Group {
+        changes: vec![Change::Cells {
+            sheet: "1".to_owned(),
+            cells: vec![CellChange {
+                row: 0,
+                column: 0,
+                value: Some(Some(Value::Number(1.0))),
+                ..CellChange::default()
+            }],
+        }],
+    };
+    assert!(matches!(
+        Excel::apply(&mut model, group, &since, &mut Assets::default()),
         Err(Refused::Behind(_))
     ));
 }

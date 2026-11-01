@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Write as _};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+};
 
 use document::Unwritable;
 use formualizer::workbook::{XlsxRecalculateOptions, recalculate_xlsx_bytes};
@@ -6,9 +9,9 @@ use package::{Package, Parts, escape, rewrite};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
-    formula::{cell_name, column_name, parse_cell, parse_range},
+    formula::{cell_name, column_name, parse_cell, parse_range, range_name},
     model::{Cell, Look, Model, Sheet, Value},
-    read::{STYLES_PART, WORKBOOK_PART, cell_of, local, locals},
+    read::{ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, local, locals, merges_of, widths_of},
 };
 
 const CONTENT_TYPES: &str = "[Content_Types].xml";
@@ -20,6 +23,46 @@ const SHEET_TYPE: &str =
 const SHEET_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const FIRST_FORMAT_ID: u32 = 200;
+/// What the file format puts after `mergeCells`, the first of which a new one stands before.
+const AFTER_MERGES: [&str; 22] = [
+    "phoneticPr",
+    "conditionalFormatting",
+    "dataValidations",
+    "hyperlinks",
+    "printOptions",
+    "pageMargins",
+    "pageSetup",
+    "headerFooter",
+    "rowBreaks",
+    "colBreaks",
+    "customProperties",
+    "cellWatches",
+    "ignoredErrors",
+    "smartTags",
+    "drawing",
+    "legacyDrawing",
+    "legacyDrawingHF",
+    "picture",
+    "oleObjects",
+    "controls",
+    "tableParts",
+    "extLst",
+];
+
+type Edit = (std::ops::Range<usize>, String);
+
+fn spliced(xml: &str, mut edits: Vec<Edit>) -> String {
+    edits.sort_by_key(|(range, _)| (range.start, range.end));
+    let mut new_xml = String::with_capacity(xml.len());
+    let mut at = 0;
+    for (range, text) in edits {
+        new_xml.push_str(&xml[at..range.start]);
+        new_xml.push_str(&text);
+        at = range.end;
+    }
+    new_xml.push_str(&xml[at..]);
+    new_xml
+}
 
 fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
@@ -156,22 +199,13 @@ fn patch_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<St
         }
     }
     if !waiting.is_empty() {
-        add_rows(xml, data, &waiting, &mut edits)?;
+        add_rows(xml, data, sheet, &waiting, &mut edits)?;
     }
     if edits.is_empty() {
         return Ok(None);
     }
     edits.extend(dimension_edit(xml, parsed.root_element(), sheet));
-    edits.sort_by_key(|(range, _)| (range.start, range.end));
-    let mut new_xml = String::with_capacity(xml.len());
-    let mut at = 0;
-    for (range, text) in edits {
-        new_xml.push_str(&xml[at..range.start]);
-        new_xml.push_str(&text);
-        at = range.end;
-    }
-    new_xml.push_str(&xml[at..]);
-    Ok(Some(new_xml))
+    Ok(Some(spliced(xml, edits)))
 }
 
 /// A cell outside the size that a sheet states makes the file wrong, so the size grows with it.
@@ -224,6 +258,7 @@ fn close_row_edit(
 fn add_rows(
     xml: &str,
     data: Xml<'_, '_>,
+    sheet: &Sheet,
     waiting: &BTreeMap<u32, BTreeMap<u32, &Cell>>,
     edits: &mut Vec<(std::ops::Range<usize>, String)>,
 ) -> Result<(), String> {
@@ -234,7 +269,7 @@ fn add_rows(
         })
         .collect();
     for (row, cells) in waiting {
-        let mut text = format!(r#"<row r="{}">"#, row + 1);
+        let mut text = format!("{}>", row_tag(sheet, *row));
         for (column, cell) in cells {
             text.push_str(&cell_xml(*row, *column, cell));
         }
@@ -260,20 +295,48 @@ fn end_of_rows(xml: &str, data: Xml<'_, '_>, rows: &[(u32, Xml<'_, '_>)]) -> Res
     Ok(data.range().start + text.rfind("</").unwrap_or(text.len()))
 }
 
+/// The edits that bring the ranges of a moved sheet's other elements up to date.
+fn anchor_edits(xml: &str, root: Xml<'_, '_>, sheet: &Sheet) -> Vec<Edit> {
+    let elements = root
+        .descendants()
+        .filter(Xml::is_element)
+        .filter(|element| {
+            ANCHORS.iter().any(|(tag, attribute)| {
+                *tag == element.tag_name().name() && element.has_attribute(*attribute)
+            })
+        });
+    elements
+        .zip(&sheet.anchors)
+        .filter_map(|(element, anchor)| {
+            let old = element.attribute(anchor.attribute)?;
+            if old == anchor.ranges {
+                return None;
+            }
+            if anchor.ranges.is_empty() {
+                return Some((element.range(), String::new()));
+            }
+            let text = &xml[element.range()];
+            let new = text.replacen(
+                &format!(r#"{}="{old}""#, anchor.attribute),
+                &format!(r#"{}="{}""#, anchor.attribute, anchor.ranges),
+                1,
+            );
+            Some((element.range(), new))
+        })
+        .collect()
+}
+
 /// Writes a whole sheet, for a sheet whose rows or columns moved: the empty end tag form of
 /// `sheetData` also comes here.
 fn whole_sheet(xml: &str, sheet: &Sheet) -> Result<String, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let root = parsed.root_element();
     let data = local(root, "sheetData").ok_or("the sheet has no data")?;
-    let mut text = String::from("<sheetData>");
-    text.push_str(&rows_xml(sheet));
-    text.push_str("</sheetData>");
-    let mut new_xml = format!(
-        "{}{text}{}",
-        &xml[..data.range().start],
-        &xml[data.range().end..]
-    );
+    let mut edits = anchor_edits(xml, root, sheet);
+    edits.push((
+        data.range(),
+        format!("<sheetData>{}</sheetData>", rows_xml(sheet)),
+    ));
     if let Some(dimension) = local(root, "dimension") {
         let (rows, columns) = sheet.size();
         let name = format!(
@@ -281,13 +344,29 @@ fn whole_sheet(xml: &str, sheet: &Sheet) -> Result<String, String> {
             column_name(columns.saturating_sub(1)),
             rows.max(1)
         );
-        new_xml = new_xml.replacen(&xml[dimension.range()], &name, 1);
+        edits.push((dimension.range(), name));
     }
-    Ok(new_xml)
+    Ok(spliced(xml, edits))
+}
+
+fn row_tag(sheet: &Sheet, row: u32) -> String {
+    let mut tag = format!(r#"<row r="{}""#, row + 1);
+    if let Some(look) = sheet.row_looks.get(&row) {
+        let _ = write!(tag, " {look}");
+    }
+    if let Some(height) = sheet.heights.get(&row) {
+        let _ = write!(tag, r#" ht="{height}" customHeight="1""#);
+    }
+    tag
 }
 
 fn rows_xml(sheet: &Sheet) -> String {
-    let mut rows: BTreeMap<u32, String> = BTreeMap::new();
+    let mut rows: BTreeMap<u32, String> = sheet
+        .heights
+        .keys()
+        .chain(sheet.row_looks.keys())
+        .map(|row| (*row, String::new()))
+        .collect();
     for ((row, column), cell) in &sheet.cells {
         rows.entry(*row)
             .or_default()
@@ -295,9 +374,156 @@ fn rows_xml(sheet: &Sheet) -> String {
     }
     let mut text = String::new();
     for (row, cells) in rows {
-        let _ = write!(text, r#"<row r="{}">{cells}</row>"#, row + 1);
+        let tag = row_tag(sheet, row);
+        if cells.is_empty() {
+            let _ = write!(text, "{tag}/>");
+        } else {
+            let _ = write!(text, "{tag}>{cells}</row>");
+        }
     }
     text
+}
+
+/// `cols` as the model holds it, when the file differs.
+fn columns_edit(root: Xml<'_, '_>, data_start: usize, sheet: &Sheet) -> Option<Edit> {
+    if widths_of(root) == sheet.widths {
+        return None;
+    }
+    let lines: BTreeSet<u32> = sheet.widths.keys().copied().collect();
+    let mut text = String::new();
+    for line in lines {
+        let number = line + 1;
+        let _ = write!(text, r#"<col min="{number}" max="{number}""#);
+        if let Some(width) = sheet.widths.get(&line) {
+            let _ = write!(text, r#" width="{width}" customWidth="1""#);
+        }
+        if let Some(look) = sheet.column_looks.get(&line) {
+            let _ = write!(text, " {look}");
+        }
+        text.push_str("/>");
+    }
+    let text = format!("<cols>{text}</cols>");
+    Some(local(root, "cols").map_or_else(
+        || (data_start..data_start, text.clone()),
+        |columns| (columns.range(), text.clone()),
+    ))
+}
+
+/// `mergeCells` as the model holds it, when the file differs.
+fn merges_edit(root: Xml<'_, '_>, xml: &str, sheet: &Sheet) -> Option<Edit> {
+    if merges_of(root) == sheet.merges {
+        return None;
+    }
+    let mut cells = String::new();
+    for merge in &sheet.merges {
+        let _ = write!(cells, r#"<mergeCell ref="{}"/>"#, range_name(*merge));
+    }
+    let text = if cells.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<mergeCells count="{}">{cells}</mergeCells>"#,
+            sheet.merges.len()
+        )
+    };
+    if let Some(merges) = local(root, "mergeCells") {
+        return Some((merges.range(), text));
+    }
+    let at = root
+        .children()
+        .filter(Xml::is_element)
+        .find(|element| AFTER_MERGES.contains(&element.tag_name().name()))
+        .map_or_else(
+            || root.range().start + xml[root.range()].rfind("</").unwrap_or(0),
+            |element| element.range().start,
+        );
+    Some((at..at, text))
+}
+
+fn height_edit(xml: &str, row: Xml<'_, '_>, sheet: &Sheet, line: u32) -> Option<Edit> {
+    let wanted = sheet.heights.get(&line).copied();
+    let stated = row.attribute("ht").and_then(|height| height.parse().ok());
+    if wanted == stated {
+        return None;
+    }
+    let start = row.range().start;
+    let end = start + xml[start..].find('>')?;
+    let closed = xml[..end].ends_with('/');
+    let mut tag = format!("<{} ", tag_name(xml, row));
+    let kept: Vec<String> = row
+        .attributes()
+        .filter(|attribute| !matches!(attribute.name(), "ht" | "customHeight"))
+        .map(|attribute| {
+            let prefix = attribute
+                .namespace()
+                .and_then(|space| row.lookup_prefix(space))
+                .map_or_else(String::new, |prefix| format!("{prefix}:"));
+            format!(
+                r#"{prefix}{}="{}""#,
+                attribute.name(),
+                escape(attribute.value())
+            )
+        })
+        .collect();
+    tag.push_str(&kept.join(" "));
+    if let Some(height) = wanted {
+        let _ = write!(tag, r#" ht="{height}" customHeight="1""#);
+    }
+    Some((start..end - usize::from(closed), tag))
+}
+
+fn tag_name<'x>(xml: &'x str, element: Xml<'_, '_>) -> &'x str {
+    xml[element.range().start + 1..]
+        .split([' ', '/', '>'])
+        .next()
+        .unwrap_or_default()
+}
+
+/// The edits that bring the file's column widths, row heights and merges up to the model.
+fn layout_edits(xml: &str, sheet: &Sheet) -> Result<Vec<Edit>, String> {
+    let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
+    let root = parsed.root_element();
+    let data = local(root, "sheetData").ok_or("the sheet has no data")?;
+    let mut edits: Vec<Edit> = Vec::new();
+    edits.extend(columns_edit(root, data.range().start, sheet));
+    edits.extend(merges_edit(root, xml, sheet));
+    let mut known = BTreeSet::new();
+    for row in locals(data, "row") {
+        let Some(line) = row
+            .attribute("r")
+            .and_then(|row| row.parse::<u32>().ok())
+            .and_then(|row| row.checked_sub(1))
+        else {
+            continue;
+        };
+        known.insert(line);
+        edits.extend(height_edit(xml, row, sheet, line));
+    }
+    let missing: BTreeMap<u32, BTreeMap<u32, &Cell>> = sheet
+        .heights
+        .keys()
+        .filter(|line| !known.contains(line))
+        .map(|line| (*line, BTreeMap::new()))
+        .collect();
+    if !missing.is_empty() {
+        add_rows(xml, data, sheet, &missing, &mut edits)?;
+    }
+    Ok(edits)
+}
+
+/// A sheet with its changed cells swapped, and its layout as the model holds it.
+fn write_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<String>, String> {
+    let cells = if sheet.moved {
+        Some(whole_sheet(xml, sheet)?)
+    } else {
+        patch_sheet(xml, sheet, strings)?
+    };
+    let current = cells.as_deref().unwrap_or(xml);
+    let edits = layout_edits(current, sheet)?;
+    if edits.is_empty() {
+        return Ok(cells);
+    }
+    Ok(Some(spliced(current, edits)))
 }
 
 fn new_sheet_xml(sheet: &Sheet) -> String {
@@ -317,10 +543,10 @@ fn workbook_edits(
         .ok_or("the workbook is missing")?;
     let parsed = Document::parse(&xml).map_err(|error| error.to_string())?;
     let list = local(parsed.root_element(), "sheets").ok_or("the workbook has no sheets")?;
-    let known: Vec<(String, String, std::ops::Range<usize>)> = locals(list, "sheet")
+    let known: Vec<(u32, String, std::ops::Range<usize>)> = locals(list, "sheet")
         .filter_map(|sheet| {
             Some((
-                sheet.attribute("sheetId")?.to_owned(),
+                sheet.attribute("sheetId")?.parse().ok()?,
                 sheet.attribute("name")?.to_owned(),
                 sheet.range(),
             ))
@@ -330,7 +556,7 @@ fn workbook_edits(
         && known
             .iter()
             .zip(&model.sheets)
-            .all(|((id, name, _), sheet)| *id == sheet.id && *name == sheet.name);
+            .all(|((number, name, _), sheet)| *number == sheet.number && *name == sheet.name);
     if same {
         return Ok(());
     }
@@ -344,23 +570,19 @@ fn workbook_edits(
     let mut types_added = String::new();
     let mut entries = String::new();
     for sheet in &model.sheets {
-        if let Some((_, _, range)) = known.iter().find(|(id, _, _)| *id == sheet.id) {
+        if let Some((_, name, range)) = known.iter().find(|(number, ..)| *number == sheet.number) {
             let original = &xml[range.clone()];
-            let parsed_entry = known
-                .iter()
-                .find(|(id, _, _)| *id == sheet.id)
-                .map(|(_, name, _)| name.as_str());
-            if parsed_entry == Some(sheet.name.as_str()) {
+            if *name == sheet.name {
                 entries.push_str(original);
             } else {
-                let old = format!(r#"name="{}""#, escape(parsed_entry.unwrap_or_default()));
+                let old = format!(r#"name="{}""#, escape(name));
                 let new = format!(r#"name="{}""#, escape(&sheet.name));
                 entries.push_str(&original.replacen(&old, &new, 1));
             }
             continue;
         }
-        let number: u32 = sheet.id.parse().map_err(|_| "a sheet has no number")?;
-        let part = format!("xl/worksheets/sheetN{number}.xml");
+        let number = sheet.number;
+        let part = sheet.part_name();
         let relation = format!("rIdSheet{number}");
         parts.insert(part.clone(), Some(new_sheet_xml(sheet).into_bytes()));
         let _ = write!(
@@ -406,6 +628,36 @@ fn workbook_edits(
             &types_xml[closing..]
         );
         parts.insert(CONTENT_TYPES.to_owned(), Some(types.into_bytes()));
+    }
+    Ok(())
+}
+
+/// Brings the text of the defined names up to the model.
+fn names_edit(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
+    let edited = parts.get(WORKBOOK_PART).and_then(Option::as_ref);
+    let xml = match edited {
+        Some(bytes) => String::from_utf8_lossy(bytes).into_owned(),
+        None => package
+            .text(WORKBOOK_PART)
+            .ok_or("the workbook is missing")?,
+    };
+    let parsed = Document::parse(&xml).map_err(|error| error.to_string())?;
+    let Some(names) = local(parsed.root_element(), "definedNames") else {
+        return Ok(());
+    };
+    let edits: Vec<Edit> = locals(names, "definedName")
+        .zip(&model.names)
+        .filter(|(name, text)| name.text().unwrap_or_default() != text.as_str())
+        .filter_map(|(name, text)| {
+            let node = name.first_child().filter(Xml::is_text)?;
+            Some((node.range(), escape(text)))
+        })
+        .collect();
+    if !edits.is_empty() {
+        parts.insert(
+            WORKBOOK_PART.to_owned(),
+            Some(spliced(&xml, edits).into_bytes()),
+        );
     }
     Ok(())
 }
@@ -554,22 +806,16 @@ fn write_parts(model: &Model, file: &[u8]) -> Result<Option<Vec<u8>>, String> {
     let strings = strings_of(&mut package);
     let mut parts = Parts::new();
     for sheet in &model.sheets {
-        let Some(part) = &sheet.part else {
+        let part = sheet.part_name();
+        let Some(xml) = package.text(&part) else {
             continue;
         };
-        let Some(xml) = package.text(part) else {
-            continue;
-        };
-        let patched = if sheet.moved {
-            Some(whole_sheet(&xml, sheet)?)
-        } else {
-            patch_sheet(&xml, sheet, &strings)?
-        };
-        if let Some(patched) = patched {
-            parts.insert(part.clone(), Some(patched.into_bytes()));
+        if let Some(patched) = write_sheet(&xml, sheet, &strings)? {
+            parts.insert(part, Some(patched.into_bytes()));
         }
     }
     workbook_edits(model, &mut package, &mut parts)?;
+    names_edit(model, &mut package, &mut parts)?;
     add_looks(model, &mut package, &mut parts)?;
     if parts.is_empty() {
         return Ok(None);
