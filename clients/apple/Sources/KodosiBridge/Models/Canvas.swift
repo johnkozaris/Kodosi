@@ -233,21 +233,21 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
         }
     }
 
-    public struct Menu: Decodable, Equatable, Sendable {
-        public struct Item: Decodable, Equatable, Sendable {
-            public let label: String
-            public let enabled: Bool
-            public let chosen: Bool
-        }
-
-        public let id: Int
-        public let items: [Item]
+    public struct MenuItem: Decodable, Equatable, Sendable {
+        public let label: String
+        public let enabled: Bool
+        public let chosen: Bool
     }
 
-    public struct Dialog: Decodable, Equatable, Sendable {
-        public enum Kind: String, Decodable, Sendable { case alert, confirm, prompt, beforeunload }
+    public struct Menu: Decodable, Equatable, Sendable {
+        public let id: Int
+        public let items: [MenuItem]
+    }
 
-        public let kind: Kind
+    public enum DialogKind: String, Decodable, Sendable { case alert, confirm, prompt, beforeunload }
+
+    public struct Dialog: Decodable, Equatable, Sendable {
+        public let kind: DialogKind
         public let message: String
         public let text: String
     }
@@ -338,6 +338,7 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
         return false
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
@@ -408,5 +409,19 @@ public enum BrowserAct: Equatable, Sendable {
         case let .open(url): .object(["do": .string("open"), "url": .string(url)])
         case .wake: .object(["do": .string("wake")])
         }
+    }
+}
+
+public extension URL {
+    /// Whether a web address is on the loopback interface, so that it names the computer that
+    /// serves it.
+    var isLocalAddress: Bool {
+        guard let host = host()?.lowercased() else { return false }
+        let name = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        if ["localhost", "0.0.0.0", "::", "::1"].contains(name) || name.hasSuffix(".localhost") {
+            return true
+        }
+        let parts = name.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 4 && parts[0] == "127" && parts.allSatisfy { UInt8($0) != nil }
     }
 }

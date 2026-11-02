@@ -5,7 +5,7 @@
         func review(_ link: TerminalLink) {
             guard !linkAlertOpen, let window else { return }
             switch link.decision {
-            case .open:
+            case .open, .browser:
                 return
             case let .ask(url):
                 guard let app = NSWorkspace.shared.urlForApplication(toOpen: url) else {
@@ -85,7 +85,7 @@
             }
             let alert: UIAlertController
             switch link.decision {
-            case .open:
+            case .open, .browser:
                 return
             case let .ask(url):
                 alert = UIAlertController(

@@ -58,7 +58,6 @@ NOT_FOR_THE_MAC_APP = (
 LINUX_PARTS = (
     "chrome",
     "chrome_crashpad_handler",
-    "chrome_sandbox",
     "icudtl.dat",
     "libEGL.so",
     "libGLESv2.so",
@@ -240,9 +239,11 @@ def plain_parts(out: Path, stage: Path, parts: tuple[str, ...], program: str) ->
         if not source_path.exists():
             raise SystemExit(f"The build has no {part}")
         if source_path.is_dir():
-            shutil.copytree(source_path, folder / part)
+            shutil.copytree(source_path, folder / part, ignore=shutil.ignore_patterns("*.info"))
         else:
             shutil.copy2(source_path, folder / part)
+    if platform.system() == "Linux":
+        run("strip", "--strip-unneeded", program, "chrome_crashpad_handler", folder=folder)
     return folder / program
 
 

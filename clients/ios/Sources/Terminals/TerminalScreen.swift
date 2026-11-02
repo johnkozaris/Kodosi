@@ -160,16 +160,11 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 
-    private func openBrowser(of session: RuntimeSession) {
-        let canvas = model.terminals.canvas
-        if session.canvas?.browser != nil {
-            canvas.show(.browser, in: session)
-        } else {
-            Task {
-                do {
-                    try await canvas.openBrowser(in: session.id)
-                } catch { model.notices.show(error) }
-            }
+    private func openBrowser(of session: RuntimeSession, at address: URL? = nil) {
+        Task {
+            do {
+                try await model.terminals.canvas.openBrowser(of: session, at: address)
+            } catch { model.notices.show(error) }
         }
         canvasOpen = true
     }
@@ -206,6 +201,7 @@ private struct TerminalScreenContent: View {
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         otherComputer: session.otherComputer,
+                        opensBrowser: { address in openBrowser(of: session, at: address) },
                         isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                         onFocusChange: { focused in
                             keyboard.terminalFocused(focused)

@@ -10,8 +10,10 @@ use base64::Engine as _;
 use futures_util::StreamExt as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use shared_browser::{Browsers, Settings};
+use shared_browser::{Browsers, Copied, Settings};
 use tokio::{io::AsyncWriteExt as _, sync::OnceCell};
+
+use super::browser::KEPT_PROFILE;
 
 /// Names a browser program on disk, for a build with no feed.
 const ON_DISK: &str = "KODOSI_BROWSER_ENGINE";
@@ -85,17 +87,37 @@ impl BrowserHost {
     }
 
     pub(super) async fn remove_profile(&self, profile: &str) {
-        match self.browsers.get() {
-            Some(browsers) => {
-                if let Err(problem) = browsers.remove_profile(profile).await {
-                    tracing::warn!(%problem, "the profile of a closed terminal stays");
-                }
+        if let Some(browsers) = self.browsers.get() {
+            if let Err(problem) = browsers.remove_profile(profile).await {
+                tracing::warn!(%problem, "the profile of a closed terminal stays");
             }
-            None => {
-                let folder = self.folder.join("profiles").join(profile);
-                drop(tokio::fs::remove_dir_all(folder).await);
-            }
+        } else {
+            let folder = self.folder.join("profiles").join(profile);
+            drop(tokio::fs::remove_dir_all(folder).await);
         }
+    }
+
+    /// Copies the sign-ins of a browser of this computer into the kept profile. Only a person
+    /// starts this.
+    pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<Copied, String> {
+        let sources = shared_browser::sign_in_sources();
+        let source = sources
+            .iter()
+            .find(|source| source.name == name)
+            .ok_or_else(|| format!("{name} is not on this computer."))?;
+        self.browsers(|_| {})
+            .await?
+            .copy_sign_ins(KEPT_PROFILE, source)
+            .await
+            .map_err(|problem| problem.to_string())
+    }
+
+    pub(crate) async fn forget_sign_ins(&self) -> Result<usize, String> {
+        self.browsers(|_| {})
+            .await?
+            .remove_copied_sign_ins(KEPT_PROFILE)
+            .await
+            .map_err(|problem| problem.to_string())
     }
 
     pub(crate) async fn close(&self) {

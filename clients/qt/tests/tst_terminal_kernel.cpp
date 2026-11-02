@@ -3038,14 +3038,11 @@ void TerminalKernelTest::terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLoca
              QStringLiteral("http://[::1]:3000/"),
              QStringLiteral("http://app.localhost/"),
          }) {
-        const auto decision = elsewhere(address);
-        QCOMPARE(decision.action, Action::Refuse);
-        QCOMPARE(decision.reason, QStringLiteral("The address is on studio."));
+        QCOMPARE(elsewhere(address).action, Action::Browser);
+        QCOMPARE(kodosi::decideTerminalLink(address).action, Action::Browser);
     }
     QCOMPARE(elsewhere(QStringLiteral("file:///home/ana/notes.txt")).shown, QStringLiteral("/home/ana/notes.txt"));
     QCOMPARE(elsewhere(QStringLiteral("http://127.0.0.1.example.com/")).action, Action::Open);
-    QCOMPARE(kodosi::decideTerminalLink(QStringLiteral("http://localhost:5173/")).action, Action::Open);
-
     QCOMPARE(
         kodosi::decideTerminalLink(QStringLiteral("file://server/share/notes.txt")).reason,
         QStringLiteral("The file is on server."));

@@ -9,7 +9,7 @@ WebEngineView {
     id: root
 
     required property string address
-    property bool otherComputer: false
+    required property string sessionId
     property var place: null
     property string shown: ""
 
@@ -57,11 +57,11 @@ WebEngineView {
             return;
         request.reject();
         if (request.navigationType === WebEngineNavigationRequest.LinkClickedNavigation)
-            Models.Canvas.follow(request.url, root.otherComputer);
+            Models.Canvas.follow(root.sessionId, request.url);
     }
     onNewWindowRequested: request => {
         if (request.userInitiated)
-            Models.Canvas.follow(request.requestedUrl, root.otherComputer);
+            Models.Canvas.follow(root.sessionId, request.requestedUrl);
     }
     onLoadingChanged: info => {
         if (info.status !== WebEngineLoadingInfo.LoadSucceededStatus || !root.place)

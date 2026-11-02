@@ -82,9 +82,10 @@ conversation follows the person to all their computers.
   opens at once. A file or folder opens, but not a file that can run a program. A link to
   another app asks first. A link with hidden characters or an incomplete address does not
   open; the app tells why and can copy the link.
-- A link opens on the device where the person selects it. In a terminal of another
-  computer, a file or a local address such as `localhost` is on that computer, so it does
-  not open; the app names that computer.
+- A link opens on the device where the person selects it. A local address such as
+  `localhost` opens in the terminal's shared browser, on the terminal's computer. In a
+  terminal of another computer, a file is on that computer, so it does not open; the app
+  names that computer.
 
 ## Canvas
 

@@ -25,6 +25,7 @@ struct TerminalSurfaceWrapper: View {
     let allowsInput: Bool
     let asksBeforeClipboardRead: Bool
     let otherComputer: String?
+    let opensBrowser: (URL) -> Void
     let isSurfaceVisible: Bool
     let onFocus: () -> Void
     let onFocusChange: (Bool) -> Void
@@ -54,6 +55,7 @@ struct TerminalSurfaceWrapper: View {
             allowsInput: inputAllowed,
             asksBeforeClipboardRead: asksBeforeClipboardRead,
             otherComputer: otherComputer,
+            opensBrowser: opensBrowser,
             isSurfaceVisible: isSurfaceVisible && stageVisible && tileVisible,
             onFocus: onFocus,
             onFocusChange: onFocusChange,

@@ -25,6 +25,8 @@ mod instance;
 mod link;
 mod subscriptions;
 mod terminal_bridge;
+#[cfg(not(target_vendor = "apple"))]
+mod video;
 
 pub use app::{
     kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare,

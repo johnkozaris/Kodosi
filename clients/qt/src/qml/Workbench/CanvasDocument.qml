@@ -12,7 +12,6 @@ WebEngineView {
     required property string sessionId
     required property string key
     required property string view
-    property bool otherComputer: false
     property string pipe: ""
     property bool shown: false
     property int wait: 1000
@@ -65,11 +64,11 @@ WebEngineView {
             return;
         request.reject();
         if (request.navigationType === WebEngineNavigationRequest.LinkClickedNavigation)
-            Models.Canvas.follow(request.url, root.otherComputer);
+            Models.Canvas.follow(root.sessionId, request.url);
     }
     onNewWindowRequested: request => {
         if (request.userInitiated)
-            Models.Canvas.follow(request.requestedUrl, root.otherComputer);
+            Models.Canvas.follow(root.sessionId, request.requestedUrl);
     }
     onRenderProcessTerminated: {
         root.shown = false;

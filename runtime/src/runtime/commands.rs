@@ -139,6 +139,18 @@ impl Runtime {
             }
             Command::Read { .. } => self.read(command)?,
             Command::CanvasAsk { .. } => self.ask_canvas(command)?,
+            #[cfg(feature = "host")]
+            Command::BrowserSources { .. }
+            | Command::BrowserCopy { .. }
+            | Command::BrowserForget { .. } => self.use_sign_ins(command)?,
+            #[cfg(not(feature = "host"))]
+            Command::BrowserSources { .. }
+            | Command::BrowserCopy { .. }
+            | Command::BrowserForget { .. } => {
+                return Err(Error::Invalid(
+                    "The browsers of a computer are in the app on that computer.".to_owned(),
+                ));
+            }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { pipe, .. } => {
                 self.pipes.remove(&parse_id(pipe)?);
@@ -555,6 +567,36 @@ impl Runtime {
                 return Err(Error::Busy);
             }
         }
+        Ok(())
+    }
+
+    /// The sign-ins of the browsers of this computer. Only the app's Settings send these, for
+    /// a person's own step.
+    #[cfg(feature = "host")]
+    fn use_sign_ins(&mut self, command: &Command) -> Result<()> {
+        self.job_capacity()?;
+        let browsers = self.services.browsers.clone();
+        let command = command.clone();
+        self.spawn(async move {
+            let result = match &command {
+                Command::BrowserCopy { name, .. } => browsers
+                    .copy_sign_ins(name)
+                    .await
+                    .map(|done| json!({ "copied": done.copied, "skipped": done.skipped })),
+                Command::BrowserForget { .. } => browsers
+                    .forget_sign_ins()
+                    .await
+                    .map(|removed| json!({ "copied": removed })),
+                _ => {
+                    let names = shared_browser::sign_in_sources()
+                        .into_iter()
+                        .map(|source| source.name)
+                        .collect::<Vec<_>>();
+                    Ok(json!({ "sources": names }))
+                }
+            };
+            Completion::Browser { command, result }
+        });
         Ok(())
     }
 
@@ -1333,6 +1375,17 @@ impl Runtime {
                 Err(message) => self.error(&command, &Error::Invalid(message)),
             },
             Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
+            #[cfg(feature = "host")]
+            Completion::Browser { command, result } => match result {
+                Ok(fields) => {
+                    let mut value = super::answer(&command, Ok(()));
+                    if let (Some(value), Value::Object(fields)) = (value.as_object_mut(), fields) {
+                        value.extend(fields);
+                    }
+                    self.emit(value);
+                }
+                Err(message) => self.error(&command, &Error::Invalid(message)),
+            },
             Completion::Document {
                 command,
                 pipe,

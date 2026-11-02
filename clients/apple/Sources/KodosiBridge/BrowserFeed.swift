@@ -78,6 +78,22 @@ public final class BrowserFeed {
         post(.input(event))
     }
 
+    /// Gives a page the files that a person picked. They go into the folder of the terminal
+    /// first, because the browser runs on the computer of the terminal.
+    public func give(_ files: [URL]) async {
+        var paths: [String] = []
+        do {
+            for file in files {
+                if let path = try await store.upload(file, to: session) {
+                    paths.append(path)
+                }
+            }
+        } catch {
+            failure = error.localizedDescription
+        }
+        send(.files(paths))
+    }
+
     /// Asks for a new key frame, after the display lost the stream.
     public func restart() {
         behind = true

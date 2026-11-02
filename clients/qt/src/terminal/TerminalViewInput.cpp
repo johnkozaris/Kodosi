@@ -1016,6 +1016,9 @@ void TerminalView::activateLink(const QString& link)
             emit operationError(QStringLiteral("Kodosi could not open the terminal link."));
         }
         return;
+    case TerminalLinkDecision::Action::Browser:
+        emit browserLinkRequested(decision.url);
+        return;
     case TerminalLinkDecision::Action::Ask:
         emit linkQuestionRequested(decision.url, decision.shown);
         return;

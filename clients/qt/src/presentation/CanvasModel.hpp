@@ -20,12 +20,14 @@ namespace kodosi {
 class CommandDispatcher;
 class SessionCatalogModel;
 
-// What this device knows of the canvases of the terminals: what a person saw and picked,
-// the content of the items that it showed, and the pictures of and input to each shared
-// browser.
+// What this device knows of the canvases of the terminals: what a person saw and picked, and
+// the content of the items that it showed.
 class CanvasModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(int revision READ revision NOTIFY changed)
+    Q_PROPERTY(QStringList signInSources READ signInSources NOTIFY signInsChanged)
+    Q_PROPERTY(bool signInWork READ signInWork NOTIFY signInsChanged)
+    Q_PROPERTY(QString signInNote READ signInNote NOTIFY signInsChanged)
 
 public:
     struct BrowserKey {
@@ -37,6 +39,13 @@ public:
     CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent = nullptr);
 
     [[nodiscard]] int revision() const { return m_revision; }
+    [[nodiscard]] QStringList signInSources() const { return m_signInSources; }
+    [[nodiscard]] bool signInWork() const { return !m_signInRequest.isEmpty(); }
+    [[nodiscard]] QString signInNote() const { return m_signInNote; }
+    Q_INVOKABLE void askSignInSources();
+    Q_INVOKABLE void copySignIns(const QString& source);
+    Q_INVOKABLE void forgetSignIns();
+    void applySignIns(const QJsonObject& event);
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QStringList sections(const QString& sessionId) const;
@@ -45,54 +54,44 @@ public:
     Q_INVOKABLE void show(const QString& sessionId, const QString& section);
     Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
-    Q_INVOKABLE void openBrowser(const QString& sessionId);
+    Q_INVOKABLE void openBrowser(const QString& sessionId, const QUrl& address = {});
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool hasNews(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
     Q_INVOKABLE void remove(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString question(const QString& sessionId, const QString& key, const QString& words) const;
-    Q_INVOKABLE bool follow(const QUrl& link, bool otherComputer);
+    Q_INVOKABLE void follow(const QString& sessionId, const QUrl& link);
 
     Q_INVOKABLE bool load(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pageAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pictureAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE void saveCopy(const QString& sessionId, const QString& key);
     Q_INVOKABLE void attach(const QString& sessionId, const QUrl& file);
+    void giveFiles(const QString& sessionId, const QList<QUrl>& files);
     [[nodiscard]] std::optional<std::pair<QByteArray, QByteArray>> published(const QUrl& address) const;
     [[nodiscard]] std::optional<QByteArray> published(int number) const;
     [[nodiscard]] std::optional<QByteArray> stored(const QString& sessionId, const QString& key) const;
 
-    Q_INVOKABLE void watch(const QString& sessionId);
-    Q_INVOKABLE void unwatch(const QString& sessionId);
-    Q_INVOKABLE void setBrowserView(const QString& sessionId, qreal width, qreal height);
     Q_INVOKABLE void act(const QString& sessionId, const QVariantMap& action);
     Q_INVOKABLE void wake(const QString& sessionId);
-    Q_INVOKABLE [[nodiscard]] QVariantMap picture(const QString& sessionId) const;
-    Q_INVOKABLE [[nodiscard]] QVariant viewPoint(const QString& sessionId, int x, int y) const;
-    Q_INVOKABLE void pointer(const QString& sessionId, const QString& type, qreal x, qreal y, int button, int clicks,
-        int modifiers);
-    Q_INVOKABLE void wheel(const QString& sessionId, qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers);
-    Q_INVOKABLE bool key(const QString& sessionId, int key, const QString& text, int modifiers, bool down);
-    Q_INVOKABLE void type(const QString& sessionId, const QString& text);
-    Q_INVOKABLE void paste(const QString& sessionId);
-    [[nodiscard]] QImage browserImage(const QString& sessionId) const;
 
     void apply(const QJsonObject& event);
     void reset();
 
-    [[nodiscard]] static std::optional<QPoint> browserPoint(QPointF point, QSizeF view, QSizeF picture, QSizeF browser);
-    [[nodiscard]] static std::optional<QPointF> pointInView(QPoint point, QSizeF view, QSizeF picture, QSizeF browser);
+    [[nodiscard]] static std::optional<QPointF> browserPoint(QPointF point, QSizeF view, QSizeF browser);
+    [[nodiscard]] static std::optional<QPointF> pointInView(QPointF point, QSizeF view, QSizeF browser);
     [[nodiscard]] static std::optional<BrowserKey> browserKey(int key);
     [[nodiscard]] static QString about(const QString& place, const QString& words);
-    [[nodiscard]] static bool followable(const QUrl& link, bool otherComputer);
+    [[nodiscard]] static bool followable(const QUrl& link);
 
 signals:
     void changed();
+    void signInsChanged();
     void loaded(const QString& sessionId, const QString& key);
     void failed(const QString& sessionId, const QString& key, const QString& message);
-    void pictureChanged(const QString& sessionId);
     void copyReady(const QString& name, const QByteArray& content);
+    void filesGiven(const QString& sessionId, const QStringList& paths);
     void problem(const QString& message);
 
 private:
@@ -113,17 +112,6 @@ private:
         quint64 revision = 0;
         QByteArray data;
     };
-    struct Feed {
-        int watchers = 0;
-        bool asking = false;
-        bool sending = false;
-        quint64 sequence = 0;
-        QImage image;
-        QSizeF browser;
-        QSizeF view;
-        QString failure;
-        QList<QJsonObject> pending;
-    };
     struct Published {
         int number = 0;
         QString source;
@@ -136,8 +124,13 @@ private:
         QString name;
         QByteArray data;
         qsizetype offset = 0;
+        bool forPage = false;
     };
-    enum class Asked { Read, Picture, Input, Act, Remove, Attach };
+    struct Giving {
+        qsizetype waiting = 0;
+        QStringList paths;
+    };
+    enum class Asked { Read, Act, Remove, Attach };
     struct Request {
         Asked asked;
         QString sessionId;
@@ -161,7 +154,10 @@ private:
     QHash<QString, Reading> m_readings;
     QHash<QString, Request> m_requests;
     QHash<QString, Upload> m_uploads;
-    QHash<QString, Feed> m_feeds;
+    QHash<QString, Giving> m_giving;
+    QStringList m_signInSources;
+    QString m_signInRequest;
+    QString m_signInNote;
     QList<Published> m_published;
     int m_publishedCount = 0;
 
@@ -173,22 +169,16 @@ private:
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();
     void touch();
-    void sendPart(const QString& upload);
+    bool upload(const QString& sessionId, const QUrl& file, bool forPage);
+    bool sendPart(const QString& upload);
+    void gave(const QString& sessionId, const QString& path);
+    void signInStep(const QString& type, QJsonObject fields);
     void read(const QString& sessionId, const QString& key, bool copy);
     void askPart(const QString& id);
     void receivePart(const Request& request, const QJsonObject& answer);
     void endReading(const QString& id, const QString& failure);
     void store(const QString& id, quint64 revision, QByteArray data);
-    void askPicture(const QString& sessionId);
-    void receivePicture(const QString& sessionId, const QJsonObject& answer, qint64 sent);
-    void retryPicture(const QString& sessionId, qint64 sent);
-    void send(const QString& sessionId, QJsonObject input);
-    void flush(const QString& sessionId);
-    void press(const QString& sessionId, const BrowserKey& key, const QString& typed, bool down, int modifiers);
     [[nodiscard]] QString ask(Asked asked, const QString& sessionId, QJsonObject request, const QString& key = {});
-    void failBrowser(const QString& sessionId, const QString& message);
-    [[nodiscard]] std::optional<QPoint> point(const QString& sessionId, qreal x, qreal y) const;
     [[nodiscard]] static QString storedId(const QString& sessionId, const QString& key);
-    [[nodiscard]] static int browserModifiers(int modifiers);
 };
 }

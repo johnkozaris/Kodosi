@@ -219,6 +219,7 @@ class WordEditor implements ViewEditor {
             blockIds(),
             peersPlugin(),
             imagesPlugin(client),
+            followsLinks(),
             pages(shape, {
               keepNext: (block) => lookOf(block)?.keepNext === true,
               startsPage: (block) =>
@@ -295,6 +296,34 @@ class WordEditor implements ViewEditor {
     this.fitting?.disconnect();
     this.editor?.destroy();
   }
+}
+
+/** A host sees an ordinary link, and opens it by its own rules. */
+function follow(address: string): void {
+  if (!/^(https?|mailto):/i.test(address)) return;
+  const link = document.createElement("a");
+  link.href = address;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.click();
+}
+
+/** A click places the caret, so a link opens with ⌘ or Ctrl, as in a terminal. */
+function followsLinks(): Plugin {
+  return new Plugin({
+    props: {
+      handleClick(view, position, event) {
+        if (!event.metaKey && !event.ctrlKey) return false;
+        const link = view.state.doc
+          .resolve(position)
+          .marks()
+          .find((mark) => mark.type.name === "link");
+        if (!link) return false;
+        follow(link.attrs.href as string);
+        return true;
+      },
+    },
+  });
 }
 
 export function createEditor(element: HTMLElement, client: Client): WordEditor {

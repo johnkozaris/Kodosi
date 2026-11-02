@@ -78,7 +78,7 @@ struct TerminalLinkTests {
         #expect(openedPath(TerminalLink("file://LOCALHOST\(path(notes))")) == "\(real)/notes.txt")
     }
 
-    @Test func `in a terminal of another computer, its files and local addresses do not open here`() throws {
+    @Test func `in a terminal of another computer, its files do not open here and its local addresses go to its browser`() throws {
         let pullRequest = try #require(URL(string: "https://github.com/kodosi/kodosi/pull/1"))
         #expect(TerminalLink(pullRequest.absoluteString, otherComputer: "studio").decision == .open(pullRequest))
         let editor = try #require(URL(string: "vscode://file/home/ana/main.rs"))
@@ -91,15 +91,16 @@ struct TerminalLinkTests {
             "http://localhost:5173/", "https://127.0.0.1:8443/admin", "http://0.0.0.0:3000",
             "http://[::1]:3000/", "http://app.localhost/",
         ] {
-            #expect(TerminalLink(address, otherComputer: "studio").decision == .refuse(.addressElsewhere("studio")), "\(address)")
+            let url = try #require(URL(string: address))
+            #expect(TerminalLink(address, otherComputer: "studio").decision == .browser(url), "\(address)")
+            #expect(TerminalLink(address).decision == .browser(url), "\(address)")
         }
         #expect(TerminalLink("~/notes.txt", otherComputer: "studio").shown == "~/notes.txt")
         #expect(TerminalLink("file:///home/ana/notes.txt", otherComputer: "studio").shown == "/home/ana/notes.txt")
         #expect(TerminalLink.Refusal.fileElsewhere("studio").message == "The file is on studio.")
 
-        let local = try #require(URL(string: "http://localhost:5173/"))
-        #expect(TerminalLink("http://localhost:5173/").decision == .open(local))
-        #expect(TerminalLink("http://127.0.0.1.example.com/", otherComputer: "studio").decision != .refuse(.addressElsewhere("studio")))
+        let web = try #require(URL(string: "http://127.0.0.1.example.com/"))
+        #expect(TerminalLink("http://127.0.0.1.example.com/", otherComputer: "studio").decision == .open(web))
     }
 
     @Test func `the proxy opens a safe link and lets the view review every other link`() throws {
@@ -108,6 +109,8 @@ struct TerminalLinkTests {
         var reviewed: [TerminalLink] = []
         proxy.opensLink = { opened.append($0) }
         proxy.linkReviewRequested = { reviewed.append($0) }
+        var inBrowser: [URL] = []
+        proxy.opensBrowser = { inBrowser.append($0) }
 
         proxy.terminalDidRequestOpenURL("https://example.com", kind: .unknown)
         proxy.terminalDidRequestOpenURL("zoommtg://join?confno=1", kind: .unknown)
@@ -121,10 +124,10 @@ struct TerminalLinkTests {
 
         proxy.otherComputer = "studio"
         proxy.terminalDidRequestOpenURL("http://localhost:5173/", kind: .unknown)
-        #expect(reviewed.last?.decision == .refuse(.addressElsewhere("studio")))
+        #expect(try inBrowser == [#require(URL(string: "http://localhost:5173/"))])
         proxy.terminalDidRequestOpenURL("/private/tmp/screen.txt", kind: .text)
         #expect(opened.last == URL(filePath: "/private/tmp/screen.txt"))
-        #expect(reviewed.count == 3)
+        #expect(reviewed.count == 2)
     }
 
     private func openedPath(_ link: TerminalLink) -> String? {

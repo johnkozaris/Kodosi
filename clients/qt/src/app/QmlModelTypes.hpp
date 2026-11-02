@@ -1,6 +1,7 @@
 #pragma once
 #include "accessibility/AccessibilityScope.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
+#include "canvas/BrowserVideo.hpp"
 #include "canvas/CanvasWeb.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
@@ -265,6 +266,12 @@ public:
     static kodosi::CanvasWeb* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
+struct BrowserVideoForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::BrowserVideo)
+    QML_NAMED_ELEMENT(BrowserVideo)
+};
+
 struct TerminalViewForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::TerminalView)
@@ -285,5 +292,6 @@ struct KeyedListModelForeign {
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
-    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasWeb&, ShortcutsModel&);
+    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasDocuments&,
+    CanvasWeb&, ShortcutsModel&);
 }

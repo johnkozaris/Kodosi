@@ -141,19 +141,18 @@ mod host {
 
         /// Closes the browser of a profile and deletes the profile with its sign-ins.
         pub async fn remove_profile(&self, profile: &str) -> Result<(), Error> {
-            let windows: Vec<Window> = {
-                let mut windows = self.windows.lock().await;
-                let keys: Vec<_> = windows
-                    .keys()
-                    .filter(|(owner, _)| owner == profile)
-                    .cloned()
-                    .collect();
-                keys.iter().filter_map(|key| windows.remove(key)).collect()
-            };
+            let windows: Vec<Window> = self
+                .windows
+                .lock()
+                .await
+                .extract_if(|(owner, _), _| owner == profile)
+                .map(|(_, window)| window)
+                .collect();
             for window in &windows {
                 window.close().await;
             }
-            if let Some(engine) = self.engines.lock().await.remove(profile) {
+            let engine = self.engines.lock().await.remove(profile);
+            if let Some(engine) = engine {
                 engine.stop().await;
             }
             match tokio::fs::remove_dir_all(self.settings.profiles.join(profile)).await {

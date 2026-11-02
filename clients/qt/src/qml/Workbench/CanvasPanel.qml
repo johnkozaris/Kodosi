@@ -95,13 +95,13 @@ Item {
 
     objectName: "canvas." + sessionId
     onDocumentViewChanged: keepDocument()
-    onCurrentKeyChanged: keepDocument()
     Accessible.id: objectName
     Accessible.role: Accessible.Pane
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
     onCurrentKeyChanged: {
+        keepDocument();
         body.active = false;
         body.active = true;
         Qt.callLater(markSeen);
@@ -509,7 +509,6 @@ Item {
 
                             anchors.fill: parent
                             sessionId: root.sessionId
-                            otherComputer: !root.local
                             visible: !root.shelf && root.documentView.length > 0 && root.currentKey === key
 
                             Timer {
@@ -576,7 +575,7 @@ Item {
         id: pageView
 
         CanvasPage {
-            otherComputer: !root.local
+            sessionId: root.sessionId
             address: root.readyCount >= 0 && root.current ? Models.Canvas.pageAddress(root.sessionId, root.current.key) : ""
         }
     }

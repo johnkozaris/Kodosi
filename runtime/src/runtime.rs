@@ -436,6 +436,7 @@ impl Local {
     }
 }
 
+#[cfg(feature = "host")]
 struct Local {
     terminal: TerminalSession,
     entry: SessionEntry,
@@ -612,6 +613,11 @@ enum Completion {
     Canvas {
         command: Command,
         result: std::result::Result<crate::canvas::CanvasAnswer, String>,
+    },
+    #[cfg(feature = "host")]
+    Browser {
+        command: Command,
+        result: std::result::Result<Value, String>,
     },
     Document {
         command: Command,

@@ -230,19 +230,44 @@ public final class CanvasStore {
         return (revision, data)
     }
 
+    /// The browsers of this computer whose sign-ins a person can copy.
+    public func signInSources() async throws -> [String] {
+        try await commands.request("browser.sources", [:]).value("sources")
+    }
+
+    /// Copies the sign-ins of a browser into the profile of this person's private terminals.
+    public func copySignIns(from source: String) async throws -> (copied: Int, skipped: Int) {
+        let event = try await commands.request("browser.copy", ["name": .string(source)])
+        return try (event.value("copied"), event.value("skipped"))
+    }
+
+    /// Removes what copies brought, and says how many sign-ins went.
+    public func removeCopiedSignIns() async throws -> Int {
+        try await commands.request("browser.forget", [:]).value("copied")
+    }
+
     /// Whether a person on this device opens the browser of a terminal, which did not come yet.
     public func opensBrowser(_ session: String) -> Bool {
         opening.contains(session)
     }
 
-    /// Opens the shared browser of a terminal, which then shows on its canvas.
-    public func openBrowser(in session: String) async throws {
-        closed[session]?[.browser] = nil
-        opening.insert(session)
+    /// Shows the shared browser of a terminal on its canvas, and opens it there when the terminal
+    /// has none. With an address, it goes to that address.
+    public func openBrowser(of session: RuntimeSession, at address: URL? = nil) async throws {
+        let open = address.map { BrowserAct.open($0.absoluteString) }
+        guard session.canvas?.browser == nil else {
+            show(.browser, in: session)
+            if let open {
+                try await act(open, in: session.id)
+            }
+            return
+        }
+        closed[session.id]?[.browser] = nil
+        opening.insert(session.id)
         do {
-            try await act(.wake, in: session)
+            try await act(open ?? .wake, in: session.id)
         } catch {
-            opening.remove(session)
+            opening.remove(session.id)
             throw error
         }
     }
@@ -254,6 +279,11 @@ public final class CanvasStore {
     /// Adds a file to the canvas of a terminal. It goes into the folder of the terminal, on the
     /// computer of the terminal.
     public func attach(_ file: URL, in session: String) async throws {
+        try await pick(upload(file, to: session), in: session)
+    }
+
+    /// Puts a file into the folder of a terminal, and says where it is on that computer.
+    func upload(_ file: URL, to session: String) async throws -> String? {
         let granted = file.startAccessingSecurityScopedResource()
         defer {
             if granted {
@@ -277,7 +307,7 @@ public final class CanvasStore {
             ])).key
             offset = end
         } while offset < data.count
-        pick(key, in: session)
+        return key
     }
 
     public func remove(_ keys: [String], in session: String) async throws {

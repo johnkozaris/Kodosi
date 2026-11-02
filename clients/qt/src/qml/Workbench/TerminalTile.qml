@@ -468,6 +468,10 @@ Item {
                     context.popup(point.x, point.y);
                 }
                 onClipboardReadRequested: clipboardRead.open()
+                onBrowserLinkRequested: link => {
+                    Models.Canvas.openBrowser(root.sessionId, link);
+                    root.canvasRequested("");
+                }
                 onLinkQuestionRequested: (link, target) => linkReview.ask(link, target)
                 onLinkRefused: (target, reason) => linkReview.refuse(target, reason)
                 onOperationError: message => root.terminalOperationError = message

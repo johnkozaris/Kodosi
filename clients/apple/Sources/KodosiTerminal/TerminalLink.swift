@@ -4,11 +4,13 @@ import UniformTypeIdentifiers
 /// A link that a person clicked in a terminal. Terminal output can come from any
 /// text, so the link opens by Ghostty's rules: web and mail links open, a file or
 /// folder opens unless it can run code, a link to another app asks first, and a
-/// malformed or disguised link does not open. A file or a local address in a
-/// terminal of another computer is on that computer, so it does not open here.
+/// malformed or disguised link does not open. A file in a terminal of another
+/// computer is on that computer, so it does not open here. A local address opens
+/// in the shared browser of the terminal, which runs on the computer of the terminal.
 struct TerminalLink: Equatable {
     enum Decision: Equatable {
         case open(URL)
+        case browser(URL)
         case ask(URL)
         case refuse(Refusal)
     }
@@ -20,7 +22,6 @@ struct TerminalLink: Equatable {
         case missingFile
         case program
         case fileElsewhere(String)
-        case addressElsewhere(String)
 
         var message: String {
             switch self {
@@ -36,8 +37,6 @@ struct TerminalLink: Equatable {
                 String(localized: "Opening it could run a program.")
             case let .fileElsewhere(computer):
                 String(localized: "The file is on \(computer).")
-            case let .addressElsewhere(computer):
-                String(localized: "The address is on \(computer).")
             }
         }
     }
@@ -71,10 +70,7 @@ private extension TerminalLink {
         switch scheme {
         case "http", "https":
             guard let host = url.host(), !host.isEmpty else { return .refuse(.noWebHost) }
-            if let otherComputer, isLoopback(host) {
-                return .refuse(.addressElsewhere(otherComputer))
-            }
-            return .open(url)
+            return isLoopback(host) ? .browser(url) : .open(url)
         case "mailto":
             guard let address = URLComponents(url: url, resolvingAgainstBaseURL: false)?.path,
                   !address.isEmpty

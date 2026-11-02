@@ -13,6 +13,7 @@ set_source_files_properties(
     qml/Settings/KeyboardSettings.qml
     qml/Settings/ProviderSettings.qml
     qml/Settings/DosiSettings.qml
+    qml/Settings/BrowserSettings.qml
     PROPERTIES QT_QML_INTERNAL_TYPE TRUE
 )
 
@@ -76,6 +77,7 @@ qt_add_library(kodosi-application STATIC
     presentation/CanvasDocuments.cpp
     presentation/CanvasDocuments.hpp
     presentation/CanvasModel.cpp
+    presentation/LocalAddress.cpp
     presentation/CanvasModel.hpp
     presentation/DesktopSettings.cpp
     presentation/DesktopSettings.hpp
@@ -166,6 +168,8 @@ qt_add_library(kodosi-terminal-kernel STATIC
 )
 
 qt_add_library(kodosi-canvas-web STATIC
+    canvas/BrowserVideo.cpp
+    canvas/BrowserVideo.hpp
     canvas/CanvasImages.cpp
     canvas/CanvasImages.hpp
     canvas/CanvasWeb.cpp
@@ -277,6 +281,7 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/TerminalSettings.qml
         qml/Settings/KeyboardSettings.qml
         qml/Settings/ProviderSettings.qml
+        qml/Settings/BrowserSettings.qml
         qml/Settings/DosiSettings.qml
         qml/Controls/AccountMark.qml
         qml/Controls/Arrive.qml

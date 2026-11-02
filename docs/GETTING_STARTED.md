@@ -34,9 +34,10 @@ the shell of the new terminal.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
-  program that uses the mouse. The link opens on the device that you use. Kodosi asks
-  before it opens a link in another app. It does not open a file that can run a program,
-  or a file or `localhost` address of a terminal on another computer.
+  program that uses the mouse. The link opens on the device that you use, and a
+  `localhost` address opens in the terminal's shared browser. Kodosi asks before it opens
+  a link in another app. It does not open a file that can run a program, or a file of a
+  terminal on another computer.
 - To give an agent its own copy of a repository, hover the repository folder in the
   sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
   Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.
@@ -85,14 +86,18 @@ also drop a file on the canvas. On the iPhone, the canvas key is in the terminal
 - A Word, Excel, PowerPoint or PDF file is live: you, the people in the terminal and the
   agent edit it at the same time, and it stays a normal file in its folder.
 
-- A page has no network. Its links open in your own browser.
+- A page has no network. Its links open in your own browser, and a `localhost` link in
+  the shared browser.
 - Select words on a page, then Ask about this. Kodosi types the file and the words into
   the terminal, and you write the question.
 - Click and type in the shared browser as in your own. The agent sees the same pages and
   sign-ins, and its next command tells it that you used the browser. After 10 minutes with
   no use the browser sleeps, and it opens its last page again when you look at it or the
-  agent uses it. The browser needs Chrome, Chromium, Edge or Brave on the computer of the
-  terminal.
+  agent uses it. The first browser on a computer gets Kodosi Browser, so it takes a moment.
+- To use your sign-ins in your private terminals, select Copy in Settings › Browser. It
+  copies them from a browser of that computer, and Remove Copied Sign-ins takes them away.
+- On one network, the browser's picture goes straight between your devices. macOS and iOS
+  ask once for local network access; without it, the picture goes through the service.
 - Everyone who can open the terminal sees its canvas and uses its browser. When the
   terminal closes, its canvas and the browser's sign-ins go.
 

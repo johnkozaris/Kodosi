@@ -84,9 +84,9 @@ import SwiftUI
     }
 #endif
 
+@MainActor
 extension VideoSurface {
     /// A display that lost the stream starts again at the next key frame.
-    @MainActor
     static func enqueue(_ sample: CMSampleBuffer, on video: AVSampleBufferDisplayLayer, feed: BrowserFeed?) {
         let renderer = video.sampleBufferRenderer
         if renderer.status == .failed {

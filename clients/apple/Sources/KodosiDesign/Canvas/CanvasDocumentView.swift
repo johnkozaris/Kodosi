@@ -7,11 +7,13 @@ import WebKit
 struct CanvasDocumentView: View {
     @Environment(\.theme) private var theme
     @Environment(\.self) private var environment
+    @Environment(\.openURL) private var openURL
     let session: String
     let item: CanvasItem
     let view: CanvasItem.View
     let store: CanvasStore
     let pages: CanvasDocumentPages
+    let openBrowser: (URL) -> Void
     @State private var page: CanvasDocumentPage?
 
     var body: some View {
@@ -31,6 +33,8 @@ struct CanvasDocumentView: View {
             page = pages.enter(item.key, in: session) {
                 CanvasDocumentPage(link: store.document(item, in: session), view: view, look: look)
             }
+            page?.links.open = { url in openURL(url) }
+            page?.links.openBrowser = openBrowser
         }
         .onDisappear { pages.leave(item.key, in: session) }
         .onChange(of: look) { _, look in page?.restyle(look) }
@@ -75,7 +79,7 @@ public final class CanvasDocumentPages {
     fileprivate func leave(_ key: String, in session: String) {
         let place = "\(session)/\(key)"
         closing[place] = Task { [weak self] in
-            guard (try? await Task.sleep(for: Self.kept)) != nil else { return }
+            guard await (try? Task.sleep(for: Self.kept)) != nil else { return }
             self?.closing[place] = nil
             self?.pages.removeValue(forKey: place)?.close()
         }
@@ -90,6 +94,7 @@ final class CanvasDocumentPage {
         + "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'"
 
     @ObservationIgnored let page: WebPage
+    @ObservationIgnored let links = CanvasLinks()
     @ObservationIgnored private let link: DocumentLink
     @ObservationIgnored private let messages = PageMessages()
     @ObservationIgnored private let view: CanvasItem.View
@@ -108,7 +113,7 @@ final class CanvasDocumentPage {
         configuration.upgradeKnownHostsToHTTPS = false
         configuration.userContentController.add(messages, contentWorld: .page, name: "document")
         configuration.userContentController.add(messages, contentWorld: .page, name: "ready")
-        page = WebPage(configuration: configuration, navigationDecider: DocumentNavigation())
+        page = WebPage(configuration: configuration, navigationDecider: DocumentNavigation(links: links))
         let (stream, frames) = AsyncStream.makeStream(of: Data.self)
         self.frames = frames
         link.onFrame = { frames.yield($0) }
@@ -236,7 +241,16 @@ struct ViewBundleHandler: URLSchemeHandler {
 }
 
 private struct DocumentNavigation: WebPage.NavigationDeciding {
+    let links: CanvasLinks
+
     func decidePolicy(for action: WebPage.NavigationAction, preferences _: inout WebPage.NavigationPreferences) async -> WKNavigationActionPolicy {
-        action.request.url?.scheme == CanvasDocumentPage.scheme ? .allow : .cancel
+        guard let url = action.request.url else { return .cancel }
+        if url.scheme == CanvasDocumentPage.scheme {
+            return .allow
+        }
+        if action.navigationType == .linkActivated {
+            links.follow(url)
+        }
+        return .cancel
     }
 }

@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 76;
+pub const VERSION: u32 = 77;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -410,6 +410,24 @@ pub enum Command {
         session_id: String,
         folder: String,
         arguments: Vec<String>,
+    },
+    /// The browsers of this computer whose sign-ins a person can copy.
+    #[serde(rename = "browser.sources")]
+    BrowserSources {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// A person's own step: copies the sign-ins of a browser into the kept profile.
+    #[serde(rename = "browser.copy")]
+    BrowserCopy {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        name: String,
+    },
+    #[serde(rename = "browser.forget")]
+    BrowserForget {
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "document.open")]
     DocumentOpen {
@@ -1023,6 +1041,23 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
+    #[serde(rename = "browser.result")]
+    BrowserResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sources: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        copied: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        skipped: Option<u64>,
+    },
+    #[serde(rename = "browser.error")]
+    BrowserError {
+        request_id: String,
+        operation: String,
+        message: String,
+    },
     #[serde(rename = "document.result")]
     DocumentResult {
         request_id: String,
@@ -1387,6 +1422,8 @@ impl EventBody {
             | Self::DosiError { request_id, .. }
             | Self::CanvasResult { request_id, .. }
             | Self::CanvasError { request_id, .. }
+            | Self::BrowserResult { request_id, .. }
+            | Self::BrowserError { request_id, .. }
             | Self::DocumentResult { request_id, .. }
             | Self::DocumentError { request_id, .. } => Some(request_id),
             _ => None,
@@ -1444,6 +1481,8 @@ impl EventBody {
             Self::DosiError { .. } => "dosi.error",
             Self::CanvasResult { .. } => "canvas.result",
             Self::CanvasError { .. } => "canvas.error",
+            Self::BrowserResult { .. } => "browser.result",
+            Self::BrowserError { .. } => "browser.error",
             Self::DocumentResult { .. } => "document.result",
             Self::DocumentError { .. } => "document.error",
             Self::DocumentFrame { .. } => "document.frame",
@@ -1549,6 +1588,9 @@ impl Command {
             Self::CanvasBrowse { .. } => "canvas.browser",
             Self::CanvasAsk { .. } => "canvas.request",
             Self::CanvasDocument { .. } => "canvas.document",
+            Self::BrowserSources { .. } => "browser.sources",
+            Self::BrowserCopy { .. } => "browser.copy",
+            Self::BrowserForget { .. } => "browser.forget",
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
@@ -1668,6 +1710,9 @@ impl Command {
             | Self::CanvasBrowse { request_id, .. }
             | Self::CanvasAsk { request_id, .. }
             | Self::CanvasDocument { request_id, .. }
+            | Self::BrowserSources { request_id }
+            | Self::BrowserCopy { request_id, .. }
+            | Self::BrowserForget { request_id }
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }

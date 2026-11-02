@@ -641,6 +641,18 @@ impl Live {
         }
     }
 
+    /// A press names the viewer whose menu or file picker may follow.
+    fn mouse(&mut self, viewer: &str, mouse: input::Mouse, mac: bool) {
+        if let Some(seat) = self.seats.get_mut(viewer) {
+            seat.pointer = Some((mouse.x, mouse.y));
+            self.dirty = true;
+        }
+        if mouse.action == MouseAction::Press {
+            self.last_press = Some(viewer.to_owned());
+        }
+        self.page("Input.dispatchMouseEvent", &input::mouse(mouse, mac));
+    }
+
     fn input(&mut self, viewer: &str, event: Input) {
         let mac = cfg!(target_os = "macos");
         let plain_move = matches!(
@@ -666,29 +678,17 @@ impl Live {
                 delta_y,
                 modifiers,
             } => {
-                if let Some(seat) = self.seats.get_mut(viewer) {
-                    seat.pointer = Some((x, y));
-                    self.dirty = true;
-                }
-                if action == MouseAction::Press {
-                    self.last_press = Some(viewer.to_owned());
-                }
-                self.page(
-                    "Input.dispatchMouseEvent",
-                    &input::mouse(
-                        input::Mouse {
-                            action,
-                            x,
-                            y,
-                            button,
-                            clicks,
-                            delta_x,
-                            delta_y,
-                            modifiers,
-                        },
-                        mac,
-                    ),
-                );
+                let mouse = input::Mouse {
+                    action,
+                    x,
+                    y,
+                    button,
+                    clicks,
+                    delta_x,
+                    delta_y,
+                    modifiers,
+                };
+                self.mouse(viewer, mouse, mac);
             }
             Input::Key {
                 action,

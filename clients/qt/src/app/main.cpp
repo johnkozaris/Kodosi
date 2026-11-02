@@ -229,6 +229,8 @@ int main(int argc, char* argv[])
             canvas.apply(event);
         if (type.startsWith(QStringLiteral("document.")))
             documents.apply(event);
+        if (type.startsWith(QStringLiteral("browser.")))
+            canvas.applySignIns(event);
         if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);
@@ -258,6 +260,7 @@ int main(int argc, char* argv[])
             for (const auto& file : picked)
                 canvas.attach(sessionId, file);
         });
+    QObject::connect(&files, &kodosi::DesktopFileIntegration::pageFilesPicked, &canvas, &kodosi::CanvasModel::giveFiles);
     QObject::connect(&canvas, &kodosi::CanvasModel::copyReady, &files, &kodosi::DesktopFileIntegration::saveCopy);
     QObject::connect(&canvas, &kodosi::CanvasModel::problem, &workspace, &kodosi::Workspace::setError);
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
