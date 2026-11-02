@@ -1,3 +1,4 @@
 node_modules/
 dist/
 crates/*/bindings/
+app/gen/

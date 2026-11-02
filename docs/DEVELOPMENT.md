@@ -22,7 +22,8 @@ Run these from the repository root; `just --list` shows the rest.
 | --- | --- |
 | `just rust-cli-build` | Build the development CLI |
 | `just agent-browser-build` | Build the pinned agent-browser of the shared browser next to the development CLI |
-| `just documents-check` | Lint and test the document crates, and check the views |
+| `just documents-check` | Build and test the document views, crates and app |
+| `just documents-app-run <files>` | Run the documents app with a window for each file |
 | `just browser-check` | Lint and test the shared browser crate |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |

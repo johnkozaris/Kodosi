@@ -23,6 +23,8 @@ export interface View {
   detach(): void;
   /** The words that the person selected, for a host that passes them on. */
   selection(): string;
+  /** The host's look changed. */
+  restyle(theme: Theme): void;
   destroy(): void;
 }
 
@@ -78,6 +80,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
       element.append(away);
     },
     selection: () => editor?.selection() ?? "",
+    restyle: (theme) => setTheme(element, theme),
     pictures: () => editor?.pictures() ?? Promise.resolve(0),
     picture: (index: number): Promise<Area> =>
       editor?.picture(index) ?? Promise.reject(new Error("The file is not open.")),
@@ -126,7 +129,7 @@ function hosted(options: Options, post: (frame: string) => void) {
     selection: view.selection,
     pictures: view.pictures,
     picture: view.picture,
-    restyle: (theme: Theme) => setTheme(element, theme),
+    restyle: view.restyle,
   };
 }
 
