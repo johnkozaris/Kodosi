@@ -126,6 +126,12 @@ pub(crate) fn styles(text: &str) -> Value {
         }
         look.values
             .insert("name".to_owned(), json!(value(style, "name").unwrap_or(id)));
+        look.values.insert(
+            "kind".to_owned(),
+            json!(word_attribute(style, "type").unwrap_or("paragraph")),
+        );
+        look.values
+            .insert("quick".to_owned(), json!(child(style, "qFormat").is_some()));
         looks.insert(id.to_owned(), look);
     }
     let resolved: Map<String, Value> = looks

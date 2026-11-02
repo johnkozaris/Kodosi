@@ -410,3 +410,20 @@ fn genoffices_samples_read_and_keep_each_byte() {
         }
     }
 }
+
+#[test]
+fn a_new_file_from_markdown_has_bullets_and_numbers() {
+    let model = read(&crate::new_file(Some("- one\n2. two")).unwrap());
+    let snapshot = Word::snapshot(&model).0;
+    let lists = &snapshot["view"]["numbering"];
+    assert_eq!(lists["1"][0]["format"], "bullet");
+    assert_eq!(lists["2"][0]["format"], "decimal");
+    assert_eq!(lists["2"][1]["text"], "%2.");
+    let items: Vec<&Value> = snapshot["doc"]["content"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|block| &block["attrs"]["numId"])
+        .collect();
+    assert_eq!(items, [&json!("1"), &json!("2")]);
+}

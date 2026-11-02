@@ -50,15 +50,42 @@ fn styles() -> String {
     )
 }
 
+const BULLET_LIST: u32 = 1;
+const NUMBER_LIST: u32 = 2;
+const BULLETS: [&str; 3] = ["•", "◦", "▪"];
+const NUMBERS: [&str; 3] = ["decimal", "lowerLetter", "lowerRoman"];
+
+/// A list with nine levels, each one step further in.
+fn list(id: u32, level: impl Fn(usize) -> (&'static str, String)) -> String {
+    let mut xml = format!(
+        r#"<w:abstractNum w:abstractNumId="{id}"><w:multiLevelType w:val="hybridMultilevel"/>"#
+    );
+    for depth in 0..9 {
+        let (format, text) = level(depth);
+        let _ = write!(
+            xml,
+            r#"<w:lvl w:ilvl="{depth}"><w:start w:val="1"/><w:numFmt w:val="{format}"/><w:lvlText w:val="{text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="{}" w:hanging="360"/></w:pPr></w:lvl>"#,
+            720 * (depth + 1)
+        );
+    }
+    xml.push_str("</w:abstractNum>");
+    xml
+}
+
 fn numbering() -> String {
     format!(
         concat!(
             r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="{main}">"#,
-            r#"<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>"#,
-            r#"<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>"#,
+            r#"{bullets}{numbers}"#,
+            r#"<w:num w:numId="{bullet_list}"><w:abstractNumId w:val="0"/></w:num>"#,
+            r#"<w:num w:numId="{number_list}"><w:abstractNumId w:val="1"/></w:num>"#,
             r#"</w:numbering>"#,
         ),
         main = MAIN,
+        bullet_list = BULLET_LIST,
+        number_list = NUMBER_LIST,
+        bullets = list(0, |depth| ("bullet", BULLETS[depth % 3].to_owned())),
+        numbers = list(1, |depth| (NUMBERS[depth % 3], format!("%{}.", depth + 1))),
     )
 }
 
@@ -85,6 +112,16 @@ fn paragraph(properties: &str, text: &str) -> String {
     format!("<w:p>{properties}{runs}</w:p>")
 }
 
+/// A Markdown list item: its list, bullets or numbers, and its words.
+fn list_item(line: &str) -> Option<(u32, &str)> {
+    if let Some(item) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
+        return Some((BULLET_LIST, item));
+    }
+    let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+    let item = line[digits..].strip_prefix(". ")?;
+    (digits > 0).then_some((NUMBER_LIST, item))
+}
+
 fn body_of(markdown: &str) -> String {
     let mut body = String::new();
     for line in markdown.lines() {
@@ -93,11 +130,11 @@ fn body_of(markdown: &str) -> String {
         if (1..=3).contains(&hashes) && line[hashes..].starts_with(' ') {
             let style = format!(r#"<w:pStyle w:val="Heading{hashes}"/>"#);
             body.push_str(&paragraph(&style, line[hashes..].trim()));
-        } else if let Some(item) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
-            body.push_str(&paragraph(
-                r#"<w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>"#,
-                item,
-            ));
+        } else if let Some((list, item)) = list_item(line) {
+            let style = format!(
+                r#"<w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="{list}"/></w:numPr>"#
+            );
+            body.push_str(&paragraph(&style, item));
         } else if !line.is_empty() {
             body.push_str(&paragraph("", line));
         }
