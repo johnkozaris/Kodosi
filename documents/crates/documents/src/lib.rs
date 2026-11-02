@@ -51,6 +51,8 @@ struct Shared {
     state: PathBuf,
     formats: Formats,
     open: Mutex<HashMap<PathBuf, Open>>,
+    /// One document starts at a time, so viewers of one file never start it twice.
+    starting: tokio::sync::Mutex<()>,
     next_pipe: AtomicU64,
 }
 
@@ -67,6 +69,7 @@ impl Documents {
                 state: state_folder.into(),
                 formats,
                 open: Mutex::default(),
+                starting: tokio::sync::Mutex::default(),
                 next_pipe: AtomicU64::new(1),
             }),
         }
@@ -98,15 +101,15 @@ impl Documents {
     }
 
     async fn task_of(&self, path: &Path) -> Result<mpsc::Sender<Command>, OpenError> {
-        {
-            let mut open = self.lock();
-            open.retain(|_, document| !document.commands.is_closed());
-            if let Some(document) = open.get(path) {
-                return Ok(document.commands.clone());
-            }
-            if open.len() >= MOST_OPEN {
-                return Err(OpenError::TooMany(MOST_OPEN));
-            }
+        if let Some(commands) = self.running(path) {
+            return Ok(commands);
+        }
+        let _starting = self.shared.starting.lock().await;
+        if let Some(commands) = self.running(path) {
+            return Ok(commands);
+        }
+        if self.lock().len() >= MOST_OPEN {
+            return Err(OpenError::TooMany(MOST_OPEN));
         }
         let format = self.shared.formats.of(path).ok_or(OpenError::UnknownKind)?;
         let size = tokio::fs::metadata(path).await?.len();
@@ -114,15 +117,19 @@ impl Documents {
             return Err(OpenError::TooLarge);
         }
         let folder = self.shared.state.join(name_of(path));
-        let started = task::start(path.to_owned(), folder, format).await?;
-        let mut open = self.lock();
-        let commands = open
-            .entry(path.to_owned())
-            .or_insert(Open { commands: started })
-            .commands
-            .clone();
-        drop(open);
+        let commands = task::start(path.to_owned(), folder, format).await?;
+        let open = Open {
+            commands: commands.clone(),
+        };
+        self.lock().insert(path.to_owned(), open);
         Ok(commands)
+    }
+
+    /// The task of an open file, after the tasks that ended go.
+    fn running(&self, path: &Path) -> Option<mpsc::Sender<Command>> {
+        let mut open = self.lock();
+        open.retain(|_, document| !document.commands.is_closed());
+        open.get(path).map(|document| document.commands.clone())
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<PathBuf, Open>> {

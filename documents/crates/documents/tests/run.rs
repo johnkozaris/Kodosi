@@ -187,6 +187,29 @@ async fn a_clean_close_saves_and_leaves_no_journal() {
     assert_eq!(left, 0);
 }
 
+/// Starts the documents again after a crash, and checks that the answered change `a1` is back.
+fn a1_comes_back(state: &Path, file: &Path) {
+    assert_eq!(file_value(file, "a1"), None);
+    let restarted = tokio::runtime::Runtime::new().unwrap();
+    restarted.block_on(async {
+        let documents = Documents::new(state, formats());
+        let mut ben = documents.open(file, viewer("ben")).await.unwrap();
+        let join = ToDocument::Join {
+            contract: CONTRACT,
+            client: "ben".to_owned(),
+            epoch: 0,
+            rev: 0,
+        };
+        ben.send(contract::encode_message(&join)).await.unwrap();
+        assert!(matches!(
+            message(&mut ben).await,
+            ToClient::Joined { rev: 1, .. }
+        ));
+        documents.close().await;
+        assert_eq!(file_value(file, "a1").as_deref(), Some("kept"));
+    });
+}
+
 #[test]
 fn a_restart_keeps_each_change_that_got_an_answer() {
     let folder = tempfile::tempdir().unwrap();
@@ -203,26 +226,35 @@ fn a_restart_keeps_each_change_that_got_an_answer() {
         std::mem::forget(documents);
     });
     crashed.shutdown_background();
-    assert_eq!(file_value(&file, "a1"), None);
+    a1_comes_back(&state, &file);
+}
 
-    let restarted = tokio::runtime::Runtime::new().unwrap();
-    restarted.block_on(async {
+#[test]
+fn viewers_that_open_a_file_at_once_share_one_document_and_its_journal() {
+    let folder = tempfile::tempdir().unwrap();
+    let state = folder.path().join("state");
+    let file = folder.path().join("a.notes");
+    std::fs::write(&file, "{}").unwrap();
+    let crashed = tokio::runtime::Runtime::new().unwrap();
+    crashed.block_on(async {
         let documents = Documents::new(&state, formats());
-        let mut ben = documents.open(&file, viewer("ben")).await.unwrap();
-        let join = ToDocument::Join {
-            contract: CONTRACT,
-            client: "ben".to_owned(),
-            epoch: 0,
-            rev: 0,
-        };
-        ben.send(contract::encode_message(&join)).await.unwrap();
-        assert!(matches!(
-            message(&mut ben).await,
-            ToClient::Joined { rev: 1, .. }
-        ));
-        documents.close().await;
-        assert_eq!(file_value(&file, "a1").as_deref(), Some("kept"));
+        let (ana, mut ben) = tokio::join!(
+            joined(&documents, &file, "ana"),
+            joined(&documents, &file, "ben"),
+        );
+        change(&ana, 1, 0, "a1", "kept").await;
+        loop {
+            match message(&mut ben).await {
+                ToClient::Peer(_) => {}
+                ToClient::Changed(_) => break,
+                other => panic!("{other:?}"),
+            }
+        }
+        std::mem::forget((ana, ben));
+        std::mem::forget(documents);
     });
+    crashed.shutdown_background();
+    a1_comes_back(&state, &file);
 }
 
 #[tokio::test]
