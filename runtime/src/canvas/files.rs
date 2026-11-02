@@ -357,7 +357,7 @@ fn is_html(path: &Path) -> bool {
         .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "html" | "htm"))
 }
 
-fn key_of(path: &Path) -> String {
+pub(super) fn key_of(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 

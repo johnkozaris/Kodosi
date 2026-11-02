@@ -14,6 +14,7 @@ public final class CanvasStore {
 
     private struct Answer: Decodable {
         let answer: String
+        let key: String?
         let revision: UInt64?
         let offset: UInt64?
         let total: UInt64?
@@ -30,6 +31,8 @@ public final class CanvasStore {
     }
 
     private static let mostStoredBytes = 64 * 1024 * 1024
+    private static let mostFileBytes = 32 * 1024 * 1024
+    private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
     private var marks: [String: [String: UInt64]] = [:]
@@ -49,9 +52,24 @@ public final class CanvasStore {
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
+    @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
 
     public init(commands: CommandSink) {
         self.commands = commands
+    }
+
+    /// A link to the live document of an item.
+    public func document(_ item: CanvasItem, in session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: item.key)
+        documents.add(link)
+        return link
+    }
+
+    /// Takes the frames of live documents, which reach only the client that opened them.
+    public func receive(_ event: RuntimeEvent) {
+        for link in documents.allObjects {
+            link.receive(event)
+        }
     }
 
     /// Follows the terminal list. What a canvas showed before this device saw it is not news.
@@ -250,6 +268,35 @@ public final class CanvasStore {
 
     public func act(_ act: BrowserAct, in session: String) async throws {
         _ = try await ask(session, .object(["type": .string("act"), "action": act.json]))
+    }
+
+    /// Adds a file to the canvas of a terminal. It goes into the folder of the terminal, on the
+    /// computer of the terminal.
+    public func attach(_ file: URL, in session: String) async throws {
+        let granted = file.startAccessingSecurityScopedResource()
+        defer {
+            if granted {
+                file.stopAccessingSecurityScopedResource()
+            }
+        }
+        let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        guard data.count <= Self.mostFileBytes else {
+            throw RuntimeError.operation(String(localized: "The canvas takes files up to 32 MB.", bundle: .module))
+        }
+        closed[session]?[.files] = nil
+        let upload = UUIDv7.generate()
+        var offset = 0
+        var key: String?
+        repeat {
+            let end = min(offset + Self.partBytes, data.count)
+            key = try await ask(session, .object([
+                "type": .string("attach"), "upload": .string(upload), "name": .string(file.lastPathComponent),
+                "offset": .uint(UInt64(offset)), "data": .string(data[offset ..< end].base64EncodedString()),
+                "last": .bool(end == data.count),
+            ])).key
+            offset = end
+        } while offset < data.count
+        pick(key, in: session)
     }
 
     public func remove(_ keys: [String], in session: String) async throws {

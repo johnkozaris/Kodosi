@@ -62,6 +62,7 @@ public extension CanvasSection {
 
 public enum CanvasSymbol {
     public static let canvas = "photo.artframe"
+    public static let addFile = "doc.badge.plus"
 }
 
 public extension BrowserDoing.Kind {

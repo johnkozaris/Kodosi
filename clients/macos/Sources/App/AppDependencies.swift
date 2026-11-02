@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import KodosiBridge
+import KodosiDesign
 import KodosiTerminalSessions
 import Observation
 
@@ -18,6 +19,7 @@ final class AppDependencies {
     let people: PeopleStore
     let dosi: DosiStore
     let canvas: CanvasStore
+    let documentPages = CanvasDocumentPages()
     var sessions: [RuntimeSession] = []
     var inviteRequested: Date?
     var inviteCopies = 0

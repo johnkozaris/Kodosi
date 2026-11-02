@@ -238,16 +238,13 @@ class ExcelEditor implements Editor {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    const bar = root.appendChild(document.createElement("div"));
-    bar.className = "document-bar";
-    bar.appendChild(document.createElement("span")).className = "gap";
-    bar.append(this.status.element);
     const holder = root.appendChild(document.createElement("div"));
     holder.className = "excel-holder";
     this.canvas = holder.appendChild(document.createElement("div"));
     this.canvas.className = "excel-canvas";
     this.marks = holder.appendChild(document.createElement("div"));
     this.marks.className = "excel-marks";
+    holder.append(this.status.element);
   }
 
   load(raw: unknown, person: Person): void {

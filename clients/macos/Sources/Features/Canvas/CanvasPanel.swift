@@ -155,13 +155,18 @@ struct CanvasPanel: View {
                         }
                         .transition(.opacity)
                     } else if let current, let frame {
-                        CanvasItemView(session: session, shown: current, store: deps.canvas, frame: frame, ask: ask(current))
+                        CanvasItemView(session: session, shown: current, store: deps.canvas, frame: frame, pages: deps.documentPages,
+                                       ask: ask(current))
                             .id(current.key)
                             .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .top) { progress(current) }
+                .dropDestination(for: URL.self) { files, _ in
+                    deps.add(files, to: session)
+                    return !files.isEmpty
+                }
             }
             .background(CanvasContentGround())
             .clipShape(RoundedRectangle(cornerRadius: max(Radius.sm, radius - 5), style: .continuous))
@@ -204,6 +209,8 @@ struct CanvasPanel: View {
                 } else {
                     deps.canvas.show(section, in: session)
                 }
+            } add: {
+                deps.addFile(to: session)
             }
             Spacer(minLength: 6)
             HStack(spacing: 0) {
@@ -223,11 +230,7 @@ struct CanvasPanel: View {
     @ViewBuilder
     private func actions(_ item: CanvasItem) -> some View {
         if !item.missing {
-            if session.kind == .local {
-                Button("Open in Its App", systemImage: "arrow.up.forward.app") { deps.openExternalURL(URL(filePath: item.key)) }
-            } else {
-                Button("Save a Copy…", systemImage: "square.and.arrow.down") { save(item) }
-            }
+            Button("Save a Copy…", systemImage: "square.and.arrow.down") { save(item) }
         }
         if session.canControl, AgentKind(program: session.program).isAgent {
             Button(session.askTitle, systemImage: "text.bubble") { ask(about: .item(item), words: nil) }
@@ -308,6 +311,26 @@ extension AppDependencies {
         Task { @MainActor in
             do {
                 try await canvas.openBrowser(in: session.id)
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    /// Lets a person pick files for the canvas of a terminal.
+    func addFile(to session: RuntimeSession) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK else { return }
+        add(panel.urls, to: session)
+    }
+
+    func add(_ files: [URL], to session: RuntimeSession) {
+        workbench.openCanvas(session.id)
+        Task { @MainActor in
+            do {
+                for file in files {
+                    try await canvas.attach(file, in: session.id)
+                }
             } catch { errorMessage = error.localizedDescription }
         }
     }

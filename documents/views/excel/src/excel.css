@@ -9,6 +9,13 @@
   inset: 0;
 }
 
+.excel-holder > .document-status {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 11;
+}
+
 .excel-marks {
   position: absolute;
   inset: 0;

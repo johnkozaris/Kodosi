@@ -149,6 +149,84 @@ async fn the_canvas_refuses_what_it_cannot_show() {
 }
 
 #[tokio::test]
+async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::documents::DocumentHost::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attach = |upload: uuid::Uuid, offset, data: &[u8], last| CanvasRequest::Attach {
+        upload: upload.to_string(),
+        name: "notes.md".to_owned(),
+        offset,
+        data: base64::engine::general_purpose::STANDARD.encode(data),
+        last,
+    };
+    for number in ["notes.md", "notes 2.md"] {
+        let upload = uuid::Uuid::now_v7();
+        let first = canvas.request(attach(upload, 0, b"# He", false)).await;
+        assert_eq!(first.unwrap(), CanvasAnswer::Done);
+        let path = folder.path().join(number);
+        assert!(!path.exists());
+        let last = canvas.request(attach(upload, 4, b"llo", true)).await;
+        let CanvasAnswer::Attached { key } = last.unwrap() else {
+            panic!("attached");
+        };
+        assert!(key.ends_with(number), "{key}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"# Hello");
+    }
+    let items = canvas.current().unwrap().items;
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].name, "notes 2.md");
+    assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 2);
+}
+
+#[tokio::test]
+async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::documents::DocumentHost::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attach = |name: &str, upload: uuid::Uuid, offset| CanvasRequest::Attach {
+        upload: upload.to_string(),
+        name: name.to_owned(),
+        offset,
+        data: "AAAA".to_owned(),
+        last: false,
+    };
+    let upload = uuid::Uuid::now_v7();
+    canvas.request(attach("a.md", upload, 0)).await.unwrap();
+    let lost = canvas.request(attach("a.md", upload, 9)).await.unwrap_err();
+    assert!(lost.contains("got lost"), "{lost}");
+    let kind = canvas
+        .request(attach("a.zip", uuid::Uuid::now_v7(), 0))
+        .await
+        .unwrap_err();
+    assert!(kind.contains("The canvas shows"), "{kind}");
+    assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn a_file_name_has_no_folders() {
+    let attach = |name: &str| CanvasRequest::Attach {
+        upload: uuid::Uuid::now_v7().to_string(),
+        name: name.to_owned(),
+        offset: 0,
+        data: String::new(),
+        last: true,
+    };
+    assert!(attach("plan.docx").is_valid());
+    for name in ["", "..", "a/b.md", "a\\b.md", "C:b.md"] {
+        assert!(!attach(name).is_valid(), "{name}");
+    }
+}
+
+#[tokio::test]
 async fn a_person_opens_the_browser_by_waking_it() {
     let folder = tempfile::tempdir().unwrap();
     let canvas = CanvasHandle::spawn(

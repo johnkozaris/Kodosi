@@ -54,6 +54,9 @@ export class Client {
   private nextPlace: unknown;
   private placeSentAt = 0;
 
+  /** `joined` runs each time that the document takes this client in. */
+  constructor(private readonly joined: () => void = () => {}) {}
+
   use(editor: Editor): void {
     this.editor = editor;
   }
@@ -72,6 +75,11 @@ export class Client {
       epoch: this.epoch,
       rev: this.rev,
     });
+  }
+
+  /** The link is gone. Edits wait here until the next pipe. */
+  detach(): void {
+    this.pipe = undefined;
   }
 
   private send(message: ToDocument): void {
@@ -108,6 +116,7 @@ export class Client {
         } else {
           for (const changed of message.catchup.changes) this.applied(changed);
         }
+        this.joined();
         this.pull();
         break;
       }

@@ -82,6 +82,10 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           python3 "$PROJECT_DIR/../apple/scripts/install-notices.py" "$PLATFORM_NAME" "$CONFIGURATION" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+      - name: Install document views
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/../macos/scripts/build/install-document-views.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
       - name: Verify Final Ghostty Image
         basedOnDependencyAnalysis: false
         script: |

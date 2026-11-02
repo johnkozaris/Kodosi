@@ -55,6 +55,7 @@ extension AppDependencies {
         case "devices": try account.receiveDevices(event)
         case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
         case "term", "session": receiveTerminal(event)
+        case "document": canvas.receive(event)
         default: break
         }
     }
@@ -73,7 +74,7 @@ extension AppDependencies {
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
-        guard delivery == .app, !["provider.", "room.", "canvas."].contains(where: event.type.hasPrefix) else { return }
+        guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
         people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage

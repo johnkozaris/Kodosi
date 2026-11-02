@@ -33,6 +33,7 @@ private struct TerminalScreenContent: View {
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
     @State private var canvasOpen = false
+    @State private var addingFile = false
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
@@ -91,6 +92,8 @@ private struct TerminalScreenContent: View {
                         ? nil
                         : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                             openBrowser(of: session)
+                        } addFile: {
+                            addingFile = true
                         },
                 )
             }
@@ -117,11 +120,14 @@ private struct TerminalScreenContent: View {
                     }
                     TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                         openBrowser(of: session)
+                    } addFile: {
+                        addingFile = true
                     }
                 }
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
         .onAppear { controller.appear(active: scenePhase == .active) }
         .onDisappear { controller.disappear() }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }

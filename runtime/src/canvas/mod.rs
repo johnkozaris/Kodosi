@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "host")]
 mod actor;
 #[cfg(feature = "host")]
+mod attach;
+#[cfg(feature = "host")]
 mod browser;
 #[cfg(feature = "host")]
 mod files;
@@ -176,6 +178,14 @@ pub enum CanvasRequest {
         #[serde(default)]
         keys: Vec<String>,
     },
+    /// One part of a file that a person adds. The file goes into the folder of the terminal.
+    Attach {
+        upload: String,
+        name: String,
+        offset: u64,
+        data: String,
+        last: bool,
+    },
     Picture {
         after: u64,
     },
@@ -324,6 +334,9 @@ pub enum CanvasAnswer {
         key: String,
         revision: u64,
     },
+    Attached {
+        key: String,
+    },
     Picture {
         sequence: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -391,6 +404,16 @@ impl CanvasRequest {
             Self::Remove { keys } => {
                 keys.len() <= MOST_ITEMS && keys.iter().all(|key| bounded(key, MOST_KEY))
             }
+            Self::Attach {
+                upload, name, data, ..
+            } => {
+                uuid::Uuid::parse_str(upload).is_ok()
+                    && !name.is_empty()
+                    && bounded(name, MOST_NAME)
+                    && !matches!(name.as_str(), "." | "..")
+                    && !name.contains(['/', '\\', ':', '\0'])
+                    && data.len() <= PART_BYTES.div_ceil(3) * 4
+            }
             Self::Picture { .. } => true,
             Self::Input { events, .. } => {
                 !events.is_empty()
@@ -457,7 +480,7 @@ impl CanvasAnswer {
                     && offset <= total
                     && data.len() <= PART_BYTES.div_ceil(3) * 4
             }
-            Self::Stale { key, .. } => bounded(key, MOST_KEY),
+            Self::Stale { key, .. } | Self::Attached { key } => bounded(key, MOST_KEY),
             Self::Picture { frame, .. } => frame.as_ref().is_none_or(|frame| {
                 frame.width <= 8192 && frame.height <= 8192 && frame.data.len() <= MOST_PICTURE
             }),

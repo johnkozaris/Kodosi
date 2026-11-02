@@ -10,8 +10,9 @@ use uuid::Uuid;
 
 use super::{
     BrowserAct, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
+    attach::{Part, Uploads},
     browser::{self, Browser, Places},
-    files::{Files, Showing, Stamp},
+    files::{Files, Showing, Stamp, key_of},
 };
 use crate::documents::{DocumentHost, path_of};
 
@@ -54,6 +55,7 @@ enum Job {
 pub(crate) struct CanvasHandle {
     jobs: mpsc::Sender<Job>,
     state: watch::Receiver<Canvas>,
+    folder: watch::Sender<PathBuf>,
     documents: DocumentHost,
 }
 
@@ -61,6 +63,7 @@ impl CanvasHandle {
     pub(crate) fn spawn(id: Uuid, data_root: &Path, documents: DocumentHost) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (published, state) = watch::channel(Canvas::default());
+        let (folder, current_folder) = watch::channel(PathBuf::new());
         let actor = Actor {
             id,
             data_root: data_root.to_owned(),
@@ -68,14 +71,22 @@ impl CanvasHandle {
             published,
             stamp: Stamp::default(),
             files: Files::default(),
+            uploads: Uploads::default(),
+            folder: current_folder,
             browser: None,
         };
         tokio::spawn(actor.run());
         Self {
             jobs,
             state,
+            folder,
             documents,
         }
+    }
+
+    /// The folder of the terminal, where the files that people add go.
+    pub(crate) fn moved_to(&self, folder: PathBuf) {
+        self.folder.send_replace(folder);
     }
 
     pub(crate) fn state(&self) -> watch::Receiver<Canvas> {
@@ -220,6 +231,8 @@ struct Actor {
     published: watch::Sender<Canvas>,
     stamp: Stamp,
     files: Files,
+    uploads: Uploads,
+    folder: watch::Receiver<PathBuf>,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
 }
 
@@ -362,6 +375,27 @@ impl Actor {
                 self.publish();
                 drop(reply.send(Ok(CanvasAnswer::Done)));
             }
+            CanvasRequest::Attach {
+                upload,
+                name,
+                offset,
+                data,
+                last,
+            } => {
+                let Ok(upload) = Uuid::parse_str(&upload) else {
+                    drop(reply.send(Err("This upload has no number.".to_owned())));
+                    return;
+                };
+                let part = Part {
+                    upload,
+                    name: &name,
+                    offset,
+                    data: &data,
+                    last,
+                };
+                let answer = self.attach(part).await;
+                drop(reply.send(answer));
+            }
             CanvasRequest::Picture { after } => {
                 let Some(browser) = self.existing() else {
                     drop(reply.send(Err(NO_BROWSER.to_owned())));
@@ -404,6 +438,17 @@ impl Actor {
         }
     }
 
+    async fn attach(&mut self, part: Part<'_>) -> Result<CanvasAnswer, String> {
+        let folder = self.folder.borrow().clone();
+        let Some(path) = self.uploads.add(&folder, part).await? else {
+            return Ok(CanvasAnswer::Done);
+        };
+        let key = key_of(&path);
+        let showing = self.files.show(vec![path], &self.stamp).await;
+        self.publish();
+        showing.map(|_| CanvasAnswer::Attached { key })
+    }
+
     fn existing(&self) -> Option<Arc<Browser>> {
         self.browser
             .as_ref()
@@ -425,6 +470,7 @@ impl Actor {
     }
 
     async fn end(&mut self, remove: bool) {
+        self.uploads.clear().await;
         if let Some((browser, _)) = self.browser.take() {
             if remove {
                 browser.remove().await;

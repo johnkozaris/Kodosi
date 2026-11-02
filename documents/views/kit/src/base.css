@@ -110,7 +110,8 @@ body {
   overflow: auto;
 }
 
-.document-closed {
+.document-closed,
+.document-away {
   padding: 8px 12px;
   background: var(--surface);
   border-top: 1px solid var(--line);

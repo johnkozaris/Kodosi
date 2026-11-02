@@ -95,10 +95,13 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
 
 public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case page, picture, pdf, office }
+    /// The live view of a file that people edit together.
+    public enum View: String, Decodable, Sendable { case word, excel, powerpoint, pdf }
 
     public let key: String
     public let name: String
     public let kind: Kind
+    public let view: View?
     public let revision: UInt64
     public let bytes: UInt64
     public let changed: UInt64
@@ -108,10 +111,13 @@ public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
         key
     }
 
-    public init(key: String, name: String, kind: Kind, revision: UInt64, bytes: UInt64, changed: UInt64, missing: Bool = false) {
+    public init(key: String, name: String, kind: Kind, view: View? = nil, revision: UInt64, bytes: UInt64, changed: UInt64,
+                missing: Bool = false)
+    {
         self.key = key
         self.name = name
         self.kind = kind
+        self.view = view
         self.revision = revision
         self.bytes = bytes
         self.changed = changed
@@ -123,13 +129,14 @@ public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
         key = try container.decode(String.self, forKey: .key)
         name = try container.decode(String.self, forKey: .name)
         kind = try container.decode(Kind.self, forKey: .kind)
+        view = try container.decodeIfPresent(View.self, forKey: .view)
         revision = try container.decode(UInt64.self, forKey: .revision)
         bytes = try container.decode(UInt64.self, forKey: .bytes)
         changed = try container.decode(UInt64.self, forKey: .changed)
         missing = try container.decodeIfPresent(Bool.self, forKey: .missing) ?? false
     }
 
-    private enum CodingKeys: String, CodingKey { case key, name, kind, revision, bytes, changed, missing }
+    private enum CodingKeys: String, CodingKey { case key, name, kind, view, revision, bytes, changed, missing }
 }
 
 public struct CanvasBrowser: Decodable, Equatable, Sendable {

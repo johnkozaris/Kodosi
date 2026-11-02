@@ -125,6 +125,7 @@ impl TerminalSession {
     ) -> Result<Self> {
         let clear_line = clear_line_keys(&program);
         let launch_directory = directory.clone();
+        canvas.moved_to(directory.clone());
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
@@ -1253,6 +1254,7 @@ impl LocalActor {
         {
             return false;
         }
+        self.canvas.moved_to(path.clone());
         self.working_directory = path;
         self.metadata_dirty = true;
         true

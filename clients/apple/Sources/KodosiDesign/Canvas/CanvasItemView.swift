@@ -176,6 +176,7 @@ public struct CanvasItemView: View {
     let shown: CanvasShown
     let store: CanvasStore
     let frame: CanvasFrame
+    let pages: CanvasDocumentPages
     var typing = false
     var ask: CanvasAsk?
     @State private var content: Content?
@@ -187,13 +188,14 @@ public struct CanvasItemView: View {
         let data: Data
     }
 
-    public init(session: RuntimeSession, shown: CanvasShown, store: CanvasStore, frame: CanvasFrame, typing: Bool = false,
-                ask: CanvasAsk? = nil)
+    public init(session: RuntimeSession, shown: CanvasShown, store: CanvasStore, frame: CanvasFrame, pages: CanvasDocumentPages,
+                typing: Bool = false, ask: CanvasAsk? = nil)
     {
         self.session = session
         self.shown = shown
         self.store = store
         self.frame = frame
+        self.pages = pages
         self.typing = typing
         self.ask = ask
     }
@@ -203,8 +205,12 @@ public struct CanvasItemView: View {
         case let .browser(browser):
             CanvasBrowserView(browser: browser, feed: store.feed(session.id), typing: typing)
         case let .item(item):
-            file(item)
-                .task(id: Revision(key: item.key, revision: item.revision, missing: item.missing)) { await load(item) }
+            if let view = item.view, !item.missing {
+                CanvasDocumentView(session: session.id, item: item, view: view, store: store, pages: pages)
+            } else {
+                file(item)
+                    .task(id: Revision(key: item.key, revision: item.revision, missing: item.missing)) { await load(item) }
+            }
         }
     }
 
