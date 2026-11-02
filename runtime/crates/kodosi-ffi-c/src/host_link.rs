@@ -160,7 +160,8 @@ impl Link {
     pub(super) fn command(&self, value: Value, envelope: &CommandEnvelope) -> i32 {
         let request = envelope.command.request_id().to_owned();
         let operation = envelope.command.operation();
-        {
+        let answered = kodosi_runtime::protocol::answers(operation);
+        if answered {
             let mut requests = lock(&self.pending.requests);
             if requests.contains_key(&request) {
                 return KODOSI_FFI_DESER_FAILED;
@@ -180,7 +181,9 @@ impl Link {
         match self.queue.try_send(value) {
             Ok(()) => KODOSI_FFI_OK,
             Err(error) => {
-                lock(&self.pending.requests).remove(&request);
+                if answered {
+                    lock(&self.pending.requests).remove(&request);
+                }
                 match error {
                     TrySendError::Full(_) => KODOSI_FFI_BUSY,
                     TrySendError::Closed(_) => KODOSI_FFI_RUNTIME_STOPPED,

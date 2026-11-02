@@ -2395,6 +2395,12 @@ pub fn answer_time(operation: &str) -> std::time::Duration {
     }
 }
 
+/// Whether a command gets an answer. The frames of a document get none: its pipe closes when it
+/// fails.
+pub fn answers(operation: &str) -> bool {
+    !matches!(operation, "document.send" | "document.close")
+}
+
 pub fn is_final(kind: &str) -> bool {
     matches!(kind.rsplit_once('.'), Some((_, "result" | "error")))
 }
