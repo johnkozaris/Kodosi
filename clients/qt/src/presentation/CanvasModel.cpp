@@ -5,6 +5,8 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -20,6 +22,7 @@ namespace kodosi {
 namespace {
 constexpr qsizetype mostStoredBytes = 64 * 1024 * 1024;
 constexpr qint64 mostItemBytes = 32 * 1024 * 1024;
+constexpr qsizetype partBytes = 256 * 1024;
 constexpr qsizetype mostEvents = 64;
 constexpr qsizetype mostTyped = 16 * 1024;
 constexpr qsizetype mostWords = 600;
@@ -548,6 +551,40 @@ void CanvasModel::saveCopy(const QString& sessionId, const QString& key)
         read(sessionId, key, true);
 }
 
+void CanvasModel::attach(const QString& sessionId, const QUrl& file)
+{
+    QFile source(file.toLocalFile());
+    if (!file.isLocalFile() || !source.open(QIODevice::ReadOnly)) {
+        emit problem(tr("Kodosi could not read this file."));
+        return;
+    }
+    if (source.size() > mostItemBytes) {
+        emit problem(tr("The canvas takes files up to 32 MB."));
+        return;
+    }
+    const auto upload = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    m_uploads.insert(upload, { sessionId, QFileInfo(source).fileName(), source.readAll() });
+    sendPart(upload);
+}
+
+void CanvasModel::sendPart(const QString& upload)
+{
+    const auto found = m_uploads.find(upload);
+    if (found == m_uploads.end())
+        return;
+    const auto part = found->data.mid(found->offset, partBytes);
+    const QJsonObject request { { QStringLiteral("type"), QStringLiteral("attach") },
+        { QStringLiteral("upload"), upload }, { QStringLiteral("name"), found->name },
+        { QStringLiteral("offset"), static_cast<qint64>(found->offset) },
+        { QStringLiteral("data"), QString::fromLatin1(part.toBase64()) },
+        { QStringLiteral("last"), found->offset + part.size() >= found->data.size() } };
+    found->offset += part.size();
+    if (const auto error = ask(Asked::Attach, found->sessionId, request, upload); !error.isEmpty()) {
+        m_uploads.erase(found);
+        emit problem(error);
+    }
+}
+
 void CanvasModel::watch(const QString& sessionId)
 {
     auto& feed = m_feeds[sessionId];
@@ -940,6 +977,18 @@ void CanvasModel::apply(const QJsonObject& event)
         if (failed)
             emit problem(message);
         return;
+    case Asked::Attach:
+        if (failed) {
+            m_uploads.remove(request.key);
+            emit problem(message);
+        } else if (answer.contains(QStringLiteral("key"))) {
+            m_uploads.remove(request.key);
+            show(request.sessionId, QStringLiteral("files"));
+            pick(request.sessionId, answer.value(QStringLiteral("key")).toString());
+        } else {
+            sendPart(request.key);
+        }
+        return;
     }
 }
 
@@ -957,6 +1006,7 @@ void CanvasModel::reset()
     m_storedOrder.clear();
     m_readings.clear();
     m_requests.clear();
+    m_uploads.clear();
     m_feeds.clear();
     m_published.clear();
     touch();

@@ -73,6 +73,8 @@ qt_add_library(kodosi-application STATIC
     presentation/Workspace.hpp
     presentation/AppearanceModel.cpp
     presentation/AppearanceModel.hpp
+    presentation/CanvasDocuments.cpp
+    presentation/CanvasDocuments.hpp
     presentation/CanvasModel.cpp
     presentation/CanvasModel.hpp
     presentation/DesktopSettings.cpp
@@ -253,6 +255,7 @@ qt_add_qml_module(kodosi-ui
     VERSION 1.0
     DEPENDENCIES
         Kodosi.Models
+        QtWebChannel
     SOURCES
         controls/LightTrack.cpp
         controls/LightTrack.hpp
@@ -365,6 +368,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/CanvasBody.qml
         qml/Workbench/CanvasBrowser.qml
         qml/Workbench/CanvasDock.qml
+        qml/Workbench/CanvasDocument.qml
         qml/Workbench/CanvasFile.qml
         qml/Workbench/CanvasPage.qml
         qml/Workbench/CanvasPanel.qml
@@ -409,6 +413,7 @@ target_link_libraries(kodosi-qt
         Qt6::Qml
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::WebChannelQuick
         Qt6::Widgets
         kodosi-desktop-integration
         kodosi-application
@@ -434,10 +439,13 @@ add_custom_target(kodosi-qt-host-program ALL
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_RUNTIME_CLI_NAME}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_AGENT_BROWSER}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_AGENT_BROWSER_NAME}"
-    COMMENT "Placing the kodosi program and agent-browser next to the app"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KODOSI_DOCUMENT_VIEWS}"
+        "$<TARGET_FILE_DIR:kodosi-qt>/DocumentViews"
+    COMMENT "Placing the kodosi program, agent-browser and the document views next to the app"
     VERBATIM
 )
-add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build kodosi-agent-browser-build)
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build kodosi-agent-browser-build
+    kodosi-document-views-build)
 
 kodosi_install(kodosi-qt)
 

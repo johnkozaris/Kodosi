@@ -6,6 +6,7 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    license: { fileName: "licenses.md" },
     target: "es2023",
     chunkSizeWarningLimit: 16_000,
   },

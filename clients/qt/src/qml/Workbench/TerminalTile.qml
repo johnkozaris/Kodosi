@@ -354,6 +354,16 @@ Item {
                                 }
                             }
                             KMenuItem {
+                                text: qsTr("Add a file…")
+                                iconName: "files"
+                                visible: root.session.canControl === true
+                                objectName: root.objectName + ".addFile"
+                                onTriggered: {
+                                    Models.DesktopFiles.requestFiles(root.sessionId);
+                                    root.canvasRequested("");
+                                }
+                            }
+                            KMenuItem {
                                 text: qsTr("Details")
                                 iconName: "info"
                                 objectName: root.objectName + ".details"

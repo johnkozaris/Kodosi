@@ -88,6 +88,35 @@ bool DesktopFileIntegration::requestDirectory(const QString& purpose, const QStr
     emit busyChanged();
     return true;
 }
+bool DesktopFileIntegration::requestFiles(const QString& purpose)
+{
+    if (m_dialog) {
+        fail(tr("A file dialog is already open."));
+        return false;
+    }
+    clearError();
+    auto* dialog = new QFileDialog;
+    m_dialog = dialog;
+    dialog->setWindowTitle(tr("Add files to the canvas"));
+    dialog->setAccessibleName(dialog->windowTitle());
+    dialog->setFileMode(QFileDialog::ExistingFiles);
+    dialog->setSupportedSchemes({ QStringLiteral("file") });
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->setDirectory(QDir::homePath());
+    connect(dialog, &QDialog::finished, this, [this, dialog, purpose](int result) {
+        m_dialog.clear();
+        emit busyChanged();
+        if (result == QDialog::Accepted)
+            emit filesPicked(purpose, dialog->selectedUrls());
+        dialog->deleteLater();
+    });
+    dialog->setAttribute(Qt::WA_NativeWindow);
+    if (dialog->windowHandle() && m_window)
+        dialog->windowHandle()->setTransientParent(m_window);
+    dialog->show();
+    emit busyChanged();
+    return true;
+}
 void DesktopFileIntegration::cancelDirectory()
 {
     if (m_dialog)

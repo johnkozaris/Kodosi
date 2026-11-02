@@ -1,6 +1,7 @@
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The canvas key in the navigation bar: there when the canvas shows something, with a
 /// breathing dot for news.

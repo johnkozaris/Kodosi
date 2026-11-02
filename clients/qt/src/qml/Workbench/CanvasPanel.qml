@@ -23,7 +23,10 @@ Item {
     readonly property var current: currentKey === "browser" && canvas && canvas.browser ? { key: "browser", kind: "browser", browser: canvas.browser }
         : files.filter(item => item.key === currentKey).map(item => ({ key: item.key, kind: item.kind, title: item.name,
             missing: item.missing === true, item: item }))[0] || null
-    readonly property string loadKey: current && current.item && !current.missing ? current.key + "\n" + current.item.revision : ""
+    readonly property string documentView: current && current.item && !current.missing && Models.CanvasWeb.available
+        ? current.item.view || "" : ""
+    readonly property string loadKey: current && current.item && !current.missing && documentView.length === 0
+        ? current.key + "\n" + current.item.revision : ""
     readonly property bool local: session.kind === "local"
     readonly property bool agent: Models.DesktopSettings.agentOf(session.program || "") !== "shell"
     property string readyKey: ""
@@ -43,13 +46,31 @@ Item {
     }
     function load() {
         failure = "";
-        if (!current || !current.item || current.missing)
+        if (!current || !current.item || current.missing || documentView.length > 0)
             return;
         if (readyKey !== current.key)
             readyKey = "";
         if (Models.Canvas.load(sessionId, current.key)) {
             readyKey = current.key;
             ++readyCount;
+        }
+    }
+    // A document that a person leaves stays open a while, with its place and its undo.
+    function keepDocument() {
+        if (documentView.length === 0)
+            return;
+        for (let at = 0; at < documents.count; ++at) {
+            if (documents.get(at).key === currentKey)
+                return;
+        }
+        documents.append({ key: currentKey, view: documentView });
+    }
+    function forgetDocument(key) {
+        for (let at = 0; at < documents.count; ++at) {
+            if (documents.get(at).key === key) {
+                documents.remove(at);
+                return;
+            }
         }
     }
     function ask(key) {
@@ -73,6 +94,8 @@ Item {
     }
 
     objectName: "canvas." + sessionId
+    onDocumentViewChanged: keepDocument()
+    onCurrentKeyChanged: keepDocument()
     Accessible.id: objectName
     Accessible.role: Accessible.Pane
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
@@ -109,6 +132,15 @@ Item {
         target: Models.Canvas
     }
     HoverHandler { id: hover }
+    DropArea {
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: drop => {
+            for (const file of drop.urls)
+                Models.Canvas.attach(root.sessionId, file);
+            drop.accept(Qt.CopyAction);
+        }
+    }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -132,6 +164,7 @@ Item {
                 }
                 onOpenRequested: section => section === "browser" ? Models.Canvas.openBrowser(root.sessionId)
                     : Models.Canvas.show(root.sessionId, section)
+                onAddRequested: Models.DesktopFiles.requestFiles(root.sessionId)
             }
             Item { Layout.fillWidth: true }
             Row {
@@ -468,12 +501,30 @@ Item {
                             }
                         }
                     }
+                    Repeater {
+                        model: ListModel { id: documents }
+
+                        CanvasDocument {
+                            id: document
+
+                            anchors.fill: parent
+                            sessionId: root.sessionId
+                            otherComputer: !root.local
+                            visible: !root.shelf && root.documentView.length > 0 && root.currentKey === key
+
+                            Timer {
+                                interval: 300000
+                                running: !document.visible
+                                onTriggered: root.forgetDocument(document.key)
+                            }
+                        }
+                    }
                     Loader {
                         id: body
 
                         anchors.fill: parent
                         visible: !root.shelf
-                        sourceComponent: !root.current ? null
+                        sourceComponent: !root.current || root.documentView.length > 0 ? null
                             : root.current.kind === "browser" ? browserView
                             : root.current.missing ? missingView
                             : root.readyKey !== root.current.key ? (root.failure.length > 0 ? failureView : loadingView)
@@ -496,15 +547,9 @@ Item {
         property var item: null
 
         KMenuItem {
-            text: qsTr("Open in its app")
-            iconName: "open"
-            visible: root.local && !!fileMenu.item && fileMenu.item.missing !== true
-            onTriggered: Models.DesktopFiles.openPath(fileMenu.item.key)
-        }
-        KMenuItem {
             text: qsTr("Save a copy")
             iconName: "save"
-            visible: !root.local && !!fileMenu.item && fileMenu.item.missing !== true
+            visible: !!fileMenu.item && fileMenu.item.missing !== true
             onTriggered: Models.Canvas.saveCopy(root.sessionId, fileMenu.item.key)
         }
         KMenuItem {

@@ -1,4 +1,5 @@
 #include "SessionFixture.hpp"
+#include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
@@ -316,6 +317,70 @@ private slots:
         desktop.openCanvas(id);
         QVERIFY(desktop.unstageSession(id));
         QVERIFY(desktop.canvasSessionId().isEmpty());
+    }
+
+    void aPersonAddsAFileInPartsAndTheCanvasShowsIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        QTemporaryDir directory;
+        QFile file(directory.filePath(QStringLiteral("plan.md")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QByteArray(300 * 1024, 'a'));
+        file.close();
+        model.attach(id, QUrl::fromLocalFile(file.fileName()));
+        QCOMPARE(commands.request().value(QStringLiteral("type")).toString(), QStringLiteral("attach"));
+        QCOMPARE(commands.request().value(QStringLiteral("name")).toString(), QStringLiteral("plan.md"));
+        QVERIFY(!commands.request().value(QStringLiteral("last")).toBool());
+        model.apply(answer(commands, { { QStringLiteral("answer"), QStringLiteral("done") } }));
+        QCOMPARE(commands.request().value(QStringLiteral("offset")).toInt(), 256 * 1024);
+        QVERIFY(commands.request().value(QStringLiteral("last")).toBool());
+        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
+        model.apply(answer(commands,
+            { { QStringLiteral("answer"), QStringLiteral("attached") }, { QStringLiteral("key"), QStringLiteral("/work/plan.md") } }));
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
+    }
+
+    void aDocumentFrameComesBackWholeAndAGapBreaksThePipe()
+    {
+        Commands commands;
+        kodosi::CanvasDocuments documents(commands);
+        QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
+        QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
+        QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        const auto request = commands.values.last().value(QStringLiteral("requestId"));
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") }, { QStringLiteral("requestId"), request } });
+        QCOMPARE(opened.size(), 1);
+        const auto part = [&pipe](int sequence, bool more, const QByteArray& data) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+                { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
+                { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
+        };
+        documents.apply(part(0, true, "Hel"));
+        QCOMPARE(received.size(), 0);
+        documents.apply(part(1, false, "lo"));
+        QCOMPARE(received.size(), 1);
+        QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("Hello").toBase64()));
+        documents.apply(part(3, false, "x"));
+        QCOMPARE(lost.size(), 1);
+        documents.send(pipe, QStringLiteral("AAAA"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+    }
+
+    void aLargeFrameGoesInPartsOfWholeLetterGroups()
+    {
+        Commands commands;
+        kodosi::CanvasDocuments documents(commands);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        documents.send(pipe, QString(600 * 1024, u'A'));
+        QCOMPARE(commands.values.size(), 3);
+        const auto first = commands.values.at(1);
+        QVERIFY(first.value(QStringLiteral("more")).toBool());
+        QCOMPARE(first.value(QStringLiteral("data")).toString().size() % 4, 0);
+        QVERIFY(!commands.values.at(2).value(QStringLiteral("more")).toBool());
     }
 };
 

@@ -8,6 +8,7 @@
 #include "platform/TerminalNotifications.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include "presentation/AppearanceModel.hpp"
+#include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -188,6 +189,7 @@ int main(int argc, char* argv[])
     kodosi::DesktopSettings desktopSettings(settings(), QSystemTrayIcon::isSystemTrayAvailable());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::CanvasModel canvas(runtime, sessions);
+    kodosi::CanvasDocuments documents(runtime);
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
@@ -225,6 +227,8 @@ int main(int argc, char* argv[])
         const auto type = event.value(QStringLiteral("type")).toString();
         if (type == QStringLiteral("canvas.result") || type == QStringLiteral("canvas.error"))
             canvas.apply(event);
+        if (type.startsWith(QStringLiteral("document.")))
+            documents.apply(event);
         if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);
@@ -242,12 +246,18 @@ int main(int argc, char* argv[])
         if (!running) {
             workspace.reset();
             canvas.reset();
+            documents.reset();
             history.reset();
             providerFiles.reset();
             launcher.reset();
         }
     });
     QObject::connect(&workspace, &kodosi::Workspace::hostReady, &launcher, [&] { launcher.refresh(true); });
+    QObject::connect(&files, &kodosi::DesktopFileIntegration::filesPicked, &canvas,
+        [&canvas](const QString& sessionId, const QList<QUrl>& picked) {
+            for (const auto& file : picked)
+                canvas.attach(sessionId, file);
+        });
     QObject::connect(&canvas, &kodosi::CanvasModel::copyReady, &files, &kodosi::DesktopFileIntegration::saveCopy);
     QObject::connect(&canvas, &kodosi::CanvasModel::problem, &workspace, &kodosi::Workspace::setError);
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
@@ -256,7 +266,7 @@ int main(int argc, char* argv[])
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
-        lifecycle, surfaces, tray, canvas, canvasWeb, shortcuts);
+        lifecycle, surfaces, tray, canvas, documents, canvasWeb, shortcuts);
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("canvas"), new kodosi::CanvasImages(canvas));
     QObject::connect(

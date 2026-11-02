@@ -4,6 +4,7 @@
 #include "canvas/CanvasWeb.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
+#include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -242,6 +243,16 @@ struct CanvasModelForeign {
 public:
     inline static kodosi::CanvasModel* instance = nullptr;
     static kodosi::CanvasModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
+struct CanvasDocumentsForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::CanvasDocuments)
+    QML_NAMED_ELEMENT(CanvasDocuments)
+    QML_SINGLETON
+public:
+    inline static kodosi::CanvasDocuments* instance = nullptr;
+    static kodosi::CanvasDocuments* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
 struct CanvasWebForeign {

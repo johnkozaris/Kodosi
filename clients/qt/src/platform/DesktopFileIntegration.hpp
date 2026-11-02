@@ -20,6 +20,7 @@ public:
     QString errorMessage() const { return m_error; }
     Q_INVOKABLE bool requestDirectory(const QString& purpose, const QString& initialDirectory = {});
     Q_INVOKABLE void cancelDirectory();
+    Q_INVOKABLE bool requestFiles(const QString& purpose);
     Q_INVOKABLE bool openPath(const QString& path);
     Q_INVOKABLE bool openWebUrl(const QString& url);
     Q_INVOKABLE void copyText(const QString& text);
@@ -31,6 +32,7 @@ signals:
     void busyChanged();
     void errorChanged();
     void directoryPicked(QString purpose, QString path);
+    void filesPicked(QString purpose, QList<QUrl> files);
 
 private:
     QPointer<QFileDialog> m_dialog;

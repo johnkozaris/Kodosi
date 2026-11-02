@@ -34,6 +34,7 @@ Row {
     signal pressed(string section)
     signal closeRequested(string section)
     signal openRequested(string section)
+    signal addRequested()
 
     function title(section: string): string {
         return section === "browser" ? qsTr("Browser") : qsTr("Files");
@@ -225,7 +226,7 @@ Row {
         id: adder
 
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.inPanel && root.closed.length > 0
+        visible: root.inPanel
         glyph: "plus"
         size: 26
         onTerminal: true
@@ -250,6 +251,12 @@ Row {
                     objectName: root.identifier + ".open." + modelData
                     onTriggered: root.openRequested(modelData)
                 }
+            }
+            KMenuItem {
+                text: qsTr("Add a file…")
+                iconName: "files"
+                objectName: root.identifier + ".add"
+                onTriggered: root.addRequested()
             }
         }
     }

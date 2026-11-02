@@ -144,6 +144,7 @@ file(REMOVE \${locales})
             PROGRAMS "${KODOSI_RUNTIME_CLI}" "${KODOSI_AGENT_BROWSER}"
             DESTINATION lib/kodosi/bin
         )
+        install(DIRECTORY "${KODOSI_DOCUMENT_VIEWS}/" DESTINATION lib/kodosi/bin/DocumentViews)
         install(
             DIRECTORY "${KODOSI_AGENT_BROWSER_DIR}/notices/"
             DESTINATION share/doc/kodosi/agent-browser

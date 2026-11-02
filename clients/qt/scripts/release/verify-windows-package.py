@@ -37,6 +37,8 @@ REQUIRED_FILES = (
     "kodosi.exe",
     "agent-browser.exe",
     "doc/agent-browser/LICENSE",
+    "DocumentViews/index.html",
+    "DocumentViews/licenses.md",
     "conpty.dll",
     "OpenConsole.exe",
     "qt.conf",

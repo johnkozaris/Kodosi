@@ -459,6 +459,8 @@ def check_files(root: Path, qt_version: str, webengine_version: str) -> None:
             fail(f"{name} is missing or is not executable")
     for name in (
         f"{PRIVATE}/bin/qt.conf",
+        f"{PRIVATE}/bin/DocumentViews/index.html",
+        f"{PRIVATE}/bin/DocumentViews/licenses.md",
         f"{DOC}/agent-browser/LICENSE",
         DESKTOP,
         METAINFO,

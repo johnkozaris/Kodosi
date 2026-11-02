@@ -58,6 +58,7 @@ public:
     Q_INVOKABLE [[nodiscard]] QString pageAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pictureAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE void saveCopy(const QString& sessionId, const QString& key);
+    Q_INVOKABLE void attach(const QString& sessionId, const QUrl& file);
     [[nodiscard]] std::optional<std::pair<QByteArray, QByteArray>> published(const QUrl& address) const;
     [[nodiscard]] std::optional<QByteArray> published(int number) const;
     [[nodiscard]] std::optional<QByteArray> stored(const QString& sessionId, const QString& key) const;
@@ -130,7 +131,13 @@ private:
         QByteArray type;
         QByteArray data;
     };
-    enum class Asked { Read, Picture, Input, Act, Remove };
+    struct Upload {
+        QString sessionId;
+        QString name;
+        QByteArray data;
+        qsizetype offset = 0;
+    };
+    enum class Asked { Read, Picture, Input, Act, Remove, Attach };
     struct Request {
         Asked asked;
         QString sessionId;
@@ -153,6 +160,7 @@ private:
     QStringList m_storedOrder;
     QHash<QString, Reading> m_readings;
     QHash<QString, Request> m_requests;
+    QHash<QString, Upload> m_uploads;
     QHash<QString, Feed> m_feeds;
     QList<Published> m_published;
     int m_publishedCount = 0;
@@ -165,6 +173,7 @@ private:
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();
     void touch();
+    void sendPart(const QString& upload);
     void read(const QString& sessionId, const QString& key, bool copy);
     void askPart(const QString& id);
     void receivePart(const Request& request, const QJsonObject& answer);
