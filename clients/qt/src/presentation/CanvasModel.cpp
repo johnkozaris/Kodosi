@@ -606,7 +606,8 @@ bool CanvasModel::sendPart(const QString& upload)
         { QStringLiteral("upload"), upload }, { QStringLiteral("name"), found->name },
         { QStringLiteral("offset"), static_cast<qint64>(found->offset) },
         { QStringLiteral("data"), QString::fromLatin1(part.toBase64()) },
-        { QStringLiteral("last"), found->offset + part.size() >= found->data.size() } };
+        { QStringLiteral("last"), found->offset + part.size() >= found->data.size() },
+        { QStringLiteral("page"), found->forPage } };
     found->offset += part.size();
     if (const auto error = ask(Asked::Attach, found->sessionId, request, upload); !error.isEmpty()) {
         m_uploads.erase(found);

@@ -188,6 +188,10 @@ pub enum CanvasRequest {
         offset: u64,
         data: String,
         last: bool,
+        /// A file for a page of the browser goes into the folder of the terminal, of any kind,
+        /// and not on the canvas.
+        #[serde(default)]
+        page: bool,
     },
     Act {
         action: BrowserAct,

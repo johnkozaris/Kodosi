@@ -84,7 +84,7 @@ public final class BrowserFeed {
         var paths: [String] = []
         do {
             for file in files {
-                if let path = try await store.upload(file, to: session) {
+                if let path = try await store.upload(file, to: session, page: true) {
                     paths.append(path)
                 }
             }

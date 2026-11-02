@@ -455,6 +455,7 @@ impl Actor {
                 offset,
                 data,
                 last,
+                page,
             } => {
                 let Ok(upload) = Uuid::parse_str(&upload) else {
                     drop(reply.send(Err("This upload has no number.".to_owned())));
@@ -466,6 +467,7 @@ impl Actor {
                     offset,
                     data: &data,
                     last,
+                    page,
                 };
                 let answer = self.attach(part).await;
                 drop(reply.send(answer));
@@ -480,10 +482,14 @@ impl Actor {
 
     async fn attach(&mut self, part: Part<'_>) -> Result<CanvasAnswer, String> {
         let folder = self.folder.borrow().clone();
+        let page = part.page;
         let Some(path) = self.uploads.add(&folder, part).await? else {
             return Ok(CanvasAnswer::Done);
         };
         let key = key_of(&path);
+        if page {
+            return Ok(CanvasAnswer::Attached { key });
+        }
         let showing = self.files.show(vec![path], &self.stamp).await;
         self.publish();
         showing.map(|_| CanvasAnswer::Attached { key })

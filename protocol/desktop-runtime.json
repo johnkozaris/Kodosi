@@ -2750,6 +2750,9 @@
                     "format": "u64",
                     "type": "integer"
                   },
+                  "page": {
+                    "type": "boolean"
+                  },
                   "type": {
                     "const": "attach"
                   },

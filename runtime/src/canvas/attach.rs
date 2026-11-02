@@ -33,6 +33,7 @@ pub(super) struct Part<'a> {
     pub(super) offset: u64,
     pub(super) data: &'a str,
     pub(super) last: bool,
+    pub(super) page: bool,
 }
 
 /// The files that people are adding. A file grows beside its final place and takes a free name
@@ -105,7 +106,7 @@ impl Uploads {
     }
 
     async fn start(&mut self, folder: &Path, part: &Part<'_>) -> Result<(), String> {
-        if kind_of(Path::new(part.name)).is_none() {
+        if !part.page && kind_of(Path::new(part.name)).is_none() {
             return Err(
                 "The canvas shows pages (HTML, Markdown, text), pictures, PDF and Office files."
                     .to_owned(),

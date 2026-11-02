@@ -129,6 +129,7 @@ async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
         offset,
         data: base64::engine::general_purpose::STANDARD.encode(data),
         last,
+        page: false,
     };
     for number in ["notes.md", "notes 2.md"] {
         let upload = uuid::Uuid::now_v7();
@@ -164,6 +165,7 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
         offset,
         data: "AAAA".to_owned(),
         last: false,
+        page: false,
     };
     let upload = uuid::Uuid::now_v7();
     canvas.request(attach("a.md", upload, 0)).await.unwrap();
@@ -177,6 +179,37 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
     assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
 }
 
+#[tokio::test]
+async fn a_file_for_a_page_of_any_kind_goes_into_the_folder_and_not_on_the_canvas() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attached = canvas
+        .request(CanvasRequest::Attach {
+            upload: uuid::Uuid::now_v7().to_string(),
+            name: "data.zip".to_owned(),
+            offset: 0,
+            data: "UEsDBA==".to_owned(),
+            last: true,
+            page: true,
+        })
+        .await
+        .unwrap();
+    let CanvasAnswer::Attached { key } = attached else {
+        panic!("attached");
+    };
+    assert_eq!(std::fs::read(&key).unwrap(), b"PK\x03\x04");
+    assert!(
+        canvas
+            .current()
+            .is_none_or(|canvas| canvas.items.is_empty())
+    );
+}
+
 #[test]
 fn a_file_name_has_no_folders() {
     let attach = |name: &str| CanvasRequest::Attach {
@@ -185,6 +218,7 @@ fn a_file_name_has_no_folders() {
         offset: 0,
         data: String::new(),
         last: true,
+        page: false,
     };
     assert!(attach("plan.docx").is_valid());
     for name in ["", "..", "a/b.md", "a\\b.md", "C:b.md"] {

@@ -282,8 +282,9 @@ public final class CanvasStore {
         try await pick(upload(file, to: session), in: session)
     }
 
-    /// Puts a file into the folder of a terminal, and says where it is on that computer.
-    func upload(_ file: URL, to session: String) async throws -> String? {
+    /// Puts a file into the folder of a terminal, and says where it is on that computer. A file
+    /// for a page of the browser can be of any kind, and stays off the canvas.
+    func upload(_ file: URL, to session: String, page: Bool = false) async throws -> String? {
         let granted = file.startAccessingSecurityScopedResource()
         defer {
             if granted {
@@ -294,7 +295,9 @@ public final class CanvasStore {
         guard data.count <= Self.mostFileBytes else {
             throw RuntimeError.operation(String(localized: "The canvas takes files up to 32 MB.", bundle: .module))
         }
-        closed[session]?[.files] = nil
+        if !page {
+            closed[session]?[.files] = nil
+        }
         let upload = UUIDv7.generate()
         var offset = 0
         var key: String?
@@ -303,7 +306,7 @@ public final class CanvasStore {
             key = try await ask(session, .object([
                 "type": .string("attach"), "upload": .string(upload), "name": .string(file.lastPathComponent),
                 "offset": .uint(UInt64(offset)), "data": .string(data[offset ..< end].base64EncodedString()),
-                "last": .bool(end == data.count),
+                "last": .bool(end == data.count), "page": .bool(page),
             ])).key
             offset = end
         } while offset < data.count
