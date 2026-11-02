@@ -137,6 +137,8 @@ def source(version: str) -> Path:
     if not tools.is_dir():
         WORK.mkdir(parents=True, exist_ok=True)
         run("git", "clone", "--quiet", "--depth", "1", DEPOT_TOOLS, str(tools), folder=WORK)
+    first_run = "update_depot_tools.bat" if platform.system() == "Windows" else "ensure_bootstrap"
+    run(str(tools / first_run), folder=tools)
     src = WORK / "src"
     if not src.is_dir():
         src.mkdir()
