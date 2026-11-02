@@ -2925,7 +2925,7 @@
             "type": "string"
           },
           "type": {
-            "const": "browser.sources"
+            "const": "browser.status"
           }
         },
         "required": [
@@ -3014,6 +3014,48 @@
           },
           "type": {
             "const": "browser.forget"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.clear"
           }
         },
         "required": [
@@ -8404,11 +8446,10 @@
               }
             ]
           },
-          "copied": {
+          "engine": {
             "anyOf": [
               {
-                "format": "u64",
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -8421,7 +8462,7 @@
           "requestId": {
             "type": "string"
           },
-          "skipped": {
+          "sites": {
             "anyOf": [
               {
                 "format": "u64",

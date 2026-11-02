@@ -617,53 +617,92 @@ bool CanvasModel::sendPart(const QString& upload)
     return true;
 }
 
-void CanvasModel::signInStep(const QString& type, QJsonObject fields)
+void CanvasModel::openBrowserSettings()
 {
-    m_signInRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
-    fields.insert(QStringLiteral("type"), type);
-    fields.insert(QStringLiteral("requestId"), m_signInRequest);
-    m_signInNote.clear();
-    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
-        m_signInRequest.clear();
-        emit problem(sent.error().message);
-    }
-    emit signInsChanged();
+    m_browserDone.clear();
+    m_browserProblem.clear();
+    emit browserChanged();
+    askBrowserStatus();
 }
 
-void CanvasModel::askSignInSources()
+void CanvasModel::askBrowserStatus()
 {
-    signInStep(QStringLiteral("browser.sources"), {});
+    m_browserStatusRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    const QJsonObject fields { { QStringLiteral("type"), QStringLiteral("browser.status") },
+        { QStringLiteral("requestId"), m_browserStatusRequest } };
+    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
+        m_browserStatusRequest.clear();
+        m_browserProblem = sent.error().message;
+        emit browserChanged();
+    }
+}
+
+void CanvasModel::browserStep(const QString& key, const QString& type, QJsonObject fields)
+{
+    if (!m_browserWork.isEmpty())
+        return;
+    m_browserStepRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    m_browserWork = key;
+    m_browserProblem.clear();
+    fields.insert(QStringLiteral("type"), type);
+    fields.insert(QStringLiteral("requestId"), m_browserStepRequest);
+    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
+        m_browserStepRequest.clear();
+        m_browserWork.clear();
+        m_browserProblem = sent.error().message;
+    }
+    emit browserChanged();
 }
 
 void CanvasModel::copySignIns(const QString& source)
 {
-    signInStep(QStringLiteral("browser.copy"), { { QStringLiteral("name"), source } });
+    browserStep(source, QStringLiteral("browser.copy"), { { QStringLiteral("name"), source } });
 }
 
 void CanvasModel::forgetSignIns()
 {
-    signInStep(QStringLiteral("browser.forget"), {});
+    browserStep(QStringLiteral("forget"), QStringLiteral("browser.forget"));
 }
 
-void CanvasModel::applySignIns(const QJsonObject& event)
+void CanvasModel::removeBrowsingData()
 {
-    if (event.value(QStringLiteral("requestId")).toString() != m_signInRequest)
+    browserStep(QStringLiteral("clear"), QStringLiteral("browser.clear"));
+}
+
+void CanvasModel::applyBrowser(const QJsonObject& event)
+{
+    const auto request = event.value(QStringLiteral("requestId")).toString();
+    if (request.isEmpty() || (request != m_browserStatusRequest && request != m_browserStepRequest))
         return;
-    m_signInRequest.clear();
-    const auto operation = event.value(QStringLiteral("operation")).toString();
-    if (event.value(QStringLiteral("type")).toString() == QStringLiteral("browser.error")) {
-        m_signInNote = event.value(QStringLiteral("message")).toString();
-    } else if (operation == QStringLiteral("browser.sources")) {
-        m_signInSources.clear();
-        const auto sources = event.value(QStringLiteral("sources")).toArray();
-        for (const auto& source : sources)
-            m_signInSources.append(source.toString());
-    } else {
-        const auto count = event.value(QStringLiteral("copied")).toInt();
-        m_signInNote = operation == QStringLiteral("browser.copy") ? tr("Copied %n sign-ins.", nullptr, count)
-                                                                   : tr("Removed %n sign-ins.", nullptr, count);
+    const auto failed = event.value(QStringLiteral("type")).toString() == QStringLiteral("browser.error");
+    if (failed)
+        m_browserProblem = event.value(QStringLiteral("message")).toString();
+    if (request == m_browserStatusRequest) {
+        m_browserStatusRequest.clear();
+        if (!failed) {
+            m_browserSources.clear();
+            const auto sources = event.value(QStringLiteral("sources")).toArray();
+            for (const auto& source : sources)
+                m_browserSources.append(source.toString());
+            m_browserSites = event.value(QStringLiteral("sites")).toInt();
+            m_browserEngine = event.value(QStringLiteral("engine")).toString();
+            m_browserKnown = true;
+        }
+        emit browserChanged();
+        return;
     }
-    emit signInsChanged();
+    m_browserStepRequest.clear();
+    const auto key = std::exchange(m_browserWork, {});
+    const auto operation = event.value(QStringLiteral("operation")).toString();
+    if (!failed && operation == QStringLiteral("browser.copy")) {
+        m_browserDone.insert(key, tr("Copied for %n sites", nullptr, event.value(QStringLiteral("sites")).toInt()));
+    } else if (!failed) {
+        m_browserDone.clear();
+        if (operation == QStringLiteral("browser.clear"))
+            m_browserDone.insert(key, tr("Removed"));
+    }
+    emit browserChanged();
+    askBrowserStatus();
 }
 
 void CanvasModel::act(const QString& sessionId, const QVariantMap& action)

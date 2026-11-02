@@ -230,20 +230,26 @@ public final class CanvasStore {
         return (revision, data)
     }
 
-    /// The browsers of this computer whose sign-ins a person can copy.
-    public func signInSources() async throws -> [String] {
-        try await commands.request("browser.sources", [:]).value("sources")
+    /// What Settings › Browser shows of this computer.
+    public func browserStatus() async throws -> BrowserStatus {
+        let event = try await commands.request("browser.status", [:])
+        return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"))
     }
 
-    /// Copies the sign-ins of a browser into the profile of this person's private terminals.
-    public func copySignIns(from source: String) async throws -> (copied: Int, skipped: Int) {
-        let event = try await commands.request("browser.copy", ["name": .string(source)])
-        return try (event.value("copied"), event.value("skipped"))
+    /// Copies the sign-ins of a browser into the profile of this person's private terminals, and
+    /// says for how many sites.
+    public func copySignIns(from source: String) async throws -> Int {
+        try await commands.request("browser.copy", ["name": .string(source)]).value("sites")
     }
 
-    /// Removes what copies brought, and says how many sign-ins went.
+    /// Removes what copies brought, and says for how many sites.
     public func removeCopiedSignIns() async throws -> Int {
-        try await commands.request("browser.forget", [:]).value("copied")
+        try await commands.request("browser.forget", [:]).value("sites")
+    }
+
+    /// Removes the profile of this person's private terminals, with every sign-in and all site data.
+    public func removeBrowsingData() async throws {
+        _ = try await commands.request("browser.clear", [:])
     }
 
     /// Whether a person on this device opens the browser of a terminal, which did not come yet.

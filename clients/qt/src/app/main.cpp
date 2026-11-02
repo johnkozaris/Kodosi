@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
         if (type.startsWith(QStringLiteral("document.")))
             documents.apply(event);
         if (type.startsWith(QStringLiteral("browser.")))
-            canvas.applySignIns(event);
+            canvas.applyBrowser(event);
         if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);

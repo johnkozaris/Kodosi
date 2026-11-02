@@ -8,6 +8,7 @@ mod safari;
 mod windows;
 
 use std::{
+    collections::BTreeSet,
     io,
     path::{Path, PathBuf},
 };
@@ -18,7 +19,6 @@ use serde_json::json;
 use crate::{Error, devtools::Devtools};
 
 const COPIED_FILE: &str = "copied-sign-ins.json";
-const WORKING_FOLDER: &str = "sign-in-copy";
 const COOKIES_PER_CALL: usize = 500;
 /// A date in the past, which removes a cookie.
 const GONE: f64 = 1.0;
@@ -39,12 +39,10 @@ pub struct SignInSource {
     folder: PathBuf,
 }
 
-/// What a copy did.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Copied {
-    pub copied: usize,
-    /// Cookies that stay behind, such as those bound to the device.
-    pub skipped: usize,
+/// The sign-ins of one source, read and not yet in a browser.
+#[derive(Debug)]
+pub struct SignIns {
+    cookies: Vec<Cookie>,
 }
 
 /// Why a copy could not start.
@@ -54,6 +52,8 @@ pub enum CopyError {
     NoAccess(String),
     #[error("{0} keeps its sign-ins locked on this computer.")]
     Locked(String),
+    #[error("macOS lets only apps with Full Disk Access read the sign-ins of {0}.")]
+    Protected(String),
     #[error("The sign-ins could not be read: {0}")]
     Store(String),
     #[error(transparent)]
@@ -92,18 +92,42 @@ pub(crate) struct Cookie {
     expires: Option<f64>,
 }
 
-/// What one store gave.
-#[derive(Debug, Default, PartialEq)]
-pub(crate) struct Read {
-    cookies: Vec<Cookie>,
-    skipped: usize,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Key {
     name: String,
     domain: String,
     path: String,
+}
+
+impl SignInSource {
+    /// Reads the sign-ins with no browser running. Copies of open stores go in `working`, a
+    /// private folder that goes when the read ends.
+    pub async fn read(&self, working: &Path) -> Result<SignIns, CopyError> {
+        let reader = {
+            let source = self.clone();
+            let working = working.to_owned();
+            tokio::task::spawn_blocking(move || read_source(&source, &working))
+        };
+        let cookies = reader
+            .await
+            .map_err(|error| CopyError::Store(error.to_string()));
+        drop(tokio::fs::remove_dir_all(working).await);
+        Ok(SignIns { cookies: cookies?? })
+    }
+}
+
+/// How many sites the cookies of these domains count as.
+fn sites<'a>(domains: impl Iterator<Item = &'a str>) -> usize {
+    domains
+        .map(|domain| domain.trim_start_matches('.'))
+        .collect::<BTreeSet<_>>()
+        .len()
+}
+
+/// For how many sites earlier copies gave a profile sign-ins. It needs no running browser.
+pub fn copied_sites(profiles: &Path, profile: &str) -> usize {
+    let keys = read_keys(&profiles.join(profile));
+    sites(keys.iter().map(|key| key.domain.as_str()))
 }
 
 fn home() -> PathBuf {
@@ -139,15 +163,16 @@ fn store_copy(store: &Path, working: &Path) -> Result<PathBuf, CopyError> {
     Ok(copy)
 }
 
-fn read_source(source: &SignInSource, working: &Path) -> Result<Read, CopyError> {
-    let read = match &source.kind {
+fn read_source(source: &SignInSource, working: &Path) -> Result<Vec<Cookie>, CopyError> {
+    let cookies = match &source.kind {
         Kind::Chromium(family) => chromium::read(family, &source.folder, working),
         Kind::Firefox => firefox::read(&source.folder, working),
         Kind::Safari => safari::read(&source.folder),
     };
-    read.map_err(|error| match error {
+    cookies.map_err(|error| match error {
         CopyError::NoAccess(_) => CopyError::NoAccess(source.name.clone()),
         CopyError::Locked(_) => CopyError::Locked(source.name.clone()),
+        CopyError::Protected(_) => CopyError::Protected(source.name.clone()),
         other => other,
     })
 }
@@ -159,25 +184,15 @@ fn read_keys(profile: &Path) -> Vec<Key> {
         .unwrap_or_default()
 }
 
-/// Copies a source's cookies into a running browser, and notes what it copied.
-pub(crate) async fn copy(
+/// Gives a running browser the sign-ins, notes them, and returns for how many sites.
+pub(crate) async fn add(
     devtools: &Devtools,
     profile: &Path,
-    source: &SignInSource,
-) -> Result<Copied, CopyError> {
-    let working = profile.join(WORKING_FOLDER);
-    let reader = {
-        let source = source.clone();
-        let working = working.clone();
-        tokio::task::spawn_blocking(move || read_source(&source, &working))
-    };
-    let read = reader
-        .await
-        .map_err(|error| CopyError::Store(error.to_string()));
-    drop(tokio::fs::remove_dir_all(&working).await);
-    let read = read??;
+    sign_ins: SignIns,
+) -> Result<usize, CopyError> {
+    let cookies = sign_ins.cookies;
     let mut keys = read_keys(profile);
-    for part in read.cookies.chunks(COOKIES_PER_CALL) {
+    for part in cookies.chunks(COOKIES_PER_CALL) {
         devtools
             .call("Storage.setCookies", json!({ "cookies": part }), None)
             .await?;
@@ -193,13 +208,10 @@ pub(crate) async fn copy(
     keys.dedup();
     let bytes = serde_json::to_vec(&keys).map_err(|error| CopyError::Store(error.to_string()))?;
     tokio::fs::write(profile.join(COPIED_FILE), bytes).await?;
-    Ok(Copied {
-        copied: read.cookies.len(),
-        skipped: read.skipped,
-    })
+    Ok(sites(cookies.iter().map(|cookie| cookie.domain.as_str())))
 }
 
-/// Removes what earlier copies gave a profile, and returns how many cookies went.
+/// Removes what earlier copies gave a profile, and returns for how many sites.
 pub(crate) async fn remove(devtools: &Devtools, profile: &Path) -> Result<usize, CopyError> {
     let keys = read_keys(profile);
     for part in keys.chunks(COOKIES_PER_CALL) {
@@ -222,5 +234,34 @@ pub(crate) async fn remove(devtools: &Devtools, profile: &Path) -> Result<usize,
     if !keys.is_empty() {
         tokio::fs::remove_file(profile.join(COPIED_FILE)).await?;
     }
-    Ok(keys.len())
+    Ok(sites(keys.iter().map(|key| key.domain.as_str())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_count_each_site_once() {
+        let profiles = tempfile::tempdir().unwrap();
+        assert_eq!(copied_sites(profiles.path(), "person"), 0);
+        let key = |name: &str, domain: &str| Key {
+            name: name.to_owned(),
+            domain: domain.to_owned(),
+            path: "/".to_owned(),
+        };
+        let keys = [
+            key("a", ".site.test"),
+            key("b", "site.test"),
+            key("c", "mail.site.test"),
+        ];
+        let profile = profiles.path().join("person");
+        std::fs::create_dir_all(&profile).unwrap();
+        std::fs::write(
+            profile.join(COPIED_FILE),
+            serde_json::to_vec(&keys).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(copied_sites(profiles.path(), "person"), 2);
+    }
 }

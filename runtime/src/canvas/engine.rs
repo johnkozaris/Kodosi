@@ -10,7 +10,7 @@ use base64::Engine as _;
 use futures_util::StreamExt as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use shared_browser::{Browsers, Copied, Settings};
+use shared_browser::{Browsers, Settings};
 use tokio::{io::AsyncWriteExt as _, sync::OnceCell};
 
 use super::browser::KEPT_PROFILE;
@@ -26,6 +26,8 @@ const LOOK_LIMIT: Duration = Duration::from_secs(30);
 const NO_ENGINE: &str = "Kodosi could not get its browser. Check the network and open it again.";
 const NOT_FOR_THIS_COMPUTER: &str = "Kodosi has no browser for this computer yet.";
 const CURRENT: &str = "current.json";
+/// A private folder for the copies of the stores that a copy of sign-ins reads.
+const READING: &str = "sign-in-copy";
 
 #[derive(Debug, Deserialize)]
 struct Feed {
@@ -44,6 +46,13 @@ struct Engine {
 struct Current {
     version: String,
     program: String,
+}
+
+/// What Settings › Browser shows.
+pub(crate) struct BrowserStatus {
+    pub(crate) sources: Vec<String>,
+    pub(crate) sites: usize,
+    pub(crate) engine: Option<String>,
 }
 
 /// The host's browsers. Kodosi Browser comes the first time that a window opens on this
@@ -70,7 +79,7 @@ impl BrowserHost {
                 let engine = match on_disk() {
                     Some(program) => program,
                     None => match installed(&engines).await {
-                        Some(program) => {
+                        Some((_, program)) => {
                             let later = engines.clone();
                             tokio::spawn(async move { drop(install(&later, |_| {}).await) });
                             program
@@ -80,44 +89,87 @@ impl BrowserHost {
                 };
                 Ok(Browsers::new(Settings {
                     engine,
-                    profiles: self.folder.join("profiles"),
+                    profiles: self.profiles(),
                 }))
             })
             .await
     }
 
-    pub(super) async fn remove_profile(&self, profile: &str) {
+    fn profiles(&self) -> PathBuf {
+        self.folder.join("profiles")
+    }
+
+    /// Closes the browser of a profile and deletes the profile.
+    pub(super) async fn remove_profile(&self, profile: &str) -> Result<(), String> {
         if let Some(browsers) = self.browsers.get() {
-            if let Err(problem) = browsers.remove_profile(profile).await {
-                tracing::warn!(%problem, "the profile of a closed terminal stays");
+            return browsers
+                .remove_profile(profile)
+                .await
+                .map_err(|problem| problem.to_string());
+        }
+        match tokio::fs::remove_dir_all(self.profiles().join(profile)).await {
+            Err(problem) if problem.kind() != std::io::ErrorKind::NotFound => {
+                Err(problem.to_string())
             }
-        } else {
-            let folder = self.folder.join("profiles").join(profile);
-            drop(tokio::fs::remove_dir_all(folder).await);
+            _ => Ok(()),
         }
     }
 
-    /// Copies the sign-ins of a browser of this computer into the kept profile. Only a person
-    /// starts this.
-    pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<Copied, String> {
+    /// What Settings › Browser shows: the browsers to copy from, for how many sites copies gave
+    /// the kept profile sign-ins, and the Kodosi Browser of this computer.
+    pub(crate) async fn status(&self) -> BrowserStatus {
+        let engine = match on_disk() {
+            Some(program) => Some(program.display().to_string()),
+            None => installed(&self.folder.join("engine"))
+                .await
+                .map(|(version, _)| format!("Chromium {version}")),
+        };
+        BrowserStatus {
+            sources: shared_browser::sign_in_sources()
+                .into_iter()
+                .map(|source| source.name)
+                .collect(),
+            sites: shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE),
+            engine,
+        }
+    }
+
+    /// Copies the sign-ins of a browser of this computer into the kept profile, and returns for
+    /// how many sites. It reads them first, so a browser that gives no access costs no download.
+    /// Only a person starts this.
+    pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<usize, String> {
         let sources = shared_browser::sign_in_sources();
         let source = sources
             .iter()
             .find(|source| source.name == name)
             .ok_or_else(|| format!("{name} is not on this computer."))?;
+        let sign_ins = source
+            .read(&self.folder.join(READING))
+            .await
+            .map_err(|problem| problem.to_string())?;
         self.browsers(|_| {})
             .await?
-            .copy_sign_ins(KEPT_PROFILE, source)
+            .add_sign_ins(KEPT_PROFILE, sign_ins)
             .await
             .map_err(|problem| problem.to_string())
     }
 
+    /// Removes what copies gave the kept profile, and returns for how many sites.
     pub(crate) async fn forget_sign_ins(&self) -> Result<usize, String> {
+        if shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE) == 0 {
+            return Ok(0);
+        }
         self.browsers(|_| {})
             .await?
             .remove_copied_sign_ins(KEPT_PROFILE)
             .await
             .map_err(|problem| problem.to_string())
+    }
+
+    /// Removes the kept profile with every sign-in and all site data. The browsers of the
+    /// private terminals close, and they wake with a new profile.
+    pub(crate) async fn clear(&self) -> Result<(), String> {
+        self.remove_profile(KEPT_PROFILE).await
     }
 
     pub(crate) async fn close(&self) {
@@ -143,11 +195,12 @@ fn platform() -> String {
     format!("{system}-{machine}")
 }
 
-async fn installed(engines: &Path) -> Option<PathBuf> {
+/// The version and the program of the engine on this computer.
+async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
     let text = tokio::fs::read(engines.join(CURRENT)).await.ok()?;
     let current: Current = serde_json::from_slice(&text).ok()?;
     let program = engines.join(&current.version).join(&current.program);
-    program.exists().then_some(program)
+    program.exists().then_some((current.version, program))
 }
 
 /// Gets the newest engine of the signed feed, unless it is here, and returns its program.
@@ -332,7 +385,7 @@ mod tests {
         std::fs::write(folder.path().join("1.2/bin/chrome"), "").unwrap();
         assert_eq!(
             installed(folder.path()).await,
-            Some(folder.path().join("1.2/bin/chrome"))
+            Some(("1.2".to_owned(), folder.path().join("1.2/bin/chrome")))
         );
     }
 }

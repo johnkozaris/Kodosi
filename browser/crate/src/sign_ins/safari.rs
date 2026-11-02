@@ -1,6 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
-use super::{Cookie, CopyError, Kind, Read, SignInSource};
+use super::{Cookie, CopyError, Kind, SignInSource};
 
 const STORE: &str =
     "Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies";
@@ -58,34 +61,39 @@ fn cookie_of(record: &[u8]) -> Option<Cookie> {
 }
 
 /// The cookies of one page of the file.
-fn page_cookies(page: &[u8], read: &mut Read) -> Option<()> {
+fn page_cookies(page: &[u8], cookies: &mut Vec<Cookie>) -> Option<()> {
     let count = number_le(page, 4)? as usize;
     for index in 0..count {
         let start = number_le(page, 8 + index * 4)? as usize;
         let size = number_le(page, start)? as usize;
-        match page.get(start..start + size).and_then(cookie_of) {
-            Some(cookie) => read.cookies.push(cookie),
-            None => read.skipped += 1,
-        }
+        cookies.extend(page.get(start..start + size).and_then(cookie_of));
     }
     Some(())
 }
 
-fn parse(bytes: &[u8]) -> Option<Read> {
+fn parse(bytes: &[u8]) -> Option<Vec<Cookie>> {
     bytes.starts_with(FILE_MARK).then_some(())?;
     let pages = number_be(bytes, 4)? as usize;
-    let mut read = Read::default();
+    let mut cookies = Vec::new();
     let mut start = 8 + pages * 4;
     for index in 0..pages {
         let size = number_be(bytes, 8 + index * 4)? as usize;
-        page_cookies(bytes.get(start..start + size)?, &mut read)?;
+        page_cookies(bytes.get(start..start + size)?, &mut cookies)?;
         start += size;
     }
-    Some(read)
+    Some(cookies)
 }
 
-pub(super) fn read(file: &Path) -> Result<Read, CopyError> {
-    let bytes = std::fs::read(file)?;
+/// Safari keeps its store where macOS lets only apps with Full Disk Access read.
+pub(super) fn read(file: &Path) -> Result<Vec<Cookie>, CopyError> {
+    let bytes = match std::fs::read(file) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            return Err(CopyError::Protected(String::new()));
+        }
+        Err(error) => return Err(error.into()),
+    };
     parse(&bytes).ok_or_else(|| CopyError::Store("the file is not valid".to_owned()))
 }
 
@@ -143,9 +151,9 @@ mod tests {
             record(".site.test", "a", "/", "1", SECURE | HTTP_ONLY),
             record(".other.test", "b", "/x", "2", 0),
         ]);
-        let read = parse(&bytes).unwrap();
-        assert_eq!(read.cookies.len(), 2);
-        let first = &read.cookies[0];
+        let cookies = parse(&bytes).unwrap();
+        assert_eq!(cookies.len(), 2);
+        let first = &cookies[0];
         assert_eq!(
             (
                 first.domain.as_str(),
@@ -156,7 +164,20 @@ mod tests {
         );
         assert!(first.secure && first.http_only);
         assert_eq!(first.expires, Some(1_000_000_000.0 + SECONDS_TO_2001));
-        assert_eq!(read.cookies[1].path, "/x");
+        assert_eq!(cookies[1].path, "/x");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_store_that_the_system_closes_asks_for_full_disk_access() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let folder = tempfile::tempdir().unwrap();
+        let store = folder.path().join("Cookies.binarycookies");
+        std::fs::write(&store, file(&[])).unwrap();
+        std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o000)).unwrap();
+        assert!(matches!(read(&store), Err(CopyError::Protected(_))));
+        assert_eq!(read(&folder.path().join("none")).unwrap(), Vec::new());
     }
 
     #[test]

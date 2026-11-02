@@ -13,7 +13,7 @@ use rusqlite::{Connection, OpenFlags};
 use serde::Deserialize;
 use sha1::Sha1;
 
-use super::{Cookie, CopyError, Kind, Read, SignInSource, store_copy};
+use super::{Cookie, CopyError, Kind, SignInSource, store_copy};
 
 const SALT: &[u8] = b"saltysalt";
 const IV: [u8; 16] = [b' '; 16];
@@ -347,7 +347,11 @@ fn value_of(row: &Row, opener: &dyn Opener, hashed: bool) -> Option<String> {
     String::from_utf8(plain.to_vec()).ok()
 }
 
-fn read_store(store: &Path, opener: &dyn Opener, bound: &BoundCookies) -> Result<Read, CopyError> {
+fn read_store(
+    store: &Path,
+    opener: &dyn Opener,
+    bound: &BoundCookies,
+) -> Result<Vec<Cookie>, CopyError> {
     let connection = Connection::open_with_flags(store, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let version: i64 = connection
         .query_row("SELECT value FROM meta WHERE key = 'version'", [], |row| {
@@ -372,7 +376,7 @@ fn read_store(store: &Path, opener: &dyn Opener, bound: &BoundCookies) -> Result
             same_site: row.get(8)?,
         })
     })?;
-    let mut read = Read::default();
+    let mut cookies = Vec::new();
     let today = now();
     for row in rows {
         let row = row?;
@@ -384,10 +388,9 @@ fn read_store(store: &Path, opener: &dyn Opener, bound: &BoundCookies) -> Result
             .then(|| value_of(&row, opener, version >= HASHED_FROM))
             .flatten();
         let Some(value) = value else {
-            read.skipped += 1;
             continue;
         };
-        read.cookies.push(Cookie {
+        cookies.push(Cookie {
             name: row.name,
             value,
             domain: row.host,
@@ -398,10 +401,14 @@ fn read_store(store: &Path, opener: &dyn Opener, bound: &BoundCookies) -> Result
             expires,
         });
     }
-    Ok(read)
+    Ok(cookies)
 }
 
-pub(super) fn read(family: &Family, folder: &Path, working: &Path) -> Result<Read, CopyError> {
+pub(super) fn read(
+    family: &Family,
+    folder: &Path,
+    working: &Path,
+) -> Result<Vec<Cookie>, CopyError> {
     let store = store_of(folder).ok_or_else(|| CopyError::Store("no cookies".to_owned()))?;
     let opener = opener_of(family, folder)?;
     let copy = store_copy(&store, working).map_err(|error| match error {
@@ -476,13 +483,12 @@ mod tests {
                 (".site.test", "b", "plain", b"", 0),
             ],
         );
-        let read = read_store(&path, &opener, &BoundCookies::default()).unwrap();
-        assert_eq!(read.skipped, 0);
-        assert_eq!(read.cookies[0].value, "token");
-        assert_eq!(read.cookies[0].same_site, Some("Lax"));
-        assert!(read.cookies[0].http_only);
-        assert_eq!(read.cookies[1].value, "plain");
-        assert_eq!(read.cookies[1].expires, None);
+        let cookies = read_store(&path, &opener, &BoundCookies::default()).unwrap();
+        assert_eq!(cookies[0].value, "token");
+        assert_eq!(cookies[0].same_site, Some("Lax"));
+        assert!(cookies[0].http_only);
+        assert_eq!(cookies[1].value, "plain");
+        assert_eq!(cookies[1].expires, None);
     }
 
     #[test]
@@ -497,8 +503,8 @@ mod tests {
             24,
             &[(".site.test", "a", "", &seal, FAR_FUTURE)],
         );
-        let read = read_store(&path, &opener, &BoundCookies::default()).unwrap();
-        assert_eq!(read.cookies[0].value, "token");
+        let cookies = read_store(&path, &opener, &BoundCookies::default()).unwrap();
+        assert_eq!(cookies[0].value, "token");
     }
 
     #[test]
@@ -518,9 +524,8 @@ mod tests {
                 (".site.test", "old", "", &old, FAR_PAST),
             ],
         );
-        let read = read_store(&path, &opener, &BoundCookies::default()).unwrap();
-        assert_eq!(read.cookies, Vec::new());
-        assert_eq!(read.skipped, 2);
+        let cookies = read_store(&path, &opener, &BoundCookies::default()).unwrap();
+        assert_eq!(cookies, Vec::new());
     }
 
     #[test]
@@ -548,13 +553,11 @@ mod tests {
                 b"\x0a\x0e__Secure-bound\x12".to_vec(),
             )],
         };
-        let read = read_store(&path, &opener, &bound).unwrap();
-        let names: Vec<_> = read
-            .cookies
+        let cookies = read_store(&path, &opener, &bound).unwrap();
+        let names: Vec<_> = cookies
             .iter()
             .map(|cookie| (cookie.domain.as_str(), cookie.name.as_str()))
             .collect();
-        assert_eq!(read.skipped, 1);
         assert_eq!(
             names,
             [

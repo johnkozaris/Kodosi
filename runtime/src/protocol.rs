@@ -411,9 +411,10 @@ pub enum Command {
         folder: String,
         arguments: Vec<String>,
     },
-    /// The browsers of this computer whose sign-ins a person can copy.
-    #[serde(rename = "browser.sources")]
-    BrowserSources {
+    /// What Settings › Browser shows: the browsers of this computer whose sign-ins a person can
+    /// copy, for how many sites copies gave sign-ins, and the Kodosi Browser of this computer.
+    #[serde(rename = "browser.status")]
+    BrowserStatus {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -424,8 +425,15 @@ pub enum Command {
         request_id: String,
         name: String,
     },
+    /// Removes what copies of sign-ins gave the kept profile.
     #[serde(rename = "browser.forget")]
     BrowserForget {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// Removes the kept profile, with every sign-in and all site data.
+    #[serde(rename = "browser.clear")]
+    BrowserClear {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -1048,9 +1056,9 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sources: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        copied: Option<u64>,
+        sites: Option<u64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        skipped: Option<u64>,
+        engine: Option<String>,
     },
     #[serde(rename = "browser.error")]
     BrowserError {
@@ -1588,9 +1596,10 @@ impl Command {
             Self::CanvasBrowse { .. } => "canvas.browser",
             Self::CanvasAsk { .. } => "canvas.request",
             Self::CanvasDocument { .. } => "canvas.document",
-            Self::BrowserSources { .. } => "browser.sources",
+            Self::BrowserStatus { .. } => "browser.status",
             Self::BrowserCopy { .. } => "browser.copy",
             Self::BrowserForget { .. } => "browser.forget",
+            Self::BrowserClear { .. } => "browser.clear",
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
@@ -1710,9 +1719,10 @@ impl Command {
             | Self::CanvasBrowse { request_id, .. }
             | Self::CanvasAsk { request_id, .. }
             | Self::CanvasDocument { request_id, .. }
-            | Self::BrowserSources { request_id }
+            | Self::BrowserStatus { request_id }
             | Self::BrowserCopy { request_id, .. }
             | Self::BrowserForget { request_id }
+            | Self::BrowserClear { request_id }
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }

@@ -172,8 +172,9 @@ After 10 minutes with no use and nobody looking, the window closes. The browser 
 its last window, and the terminal's restore record keeps the last page. A person's private
 terminals share one kept profile. A shared terminal has a profile of its own, which goes
 with the terminal, and a new host deletes the profiles that no terminal has. Settings ›
-Browser copies cookies from another browser's store into the kept profile on the debug
-port, and notes which ones, so a button can remove them again.
+Browser reads the cookies of another browser's store before a browser starts, puts them
+into the kept profile on the debug port, and notes which ones, so a button can remove them
+again. Another button deletes the kept profile.
 
 ## Contracts
 

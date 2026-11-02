@@ -118,9 +118,10 @@ conversation follows the person to all their computers.
   it, a pointer with the agent's mark shows where. A download lands in the terminal's
   folder and on the canvas.
 - A person keeps one set of sign-ins on each computer, and all their private terminals
-  use it. Settings › Browser copies the sign-ins of another browser on that computer,
-  and removes what it copied. A shared terminal has a browser profile of its own, so
-  sharing a terminal shares no kept sign-in.
+  use it. Settings › Browser shows the computer's Kodosi Browser, copies the sign-ins of
+  another browser on that computer, says for how many sites, and removes what it copied
+  or all browsing data of the private terminals. A shared terminal has a browser profile
+  of its own, so sharing a terminal shares no kept sign-in.
 - Ask about this types the item and the selected words into the terminal, and the person
   writes the question.
 - Everyone who can open the terminal sees its canvas, edits its files and uses its

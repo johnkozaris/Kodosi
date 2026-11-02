@@ -140,13 +140,15 @@ impl Runtime {
             Command::Read { .. } => self.read(command)?,
             Command::CanvasAsk { .. } => self.ask_canvas(command)?,
             #[cfg(feature = "host")]
-            Command::BrowserSources { .. }
+            Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
-            | Command::BrowserForget { .. } => self.use_sign_ins(command)?,
+            | Command::BrowserForget { .. }
+            | Command::BrowserClear { .. } => self.use_browser_settings(command)?,
             #[cfg(not(feature = "host"))]
-            Command::BrowserSources { .. }
+            Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
-            | Command::BrowserForget { .. } => {
+            | Command::BrowserForget { .. }
+            | Command::BrowserClear { .. } => {
                 return Err(Error::Invalid(
                     "The browsers of a computer are in the app on that computer.".to_owned(),
                 ));
@@ -570,10 +572,10 @@ impl Runtime {
         Ok(())
     }
 
-    /// The sign-ins of the browsers of this computer. Only the app's Settings send these, for
-    /// a person's own step.
+    /// The steps of Settings › Browser. Only the app's Settings send these, for a person's own
+    /// step.
     #[cfg(feature = "host")]
-    fn use_sign_ins(&mut self, command: &Command) -> Result<()> {
+    fn use_browser_settings(&mut self, command: &Command) -> Result<()> {
         self.job_capacity()?;
         let browsers = self.services.browsers.clone();
         let command = command.clone();
@@ -582,17 +584,19 @@ impl Runtime {
                 Command::BrowserCopy { name, .. } => browsers
                     .copy_sign_ins(name)
                     .await
-                    .map(|done| json!({ "copied": done.copied, "skipped": done.skipped })),
+                    .map(|sites| json!({ "sites": sites })),
                 Command::BrowserForget { .. } => browsers
                     .forget_sign_ins()
                     .await
-                    .map(|removed| json!({ "copied": removed })),
+                    .map(|sites| json!({ "sites": sites })),
+                Command::BrowserClear { .. } => browsers.clear().await.map(|()| json!({})),
                 _ => {
-                    let names = shared_browser::sign_in_sources()
-                        .into_iter()
-                        .map(|source| source.name)
-                        .collect::<Vec<_>>();
-                    Ok(json!({ "sources": names }))
+                    let status = browsers.status().await;
+                    Ok(json!({
+                        "sources": status.sources,
+                        "sites": status.sites,
+                        "engine": status.engine,
+                    }))
                 }
             };
             Completion::Browser { command, result }

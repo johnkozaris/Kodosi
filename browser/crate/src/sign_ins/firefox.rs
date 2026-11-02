@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-use super::{Cookie, CopyError, Kind, Read, SignInSource, store_copy};
+use super::{Cookie, CopyError, Kind, SignInSource, store_copy};
 
 const STORE: &str = "cookies.sqlite";
 const MILLISECONDS: f64 = 1000.0;
@@ -104,7 +104,7 @@ fn same_site_of(value: i64) -> Option<&'static str> {
     }
 }
 
-fn read_store(store: &Path) -> Result<Read, CopyError> {
+fn read_store(store: &Path) -> Result<Vec<Cookie>, CopyError> {
     let connection = Connection::open_with_flags(store, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let mut statement = connection.prepare(
         "SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite, \
@@ -126,19 +126,17 @@ fn read_store(store: &Path) -> Result<Read, CopyError> {
             attributes,
         ))
     })?;
-    let mut read = Read::default();
+    let mut cookies = Vec::new();
     for row in rows {
         let (cookie, attributes) = row?;
         if attributes.is_empty() {
-            read.cookies.push(cookie);
-        } else {
-            read.skipped += 1;
+            cookies.push(cookie);
         }
     }
-    Ok(read)
+    Ok(cookies)
 }
 
-pub(super) fn read(folder: &Path, working: &Path) -> Result<Read, CopyError> {
+pub(super) fn read(folder: &Path, working: &Path) -> Result<Vec<Cookie>, CopyError> {
     read_store(&store_copy(&folder.join(STORE), working)?)
 }
 
@@ -166,12 +164,11 @@ mod tests {
         let folder = tempfile::tempdir().unwrap();
         let path = folder.path().join(STORE);
         store(&path);
-        let read = read_store(&path).unwrap();
-        assert_eq!(read.skipped, 1);
-        assert_eq!(read.cookies.len(), 2);
-        assert_eq!(read.cookies[0].expires, read.cookies[1].expires);
-        assert_eq!(read.cookies[0].same_site, Some("Lax"));
-        assert_eq!(read.cookies[1].same_site, Some("Strict"));
+        let cookies = read_store(&path).unwrap();
+        assert_eq!(cookies.len(), 2);
+        assert_eq!(cookies[0].expires, cookies[1].expires);
+        assert_eq!(cookies[0].same_site, Some("Lax"));
+        assert_eq!(cookies[1].same_site, Some("Strict"));
     }
 
     #[test]

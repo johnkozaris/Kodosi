@@ -357,7 +357,11 @@ impl Engine {
         }
     }
 
+    /// Closes the browser. A browser that stopped before gets no call, as it would not answer.
     pub(crate) async fn stop(&self) {
+        if self.is_stopped() {
+            return;
+        }
         drop(self.devtools.call("Browser.close", json!({}), None).await);
         self.stopped.send_replace(true);
     }

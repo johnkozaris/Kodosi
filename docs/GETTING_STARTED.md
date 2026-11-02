@@ -94,8 +94,10 @@ also drop a file on the canvas. On the iPhone, the canvas key is in the terminal
   sign-ins, and its next command tells it that you used the browser. After 10 minutes with
   no use the browser sleeps, and it opens its last page again when you look at it or the
   agent uses it. The first browser on a computer gets Kodosi Browser, so it takes a moment.
-- To use your sign-ins in your private terminals, select Copy in Settings › Browser. It
-  copies them from a browser of that computer, and Remove Copied Sign-ins takes them away.
+- To use your sign-ins in your private terminals, select Copy beside a browser in
+  Settings › Browser. Remove takes away what you copied, and Remove All removes every
+  sign-in and all site data of your private terminals. On a Mac, a copy from Safari
+  needs Full Disk Access for Kodosi.
 - On one network, the browser's picture goes straight between your devices. macOS and iOS
   ask once for local network access; without it, the picture goes through the service.
 - Everyone who can open the terminal sees its canvas and uses its browser. When the

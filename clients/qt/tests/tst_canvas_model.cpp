@@ -320,6 +320,50 @@ private slots:
         QCOMPARE(first.value(QStringLiteral("data")).toString().size() % 4, 0);
         QVERIFY(!commands.values.at(2).value(QStringLiteral("more")).toBool());
     }
+
+    void aBrowserStepShowsWhatItDidAndAsksForTheNewStatus()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto answer = [&](const QString& type, const QString& operation, QJsonObject fields) {
+            fields.insert(QStringLiteral("type"), type);
+            fields.insert(QStringLiteral("operation"), operation);
+            fields.insert(QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")));
+            model.applyBrowser(fields);
+        };
+        model.openBrowserSettings();
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
+            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome"), QStringLiteral("Firefox") } },
+                { QStringLiteral("sites"), 0 } });
+        QVERIFY(model.browserKnown());
+        QCOMPARE(model.browserSources(), QStringList({ QStringLiteral("Chrome"), QStringLiteral("Firefox") }));
+        QVERIFY(model.browserEngine().isEmpty());
+
+        model.copySignIns(QStringLiteral("Chrome"));
+        QCOMPARE(model.browserWork(), QStringLiteral("Chrome"));
+        model.forgetSignIns();
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.copy"));
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.copy"), { { QStringLiteral("sites"), 12 } });
+        QVERIFY(model.browserWork().isEmpty());
+        QCOMPARE(model.browserDone().value(QStringLiteral("Chrome")).toString(), QStringLiteral("Copied for 12 sites"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.status"));
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
+            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome") } }, { QStringLiteral("sites"), 12 },
+                { QStringLiteral("engine"), QStringLiteral("Chromium 156.0.8078.47") } });
+        QCOMPARE(model.browserSites(), 12);
+        QCOMPARE(model.browserEngine(), QStringLiteral("Chromium 156.0.8078.47"));
+
+        model.forgetSignIns();
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.forget"), { { QStringLiteral("sites"), 12 } });
+        QVERIFY(model.browserDone().isEmpty());
+
+        model.removeBrowsingData();
+        answer(QStringLiteral("browser.error"), QStringLiteral("browser.clear"),
+            { { QStringLiteral("message"), QStringLiteral("The profile could not go.") } });
+        QCOMPARE(model.browserProblem(), QStringLiteral("The profile could not go."));
+        QVERIFY(!model.browserDone().contains(QStringLiteral("clear")));
+    }
 };
 
 QTEST_MAIN(CanvasModelTest)

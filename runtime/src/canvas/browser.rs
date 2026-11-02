@@ -511,10 +511,13 @@ impl Browser {
     pub(super) async fn remove(&self) {
         self.closed.cancel();
         self.sleep().await;
-        if *self.terminal.shared.borrow() {
-            self.host
+        if *self.terminal.shared.borrow()
+            && let Err(problem) = self
+                .host
                 .remove_profile(&self.terminal.id.to_string())
-                .await;
+                .await
+        {
+            tracing::warn!(%problem, "the profile of a closed terminal stays");
         }
         let sockets = self.places.sockets.clone();
         let session = format!("{}.", self.terminal.id.simple());

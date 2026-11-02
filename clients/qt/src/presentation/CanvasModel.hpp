@@ -25,9 +25,13 @@ class SessionCatalogModel;
 class CanvasModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(int revision READ revision NOTIFY changed)
-    Q_PROPERTY(QStringList signInSources READ signInSources NOTIFY signInsChanged)
-    Q_PROPERTY(bool signInWork READ signInWork NOTIFY signInsChanged)
-    Q_PROPERTY(QString signInNote READ signInNote NOTIFY signInsChanged)
+    Q_PROPERTY(bool browserKnown READ browserKnown NOTIFY browserChanged)
+    Q_PROPERTY(QStringList browserSources READ browserSources NOTIFY browserChanged)
+    Q_PROPERTY(int browserSites READ browserSites NOTIFY browserChanged)
+    Q_PROPERTY(QString browserEngine READ browserEngine NOTIFY browserChanged)
+    Q_PROPERTY(QString browserWork READ browserWork NOTIFY browserChanged)
+    Q_PROPERTY(QVariantMap browserDone READ browserDone NOTIFY browserChanged)
+    Q_PROPERTY(QString browserProblem READ browserProblem NOTIFY browserChanged)
 
 public:
     struct BrowserKey {
@@ -39,13 +43,21 @@ public:
     CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent = nullptr);
 
     [[nodiscard]] int revision() const { return m_revision; }
-    [[nodiscard]] QStringList signInSources() const { return m_signInSources; }
-    [[nodiscard]] bool signInWork() const { return !m_signInRequest.isEmpty(); }
-    [[nodiscard]] QString signInNote() const { return m_signInNote; }
-    Q_INVOKABLE void askSignInSources();
+    // What Settings › Browser shows: the last status of this computer, the step that runs, by the
+    // source's name, "forget" or "clear", and what each step did.
+    [[nodiscard]] bool browserKnown() const { return m_browserKnown; }
+    [[nodiscard]] QStringList browserSources() const { return m_browserSources; }
+    [[nodiscard]] int browserSites() const { return m_browserSites; }
+    [[nodiscard]] QString browserEngine() const { return m_browserEngine; }
+    [[nodiscard]] QString browserWork() const { return m_browserWork; }
+    [[nodiscard]] QVariantMap browserDone() const { return m_browserDone; }
+    [[nodiscard]] QString browserProblem() const { return m_browserProblem; }
+    // Starts the page afresh, with no notes from before and the status of now.
+    Q_INVOKABLE void openBrowserSettings();
     Q_INVOKABLE void copySignIns(const QString& source);
     Q_INVOKABLE void forgetSignIns();
-    void applySignIns(const QJsonObject& event);
+    Q_INVOKABLE void removeBrowsingData();
+    void applyBrowser(const QJsonObject& event);
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QStringList sections(const QString& sessionId) const;
@@ -87,7 +99,7 @@ public:
 
 signals:
     void changed();
-    void signInsChanged();
+    void browserChanged();
     void loaded(const QString& sessionId, const QString& key);
     void failed(const QString& sessionId, const QString& key, const QString& message);
     void copyReady(const QString& name, const QByteArray& content);
@@ -155,9 +167,15 @@ private:
     QHash<QString, Request> m_requests;
     QHash<QString, Upload> m_uploads;
     QHash<QString, Giving> m_giving;
-    QStringList m_signInSources;
-    QString m_signInRequest;
-    QString m_signInNote;
+    bool m_browserKnown = false;
+    QStringList m_browserSources;
+    int m_browserSites = 0;
+    QString m_browserEngine;
+    QString m_browserStatusRequest;
+    QString m_browserStepRequest;
+    QString m_browserWork;
+    QVariantMap m_browserDone;
+    QString m_browserProblem;
     QList<Published> m_published;
     int m_publishedCount = 0;
 
@@ -172,7 +190,8 @@ private:
     bool upload(const QString& sessionId, const QUrl& file, bool forPage);
     bool sendPart(const QString& upload);
     void gave(const QString& sessionId, const QString& path);
-    void signInStep(const QString& type, QJsonObject fields);
+    void askBrowserStatus();
+    void browserStep(const QString& key, const QString& type, QJsonObject fields = {});
     void read(const QString& sessionId, const QString& key, bool copy);
     void askPart(const QString& id);
     void receivePart(const Request& request, const QJsonObject& answer);

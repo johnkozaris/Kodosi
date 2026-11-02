@@ -1,92 +1,134 @@
+import AppKit
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// Copies the sign-ins of another browser of this Mac into the shared browser. Each copy is a
-/// person's own step, and a key takes back what the copies brought.
+/// The shared browser of this Mac: its Kodosi Browser, the sign-ins that a person copies from
+/// another browser, and the data of the private terminals. Each step is a person's own.
 struct BrowserSettingsView: View {
+    private static let fullDiskAccess = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+    private static let clearKey = "clear"
+
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @State private var sources: [String] = []
-    @State private var working = false
-    @State private var told: String?
+    @State private var status: BrowserStatus?
+    @State private var working: String?
+    @State private var done: [String: String] = [:]
     @State private var problem: String?
+    @State private var protectedSource = false
+    @State private var clearing = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Sign-ins").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
-                Text("Copy the sign-ins of a browser of this Mac, so that sites know you in your private terminals. Shared terminals never get them.")
-                    .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 22) {
+            ListGroup {
+                ListRow(String(localized: "Kodosi Browser"), subtitle: engineLine, symbol: "globe", tint: TileTint.blue)
             }
-            VStack(spacing: 1) {
-                ForEach(sources, id: \.self) { source in
-                    HStack {
-                        Text(verbatim: source).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
-                        Spacer()
-                        Button("Copy") { copy(source) }
-                            .disabled(working)
-                            .accessibilityIdentifier("settings.browser.copy.\(AccessibilityIdentifier.token(source))")
+            ListGroup(footer: "Sites then know you in your private terminals on this Mac. Passkeys and sign-ins bound to a device stay in their own browser.") {
+                if let status, status.sources.isEmpty {
+                    ListRow(String(localized: "No other browser on this Mac"), symbol: "globe", tint: TileTint.graphite)
+                }
+                ForEach(status?.sources ?? [], id: \.self) { source in
+                    ListRow(source, subtitle: done[source], symbol: "globe", tint: TileTint.teal) {
+                        step(String(localized: "Copy"), key: source, identifier: "settings.browser.copy.\(AccessibilityIdentifier.token(source))") {
+                            let sites = try await deps.canvas.copySignIns(from: source)
+                            done[source] = String(localized: "Copied for \(sites) sites")
+                        }
                     }
-                    .padding(.horizontal, 14).frame(height: 44)
-                }
-                if sources.isEmpty {
-                    Text("This Mac has no browser to copy from.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                 }
             }
-            .raised(Radius.xl)
-            HStack(spacing: 10) {
-                Button("Remove Copied Sign-ins") { forget() }
-                    .disabled(working)
-                    .accessibilityIdentifier("settings.browser.forget")
-                if working {
-                    Spinner(size: 14)
+            ListGroup {
+                ListRow(String(localized: "Copied sign-ins"), subtitle: copiedLine, symbol: "key.fill", tint: TileTint.amber) {
+                    step(String(localized: "Remove"), key: "forget", identifier: "settings.browser.forget", disabled: (status?.sites ?? 0) == 0) {
+                        _ = try await deps.canvas.removeCopiedSignIns()
+                        done = [:]
+                    }
                 }
-                if let told {
-                    Text(verbatim: told).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                ListRow(String(localized: "Browsing data"),
+                        subtitle: done[Self.clearKey] ?? String(localized: "Sign-ins and site data of your private terminals"),
+                        symbol: "trash.fill", tint: TileTint.red)
+                {
+                    Button("Remove All…") { clearing = true }
+                        .buttonStyle(.kodosi(.secondary, size: .small))
+                        .disabled(working != nil)
+                        .accessibilityIdentifier("settings.browser.clear")
                 }
             }
             if let problem {
-                Text(verbatim: problem).appTextStyle(.footnote).foregroundStyle(theme.colors.caution)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    ErrorNote(message: problem)
+                    if protectedSource, let url = Self.fullDiskAccess {
+                        Button("Open Privacy Settings") { NSWorkspace.shared.open(url) }
+                            .buttonStyle(.kodosi(.secondary, size: .small))
+                            .accessibilityIdentifier("settings.browser.privacy")
+                    }
+                }
+                .transition(AnyTransition.rise)
             }
-            Text("Passkeys and sign-ins bound to a device stay in their own browser. macOS can ask you to allow Kodosi to read the key of a browser.")
-                .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .task { await load() }
+        .animation(theme.motion.spring, value: problem)
+        .animation(theme.motion.spring, value: status)
+        .confirmationDialog("Remove all browsing data?", isPresented: $clearing, titleVisibility: .visible) {
+            Button("Remove All", role: .destructive) { clear() }
+        } message: { Text("Sites forget you in your private terminals on this Mac. Their open pages load again.") }
+        .task(id: deps.accountEpoch) { await load() }
+    }
+
+    private var engineLine: String {
+        guard let status else { return String(localized: "Looking on this Mac") }
+        return status.engine ?? String(localized: "Comes with the first browser")
+    }
+
+    private var copiedLine: String {
+        guard let sites = status?.sites, sites > 0 else { return String(localized: "None") }
+        return String(localized: "For \(sites) sites")
+    }
+
+    private func step(_ title: String, key: String, identifier: String, disabled: Bool = false,
+                      _ action: @escaping @MainActor () async throws -> Void) -> some View
+    {
+        Button {
+            run(key, action)
+        } label: {
+            Text(title).opacity(working == key ? 0 : 1)
+                .overlay {
+                    if working == key {
+                        Spinner(size: 12)
+                    }
+                }
+        }
+        .buttonStyle(.kodosi(.secondary, size: .small))
+        .disabled(working != nil || disabled)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func clear() {
+        run(Self.clearKey) {
+            try await deps.canvas.removeBrowsingData()
+            done = [Self.clearKey: String(localized: "Removed")]
+        }
     }
 
     private func load() async {
         do {
-            sources = try await deps.canvas.signInSources()
-        } catch { problem = error.localizedDescription }
-    }
-
-    private func copy(_ source: String) {
-        run {
-            let done = try await deps.canvas.copySignIns(from: source)
-            told = String(localized: "Copied \(done.copied) sign-ins from \(source).")
+            status = try await deps.canvas.browserStatus()
+        } catch {
+            problem = error.localizedDescription
         }
     }
 
-    private func forget() {
-        run {
-            let removed = try await deps.canvas.removeCopiedSignIns()
-            told = String(localized: "Removed \(removed) sign-ins.")
-        }
-    }
-
-    private func run(_ step: @escaping @MainActor () async throws -> Void) {
-        working = true
-        told = nil
+    private func run(_ key: String, _ action: @escaping @MainActor () async throws -> Void) {
+        working = key
         problem = nil
+        protectedSource = false
         Task { @MainActor in
-            defer { working = false }
             do {
-                try await step()
-            } catch { problem = error.localizedDescription }
+                try await action()
+            } catch {
+                problem = error.localizedDescription
+                protectedSource = key == "Safari"
+            }
+            await load()
+            working = nil
         }
     }
 }

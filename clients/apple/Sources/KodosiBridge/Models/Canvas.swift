@@ -212,6 +212,22 @@ public struct BrowserDoing: Decodable, Equatable, Sendable {
     }
 }
 
+/// What Settings › Browser shows of this computer.
+public struct BrowserStatus: Equatable, Sendable {
+    /// The browsers whose sign-ins a person can copy.
+    public let sources: [String]
+    /// For how many sites copies gave sign-ins.
+    public let sites: Int
+    /// The Kodosi Browser of this computer, when it has one.
+    public let engine: String?
+
+    public init(sources: [String], sites: Int, engine: String?) {
+        self.sources = sources
+        self.sites = sites
+        self.engine = engine
+    }
+}
+
 public enum CanvasError: LocalizedError, Equatable {
     case unreadable
 

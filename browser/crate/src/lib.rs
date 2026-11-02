@@ -32,7 +32,7 @@ pub use host::{Browsers, Error, Place, Settings};
 #[cfg(feature = "host")]
 pub use page::HostPage;
 #[cfg(feature = "host")]
-pub use sign_ins::{Copied, CopyError, SignInSource, sign_in_sources};
+pub use sign_ins::{CopyError, SignInSource, SignIns, copied_sites, sign_in_sources};
 #[cfg(feature = "host")]
 pub use window::{Pipe, Window};
 
@@ -45,7 +45,7 @@ mod host {
     use crate::{
         engine::Engine,
         page::HostPage,
-        sign_ins::{self, Copied, CopyError, SignInSource},
+        sign_ins::{self, CopyError, SignIns},
         window::Window,
     };
 
@@ -138,22 +138,25 @@ mod host {
             page
         }
 
-        /// Copies the sign-ins of another browser into a profile. A host starts this only for
-        /// a person's own action.
-        pub async fn copy_sign_ins(
+        /// Gives a profile the sign-ins that a person read from another browser, and returns
+        /// for how many sites. A host does this only for a person's own action.
+        pub async fn add_sign_ins(
             &self,
             profile: &str,
-            source: &SignInSource,
-        ) -> Result<Copied, CopyError> {
+            sign_ins: SignIns,
+        ) -> Result<usize, CopyError> {
             let engine = self.engine(profile).await?;
             let folder = self.settings.profiles.join(profile);
-            let copied = sign_ins::copy(engine.devtools(), &folder, source).await;
+            let added = sign_ins::add(engine.devtools(), &folder, sign_ins).await;
             engine.stop_if_idle().await;
-            copied
+            added
         }
 
-        /// Removes what copies gave a profile, and returns how many cookies went.
+        /// Removes what copies gave a profile, and returns for how many sites.
         pub async fn remove_copied_sign_ins(&self, profile: &str) -> Result<usize, CopyError> {
+            if sign_ins::copied_sites(&self.settings.profiles, profile) == 0 {
+                return Ok(0);
+            }
             let engine = self.engine(profile).await?;
             let folder = self.settings.profiles.join(profile);
             let removed = sign_ins::remove(engine.devtools(), &folder).await;
