@@ -12,6 +12,8 @@ mod engine;
 mod files;
 #[cfg(feature = "host")]
 mod page;
+#[cfg(feature = "host")]
+mod render;
 #[cfg(all(test, feature = "host"))]
 mod tests;
 

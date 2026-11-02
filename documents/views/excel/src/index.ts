@@ -1,11 +1,15 @@
 import {
+  type Area,
+  areaOf,
   batchOf,
   type Client,
   colorOf,
   type Editor,
   Outbox,
   type Person,
+  type Pictures,
   Status,
+  settled,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
 import { SheetInterceptorService, UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -14,6 +18,7 @@ import {
   createUniver,
   ICommandService,
   IUndoRedoService,
+  LifecycleStages,
   LocaleType,
   mergeLocales,
 } from "@univerjs/presets";
@@ -75,6 +80,9 @@ const MIN_COLUMNS = 26;
 const PIXELS_PER_CHARACTER = 7;
 const WIDTH_PADDING = 5;
 const PIXELS_PER_POINT = 4 / 3;
+/** Univer draws a sheet a moment after it becomes the active one. */
+const PAUSE_MS = 150;
+const MOST_PAUSES = 60;
 const DIRECTION_UP = 0;
 const DIRECTION_LEFT = 2;
 
@@ -239,7 +247,7 @@ function sizes(
   return out;
 }
 
-class ExcelEditor implements Editor {
+class ExcelEditor implements Editor, Pictures {
   private readonly canvas: HTMLElement;
   private readonly marks: HTMLElement;
   private readonly status: Status;
@@ -689,6 +697,26 @@ class ExcelEditor implements Editor {
     this.univer?.univerAPI.getActiveWorkbook()?.setEditable(false);
     if (this.control) this.bar.show(this.control, false);
     this.status.closed(reason);
+  }
+
+  /** The sheets, once Univer has all its services: it takes the last ones when it is steady. */
+  async pictures(): Promise<number> {
+    for (let pause = 0; pause < MOST_PAUSES; pause++) {
+      const stage = this.univer?.univerAPI.getCurrentLifecycleStage();
+      if (stage === undefined || stage >= LifecycleStages.Steady) break;
+      await settled(PAUSE_MS);
+    }
+    return this.univer?.univerAPI.getActiveWorkbook()?.getNumSheets() ?? 0;
+  }
+
+  /** Each sheet in turn, from its first cells. */
+  async picture(index: number): Promise<Area> {
+    const workbook = this.univer?.univerAPI.getActiveWorkbook();
+    const sheet = workbook?.getSheets()[index];
+    if (!workbook || !sheet) throw new Error(`There is no sheet ${index + 1}.`);
+    workbook.setActiveSheet(sheet);
+    await settled(PAUSE_MS);
+    return areaOf(this.canvas);
   }
 
   selection(): string {

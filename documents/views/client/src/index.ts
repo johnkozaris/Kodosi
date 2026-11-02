@@ -1,3 +1,4 @@
+export { type Area, areaOf, type Pictures, settled } from "./area";
 export { Client, type Editor, type Person, type Pipe } from "./client";
 export { decodeFrame, encodeAsset, encodeMessage, type Frame } from "./frame";
 export { batchOf, Outbox } from "./outbox";

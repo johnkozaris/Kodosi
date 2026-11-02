@@ -41,7 +41,7 @@ interface Hole {
 }
 
 const pagesKey = new PluginKey<DecorationSet>("pages");
-const PAGE_GAP = 16;
+export const PAGE_GAP = 16;
 const SETTLE_MS = 60;
 const SAME_PIXELS = 0.5;
 
@@ -213,6 +213,7 @@ function spaceOf(pageBreak: PageBreak, width: number): HTMLElement {
   const { end, height, left } = pageBreak;
   const space = document.createElement(pageBreak.kind === "block" ? "div" : "span");
   space.className = "page-space";
+  space.dataset.end = String(end);
   space.contentEditable = "false";
   space.style.height = `${height}px`;
   space.style.width = `${width}px`;

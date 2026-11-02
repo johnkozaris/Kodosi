@@ -4,6 +4,11 @@
   min-height: 0;
 }
 
+.document-view[data-render] .slides-body {
+  flex: none;
+  height: 100vh;
+}
+
 .slides-list {
   display: flex;
   flex: none;

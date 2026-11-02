@@ -1,12 +1,16 @@
 import { Bar, gap, type Key, keyOf, keys, readOnly, rule } from "@documents/bar";
 import {
+  type Area,
+  areaOf,
   batchOf,
   type Client,
   colorOf,
   type Editor,
   Outbox,
   type Person,
+  type Pictures,
   Status,
+  settled,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
 import { history, redo, undo } from "@tiptap/pm/history";
@@ -101,7 +105,7 @@ function textKey(slide: string, shape: string): string {
   return `${slide}/${shape}`;
 }
 
-class PowerPointEditor implements Editor {
+class PowerPointEditor implements Editor, Pictures {
   private readonly list: HTMLElement;
   private readonly stageHolder: HTMLElement;
   private readonly stageRoot: HTMLDivElement;
@@ -773,6 +777,19 @@ class PowerPointEditor implements Editor {
     this.redraw();
     this.showBar();
     this.status.closed(reason);
+  }
+
+  async pictures(): Promise<number> {
+    return this.deck?.slides.length ?? 0;
+  }
+
+  /** Each slide in turn, as the stage draws it. */
+  async picture(index: number): Promise<Area> {
+    const slide = this.deck?.slides[index];
+    if (!slide) throw new Error(`There is no slide ${index + 1}.`);
+    this.open(slide.id);
+    await settled();
+    return areaOf(this.stageRoot.querySelector(".konvajs-content") ?? this.stageRoot);
   }
 
   selection(): string {

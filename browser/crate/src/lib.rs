@@ -21,12 +21,16 @@ mod flow;
 #[cfg(feature = "host")]
 mod input;
 #[cfg(feature = "host")]
+mod page;
+#[cfg(feature = "host")]
 mod sign_ins;
 #[cfg(feature = "host")]
 mod window;
 
 #[cfg(feature = "host")]
 pub use host::{Browsers, Error, Place, Settings};
+#[cfg(feature = "host")]
+pub use page::HostPage;
 #[cfg(feature = "host")]
 pub use sign_ins::{Copied, CopyError, SignInSource, sign_in_sources};
 #[cfg(feature = "host")]
@@ -40,6 +44,7 @@ mod host {
 
     use crate::{
         engine::Engine,
+        page::HostPage,
         sign_ins::{self, Copied, CopyError, SignInSource},
         window::Window,
     };
@@ -114,6 +119,23 @@ mod host {
             engines.insert(profile.to_owned(), Arc::clone(&engine));
             drop(engines);
             Ok(engine)
+        }
+
+        /// A page of the host's own in the browser of a profile, which shows the files of a
+        /// folder. `script` runs in the page before the page's own scripts.
+        pub async fn host_page(
+            &self,
+            profile: &str,
+            folder: PathBuf,
+            (width, height): (u32, u32),
+            script: &str,
+        ) -> Result<HostPage, Error> {
+            let engine = self.engine(profile).await?;
+            let page = HostPage::open(Arc::clone(&engine), folder, width, height, script).await;
+            if page.is_err() {
+                engine.stop_if_idle().await;
+            }
+            page
         }
 
         /// Copies the sign-ins of another browser into a profile. A host starts this only for

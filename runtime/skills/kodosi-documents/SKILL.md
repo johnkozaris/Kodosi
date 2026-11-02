@@ -29,6 +29,8 @@ look.
   `kodosi doc guide excel setCell` prints one op.
 - `kodosi doc new <file>` makes a Word, Excel or PowerPoint file, and `--from <file>` starts
   it from Markdown, CSV or JSON.
+- `kodosi doc render <file>` draws each page, slide or sheet as people see it, and prints the
+  paths of the pictures. `--out <folder>` puts them in that folder.
 
 ## How to work
 
@@ -37,3 +39,6 @@ read again and build your ops on the new content: somebody else edited it first.
 a cell or a shape by its id do not wait for this.
 
 Send small changes. People watch each one arrive.
+
+After a change of layout, run `kodosi doc render` and look at the pictures before you say that
+the work is done.

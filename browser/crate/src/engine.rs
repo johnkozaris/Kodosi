@@ -25,7 +25,9 @@ use crate::{
 
 const START_LIMIT: Duration = Duration::from_secs(30);
 const START_CHECK: Duration = Duration::from_millis(50);
+const ATTACH_LIMIT: Duration = Duration::from_secs(5);
 const COMMANDS: usize = 256;
+const PAGE_EVENTS: usize = 256;
 const STATE_FILE: &str = "engine-port";
 
 /// The tabs of the browser, by the windows that hosts opened. A window that a page opened
@@ -38,6 +40,8 @@ pub(crate) struct Routes {
     sessions: HashMap<String, String>,
     session_of_target: HashMap<String, String>,
     downloads: HashMap<String, i64>,
+    /// The host's own pages, by their sessions.
+    pages: HashMap<String, mpsc::Sender<devtools::Event>>,
 }
 
 impl Routes {
@@ -95,6 +99,14 @@ impl Routes {
             })
             .collect()
     }
+}
+
+/// A page that the host opened for itself, with the events of its session.
+pub(crate) struct OpenedPage {
+    pub target: String,
+    pub context: String,
+    pub session: String,
+    pub events: mpsc::Receiver<devtools::Event>,
 }
 
 pub(crate) struct Engine {
@@ -232,12 +244,102 @@ impl Engine {
         Ok(window)
     }
 
-    /// Stops the browser when its last window closed.
+    /// Opens a page in a browser context of its own, where no window of the people and no
+    /// extension can see it.
+    pub(crate) async fn open_page(&self, width: u32, height: u32) -> Result<OpenedPage, Error> {
+        let made = self
+            .devtools
+            .call("Target.createBrowserContext", json!({}), None)
+            .await?;
+        let context = made["browserContextId"]
+            .as_str()
+            .ok_or(Error::Malformed)?
+            .to_owned();
+        let created = self
+            .devtools
+            .call(
+                "Target.createTarget",
+                json!({
+                    "url": "about:blank",
+                    "browserContextId": context,
+                    "newWindow": true,
+                    "background": true,
+                    "width": width,
+                    "height": height,
+                }),
+                None,
+            )
+            .await;
+        let target = match created.map(|created| created["targetId"].as_str().map(str::to_owned)) {
+            Ok(Some(target)) => target,
+            other => {
+                self.dispose(&context).await;
+                return Err(other.err().unwrap_or(Error::Malformed));
+            }
+        };
+        let Some(session) = self.attached_session(&target).await else {
+            self.close_page(&target, &context).await;
+            return Err(Error::Engine("the page did not attach".to_owned()));
+        };
+        let (sender, events) = mpsc::channel(PAGE_EVENTS);
+        self.routes().pages.insert(session.clone(), sender);
+        Ok(OpenedPage {
+            target,
+            context,
+            session,
+            events,
+        })
+    }
+
+    async fn attached_session(&self, target: &str) -> Option<String> {
+        let waiting = tokio::time::Instant::now();
+        loop {
+            if let Some(session) = self.session_of(target) {
+                return Some(session);
+            }
+            if waiting.elapsed() > ATTACH_LIMIT {
+                return None;
+            }
+            tokio::time::sleep(START_CHECK).await;
+        }
+    }
+
+    pub(crate) async fn close_page(&self, target: &str, context: &str) {
+        if let Some(session) = self.session_of(target) {
+            self.routes().pages.remove(&session);
+        }
+        drop(
+            self.devtools
+                .call("Target.closeTarget", json!({ "targetId": target }), None)
+                .await,
+        );
+        self.dispose(context).await;
+        self.stop_if_idle().await;
+    }
+
+    async fn dispose(&self, context: &str) {
+        drop(
+            self.devtools
+                .call(
+                    "Target.disposeBrowserContext",
+                    json!({ "browserContextId": context }),
+                    None,
+                )
+                .await,
+        );
+    }
+
+    /// The host page that an event belongs to.
+    fn page_of(&self, event: &devtools::Event) -> Option<mpsc::Sender<devtools::Event>> {
+        self.routes().pages.get(event.session.as_deref()?).cloned()
+    }
+
+    /// Stops the browser when its last window closed and no host page is open.
     pub(crate) async fn window_closed(&self, window: i64) {
         let last = {
             let mut routes = self.routes();
             routes.windows.remove(&window);
-            routes.windows.is_empty()
+            routes.windows.is_empty() && routes.pages.is_empty()
         };
         if last {
             self.stop().await;
@@ -246,7 +348,10 @@ impl Engine {
 
     /// Stops a browser that started only for work with no window.
     pub(crate) async fn stop_if_idle(&self) {
-        let idle = self.routes().windows.is_empty();
+        let idle = {
+            let routes = self.routes();
+            routes.windows.is_empty() && routes.pages.is_empty()
+        };
         if idle {
             self.stop().await;
         }
@@ -440,7 +545,13 @@ async fn follow(
                     "Browser.downloadProgress" => {
                         engine.download_progress(&event.params).into_iter().collect()
                     }
-                    _ => engine.page_event(event).into_iter().collect(),
+                    _ => match engine.page_of(&event) {
+                        Some(page) => {
+                            drop(page.send(event).await);
+                            Vec::new()
+                        }
+                        None => engine.page_event(event).into_iter().collect(),
+                    },
                 }
             }
             report = reports.recv(), if reporting => {

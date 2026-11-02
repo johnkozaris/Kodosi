@@ -1,4 +1,4 @@
-import { Client, type Editor, type Pipe } from "@documents/client";
+import { type Area, Client, type Editor, type Pictures, type Pipe } from "@documents/client";
 import "./base.css";
 import "./fonts.css";
 
@@ -12,6 +12,8 @@ export interface Options {
   theme?: Theme;
   /** Runs when the file shows, and each time that the view joins it again. */
   ready?(): void;
+  /** Lays out the whole file for pictures, with no bar and nothing that scrolls. */
+  render?: boolean;
 }
 
 export interface View {
@@ -24,7 +26,8 @@ export interface View {
   destroy(): void;
 }
 
-type EditorFactory = (element: HTMLElement, client: Client) => Editor & { selection(): string };
+type FileEditor = Editor & Pictures & { selection(): string };
+type EditorFactory = (element: HTMLElement, client: Client) => FileEditor;
 
 /** Each format's code loads only when a file of that format opens. */
 async function factoryOf(kind: Kind): Promise<EditorFactory> {
@@ -47,7 +50,7 @@ function setTheme(element: HTMLElement, theme: Theme | undefined): void {
   }
 }
 
-export function mount(element: HTMLElement, options: Options): View {
+export function mount(element: HTMLElement, options: Options): View & Pictures {
   const away = document.createElement("div");
   away.className = "document-away";
   away.textContent = "The computer of this file is away. Your edits wait here.";
@@ -55,9 +58,10 @@ export function mount(element: HTMLElement, options: Options): View {
     away.remove();
     options.ready?.();
   });
-  let editor: (Editor & { selection(): string }) | undefined;
+  let editor: FileEditor | undefined;
   let waitingPipe: Pipe | undefined;
   element.classList.add("document-view");
+  if (options.render) element.dataset.render = "";
   setTheme(element, options.theme);
   factoryOf(options.kind).then((factory) => {
     editor = factory(element, client);
@@ -74,6 +78,9 @@ export function mount(element: HTMLElement, options: Options): View {
       element.append(away);
     },
     selection: () => editor?.selection() ?? "",
+    pictures: () => editor?.pictures() ?? Promise.resolve(0),
+    picture: (index: number): Promise<Area> =>
+      editor?.picture(index) ?? Promise.reject(new Error("The file is not open.")),
     destroy() {
       editor?.destroy();
       element.replaceChildren();
@@ -102,7 +109,7 @@ function bytesOf(data: string): Uint8Array {
 /** A view in a native app, whose pipe carries each frame as Base64 text. */
 function hosted(options: Options, post: (frame: string) => void) {
   const element = document.body.appendChild(document.createElement("div"));
-  element.style.height = "100vh";
+  if (!options.render) element.style.height = "100vh";
   const view = mount(element, options);
   let receive: (frame: Uint8Array) => void = () => {};
   return {
@@ -117,6 +124,8 @@ function hosted(options: Options, post: (frame: string) => void) {
     },
     detach: view.detach,
     selection: view.selection,
+    pictures: view.pictures,
+    picture: view.picture,
     restyle: (theme: Theme) => setTheme(element, theme),
   };
 }

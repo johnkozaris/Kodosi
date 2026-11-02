@@ -2390,7 +2390,7 @@ pub fn answer_time(operation: &str) -> std::time::Duration {
         "auth.login.start" => crate::network::SIGN_IN_LIFE + std::time::Duration::from_mins(1),
         "auth.deleteAccount" => crate::network::DELETION_LIFE + std::time::Duration::from_mins(1),
         "room.command" => std::time::Duration::from_mins(1),
-        "canvas.browser" => std::time::Duration::from_mins(3),
+        "canvas.browser" | "canvas.document" => std::time::Duration::from_mins(3),
         _ => std::time::Duration::from_secs(30),
     }
 }

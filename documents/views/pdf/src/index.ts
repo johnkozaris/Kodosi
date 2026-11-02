@@ -1,12 +1,16 @@
 import { Bar, gap, type Key, keyOf, readOnly, rule, type Toggles, wellOf } from "@documents/bar";
 import {
+  type Area,
+  areaOf,
   batchOf,
   type Client,
   colorOf,
   type Editor,
   Outbox,
   type Person,
+  type Pictures,
   Status,
+  settled,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
 import { ArrowDown, ArrowUp, Eraser, RotateCw, StickyNote, Trash2 } from "lucide";
@@ -73,7 +77,7 @@ interface Holder {
   element: HTMLElement;
   layer: HTMLElement;
   viewport: pdfjs.PageViewport | undefined;
-  drawn: boolean;
+  drawn: Promise<void> | undefined;
 }
 
 const SCALE = 1.4;
@@ -82,7 +86,7 @@ const REDACT_LEAST_POINTS = 3;
 const RIGHT_ANGLE = 90;
 const NOTE_COLOR = "FFD400";
 
-class PdfEditor implements Editor {
+class PdfEditor implements Editor, Pictures {
   private readonly pagesRoot: HTMLElement;
   private readonly bar: Bar;
   private readonly status: Status;
@@ -98,6 +102,7 @@ class PdfEditor implements Editor {
   private canEdit = true;
   private tool: Tool = "read";
   private page: string | null = null;
+  private opened: Promise<void> = Promise.resolve();
 
   constructor(
     root: HTMLElement,
@@ -173,7 +178,8 @@ class PdfEditor implements Editor {
     this.snapshot = raw as Snapshot;
     this.canEdit = person.canEdit;
     this.showBar();
-    this.openFile().catch(console.error);
+    this.opened = this.openFile();
+    this.opened.catch(console.error);
   }
 
   private async openFile(): Promise<void> {
@@ -214,20 +220,24 @@ class PdfEditor implements Editor {
       });
       const layer = element.appendChild(document.createElement("div"));
       layer.className = "pdf-layer";
-      this.holders.set(page.id, { element, layer, viewport: undefined, drawn: false });
+      this.holders.set(page.id, { element, layer, viewport: undefined, drawn: undefined });
       this.visible.observe(element);
     }
     this.page ??= snapshot.pages[0]?.id ?? null;
     this.showPicked();
   }
 
-  private async showPage(id: string): Promise<void> {
+  private showPage(id: string): Promise<void> {
     const holder = this.holders.get(id);
-    const snapshot = this.snapshot;
+    if (!holder) return Promise.resolve();
+    holder.drawn ??= this.drawPage(id, holder);
+    return holder.drawn;
+  }
+
+  private async drawPage(id: string, holder: Holder): Promise<void> {
     const pdf = this.document;
-    const index = snapshot?.pages.findIndex((page) => page.id === id) ?? -1;
-    if (!holder || holder.drawn || !pdf || index < 0) return;
-    holder.drawn = true;
+    const index = this.snapshot?.pages.findIndex((page) => page.id === id) ?? -1;
+    if (!pdf || index < 0) return;
     const page = await pdf.getPage(index + 1);
     const viewport = page.getViewport({ scale: SCALE });
     holder.viewport = viewport;
@@ -495,6 +505,22 @@ class PdfEditor implements Editor {
 
   selection(): string {
     return window.getSelection()?.toString() ?? "";
+  }
+
+  /** Each page, drawn. */
+  async pictures(): Promise<number> {
+    await this.opened;
+    const pages = this.snapshot?.pages ?? [];
+    await Promise.all(pages.map((page) => this.showPage(page.id)));
+    await settled();
+    return pages.length;
+  }
+
+  async picture(index: number): Promise<Area> {
+    const id = this.snapshot?.pages[index]?.id;
+    const holder = id ? this.holders.get(id) : undefined;
+    if (!holder) throw new Error(`There is no page ${index + 1}.`);
+    return areaOf(holder.element);
   }
 
   destroy(): void {

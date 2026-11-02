@@ -1,8 +1,12 @@
 import {
+  type Area,
+  areaOf,
   type Client,
   colorOf,
   type Person,
+  type Pictures,
   Status,
+  settled,
   type Editor as ViewEditor,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
@@ -16,7 +20,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
 import { WordBar } from "./bar";
 import * as commands from "./commands";
-import { pages } from "./pages";
+import { PAGE_GAP, pages } from "./pages";
 import { extensions } from "./schema";
 import { pageSize, styleSheet, type WordView } from "./styles";
 import "./word.css";
@@ -33,6 +37,9 @@ interface Place {
 
 const peerKey = new PluginKey<DecorationSet>("peers");
 const PAGE_INSET = 16;
+/** How long the pages of a rendering may take to stop moving, in pauses. */
+const MOST_PAUSES = 30;
+const PAUSE_MS = 100;
 
 function placeOf(body: unknown, size: number): Place | null {
   const place = body as Partial<Place> | null;
@@ -122,7 +129,7 @@ function imagesPlugin(client: Client): Plugin {
   });
 }
 
-class WordEditor implements ViewEditor {
+class WordEditor implements ViewEditor, Pictures {
   private editor: Editor | undefined;
   private readonly bar: WordBar;
   private readonly status: Status;
@@ -131,6 +138,7 @@ class WordEditor implements ViewEditor {
   private readonly clientKey = crypto.randomUUID();
   private fitting: ResizeObserver | undefined;
   private view: WordView = { styles: null, numbering: null, page: null };
+  private pageAreas: Area[] = [];
 
   constructor(
     root: HTMLElement,
@@ -237,6 +245,47 @@ class WordEditor implements ViewEditor {
     const root = this.editor?.view.dom;
     const room = this.page.clientWidth - 2 * PAGE_INSET;
     if (root) root.style.zoom = String(Math.min(1, room / pageWidth));
+  }
+
+  /** The pages, once their breaks stop moving. */
+  async pictures(): Promise<number> {
+    let last = "";
+    for (let pause = 0; pause < MOST_PAUSES; pause++) {
+      await settled(PAUSE_MS);
+      this.pageAreas = this.pagesNow();
+      const now = JSON.stringify(this.pageAreas);
+      if (now === last) break;
+      last = now;
+    }
+    return this.pageAreas.length;
+  }
+
+  async picture(index: number): Promise<Area> {
+    const area = this.pageAreas[index];
+    if (!area) throw new Error(`There is no page ${index + 1}.`);
+    return area;
+  }
+
+  /** Each page of the one flow of text, between the spaces where pages end. */
+  private pagesNow(): Area[] {
+    const root = this.editor?.view.dom;
+    if (!root) return [];
+    const zoom = Number(root.style.zoom) || 1;
+    const sheet = areaOf(root);
+    const tops = [sheet.y];
+    const bottoms: number[] = [];
+    for (const space of root.querySelectorAll<HTMLElement>(".page-space")) {
+      const end = areaOf(space).y + Number(space.dataset.end ?? 0) * zoom;
+      bottoms.push(end);
+      tops.push(end + PAGE_GAP * zoom);
+    }
+    bottoms.push(sheet.y + sheet.height);
+    return tops.map((top, index) => ({
+      x: sheet.x,
+      y: top,
+      width: sheet.width,
+      height: (bottoms[index] ?? top) - top,
+    }));
   }
 
   batch(): unknown | null {

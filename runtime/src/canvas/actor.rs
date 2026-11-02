@@ -5,6 +5,7 @@ use std::{
     time::Duration,
 };
 
+use clap::Parser as _;
 use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
@@ -14,6 +15,7 @@ use super::{
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{Files, Showing, Stamp, key_of},
+    render::{self, RenderArguments},
 };
 use crate::documents::{DocumentHost, path_of};
 
@@ -58,6 +60,13 @@ enum Job {
     },
     Request {
         request: CanvasRequest,
+        reply: Reply,
+    },
+    Render {
+        file: PathBuf,
+        out: Option<PathBuf>,
+        viewer: documents::Viewer,
+        documents: DocumentHost,
         reply: Reply,
     },
     Watch {
@@ -229,7 +238,48 @@ impl CanvasHandle {
             name,
             can_edit: true,
         };
+        if arguments.first().is_some_and(|word| word == "render") {
+            return self.render(viewer, &folder, arguments).await;
+        }
         self.documents.run(&viewer, &folder, arguments).await
+    }
+
+    /// Draws each page of a file in this terminal's browser, as people see it, and saves the
+    /// pictures. The agent looks and changes nothing.
+    async fn render(
+        &self,
+        viewer: documents::Viewer,
+        folder: &Path,
+        arguments: Vec<String>,
+    ) -> CanvasAnswer {
+        let parsed = match RenderArguments::try_parse_from(arguments) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                return CanvasAnswer::Text {
+                    text: error.render().to_string(),
+                    code: i32::from(error.use_stderr()) * 2,
+                };
+            }
+        };
+        let file = folder.join(parsed.file);
+        let out = parsed.out.map(|out| folder.join(out));
+        let viewer = documents::Viewer {
+            can_edit: false,
+            ..viewer
+        };
+        let documents = self.documents.clone();
+        self.ask(|reply| Job::Render {
+            file,
+            out,
+            viewer,
+            documents,
+            reply,
+        })
+        .await
+        .unwrap_or_else(|problem| CanvasAnswer::Text {
+            text: format!("{problem}\n"),
+            code: 1,
+        })
     }
 
     pub(crate) async fn request(&self, request: CanvasRequest) -> Result<CanvasAnswer, String> {
@@ -388,6 +438,29 @@ impl Actor {
                 });
             }
             Job::Request { request, reply } => self.request(request, reply).await,
+            Job::Render {
+                file,
+                out,
+                viewer,
+                documents,
+                reply,
+            } => {
+                let host = self.browsers.clone();
+                let out = out.unwrap_or_else(|| {
+                    std::env::temp_dir()
+                        .join("kodosi-render")
+                        .join(self.id.to_string())
+                });
+                let profile = if *self.sharing.borrow() {
+                    self.id.to_string()
+                } else {
+                    browser::KEPT_PROFILE.to_owned()
+                };
+                tokio::spawn(async move {
+                    let drawn = render::render(host, profile, documents, viewer, file, out).await;
+                    drop(reply.send(drawn));
+                });
+            }
             Job::Watch { id, name, reply } => {
                 let browser = self.browser();
                 self.publish();
