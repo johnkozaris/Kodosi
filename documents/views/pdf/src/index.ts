@@ -1,3 +1,4 @@
+import { Bar, gap, type Key, keyOf, readOnly, rule, type Toggles, wellOf } from "@documents/bar";
 import {
   batchOf,
   type Client,
@@ -8,6 +9,7 @@ import {
   Status,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
+import { ArrowDown, ArrowUp, Eraser, RotateCw, StickyNote, Trash2 } from "lucide";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "./pdf.css";
@@ -82,11 +84,12 @@ const NOTE_COLOR = "FFD400";
 
 class PdfEditor implements Editor {
   private readonly pagesRoot: HTMLElement;
-  private readonly bar: HTMLElement;
+  private readonly bar: Bar;
   private readonly status: Status;
   private readonly outbox = new Outbox<Change>();
   private readonly holders = new Map<string, Holder>();
-  private readonly toolButtons = new Map<Tool, HTMLButtonElement>();
+  private tools: Toggles | undefined;
+  private pageKeys: Key[] = [];
   private snapshot: Snapshot | undefined;
   private loading: pdfjs.PDFDocumentLoadingTask | undefined;
   private document: pdfjs.PDFDocumentProxy | undefined;
@@ -101,39 +104,55 @@ class PdfEditor implements Editor {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = root.appendChild(document.createElement("div"));
-    this.bar.className = "document-bar";
-    this.toolButton("note", "Note");
-    this.toolButton("redact", "Redact");
-    this.button("Rotate", () => this.work({ kind: "rotate", degrees: RIGHT_ANGLE }));
-    this.button("Up", () => this.movePage(-1));
-    this.button("Down", () => this.movePage(1));
-    this.button("Remove page", () => this.work({ kind: "remove" }));
-    this.bar.appendChild(document.createElement("span")).className = "gap";
-    this.bar.append(this.status.element);
+    this.bar = new Bar(root, "Pages");
+    root.append(this.bar.element);
     this.pagesRoot = root.appendChild(document.createElement("div"));
     this.pagesRoot.className = "document-page pdf-pages";
   }
 
-  private button(label: string, run: () => void): HTMLButtonElement {
-    const button = this.bar.appendChild(document.createElement("button"));
-    button.type = "button";
-    button.textContent = label;
-    button.addEventListener("click", run);
-    return button;
-  }
-
-  private toolButton(tool: Tool, label: string): void {
-    const button = this.button(label, () => this.pick(this.tool === tool ? "read" : tool));
-    this.toolButtons.set(tool, button);
+  private showBar(): void {
+    if (!this.canEdit) {
+      this.tools = undefined;
+      this.pageKeys = [];
+      this.bar.show(readOnly(), gap(), this.status.element);
+      this.pick("read");
+      return;
+    }
+    const toggle = (tool: Tool) => () => this.pick(this.tool === tool ? "read" : tool);
+    this.tools = wellOf("Tools", [
+      { label: "Note", icon: StickyNote, press: toggle("note") },
+      { label: "Redact", icon: Eraser, press: toggle("redact") },
+    ]);
+    this.pageKeys = [
+      keyOf({
+        label: "Rotate",
+        icon: RotateCw,
+        press: () => this.work({ kind: "rotate", degrees: RIGHT_ANGLE }),
+      }),
+      keyOf({ label: "Move up", icon: ArrowUp, press: () => this.movePage(-1) }),
+      keyOf({ label: "Move down", icon: ArrowDown, press: () => this.movePage(1) }),
+      keyOf({ label: "Remove page", icon: Trash2, press: () => this.work({ kind: "remove" }) }),
+    ];
+    this.bar.show(
+      this.tools.element,
+      rule(),
+      ...this.pageKeys.map((key) => key.element),
+      gap(),
+      this.status.element,
+    );
+    this.pick(this.tool);
+    this.showPicked();
   }
 
   private pick(tool: Tool): void {
     this.tool = tool;
-    for (const [name, button] of this.toolButtons) {
-      button.ariaPressed = String(name === tool);
-    }
+    this.tools?.show([{ active: tool === "note" }, { active: tool === "redact" }]);
     this.pagesRoot.dataset.tool = tool;
+  }
+
+  /** The keys of a page work on the page that the person picked last. */
+  private showPicked(): void {
+    for (const key of this.pageKeys) key.show({ enabled: this.page !== null });
   }
 
   private work(work: { kind: "rotate"; degrees: number } | { kind: "remove" }): void {
@@ -153,7 +172,7 @@ class PdfEditor implements Editor {
   load(raw: unknown, person: Person): void {
     this.snapshot = raw as Snapshot;
     this.canEdit = person.canEdit;
-    for (const child of this.bar.querySelectorAll("button")) child.hidden = !person.canEdit;
+    this.showBar();
     this.openFile().catch(console.error);
   }
 
@@ -190,6 +209,7 @@ class PdfEditor implements Editor {
       element.style.height = `${(sideways ? page.width : page.height) * SCALE}px`;
       element.addEventListener("pointerdown", () => {
         this.page = page.id;
+        this.showPicked();
         this.client.place({ page: page.id });
       });
       const layer = element.appendChild(document.createElement("div"));
@@ -198,6 +218,7 @@ class PdfEditor implements Editor {
       this.visible.observe(element);
     }
     this.page ??= snapshot.pages[0]?.id ?? null;
+    this.showPicked();
   }
 
   private async showPage(id: string): Promise<void> {
@@ -468,6 +489,7 @@ class PdfEditor implements Editor {
 
   closed(reason: ClosedReason): void {
     this.canEdit = false;
+    this.showBar();
     this.status.closed(reason);
   }
 
@@ -476,6 +498,7 @@ class PdfEditor implements Editor {
   }
 
   destroy(): void {
+    this.bar.destroy();
     this.visible?.disconnect();
     this.loading?.destroy().catch(console.error);
   }

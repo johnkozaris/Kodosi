@@ -1,3 +1,4 @@
+import { Bar, gap, type Key, keyOf, keys, readOnly, rule } from "@documents/bar";
 import {
   batchOf,
   type Client,
@@ -15,6 +16,7 @@ import { EditorState } from "@tiptap/pm/state";
 import { Step } from "@tiptap/pm/transform";
 import { EditorView } from "@tiptap/pm/view";
 import Konva from "konva";
+import { Plus, TextCursorInput, Trash2, Undo2 } from "lucide";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
 import { layOut, levelRules, type Measure, schema, type TextLook } from "./text";
 import "./powerpoint.css";
@@ -103,8 +105,9 @@ class PowerPointEditor implements Editor {
   private readonly list: HTMLElement;
   private readonly stageHolder: HTMLElement;
   private readonly stageRoot: HTMLDivElement;
-  private readonly bar: HTMLElement;
+  private readonly bar: Bar;
   private readonly status: Status;
+  private undoKey: Key | undefined;
   private readonly outbox = new Outbox<Change>();
   private readonly clientKey = crypto.randomUUID();
   private readonly texts = new Map<string, EditorState>();
@@ -129,13 +132,8 @@ class PowerPointEditor implements Editor {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = root.appendChild(document.createElement("div"));
-    this.bar.className = "document-bar";
-    this.tool("Text box", () => this.addTextBox());
-    this.tool("New slide", () => this.addSlide());
-    this.tool("Delete", () => this.removeSelected());
-    this.bar.appendChild(document.createElement("span")).className = "gap";
-    this.bar.append(this.status.element);
+    this.bar = new Bar(root, "Slides");
+    root.append(this.bar.element);
     const body = root.appendChild(document.createElement("div"));
     body.className = "slides-body";
     this.list = body.appendChild(document.createElement("div"));
@@ -148,11 +146,30 @@ class PowerPointEditor implements Editor {
     this.stageHolder.addEventListener("keydown", (event) => this.key(event));
   }
 
-  private tool(label: string, run: () => void): void {
-    const button = this.bar.appendChild(document.createElement("button"));
-    button.type = "button";
-    button.textContent = label;
-    button.addEventListener("click", run);
+  private showBar(): void {
+    if (!this.canEdit) {
+      this.undoKey = undefined;
+      this.bar.show(readOnly(), gap(), this.status.element);
+      return;
+    }
+    this.undoKey = keyOf({
+      label: "Undo",
+      icon: Undo2,
+      shortcut: keys("Z"),
+      press: () => this.undoLast(),
+    });
+    const key = (label: string, icon: typeof Plus, press: () => void) =>
+      keyOf({ label, icon, press }).element;
+    this.bar.show(
+      this.undoKey.element,
+      rule(),
+      key("New slide", Plus, () => this.addSlide()),
+      key("Text box", TextCursorInput, () => this.addTextBox()),
+      key("Delete", Trash2, () => this.removeSelected()),
+      gap(),
+      this.status.element,
+    );
+    this.undoKey.show({ enabled: this.undoes.length > 0 });
   }
 
   private key(event: KeyboardEvent): void {
@@ -171,7 +188,7 @@ class PowerPointEditor implements Editor {
     const deck = raw as Snapshot;
     this.deck = deck;
     this.canEdit = person.canEdit;
-    for (const button of this.bar.querySelectorAll("button")) button.hidden = !person.canEdit;
+    this.showBar();
     this.texts.clear();
     for (const slide of deck.slides) {
       for (const shape of slide.shapes) this.addText(slide.id, shape);
@@ -264,6 +281,7 @@ class PowerPointEditor implements Editor {
   }
 
   private drawSlide(): void {
+    this.undoKey?.show({ enabled: this.undoes.length > 0 });
     const deck = this.deck;
     const slide = this.slide();
     this.stage?.destroy();
@@ -753,6 +771,7 @@ class PowerPointEditor implements Editor {
     this.canEdit = false;
     this.closeText();
     this.redraw();
+    this.showBar();
     this.status.closed(reason);
   }
 
@@ -764,6 +783,7 @@ class PowerPointEditor implements Editor {
   }
 
   destroy(): void {
+    this.bar.destroy();
     this.resized?.disconnect();
     this.closeText();
     this.stage?.destroy();

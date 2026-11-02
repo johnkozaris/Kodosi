@@ -6,8 +6,10 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
+    "@documents/bar": "workspace:*",
     "@documents/client": "workspace:*",
     "@documents/contract": "workspace:*",
+    "lucide": "1.61.0",
     "pdfjs-dist": "6.4.299"
   }
 }
