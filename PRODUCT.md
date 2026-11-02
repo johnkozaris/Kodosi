@@ -90,8 +90,15 @@ conversation follows the person to all their computers.
 
 - Each terminal has a canvas with two parts: its files and its shared browser. Its agent
   puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF or
-  an Office file. The canvas shows the newest first and keeps 20. When a file changes,
-  each device shows the new version.
+  an Office file. A person adds a file with Add a File or a drop, on any device: it goes
+  into the terminal's folder on the terminal's computer, a taken name gets a number, and
+  the limit is 32 MB. The canvas shows the newest first and keeps 20. When a file changes,
+  each device shows the new version. Save a Copy keeps a copy on the device.
+- A Word, Excel, PowerPoint or PDF file on the canvas is live. The people and agents of the
+  terminal edit it at the same time, each sees where the others are, and each edit reaches
+  all of them at once. The file stays a normal file on the terminal's computer, and Kodosi
+  saves it there a moment after each change. A change that another program saves merges
+  in. When the computer is away, a person goes on, and the edits wait on the device.
 - The terminal has a key for each part that has something, with a dot for news, and the
   files key names a file for a moment when the agent shows or changes it. A key opens
   the canvas at its part. An open canvas follows the newest file until the person picks
@@ -101,16 +108,23 @@ conversation follows the person to all their computers.
 - A page runs its scripts in a closed frame. It reaches no network, no files and no
   storage that stays. A link in a page opens on the device by the link rules.
 - A terminal can have one shared browser. The agent uses it with `kodosi browser` and
-  agent-browser's commands, and the people see it on the canvas and click and type in it,
-  with the same sign-ins. It has one size: the view where a person used it last. When a
-  person used it, the agent's next browser command says so. It runs the Chrome, Chromium,
-  Edge or Brave of the terminal's computer, sleeps after 10 minutes with no use and
+  agent-browser's commands, and the people see it on the canvas as live video and click
+  and type in it, each with a named pointer. It has one size: the view where a person used
+  it last. When a person used it, the agent's next browser command says so. It runs Kodosi
+  Browser, a plain Chromium that Kodosi gets the first time and keeps up to date. It never
+  shows a window or an icon on the computer. It sleeps after 10 minutes with no use and
   nobody looking, and opens its last page again when it wakes. While the agent acts in
-  it, a pointer with the agent's mark shows where.
+  it, a pointer with the agent's mark shows where. A download lands in the terminal's
+  folder and on the canvas.
+- A person keeps one set of sign-ins on each computer, and all their private terminals
+  use it. Settings › Browser copies the sign-ins of another browser on that computer,
+  and removes what it copied. A shared terminal has a browser profile of its own, so
+  sharing a terminal shares no kept sign-in.
 - Ask about this types the item and the selected words into the terminal, and the person
   writes the question.
-- Everyone who can open the terminal sees its canvas and uses its browser. Closing the
-  terminal removes its canvas and deletes its browser's sign-ins.
+- Everyone who can open the terminal sees its canvas, edits its files and uses its
+  browser. Closing the terminal removes its canvas and leaves its files where they are; a
+  shared terminal's browser profile goes with it.
 
 ## Starting work
 

@@ -12,7 +12,7 @@ Install `just`, Python 3 and the toolchains of the part you change.
 `.tools/rust/`. Keep every tool and dependency inside the project. The
 [Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md) and
 [iOS](../clients/ios/README.md) guides list the native prerequisites; on Windows run the
-recipes in Git Bash.
+recipes in Git Bash. The apps need Bun for the document views.
 
 ## Commands
 
@@ -22,6 +22,8 @@ Run these from the repository root; `just --list` shows the rest.
 | --- | --- |
 | `just rust-cli-build` | Build the development CLI |
 | `just agent-browser-build` | Build the pinned agent-browser of the shared browser next to the development CLI |
+| `just documents-check` | Lint and test the document crates, and check the views |
+| `just browser-check` | Lint and test the shared browser crate |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
 | `just check-all` | The Rust and backend checks |

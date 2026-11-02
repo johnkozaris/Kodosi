@@ -19,7 +19,9 @@ why they should look.
   comes first, and the canvas keeps 20. When you change a file, the canvas shows the new
   version, so show a file once and then edit it.
 - Pages are HTML, Markdown and text files. Markdown and text get the look of Kodosi.
-  Pictures (PNG, JPEG, GIF, WebP, SVG), PDFs and Office files show as they are.
+  Pictures (PNG, JPEG, GIF, WebP, SVG) show as they are. Word, Excel, PowerPoint and PDF
+  files are live: people edit them there, and you edit them with `kodosi doc`. Read
+  `kodosi skill documents` first.
 - A page runs in a closed frame. It can run its own scripts, but it cannot load anything
   from the network or open other files. Put the styles, scripts and pictures into the page
   itself; use inline SVG or data: addresses for pictures.

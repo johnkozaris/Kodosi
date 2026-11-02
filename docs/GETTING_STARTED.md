@@ -79,7 +79,11 @@ terminal's header shows a key for its files and one for its browser, with a copp
 news. Select one to open the canvas beside the terminal; More room gives the canvas the
 stage and keeps the terminal small in its corner. Close a part with the × on its key, and
 open it again with +. Open Browser in the actions key opens the browser before the agent
-uses it. On the iPhone, the canvas key is in the terminal's bar.
+uses it, and Add a File puts a file on the canvas and into the terminal's folder; you can
+also drop a file on the canvas. On the iPhone, the canvas key is in the terminal's bar.
+
+- A Word, Excel, PowerPoint or PDF file is live: you, the people in the terminal and the
+  agent edit it at the same time, and it stays a normal file in its folder.
 
 - A page has no network. Its links open in your own browser.
 - Select words on a page, then Ask about this. Kodosi types the file and the words into
