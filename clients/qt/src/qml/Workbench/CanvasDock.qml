@@ -111,8 +111,10 @@ Row {
                     readonly property bool doing: modelData === "browser" && !!root.canvas && !!root.canvas.browser
                         && !!root.canvas.browser.doing
 
+                    readonly property real fullWidth: Math.max(26, keyRow.implicitWidth + (words.length > 0 ? 20 : 14) + (closing ? 16 : 0))
+
                     height: 24
-                    implicitWidth: Math.max(26, keyRow.implicitWidth + (words.length > 0 ? 20 : 14) + (closing ? 16 : 0))
+                    implicitWidth: fullWidth
                     hoverEnabled: true
                     objectName: root.identifier + "." + modelData
                     Accessible.id: objectName
@@ -199,7 +201,7 @@ Row {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 14
                         height: 14
-                        visible: key.closing
+                        visible: key.closing && key.implicitWidth >= key.fullWidth - 1
                         hoverEnabled: true
                         objectName: root.identifier + ".close." + key.modelData
                         Accessible.id: objectName
