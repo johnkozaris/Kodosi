@@ -652,7 +652,7 @@ mod tests {
     #[test]
     fn a_canvas_request_goes_as_a_control_and_its_answer_as_a_value() {
         let request_id = Uuid::now_v7();
-        let request = crate::canvas::CanvasRequest::Picture { after: 4 };
+        let request = crate::canvas::CanvasRequest::Remove { keys: Vec::new() };
         let Frame::Control {
             request_id: id,
             control: TerminalControl::Canvas { request: decoded },

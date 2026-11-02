@@ -637,7 +637,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
         Runtime {
             pipes: HashMap::new(),
             #[cfg(feature = "host")]
-            documents: crate::documents::DocumentHost::new(&config.data_root),
+            services: crate::canvas::CanvasServices::new(&config.data_root),
             #[cfg(feature = "host")]
             dosi: crate::dosi::Engine::load(
                 &config.data_root,
@@ -2336,8 +2336,8 @@ fn only_messages_after_the_first_look_at_a_room_name_agents() {
 #[cfg(feature = "host")]
 fn stand_in_canvas() -> crate::canvas::CanvasHandle {
     let folder = std::env::temp_dir();
-    let documents = crate::documents::DocumentHost::new(&folder);
-    crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &folder, documents)
+    let services = crate::canvas::CanvasServices::new(&folder);
+    crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &folder, services)
 }
 
 #[cfg(all(unix, feature = "host"))]

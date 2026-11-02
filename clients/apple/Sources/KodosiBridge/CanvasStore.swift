@@ -19,15 +19,7 @@ public final class CanvasStore {
         let offset: UInt64?
         let total: UInt64?
         let data: String?
-        let sequence: UInt64?
-        let frame: AnsweredFrame?
         let text: String?
-    }
-
-    private struct AnsweredFrame: Decodable {
-        let width: Int
-        let height: Int
-        let data: String
     }
 
     private static let mostStoredBytes = 64 * 1024 * 1024
@@ -56,6 +48,13 @@ public final class CanvasStore {
 
     public init(commands: CommandSink) {
         self.commands = commands
+    }
+
+    /// A link to the live picture of a terminal's browser.
+    func browser(of session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey)
+        documents.add(link)
+        return link
     }
 
     /// A link to the live document of an item.
@@ -231,24 +230,6 @@ public final class CanvasStore {
         return (revision, data)
     }
 
-    /// The next picture of the browser after `sequence`, or none when the browser shows no change
-    /// for a while.
-    public func picture(in session: String, after sequence: UInt64) async throws -> BrowserFrame? {
-        let answer = try await ask(session, .object(["type": .string("picture"), "after": .uint(sequence)]))
-        guard answer.answer == "picture", let sequence = answer.sequence else { throw CanvasError.unreadable }
-        guard let frame = answer.frame else { return nil }
-        guard let jpeg = Data(base64Encoded: frame.data) else { throw CanvasError.unreadable }
-        return BrowserFrame(sequence: sequence, width: frame.width, height: frame.height, jpeg: jpeg)
-    }
-
-    /// Sends a person's input with the size of the view where they use the browser.
-    public func send(_ events: [BrowserInput], width: Int, height: Int, in session: String) async throws {
-        let events = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(events))
-        _ = try await ask(session, .object([
-            "type": .string("input"), "events": events, "width": .int(Int64(width)), "height": .int(Int64(height)),
-        ]))
-    }
-
     /// Whether a person on this device opens the browser of a terminal, which did not come yet.
     public func opensBrowser(_ session: String) -> Bool {
         opening.contains(session)
@@ -259,7 +240,7 @@ public final class CanvasStore {
         closed[session]?[.browser] = nil
         opening.insert(session)
         do {
-            try await act(.wake(width: 0, height: 0), in: session)
+            try await act(.wake, in: session)
         } catch {
             opening.remove(session)
             throw error

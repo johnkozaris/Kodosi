@@ -429,6 +429,13 @@ struct Scope {
 }
 
 #[cfg(feature = "host")]
+impl Local {
+    fn tell_canvas_who_shares(&self) {
+        let shared = !self.entry.shared_with.is_empty() || self.entry.mission_id.is_some();
+        self.terminal.canvas.set_shared(shared);
+    }
+}
+
 struct Local {
     terminal: TerminalSession,
     entry: SessionEntry,
@@ -947,7 +954,7 @@ struct Runtime {
     #[cfg(feature = "host")]
     launcher: Arc<crate::agents::Launcher>,
     #[cfg(feature = "host")]
-    documents: crate::documents::DocumentHost,
+    services: crate::canvas::CanvasServices,
     #[cfg(feature = "host")]
     dosi: crate::dosi::Engine,
     #[cfg(feature = "host")]
@@ -1086,7 +1093,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         host: cfg!(feature = "host").then_some(config.host),
         pipes: HashMap::new(),
         #[cfg(feature = "host")]
-        documents: crate::documents::DocumentHost::new(&config.data_root),
+        services: crate::canvas::CanvasServices::new(&config.data_root),
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
@@ -1481,7 +1488,7 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.stop_locals().await;
         #[cfg(feature = "host")]
-        self.documents.close().await;
+        self.services.close().await;
         #[cfg(feature = "host")]
         crate::canvas::close_left(&self.config.data_root).await;
         self.network.shutdown().await;
@@ -1841,6 +1848,7 @@ impl Runtime {
                 };
                 local.entry.mission_id = sharing.room;
                 local.entry.mission_name = None;
+                local.tell_canvas_who_shares();
             }
         }
     }
@@ -2097,6 +2105,7 @@ impl Runtime {
             local.entry.shared_with.clear();
             local.entry.mission_id = None;
             local.entry.mission_name = None;
+            local.tell_canvas_who_shares();
             local.entry.owner_user_id.clone_from(&self.scope.user);
             local.entry.host_device_id = None;
         }
@@ -2319,6 +2328,7 @@ impl Runtime {
                 local.entry.mission_id = room.map(|room| room.to_string());
             }
             local.room_sequence = sequence;
+            local.tell_canvas_who_shares();
             self.publish_catalog();
         }
     }

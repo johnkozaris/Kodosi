@@ -13,7 +13,7 @@ struct AgentPointerLayer: View {
 
     var body: some View {
         GeometryReader { geometry in
-            if let shown, let point = shown.point, let at = feed.viewPoint(point, in: geometry.size) {
+            if let shown, let point = shown.point, let at = feed.viewPoint(x: Double(point.x), y: Double(point.y), in: geometry.size) {
                 let kind = AgentKind(agentName: shown.agent)
                 ZStack(alignment: .topLeading) {
                     ClickRing(color: kind.tint, trigger: clicks)
@@ -48,6 +48,34 @@ struct AgentPointerLayer: View {
             guard !Task.isCancelled else { return }
             withAnimation(theme.motion.fade) { shown = nil }
         }
+    }
+}
+
+/// The pointers of the other people in the shared browser, with their names.
+struct BrowserPointersLayer: View {
+    @Environment(\.theme) private var theme
+    let feed: BrowserFeed
+
+    var body: some View {
+        GeometryReader { geometry in
+            ForEach(feed.window.pointers) { pointer in
+                if let at = feed.viewPoint(x: pointer.x, y: pointer.y, in: geometry.size) {
+                    ZStack(alignment: .topLeading) {
+                        AgentArrow(color: theme.colors.accent, pressed: false)
+                        Text(verbatim: pointer.name).appTextStyle(.caption).lineLimit(1)
+                            .foregroundStyle(theme.colors.onAccent)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Capsule().fill(theme.colors.accent))
+                            .offset(x: 12, y: 18)
+                            .fixedSize()
+                    }
+                    .offset(x: at.x, y: at.y)
+                    .animation(theme.motion.snappy, value: at)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

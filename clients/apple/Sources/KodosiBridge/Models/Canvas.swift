@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 public struct Canvas: Decodable, Equatable, Sendable {
@@ -147,6 +148,8 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
     public let tabs: [BrowserTab]
     public let width: Int
     public let height: Int
+    /// The part of the first download of the browser, from 0 to 100.
+    public let getting: Int?
     public let doing: BrowserDoing?
     public let last: BrowserAction?
     public let problem: String?
@@ -158,12 +161,13 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
         tabs = try container.decodeIfPresent([BrowserTab].self, forKey: .tabs) ?? []
         width = try container.decode(Int.self, forKey: .width)
         height = try container.decode(Int.self, forKey: .height)
+        getting = try container.decodeIfPresent(Int.self, forKey: .getting)
         doing = try container.decodeIfPresent(BrowserDoing.self, forKey: .doing)
         last = try container.decodeIfPresent(BrowserAction.self, forKey: .last)
         problem = try container.decodeIfPresent(String.self, forKey: .problem)
     }
 
-    private enum CodingKeys: String, CodingKey { case state, changed, tabs, width, height, doing, last, problem }
+    private enum CodingKeys: String, CodingKey { case state, changed, tabs, width, height, getting, doing, last, problem }
 
     public var activeTab: BrowserTab? {
         tabs.first(where: \.active)
@@ -208,14 +212,6 @@ public struct BrowserDoing: Decodable, Equatable, Sendable {
     }
 }
 
-/// One picture of the shared browser, a JPEG at the browser's size in CSS pixels.
-public struct BrowserFrame: Equatable, Sendable {
-    public let sequence: UInt64
-    public let width: Int
-    public let height: Int
-    public let jpeg: Data
-}
-
 public enum CanvasError: LocalizedError, Equatable {
     case unreadable
 
@@ -224,12 +220,81 @@ public enum CanvasError: LocalizedError, Equatable {
     }
 }
 
-/// A person's pointer, key or text in the shared browser, in the browser's CSS pixels.
+/// What a window tells a viewer around the picture.
+public struct BrowserWindow: Decodable, Equatable, Sendable {
+    public struct Pointer: Decodable, Equatable, Identifiable, Sendable {
+        public let viewer: String
+        public let name: String
+        public let x: Double
+        public let y: Double
+
+        public var id: String {
+            viewer
+        }
+    }
+
+    public struct Menu: Decodable, Equatable, Sendable {
+        public struct Item: Decodable, Equatable, Sendable {
+            public let label: String
+            public let enabled: Bool
+            public let chosen: Bool
+        }
+
+        public let id: Int
+        public let items: [Item]
+    }
+
+    public struct Dialog: Decodable, Equatable, Sendable {
+        public enum Kind: String, Decodable, Sendable { case alert, confirm, prompt, beforeunload }
+
+        public let kind: Kind
+        public let message: String
+        public let text: String
+    }
+
+    public struct Chooser: Decodable, Equatable, Sendable {
+        public let several: Bool
+    }
+
+    public var width = 0
+    public var height = 0
+    public var shape = ""
+    public var pointers: [Pointer] = []
+    public var menu: Menu?
+    public var dialog: Dialog?
+    public var chooser: Chooser?
+    public var copied: String?
+
+    public var size: CGSize {
+        CGSize(width: width, height: height)
+    }
+
+    public init() {}
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        width = try container.decode(Int.self, forKey: .width)
+        height = try container.decode(Int.self, forKey: .height)
+        shape = try container.decode(String.self, forKey: .shape)
+        pointers = try container.decode([Pointer].self, forKey: .pointers)
+        menu = try container.decodeIfPresent(Menu.self, forKey: .menu)
+        dialog = try container.decodeIfPresent(Dialog.self, forKey: .dialog)
+        chooser = try container.decodeIfPresent(Chooser.self, forKey: .chooser)
+        copied = try container.decodeIfPresent(String.self, forKey: .copied)
+    }
+
+    private enum CodingKeys: String, CodingKey { case width, height, shape, pointers, menu, dialog, chooser, copied }
+}
+
+/// A person's step in the shared browser, in the CSS pixels of its page.
 public enum BrowserInput: Encodable, Equatable, Sendable {
-    public enum MouseEvent: String, Encodable, Sendable { case mousePressed, mouseReleased, mouseMoved, mouseWheel }
+    public enum MouseEvent: String, Encodable, Sendable {
+        case mousePressed = "press", mouseReleased = "release", mouseMoved = "move", mouseWheel = "wheel"
+    }
+
     public enum MouseButton: String, Encodable, Sendable { case none, left, middle, right }
-    public enum KeyEvent: String, Encodable, Sendable { case keyDown, keyUp, rawKeyDown, char }
-    public enum TouchEvent: String, Encodable, Sendable { case touchStart, touchMove, touchEnd, touchCancel }
+    public enum KeyEvent: String, Encodable, Sendable { case keyDown = "down", keyUp = "up" }
+    public enum TouchEvent: String, Encodable, Sendable { case start, move, end, cancel }
 
     public struct Modifiers: OptionSet, Encodable, Sendable {
         public let rawValue: UInt8
@@ -244,77 +309,104 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
     }
 
     public struct Point: Encodable, Equatable, Sendable {
-        public let x: Int
-        public let y: Int
+        public let x: Double
+        public let y: Double
 
-        public init(x: Int, y: Int) {
+        public init(x: Double, y: Double) {
             self.x = x
             self.y = y
         }
     }
 
-    case mouse(MouseEvent, x: Int, y: Int, button: MouseButton = .none, clicks: Int = 0, deltaX: Int = 0, deltaY: Int = 0,
+    case mouse(MouseEvent, x: Double, y: Double, button: MouseButton = .none, clicks: Int = 0, deltaX: Double = 0, deltaY: Double = 0,
                modifiers: Modifiers = [])
     case key(KeyEvent, key: String, code: String, text: String? = nil, keyCode: Int = 0, modifiers: Modifiers = [])
-    case touch(TouchEvent, points: [Point], modifiers: Modifiers = [])
     case text(String)
-
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: Field.self)
-        switch self {
-        case let .mouse(event, x, y, button, clicks, deltaX, deltaY, modifiers):
-            try container.encode("mouse", forKey: .type)
-            try container.encode(event, forKey: .eventType)
-            try container.encode(x, forKey: .x)
-            try container.encode(y, forKey: .y)
-            try container.encode(button, forKey: .button)
-            try container.encode(clicks, forKey: .clickCount)
-            try container.encode(deltaX, forKey: .deltaX)
-            try container.encode(deltaY, forKey: .deltaY)
-            try container.encode(modifiers.rawValue, forKey: .modifiers)
-        case let .key(event, key, code, text, keyCode, modifiers):
-            try container.encode("key", forKey: .type)
-            try container.encode(event, forKey: .eventType)
-            try container.encode(key, forKey: .key)
-            try container.encode(code, forKey: .code)
-            try container.encodeIfPresent(text, forKey: .text)
-            try container.encode(keyCode, forKey: .keyCode)
-            try container.encode(modifiers.rawValue, forKey: .modifiers)
-        case let .touch(event, points, modifiers):
-            try container.encode("touch", forKey: .type)
-            try container.encode(event, forKey: .eventType)
-            try container.encode(points, forKey: .points)
-            try container.encode(modifiers.rawValue, forKey: .modifiers)
-        case let .text(text):
-            try container.encode("text", forKey: .type)
-            try container.encode(text, forKey: .text)
-        }
-    }
-
-    private enum Field: String, CodingKey {
-        case type, eventType, x, y, button, clickCount, deltaX, deltaY, modifiers, key, code, text, keyCode, points
-    }
-}
-
-/// What a person does with the browser bar.
-public enum BrowserAct: Equatable, Sendable {
     case open(String)
     case back, forward, reload
     case tab(String)
     case newTab
     case closeTab(String)
-    case wake(width: Int, height: Int)
+    case choose(menu: Int, choice: Int?)
+    case dialog(accept: Bool, text: String?)
+    case files([String])
+
+    var isPlainMove: Bool {
+        if case .mouse(.mouseMoved, _, _, .none, _, _, _, _) = self {
+            return true
+        }
+        return false
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: Field.self)
+        switch self {
+        case let .mouse(event, x, y, button, clicks, deltaX, deltaY, modifiers):
+            try container.encode("mouse", forKey: .kind)
+            try container.encode(event, forKey: .action)
+            try container.encode(x, forKey: .x)
+            try container.encode(y, forKey: .y)
+            try container.encode(button, forKey: .button)
+            try container.encode(clicks, forKey: .clicks)
+            try container.encode(deltaX, forKey: .deltaX)
+            try container.encode(deltaY, forKey: .deltaY)
+            try container.encode(modifiers.rawValue, forKey: .modifiers)
+        case let .key(event, key, code, text, keyCode, modifiers):
+            try container.encode("key", forKey: .kind)
+            try container.encode(event, forKey: .action)
+            try container.encode(key, forKey: .key)
+            try container.encode(code, forKey: .code)
+            try container.encodeIfPresent(text, forKey: .text)
+            try container.encode(keyCode, forKey: .keyCode)
+            try container.encode(modifiers.rawValue, forKey: .modifiers)
+        case let .text(text):
+            try container.encode("text", forKey: .kind)
+            try container.encode(text, forKey: .text)
+        case let .open(address):
+            try container.encode("open", forKey: .kind)
+            try container.encode(address, forKey: .address)
+        case .back:
+            try container.encode("back", forKey: .kind)
+        case .forward:
+            try container.encode("forward", forKey: .kind)
+        case .reload:
+            try container.encode("reload", forKey: .kind)
+        case let .tab(id):
+            try container.encode("tab", forKey: .kind)
+            try container.encode(id, forKey: .id)
+        case .newTab:
+            try container.encode("newTab", forKey: .kind)
+        case let .closeTab(id):
+            try container.encode("closeTab", forKey: .kind)
+            try container.encode(id, forKey: .id)
+        case let .choose(menu, choice):
+            try container.encode("choose", forKey: .kind)
+            try container.encode(menu, forKey: .menu)
+            try container.encodeIfPresent(choice, forKey: .choice)
+        case let .dialog(accept, text):
+            try container.encode("dialog", forKey: .kind)
+            try container.encode(accept, forKey: .accept)
+            try container.encodeIfPresent(text, forKey: .text)
+        case let .files(paths):
+            try container.encode("files", forKey: .kind)
+            try container.encode(paths, forKey: .paths)
+        }
+    }
+
+    private enum Field: String, CodingKey {
+        case kind, action, x, y, button, clicks, deltaX, deltaY, modifiers, key, code, text, keyCode, address, id, menu, choice, accept, paths
+    }
+}
+
+/// A person's step that needs no view of the browser.
+public enum BrowserAct: Equatable, Sendable {
+    case open(String)
+    case wake
 
     var json: JSONValue {
         switch self {
         case let .open(url): .object(["do": .string("open"), "url": .string(url)])
-        case .back: .object(["do": .string("back")])
-        case .forward: .object(["do": .string("forward")])
-        case .reload: .object(["do": .string("reload")])
-        case let .tab(id): .object(["do": .string("tab"), "id": .string(id)])
-        case .newTab: .object(["do": .string("newTab")])
-        case let .closeTab(id): .object(["do": .string("closeTab"), "id": .string(id)])
-        case let .wake(width, height): .object(["do": .string("wake"), "width": .int(Int64(width)), "height": .int(Int64(height))])
+        case .wake: .object(["do": .string("wake")])
         }
     }
 }

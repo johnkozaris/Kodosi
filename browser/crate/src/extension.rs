@@ -12,12 +12,18 @@ use tokio_tungstenite::tungstenite::{
 
 use crate::{Error, message::MenuItem};
 
-const EXTENSION_FILES: &[&str] = &[
-    "manifest.json",
-    "offscreen.html",
-    "offscreen.js",
-    "page.js",
-    "worker.js",
+const EXTENSION_FILES: &[(&str, &str)] = &[
+    (
+        "manifest.json",
+        include_str!("../../extension/manifest.json"),
+    ),
+    (
+        "offscreen.html",
+        include_str!("../../extension/offscreen.html"),
+    ),
+    ("offscreen.js", include_str!("../../extension/offscreen.js")),
+    ("page.js", include_str!("../../extension/page.js")),
+    ("worker.js", include_str!("../../extension/worker.js")),
 ];
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
 const HEADER: usize = 8 + 1 + 8;
@@ -253,10 +259,10 @@ async fn carry<S>(
 }
 
 /// Copies the extension into the profile with the address and the token of this start.
-pub(crate) async fn prepare(from: &Path, into: &Path, socket: &Socket) -> Result<(), Error> {
+pub(crate) async fn prepare(into: &Path, socket: &Socket) -> Result<(), Error> {
     tokio::fs::create_dir_all(into).await?;
-    for file in EXTENSION_FILES {
-        tokio::fs::copy(from.join(file), into.join(file)).await?;
+    for (name, content) in EXTENSION_FILES {
+        tokio::fs::write(into.join(name), content).await?;
     }
     let connection = serde_json::json!({ "port": socket.port, "token": socket.token });
     tokio::fs::write(into.join("connection.json"), connection.to_string()).await?;

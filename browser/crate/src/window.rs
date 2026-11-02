@@ -99,6 +99,7 @@ pub struct Window {
     events: mpsc::Sender<Event>,
     state: watch::Receiver<State>,
     open: watch::Receiver<bool>,
+    used: watch::Receiver<Option<Instant>>,
 }
 
 impl Window {
@@ -128,6 +129,28 @@ impl Window {
 
     pub fn is_open(&self) -> bool {
         *self.open.borrow()
+    }
+
+    /// Returns when the window closed.
+    pub async fn closed(&self) {
+        let mut open = self.open.clone();
+        drop(open.wait_for(|open| !open).await);
+    }
+
+    /// When a person last clicked, typed or moved between pages.
+    pub fn used_at(&self) -> Option<Instant> {
+        *self.used.borrow()
+    }
+
+    /// A step of the host itself, in no viewer's name.
+    pub async fn tell(&self, message: ToWindow) -> Result<(), Error> {
+        self.events
+            .send(Event::Message {
+                viewer: String::new(),
+                message,
+            })
+            .await
+            .map_err(|_| Error::Stopped)
     }
 
     /// Counts as use, so an agent's work keeps the window awake.
@@ -201,14 +224,16 @@ pub(crate) async fn open(
         ..State::default()
     });
     let (open_in, open) = watch::channel(true);
+    let (used_in, used) = watch::channel(None);
     let window = Window {
         engine: Arc::clone(&engine),
         events: events_in,
         state,
         open,
+        used,
     };
     let stopped = engine.stopped();
-    let live = Live::new(engine, id, folder, state_in);
+    let live = Live::new(engine, id, folder, state_in, used_in);
     tokio::spawn(async move {
         live.run(events, stopped).await;
         open_in.send_replace(false);
@@ -246,6 +271,7 @@ struct Live {
     seats: HashMap<String, Seat>,
     state: State,
     published: watch::Sender<State>,
+    used: watch::Sender<Option<Instant>>,
     dirty: bool,
     size: Size,
     reported: Vec<ReportedTab>,
@@ -264,7 +290,13 @@ struct Live {
 }
 
 impl Live {
-    fn new(engine: Arc<Engine>, id: i64, folder: PathBuf, published: watch::Sender<State>) -> Self {
+    fn new(
+        engine: Arc<Engine>,
+        id: i64,
+        folder: PathBuf,
+        published: watch::Sender<State>,
+        used: watch::Sender<Option<Instant>>,
+    ) -> Self {
         let state = published.borrow().clone();
         Self {
             engine,
@@ -274,6 +306,7 @@ impl Live {
             seats: HashMap::new(),
             state,
             published,
+            used,
             dirty: false,
             size: FIRST_SIZE,
             reported: Vec::new(),
@@ -355,16 +388,34 @@ impl Live {
             })
             .collect();
         self.published.send_replace(self.state.clone());
-        let message = ToViewer::State(Box::new(self.state.clone())).encode();
         for seat in self.seats.values() {
-            drop(seat.outgoing.try_send(message.clone()));
+            let state = self.state_for(&seat.viewer.id);
+            drop(
+                seat.outgoing
+                    .try_send(ToViewer::State(Box::new(state)).encode()),
+            );
         }
+    }
+
+    /// What one viewer sees. A list, a copy and a file picker belong to the viewer whose press
+    /// opened them, and a viewer's own pointer is on its own screen.
+    fn state_for(&self, viewer: &str) -> State {
+        let pressed = self.last_press.as_deref() == Some(viewer);
+        let mut state = self.state.clone();
+        state.pointers.retain(|pointer| pointer.viewer != viewer);
+        state.menu.take_if(|menu| menu.viewer != viewer);
+        if !pressed {
+            state.copied = None;
+            state.chooser = None;
+        }
+        state
     }
 
     async fn handle(&mut self, event: Event) {
         match event {
             Event::Join { viewer, outgoing } => {
-                drop(outgoing.try_send(ToViewer::State(Box::new(self.state.clone())).encode()));
+                let state = self.state_for(&viewer.id);
+                drop(outgoing.try_send(ToViewer::State(Box::new(state)).encode()));
                 self.seats.insert(
                     viewer.id.clone(),
                     Seat {
@@ -602,6 +653,7 @@ impl Live {
         );
         if !plain_move {
             self.used_at = Instant::now();
+            self.used.send_replace(Some(self.used_at));
         }
         match event {
             Input::Mouse {

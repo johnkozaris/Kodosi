@@ -14,6 +14,7 @@ public struct CanvasBrowserView: View {
     let browser: CanvasBrowser
     let feed: BrowserFeed
     var typing = false
+    @Environment(\.displayScale) private var displayScale
     @State private var address = ""
     @FocusState private var editing: Bool
 
@@ -34,31 +35,35 @@ public struct CanvasBrowserView: View {
             bar
             ZStack {
                 theme.colors.terminal
+                BrowserVideoView(feed: feed)
+                    .opacity(feed.hasPicture && !blank ? 1 : 0)
+                    .grayscale(browser.state == .awake ? 0 : 1)
+                    .animation(theme.motion.fade, value: browser.state)
                 if blank, browser.state == .awake {
                     Image(systemName: "globe").font(.system(size: 34, weight: .light))
                         .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
                         .transition(.opacity)
-                } else if let image = feed.image {
-                    Image(decorative: image, scale: 1).resizable().interpolation(.high).scaledToFit()
-                        .grayscale(browser.state == .awake ? 0 : 1)
-                        .animation(theme.motion.fade, value: browser.state)
                 }
                 if browser.state == .awake {
                     BrowserInputArea(feed: feed, typing: typing)
+                    BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
+                    BrowserPartsLayer(feed: feed)
                 } else {
                     sleeping.transition(.opacity)
                 }
             }
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
-            .task(id: browser.state) {
-                switch browser.state {
-                case .awake: await feed.watch()
-                case .asleep: if browser.problem == nil {
-                        await feed.wake()
-                    }
-                case .starting: break
+            .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
+            .task(id: browser.problem == nil) {
+                if browser.problem == nil {
+                    await feed.watch()
+                }
+            }
+            .onChange(of: feed.window.copied) { _, words in
+                if let words {
+                    Pasteboard.copy(words)
                 }
             }
         }
@@ -73,9 +78,9 @@ public struct CanvasBrowserView: View {
     private var bar: some View {
         HStack(spacing: 2) {
             HStack(spacing: 2) {
-                IconButton(title: "Back", symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { act(.back) }
-                IconButton(title: "Forward", symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { act(.forward) }
-                IconButton(title: "Reload", symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { act(.reload) }
+                IconButton(title: "Back", symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { feed.send(.back) }
+                IconButton(title: "Forward", symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { feed.send(.forward) }
+                IconButton(title: "Reload", symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { feed.send(.reload) }
                 HStack(spacing: 6) {
                     Image(systemName: secure ? "lock.fill" : "globe").font(.system(size: 9.5, weight: .semibold))
                         .foregroundStyle(theme.colors.inkFaint)
@@ -109,12 +114,12 @@ public struct CanvasBrowserView: View {
         if browser.tabs.count > 1 {
             Menu {
                 ForEach(browser.tabs) { tab in
-                    Button(tab.title.isEmpty ? tab.url : tab.title) { act(.tab(tab.id)) }
+                    Button(tab.title.isEmpty ? tab.url : tab.title) { feed.send(.tab(tab.id)) }
                 }
                 Divider()
-                Button(String(localized: "New tab", bundle: .module)) { act(.newTab) }
+                Button(String(localized: "New tab", bundle: .module)) { feed.send(.newTab) }
                 if let active = browser.activeTab {
-                    Button(String(localized: "Close tab", bundle: .module)) { act(.closeTab(active.id)) }
+                    Button(String(localized: "Close tab", bundle: .module)) { feed.send(.closeTab(active.id)) }
                 }
             } label: {
                 HStack(spacing: 4) {
@@ -128,7 +133,7 @@ public struct CanvasBrowserView: View {
             .help(String(localized: "Tabs", bundle: .module))
             .accessibilityIdentifier("canvas.browser.tabs")
         } else {
-            IconButton(title: "New tab", symbol: "plus", identifier: "canvas.browser.newTab", size: control) { act(.newTab) }
+            IconButton(title: "New tab", symbol: "plus", identifier: "canvas.browser.newTab", size: control) { feed.send(.newTab) }
         }
     }
 
@@ -136,7 +141,14 @@ public struct CanvasBrowserView: View {
     private var sleeping: some View {
         switch browser.state {
         case .starting:
-            Spinner(size: 18)
+            VStack(spacing: 10) {
+                Spinner(size: 18)
+                if let getting = browser.getting {
+                    Text("Getting the browser, \(getting)%", bundle: .module)
+                        .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
+                        .contentTransition(.numericText())
+                }
+            }
         case .asleep:
             Button { Task { await feed.wake() } } label: {
                 HStack(spacing: 7) {
@@ -161,11 +173,7 @@ public struct CanvasBrowserView: View {
         guard !typed.isEmpty else { return }
         let url = typed.contains("://") || typed.hasPrefix("about:") ? typed : "https://" + typed
         editing = false
-        act(.open(url))
-    }
-
-    private func act(_ act: BrowserAct) {
-        Task { await feed.run(act) }
+        feed.send(.open(url))
     }
 }
 

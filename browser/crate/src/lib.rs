@@ -61,7 +61,6 @@ mod host {
     pub struct Settings {
         /// The browser program: an app bundle on a Mac, otherwise its executable.
         pub engine: PathBuf,
-        pub extension: PathBuf,
         pub profiles: PathBuf,
     }
 
@@ -138,6 +137,29 @@ mod host {
             let removed = sign_ins::remove(engine.devtools(), &folder).await;
             engine.stop_if_idle().await;
             removed
+        }
+
+        /// Closes the browser of a profile and deletes the profile with its sign-ins.
+        pub async fn remove_profile(&self, profile: &str) -> Result<(), Error> {
+            let windows: Vec<Window> = {
+                let mut windows = self.windows.lock().await;
+                let keys: Vec<_> = windows
+                    .keys()
+                    .filter(|(owner, _)| owner == profile)
+                    .cloned()
+                    .collect();
+                keys.iter().filter_map(|key| windows.remove(key)).collect()
+            };
+            for window in &windows {
+                window.close().await;
+            }
+            if let Some(engine) = self.engines.lock().await.remove(profile) {
+                engine.stop().await;
+            }
+            match tokio::fs::remove_dir_all(self.settings.profiles.join(profile)).await {
+                Err(problem) if problem.kind() != io::ErrorKind::NotFound => Err(problem.into()),
+                _ => Ok(()),
+            }
         }
 
         /// Closes all windows, and the browsers with them.

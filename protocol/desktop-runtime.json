@@ -2737,244 +2737,33 @@
               {
                 "additionalProperties": false,
                 "properties": {
-                  "after": {
+                  "data": {
+                    "type": "string"
+                  },
+                  "last": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "offset": {
                     "format": "u64",
                     "type": "integer"
                   },
                   "type": {
-                    "const": "picture"
+                    "const": "attach"
+                  },
+                  "upload": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "type",
-                  "after"
-                ],
-                "type": "object"
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "events": {
-                    "items": {
-                      "oneOf": [
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "button": {
-                              "oneOf": [
-                                {
-                                  "const": "none"
-                                },
-                                {
-                                  "const": "left"
-                                },
-                                {
-                                  "const": "middle"
-                                },
-                                {
-                                  "const": "right"
-                                }
-                              ]
-                            },
-                            "clickCount": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "deltaX": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "deltaY": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "mousePressed"
-                                },
-                                {
-                                  "const": "mouseReleased"
-                                },
-                                {
-                                  "const": "mouseMoved"
-                                },
-                                {
-                                  "const": "mouseWheel"
-                                }
-                              ]
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "type": {
-                              "const": "mouse"
-                            },
-                            "x": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "y": {
-                              "format": "i32",
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "x",
-                            "y"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "code": {
-                              "type": "string"
-                            },
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "keyDown"
-                                },
-                                {
-                                  "const": "keyUp"
-                                },
-                                {
-                                  "const": "rawKeyDown"
-                                },
-                                {
-                                  "const": "char"
-                                }
-                              ]
-                            },
-                            "key": {
-                              "type": "string"
-                            },
-                            "keyCode": {
-                              "format": "u32",
-                              "type": "integer"
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "text": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "type": {
-                              "const": "key"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "key",
-                            "code"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "touchStart"
-                                },
-                                {
-                                  "const": "touchMove"
-                                },
-                                {
-                                  "const": "touchEnd"
-                                },
-                                {
-                                  "const": "touchCancel"
-                                }
-                              ]
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "points": {
-                              "items": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "x": {
-                                    "format": "i32",
-                                    "type": "integer"
-                                  },
-                                  "y": {
-                                    "format": "i32",
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "x",
-                                  "y"
-                                ],
-                                "type": "object"
-                              },
-                              "type": "array"
-                            },
-                            "type": {
-                              "const": "touch"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "points"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "text": {
-                              "type": "string"
-                            },
-                            "type": {
-                              "const": "text"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "text"
-                          ],
-                          "type": "object"
-                        }
-                      ]
-                    },
-                    "type": "array"
-                  },
-                  "height": {
-                    "format": "u32",
-                    "type": "integer"
-                  },
-                  "type": {
-                    "const": "input"
-                  },
-                  "width": {
-                    "format": "u32",
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "type",
-                  "events",
-                  "width",
-                  "height"
+                  "upload",
+                  "name",
+                  "offset",
+                  "data",
+                  "last"
                 ],
                 "type": "object"
               },
@@ -3003,101 +2792,11 @@
                         "additionalProperties": false,
                         "properties": {
                           "do": {
-                            "const": "back"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "forward"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "reload"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "tab"
-                          },
-                          "id": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "do",
-                          "id"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "newTab"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "closeTab"
-                          },
-                          "id": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "do",
-                          "id"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
                             "const": "wake"
-                          },
-                          "height": {
-                            "format": "u32",
-                            "type": "integer"
-                          },
-                          "width": {
-                            "format": "u32",
-                            "type": "integer"
                           }
                         },
                         "required": [
-                          "do",
-                          "width",
-                          "height"
+                          "do"
                         ],
                         "type": "object"
                       }
@@ -6673,6 +6372,17 @@
                                     }
                                   ]
                                 },
+                                "getting": {
+                                  "anyOf": [
+                                    {
+                                      "format": "u8",
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "height": {
                                   "format": "u32",
                                   "type": "integer"
@@ -8456,45 +8166,15 @@
                 "additionalProperties": false,
                 "properties": {
                   "answer": {
-                    "const": "picture"
+                    "const": "attached"
                   },
-                  "frame": {
-                    "anyOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "data": {
-                            "type": "string"
-                          },
-                          "height": {
-                            "format": "u32",
-                            "type": "integer"
-                          },
-                          "width": {
-                            "format": "u32",
-                            "type": "integer"
-                          }
-                        },
-                        "required": [
-                          "width",
-                          "height",
-                          "data"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sequence": {
-                    "format": "u64",
-                    "type": "integer"
+                  "key": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "answer",
-                  "sequence"
+                  "key"
                 ],
                 "type": "object"
               }
@@ -11933,7 +11613,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 75,
+  "protocolVersion": 76,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

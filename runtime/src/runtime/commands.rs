@@ -555,7 +555,6 @@ impl Runtime {
                 return Err(Error::Busy);
             }
         }
-        self.result(command);
         Ok(())
     }
 
@@ -935,11 +934,11 @@ impl Runtime {
         let config = self.config.clone();
         let changes = self.changes.clone();
         let launcher = Arc::clone(&self.launcher);
-        let documents = self.documents.clone();
+        let services = self.services.clone();
         self.creating.insert(id, command.clone());
         self.spawn(async move {
             let result =
-                create_session(id, config, documents, &launcher, &command, screen, changes).await;
+                create_session(id, config, services, &launcher, &command, screen, changes).await;
             Completion::Created { id, result }
         });
         Ok(id)
@@ -1838,7 +1837,7 @@ async fn start_folder(
 async fn create_session(
     id: Uuid,
     config: Config,
-    documents: crate::documents::DocumentHost,
+    services: crate::canvas::CanvasServices,
     launcher: &Arc<Launcher>,
     command: &Command,
     screen: Option<PathBuf>,
@@ -1913,7 +1912,7 @@ async fn create_session(
         Some(config.data_root.join("agents")),
         screen,
         grid,
-        crate::canvas::CanvasHandle::spawn(id, &config.data_root, documents),
+        crate::canvas::CanvasHandle::spawn(id, &config.data_root, services),
         changes,
     )
     .await

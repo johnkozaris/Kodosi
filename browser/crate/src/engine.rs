@@ -114,7 +114,7 @@ impl Engine {
         close_left(&folder).await;
         let socket = extension::Socket::open().await?;
         let unpacked = folder.join("extension");
-        extension::prepare(&settings.extension, &unpacked, &socket).await?;
+        extension::prepare(&unpacked, &socket).await?;
         let port = free_port().await?;
         let mut process = launch(&settings.engine, &arguments(&folder, &unpacked, port)).await?;
         tokio::fs::write(folder.join(STATE_FILE), port.to_string()).await?;

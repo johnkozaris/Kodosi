@@ -9,9 +9,10 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    BrowserAct, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
+    Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
     attach::{Part, Uploads},
-    browser::{self, Browser, Places},
+    browser::{self, Browser, Places, Terminal},
+    engine::BrowserHost,
     files::{Files, Showing, Stamp, key_of},
 };
 use crate::documents::{DocumentHost, path_of};
@@ -21,6 +22,27 @@ const CHECK: Duration = Duration::from_secs(1);
 const BROWSER: &str = "browser";
 
 type Reply = oneshot::Sender<Result<CanvasAnswer, String>>;
+
+/// What all canvases of this computer share.
+#[derive(Clone)]
+pub(crate) struct CanvasServices {
+    pub(crate) documents: DocumentHost,
+    pub(crate) browsers: BrowserHost,
+}
+
+impl CanvasServices {
+    pub(crate) fn new(data_root: &Path) -> Self {
+        Self {
+            documents: DocumentHost::new(data_root),
+            browsers: BrowserHost::new(data_root),
+        }
+    }
+
+    pub(crate) async fn close(&self) {
+        self.documents.close().await;
+        self.browsers.close().await;
+    }
+}
 
 enum Job {
     Show {
@@ -39,6 +61,14 @@ enum Job {
         request: CanvasRequest,
         reply: Reply,
     },
+    Watch {
+        id: String,
+        name: String,
+        reply: oneshot::Sender<Result<PipeEnds, String>>,
+    },
+    Downloaded {
+        path: PathBuf,
+    },
     Restore {
         paths: Vec<PathBuf>,
         address: Option<String>,
@@ -56,14 +86,16 @@ pub(crate) struct CanvasHandle {
     jobs: mpsc::Sender<Job>,
     state: watch::Receiver<Canvas>,
     folder: watch::Sender<PathBuf>,
+    shared: watch::Sender<bool>,
     documents: DocumentHost,
 }
 
 impl CanvasHandle {
-    pub(crate) fn spawn(id: Uuid, data_root: &Path, documents: DocumentHost) -> Self {
+    pub(crate) fn spawn(id: Uuid, data_root: &Path, services: CanvasServices) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (published, state) = watch::channel(Canvas::default());
         let (folder, current_folder) = watch::channel(PathBuf::new());
+        let (shared, sharing) = watch::channel(false);
         let actor = Actor {
             id,
             data_root: data_root.to_owned(),
@@ -73,6 +105,9 @@ impl CanvasHandle {
             files: Files::default(),
             uploads: Uploads::default(),
             folder: current_folder,
+            own_jobs: jobs.downgrade(),
+            sharing,
+            browsers: services.browsers,
             browser: None,
         };
         tokio::spawn(actor.run());
@@ -80,8 +115,19 @@ impl CanvasHandle {
             jobs,
             state,
             folder,
-            documents,
+            shared,
+            documents: services.documents,
         }
+    }
+
+    /// A shared terminal does not use a person's kept sign-ins, so its browser moves to a
+    /// profile of its own.
+    pub(crate) fn set_shared(&self, shared: bool) {
+        self.shared.send_if_modified(|current| {
+            let changed = *current != shared;
+            *current = shared;
+            changed
+        });
     }
 
     /// The folder of the terminal, where the files that people add go.
@@ -144,6 +190,15 @@ impl CanvasHandle {
         id: String,
         name: String,
     ) -> Result<PipeEnds, String> {
+        if key == BROWSER {
+            let (reply, answer) = oneshot::channel();
+            self.jobs
+                .try_send(Job::Watch { id, name, reply })
+                .map_err(|_| "The canvas is busy. Try again in a moment.".to_owned())?;
+            return answer
+                .await
+                .unwrap_or_else(|_| Err("The terminal of this canvas closed.".to_owned()));
+        }
         let shown = self
             .state
             .borrow()
@@ -233,6 +288,9 @@ struct Actor {
     files: Files,
     uploads: Uploads,
     folder: watch::Receiver<PathBuf>,
+    own_jobs: mpsc::WeakSender<Job>,
+    sharing: watch::Receiver<bool>,
+    browsers: BrowserHost,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
 }
 
@@ -254,6 +312,11 @@ impl Actor {
                         return;
                     }
                 },
+                changed = self.sharing.changed() => {
+                    if changed.is_ok() && let Some(browser) = self.existing() {
+                        tokio::spawn(async move { browser.sleep().await });
+                    }
+                }
                 _ = check.tick(), if !self.files.is_empty() => {
                     if self.files.check(&self.stamp).await {
                         self.publish();
@@ -326,22 +389,34 @@ impl Actor {
                 });
             }
             Job::Request { request, reply } => self.request(request, reply).await,
+            Job::Watch { id, name, reply } => {
+                let browser = self.browser();
+                self.publish();
+                tokio::spawn(async move { drop(reply.send(browser.watch(id, name).await)) });
+            }
+            Job::Downloaded { path } => {
+                if let Err(problem) = self.files.show(vec![path], &self.stamp).await {
+                    tracing::debug!(%problem, "the canvas does not show this download");
+                }
+                self.publish();
+            }
             Job::Restore {
                 paths,
                 address,
                 from,
             } => {
                 self.files.restore(paths, &self.stamp);
-                let earlier = Places::of(&self.data_root, from).profile;
-                let profile = Places::of(&self.data_root, self.id).profile;
-                let moved = tokio::task::spawn_blocking(move || {
-                    earlier.is_dir()
-                        && !profile.exists()
-                        && std::fs::rename(&earlier, &profile).is_ok()
-                })
-                .await
-                .unwrap_or(false);
-                if moved {
+                let earlier = browser::own_profile(&self.data_root, from);
+                let profile = browser::own_profile(&self.data_root, self.id);
+                drop(
+                    tokio::task::spawn_blocking(move || {
+                        if earlier.is_dir() && !profile.exists() {
+                            drop(std::fs::rename(&earlier, &profile));
+                        }
+                    })
+                    .await,
+                );
+                if address.is_some() {
                     self.browser().reopen_at(address);
                 }
                 self.publish();
@@ -396,44 +471,10 @@ impl Actor {
                 let answer = self.attach(part).await;
                 drop(reply.send(answer));
             }
-            CanvasRequest::Picture { after } => {
-                let Some(browser) = self.existing() else {
-                    drop(reply.send(Err(NO_BROWSER.to_owned())));
-                    return;
-                };
-                tokio::spawn(async move { drop(reply.send(browser.picture(after).await)) });
-            }
-            CanvasRequest::Input {
-                events,
-                width,
-                height,
-            } => {
-                let Some(browser) = self.existing() else {
-                    drop(reply.send(Err(NO_BROWSER.to_owned())));
-                    return;
-                };
-                tokio::spawn(async move {
-                    drop(reply.send(browser.input(events, width, height).await));
-                });
-            }
             CanvasRequest::Act { action } => {
-                let waking = matches!(action, BrowserAct::Wake { .. });
-                let browser = match (self.existing(), browser::missing()) {
-                    (Some(browser), _) => browser,
-                    (None, None) if waking => self.browser(),
-                    (None, Some(missing)) if waking => {
-                        drop(reply.send(Err(missing.to_owned())));
-                        return;
-                    }
-                    (None, _) => {
-                        drop(reply.send(Err(NO_BROWSER.to_owned())));
-                        return;
-                    }
-                };
+                let browser = self.browser();
+                self.publish();
                 tokio::spawn(async move { drop(reply.send(browser.act(action).await)) });
-                if waking {
-                    self.publish();
-                }
             }
         }
     }
@@ -460,8 +501,21 @@ impl Actor {
             return browser;
         }
         let browser = Browser::start(
-            self.id,
-            Places::of(&self.data_root, self.id),
+            Terminal {
+                id: self.id,
+                folder: self.folder.clone(),
+                shared: self.sharing.clone(),
+                show: {
+                    let jobs = self.own_jobs.clone();
+                    Box::new(move |path| {
+                        if let Some(jobs) = jobs.upgrade() {
+                            drop(jobs.try_send(Job::Downloaded { path }));
+                        }
+                    })
+                },
+            },
+            Places::of(&self.data_root),
+            self.browsers.clone(),
             self.stamp.clone(),
         );
         let state = browser.state();
@@ -478,13 +532,11 @@ impl Actor {
                 browser.sleep().await;
             }
         } else if remove {
-            let profile = Places::of(&self.data_root, self.id).profile;
+            let profile = browser::own_profile(&self.data_root, self.id);
             drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(profile)).await);
         }
     }
 }
-
-const NO_BROWSER: &str = "This canvas has no browser. The agent opens one with kodosi browser.";
 
 fn shown(showing: &Showing, terminal: &str) -> CanvasAnswer {
     let names = showing
