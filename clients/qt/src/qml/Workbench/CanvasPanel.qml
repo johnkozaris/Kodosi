@@ -57,13 +57,15 @@ Item {
     }
     // A document that a person leaves stays open a while, with its place and its undo.
     function keepDocument() {
-        if (documentView.length === 0)
+        const item = files.find(file => file.key === currentKey);
+        const view = item && item.missing !== true && Models.CanvasWeb.available ? item.view || "" : "";
+        if (view.length === 0)
             return;
         for (let at = 0; at < documents.count; ++at) {
             if (documents.get(at).key === currentKey)
                 return;
         }
-        documents.append({ key: currentKey, view: documentView });
+        documents.append({ key: currentKey, view: view });
     }
     function forgetDocument(key) {
         for (let at = 0; at < documents.count; ++at) {
