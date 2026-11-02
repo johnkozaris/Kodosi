@@ -560,6 +560,9 @@ impl Live {
             .collect();
         self.reported = tabs;
         self.dirty = true;
+        if !self.flow.is_empty() {
+            self.match_scale();
+        }
         self.update_capture();
     }
 
@@ -586,6 +589,7 @@ impl Live {
         reason = "a size is at most 4096 and a scale is at most 4"
     )]
     fn capture(&self, tab: i64) {
+        self.match_scale();
         let pixels = |length: u32| ((length as f32 * self.size.scale) as u32).clamp(2, 7680);
         self.engine.command(ToExtension::Capture {
             stream: self.id,
@@ -594,6 +598,18 @@ impl Live {
             height: pixels(self.size.height),
             bitrate: flow::FIRST_BITRATE,
         });
+    }
+
+    /// The page draws at the scale of the viewer, so that it has the pixels that the capture
+    /// asks for. Chrome does not enlarge a page for a capture; it puts bars around it.
+    fn match_scale(&self) {
+        let metrics = json!({
+            "width": 0,
+            "height": 0,
+            "deviceScaleFactor": self.size.scale,
+            "mobile": false,
+        });
+        self.page("Emulation.setDeviceMetricsOverride", &metrics);
     }
 
     async fn resize(&mut self, size: Size) {
