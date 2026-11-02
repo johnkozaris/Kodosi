@@ -66,10 +66,9 @@ pub(crate) fn apply(
 fn apply_one(model: &mut Model, change: &mut Change) -> Result<(), Refused> {
     match change {
         Change::Cells { sheet, cells } => {
-            let mut new_looks = Vec::new();
             for cell in cells.iter_mut() {
-                if let Some(look) = cell.look.take() {
-                    cell.style = Some(Some(look_index(model, look, &mut new_looks)));
+                if let Some(look) = &cell.look {
+                    cell.style = Some(Some(look_index(model, look)));
                 }
             }
             let target = model.sheet_mut(sheet).ok_or_else(|| no_sheet(sheet))?;
@@ -142,11 +141,12 @@ fn apply_one(model: &mut Model, change: &mut Change) -> Result<(), Refused> {
     Ok(())
 }
 
-/// The index of a look, which is new when no cell has it yet.
-fn look_index(model: &mut Model, look: Look, _new: &mut Vec<Look>) -> u32 {
-    let found = model.looks.iter().position(|known| *known == look);
+/// The index of a look, which is new when no cell has it yet. The change keeps the look too,
+/// so that views which do not have it yet can draw it.
+fn look_index(model: &mut Model, look: &Look) -> u32 {
+    let found = model.looks.iter().position(|known| known == look);
     let index = found.unwrap_or_else(|| {
-        model.looks.push(look);
+        model.looks.push(look.clone());
         model.looks.len() - 1
     });
     u32::try_from(index).unwrap_or(0)

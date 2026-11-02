@@ -9,6 +9,7 @@ use roxmltree::{Document, Node as Xml};
 
 use crate::{
     calculate::calculated,
+    formats,
     formula::{cell_name, column_name, parse_cell, parse_range, range_name},
     model::{Cell, Look, Model, Sheet, Value},
     read::{ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, local, locals, merges_of, widths_of},
@@ -22,7 +23,6 @@ const SHEET_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 const SHEET_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-const FIRST_FORMAT_ID: u32 = 200;
 /// What the file format puts after `mergeCells`, the first of which a new one stands before.
 const AFTER_MERGES: [&str; 22] = [
     "phoneticPr",
@@ -533,6 +533,77 @@ fn new_sheet_xml(sheet: &Sheet) -> String {
     )
 }
 
+/// The XML without the children of its root that `gone` names.
+fn without(xml: &str, gone: impl Fn(Xml<'_, '_>) -> bool) -> Result<String, String> {
+    let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
+    let edits = parsed
+        .root_element()
+        .children()
+        .filter(|node| node.is_element() && gone(*node))
+        .map(|node| (node.range(), String::new()))
+        .collect();
+    Ok(spliced(xml, edits))
+}
+
+/// The XML with more children at the end of its root.
+fn with_added(xml: &str, added: &str) -> Result<String, String> {
+    let closing = xml.rfind("</").ok_or("the package is broken")?;
+    Ok(format!("{}{added}{}", &xml[..closing], &xml[closing..]))
+}
+
+/// Takes the sheets that the model no longer has out of the package: their parts, their
+/// relationships and their content types. Gives the relationships and the content types that
+/// stay, and whether a sheet went.
+fn removed_sheets(
+    model: &Model,
+    list: Xml<'_, '_>,
+    package: &mut Package<'_>,
+    parts: &mut Parts,
+) -> Result<(String, String, bool), String> {
+    let removed: Vec<&str> = locals(list, "sheet")
+        .filter(|entry| {
+            entry
+                .attribute("sheetId")
+                .and_then(|id| id.parse::<u32>().ok())
+                .is_some_and(|number| model.sheets.iter().all(|sheet| sheet.number != number))
+        })
+        .filter_map(|entry| entry.attribute((RELATIONSHIP, "id")))
+        .collect();
+    let relations = package.relations(WORKBOOK_PART);
+    let gone_parts: Vec<String> = removed
+        .iter()
+        .filter_map(|id| relations.get(*id))
+        .map(|relation| relation.target.clone())
+        .collect();
+    for part in &gone_parts {
+        let (folder, file) = part.rsplit_once('/').unwrap_or(("", part));
+        let own_relations = format!("{folder}/_rels/{file}.rels");
+        if package.has(&own_relations) {
+            parts.insert(own_relations, None);
+        }
+        parts.insert(part.clone(), None);
+    }
+    let relations_xml = without(
+        &package
+            .text(WORKBOOK_RELATIONS)
+            .ok_or("the workbook relationships are missing")?,
+        |node| node.attribute("Id").is_some_and(|id| removed.contains(&id)),
+    )?;
+    let types_xml = without(
+        &package
+            .text(CONTENT_TYPES)
+            .ok_or("the content types are missing")?,
+        |node| {
+            node.attribute("PartName")
+                .and_then(|name| name.strip_prefix('/'))
+                .is_some_and(|name| gone_parts.iter().any(|part| part == name))
+        },
+    )?;
+    Ok((relations_xml, types_xml, !removed.is_empty()))
+}
+
+/// Puts the sheets of the model in the workbook. A new sheet gets its part, and a removed one
+/// takes its part, its relationship and its content type with it.
 fn workbook_edits(
     model: &Model,
     package: &mut Package<'_>,
@@ -560,12 +631,7 @@ fn workbook_edits(
     if same {
         return Ok(());
     }
-    let relations_xml = package
-        .text(WORKBOOK_RELATIONS)
-        .ok_or("the workbook relationships are missing")?;
-    let types_xml = package
-        .text(CONTENT_TYPES)
-        .ok_or("the content types are missing")?;
+    let (relations_xml, types_xml, removed) = removed_sheets(model, list, package, parts)?;
     let mut relations_added = String::new();
     let mut types_added = String::new();
     let mut entries = String::new();
@@ -609,24 +675,10 @@ fn workbook_edits(
         WORKBOOK_PART.to_owned(),
         Some(format!("{}{entries}{}", &xml[..start], &xml[end..]).into_bytes()),
     );
-    if !relations_added.is_empty() {
-        let closing = relations_xml
-            .rfind("</")
-            .ok_or("the relationships are broken")?;
-        let relations = format!(
-            "{}{relations_added}{}",
-            &relations_xml[..closing],
-            &relations_xml[closing..]
-        );
+    if !relations_added.is_empty() || removed {
+        let relations = with_added(&relations_xml, &relations_added)?;
         parts.insert(WORKBOOK_RELATIONS.to_owned(), Some(relations.into_bytes()));
-        let closing = types_xml
-            .rfind("</")
-            .ok_or("the content types are broken")?;
-        let types = format!(
-            "{}{types_added}{}",
-            &types_xml[..closing],
-            &types_xml[closing..]
-        );
+        let types = with_added(&types_xml, &types_added)?;
         parts.insert(CONTENT_TYPES.to_owned(), Some(types.into_bytes()));
     }
     Ok(())
@@ -670,6 +722,9 @@ fn font_xml(look: &Look) -> String {
     if look.italic {
         xml.push_str("<i/>");
     }
+    if look.strike {
+        xml.push_str("<strike/>");
+    }
     if look.underline {
         xml.push_str("<u/>");
     }
@@ -685,27 +740,106 @@ fn font_xml(look: &Look) -> String {
     xml
 }
 
-/// Adds the new looks to the style table. Looks that the file had stay as they are.
-fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
-    let new_looks = &model.looks[model.file_looks.min(model.looks.len())..];
-    if new_looks.is_empty() {
-        return Ok(());
+/// The number formats of a file: its own ones by id, and those that a save adds.
+struct NumberFormats {
+    codes: Vec<(u32, String)>,
+    next: u32,
+    added: String,
+}
+
+impl NumberFormats {
+    fn of(root: Xml<'_, '_>) -> Self {
+        let codes: Vec<(u32, String)> = local(root, "numFmts").map_or_else(Vec::new, |list| {
+            locals(list, "numFmt")
+                .filter_map(|format| {
+                    let id = format.attribute("numFmtId")?.parse().ok()?;
+                    Some((id, format.attribute("formatCode")?.to_owned()))
+                })
+                .collect()
+        });
+        let next = codes
+            .iter()
+            .map(|(id, _)| id + 1)
+            .max()
+            .unwrap_or(formats::FIRST_OWN)
+            .max(formats::FIRST_OWN);
+        Self {
+            codes,
+            next,
+            added: String::new(),
+        }
     }
-    let xml = package.text(STYLES_PART).ok_or("the file has no styles")?;
+
+    /// The id of a format: Excel's own, the file's, or a new one at the next free id.
+    fn id(&mut self, code: &str) -> u32 {
+        if let Some(id) = formats::built_in_id(code) {
+            return id;
+        }
+        if let Some((id, _)) = self.codes.iter().find(|(_, known)| known == code) {
+            return *id;
+        }
+        let id = self.next;
+        self.next += 1;
+        let _ = write!(
+            self.added,
+            r#"<numFmt numFmtId="{id}" formatCode="{}"/>"#,
+            escape(code)
+        );
+        self.codes.push((id, code.to_owned()));
+        id
+    }
+}
+
+fn cell_format_xml(look: &Look, font: usize, fill: usize, format: u32) -> String {
+    let mut xml = format!(
+        r#"<xf numFmtId="{format}" fontId="{font}" fillId="{fill}" borderId="0" xfId="0" applyFont="1""#
+    );
+    if look.align.is_none() && look.vertical.is_none() && !look.wrap {
+        xml.push_str("/>");
+        return xml;
+    }
+    xml.push_str(r#" applyAlignment="1"><alignment"#);
+    if let Some(align) = &look.align {
+        let _ = write!(xml, r#" horizontal="{}""#, escape(align));
+    }
+    if let Some(vertical) = &look.vertical {
+        let _ = write!(xml, r#" vertical="{}""#, escape(vertical));
+    }
+    if look.wrap {
+        xml.push_str(r#" wrapText="1""#);
+    }
+    xml.push_str("/></xf>");
+    xml
+}
+
+/// Adds the looks that the file's styles lack, after the ones that it holds, so that each look
+/// keeps its index.
+fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
+    let Some(xml) = package.text(STYLES_PART) else {
+        return if model.looks.is_empty() {
+            Ok(())
+        } else {
+            Err("the file has no styles".to_owned())
+        };
+    };
     let parsed = Document::parse(&xml).map_err(|error| error.to_string())?;
     let root = parsed.root_element();
     let count =
         |name: &str, item: &str| local(root, name).map_or(0, |list| locals(list, item).count());
+    let new_looks = &model.looks[count("cellXfs", "xf").min(model.looks.len())..];
+    if new_looks.is_empty() {
+        return Ok(());
+    }
     let mut fonts = count("fonts", "font");
     let mut fills = count("fills", "fill");
-    let mut formats = String::new();
+    let mut formats = NumberFormats::of(root);
     let mut fonts_added = String::new();
     let mut fills_added = String::new();
     let mut cells_added = String::new();
-    for (index, look) in new_looks.iter().enumerate() {
+    for look in new_looks {
         fonts_added.push_str(&font_xml(look));
         fonts += 1;
-        let fill_id = look.fill.as_ref().map_or(0, |fill| {
+        let fill = look.fill.as_ref().map_or(0, |fill| {
             let _ = write!(
                 fills_added,
                 r#"<fill><patternFill patternType="solid"><fgColor rgb="FF{}"/></patternFill></fill>"#,
@@ -714,34 +848,13 @@ fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Res
             fills += 1;
             fills - 1
         });
-        let format_id = look.number_format.as_ref().map_or(0, |code| {
-            let id = FIRST_FORMAT_ID + u32::try_from(index).unwrap_or(0);
-            let _ = write!(
-                formats,
-                r#"<numFmt numFmtId="{id}" formatCode="{}"/>"#,
-                escape(code)
-            );
-            id
-        });
-        let _ = write!(
-            cells_added,
-            r#"<xf numFmtId="{format_id}" fontId="{}" fillId="{fill_id}" borderId="0" xfId="0" applyFont="1""#,
-            fonts - 1
-        );
-        match (&look.align, look.wrap) {
-            (None, false) => cells_added.push_str("/>"),
-            (align, wrap) => {
-                cells_added.push_str(r#" applyAlignment="1"><alignment"#);
-                if let Some(align) = align {
-                    let _ = write!(cells_added, r#" horizontal="{}""#, escape(align));
-                }
-                if wrap {
-                    cells_added.push_str(r#" wrapText="1""#);
-                }
-                cells_added.push_str("/></xf>");
-            }
-        }
+        let format = look
+            .number_format
+            .as_ref()
+            .map_or(0, |code| formats.id(code));
+        cells_added.push_str(&cell_format_xml(look, fonts - 1, fill, format));
     }
+    let formats = formats.added;
     let mut edits: Vec<(usize, String)> = Vec::new();
     for (name, added) in [
         ("fonts", &fonts_added),

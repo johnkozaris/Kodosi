@@ -5,6 +5,7 @@ use package::{Package, escape};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
+    formats,
     formula::{parse_cell, parse_range, translate_shared},
     model::{Anchor, Cell, DefinedName, Look, Model, Sheet, Value},
 };
@@ -108,7 +109,6 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         .unwrap_or_default();
     Ok(Model {
         sheets,
-        file_looks: looks.len(),
         looks,
         names,
         last_number,
@@ -335,6 +335,7 @@ fn read_looks(text: &str) -> Result<Vec<Look>, Unreadable> {
                 look.bold = local(*font, "b").is_some();
                 look.italic = local(*font, "i").is_some();
                 look.underline = local(*font, "u").is_some();
+                look.strike = local(*font, "strike").is_some();
                 look.color = color_of(local(*font, "color"));
                 look.size = local(*font, "sz")
                     .and_then(|size| size.attribute("val"))
@@ -348,12 +349,16 @@ fn read_looks(text: &str) -> Result<Vec<Look>, Unreadable> {
                     .filter(|pattern| pattern.attribute("patternType") == Some("solid"))
                     .and_then(|pattern| color_of(local(pattern, "fgColor")));
             }
-            look.number_format = format
-                .attribute("numFmtId")
-                .and_then(|id| number_formats.get(id))
-                .map(|code| (*code).to_owned());
+            look.number_format = format.attribute("numFmtId").and_then(|id| {
+                number_formats
+                    .get(id)
+                    .copied()
+                    .or_else(|| formats::built_in_code(id.parse().ok()?))
+                    .map(str::to_owned)
+            });
             if let Some(alignment) = local(format, "alignment") {
                 look.align = alignment.attribute("horizontal").map(str::to_owned);
+                look.vertical = alignment.attribute("vertical").map(str::to_owned);
                 look.wrap = alignment.attribute("wrapText") == Some("1");
             }
             look

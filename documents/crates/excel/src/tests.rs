@@ -18,10 +18,11 @@ fn excel_file() -> Vec<u8> {
     excel_file_with(
         &SHEET.replace(" x14ac:custom=\"kept\"", " ht=\"20\""),
         WORKBOOK,
+        STYLES,
     )
 }
 
-fn excel_file_with(sheet: &str, workbook: &str) -> Vec<u8> {
+fn excel_file_with(sheet: &str, workbook: &str, styles: &str) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
@@ -32,7 +33,7 @@ fn excel_file_with(sheet: &str, workbook: &str) -> Vec<u8> {
         ("xl/_rels/workbook.xml.rels", RELATIONS),
         ("xl/worksheets/sheet1.xml", sheet),
         ("xl/sharedStrings.xml", STRINGS),
-        ("xl/styles.xml", STYLES),
+        ("xl/styles.xml", styles),
     ] {
         writer.start_file(name, options).unwrap();
         writer.write_all(bytes.as_bytes()).unwrap();
@@ -142,7 +143,7 @@ fn a_formula_uses_the_names_of_the_workbook_and_keeps_what_it_cannot_work_out() 
         "</sheets>",
         r#"</sheets><definedNames><definedName name="Top">Data!$A$2:$A$3</definedName></definedNames>"#,
     );
-    let mut model = read(&excel_file_with(&sheet, &workbook));
+    let mut model = read(&excel_file_with(&sheet, &workbook, STYLES));
     ops(&mut model, vec![set("A2", Value::Number(10.0))]).unwrap();
     assert_eq!(cell_value(&model, "C1"), 22.0);
     assert_eq!(cell_value(&model, "D1"), 7.0);
@@ -202,8 +203,10 @@ fn a_new_look_adds_to_the_style_table_and_keeps_the_old_ones() {
             range: "A2:A2".to_owned(),
             look: crate::model::Look {
                 bold: true,
+                strike: true,
                 fill: Some("00FF00".to_owned()),
                 number_format: Some("0.00%".to_owned()),
+                vertical: Some("center".to_owned()),
                 ..crate::model::Look::default()
             },
         }],
@@ -218,7 +221,111 @@ fn a_new_look_adds_to_the_style_table_and_keeps_the_old_ones() {
     assert_eq!(style, 2);
     assert_eq!(snapshot["looks"][2]["fill"], "00FF00");
     assert_eq!(snapshot["looks"][2]["numberFormat"], "0.00%");
+    assert_eq!(snapshot["looks"][2]["strike"], true);
+    assert_eq!(snapshot["looks"][2]["vertical"], "center");
     assert_eq!(snapshot["looks"][1]["color"], "FF0000");
+}
+
+#[test]
+fn a_look_goes_out_with_its_style_so_other_views_can_draw_it() {
+    let mut model = read(&excel_file());
+    let look = crate::model::Look {
+        italic: true,
+        ..crate::model::Look::default()
+    };
+    let change = Change::Cells {
+        sheet: model.sheets[0].id.clone(),
+        cells: vec![CellChange {
+            row: 0,
+            column: 0,
+            value: None,
+            formula: None,
+            style: None,
+            look: Some(look.clone()),
+        }],
+    };
+    let sent = Excel::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
+    let Change::Cells { cells, .. } = sent else {
+        panic!("a cells change stays a cells change");
+    };
+    assert_eq!(cells[0].look, Some(look));
+    assert_eq!(cells[0].style, Some(Some(2)));
+}
+
+fn format(model: &mut Model, range: &str, look: crate::model::Look) {
+    ops(
+        model,
+        vec![Op::FormatRange {
+            sheet: "Data".to_owned(),
+            range: range.to_owned(),
+            look,
+        }],
+    )
+    .unwrap();
+}
+
+#[test]
+fn each_save_adds_only_the_looks_that_the_file_lacks() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let bold = crate::model::Look {
+        bold: true,
+        ..crate::model::Look::default()
+    };
+    format(&mut model, "A2:A2", bold.clone());
+    let first = saved(&model, &file);
+    let filled = crate::model::Look {
+        fill: Some("00FF00".to_owned()),
+        ..bold
+    };
+    format(&mut model, "A2:A2", filled);
+    let second = saved(&model, &first);
+    let snapshot = Excel::snapshot(&read(&second)).0;
+    let style = snapshot["sheets"][0]["cells"]["1"]["0"]["style"]
+        .as_u64()
+        .unwrap();
+    assert_eq!(
+        snapshot["looks"][usize::try_from(style).unwrap()]["fill"],
+        "00FF00"
+    );
+    assert_eq!(part(&second, "xl/styles.xml").matches("<xf ").count(), 4);
+}
+
+#[test]
+fn number_formats_keep_their_ids_and_take_free_ones() {
+    let styles = STYLES
+        .replace(
+            "<fonts",
+            r#"<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts"#,
+        )
+        .replace(
+            r#"<xf numFmtId="0" fontId="1""#,
+            r#"<xf numFmtId="14" fontId="1""#,
+        );
+    let file = excel_file_with(
+        &SHEET.replace(" x14ac:custom=\"kept\"", ""),
+        WORKBOOK,
+        &styles,
+    );
+    let mut model = read(&file);
+    assert_eq!(
+        Excel::snapshot(&model).0["looks"][1]["numberFormat"],
+        "mm-dd-yy"
+    );
+    for code in ["0.0", "0.000", "0.00%"] {
+        format(
+            &mut model,
+            "A2:A2",
+            crate::model::Look {
+                number_format: Some(code.to_owned()),
+                ..crate::model::Look::default()
+            },
+        );
+    }
+    let styles = part(&saved(&model, &file), "xl/styles.xml");
+    assert!(styles.contains(r#"<xf numFmtId="164""#));
+    assert!(styles.contains(r#"<numFmt numFmtId="165" formatCode="0.000"/>"#));
+    assert!(styles.contains(r#"<xf numFmtId="10""#));
 }
 
 #[test]
@@ -290,7 +397,7 @@ fn moved_rows_take_what_points_at_them() {
         "</sheets>",
         r#"</sheets><definedNames><definedName name="Top">Data!$A$2:$A$3</definedName></definedNames>"#,
     );
-    let file = excel_file_with(&sheet, &workbook);
+    let file = excel_file_with(&sheet, &workbook, STYLES);
     let mut model = read(&file);
     ops(
         &mut model,
@@ -344,6 +451,43 @@ fn a_sheet_from_a_view_keeps_its_cells_across_saves() {
     assert_eq!(snapshot["sheets"][1]["name"], "Plan");
     assert_eq!(snapshot["sheets"][1]["cells"]["0"]["0"]["value"], 1.0);
     assert_eq!(snapshot["sheets"][1]["cells"]["1"]["0"]["value"], 2.0);
+}
+
+#[test]
+fn a_removed_sheet_leaves_no_part_behind() {
+    let file = excel_file();
+    let mut model = read(&file);
+    let apply = |model: &mut Model, change| {
+        Excel::apply(model, change, &[], &mut Assets::default()).unwrap();
+    };
+    apply(
+        &mut model,
+        Change::AddSheet {
+            id: "added".to_owned(),
+            name: "Added".to_owned(),
+        },
+    );
+    let with_sheet = saved(&model, &file);
+    assert!(
+        Package::open(&with_sheet)
+            .unwrap()
+            .has("xl/worksheets/sheetN2.xml")
+    );
+    apply(
+        &mut model,
+        Change::RemoveSheet {
+            sheet: "added".to_owned(),
+        },
+    );
+    let without_sheet = saved(&model, &with_sheet);
+    assert!(
+        !Package::open(&without_sheet)
+            .unwrap()
+            .has("xl/worksheets/sheetN2.xml")
+    );
+    assert!(!part(&without_sheet, "xl/_rels/workbook.xml.rels").contains("sheetN2"));
+    assert!(!part(&without_sheet, "[Content_Types].xml").contains("sheetN2"));
+    assert!(part(&without_sheet, "[Content_Types].xml").contains("sheet1.xml"));
 }
 
 #[test]

@@ -76,6 +76,8 @@ pub struct Look {
     pub italic: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub underline: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub strike: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -88,6 +90,8 @@ pub struct Look {
     pub number_format: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub align: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertical: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub wrap: bool,
 }
@@ -96,9 +100,9 @@ pub struct Look {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Model {
     pub(crate) sheets: Vec<Sheet>,
+    /// The looks that cells name by index. A file's styles hold the first of them: those that
+    /// it had and those that saves added.
     pub(crate) looks: Vec<Look>,
-    /// Looks up to this index are in the file. Later ones are new.
-    pub(crate) file_looks: usize,
     /// The defined names, in the order of the file.
     pub(crate) names: Vec<DefinedName>,
     /// The highest sheet number so far, so that a new sheet never takes a removed one's.

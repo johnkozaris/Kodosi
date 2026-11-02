@@ -5,6 +5,7 @@
 mod apply;
 mod blank;
 mod calculate;
+mod formats;
 mod formula;
 mod model;
 mod ops;

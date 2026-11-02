@@ -134,7 +134,7 @@ pub(crate) fn guide() -> Guide {
                         "look",
                         "look",
                         true,
-                        "Any of bold, italic, underline, color, size, font, fill, numberFormat, align, wrap",
+                        "Any of bold, italic, underline, strike, color, size, font, fill, numberFormat, align, vertical, wrap",
                     ),
                 ],
             ),
