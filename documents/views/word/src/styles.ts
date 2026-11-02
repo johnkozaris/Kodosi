@@ -1,5 +1,9 @@
-interface StyleLook {
+export interface StyleLook {
   name?: string;
+  /** Whom the style is for: a paragraph, a run of letters, a table or a list. */
+  kind?: string;
+  /** Word shows the style in its gallery. */
+  quick?: boolean;
   bold?: boolean;
   italic?: boolean;
   size?: number;
@@ -16,7 +20,7 @@ interface StyleLook {
   pageBreak?: boolean;
 }
 
-interface Level extends StyleLook {
+export interface Level extends StyleLook {
   format?: string;
   text?: string;
   start?: number;
@@ -55,10 +59,44 @@ export function pageSize(view: WordView) {
   };
 }
 
+const COUNTER_STYLES: Record<string, string> = {
+  decimal: "decimal",
+  decimalZero: "decimal-leading-zero",
+  lowerLetter: "lower-alpha",
+  upperLetter: "upper-alpha",
+  lowerRoman: "lower-roman",
+  upperRoman: "upper-roman",
+};
+
 /** A bullet in a symbol font has a private letter that other fonts draw as a box. */
 function bulletOf(text: string | undefined): string {
   const code = text?.codePointAt(0) ?? 0;
   return !text || (code >= 0xe000 && code <= 0xf8ff) ? "•" : text;
+}
+
+function cssText(text: string): string {
+  return `"${text.replace(/["\\]/g, "\\$&").replace(/[\n\r\f]/g, " ")}"`;
+}
+
+function counterOf(list: string, level: number): string {
+  return `list-${list.replace(/[^\w-]/g, "")}-${level}`;
+}
+
+/** The mark before an item: a bullet, or the level's words with each level's number in them. */
+function markerOf(list: string, levels: readonly Level[], index: number): string {
+  const level = levels[index];
+  if (level?.format === "bullet") return cssText(bulletOf(level.text));
+  const parts = (level?.text ?? `%${index + 1}.`)
+    .split(/(%[1-9])/)
+    .filter(Boolean)
+    .map((part) => {
+      const at = /^%([1-9])$/.exec(part)?.[1];
+      if (at === undefined) return cssText(part);
+      const depth = Number(at) - 1;
+      const style = COUNTER_STYLES[levels[depth]?.format ?? "decimal"] ?? "decimal";
+      return `counter(${counterOf(list, depth)},${style})`;
+    });
+  return parts.length > 0 ? parts.join(" ") : '""';
 }
 
 function alignOf(align: string | undefined): string | undefined {
@@ -104,16 +142,20 @@ export function styleSheet(view: WordView): string {
   }
   for (const [list, levels] of Object.entries(view.numbering ?? {})) {
     for (const [index, level] of levels.entries()) {
-      const selector = `.word-page p[data-list="${CSS.escape(list)}"]`;
-      const levelSelector = index === 0 ? ":not([data-level])" : "";
-      const marker = level.format === "bullet" ? bulletOf(level.text) : `${index + 1}.`;
-      for (const part of [`[data-level="${index}"]`, levelSelector]) {
-        if (!part) continue;
-        sheet.push(`${selector}${part}{${rules(level)}}`);
-        sheet.push(
-          `${selector}${part}::before{content:"${marker.replace(/["\\]/g, "")}";display:inline-block;width:18pt;}`,
-        );
-      }
+      const item =
+        `.word-page p[data-list="${CSS.escape(list)}"]` +
+        (index === 0 ? `:is([data-level="0"],:not([data-level]))` : `[data-level="${index}"]`);
+      const deeper = levels
+        .slice(index + 1)
+        .map((_, offset) => counterOf(list, index + 1 + offset))
+        .join(" ");
+      sheet.push(
+        `${item}{${rules(level)};counter-increment:${counterOf(list, index)};` +
+          `${deeper ? `counter-reset:${deeper};` : ""}}`,
+      );
+      sheet.push(
+        `${item}::before{content:${markerOf(list, levels, index)};display:inline-block;min-width:18pt;}`,
+      );
     }
   }
   return sheet.join("\n");

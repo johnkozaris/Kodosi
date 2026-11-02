@@ -1,9 +1,10 @@
 import { Client, type Editor, type Pipe } from "@documents/client";
 import "./base.css";
+import "./fonts.css";
 
 export type Kind = "word" | "excel" | "powerpoint" | "pdf";
 
-/** The host's look, as CSS variables without their leading dashes. */
+/** The host's look: CSS variables without their leading dashes, and `scheme`, light or dark. */
 export type Theme = Record<string, string>;
 
 export interface Options {
@@ -41,7 +42,8 @@ async function factoryOf(kind: Kind): Promise<EditorFactory> {
 
 function setTheme(element: HTMLElement, theme: Theme | undefined): void {
   for (const [name, value] of Object.entries(theme ?? {})) {
-    element.style.setProperty(`--${name}`, value);
+    if (name === "scheme") element.dataset.scheme = value;
+    else element.style.setProperty(`--${name}`, value);
   }
 }
 

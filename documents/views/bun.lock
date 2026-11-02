@@ -11,6 +11,13 @@
         "vite": "8.3.4",
       },
     },
+    "bar": {
+      "name": "@documents/bar",
+      "version": "0.1.0",
+      "dependencies": {
+        "lucide": "1.61.0",
+      },
+    },
     "client": {
       "name": "@documents/client",
       "version": "0.1.0",
@@ -26,10 +33,12 @@
       "name": "@documents/excel",
       "version": "0.1.0",
       "dependencies": {
+        "@documents/bar": "workspace:*",
         "@documents/client": "workspace:*",
         "@documents/contract": "workspace:*",
         "@univerjs/preset-sheets-core": "1.3.1",
         "@univerjs/presets": "1.3.1",
+        "lucide": "1.61.0",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "rxjs": "7.8.2",
@@ -81,10 +90,12 @@
       "name": "@documents/word",
       "version": "0.1.0",
       "dependencies": {
+        "@documents/bar": "workspace:*",
         "@documents/client": "workspace:*",
         "@documents/contract": "workspace:*",
         "@tiptap/core": "3.31.0",
         "@tiptap/pm": "3.31.0",
+        "lucide": "1.61.0",
         "prosemirror-collab": "1.3.1",
       },
     },
@@ -107,6 +118,8 @@
     "@biomejs/cli-win32-arm64": ["@biomejs/cli-win32-arm64@2.5.15", "", { "os": "win32", "cpu": "arm64" }, "sha512-2kPKzhNlm8C+Ru3GcO0Me2ODkCBLrVOUNuyi84RJyWDVKAA4+Kjj3jMjL938lF6BRfvltC4vB2nPY9SvN51Ovg=="],
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.5.15", "", { "os": "win32", "cpu": "x64" }, "sha512-yAzh4UqEImV6Hcy0zjUqNfJAsUhoD64FBQCdTG8Md/Z2wQeVP/ZmJ3XRYAs1g8J9fjTFyl2fCtc5FB5til47+g=="],
+
+    "@documents/bar": ["@documents/bar@workspace:bar"],
 
     "@documents/client": ["@documents/client@workspace:client"],
 
@@ -455,6 +468,8 @@
     "lodash.camelcase": ["lodash.camelcase@4.3.0", "", {}, "sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA=="],
 
     "long": ["long@5.3.2", "", {}, "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA=="],
+
+    "lucide": ["lucide@1.61.0", "", {}, "sha512-RPNMBgej6WjPKuCNEODg83CF8lnraCeDOsZ3HZ7KvUYf0O5hdJBzer/Ax/meBHl3xvrp5NmKX0IDA5myyzlvGw=="],
 
     "n-gram": ["n-gram@2.0.2", "", {}, "sha512-S24aGsn+HLBxUGVAUFOwGpKs7LBcG4RudKU//eWzt/mQ97/NMKQxDWHyHx63UNWk/OOdihgmzoETn1tf5nQDzQ=="],
 

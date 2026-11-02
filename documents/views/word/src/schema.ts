@@ -2,6 +2,26 @@ import { type Extensions, Mark, Node } from "@tiptap/core";
 
 const attribute = () => ({ default: null, rendered: false });
 
+/** The colors of Word's highlight names, which differ from the CSS colors of the same names. */
+const HIGHLIGHTS: Record<string, string> = {
+  yellow: "#ffff00",
+  green: "#00ff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  blue: "#0000ff",
+  red: "#ff0000",
+  darkBlue: "#000080",
+  darkCyan: "#008080",
+  darkGreen: "#008000",
+  darkMagenta: "#800080",
+  darkRed: "#800000",
+  darkYellow: "#808000",
+  darkGray: "#808080",
+  lightGray: "#c0c0c0",
+  black: "#000000",
+  white: "#ffffff",
+};
+
 const dataAttribute = (name: string, data: string) => ({
   default: null,
   renderHTML: (attrs: Record<string, unknown>) => (attrs[name] ? { [data]: attrs[name] } : {}),
@@ -158,8 +178,8 @@ export const marks = [
       const parts = [
         color ? `color:#${color}` : "",
         size ? `font-size:${Number(size) / 2}pt` : "",
-        font ? `font-family:${font}` : "",
-        highlight ? `background:${highlight}` : "",
+        font ? `font-family:"${String(font).replace(/["\\]/g, "")}"` : "",
+        highlight && HIGHLIGHTS[highlight] ? `background:${HIGHLIGHTS[highlight]}` : "",
       ];
       return ["span", { "data-look": "", style: parts.filter(Boolean).join(";") }, 0];
     },

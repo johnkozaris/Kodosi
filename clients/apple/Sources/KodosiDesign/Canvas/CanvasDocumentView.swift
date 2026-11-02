@@ -43,14 +43,18 @@ struct CanvasDocumentView: View {
     /// The look of the app, by the view's own names.
     private var look: [String: String] {
         let colors = [
-            "surface": theme.colors.surface, "surface-behind": theme.colors.well, "ink": theme.colors.ink,
-            "ink-soft": theme.colors.inkMuted, "line": theme.colors.hairline, "accent": theme.colors.accentStrong,
+            "surface": theme.colors.surface, "surface-behind": theme.colors.well, "raised": theme.colors.raised,
+            "lifted": theme.colors.lifted, "well": theme.colors.well, "ink": theme.colors.ink,
+            "ink-soft": theme.colors.inkMuted, "ink-faint": theme.colors.inkFaint, "line": theme.colors.hairline,
+            "accent": theme.colors.accentStrong,
         ]
-        return colors.mapValues { color in
+        var look = colors.mapValues { color in
             let color = color.resolve(in: environment)
             let parts = [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
             return String(format: "#%02X%02X%02X", parts[0], parts[1], parts[2])
         }
+        look["scheme"] = theme.isDark ? "dark" : "light"
+        return look
     }
 }
 

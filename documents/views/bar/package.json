@@ -1,0 +1,11 @@
+{
+  "name": "@documents/bar",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "lucide": "1.61.0"
+  }
+}

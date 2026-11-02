@@ -18,6 +18,7 @@ import {
   mergeLocales,
 } from "@univerjs/presets";
 import "@univerjs/preset-sheets-core/lib/index.css";
+import { ExcelBar } from "./bar";
 import {
   type Cell,
   type CellChange,
@@ -27,6 +28,7 @@ import {
   moveChange,
   type Snapshot,
 } from "./change";
+import { SheetControl } from "./control";
 import { fromUniver, toUniver, type UniverStyle } from "./look";
 import "./excel.css";
 
@@ -88,6 +90,8 @@ const SET_WIDTH = "sheet.mutation.set-worksheet-col-width";
 const SET_HEIGHT = "sheet.mutation.set-worksheet-row-height";
 const ADD_MERGE = "sheet.mutation.add-worksheet-merge";
 const REMOVE_MERGE = "sheet.mutation.remove-worksheet-merge";
+const SET_NUMBER_FORMAT = "sheet.mutation.set.numfmt";
+const REMOVE_NUMBER_FORMAT = "sheet.mutation.remove.numfmt";
 const SET_SELECTIONS = "sheet.operation.set-selections";
 const SET_SCROLL = "sheet.operation.set-scroll";
 const SET_ACTIVE_SHEET = "sheet.operation.set-worksheet-active";
@@ -191,17 +195,31 @@ function valueOf(cell: UniverCell | null | undefined): CellChange["value"] {
   return cell?.t === BOOLEAN_TYPE ? Boolean(value) : value;
 }
 
-function cellChange(row: number, column: number, cell: UniverCell | null): CellChange {
-  const change: CellChange = { row, column };
+/** A cell's change. Univer changes only part of a style, so the look is the cell's whole look. */
+function cellChange(
+  row: number,
+  column: number,
+  cell: UniverCell | null,
+  lookOf: (row: number, column: number) => CellChange,
+): CellChange {
+  const change: CellChange = cell && "s" in cell ? lookOf(row, column) : { row, column };
   if (cell === null || "v" in cell) change.value = valueOf(cell) ?? null;
   if (cell === null || "f" in cell) {
     change.formula = cell?.f ? cell.f.replace(/^=/, "") : null;
   }
-  const style = cell?.s;
-  if (style === null) change.style = null;
-  else if (typeof style === "object") change.look = fromUniver(style);
-  else if (typeof style === "string" && /^\d+$/.test(style)) change.style = Number(style);
+  if (cell === null) change.style = null;
   return change;
+}
+
+function cellsOf(
+  rows: Record<string, Record<string, UniverCell | null>>,
+  lookOf: (row: number, column: number) => CellChange,
+): CellChange[] {
+  return Object.entries(rows).flatMap(([row, columns]) =>
+    Object.entries(columns).map(([column, cell]) =>
+      cellChange(Number(row), Number(column), cell, lookOf),
+    ),
+  );
 }
 
 function sizes(
@@ -225,45 +243,65 @@ class ExcelEditor implements Editor {
   private readonly canvas: HTMLElement;
   private readonly marks: HTMLElement;
   private readonly status: Status;
+  private readonly bar: ExcelBar;
   private readonly outbox = new Outbox<Change>();
+  private readonly scheme: MutationObserver;
   private univer: ReturnType<typeof createUniver> | undefined;
   private commands: ICommandService | undefined;
   private interceptor: SheetInterceptorService | undefined;
   private undo: IUndoRedoService | undefined;
+  private control: SheetControl | undefined;
   private people: readonly Peer[] = [];
   private remote = false;
+  private fileLooks = 0;
 
   constructor(
-    root: HTMLElement,
+    private readonly root: HTMLElement,
     private readonly client: Client,
   ) {
     this.status = new Status(root);
+    this.bar = new ExcelBar(root, this.status.element);
+    root.append(this.bar.element);
     const holder = root.appendChild(document.createElement("div"));
     holder.className = "excel-holder";
     this.canvas = holder.appendChild(document.createElement("div"));
     this.canvas.className = "excel-canvas";
     this.marks = holder.appendChild(document.createElement("div"));
     this.marks.className = "excel-marks";
-    holder.append(this.status.element);
+    this.scheme = new MutationObserver(() => this.univer?.univerAPI.toggleDarkMode(this.dark()));
+    this.scheme.observe(root, { attributeFilter: ["data-scheme"] });
+  }
+
+  /** The host's scheme, or the computer's when the host names none. */
+  private dark(): boolean {
+    const scheme = this.root.dataset.scheme;
+    return scheme ? scheme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
 
   load(raw: unknown, person: Person): void {
     this.univer?.univer.dispose();
     const worker = new Worker(new URL("./formula-worker.ts", import.meta.url), { type: "module" });
     const made = createUniver({
-      darkMode: window.matchMedia("(prefers-color-scheme: dark)").matches,
+      darkMode: this.dark(),
       locale: LocaleType.EN_US,
       locales: { [LocaleType.EN_US]: mergeLocales(sheetsCoreEnUS) },
       presets: [
-        UniverSheetsCorePreset({ container: this.canvas, workerURL: worker, footer: false }),
+        UniverSheetsCorePreset({
+          container: this.canvas,
+          workerURL: worker,
+          toolbar: false,
+          footer: false,
+        }),
       ],
     });
     this.univer = made;
+    this.fileLooks = (raw as Snapshot).looks.length;
     made.univerAPI.createWorkbook(workbookData(raw as Snapshot) as never);
     const injector = made.univer.__getInjector();
     this.commands = injector.get(ICommandService);
     this.interceptor = injector.get(SheetInterceptorService);
     this.undo = injector.get(IUndoRedoService);
+    this.control = new SheetControl(made.univerAPI, this.commands, this.undo);
     this.commands.onMutationExecutedForCollab((info, options) => {
       if (this.remote || options?.onlyLocal || options?.fromCollab) return;
       const change = this.changeOf(info.id, (info.params ?? {}) as Record<string, unknown>);
@@ -275,10 +313,42 @@ class ExcelEditor implements Editor {
     this.commands.onCommandExecuted((info) => {
       if (info.id === SET_SELECTIONS) this.placed(info.params as Selections);
       else if (info.id === SET_SCROLL || info.id === SET_ACTIVE_SHEET) this.drawMarks();
+      this.bar.update();
     });
     if (!person.canEdit) {
       made.univerAPI.getActiveWorkbook()?.setEditable(false);
     }
+    this.bar.show(this.control, person.canEdit);
+  }
+
+  /**
+   * A cell with its whole look as it is now. A look of the file keeps its index, so that what
+   * the file has and a look does not, such as borders, stays.
+   */
+  private lookOf(sheet: string, row: number, column: number): CellChange {
+    const range = this.univer?.univerAPI
+      .getActiveWorkbook()
+      ?.getSheetBySheetId(sheet)
+      ?.getRange(row, column);
+    const style = range?.getCellData()?.s;
+    if (typeof style === "string" && /^\d+$/.test(style) && Number(style) < this.fileLooks) {
+      return { row, column, style: Number(style) };
+    }
+    const look = fromUniver((range?.getCellStyleData("cell") ?? {}) as UniverStyle);
+    return Object.keys(look).length > 0 ? { row, column, look } : { row, column, style: null };
+  }
+
+  /** The cells of these ranges with their whole looks, after a change of a part of them. */
+  private restyled(sheet: string, ranges: readonly Range[]): Change | null {
+    const cells: CellChange[] = [];
+    for (const range of ranges) {
+      for (let row = range.startRow; row <= range.endRow; row++) {
+        for (let column = range.startColumn; column <= range.endColumn; column++) {
+          cells.push(this.lookOf(sheet, row, column));
+        }
+      }
+    }
+    return cells.length > 0 ? { kind: "cells", sheet, cells } : null;
   }
 
   private placed({ subUnitId, selections }: Selections): void {
@@ -297,16 +367,22 @@ class ExcelEditor implements Editor {
   private changeOf(id: string, params: Record<string, unknown>): Change | null {
     const sheet = params.subUnitId as string;
     const range = params.range as Range;
+    const lookOf = (row: number, column: number) => this.lookOf(sheet, row, column);
     switch (id) {
       case SET_VALUES: {
         const rows = (params.cellValue ?? {}) as Record<string, Record<string, UniverCell | null>>;
-        const cells = Object.entries(rows).flatMap(([row, columns]) =>
-          Object.entries(columns).map(([column, cell]) =>
-            cellChange(Number(row), Number(column), cell),
-          ),
-        );
+        const cells = cellsOf(rows, lookOf);
         return cells.length > 0 ? { kind: "cells", sheet, cells } : null;
       }
+      case SET_NUMBER_FORMAT: {
+        const values = (params.values ?? {}) as Record<string, { ranges: Range[] }>;
+        return this.restyled(
+          sheet,
+          Object.values(values).flatMap((value) => value.ranges),
+        );
+      }
+      case REMOVE_NUMBER_FORMAT:
+        return this.restyled(sheet, params.ranges as Range[]);
       case INSERT_ROW:
         return this.lines("rows", sheet, range.startRow, range.endRow - range.startRow + 1);
       case REMOVE_ROW:
@@ -328,8 +404,18 @@ class ExcelEditor implements Editor {
       case RENAME_SHEET:
         return { kind: "renameSheet", sheet, name: params.name as string };
       case INSERT_SHEET: {
-        const made = params.sheet as { id: string; name: string };
-        return { kind: "addSheet", id: made.id, name: made.name };
+        const made = params.sheet as {
+          id: string;
+          name: string;
+          cellData?: Record<string, Record<string, UniverCell | null>>;
+        };
+        const added: Change = { kind: "addSheet", id: made.id, name: made.name };
+        const cells = cellsOf(made.cellData ?? {}, (row, column) =>
+          this.lookOf(made.id, row, column),
+        );
+        return cells.length > 0
+          ? { kind: "group", changes: [added, { kind: "cells", sheet: made.id, cells }] }
+          : added;
       }
       case REMOVE_SHEET:
         return { kind: "removeSheet", sheet };
@@ -396,7 +482,12 @@ class ExcelEditor implements Editor {
       cellValue[cell.row] ??= {};
       (cellValue[cell.row] as Record<number, UniverCell>)[cell.column] = shown;
     }
-    this.run([{ id: SET_VALUES, params: { unitId: WORKBOOK, subUnitId: sheet, cellValue } }]);
+    this.run([
+      {
+        id: SET_VALUES,
+        params: { unitId: WORKBOOK, subUnitId: sheet, cellValue, isOverrideStyle: true },
+      },
+    ]);
   }
 
   /**
@@ -596,6 +687,7 @@ class ExcelEditor implements Editor {
 
   closed(reason: ClosedReason): void {
     this.univer?.univerAPI.getActiveWorkbook()?.setEditable(false);
+    if (this.control) this.bar.show(this.control, false);
     this.status.closed(reason);
   }
 
@@ -605,6 +697,8 @@ class ExcelEditor implements Editor {
   }
 
   destroy(): void {
+    this.scheme.disconnect();
+    this.bar.destroy();
     this.univer?.univer.dispose();
   }
 }

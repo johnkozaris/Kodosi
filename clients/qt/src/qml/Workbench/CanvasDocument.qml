@@ -104,10 +104,15 @@ WebEngineView {
         readonly property var look: ({
                 "surface": String(KodosiTheme.surface),
                 "surface-behind": String(KodosiTheme.well),
+                "raised": String(KodosiTheme.raised),
+                "lifted": String(KodosiTheme.lifted),
+                "well": String(KodosiTheme.well),
                 "ink": String(KodosiTheme.ink),
                 "ink-soft": String(KodosiTheme.inkMuted),
+                "ink-faint": String(KodosiTheme.inkFaint),
                 "line": String(KodosiTheme.hairline),
-                "accent": String(KodosiTheme.accent)
+                "accent": String(KodosiTheme.accentStrong),
+                "scheme": KodosiTheme.isDark ? "dark" : "light"
             })
 
         signal received(string frame)

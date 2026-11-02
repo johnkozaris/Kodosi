@@ -1,0 +1,68 @@
+/* Office's fonts are missing on many computers. Each name takes the font itself when the
+   computer has it, then a font of the same size, then a common one of the same kind. */
+
+@font-face {
+  font-family: "Calibri";
+  src:
+    local("Calibri"), local("Carlito"), local("Arial"), local("Liberation Sans"),
+    local("Helvetica"), local("DejaVu Sans");
+}
+
+@font-face {
+  font-family: "Calibri";
+  font-weight: bold;
+  src:
+    local("Calibri Bold"), local("Carlito Bold"), local("Arial Bold"),
+    local("Liberation Sans Bold"), local("Helvetica Bold"), local("DejaVu Sans Bold");
+}
+
+@font-face {
+  font-family: "Aptos";
+  src:
+    local("Aptos"), local("Arial"), local("Liberation Sans"), local("Helvetica"),
+    local("DejaVu Sans");
+}
+
+@font-face {
+  font-family: "Aptos";
+  font-weight: bold;
+  src:
+    local("Aptos Bold"), local("Arial Bold"), local("Liberation Sans Bold"),
+    local("Helvetica Bold"), local("DejaVu Sans Bold");
+}
+
+@font-face {
+  font-family: "Arial";
+  src:
+    local("Arial"), local("Liberation Sans"), local("Arimo"), local("Helvetica"),
+    local("DejaVu Sans");
+}
+
+@font-face {
+  font-family: "Arial";
+  font-weight: bold;
+  src:
+    local("Arial Bold"), local("Liberation Sans Bold"), local("Arimo Bold"),
+    local("Helvetica Bold"), local("DejaVu Sans Bold");
+}
+
+@font-face {
+  font-family: "Cambria";
+  src:
+    local("Cambria"), local("Caladea"), local("Georgia"), local("Liberation Serif"),
+    local("Times New Roman"), local("DejaVu Serif");
+}
+
+@font-face {
+  font-family: "Times New Roman";
+  src:
+    local("Times New Roman"), local("Liberation Serif"), local("Tinos"), local("Times"),
+    local("DejaVu Serif");
+}
+
+@font-face {
+  font-family: "Courier New";
+  src:
+    local("Courier New"), local("Liberation Mono"), local("Cousine"), local("Courier"),
+    local("DejaVu Sans Mono");
+}

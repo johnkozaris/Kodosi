@@ -14,6 +14,8 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Step } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
+import { WordBar } from "./bar";
+import * as commands from "./commands";
 import { pages } from "./pages";
 import { extensions } from "./schema";
 import { pageSize, styleSheet, type WordView } from "./styles";
@@ -122,85 +124,68 @@ function imagesPlugin(client: Client): Plugin {
 
 class WordEditor implements ViewEditor {
   private editor: Editor | undefined;
-  private readonly bar: HTMLElement;
+  private readonly bar: WordBar;
   private readonly status: Status;
   private readonly page: HTMLElement;
   private readonly look = document.createElement("style");
   private readonly clientKey = crypto.randomUUID();
   private fitting: ResizeObserver | undefined;
+  private view: WordView = { styles: null, numbering: null, page: null };
 
   constructor(
     root: HTMLElement,
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = root.appendChild(document.createElement("div"));
-    this.bar.className = "document-bar";
+    this.bar = new WordBar(root, this.status.element);
+    root.append(this.bar.element);
     this.page = root.appendChild(document.createElement("div"));
     this.page.className = "document-page word-page";
     root.appendChild(this.look);
   }
 
-  private tool(label: string, name: string, run: () => void): HTMLButtonElement {
-    const button = this.bar.appendChild(document.createElement("button"));
-    button.type = "button";
-    button.textContent = label;
-    button.title = name;
-    button.ariaLabel = name;
-    button.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-      run();
-    });
-    return button;
+  /** A key that changes the file, which does nothing while the file is read only. */
+  private keyed(run: (editor: Editor) => void): () => boolean {
+    return () => {
+      const editor = this.editor;
+      if (!editor?.isEditable) return false;
+      run(editor);
+      return true;
+    };
   }
 
-  private buildBar(view: WordView): void {
-    this.bar.replaceChildren();
-    const style = this.bar.appendChild(document.createElement("select"));
-    style.ariaLabel = "Style";
-    for (const [id, look] of Object.entries(view.styles?.styles ?? {})) {
-      style.add(new Option(look.name ?? id, id));
-    }
-    style.addEventListener("change", () => {
-      this.editor
-        ?.chain()
-        .focus()
-        .command(({ tr, state }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth > 0; depth--) {
-            if ($from.node(depth).type.name === "paragraph") {
-              tr.setNodeAttribute($from.before(depth), "style", style.value);
-              return true;
-            }
-          }
-          return false;
-        })
-        .run();
-    });
-    for (const [label, name, mark] of [
-      ["B", "Bold", "bold"],
-      ["I", "Italic", "italic"],
-      ["U", "Underline", "underline"],
-      ["S", "Strikethrough", "strike"],
-    ] as const) {
-      this.tool(label, name, () => this.editor?.chain().focus().toggleMark(mark).run());
-    }
-    this.tool("↶", "Undo", () => this.run(undo));
-    this.tool("↷", "Redo", () => this.run(redo));
-    this.bar.appendChild(document.createElement("span")).className = "gap";
-    this.bar.append(this.status.element);
-  }
-
-  private run(command: typeof undo): void {
-    const view = this.editor?.view;
-    if (view) command(view.state, view.dispatch);
+  private keys(): Record<string, () => boolean> {
+    const lists = commands.listsOf(this.view);
+    const list = (id: string | null) =>
+      this.keyed((editor) => {
+        if (id) commands.toggleList(editor, id);
+      });
+    return {
+      "Mod-b": this.keyed((editor) => commands.toggleMark(editor, "bold")),
+      "Mod-i": this.keyed((editor) => commands.toggleMark(editor, "italic")),
+      "Mod-u": this.keyed((editor) => commands.toggleMark(editor, "underline")),
+      "Shift-Mod-x": this.keyed((editor) => commands.toggleMark(editor, "strike")),
+      "Shift-Mod-l": this.keyed((editor) => commands.setAlign(editor, "left")),
+      "Shift-Mod-e": this.keyed((editor) => commands.setAlign(editor, "center")),
+      "Shift-Mod-r": this.keyed((editor) => commands.setAlign(editor, "right")),
+      "Shift-Mod-j": this.keyed((editor) => commands.setAlign(editor, "both")),
+      "Shift-Mod-8": list(lists.bullets),
+      "Shift-Mod-7": list(lists.numbers),
+      Tab: this.keyed((editor) => {
+        if (commands.canIndent(editor.state, 1)) commands.indent(editor, 1);
+        else if (!commands.paragraphAt(editor.state)?.attrs.numId) {
+          editor.chain().focus().insertContent({ type: "tab" }).run();
+        }
+      }),
+      "Shift-Tab": this.keyed((editor) => commands.indent(editor, -1)),
+    };
   }
 
   load(raw: unknown, person: Person): void {
     const snapshot = raw as Snapshot;
     this.editor?.destroy();
+    this.view = snapshot.view;
     this.look.textContent = styleSheet(snapshot.view);
-    this.buildBar(snapshot.view);
     const client = this.client;
     const clientID = this.clientKey;
     const shape = pageSize(snapshot.view);
@@ -215,7 +200,7 @@ class WordEditor implements ViewEditor {
           addProseMirrorPlugins: () => [
             collab({ clientID }),
             history(),
-            keymap({ "Mod-z": undo, "Mod-y": redo, "Shift-Mod-z": redo }),
+            keymap({ "Mod-z": undo, "Mod-y": redo, "Shift-Mod-z": redo, ...this.keys() }),
             blockIds(),
             peersPlugin(),
             imagesPlugin(client),
@@ -238,8 +223,10 @@ class WordEditor implements ViewEditor {
           const { from, to } = editor.state.selection;
           client.place({ from, to });
         }
+        this.bar.update();
       },
     });
+    this.bar.show(this.editor, snapshot.view, person.canEdit);
     this.fitting?.disconnect();
     this.fitting = new ResizeObserver(() => this.fit(shape.width));
     this.fitting.observe(this.page);
@@ -283,6 +270,7 @@ class WordEditor implements ViewEditor {
 
   closed(reason: ClosedReason): void {
     this.editor?.setEditable(false);
+    if (this.editor) this.bar.show(this.editor, this.view, false);
     this.status.closed(reason);
   }
 
@@ -294,6 +282,7 @@ class WordEditor implements ViewEditor {
 
   destroy(): void {
     this.fitting?.disconnect();
+    this.bar.destroy();
     this.editor?.destroy();
   }
 }
