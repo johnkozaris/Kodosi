@@ -1,5 +1,5 @@
 use super::{
-    super::channel::tests::{Pipe, pair, stand_in_snapshot},
+    super::channel::tests::{Pipe, channel_keys, pair, stand_in_snapshot},
     *,
 };
 use crate::{identity::keys::DeviceKeys, terminal::Checkpoint};
@@ -16,11 +16,16 @@ async fn view() -> View {
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
+    let straight = Arc::new(direct::Host::new(
+        Arc::new(channel_keys(&viewer)),
+        "host-device".to_owned(),
+        host.signing_public().to_vec(),
+    ));
     let (channel, host) = pair(&host, &viewer).await;
     let (commands, requests) = mpsc::channel(128);
     let (updates_tx, updates) = mpsc::channel(128);
     let ended = tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, requests, updates_tx);
+        let mut viewer = Viewer::new(channel, requests, updates_tx, straight);
         let mut deadlines = tokio::time::interval(Duration::from_millis(250));
         let mut trust = tokio::time::interval(Duration::from_hours(1));
         loop {
@@ -165,10 +170,15 @@ async fn a_view_refuses_a_snapshot_that_does_not_end() {
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
+    let straight = Arc::new(direct::Host::new(
+        Arc::new(channel_keys(&viewer)),
+        "host-device".to_owned(),
+        host.signing_public().to_vec(),
+    ));
     let (channel, _host) = pair(&host, &viewer).await;
     let (_commands, requests) = mpsc::channel(1);
     let (updates, _updates) = mpsc::channel(1);
-    let mut viewer = Viewer::new(channel, requests, updates);
+    let mut viewer = Viewer::new(channel, requests, updates, straight);
     viewer.snapshot_sequence = Some(1);
     viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];
     let part = Frame::Keyframe {

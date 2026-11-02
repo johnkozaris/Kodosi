@@ -20,7 +20,6 @@ use tokio_tungstenite::{
     Connector, MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest as _, protocol::WebSocketConfig},
 };
-#[cfg(feature = "host")]
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -35,6 +34,7 @@ use super::{HostRequest, LocalPublication, PublicationOutput, PublishedFrame};
 
 mod calls;
 mod channel;
+mod direct;
 #[cfg(feature = "host")]
 mod host;
 mod link;
@@ -130,6 +130,30 @@ pub(crate) enum RemoteRequest {
     PipeClose {
         pipe: Uuid,
     },
+    DirectAsk {
+        pipe: Uuid,
+        reply: oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>,
+    },
+}
+
+/// Carries a pipe of a viewer until a side ends it.
+pub(super) fn open_pipe(
+    commands: mpsc::Sender<RemoteRequest>,
+    cancel: CancellationToken,
+    (id, key, name): (Uuid, String, String),
+) -> crate::canvas::PipeEnds {
+    let (to_view, receiver) = mpsc::channel(crate::canvas::PIPE_QUEUE);
+    let (sender, from_view) = mpsc::channel(crate::canvas::PIPE_QUEUE);
+    tokio::spawn(direct::run(direct::Pipe {
+        commands,
+        cancel,
+        id,
+        key,
+        name,
+        to_view,
+        from_view,
+    }));
+    crate::canvas::PipeEnds { sender, receiver }
 }
 
 #[cfg(feature = "host")]

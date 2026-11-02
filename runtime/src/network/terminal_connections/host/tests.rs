@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicU64;
 
 use super::{
-    super::channel::tests::{Pipe, noise, pair, stand_in_snapshot},
+    super::channel::tests::{Pipe, channel_keys, noise, pair, stand_in_snapshot},
     *,
 };
 use crate::{
@@ -88,13 +88,20 @@ impl Terminal {
 const VISIBLE: usize = 300;
 
 async fn terminal(snapshot_bytes: usize) -> Terminal {
-    let (host, viewer) = (
+    let (keys, viewer) = (
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
-    let (viewer, channel) = pair(&host, &viewer).await;
+    let (viewer, channel) = pair(&keys, &viewer).await;
     let (frames, output) = broadcast::channel(512);
     let (requests, mut received) = mpsc::channel(64);
+    let door = Door::new(
+        Arc::new(channel_keys(&keys)),
+        Vec::new(),
+        requests.clone(),
+        Uuid::now_v7(),
+        CancellationToken::new(),
+    );
     let sequence = Arc::new(AtomicU64::new(0));
     let (typed, input) = mpsc::unbounded_channel();
     let (image_budget, image_budgets) = mpsc::unbounded_channel();
@@ -154,6 +161,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 connection: Uuid::now_v7(),
                 authorization: CancellationToken::new(),
             },
+            door,
         );
         let result = stream.serve().await;
         stream.channel.close().await;

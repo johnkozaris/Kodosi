@@ -26,6 +26,8 @@
     <string>$(KODOSI_DEBUG_BACKEND_HOST)</string>
     <key>KodosiDebugBackendPort</key>
     <string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Kodosi connects straight to your other computers on this network, so that a shared browser answers at once.</string>
     <key>LSMinimumSystemVersion</key>
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>LSApplicationCategoryType</key>

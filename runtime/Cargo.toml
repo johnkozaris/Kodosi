@@ -69,7 +69,7 @@ version.workspace = true
 [features]
 default = ["cli", "host"]
 cli = ["host", "dep:clap", "tokio/signal"]
-host = ["dep:documents", "dep:documents-cli", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:if-addrs", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -77,6 +77,7 @@ kodosi-os = { path = "crates/kodosi-os" }
 kodosi-pty = { path = "crates/kodosi-pty", optional = true }
 documents = { path = "../documents/crates/documents", optional = true }
 documents-cli = { path = "../documents/crates/cli", optional = true }
+if-addrs = { version = "0.15", optional = true }
 shared-browser = { path = "../browser/crate", default-features = false, optional = true }
 tar = { version = "0.4.45", default-features = false, optional = true }
 sha2 = "0.11.1"

@@ -153,6 +153,13 @@ Clicks, keys and text come back on the pipe, and the host gives them to the page
 debug port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as
 state, and the app draws them.
 
+A viewer on another device asks on the terminal's channel for a straight connection. The
+host opens a port from 47360 to 47379 for a few seconds, and answers with its addresses.
+The viewer tries them at once, and the channel's TLS runs on TCP with the same device keys.
+The host lets only the viewer's device through. When no address answers, the pipe uses the
+terminal's channel, where terminal output goes first. The path stays until the pipe ends,
+and the view then joins again.
+
 The host runs each `kodosi browser <command>` in the agent's folder as agent-browser on that
 debug port, with the terminal's own session, Kodosi's settings and none of the person's
 `AGENT_BROWSER_*` variables. agent-browser leaves the port after a minute with no command,

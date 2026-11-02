@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
+    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
@@ -19,7 +19,6 @@ use crate::documents::{DocumentHost, path_of};
 
 const JOBS: usize = 64;
 const CHECK: Duration = Duration::from_secs(1);
-const BROWSER: &str = "browser";
 
 type Reply = oneshot::Sender<Result<CanvasAnswer, String>>;
 
@@ -190,7 +189,7 @@ impl CanvasHandle {
         id: String,
         name: String,
     ) -> Result<PipeEnds, String> {
-        if key == BROWSER {
+        if key == BROWSER_PIPE {
             let (reply, answer) = oneshot::channel();
             self.jobs
                 .try_send(Job::Watch { id, name, reply })
@@ -436,13 +435,13 @@ impl Actor {
                 drop(reply.send(answer));
             }
             CanvasRequest::Remove { keys } => {
-                let browser = keys.iter().any(|key| key == BROWSER);
+                let browser = keys.iter().any(|key| key == BROWSER_PIPE);
                 if browser && let Some((browser, _)) = self.browser.take() {
                     tokio::spawn(async move { browser.remove().await });
                 }
                 let files = keys
                     .into_iter()
-                    .filter(|key| key != BROWSER)
+                    .filter(|key| key != BROWSER_PIPE)
                     .collect::<Vec<_>>();
                 if !(browser && files.is_empty()) {
                     self.files.remove(&files);

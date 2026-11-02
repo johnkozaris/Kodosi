@@ -5,6 +5,7 @@ use tokio::task::JoinSet;
 
 use super::{
     channel::{Channel, Transport},
+    direct::Door,
     link::{HostEvent, Hosted, Pipe},
     pacer::Pacer,
     wire::{Accept, ControlResult, End, Frame, Refuse},
@@ -409,7 +410,8 @@ async fn connect(
     cancel: &CancellationToken,
 ) -> Result<()> {
     let id = pipe.id();
-    let mut channel = Channel::accept(pipe, &*network.channel_keys(credentials)?).await?;
+    let keys = network.channel_keys(credentials)?;
+    let mut channel = Channel::accept(pipe, &keys).await?;
     let key = channel.peer_key()?;
     if let Err(refuse) = admit(
         network,
@@ -428,7 +430,7 @@ async fn connect(
     let admitted = Admitted {
         user: user.clone(),
         device: device.clone(),
-        key,
+        key: key.clone(),
         cancel: cancel.clone(),
     };
     if let Ok(mut viewers) = viewers.lock() {
@@ -454,6 +456,13 @@ async fn connect(
         .map_err(|_| Error::Closed)?;
     let authorization = cancel.child_token();
     let _authorization = authorization.clone().drop_guard();
+    let door = Door::new(
+        keys,
+        key,
+        publication.requests.clone(),
+        id,
+        authorization.clone(),
+    );
     let mut stream = Stream::new(
         channel,
         output,
@@ -462,6 +471,7 @@ async fn connect(
             connection: id,
             authorization,
         },
+        door,
     );
     let ended = stream.serve().await;
     if ended.is_ok() {
@@ -586,6 +596,7 @@ struct Stream<'a, T> {
     output: PublicationOutput,
     requests: &'a mpsc::Sender<HostRequest>,
     controller: Controller,
+    door: Door,
     pacer: Pacer,
     parts: VecDeque<Bytes>,
     waiting: VecDeque<Waiting>,
@@ -621,6 +632,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         output: PublicationOutput,
         requests: &'a mpsc::Sender<HostRequest>,
         controller: Controller,
+        door: Door,
     ) -> Self {
         let (leaving_to, leaving) = mpsc::channel(LEAVING_FRAMES);
         Self {
@@ -628,6 +640,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             output,
             requests,
             controller,
+            door,
             pacer: Pacer::default(),
             parts: VecDeque::new(),
             waiting: VecDeque::new(),
@@ -1167,6 +1180,12 @@ impl<'a, T: Transport> Stream<'a, T> {
             Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part)?,
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
+            }
+            Frame::DirectAsk { pipe } => {
+                let addresses = self.door.open().await;
+                self.channel
+                    .send(&Frame::DirectOffer { pipe, addresses })
+                    .await?;
             }
             _ => return Err(invalid("Unsupported terminal viewer frame.")),
         }

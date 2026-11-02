@@ -1,5 +1,6 @@
 use super::{
     channel::{Channel, Transport},
+    direct,
     link::Pipe,
     wire::{ControlResult, Frame},
     *,
@@ -43,8 +44,13 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
+    let host = Arc::new(direct::Host::new(
+        network.channel_keys(&credentials)?,
+        dto.host_device_id.clone(),
+        public.clone(),
+    ));
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone());
+        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), host);
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
@@ -211,6 +217,8 @@ struct Viewer<T> {
     input_sent: u64,
     input_confirmed: u64,
     pipes: BTreeMap<Uuid, PipeOut>,
+    host: Arc<direct::Host>,
+    asking: BTreeMap<Uuid, oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>>,
 }
 
 impl<T: Transport> Viewer<T> {
@@ -218,6 +226,7 @@ impl<T: Transport> Viewer<T> {
         channel: Channel<T>,
         commands: mpsc::Receiver<RemoteRequest>,
         updates: mpsc::Sender<RemoteUpdate>,
+        host: Arc<direct::Host>,
     ) -> Self {
         Self {
             channel,
@@ -235,6 +244,8 @@ impl<T: Transport> Viewer<T> {
             input_sent: 0,
             input_confirmed: 0,
             pipes: BTreeMap::new(),
+            host,
+            asking: BTreeMap::new(),
         }
     }
 
@@ -392,6 +403,13 @@ impl<T: Transport> Viewer<T> {
                     },
                 );
             }
+            pipe => self.pipe_request(pipe).await?,
+        }
+        Ok(())
+    }
+
+    async fn pipe_request(&mut self, request: RemoteRequest) -> Result<()> {
+        match request {
             RemoteRequest::PipeOpen {
                 pipe,
                 key,
@@ -418,6 +436,12 @@ impl<T: Transport> Viewer<T> {
                 self.pipes.remove(&pipe);
                 self.channel.send(&Frame::PipeClose { pipe }).await?;
             }
+            RemoteRequest::DirectAsk { pipe, reply } => {
+                self.asking.retain(|_, waiting| !waiting.is_closed());
+                self.asking.insert(pipe, reply);
+                self.channel.send(&Frame::DirectAsk { pipe }).await?;
+            }
+            RemoteRequest::Control { .. } | RemoteRequest::Checkpoint => {}
         }
         Ok(())
     }
@@ -548,6 +572,11 @@ impl<T: Transport> Viewer<T> {
             Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part).await?,
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
+            }
+            Frame::DirectOffer { pipe, addresses } => {
+                if let Some(waiting) = self.asking.remove(&pipe) {
+                    drop(waiting.send((Arc::clone(&self.host), addresses)));
+                }
             }
             _ => return Err(invalid("Unsupported terminal host frame.")),
         }

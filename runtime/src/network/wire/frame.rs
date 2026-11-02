@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,6 +14,7 @@ use crate::terminal::{CellPixels, TerminalMetadata};
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 pub(crate) const PIPE_PART: usize = 32 * 1024;
+pub(crate) const MOST_DIRECT_ADDRESSES: usize = 8;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
 const CALL_REQUEST: usize = 64 * 1024;
@@ -113,6 +116,13 @@ pub(crate) enum Frame {
     },
     PipeClose {
         pipe: Uuid,
+    },
+    DirectAsk {
+        pipe: Uuid,
+    },
+    DirectOffer {
+        pipe: Uuid,
+        addresses: Vec<SocketAddr>,
     },
 }
 
@@ -240,6 +250,15 @@ impl Frame {
                 (20, body)
             }
             Self::PipeClose { pipe } => (21, pipe.as_bytes().to_vec()),
+            Self::DirectAsk { pipe } => (22, pipe.as_bytes().to_vec()),
+            Self::DirectOffer { pipe, addresses } => {
+                if addresses.len() > MOST_DIRECT_ADDRESSES {
+                    return Err(invalid("Terminal control exceeds its bound."));
+                }
+                let mut body = pipe.as_bytes().to_vec();
+                body.extend_from_slice(&serde_json::to_vec(addresses)?);
+                (23, body)
+            }
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -398,6 +417,25 @@ impl Frame {
                 exact(body, 16)?;
                 Self::PipeClose {
                     pipe: pipe_id(body)?,
+                }
+            }
+            22 => {
+                exact(body, 16)?;
+                Self::DirectAsk {
+                    pipe: pipe_id(body)?,
+                }
+            }
+            23 => {
+                if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
+                    return Err(invalid("Direct offer frame is invalid."));
+                }
+                let addresses: Vec<SocketAddr> = serde_json::from_slice(&body[16..])?;
+                if addresses.len() > MOST_DIRECT_ADDRESSES {
+                    return Err(invalid("Direct offer frame is invalid."));
+                }
+                Self::DirectOffer {
+                    pipe: pipe_id(body)?,
+                    addresses,
                 }
             }
             _ => return Err(invalid("Unsupported terminal frame.")),
@@ -643,6 +681,36 @@ mod tests {
                 pipe,
                 more: false,
                 part: Bytes::from(vec![0; PIPE_PART + 1]),
+            }
+            .encode()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn a_host_offers_a_short_list_of_addresses() {
+        let pipe = Uuid::now_v7();
+        let addresses: Vec<SocketAddr> = vec!["192.168.1.20:47360".parse().unwrap()];
+        let mut bytes = Frame::DirectAsk { pipe }.encode().unwrap();
+        bytes.extend(
+            Frame::DirectOffer {
+                pipe,
+                addresses: addresses.clone(),
+            }
+            .encode()
+            .unwrap(),
+        );
+        let (asked, _) = Frame::take(&mut bytes).unwrap().unwrap();
+        assert!(matches!(asked, Frame::DirectAsk { pipe: read } if read == pipe));
+        let (offered, _) = Frame::take(&mut bytes).unwrap().unwrap();
+        assert!(matches!(
+            offered,
+            Frame::DirectOffer { pipe: read, addresses: list } if read == pipe && list == addresses
+        ));
+        assert!(
+            Frame::DirectOffer {
+                pipe,
+                addresses: vec![addresses[0]; MOST_DIRECT_ADDRESSES + 1],
             }
             .encode()
             .is_err()
