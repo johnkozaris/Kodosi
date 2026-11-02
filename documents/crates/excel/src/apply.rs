@@ -176,8 +176,8 @@ fn move_lines(model: &mut Model, id: &str, at: u32, count: i32, rows: bool) -> R
     let shift = Shift { at, count };
     let name = model.sheet(id).ok_or_else(|| no_sheet(id))?.name.clone();
     let (row_shift, column_shift) = (rows.then_some(shift), (!rows).then_some(shift));
-    for text in &mut model.names {
-        *text = shift_formula(text, false, &name, row_shift, column_shift);
+    for defined in &mut model.names {
+        defined.text = shift_formula(&defined.text, false, &name, row_shift, column_shift);
     }
     for sheet in &mut model.sheets {
         let own = sheet.id == id;

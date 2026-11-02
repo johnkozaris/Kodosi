@@ -8,7 +8,7 @@ version.workspace = true
 
 [dependencies]
 document = { workspace = true }
-formualizer = { version = "0.13.0", default-features = false, features = ["workbook", "eval", "common", "parse", "xlsx-recalc", "system-clock"] }
+formualizer = { version = "0.13.0", default-features = false, features = ["workbook", "eval", "common", "parse", "system-clock"] }
 package = { workspace = true }
 roxmltree = { workspace = true }
 serde = { workspace = true }

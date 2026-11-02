@@ -133,6 +133,22 @@ fn a_read_sees_results_before_any_save() {
 }
 
 #[test]
+fn a_formula_uses_the_names_of_the_workbook_and_keeps_what_it_cannot_work_out() {
+    let sheet = SHEET.replace(" x14ac:custom=\"kept\"", "").replace(
+        r#"<c r="B1" t="s"><v>0</v></c>"#,
+        r#"<c r="B1" t="s"><v>0</v></c><c r="C1"><f>SUM(Top)</f><v>0</v></c><c r="D1"><f>KODOSIUNKNOWN(1)</f><v>7</v></c>"#,
+    );
+    let workbook = WORKBOOK.replace(
+        "</sheets>",
+        r#"</sheets><definedNames><definedName name="Top">Data!$A$2:$A$3</definedName></definedNames>"#,
+    );
+    let mut model = read(&excel_file_with(&sheet, &workbook));
+    ops(&mut model, vec![set("A2", Value::Number(10.0))]).unwrap();
+    assert_eq!(cell_value(&model, "C1"), 22.0);
+    assert_eq!(cell_value(&model, "D1"), 7.0);
+}
+
+#[test]
 fn new_text_keeps_the_shared_strings_as_they_are() {
     let file = excel_file();
     let mut model = read(&file);

@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
 
 use crate::{
+    calculate::calculated,
     formula::{cell_name, parse_cell, parse_range},
     model::{CellChange, Change, Look, Model, Query, Sheet, Value},
-    read, write,
 };
 
 /// What an agent means. The server turns each op into normal changes.
@@ -377,24 +377,6 @@ pub(crate) fn to_changes(model: &Model, ops: &[Op]) -> Result<Vec<Change>, Refus
     Ok(changes)
 }
 
-/// The live copy with current formula values: it goes through the same recalculation as a
-/// save, on the file as it would be saved.
-fn with_values(model: &Model) -> Model {
-    let Some(base) = model.base.as_deref() else {
-        return model.clone();
-    };
-    let Ok(file) = write::write(model, base) else {
-        return model.clone();
-    };
-    let Ok(mut fresh) = read::read(&file) else {
-        return model.clone();
-    };
-    for (sheet, known) in fresh.sheets.iter_mut().zip(&model.sheets) {
-        sheet.name.clone_from(&known.name);
-    }
-    fresh
-}
-
 fn sheet_json(sheet: &Sheet, range: Option<&str>) -> Json {
     let bounds = range.and_then(parse_range);
     let rows: Vec<Json> = sheet
@@ -417,7 +399,7 @@ fn sheet_json(sheet: &Sheet, range: Option<&str>) -> Json {
 }
 
 pub(crate) fn answer(model: &Model, query: &Query) -> Json {
-    let current = with_values(model);
+    let current = calculated(model);
     match query {
         Query::Read { sheet, range } => {
             let sheets: Vec<Json> = current

@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, HashMap};
 
 use document::Unreadable;
 use package::{Package, escape};
@@ -9,7 +6,7 @@ use roxmltree::{Document, Node as Xml};
 
 use crate::{
     formula::{parse_cell, parse_range, translate_shared},
-    model::{Anchor, Cell, Look, Model, Sheet, Value},
+    model::{Anchor, Cell, DefinedName, Look, Model, Sheet, Value},
 };
 
 pub(crate) const WORKBOOK_PART: &str = "xl/workbook.xml";
@@ -94,7 +91,13 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
     }
     let names = local(workbook.root_element(), "definedNames").map_or_else(Vec::new, |names| {
         locals(names, "definedName")
-            .map(|name| name.text().unwrap_or_default().to_owned())
+            .map(|name| DefinedName {
+                name: name.attribute("name").unwrap_or_default().to_owned(),
+                sheet: name
+                    .attribute("localSheetId")
+                    .and_then(|place| place.parse().ok()),
+                text: name.text().unwrap_or_default().to_owned(),
+            })
             .collect()
     });
     let last_number = sheets.iter().map(|sheet| sheet.number).max().unwrap_or(0);
@@ -109,7 +112,6 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         looks,
         names,
         last_number,
-        base: Some(Arc::new(file.to_vec())),
     })
 }
 

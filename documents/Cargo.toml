@@ -52,4 +52,4 @@ text = { path = "crates/text" }
 thiserror = "2.0.21"
 word = { path = "crates/word" }
 ts-rs = { version = "12.0.1", features = ["serde-json-impl"] }
-zip = { version = "9.2.1", default-features = false, features = ["deflate"] }
+zip = { version = "9.2.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, json};
@@ -99,12 +99,19 @@ pub struct Model {
     pub(crate) looks: Vec<Look>,
     /// Looks up to this index are in the file. Later ones are new.
     pub(crate) file_looks: usize,
-    /// The text of each defined name, in the order of the file.
-    pub(crate) names: Vec<String>,
+    /// The defined names, in the order of the file.
+    pub(crate) names: Vec<DefinedName>,
     /// The highest sheet number so far, so that a new sheet never takes a removed one's.
     pub(crate) last_number: u32,
-    /// The file as it was read, which a read uses to work out current formula results.
-    pub(crate) base: Option<Arc<Vec<u8>>>,
+}
+
+/// A name of the workbook, such as a range that formulas use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DefinedName {
+    pub(crate) name: String,
+    /// The place of the only sheet that knows this name, if one sheet owns it.
+    pub(crate) sheet: Option<usize>,
+    pub(crate) text: String,
 }
 
 /// A change to one cell, by its key. What it does not name stays.

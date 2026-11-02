@@ -4,11 +4,11 @@ use std::{
 };
 
 use document::Unwritable;
-use formualizer::workbook::{XlsxRecalculateOptions, recalculate_xlsx_bytes};
 use package::{Package, Parts, escape, rewrite};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
+    calculate::calculated,
     formula::{cell_name, column_name, parse_cell, parse_range, range_name},
     model::{Cell, Look, Model, Sheet, Value},
     read::{ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, local, locals, merges_of, widths_of},
@@ -647,10 +647,10 @@ fn names_edit(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Re
     };
     let edits: Vec<Edit> = locals(names, "definedName")
         .zip(&model.names)
-        .filter(|(name, text)| name.text().unwrap_or_default() != text.as_str())
-        .filter_map(|(name, text)| {
+        .filter(|(name, defined)| name.text().unwrap_or_default() != defined.text)
+        .filter_map(|(name, defined)| {
             let node = name.first_child().filter(Xml::is_text)?;
-            Some((node.range(), escape(text)))
+            Some((node.range(), escape(&defined.text)))
         })
         .collect();
     if !edits.is_empty() {
@@ -825,17 +825,10 @@ fn write_parts(model: &Model, file: &[u8]) -> Result<Option<Vec<u8>>, String> {
         .map_err(|error| error.to_string())
 }
 
-/// Writes the file. The new formula results come from a recalculation that keeps each other
-/// byte. If it has no result, the file keeps the values that it holds.
+/// Writes the file with the current result of each formula.
 pub(crate) fn write(model: &Model, file: &[u8]) -> Result<Vec<u8>, Unwritable> {
-    let Some(patched) = write_parts(model, file).map_err(failed)? else {
-        return Ok(file.to_vec());
-    };
-    Ok(recalculated(&patched).unwrap_or(patched))
-}
-
-pub(crate) fn recalculated(file: &[u8]) -> Option<Vec<u8>> {
-    recalculate_xlsx_bytes(file, XlsxRecalculateOptions::default())
-        .ok()
-        .map(|result| result.bytes)
+    let current = calculated(model);
+    Ok(write_parts(&current, file)
+        .map_err(failed)?
+        .unwrap_or_else(|| file.to_vec()))
 }
