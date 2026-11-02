@@ -11,6 +11,7 @@ use crate::terminal::{CellPixels, TerminalMetadata};
 
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
+pub(crate) const PIPE_PART: usize = 32 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
 const CALL_REQUEST: usize = 64 * 1024;
@@ -100,6 +101,23 @@ pub(crate) enum Frame {
         request_id: Uuid,
         value: Value,
     },
+    PipeOpen {
+        pipe: Uuid,
+        key: String,
+        name: String,
+    },
+    PipeData {
+        pipe: Uuid,
+        more: bool,
+        part: Bytes,
+    },
+    PipeClose {
+        pipe: Uuid,
+    },
+}
+
+fn pipe_id(body: &[u8]) -> Result<Uuid> {
+    Uuid::from_slice(&body[..16]).map_err(|_| invalid("Document frame is invalid."))
 }
 
 /// Whether a control's answer fits one frame.
@@ -110,9 +128,13 @@ pub(crate) fn answer_fits(value: &Value) -> bool {
 
 impl Frame {
     pub(crate) const fn carries_output(&self) -> bool {
-        matches!(self, Self::Keyframe { .. } | Self::Output { .. })
+        matches!(
+            self,
+            Self::Keyframe { .. } | Self::Output { .. } | Self::PipeData { .. }
+        )
     }
 
+    #[expect(clippy::too_many_lines, reason = "one arm for each frame")]
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         let (kind, body) = match self {
             Self::Accept(accept) => (2, serde_json::to_vec(accept)?),
@@ -199,6 +221,25 @@ impl Frame {
                 body.extend_from_slice(&call_json(value, CALL_ANSWER)?);
                 (18, body)
             }
+            Self::PipeOpen { pipe, key, name } => {
+                let mut body = pipe.as_bytes().to_vec();
+                body.extend_from_slice(&serde_json::to_vec(&(key, name))?);
+                if body.len() > 16 + CONTROL_LIMIT {
+                    return Err(invalid("Terminal control exceeds its bound."));
+                }
+                (19, body)
+            }
+            Self::PipeData { pipe, more, part } => {
+                if part.len() > PIPE_PART {
+                    return Err(invalid("Document part exceeds its bound."));
+                }
+                let mut body = Vec::with_capacity(17 + part.len());
+                body.extend_from_slice(pipe.as_bytes());
+                body.push(u8::from(*more));
+                body.extend_from_slice(part);
+                (20, body)
+            }
+            Self::PipeClose { pipe } => (21, pipe.as_bytes().to_vec()),
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -234,6 +275,7 @@ impl Frame {
         Ok(Some((frame, length)))
     }
 
+    #[expect(clippy::too_many_lines, reason = "one arm for each frame")]
     fn decode(kind: u8, body: &[u8]) -> Result<Self> {
         let json = |limit: usize| {
             if body.len() > limit {
@@ -329,6 +371,33 @@ impl Frame {
                     request_id: Uuid::from_slice(&body[..16])
                         .map_err(|_| invalid("Terminal control answer is invalid."))?,
                     value: call_value(&body[16..])?,
+                }
+            }
+            19 => {
+                if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
+                    return Err(invalid("Document open frame is invalid."));
+                }
+                let (key, name) = serde_json::from_slice(&body[16..])?;
+                Self::PipeOpen {
+                    pipe: pipe_id(body)?,
+                    key,
+                    name,
+                }
+            }
+            20 => {
+                if body.len() < 17 || body.len() > 17 + PIPE_PART || body[16] > 1 {
+                    return Err(invalid("Document part is invalid."));
+                }
+                Self::PipeData {
+                    pipe: pipe_id(body)?,
+                    more: body[16] == 1,
+                    part: Bytes::copy_from_slice(&body[17..]),
+                }
+            }
+            21 => {
+                exact(body, 16)?;
+                Self::PipeClose {
+                    pipe: pipe_id(body)?,
                 }
             }
             _ => return Err(invalid("Unsupported terminal frame.")),
@@ -529,6 +598,55 @@ mod tests {
                 next_sequence: 12
             }
         ));
+    }
+
+    #[test]
+    fn a_document_part_goes_as_output_and_opens_and_closes_by_its_pipe() {
+        let pipe = Uuid::now_v7();
+        let frames = [
+            Frame::PipeOpen {
+                pipe,
+                key: "/work/plan.docx".to_owned(),
+                name: "Ana".to_owned(),
+            },
+            Frame::PipeData {
+                pipe,
+                more: true,
+                part: Bytes::from_static(b"part"),
+            },
+            Frame::PipeClose { pipe },
+        ];
+        for frame in frames {
+            let mut buffer = frame.encode().unwrap();
+            let (read, _) = Frame::take(&mut buffer).unwrap().unwrap();
+            assert_eq!(read.carries_output(), frame.carries_output());
+            match (read, frame) {
+                (
+                    Frame::PipeOpen { key, name, .. },
+                    Frame::PipeOpen {
+                        key: sent_key,
+                        name: sent_name,
+                        ..
+                    },
+                ) => assert_eq!((key, name), (sent_key, sent_name)),
+                (Frame::PipeData { part, more, .. }, Frame::PipeData { .. }) => {
+                    assert_eq!((part.as_ref(), more), (b"part".as_slice(), true));
+                }
+                (Frame::PipeClose { pipe: read }, Frame::PipeClose { .. }) => {
+                    assert_eq!(read, pipe);
+                }
+                _ => panic!("the same frame comes back"),
+            }
+        }
+        assert!(
+            Frame::PipeData {
+                pipe,
+                more: false,
+                part: Bytes::from(vec![0; PIPE_PART + 1]),
+            }
+            .encode()
+            .is_err()
+        );
     }
 
     #[test]

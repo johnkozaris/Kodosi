@@ -17,6 +17,9 @@ pub(crate) use actor::{CanvasHandle, close_left, keep_profiles};
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
 pub const PART_BYTES: usize = 256 * 1024;
+/// The frames that wait on each side of a document's pipe.
+pub(crate) const PIPE_QUEUE: usize = 64;
+pub(crate) const MOST_PIPE_FRAME: usize = 64 * 1024 * 1024;
 pub const MOST_PATHS: usize = MOST_ITEMS;
 pub const MOST_ARGUMENTS: usize = 512;
 const MOST_TABS: usize = 10;
@@ -48,6 +51,9 @@ pub struct CanvasItem {
     pub key: String,
     pub name: String,
     pub kind: CanvasKind,
+    /// The live view of this file, when the file has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<DocumentView>,
     pub revision: u64,
     pub bytes: u64,
     pub changed: u64,
@@ -62,6 +68,23 @@ pub enum CanvasKind {
     Picture,
     Pdf,
     Office,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentView {
+    Word,
+    Excel,
+    Powerpoint,
+    Pdf,
+}
+
+/// A device's two ends of a live document's pipe: frames go in and come out, and the pipe ends
+/// when either side lets go.
+#[derive(Debug)]
+pub struct PipeEnds {
+    pub sender: tokio::sync::mpsc::Sender<Vec<u8>>,
+    pub receiver: tokio::sync::mpsc::Receiver<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -444,6 +467,18 @@ impl CanvasAnswer {
 
 fn bounded(text: &str, most: usize) -> bool {
     text.len() <= most && !text.contains('\0')
+}
+
+/// The live view of a file, by its extension.
+pub fn view_of(path: &std::path::Path) -> Option<DocumentView> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    Some(match extension.as_str() {
+        "docx" => DocumentView::Word,
+        "xlsx" => DocumentView::Excel,
+        "pptx" => DocumentView::Powerpoint,
+        "pdf" => DocumentView::Pdf,
+        _ => return None,
+    })
 }
 
 /// What a file shows as on the canvas, by its extension.

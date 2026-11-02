@@ -284,6 +284,12 @@ pub enum HostRequest {
     Disconnected {
         connection_id: Uuid,
     },
+    Document {
+        connection_id: Uuid,
+        key: String,
+        name: String,
+        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
+    },
 }
 
 #[derive(Clone)]
@@ -376,6 +382,48 @@ impl RemoteControl {
                     .map_err(|_|invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again."))?,
             ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again.")),
         }
+    }
+
+    /// Opens a pipe to a live document on the host. It uses the terminal's encrypted channel,
+    /// and each frame goes in parts.
+    pub(crate) fn open_pipe(
+        &self,
+        pipe: Uuid,
+        key: String,
+        name: String,
+    ) -> Result<crate::canvas::PipeEnds> {
+        use terminal_connections::RemoteRequest;
+
+        if self.cancellation.is_cancelled() {
+            return Err(Error::Closed);
+        }
+        let (frames, receiver) = mpsc::channel(crate::canvas::PIPE_QUEUE);
+        let open = RemoteRequest::PipeOpen {
+            pipe,
+            key,
+            name,
+            frames,
+        };
+        self.commands.try_send(open).map_err(|_| Error::Busy)?;
+        let (sender, mut leaving) = mpsc::channel::<Vec<u8>>(crate::canvas::PIPE_QUEUE);
+        let commands = self.commands.clone();
+        tokio::spawn(async move {
+            while let Some(frame) = leaving.recv().await {
+                let parts = frame.len().div_ceil(wire::PIPE_PART);
+                for (index, part) in frame.chunks(wire::PIPE_PART).enumerate() {
+                    let data = RemoteRequest::PipeData {
+                        pipe,
+                        more: index + 1 < parts,
+                        part: Bytes::copy_from_slice(part),
+                    };
+                    if commands.send(data).await.is_err() {
+                        return;
+                    }
+                }
+            }
+            drop(commands.send(RemoteRequest::PipeClose { pipe }).await);
+        });
+        Ok(crate::canvas::PipeEnds { sender, receiver })
     }
 
     #[expect(

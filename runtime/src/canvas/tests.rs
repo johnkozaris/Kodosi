@@ -151,7 +151,11 @@ async fn the_canvas_refuses_what_it_cannot_show() {
 #[tokio::test]
 async fn a_person_opens_the_browser_by_waking_it() {
     let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path());
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::documents::DocumentHost::new(folder.path()),
+    );
     let act = |action| CanvasRequest::Act { action };
     let reload = canvas.request(act(BrowserAct::Reload)).await.unwrap_err();
     assert!(reload.contains("has no browser"), "{reload}");

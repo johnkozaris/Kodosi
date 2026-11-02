@@ -635,6 +635,9 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     ));
     (
         Runtime {
+            pipes: HashMap::new(),
+            #[cfg(feature = "host")]
+            documents: crate::documents::DocumentHost::new(&config.data_root),
             #[cfg(feature = "host")]
             dosi: crate::dosi::Engine::load(
                 &config.data_root,
@@ -654,7 +657,6 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
             mentions: messages::Mentions::default(),
-            #[cfg(feature = "host")]
             person: Some("Ana".to_owned()),
             #[cfg(feature = "host")]
             config,
@@ -2118,7 +2120,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         runtime.changes.clone(),
     )
     .await
@@ -2331,6 +2333,13 @@ fn only_messages_after_the_first_look_at_a_room_name_agents() {
     );
 }
 
+#[cfg(feature = "host")]
+fn stand_in_canvas() -> crate::canvas::CanvasHandle {
+    let folder = std::env::temp_dir();
+    let documents = crate::documents::DocumentHost::new(&folder);
+    crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &folder, documents)
+}
+
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
@@ -2350,7 +2359,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         runtime.changes.clone(),
     )
     .await
@@ -2454,7 +2463,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         runtime.changes.clone(),
     )
     .await

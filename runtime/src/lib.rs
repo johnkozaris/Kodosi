@@ -24,6 +24,8 @@ pub mod canvas;
 pub mod cli;
 mod config;
 pub mod diagnostics;
+#[cfg(feature = "host")]
+mod documents;
 pub mod dosi;
 #[cfg(feature = "host")]
 mod folders;

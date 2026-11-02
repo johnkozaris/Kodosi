@@ -128,6 +128,19 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 HostRequest::Control { reply, .. } => {
                     drop(reply.send(Err("The terminal refused the size.".to_owned())));
                 }
+                HostRequest::Document { reply, .. } => {
+                    let (sender, mut sent) = mpsc::channel(8);
+                    let (answers, answered) = mpsc::channel(8);
+                    tokio::spawn(async move {
+                        while let Some(frame) = sent.recv().await {
+                            drop(answers.send(frame).await);
+                        }
+                    });
+                    drop(reply.send(Ok(crate::canvas::PipeEnds {
+                        sender,
+                        receiver: answered,
+                    })));
+                }
                 _ => {}
             }
         }
@@ -183,6 +196,46 @@ async fn a_view_starts_with_the_current_screen_and_then_gets_output_in_order() {
         received.extend(chunks.iter().map(|chunk| chunk.to_vec()));
     }
     assert_eq!(&received[received.len() - 3..].concat(), b"one two three");
+}
+
+#[tokio::test]
+async fn terminal_output_goes_before_the_frames_of_a_document() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let lines = 8;
+    for _ in 0..lines {
+        terminal.write(&noise(1024));
+    }
+    let pipe = Uuid::now_v7();
+    let opening = Frame::PipeOpen {
+        pipe,
+        key: "notes.docx".to_owned(),
+        name: "Ana".to_owned(),
+    };
+    terminal.viewer.send(&opening).await.unwrap();
+    let frame = Frame::PipeData {
+        pipe,
+        more: false,
+        part: Bytes::from_static(b"join"),
+    };
+    terminal.viewer.send(&frame).await.unwrap();
+    let mut seen = 0;
+    loop {
+        let frame = terminal.next().await;
+        terminal.acknowledge().await;
+        match frame {
+            Frame::Output {
+                first_sequence,
+                chunks,
+            } => seen = first_sequence + chunks.len() as u64,
+            Frame::PipeData { part, .. } => {
+                assert_eq!(part, Bytes::from_static(b"join"));
+                break;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(seen, lines);
 }
 
 #[tokio::test]

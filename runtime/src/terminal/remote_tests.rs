@@ -341,7 +341,7 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
         TestRemoteRequest::Control { reply, .. } => {
             reply.send(Ok(Value::Null)).expect("input result");
         }
-        TestRemoteRequest::Checkpoint => panic!("view input expected"),
+        _ => panic!("view input expected"),
     }
     let refused = terminal.send_input(Bytes::from_static(b"y")).await;
     assert_eq!(
@@ -422,7 +422,7 @@ async fn confirm(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TerminalCo
             reply.send(Ok(Value::Null)).expect("control result");
             control
         }
-        TestRemoteRequest::Checkpoint => panic!("control expected"),
+        _ => panic!("control expected"),
     }
 }
 
@@ -902,7 +902,7 @@ async fn unknown_input_result_is_not_retried_and_makes_the_terminal_connect_agai
                 .send(Err(crate::network::Error::Closed))
                 .expect("unknown result");
         }
-        TestRemoteRequest::Checkpoint => panic!("input expected"),
+        _ => panic!("input expected"),
     }
     interrupted(&mut changes, &terminal).await;
     assert!(requests.try_recv().is_err());

@@ -9,10 +9,11 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    BrowserAct, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest,
+    BrowserAct, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
     browser::{self, Browser, Places},
     files::{Files, Showing, Stamp},
 };
+use crate::documents::{DocumentHost, path_of};
 
 const JOBS: usize = 64;
 const CHECK: Duration = Duration::from_secs(1);
@@ -53,10 +54,11 @@ enum Job {
 pub(crate) struct CanvasHandle {
     jobs: mpsc::Sender<Job>,
     state: watch::Receiver<Canvas>,
+    documents: DocumentHost,
 }
 
 impl CanvasHandle {
-    pub(crate) fn spawn(id: Uuid, data_root: &Path) -> Self {
+    pub(crate) fn spawn(id: Uuid, data_root: &Path, documents: DocumentHost) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (published, state) = watch::channel(Canvas::default());
         let actor = Actor {
@@ -69,7 +71,11 @@ impl CanvasHandle {
             browser: None,
         };
         tokio::spawn(actor.run());
-        Self { jobs, state }
+        Self {
+            jobs,
+            state,
+            documents,
+        }
     }
 
     pub(crate) fn state(&self) -> watch::Receiver<Canvas> {
@@ -118,6 +124,47 @@ impl CanvasHandle {
             reply,
         })
         .await
+    }
+
+    /// Joins the live document of an item of this canvas.
+    pub(crate) async fn document(
+        &self,
+        key: &str,
+        id: String,
+        name: String,
+    ) -> Result<PipeEnds, String> {
+        let shown = self
+            .state
+            .borrow()
+            .items
+            .iter()
+            .any(|item| item.key == key && item.view.is_some());
+        if !shown {
+            return Err("This file is not on the canvas.".to_owned());
+        }
+        let viewer = documents::Viewer {
+            id,
+            name,
+            can_edit: true,
+        };
+        self.documents.open(&path_of(key), viewer).await
+    }
+
+    /// Runs an agent's `kodosi doc` command.
+    pub(crate) async fn document_command(
+        &self,
+        agent: Option<String>,
+        terminal: String,
+        folder: PathBuf,
+        arguments: Vec<String>,
+    ) -> CanvasAnswer {
+        let name = agent.unwrap_or_else(|| "Agent".to_owned());
+        let viewer = documents::Viewer {
+            id: format!("agent-{terminal}-{name}"),
+            name,
+            can_edit: true,
+        };
+        self.documents.run(&viewer, &folder, arguments).await
     }
 
     pub(crate) async fn request(&self, request: CanvasRequest) -> Result<CanvasAnswer, String> {

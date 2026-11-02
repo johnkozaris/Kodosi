@@ -190,6 +190,11 @@ async fn host_trusted(
     Ok(())
 }
 
+struct PipeOut {
+    frames: mpsc::Sender<Vec<u8>>,
+    filling: Vec<u8>,
+}
+
 struct Viewer<T> {
     channel: Channel<T>,
     commands: mpsc::Receiver<RemoteRequest>,
@@ -205,6 +210,7 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    pipes: BTreeMap<Uuid, PipeOut>,
 }
 
 impl<T: Transport> Viewer<T> {
@@ -228,6 +234,7 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            pipes: BTreeMap::new(),
         }
     }
 
@@ -385,6 +392,53 @@ impl<T: Transport> Viewer<T> {
                     },
                 );
             }
+            RemoteRequest::PipeOpen {
+                pipe,
+                key,
+                name,
+                frames,
+            } => {
+                self.pipes.insert(
+                    pipe,
+                    PipeOut {
+                        frames,
+                        filling: Vec::new(),
+                    },
+                );
+                self.channel
+                    .send(&Frame::PipeOpen { pipe, key, name })
+                    .await?;
+            }
+            RemoteRequest::PipeData { pipe, more, part } => {
+                self.channel
+                    .send(&Frame::PipeData { pipe, more, part })
+                    .await?;
+            }
+            RemoteRequest::PipeClose { pipe } => {
+                self.pipes.remove(&pipe);
+                self.channel.send(&Frame::PipeClose { pipe }).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A slow view loses its pipe and joins again, so the terminal never waits for it.
+    async fn pipe_part(&mut self, pipe: Uuid, more: bool, part: &[u8]) -> Result<()> {
+        let Some(open) = self.pipes.get_mut(&pipe) else {
+            return Ok(());
+        };
+        if open.filling.len() + part.len() > crate::canvas::MOST_PIPE_FRAME {
+            return Err(invalid("A document frame exceeds its bound."));
+        }
+        open.filling.extend_from_slice(part);
+        if !more
+            && open
+                .frames
+                .try_send(std::mem::take(&mut open.filling))
+                .is_err()
+        {
+            self.pipes.remove(&pipe);
+            self.channel.send(&Frame::PipeClose { pipe }).await?;
         }
         Ok(())
     }
@@ -490,6 +544,10 @@ impl<T: Transport> Viewer<T> {
                 if let Some(pending) = self.pending.remove(&request_id) {
                     drop(pending.reply.send(Ok(value)));
                 }
+            }
+            Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part).await?,
+            Frame::PipeClose { pipe } => {
+                self.pipes.remove(&pipe);
             }
             _ => return Err(invalid("Unsupported terminal host frame.")),
         }

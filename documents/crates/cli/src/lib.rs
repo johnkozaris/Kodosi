@@ -96,6 +96,39 @@ pub struct GuideArguments {
     pub op: Option<String>,
 }
 
+impl Command {
+    /// Takes relative paths from the folder of the agent.
+    #[must_use]
+    pub fn rooted(self, folder: &Path) -> Self {
+        match self {
+            Self::New(arguments) => Self::New(NewArguments {
+                file: folder.join(arguments.file),
+                from: arguments.from.map(|from| folder.join(from)),
+            }),
+            Self::Read(arguments) => Self::Read(ReadArguments {
+                file: folder.join(arguments.file),
+                ..arguments
+            }),
+            Self::Apply(arguments) => Self::Apply(ApplyArguments {
+                file: folder.join(arguments.file),
+                ops: if arguments.ops.trim_start().starts_with(['[', '{']) {
+                    arguments.ops
+                } else {
+                    folder.join(arguments.ops).display().to_string()
+                },
+                ..arguments
+            }),
+            Self::Check(arguments) => Self::Check(FileArguments {
+                file: folder.join(arguments.file),
+            }),
+            Self::Selection(arguments) => Self::Selection(FileArguments {
+                file: folder.join(arguments.file),
+            }),
+            Self::Guide(arguments) => Self::Guide(arguments),
+        }
+    }
+}
+
 /// All four formats, by file extension.
 pub fn formats() -> Formats {
     Formats::default()
@@ -127,7 +160,9 @@ fn read_query(kind: &str, place: Option<&str>) -> Value {
         ("word", place) => json!({ "kind": "read", "block": place }),
         ("excel", Some(place)) => match place.split_once('!') {
             Some((sheet, range)) => json!({ "kind": "read", "sheet": sheet, "range": range }),
-            None if place.contains(':') => json!({ "kind": "read", "range": place }),
+            None if place.contains(':') || is_cell(place) => {
+                json!({ "kind": "read", "range": place })
+            }
             None => json!({ "kind": "read", "sheet": place }),
         },
         ("excel", None) => json!({ "kind": "read" }),
@@ -137,6 +172,11 @@ fn read_query(kind: &str, place: Option<&str>) -> Value {
             "page": place.and_then(|page| page.parse::<u32>().ok()),
         }),
     }
+}
+
+fn is_cell(place: &str) -> bool {
+    let row = place.trim_start_matches(|letter: char| letter.is_ascii_alphabetic());
+    row.len() < place.len() && !row.is_empty() && row.bytes().all(|digit| digit.is_ascii_digit())
 }
 
 fn ops_change(kind: &str, ops: &Value, track: bool, author: &str) -> Value {

@@ -140,6 +140,8 @@ pub(crate) const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
 #[cfg(feature = "host")]
 pub(crate) const CANVAS_SKILL: &str = include_str!("../../skills/kodosi-canvas/SKILL.md");
 #[cfg(feature = "host")]
+pub(crate) const DOCUMENTS_SKILL: &str = include_str!("../../skills/kodosi-documents/SKILL.md");
+#[cfg(feature = "host")]
 pub(crate) const PAGE: &str = include_str!("../../skills/kodosi-canvas/assets/page.html");
 #[cfg(feature = "host")]
 const PLUGIN: &str = "plugin";
@@ -174,6 +176,13 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
                 .join("assets")
                 .join("page.html"),
             PAGE.to_owned(),
+        ),
+        (
+            plugin
+                .join("skills")
+                .join("kodosi-documents")
+                .join("SKILL.md"),
+            DOCUMENTS_SKILL.to_owned(),
         ),
     ];
     for (file, text) in files {

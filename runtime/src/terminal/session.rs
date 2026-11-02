@@ -1503,6 +1503,18 @@ impl LocalActor {
                     self.publish_presence();
                 }
             }
+            HostRequest::Document {
+                connection_id,
+                key,
+                name,
+                reply,
+            } => {
+                let canvas = self.canvas.clone();
+                tokio::spawn(async move {
+                    let ends = canvas.document(&key, connection_id.to_string(), name).await;
+                    drop(reply.send(ends));
+                });
+            }
             HostRequest::Disconnected { connection_id } => {
                 self.viewers.remove(&connection_id);
                 self.publish_presence();

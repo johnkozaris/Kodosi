@@ -73,7 +73,7 @@ enum Action {
         about = "Print the skill that lets an agent work with the people and agents in Kodosi, or another part of it."
     )]
     Skill {
-        /// canvas: how to show files and use the shared browser; page: the page template of the canvas.
+        /// canvas: how to show files and use the shared browser; documents: how to edit Office files and PDFs with people; page: the page template of the canvas.
         #[arg(value_enum)]
         topic: Option<SkillTopic>,
     },
@@ -97,6 +97,14 @@ enum Action {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
         arguments: Vec<String>,
     },
+    #[command(
+        about = "Read and edit a Word, Excel, PowerPoint or PDF file together with the people in it.",
+        disable_help_flag = true
+    )]
+    Doc {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        arguments: Vec<String>,
+    },
     #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
     Host {
         #[command(subcommand)]
@@ -112,6 +120,7 @@ const TERMINAL: &str =
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {
     Canvas,
+    Documents,
     Page,
 }
 #[derive(Subcommand)]
@@ -491,6 +500,9 @@ async fn dispatch(args: Arguments) -> Result<u8> {
     if let Action::Browser { arguments } = args.command {
         return canvas::browse(arguments, &mut client, &mut context, json_output).await;
     }
+    if let Action::Doc { arguments } = args.command {
+        return canvas::document(arguments, &mut client, &mut context, json_output).await;
+    }
     match args.command {
         Action::Room(arguments) => {
             rooms::run(arguments, &mut client, &mut context, json_output).await
@@ -577,6 +589,9 @@ const fn skill(action: &Action) -> Option<&'static str> {
             topic: Some(SkillTopic::Canvas),
         } => Some(crate::agents::CANVAS_SKILL),
         Action::Skill {
+            topic: Some(SkillTopic::Documents),
+        } => Some(crate::agents::DOCUMENTS_SKILL),
+        Action::Skill {
             topic: Some(SkillTopic::Page),
         } => Some(crate::agents::PAGE),
         Action::Dosi(DosiAction::Skill) => Some(dosi::SKILL),
@@ -647,6 +662,7 @@ async fn command(
         | Action::Show { .. }
         | Action::Canvas { .. }
         | Action::Browser { .. }
+        | Action::Doc { .. }
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status => {
@@ -1708,6 +1724,7 @@ mod tests {
             include_str!("../../skills/kodosi-dosi/SKILL.md"),
             include_str!("../../skills/kodosi/SKILL.md"),
             include_str!("../../skills/kodosi-canvas/SKILL.md"),
+            include_str!("../../skills/kodosi-documents/SKILL.md"),
             include_str!("../../../README.md"),
             include_str!("../../../docs/GETTING_STARTED.md"),
             include_str!("../../../docs/ARCHITECTURE.md"),

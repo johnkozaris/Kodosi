@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 74;
+pub const VERSION: u32 = 75;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -401,6 +401,38 @@ pub enum Command {
         #[serde(rename = "sessionId")]
         session_id: String,
         request: crate::canvas::CanvasRequest,
+    },
+    #[serde(rename = "canvas.document")]
+    CanvasDocument {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        folder: String,
+        arguments: Vec<String>,
+    },
+    #[serde(rename = "document.open")]
+    DocumentOpen {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        pipe: String,
+        key: String,
+    },
+    #[serde(rename = "document.send")]
+    DocumentSend {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        pipe: String,
+        more: bool,
+        data: String,
+    },
+    #[serde(rename = "document.close")]
+    DocumentClose {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        pipe: String,
     },
     #[serde(rename = "mission.show")]
     ShowMission {
@@ -991,6 +1023,30 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
+    #[serde(rename = "document.result")]
+    DocumentResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    #[serde(rename = "document.error")]
+    DocumentError {
+        request_id: String,
+        operation: String,
+        message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    #[serde(rename = "document.frame")]
+    DocumentFrame {
+        pipe: String,
+        sequence: u64,
+        more: bool,
+        data: String,
+    },
+    #[serde(rename = "document.closed")]
+    DocumentClosed { pipe: String },
     #[serde(rename = "provider.result")]
     ProviderResult {
         request_id: String,
@@ -1330,7 +1386,9 @@ impl EventBody {
             | Self::DosiResult { request_id, .. }
             | Self::DosiError { request_id, .. }
             | Self::CanvasResult { request_id, .. }
-            | Self::CanvasError { request_id, .. } => Some(request_id),
+            | Self::CanvasError { request_id, .. }
+            | Self::DocumentResult { request_id, .. }
+            | Self::DocumentError { request_id, .. } => Some(request_id),
             _ => None,
         }
     }
@@ -1386,6 +1444,10 @@ impl EventBody {
             Self::DosiError { .. } => "dosi.error",
             Self::CanvasResult { .. } => "canvas.result",
             Self::CanvasError { .. } => "canvas.error",
+            Self::DocumentResult { .. } => "document.result",
+            Self::DocumentError { .. } => "document.error",
+            Self::DocumentFrame { .. } => "document.frame",
+            Self::DocumentClosed { .. } => "document.closed",
             Self::TerminalBell { .. } => "term.bell",
             Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
@@ -1486,6 +1548,10 @@ impl Command {
             Self::CanvasShow { .. } => "canvas.show",
             Self::CanvasBrowse { .. } => "canvas.browser",
             Self::CanvasAsk { .. } => "canvas.request",
+            Self::CanvasDocument { .. } => "canvas.document",
+            Self::DocumentOpen { .. } => "document.open",
+            Self::DocumentSend { .. } => "document.send",
+            Self::DocumentClose { .. } => "document.close",
             Self::ShowMission { .. } => "mission.show",
             Self::ListMissions { .. } => "mission.list",
             Self::CreateMission { .. } => "mission.create",
@@ -1601,6 +1667,10 @@ impl Command {
             | Self::CanvasShow { request_id, .. }
             | Self::CanvasBrowse { request_id, .. }
             | Self::CanvasAsk { request_id, .. }
+            | Self::CanvasDocument { request_id, .. }
+            | Self::DocumentOpen { request_id, .. }
+            | Self::DocumentSend { request_id, .. }
+            | Self::DocumentClose { request_id, .. }
             | Self::ListMissions { request_id }
             | Self::ShowMission { request_id, .. }
             | Self::CreateMission { request_id, .. }
@@ -1656,6 +1726,8 @@ impl Command {
             | Self::CanvasShow { session_id, .. }
             | Self::CanvasBrowse { session_id, .. }
             | Self::CanvasAsk { session_id, .. }
+            | Self::CanvasDocument { session_id, .. }
+            | Self::DocumentOpen { session_id, .. }
             | Self::Resize { session_id, .. }
             | Self::Focus { session_id, .. }
             | Self::Blur { session_id, .. } => Some(session_id),
@@ -1828,6 +1900,33 @@ impl Command {
                         "The browser command has too many or too long words.".to_owned(),
                     ));
                 }
+            }
+            Self::CanvasDocument {
+                folder, arguments, ..
+            } => {
+                absolute_input(folder, "working directory")?;
+                if arguments.len() > crate::canvas::MOST_ARGUMENTS
+                    || arguments.iter().any(|argument| {
+                        argument.len() > MAX_COMMAND_BYTES / 2 || argument.contains('\0')
+                    })
+                {
+                    return Err(Error::Invalid(
+                        "The document command has too many or too long words.".to_owned(),
+                    ));
+                }
+            }
+            Self::DocumentOpen { pipe, key, .. } => {
+                parse_id(pipe)?;
+                text(key, "file", 4096)?;
+            }
+            Self::DocumentSend { pipe, data, .. } => {
+                parse_id(pipe)?;
+                if data.len() > crate::canvas::PART_BYTES.div_ceil(3) * 4 {
+                    return Err(Error::Invalid("The document part is too long.".to_owned()));
+                }
+            }
+            Self::DocumentClose { pipe, .. } => {
+                parse_id(pipe)?;
             }
             Self::CanvasAsk { request, .. } if !request.is_valid() => {
                 return Err(Error::Invalid(

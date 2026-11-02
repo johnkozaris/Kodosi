@@ -6,7 +6,6 @@ use std::{
 #[cfg(feature = "host")]
 use std::{collections::BTreeSet, sync::atomic::AtomicBool};
 
-#[cfg(any(feature = "host", test))]
 use bytes::Bytes;
 use futures_util::{SinkExt as _, StreamExt as _};
 use reqwest::Method;
@@ -107,12 +106,30 @@ impl Publication {
     }
 }
 
+/// The live documents that one connection holds open.
+#[cfg(feature = "host")]
+const MOST_PIPES: usize = 16;
+
 pub(crate) enum RemoteRequest {
     Control {
         control: TerminalControl,
         reply: oneshot::Sender<Result<Value>>,
     },
     Checkpoint,
+    PipeOpen {
+        pipe: Uuid,
+        key: String,
+        name: String,
+        frames: mpsc::Sender<Vec<u8>>,
+    },
+    PipeData {
+        pipe: Uuid,
+        more: bool,
+        part: Bytes,
+    },
+    PipeClose {
+        pipe: Uuid,
+    },
 }
 
 #[cfg(feature = "host")]
