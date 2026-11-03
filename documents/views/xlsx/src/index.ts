@@ -21,7 +21,9 @@ import {
   LifecycleStages,
   LocaleType,
   mergeLocales,
+  RANGE_TYPE,
 } from "@univerjs/presets";
+import { createElement, Pencil } from "lucide";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import { XlsxBar } from "./bar";
 import {
@@ -31,7 +33,12 @@ import {
   covers,
   type Merge,
   moveChange,
+  moveLine,
+  movePlace,
+  movesLines,
+  type Place,
   type Snapshot,
+  touches,
 } from "./change";
 import { SheetControl } from "./control";
 import { fromUniver, toUniver, type UniverStyle } from "./look";
@@ -61,12 +68,23 @@ interface Selections {
   selections: { range: Range }[];
 }
 
-interface Place {
-  sheet?: string;
-  row?: number;
-  column?: number;
-  endRow?: number;
-  endColumn?: number;
+interface EditedCell {
+  sheet: string;
+  row: number;
+  column: number;
+}
+
+/** A change of the document's order and its rev. */
+interface Ordered {
+  rev: number;
+  change: Change;
+}
+
+/** Another person's place in this copy, and the rev at which it came. */
+interface Marked {
+  peer: Peer;
+  place: Place | null;
+  rev: number;
 }
 
 const WORKBOOK = "workbook";
@@ -259,9 +277,14 @@ class XlsxEditor implements Editor, Pictures {
   private interceptor: SheetInterceptorService | undefined;
   private undo: IUndoRedoService | undefined;
   private control: SheetControl | undefined;
-  private people: readonly Peer[] = [];
+  private marked: readonly Marked[] = [];
   private remote = false;
   private fileLooks = 0;
+  private rev = 0;
+  private here: Place | null = null;
+  private placeWaits = false;
+  private editing: EditedCell | null = null;
+  private held: Ordered[] = [];
 
   constructor(
     private readonly root: HTMLElement,
@@ -304,6 +327,9 @@ class XlsxEditor implements Editor, Pictures {
       ],
     });
     this.univer = made;
+    this.editing = null;
+    this.held = [];
+    this.marked = [];
     this.fileLooks = (raw as Snapshot).looks.length;
     made.univerAPI.createWorkbook(workbookData(raw as Snapshot) as never);
     const injector = made.univer.__getInjector();
@@ -316,6 +342,7 @@ class XlsxEditor implements Editor, Pictures {
       const change = this.changeOf(info.id, (info.params ?? {}) as Record<string, unknown>);
       if (change) {
         this.outbox.add(change);
+        this.moveMarks(change, Number.POSITIVE_INFINITY);
         this.client.pull();
       }
     });
@@ -323,6 +350,17 @@ class XlsxEditor implements Editor, Pictures {
       if (info.id === SET_SELECTIONS) this.placed(info.params as Selections);
       else if (info.id === SET_SCROLL || info.id === SET_ACTIVE_SHEET) this.drawMarks();
       this.bar.update();
+    });
+    made.univerAPI.addEvent(made.univerAPI.Event.SheetEditStarted, ({ worksheet, row, column }) => {
+      this.editing = { sheet: worksheet.getSheetId(), row, column };
+      this.sendPlace();
+    });
+    // Univer writes the cell before it ends the edit, so the edit is in the outbox here.
+    made.univerAPI.addEvent(made.univerAPI.Event.SheetEditEnded, () => {
+      this.editing = null;
+      for (const ordered of this.held.splice(0)) this.showOrdered(ordered);
+      this.sendPlace();
+      this.client.pull();
     });
     if (!person.canEdit) {
       made.univerAPI.getActiveWorkbook()?.setEditable(false);
@@ -363,14 +401,26 @@ class XlsxEditor implements Editor, Pictures {
   private placed({ subUnitId, selections }: Selections): void {
     const range = selections[0]?.range;
     if (range) {
-      this.client.place({
+      this.here = {
         sheet: subUnitId,
         row: range.startRow,
         column: range.startColumn,
         endRow: range.endRow,
         endColumn: range.endColumn,
-      });
+      };
+      this.sendPlace();
     }
+  }
+
+  /**
+   * The place goes as the document is at the client's rev. While changes wait, or while this
+   * side's lines wait for their answer, this copy differs from that rev, so the place waits too.
+   */
+  private sendPlace(): void {
+    if (!this.here) return;
+    this.placeWaits = this.held.length > 0 || this.outbox.unanswered().some(movesLines);
+    if (!this.placeWaits)
+      this.client.place(this.editing ? { ...this.here, editing: true } : this.here);
   }
 
   private changeOf(id: string, params: Record<string, unknown>): Change | null {
@@ -465,8 +515,9 @@ class XlsxEditor implements Editor, Pictures {
     return { kind, sheet, at, count };
   }
 
+  /** Nothing goes while changes wait, because the document is past them and the outbox is not. */
   batch(): unknown | null {
-    return batchOf(this.outbox.next());
+    return this.held.length > 0 ? null : batchOf(this.outbox.next());
   }
 
   private run(mutations: Mutation[]): void {
@@ -500,16 +551,30 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * A row or a column changes through the mutations that Univer's own command makes, so this
-   * side rewrites its formulas and merges, and the person's undo steps go.
+   * A row or a column changes through the mutations that Univer's own command makes, on whole
+   * lines as that command names them, so this side rewrites its formulas and merges, and the
+   * person's undo steps go.
    */
   private showLines(kind: "rows" | "columns", sheet: string, at: number, count: number): void {
     this.outbox.move((change) => moveChange(change, sheet, kind, at, count));
+    const worksheet = this.univer?.univerAPI.getActiveWorkbook()?.getSheetBySheetId(sheet);
     const last = at + Math.abs(count) - 1;
     const range =
       kind === "rows"
-        ? { startRow: at, endRow: last, startColumn: 0, endColumn: 0 }
-        : { startRow: 0, endRow: 0, startColumn: at, endColumn: last };
+        ? {
+            startRow: at,
+            endRow: last,
+            startColumn: 0,
+            endColumn: Math.max((worksheet?.getMaxColumns() ?? 1) - 1, 0),
+            rangeType: RANGE_TYPE.ROW,
+          }
+        : {
+            startRow: 0,
+            endRow: Math.max((worksheet?.getMaxRows() ?? 1) - 1, 0),
+            startColumn: at,
+            endColumn: last,
+            rangeType: RANGE_TYPE.COLUMN,
+          };
     const names = STRUCTURE[kind];
     const params = {
       unitId: WORKBOOK,
@@ -531,6 +596,21 @@ class XlsxEditor implements Editor, Pictures {
       ...(intercepted?.redos ?? []),
     ]);
     this.undo?.clearUndoRedo(WORKBOOK);
+    this.follow(kind, sheet, at, count);
+  }
+
+  /** The person's selection moves with its cells, as an edit does. */
+  private follow(kind: "rows" | "columns", sheet: string, at: number, count: number): void {
+    const worksheet = this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet();
+    const range = worksheet?.getActiveRange();
+    if (!worksheet || !range || worksheet.getSheetId() !== sheet) return;
+    const moved = (line: number, lines: "rows" | "columns") =>
+      lines === kind ? (moveLine(line, at, count) ?? at) : line;
+    const row = moved(range.getRow(), "rows");
+    const column = moved(range.getColumn(), "columns");
+    if (row !== range.getRow() || column !== range.getColumn()) {
+      worksheet.getRange(row, column, range.getHeight(), range.getWidth()).activate();
+    }
   }
 
   private show(change: Change): void {
@@ -644,12 +724,63 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   apply(changed: Changed, own: boolean): void {
-    if (own) this.outbox.answered();
-    else this.show(changed.body as Change);
+    if (own) {
+      this.outbox.answered();
+      if (this.placeWaits) this.sendPlace();
+    } else this.receive({ rev: changed.rev, change: changed.body as Change });
+    this.rev = changed.rev;
   }
 
+  /**
+   * While the person's cell editor is open, a change that writes that cell or moves its line
+   * waits with each change after it, so the editor keeps what the person typed, its value wins,
+   * and it moves with its line when the editor closes.
+   */
+  private receive(ordered: Ordered): void {
+    const editing = this.editing;
+    const { change } = ordered;
+    if (
+      this.held.length > 0 ||
+      (editing && touches(change, editing.sheet, editing.row, editing.column))
+    ) {
+      this.held.push(ordered);
+    } else {
+      this.showOrdered(ordered);
+    }
+  }
+
+  private showOrdered({ rev, change }: Ordered): void {
+    this.show(change);
+    this.moveMarks(change, rev);
+  }
+
+  /** Moves the places that came before `rev` across the lines of a change. */
+  private moveMarks(change: Change, rev: number): void {
+    this.marked = this.marked.map((marked) =>
+      marked.place && marked.rev < rev
+        ? { ...marked, place: movePlace(marked.place, change) }
+        : marked,
+    );
+    this.drawMarks();
+  }
+
+  /**
+   * A place that is new comes at the client's rev, so it moves across this side's unanswered
+   * lines. Each other place stays as this copy moved it.
+   */
   peers(peers: readonly Peer[]): void {
-    this.people = peers;
+    this.marked = peers.map(
+      (peer) =>
+        this.marked.find((marked) => marked.peer === peer) ?? {
+          peer,
+          place: peer.place
+            ? this.outbox
+                .unanswered()
+                .reduce((moved, change) => movePlace(moved, change), peer.place as Place)
+            : null,
+          rev: this.rev,
+        },
+    );
     this.status.peers(peers);
     this.drawMarks();
   }
@@ -670,8 +801,7 @@ class XlsxEditor implements Editor, Pictures {
     const home = sheet.getRange(0, 0).getCellRect();
     const shiftX = grid.left - frame.left - (start.left - home.left + scroll.offsetX);
     const shiftY = grid.top - frame.top - (start.top - home.top + scroll.offsetY);
-    for (const peer of this.people) {
-      const place = peer.place as Place | null;
+    for (const { peer, place } of this.marked) {
       if (place?.sheet !== sheet.getSheetId() || place.row === undefined) continue;
       const first = sheet.getRange(place.row, place.column ?? 0).getCellRect();
       const last = sheet
@@ -679,14 +809,15 @@ class XlsxEditor implements Editor, Pictures {
         .getCellRect();
       const mark = this.marks.appendChild(document.createElement("div"));
       mark.className = "xlsx-mark";
-      mark.style.borderColor = colorOf(peer.id);
+      mark.style.borderColor = colorOf(peer.person);
       mark.style.left = `${first.left + shiftX}px`;
       mark.style.top = `${first.top + shiftY}px`;
       mark.style.width = `${last.right - first.left}px`;
       mark.style.height = `${last.bottom - first.top}px`;
       const name = mark.appendChild(document.createElement("span"));
-      name.textContent = peer.name;
-      name.style.background = colorOf(peer.id);
+      if (place.editing) name.append(createElement(Pencil, { class: "xlsx-editing" }));
+      name.append(peer.name);
+      name.style.background = colorOf(peer.person);
     }
   }
 

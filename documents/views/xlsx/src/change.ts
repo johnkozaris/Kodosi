@@ -52,7 +52,19 @@ export type Change =
 
 export type Merge = [number, number, number, number];
 
-function moveLine(line: number, at: number, count: number): number | null {
+/** A range of cells where a person is. */
+export interface Place {
+  sheet?: string;
+  row?: number;
+  column?: number;
+  endRow?: number;
+  endColumn?: number;
+  /** The person's cell editor is open. */
+  editing?: boolean;
+}
+
+/** Where a line goes when lines come in or go at `at`, or null when it goes. */
+export function moveLine(line: number, at: number, count: number): number | null {
   if (line < at) return line;
   if (count > 0) return line + count;
   return line < at - count ? null : line + count;
@@ -86,6 +98,48 @@ export function moveChange(
     return moved === null ? null : { ...change, at: moved };
   }
   return change;
+}
+
+/** Whether a change adds or removes rows or columns. */
+export function movesLines(change: Change): boolean {
+  if (change.kind === "group") return change.changes.some(movesLines);
+  return change.kind === "rows" || change.kind === "columns";
+}
+
+/** Moves a place across the lines that a change adds or removes, as its cells move. */
+export function movePlace(place: Place, change: Change): Place {
+  if (change.kind === "group") {
+    return change.changes.reduce((moved, inner) => movePlace(moved, inner), place);
+  }
+  if ((change.kind !== "rows" && change.kind !== "columns") || change.sheet !== place.sheet) {
+    return place;
+  }
+  const keys =
+    change.kind === "rows" ? (["row", "endRow"] as const) : (["column", "endColumn"] as const);
+  const moved = { ...place };
+  for (const key of keys) {
+    const line = place[key];
+    if (line !== undefined) moved[key] = moveLine(line, change.at, change.count) ?? change.at;
+  }
+  return moved;
+}
+
+/** Whether a change writes this cell, moves its line or removes its sheet. */
+export function touches(change: Change, sheet: string, row: number, column: number): boolean {
+  switch (change.kind) {
+    case "group":
+      return change.changes.some((inner) => touches(inner, sheet, row, column));
+    case "cells":
+      return covers(change, sheet, row, column);
+    case "rows":
+      return change.sheet === sheet && moveLine(row, change.at, change.count) !== row;
+    case "columns":
+      return change.sheet === sheet && moveLine(column, change.at, change.count) !== column;
+    case "removeSheet":
+      return change.sheet === sheet;
+    default:
+      return false;
+  }
 }
 
 /** Whether an unanswered edit holds this cell, so its value wins over the document's. */
