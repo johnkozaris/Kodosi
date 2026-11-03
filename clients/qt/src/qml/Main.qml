@@ -181,6 +181,20 @@ ApplicationWindow {
                 PathRectangle { width: glow.width; height: glow.height }
             }
         }
+        Item {
+            visible: window.drawsTitleBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: KodosiTheme.titleBarHeight
+
+            DragHandler {
+                target: null
+                onActiveChanged: if (active) window.startSystemMove()
+            }
+            TapHandler {
+                onDoubleTapped: window.visibility === Window.Maximized ? window.showNormal() : window.showMaximized()
+            }
+        }
         RowLayout {
             anchors.fill: parent
             spacing: 0
