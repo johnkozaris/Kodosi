@@ -347,3 +347,42 @@ async fn a_view_sends_the_parts_of_a_picture_only_when_the_host_asks_and_ends_wh
     }
     assert_eq!(last, Some((bytes.len() as u64, bytes.len() as u64)));
 }
+
+#[tokio::test(start_paused = true)]
+async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_the_view_open() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(100, 1);
+    let (reply, given_up) = oneshot::channel();
+    view.commands
+        .send(RemoteRequest::Picture {
+            picture: crate::terminal::Picture::new(Bytes::from(bytes)).unwrap(),
+            reply,
+        })
+        .await
+        .unwrap();
+    let Frame::Picture(late) = view.sent_by_view().await else {
+        panic!("picture offer");
+    };
+    assert!(given_up.await.unwrap().is_err());
+    view.host
+        .send(&Frame::PictureState(PictureState {
+            id: late.id,
+            received: 0,
+            step: PictureStep::Refused,
+            message: "Late.".to_owned(),
+        }))
+        .await
+        .unwrap();
+    view.host
+        .send(&Frame::Heartbeat {
+            number: 1,
+            next_sequence: 0,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
+}

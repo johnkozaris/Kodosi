@@ -1052,14 +1052,15 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    /// A view offers a picture. The terminal pastes it at once if it has its file.
+    /// A view offers a picture. The terminal pastes it at once if it has its file. A view offers
+    /// the next picture before an answer only when it stopped waiting for the last one, so the
+    /// next picture takes its place.
     async fn offered(&mut self, offer: PictureOffer) -> Result<()> {
         let digest = crate::terminal::picture_digest(&offer.sha256)
             .filter(|_| offer.size > 0 && offer.size <= TERMINAL_PICTURE_MAX_BYTES as u64)
             .ok_or_else(|| invalid("The picture offer is not valid."))?;
-        if self.picture.is_some() || self.picture_answer.is_some() {
-            return Err(invalid("A view sends one picture at a time."));
-        }
+        self.picture = None;
+        self.picture_answer = None;
         let reply = self
             .submit_picture(HostPicture::Known {
                 digest,

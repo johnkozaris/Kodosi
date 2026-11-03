@@ -583,9 +583,11 @@ impl<T: Transport> Viewer<T> {
         self.channel.send(&frame).await.map(|_| ())
     }
 
+    /// Follows the host's answer for the picture on its way. A late answer, for a picture that
+    /// this view stopped waiting for, changes nothing.
     async fn picture_state(&mut self, state: PictureState) -> Result<()> {
         let Some(upload) = self.upload.as_mut().filter(|upload| upload.id == state.id) else {
-            return Err(invalid("The host answered for another picture."));
+            return Ok(());
         };
         let now = tokio::time::Instant::now();
         let total = upload.picture.bytes.len() as u64;

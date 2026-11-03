@@ -518,3 +518,30 @@ async fn a_picture_is_pasted_once_all_its_parts_arrive_and_later_again_from_its_
     );
     assert!(terminal.pictures.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn a_picture_takes_the_place_of_one_whose_parts_stopped() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let stopped = picture(1);
+    let asked = terminal.offer(&stopped, stopped.sha256()).await;
+    terminal
+        .viewer
+        .send(&Frame::PicturePart {
+            id: asked.id,
+            offset: 0,
+            bytes: stopped.bytes.slice(..wire::PICTURE_PART),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        terminal.picture_state().await.received,
+        wire::PICTURE_PART as u64
+    );
+    let next = picture(2);
+    let asked = terminal.offer(&next, next.sha256()).await;
+    assert_eq!((asked.step, asked.received), (PictureStep::Receiving, 0));
+    let done = terminal.send_parts(asked.id, &next.bytes).await;
+    assert_eq!(done.step, PictureStep::Pasted);
+    assert_eq!(terminal.pictures.recv().await.unwrap(), next.bytes);
+}

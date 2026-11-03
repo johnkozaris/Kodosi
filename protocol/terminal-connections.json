@@ -201,6 +201,7 @@
     "paste": "when all bytes arrived, the host checks the size, sha256 and format, saves the picture in a private folder of the terminal, pastes the path of its file as input of the viewer, in bracketed paste marks when the program asked for them, and answers pasted; it answers refused when the picture is damaged or the terminal did not take it",
     "limits": "a picture has at most 33554432 bytes; a viewer sends one picture at a time; the host holds at most 134217728 bytes of pictures for all viewers and refuses more",
     "timeoutSeconds": 12,
+    "late": "a viewer without an answer for timeoutSeconds stops waiting for that picture; on the host the next picture of the viewer takes its place, and a late answer for it changes nothing",
     "lost": "a picture whose channel is lost does not arrive and is not sent again"
   },
   "calls": {
