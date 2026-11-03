@@ -142,8 +142,7 @@ public final class BrowserFeed {
                 return
             } catch {
                 failure = error.localizedDescription
-                try? await Task.sleep(for: wait)
-                wait = min(wait * 2, Self.longestWait)
+                wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, Self.longestWait)
             }
         }
     }

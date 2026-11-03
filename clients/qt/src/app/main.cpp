@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     kodosi::DesktopSettings desktopSettings(settings(), QSystemTrayIcon::isSystemTrayAvailable());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::CanvasModel canvas(runtime, sessions);
-    kodosi::CanvasDocuments documents(runtime);
+    kodosi::CanvasDocuments documents(runtime, sessions);
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);

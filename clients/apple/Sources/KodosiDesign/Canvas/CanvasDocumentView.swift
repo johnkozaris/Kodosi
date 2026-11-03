@@ -214,8 +214,7 @@ final class CanvasDocumentPage {
                 _ = try await page.callJavaScript("documentHost.attach()", contentWorld: .page)
                 return
             } catch {
-                try? await Task.sleep(for: wait)
-                wait = min(wait * 2, .seconds(30))
+                wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, .seconds(30))
             }
         }
     }

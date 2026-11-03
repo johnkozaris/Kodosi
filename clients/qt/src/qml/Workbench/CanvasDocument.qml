@@ -156,6 +156,15 @@ WebEngineView {
                 again.restart();
             }
         }
+        function onReachable(sessionId) {
+            if (sessionId !== root.sessionId)
+                return;
+            root.wait = 1000;
+            if (again.running) {
+                again.stop();
+                root.join();
+            }
+        }
 
         target: Models.CanvasDocuments
     }

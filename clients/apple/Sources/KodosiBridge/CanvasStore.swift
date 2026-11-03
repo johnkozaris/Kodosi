@@ -45,6 +45,8 @@ public final class CanvasStore {
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
+    /// The terminals that ran in the last list. A link of a terminal that runs again joins at once.
+    @ObservationIgnored private var running: Set<String> = []
 
     public init(commands: CommandSink) {
         self.commands = commands
@@ -98,6 +100,11 @@ public final class CanvasStore {
         for key in stored.keys where !ids.contains(key.session) {
             forget(key)
         }
+        let runs = Set(sessions.filter { $0.status == .running }.map(\.id))
+        for link in documents.allObjects where runs.contains(link.session) && !running.contains(link.session) {
+            link.reachable()
+        }
+        running = runs
     }
 
     public func isNew(_ shown: CanvasShown, in session: String) -> Bool {

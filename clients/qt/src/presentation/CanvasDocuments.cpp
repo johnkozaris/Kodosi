@@ -1,4 +1,5 @@
 #include "presentation/CanvasDocuments.hpp"
+#include "presentation/SessionCatalogModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
 
 #include <QJsonDocument>
@@ -18,10 +19,12 @@ QString newId()
 }
 }
 
-CanvasDocuments::CanvasDocuments(CommandDispatcher& commands, QObject* parent)
+CanvasDocuments::CanvasDocuments(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent)
     : QObject(parent)
     , m_commands(commands)
+    , m_sessions(sessions)
 {
+    connect(&sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &CanvasDocuments::observe);
 }
 
 bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QString& requestId)
@@ -103,11 +106,27 @@ void CanvasDocuments::reset()
     for (const auto& pipe : pipes)
         lose(pipe);
     m_opening.clear();
+    m_running.clear();
 }
 
 void CanvasDocuments::lose(const QString& pipe)
 {
     m_pipes.remove(pipe);
     emit lost(pipe);
+}
+
+void CanvasDocuments::observe()
+{
+    QSet<QString> running;
+    for (const auto& value : m_sessions.sessions()) {
+        const auto session = value.toMap();
+        if (session.value(QStringLiteral("status")).toString() == QStringLiteral("running"))
+            running.insert(session.value(QStringLiteral("id")).toString());
+    }
+    for (const auto& id : std::as_const(running)) {
+        if (!m_running.contains(id))
+            emit reachable(id);
+    }
+    m_running = std::move(running);
 }
 }

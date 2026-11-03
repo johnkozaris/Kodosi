@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QQuickItem>
 #include <QThread>
+#include <QTimer>
 #include <QVariantMap>
 
 namespace kodosi {
@@ -57,6 +58,7 @@ private:
     void opened(const QString& pipe);
     void received(const QString& pipe, const QString& frame);
     void lost(const QString& pipe);
+    void reachable(const QString& sessionId);
     void frame(const QByteArray& message);
     void decoded(quint32 frame, const QImage& image);
     void post(const QJsonObject& message);
@@ -76,6 +78,7 @@ private:
     quint32 m_lastFrame = 0;
     bool m_behind = true;
     int m_wait = 1000;
+    QTimer m_again;
     QSize m_sentSize;
     QThread m_decoding;
 };

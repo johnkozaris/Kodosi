@@ -72,6 +72,8 @@ BrowserVideo::BrowserVideo(QQuickItem* parent)
     connect(this, &BrowserVideo::decodeRequested, decoder, &Decoder::decode);
     connect(decoder, &Decoder::done, this, &BrowserVideo::decoded);
     m_decoding.start();
+    m_again.setSingleShot(true);
+    connect(&m_again, &QTimer::timeout, this, &BrowserVideo::join);
 }
 
 BrowserVideo::~BrowserVideo()
@@ -94,6 +96,7 @@ void BrowserVideo::setDocuments(QObject* documents)
     connect(m_documents, &CanvasDocuments::opened, this, &BrowserVideo::opened);
     connect(m_documents, &CanvasDocuments::received, this, &BrowserVideo::received);
     connect(m_documents, &CanvasDocuments::lost, this, &BrowserVideo::lost);
+    connect(m_documents, &CanvasDocuments::reachable, this, &BrowserVideo::reachable);
     join();
 }
 
@@ -123,14 +126,26 @@ void BrowserVideo::join()
         return;
     m_pipe = m_documents->open(m_sessionId, QStringLiteral("browser"));
     if (m_pipe.isEmpty())
-        QTimer::singleShot(m_wait, this, &BrowserVideo::join);
+        m_again.start(m_wait);
 }
 
 void BrowserVideo::leave()
 {
+    m_again.stop();
     if (m_documents && !m_pipe.isEmpty())
         m_documents->close(m_pipe);
     m_pipe.clear();
+}
+
+void BrowserVideo::reachable(const QString& sessionId)
+{
+    if (sessionId != m_sessionId)
+        return;
+    m_wait = 1000;
+    if (m_again.isActive()) {
+        m_again.stop();
+        join();
+    }
 }
 
 void BrowserVideo::opened(const QString& pipe)
@@ -165,7 +180,7 @@ void BrowserVideo::lost(const QString& pipe)
     if (pipe != m_pipe)
         return;
     m_pipe.clear();
-    QTimer::singleShot(m_wait, this, &BrowserVideo::join);
+    m_again.start(m_wait);
     m_wait = std::min(m_wait * 2, longestWait);
 }
 

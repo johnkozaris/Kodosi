@@ -2,16 +2,18 @@ import Foundation
 
 /// One live document of a canvas on this device. Frames from the view go to the runtime in parts,
 /// and the runtime's parts come back whole. When the pipe breaks, the link says so, and the view
-/// joins again on a new pipe.
+/// joins again on a new pipe, at once when the terminal can be reached again.
 @MainActor
 public final class DocumentLink {
     private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
-    private let session: String
+    let session: String
     private let key: String
     private var filling = Data()
     private var next: UInt64 = 0
+    private var pausing: CheckedContinuation<Bool, Never>?
+    private var reachedWhileBusy = false
     public private(set) var pipe: String?
     public var onFrame: (Data) -> Void = { _ in }
     public var onLost: () -> Void = {}
@@ -31,12 +33,47 @@ public final class DocumentLink {
             _ = try await commands.request("document.open", [
                 "sessionId": .string(session), "pipe": .string(opening), "key": .string(key),
             ])
+            reachedWhileBusy = false
         } catch {
             if pipe == opening {
                 pipe = nil
             }
             throw error
         }
+    }
+
+    /// Waits `wait`, or less when the terminal of this link can be reached again. True when it can.
+    public func pause(_ wait: Duration) async -> Bool {
+        if reachedWhileBusy {
+            reachedWhileBusy = false
+            return true
+        }
+        let timer = Task { [weak self] in
+            try? await Task.sleep(for: wait)
+            self?.resume(false)
+        }
+        defer { timer.cancel() }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                resume(false)
+                pausing = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.resume(false) }
+        }
+    }
+
+    /// The store saw the terminal of this link come back.
+    func reachable() {
+        if pausing == nil {
+            reachedWhileBusy = true
+        }
+        resume(true)
+    }
+
+    private func resume(_ reached: Bool) {
+        pausing?.resume(returning: reached)
+        pausing = nil
     }
 
     public func send(_ frame: Data) {

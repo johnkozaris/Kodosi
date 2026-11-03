@@ -284,7 +284,8 @@ private slots:
     void aDocumentFrameComesBackWholeAndAGapBreaksThePipe()
     {
         Commands commands;
-        kodosi::CanvasDocuments documents(commands);
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
         QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
         QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
         QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
@@ -308,10 +309,29 @@ private slots:
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
     }
 
+    void aDocumentHearsWhenItsTerminalRunsAgain()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        QSignalSpy reachable(&documents, &kodosi::CanvasDocuments::reachable);
+        auto remote = test::session(1, true);
+        remote.insert(QStringLiteral("status"), QStringLiteral("reconnecting"));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 0);
+        remote.insert(QStringLiteral("status"), QStringLiteral("running"));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 1);
+        QCOMPARE(reachable.first().first().toString(), test::id(1));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 1);
+    }
+
     void aLargeFrameGoesInPartsOfWholeLetterGroups()
     {
         Commands commands;
-        kodosi::CanvasDocuments documents(commands);
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
         documents.send(pipe, QString(600 * 1024, u'A'));
         QCOMPARE(commands.values.size(), 3);
