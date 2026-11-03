@@ -26,7 +26,7 @@ const MOST_PICTURES: usize = 300;
 pub(super) struct RenderArguments {
     /// A document, sheet, presentation or PDF.
     pub file: PathBuf,
-    /// The folder of the pictures. Without it, they go to a folder of temporary files.
+    /// The folder of the pictures. Without it, they go to a private folder of the terminal.
     #[arg(long)]
     pub out: Option<PathBuf>,
 }

@@ -452,11 +452,7 @@ impl Actor {
                 reply,
             } => {
                 let host = self.browsers.clone();
-                let out = out.unwrap_or_else(|| {
-                    std::env::temp_dir()
-                        .join("kodosi-render")
-                        .join(self.id.to_string())
-                });
+                let out = out.unwrap_or_else(|| pictures(&self.data_root, self.id));
                 let profile = if *self.sharing.borrow() {
                     self.id.to_string()
                 } else {
@@ -609,6 +605,9 @@ impl Actor {
 
     async fn end(&mut self, remove: bool) {
         self.uploads.clear().await;
+        if remove {
+            drop(tokio::fs::remove_dir_all(pictures(&self.data_root, self.id)).await);
+        }
         if let Some((browser, _)) = self.browser.take() {
             if remove {
                 browser.remove().await;
@@ -620,6 +619,11 @@ impl Actor {
             drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(profile)).await);
         }
     }
+}
+
+/// The private folder of the pictures that `kodosi doc render` draws for a terminal.
+fn pictures(data_root: &Path, id: Uuid) -> PathBuf {
+    data_root.join("render").join(id.to_string())
 }
 
 fn shown(showing: &Showing, terminal: &str) -> CanvasAnswer {
@@ -653,11 +657,13 @@ fn shown(showing: &Showing, terminal: &str) -> CanvasAnswer {
     }
 }
 
-/// Deletes the browser profiles of the terminals that do not come back.
+/// Deletes the browser profiles of the terminals that do not come back, and the pictures of
+/// earlier renders.
 pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
     for profile in browser::left_profiles(data_root, returning) {
         drop(std::fs::remove_dir_all(profile));
     }
+    drop(std::fs::remove_dir_all(data_root.join("render")));
 }
 
 /// Closes the browsers that an earlier host left, for example after a crash.
