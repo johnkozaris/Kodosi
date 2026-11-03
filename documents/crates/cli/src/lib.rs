@@ -14,11 +14,11 @@ use std::{
 use clap::{Args, Subcommand};
 use document::{CONTRACT, Catchup, Format, Frame, Guide, Peer, ToClient, ToDocument, contract};
 use documents::{Documents, Formats, OpenError, Pipe, Viewer, format};
-use excel::Excel;
+use docx::Docx;
 use pdf::Pdf;
-use powerpoint::PowerPoint;
+use pptx::Pptx;
 use serde_json::{Value, json};
-use word::Word;
+use xlsx::Xlsx;
 
 const ANSWER_LIMIT: Duration = Duration::from_mins(1);
 /// How long an agent stays among the people after its last command.
@@ -39,7 +39,7 @@ pub enum Failed {
 /// One command of an agent.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
-    /// Makes a Word, Excel or `PowerPoint` file.
+    /// Makes a .docx, .xlsx or .pptx file.
     New(NewArguments),
     /// Prints the content with its ids and cell names, and the rev.
     Read(ReadArguments),
@@ -78,7 +78,7 @@ pub struct ApplyArguments {
     /// The rev that the last read printed.
     #[arg(long)]
     pub base: u64,
-    /// Writes the ops as tracked changes in Word.
+    /// Writes the ops of a .docx file as tracked changes.
     #[arg(long)]
     pub track: bool,
 }
@@ -90,7 +90,7 @@ pub struct FileArguments {
 
 #[derive(Debug, Clone, Args)]
 pub struct GuideArguments {
-    /// word, excel, powerpoint or pdf.
+    /// docx, xlsx, pptx or pdf.
     pub format: String,
     /// One op of the format.
     pub op: Option<String>,
@@ -132,9 +132,9 @@ impl Command {
 /// All four formats, by file extension.
 pub fn formats() -> Formats {
     Formats::default()
-        .with("docx", format::<Word>())
-        .with("xlsx", format::<Excel>())
-        .with("pptx", format::<PowerPoint>())
+        .with("docx", format::<Docx>())
+        .with("xlsx", format::<Xlsx>())
+        .with("pptx", format::<Pptx>())
         .with("pdf", format::<Pdf>())
 }
 
@@ -144,29 +144,26 @@ fn kind_of(path: &Path) -> Result<&'static str, Failed> {
         .and_then(|extension| extension.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    match extension.as_str() {
-        "docx" => Ok("word"),
-        "xlsx" => Ok("excel"),
-        "pptx" => Ok("powerpoint"),
-        "pdf" => Ok("pdf"),
-        _ => Err(Failed::Says(
-            "This command takes .docx, .xlsx, .pptx and .pdf files.".to_owned(),
-        )),
-    }
+    ["docx", "xlsx", "pptx", "pdf"]
+        .into_iter()
+        .find(|kind| *kind == extension)
+        .ok_or_else(|| {
+            Failed::Says("This command takes .docx, .xlsx, .pptx and .pdf files.".to_owned())
+        })
 }
 
 fn read_query(kind: &str, place: Option<&str>) -> Value {
     match (kind, place) {
-        ("word", place) => json!({ "kind": "read", "block": place }),
-        ("excel", Some(place)) => match place.split_once('!') {
+        ("docx", place) => json!({ "kind": "read", "block": place }),
+        ("xlsx", Some(place)) => match place.split_once('!') {
             Some((sheet, range)) => json!({ "kind": "read", "sheet": sheet, "range": range }),
             None if place.contains(':') || is_cell(place) => {
                 json!({ "kind": "read", "range": place })
             }
             None => json!({ "kind": "read", "sheet": place }),
         },
-        ("excel", None) => json!({ "kind": "read" }),
-        ("powerpoint", place) => json!({ "kind": "read", "slide": place }),
+        ("xlsx", None) => json!({ "kind": "read" }),
+        ("pptx", place) => json!({ "kind": "read", "slide": place }),
         (_, place) => json!({
             "kind": "read",
             "page": place.and_then(|page| page.parse::<u32>().ok()),
@@ -180,7 +177,7 @@ fn is_cell(place: &str) -> bool {
 }
 
 fn ops_change(kind: &str, ops: &Value, track: bool, author: &str) -> Value {
-    if kind == "word" {
+    if kind == "docx" {
         json!({ "kind": "ops", "ops": ops, "track": track, "author": author })
     } else {
         json!({ "kind": "ops", "ops": ops })
@@ -203,12 +200,14 @@ fn parse_ops(text: &str) -> Result<Value, Failed> {
 }
 
 fn guide_of(kind: &str) -> Result<Guide, Failed> {
-    match kind {
-        "word" => Ok(Word::guide()),
-        "excel" => Ok(Excel::guide()),
-        "powerpoint" => Ok(PowerPoint::guide()),
+    match kind.trim_start_matches('.').to_ascii_lowercase().as_str() {
+        "docx" => Ok(Docx::guide()),
+        "xlsx" => Ok(Xlsx::guide()),
+        "pptx" => Ok(Pptx::guide()),
         "pdf" => Ok(Pdf::guide()),
-        other => Err(Failed::Says(format!("There is no format {other}."))),
+        other => Err(Failed::Says(format!(
+            "There is no format {other}. Use docx, xlsx, pptx or pdf."
+        ))),
     }
 }
 
@@ -221,6 +220,16 @@ fn guide_text(guide: &Guide, op: Option<&str>) -> Result<String, Failed> {
         }
         found = true;
         let _ = writeln!(text, "{}: {}", item.name, item.does);
+        let shape = std::iter::once(format!("\"op\": \"{}\"", item.name))
+            .chain(
+                item.fields
+                    .iter()
+                    .filter(|field| field.required)
+                    .map(|field| format!("\"{}\": …", field.name)),
+            )
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(text, "  {{{shape}}}");
         for field in &item.fields {
             let need = if field.required {
                 "required"
@@ -256,10 +265,10 @@ fn new_file(file: &Path, from: Option<&Path>) -> Result<String, Failed> {
         .unwrap_or_default()
         .to_ascii_lowercase();
     let bytes = match kind_of(file)? {
-        "word" => word::new_file(source.as_deref()),
-        "excel" => excel::new_file(source.as_deref().map(|text| (extension.as_str(), text))),
-        "powerpoint" => powerpoint::new_file(source.as_deref()),
-        _ => Err("This command makes Word, Excel and PowerPoint files.".to_owned()),
+        "docx" => docx::new_file(source.as_deref()),
+        "xlsx" => xlsx::new_file(source.as_deref().map(|text| (extension.as_str(), text))),
+        "pptx" => pptx::new_file(source.as_deref()),
+        _ => Err("This command makes .docx, .xlsx and .pptx files.".to_owned()),
     }
     .map_err(Failed::Says)?;
     std::fs::write(file, bytes)?;

@@ -108,7 +108,7 @@ impl Uploads {
     async fn start(&mut self, folder: &Path, part: &Part<'_>) -> Result<(), String> {
         if !part.page && kind_of(Path::new(part.name)).is_none() {
             return Err(
-                "The canvas shows pages (HTML, Markdown, text), pictures, PDF and Office files."
+                "The canvas shows pages (HTML, Markdown, text), pictures, documents, sheets, presentations and PDFs."
                     .to_owned(),
             );
         }

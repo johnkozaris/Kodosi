@@ -23,8 +23,7 @@ Item {
     readonly property var current: currentKey === "browser" && canvas && canvas.browser ? { key: "browser", kind: "browser", browser: canvas.browser }
         : files.filter(item => item.key === currentKey).map(item => ({ key: item.key, kind: item.kind, title: item.name,
             missing: item.missing === true, item: item }))[0] || null
-    readonly property string documentView: current && current.item && !current.missing && Models.CanvasWeb.available
-        ? current.item.view || "" : ""
+    readonly property string documentView: current ? liveView(current.item) : ""
     readonly property string loadKey: current && current.item && !current.missing && documentView.length === 0
         ? current.key + "\n" + current.item.revision : ""
     readonly property bool local: session.kind === "local"
@@ -41,8 +40,15 @@ Item {
         if (currentKey.length > 0)
             Models.Canvas.saw(sessionId, currentKey);
     }
+    function documentKind(kind) {
+        return kind === "document" || kind === "sheet" || kind === "presentation";
+    }
+    function kindName(kind) {
+        return kind === "picture" ? qsTr("Picture") : kind === "pdf" ? qsTr("PDF") : kind === "document" ? qsTr("Document")
+            : kind === "sheet" ? qsTr("Sheet") : kind === "presentation" ? qsTr("Presentation") : qsTr("Page");
+    }
     function glyph(kind) {
-        return kind === "picture" ? "picture" : kind === "office" ? "office" : "page";
+        return kind === "picture" || root.documentKind(kind) ? kind : "page";
     }
     function load() {
         failure = "";
@@ -56,9 +62,13 @@ Item {
         }
     }
     // A document that a person leaves stays open a while, with its place and its undo.
+    // The live view of a file, when this device shows it in one.
+    function liveView(item) {
+        return item && item.missing !== true && Models.CanvasWeb.available
+            && Models.DesktopSettings.shownViews[item.view] === true ? item.view : "";
+    }
     function keepDocument() {
-        const item = files.find(file => file.key === currentKey);
-        const view = item && item.missing !== true && Models.CanvasWeb.available ? item.view || "" : "";
+        const view = liveView(files.find(file => file.key === currentKey));
         if (view.length === 0)
             return;
         for (let at = 0; at < documents.count; ++at) {
@@ -474,8 +484,7 @@ Item {
                                         PlainLabel {
                                             width: card.width
                                             text: card.modelData.missing === true ? qsTr("Not there now")
-                                                : (card.modelData.kind === "picture" ? qsTr("Picture") : card.modelData.kind === "pdf" ? qsTr("PDF")
-                                                    : card.modelData.kind === "office" ? qsTr("Office file") : qsTr("Page")) + " · " + root.size(card.modelData.bytes || 0)
+                                                : root.kindName(card.modelData.kind) + " · " + root.size(card.modelData.bytes || 0)
                                             color: KodosiTheme.inkFaint
                                             font.pixelSize: KodosiTheme.fontCaption
                                             horizontalAlignment: Text.AlignHCenter
@@ -530,7 +539,7 @@ Item {
                             : root.current.missing ? missingView
                             : root.readyKey !== root.current.key ? (root.failure.length > 0 ? failureView : loadingView)
                             : root.current.kind === "picture" ? pictureView
-                            : root.current.kind === "office" || !Models.CanvasWeb.available ? fileView
+                            : root.documentKind(root.current.kind) || !Models.CanvasWeb.available ? fileView
                             : pageView
                     }
                     Spinner {

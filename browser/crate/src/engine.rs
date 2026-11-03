@@ -16,7 +16,7 @@ use tokio::{
 };
 
 use crate::{
-    Error, Settings,
+    Error,
     devtools::{self, Devtools},
     extension::{self, FromExtension, ToExtension},
     message::{Dialog, DialogKind},
@@ -120,15 +120,19 @@ pub(crate) struct Engine {
 }
 
 impl Engine {
-    pub(crate) async fn start(settings: &Settings, profile: &str) -> Result<Arc<Self>, Error> {
-        let folder = settings.profiles.join(profile);
+    pub(crate) async fn start(
+        program: &Path,
+        profiles: &Path,
+        profile: &str,
+    ) -> Result<Arc<Self>, Error> {
+        let folder = profiles.join(profile);
         tokio::fs::create_dir_all(&folder).await?;
         close_left(&folder).await;
         let socket = extension::Socket::open().await?;
         let unpacked = folder.join("extension");
         extension::prepare(&unpacked, &socket).await?;
         let port = free_port().await?;
-        let mut process = launch(&settings.engine, &arguments(&folder, &unpacked, port)).await?;
+        let mut process = launch(program, &arguments(&folder, &unpacked, port)).await?;
         tokio::fs::write(folder.join(STATE_FILE), port.to_string()).await?;
         let address = wait_for_address(port, &mut process).await?;
         let (devtools, events) = Devtools::connect(&address).await?;

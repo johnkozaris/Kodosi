@@ -1,4 +1,4 @@
-//! A desktop app for Word, Excel, `PowerPoint` and PDF files. Each window shows one file as one
+//! A desktop app for documents, sheets, presentations and PDFs. Each window shows one file as one
 //! viewer of its live document, so two windows on one file edit it together.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -25,12 +25,8 @@ use tauri_plugin_opener::OpenerExt as _;
 use tokio::sync::mpsc;
 
 const PAGE: &str = include_str!("page.js");
-const VIEWS: [(&str, &str); 4] = [
-    ("docx", "word"),
-    ("xlsx", "excel"),
-    ("pptx", "powerpoint"),
-    ("pdf", "pdf"),
-];
+/// The kinds of file that the views show, which are also their extensions.
+const KINDS: [&str; 4] = ["docx", "xlsx", "pptx", "pdf"];
 const OPEN: &str = "open";
 const OPEN_AGAIN: &str = "open-again";
 const CLOSE: &str = "close";
@@ -206,11 +202,10 @@ fn chosen(app: &AppHandle, event: &MenuEvent) {
 
 /// Asks for files and opens each in its own window. The app ends when the first ask gives none.
 fn pick(app: &AppHandle) {
-    let extensions = VIEWS.map(|(extension, _)| extension);
     let shows = app.clone();
     app.dialog()
         .file()
-        .add_filter("Documents", &extensions)
+        .add_filter("Documents", &KINDS)
         .pick_files(move |files| {
             let files = files.unwrap_or_default();
             if files.is_empty() && shows.webview_windows().is_empty() {
@@ -259,10 +254,7 @@ fn follow(app: &AppHandle, url: &Url) {
 
 fn kind_of(file: &Path) -> Option<&'static str> {
     let extension = file.extension()?.to_str()?.to_ascii_lowercase();
-    VIEWS
-        .iter()
-        .find(|(known, _)| *known == extension)
-        .map(|(_, kind)| *kind)
+    KINDS.into_iter().find(|kind| *kind == extension)
 }
 
 /// Joins the window's file and sends its frames on `frames`. Gives the kind of view to show.

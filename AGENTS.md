@@ -17,7 +17,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - `clients/qt/`: Qt app for Linux and Windows. QML only presents the runtime's state.
 - `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails. Keep
   Keycloak's form field names and ids.
-- `documents/`: live Word, Excel, PowerPoint and PDF files: the server crates, the views
+- `documents/`: live documents, sheets, presentations and PDFs: the server crates, the views
   and a Tauri app that is a second host. It imports nothing of Kodosi.
 - `browser/`: the shared browser: its crate, capture extension and Kodosi Browser build.
   It imports nothing of Kodosi.

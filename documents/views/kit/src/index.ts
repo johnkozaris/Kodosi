@@ -2,7 +2,22 @@ import { type Area, Client, type Editor, type Pictures, type Pipe } from "@docum
 import "./base.css";
 import "./fonts.css";
 
-export type Kind = "word" | "excel" | "powerpoint" | "pdf";
+export type Kind = "docx" | "xlsx" | "pptx" | "pdf";
+
+/** What a person chose for one kind of file. A view uses only what applies to it. */
+export interface Preferences {
+  /** A document shows its pages. Without them, its text fits the width of the view. */
+  pages?: boolean;
+  /** The pages or cells go dark when the look is dark. */
+  dark?: boolean;
+}
+
+const DEFAULTS: Record<Kind, Required<Preferences>> = {
+  docx: { pages: true, dark: false },
+  xlsx: { pages: true, dark: true },
+  pptx: { pages: true, dark: false },
+  pdf: { pages: true, dark: false },
+};
 
 /** The host's look: CSS variables without their leading dashes, and `scheme`, light or dark. */
 export type Theme = Record<string, string>;
@@ -10,6 +25,7 @@ export type Theme = Record<string, string>;
 export interface Options {
   kind: Kind;
   theme?: Theme;
+  preferences?: Preferences;
   /** Runs when the file shows, and each time that the view joins it again. */
   ready?(): void;
   /** Lays out the whole file for pictures, with no bar and nothing that scrolls. */
@@ -25,6 +41,8 @@ export interface View {
   selection(): string;
   /** The host's look changed. */
   restyle(theme: Theme): void;
+  /** The person chose again. */
+  prefer(preferences: Preferences): void;
   destroy(): void;
 }
 
@@ -34,15 +52,27 @@ type EditorFactory = (element: HTMLElement, client: Client) => FileEditor;
 /** Each format's code loads only when a file of that format opens. */
 async function factoryOf(kind: Kind): Promise<EditorFactory> {
   switch (kind) {
-    case "word":
-      return (await import("@documents/word")).createEditor;
-    case "excel":
-      return (await import("@documents/excel")).createEditor;
-    case "powerpoint":
-      return (await import("@documents/powerpoint")).createEditor;
+    case "docx":
+      return (await import("@documents/docx")).createEditor;
+    case "xlsx":
+      return (await import("@documents/xlsx")).createEditor;
+    case "pptx":
+      return (await import("@documents/pptx")).createEditor;
     case "pdf":
       return (await import("@documents/pdf")).createEditor;
   }
+}
+
+/** Pictures of a file show it as it is, so they take no choices. */
+function setPreferences(
+  element: HTMLElement,
+  options: Options,
+  preferences: Preferences | undefined,
+): void {
+  if (options.render) return;
+  const chosen = { ...DEFAULTS[options.kind], ...preferences };
+  element.toggleAttribute("data-fit", !chosen.pages);
+  element.toggleAttribute("data-dark-pages", chosen.dark);
 }
 
 function setTheme(element: HTMLElement, theme: Theme | undefined): void {
@@ -65,6 +95,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
   element.classList.add("document-view");
   if (options.render) element.dataset.render = "";
   setTheme(element, options.theme);
+  setPreferences(element, options, options.preferences);
   factoryOf(options.kind).then((factory) => {
     editor = factory(element, client);
     client.use(editor);
@@ -81,6 +112,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
     },
     selection: () => editor?.selection() ?? "",
     restyle: (theme) => setTheme(element, theme),
+    prefer: (preferences) => setPreferences(element, options, preferences),
     pictures: () => editor?.pictures() ?? Promise.resolve(0),
     picture: (index: number): Promise<Area> =>
       editor?.picture(index) ?? Promise.reject(new Error("The file is not open.")),
@@ -130,6 +162,7 @@ function hosted(options: Options, post: (frame: string) => void) {
     pictures: view.pictures,
     picture: view.picture,
     restyle: view.restyle,
+    prefer: view.prefer,
   };
 }
 

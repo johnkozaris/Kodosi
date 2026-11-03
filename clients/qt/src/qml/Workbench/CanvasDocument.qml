@@ -4,7 +4,7 @@ import QtWebChannel
 import QtWebEngine
 import Kodosi.Models 1.0 as Models
 
-// A live Word, Excel, PowerPoint or PDF file. The view bundle of the app draws it in a closed
+// A live document, sheet, presentation or PDF. The view bundle of the app draws it in a closed
 // frame, and its only way out is the pipe of the document.
 WebEngineView {
     id: root
@@ -19,13 +19,14 @@ WebEngineView {
     readonly property string host: `
         new QWebChannel(qt.webChannelTransport, ({ objects: { page } }) => {
           const host = window.documentView.hosted(
-            { kind: page.view, theme: page.look, ready: () => page.ready() },
+            { kind: page.view, theme: page.look, preferences: page.preferences, ready: () => page.ready() },
             (frame) => page.sent(frame),
           );
           page.received.connect(host.deliver);
           page.attached.connect(host.attach);
           page.detached.connect(host.detach);
           page.lookChanged.connect(() => host.restyle(page.look));
+          page.preferencesChanged.connect(() => host.prefer(page.preferences));
           page.started();
         });`
 
@@ -101,6 +102,7 @@ WebEngineView {
         id: bridge
 
         readonly property string view: root.view
+        readonly property var preferences: Models.DesktopSettings.viewPreferences[root.view] || ({})
         readonly property var look: ({
                 "surface": String(KodosiTheme.surface),
                 "surface-behind": String(KodosiTheme.well),

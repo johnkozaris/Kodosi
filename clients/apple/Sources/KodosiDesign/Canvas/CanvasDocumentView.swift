@@ -2,12 +2,13 @@ import KodosiBridge
 import SwiftUI
 import WebKit
 
-/// A live Word, Excel, PowerPoint or PDF file. The view bundle draws it in a closed frame, and
+/// A live document, sheet, presentation or PDF. The view bundle draws it in a closed frame, and
 /// its only way out is the pipe of the document.
 struct CanvasDocumentView: View {
     @Environment(\.theme) private var theme
     @Environment(\.self) private var environment
     @Environment(\.openURL) private var openURL
+    @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()
     let session: String
     let item: CanvasItem
     let view: CanvasItem.View
@@ -31,13 +32,17 @@ struct CanvasDocumentView: View {
         }
         .onAppear {
             page = pages.enter(item.key, in: session) {
-                CanvasDocumentPage(link: store.document(item, in: session), view: view, look: look)
+                CanvasDocumentPage(link: store.document(item, in: session), view: view, look: look,
+                                   preferences: viewers.preferences(for: view))
             }
             page?.links.open = { url in openURL(url) }
             page?.links.openBrowser = openBrowser
+            page?.restyle(look)
+            page?.prefer(viewers.preferences(for: view))
         }
         .onDisappear { pages.leave(item.key, in: session) }
         .onChange(of: look) { _, look in page?.restyle(look) }
+        .onChange(of: viewers.preferences(for: view)) { _, preferences in page?.prefer(preferences) }
     }
 
     /// The look of the app, by the view's own names.
@@ -103,14 +108,16 @@ final class CanvasDocumentPage {
     @ObservationIgnored private let messages = PageMessages()
     @ObservationIgnored private let view: CanvasItem.View
     @ObservationIgnored private var look: [String: String]
+    @ObservationIgnored private var preferences: [String: Bool]
     @ObservationIgnored private var frames: AsyncStream<Data>.Continuation?
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
     private(set) var shown = false
 
-    init(link: DocumentLink, view: CanvasItem.View, look: [String: String]) {
+    init(link: DocumentLink, view: CanvasItem.View, look: [String: String], preferences: [String: Bool]) {
         self.link = link
         self.view = view
         self.look = look
+        self.preferences = preferences
         var configuration = WebPage.Configuration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.urlSchemeHandlers[URLScheme(Self.scheme)!] = ViewBundleHandler()
@@ -135,8 +142,17 @@ final class CanvasDocumentPage {
     }
 
     func restyle(_ look: [String: String]) {
+        guard look != self.look else { return }
         self.look = look
         Task { _ = try? await page.callJavaScript("documentHost.restyle(look)", arguments: ["look": look], contentWorld: .page) }
+    }
+
+    func prefer(_ preferences: [String: Bool]) {
+        guard preferences != self.preferences else { return }
+        self.preferences = preferences
+        Task {
+            _ = try? await page.callJavaScript("documentHost.prefer(preferences)", arguments: ["preferences": preferences], contentWorld: .page)
+        }
     }
 
     func close() {
@@ -156,11 +172,11 @@ final class CanvasDocumentPage {
                 _ = try await page.callJavaScript(
                     """
                     window.documentHost = window.documentView.hosted(
-                      { kind, theme, ready: () => webkit.messageHandlers.ready.postMessage(true) },
+                      { kind, theme, preferences, ready: () => webkit.messageHandlers.ready.postMessage(true) },
                       (frame) => webkit.messageHandlers.document.postMessage(frame),
                     );
                     """,
-                    arguments: ["kind": view.rawValue, "theme": look],
+                    arguments: ["kind": view.rawValue, "theme": look, "preferences": preferences],
                     contentWorld: .page,
                 )
                 await join()

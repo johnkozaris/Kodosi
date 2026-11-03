@@ -6,8 +6,7 @@ mod message;
 
 pub use message::{
     Chooser, Dialog, DialogKind, Download, Frame, Input, KeyAction, Malformed, Menu, MenuItem,
-    MouseAction, MouseButton, Pointer, Size, State, Tab, ToViewer, ToWindow, TouchAction,
-    TouchPoint, Viewer,
+    MouseAction, MouseButton, Pointer, Size, State, Tab, ToViewer, ToWindow, Viewer,
 };
 
 #[cfg(feature = "host")]
@@ -38,7 +37,12 @@ pub use window::{Pipe, Window};
 
 #[cfg(feature = "host")]
 mod host {
-    use std::{collections::HashMap, io, path::PathBuf, sync::Arc};
+    use std::{
+        collections::HashMap,
+        io,
+        path::PathBuf,
+        sync::{Arc, PoisonError, RwLock},
+    };
 
     use tokio::sync::Mutex;
 
@@ -82,7 +86,8 @@ mod host {
     /// The host's browsers. A window opens when a viewer or an agent needs it, and the browser
     /// exits with its last window.
     pub struct Browsers {
-        settings: Settings,
+        program: RwLock<PathBuf>,
+        profiles: PathBuf,
         engines: Mutex<HashMap<String, Arc<Engine>>>,
         windows: Mutex<HashMap<(String, String), Window>>,
     }
@@ -90,7 +95,8 @@ mod host {
     impl Browsers {
         pub fn new(settings: Settings) -> Self {
             Self {
-                settings,
+                program: RwLock::new(settings.engine),
+                profiles: settings.profiles,
                 engines: Mutex::default(),
                 windows: Mutex::default(),
             }
@@ -115,10 +121,20 @@ mod host {
             if let Some(engine) = engines.get(profile).filter(|engine| !engine.is_stopped()) {
                 return Ok(Arc::clone(engine));
             }
-            let engine = Engine::start(&self.settings, profile).await?;
+            let program = self
+                .program
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone();
+            let engine = Engine::start(&program, &self.profiles, profile).await?;
             engines.insert(profile.to_owned(), Arc::clone(&engine));
             drop(engines);
             Ok(engine)
+        }
+
+        /// Starts each later browser from this program. A browser that runs keeps its own.
+        pub fn use_engine(&self, program: PathBuf) {
+            *self.program.write().unwrap_or_else(PoisonError::into_inner) = program;
         }
 
         /// A page of the host's own in the browser of a profile, which shows the files of a
@@ -146,7 +162,7 @@ mod host {
             sign_ins: SignIns,
         ) -> Result<usize, CopyError> {
             let engine = self.engine(profile).await?;
-            let folder = self.settings.profiles.join(profile);
+            let folder = self.profiles.join(profile);
             let added = sign_ins::add(engine.devtools(), &folder, sign_ins).await;
             engine.stop_if_idle().await;
             added
@@ -154,11 +170,11 @@ mod host {
 
         /// Removes what copies gave a profile, and returns for how many sites.
         pub async fn remove_copied_sign_ins(&self, profile: &str) -> Result<usize, CopyError> {
-            if sign_ins::copied_sites(&self.settings.profiles, profile) == 0 {
+            if sign_ins::copied_sites(&self.profiles, profile) == 0 {
                 return Ok(0);
             }
             let engine = self.engine(profile).await?;
-            let folder = self.settings.profiles.join(profile);
+            let folder = self.profiles.join(profile);
             let removed = sign_ins::remove(engine.devtools(), &folder).await;
             engine.stop_if_idle().await;
             removed
@@ -180,7 +196,7 @@ mod host {
             if let Some(engine) = engine {
                 engine.stop().await;
             }
-            match tokio::fs::remove_dir_all(self.settings.profiles.join(profile)).await {
+            match tokio::fs::remove_dir_all(self.profiles.join(profile)).await {
                 Err(problem) if problem.kind() != io::ErrorKind::NotFound => Err(problem.into()),
                 _ => Ok(()),
             }

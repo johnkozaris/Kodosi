@@ -1,6 +1,6 @@
 ---
 name: kodosi-canvas
-description: "Show pages, pictures, PDFs and Office files to the people of a Kodosi terminal on its canvas, and use a browser that they see and can use too. Use it when a result is easier to see than to read in the terminal."
+description: "Show pages, pictures, documents, sheets, presentations and PDFs to the people of a Kodosi terminal on its canvas, and use a browser that they see and can use too. Use it when a result is easier to see than to read in the terminal."
 ---
 
 # Kodosi canvas
@@ -19,9 +19,9 @@ why they should look.
   comes first, and the canvas keeps 20. When you change a file, the canvas shows the new
   version, so show a file once and then edit it.
 - Pages are HTML, Markdown and text files. Markdown and text get the look of Kodosi.
-  Pictures (PNG, JPEG, GIF, WebP, SVG) show as they are. Word, Excel, PowerPoint and PDF
-  files are live: people edit them there, and you edit them with `kodosi doc`. Read
-  `kodosi skill documents` first.
+  Pictures (PNG, JPEG, GIF, WebP, SVG) show as they are. Documents (.docx), sheets
+  (.xlsx), presentations (.pptx) and PDFs are live: people edit them there, and you edit
+  them with `kodosi doc`. Read `kodosi skill documents` first.
 - A page runs in a closed frame. It can run its own scripts, but it cannot load anything
   from the network or open other files. Put the styles, scripts and pictures into the page
   itself; use inline SVG or data: addresses for pictures.
@@ -47,6 +47,8 @@ with the same sign-ins. The people see it on the canvas, and they can click and 
   `kodosi browser press Enter`, `kodosi browser scroll down`.
 - `kodosi browser get text @e1` and `kodosi browser get url` read the page.
 - `kodosi browser screenshot shot.png` saves a picture; show it with `kodosi show shot.png`.
+- `kodosi browser upload @e4 report.pdf` gives a file to a file field. A file that a page
+  downloads goes into the folder of this terminal and shows on the canvas.
 - `kodosi browser wait --load networkidle`, `kodosi browser back`,
   `kodosi browser tab new https://example.com` and `kodosi browser tab close`.
 - `kodosi browser --help` lists every command.

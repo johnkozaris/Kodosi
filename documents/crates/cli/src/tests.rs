@@ -198,7 +198,7 @@ async fn the_guide_prints_ops_with_their_fields() {
     let rig = rig();
     let all = rig
         .run(Command::Guide(GuideArguments {
-            format: "word".to_owned(),
+            format: "docx".to_owned(),
             op: None,
         }))
         .await
@@ -206,12 +206,17 @@ async fn the_guide_prints_ops_with_their_fields() {
     assert!(all.as_str().unwrap().contains("replaceText"));
     let one = rig
         .run(Command::Guide(GuideArguments {
-            format: "excel".to_owned(),
+            format: "xlsx".to_owned(),
             op: Some("setCell".to_owned()),
         }))
         .await
         .unwrap();
     assert!(one.as_str().unwrap().contains("Such as B2"));
+    assert!(
+        one.as_str()
+            .unwrap()
+            .contains(r#"{"op": "setCell", "sheet": …, "cell": …}"#)
+    );
     assert!(!one.as_str().unwrap().contains("insertRows"));
 }
 

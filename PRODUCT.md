@@ -90,16 +90,23 @@ conversation follows the person to all their computers.
 ## Canvas
 
 - Each terminal has a canvas with two parts: its files and its shared browser. Its agent
-  puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF or
-  an Office file. A person adds a file with Add a File or a drop, on any device: it goes
-  into the terminal's folder on the terminal's computer, a taken name gets a number, and
-  the limit is 32 MB. The canvas shows the newest first and keeps 20. When a file changes,
-  each device shows the new version. Save a Copy keeps a copy on the device.
-- A Word, Excel, PowerPoint or PDF file on the canvas is live. The people and agents of the
-  terminal edit it at the same time, each sees where the others are, and each edit reaches
-  all of them at once. The file stays a normal file on the terminal's computer, and Kodosi
-  saves it there a moment after each change. A change that another program saves merges
-  in. When the computer is away, a person goes on, and the edits wait on the device.
+  puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF, a
+  document, a sheet or a presentation. A person adds a file with Add a File or a drop, on
+  any device: it goes into the terminal's folder on the terminal's computer, a taken name
+  gets a number, and the limit is 32 MB. The canvas shows the newest first and keeps 20.
+  When a file changes, each device shows the new version. Save a Copy keeps a copy on the
+  device.
+- A document (.docx), sheet (.xlsx), presentation (.pptx) or PDF on the canvas is live.
+  The people and agents of the terminal edit it at the same time, each sees where the
+  others are, and each edit reaches all of them at once. The file stays a normal file on
+  the terminal's computer, and Kodosi saves it there a moment after each change. A change
+  that another program saves merges in. When the computer is away, a person goes on, and
+  the edits wait on the device. A person accepts or rejects the tracked changes of a
+  document, one by one or all at once.
+- Settings › Documents turns each viewer on or off on the device: the document, sheet,
+  presentation and PDF viewer. A viewer that is off shows a preview, or Save a Copy where
+  the app has no preview. Documents show as pages or as text that fits the canvas, and
+  documents, sheets and PDFs can go dark with the app.
 - The terminal has a key for each part that has something, with a dot for news, and the
   files key names a file for a moment when the agent shows or changes it. A key opens
   the canvas at its part. An open canvas follows the newest file until the person picks

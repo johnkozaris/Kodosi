@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use crate::message::{KeyAction, MouseAction, MouseButton, TouchAction, TouchPoint};
+use crate::message::{KeyAction, MouseAction, MouseButton};
 
 const META: u8 = 4;
 const CONTROL: u8 = 2;
@@ -121,24 +121,6 @@ fn editing_command(key: &str, modifiers: u8) -> Option<&'static str> {
         ("z", true) => Some("redo"),
         _ => None,
     }
-}
-
-pub(crate) fn touch(action: TouchAction, points: &[TouchPoint], modifiers: u8, mac: bool) -> Value {
-    let kind = match action {
-        TouchAction::Start => "touchStart",
-        TouchAction::Move => "touchMove",
-        TouchAction::End => "touchEnd",
-        TouchAction::Cancel => "touchCancel",
-    };
-    let points: Vec<Value> = points
-        .iter()
-        .map(|point| json!({ "id": point.id, "x": point.x, "y": point.y }))
-        .collect();
-    json!({
-        "type": kind,
-        "touchPoints": points,
-        "modifiers": host_modifiers(modifiers, mac),
-    })
 }
 
 #[cfg(test)]

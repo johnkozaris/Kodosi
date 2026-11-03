@@ -49,7 +49,7 @@ The files are tabs over the file, and the key with their count shows them all as
 A pointer on a tab or a card shows the key that takes the file off the canvas. A file's
 menu has Save a copy, Ask about this, which names the terminal's agent, and Remove from
 canvas. The plus key and the terminal's actions add a file, and a drop on the canvas does
-too. Word, Excel, PowerPoint and PDF files are live, and other pictures and files show with
+too. Documents, sheets, presentations and PDFs are live, and other pictures and files show with
 Quick Look. In the shared browser, the bar has back, forward, reload, the address, the tabs
 and the last action of the agent, and the picture takes clicks, scrolling and keys. When
 macOS keeps a copy from reading Safari's sign-ins, Settings › Browser has a button that

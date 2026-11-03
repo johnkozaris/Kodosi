@@ -95,9 +95,9 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
 }
 
 public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
-    public enum Kind: String, Decodable, Sendable { case page, picture, pdf, office }
+    public enum Kind: String, Decodable, Sendable { case page, picture, pdf, document, sheet, presentation }
     /// The live view of a file that people edit together.
-    public enum View: String, Decodable, Sendable { case word, excel, powerpoint, pdf }
+    public enum View: String, Decodable, Sendable { case docx, xlsx, pptx, pdf }
 
     public let key: String
     public let name: String
@@ -310,7 +310,6 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
 
     public enum MouseButton: String, Encodable, Sendable { case none, left, middle, right }
     public enum KeyEvent: String, Encodable, Sendable { case keyDown = "down", keyUp = "up" }
-    public enum TouchEvent: String, Encodable, Sendable { case start, move, end, cancel }
 
     public struct Modifiers: OptionSet, Encodable, Sendable {
         public let rawValue: UInt8

@@ -76,6 +76,11 @@ ships next to the `kodosi` program, by its version and Git commit. Each app buil
 it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
 pin, check the release and its tag first, change both lines and build each app.
 
+[Chromium.lock](../browser/build/Chromium.lock) pins the Chromium of Kodosi Browser.
+`browser/build/build-engine.py --output-dir <folder>` builds it on each computer, with its
+archive and its entry in the signed feed. A development build uses the engine whose program
+`KODOSI_BROWSER_ENGINE` names, and no feed.
+
 ## Isolated validation
 
 Validate by running the app or calling the real boundary, with a disposable database and

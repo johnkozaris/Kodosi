@@ -17,6 +17,15 @@ const QList<KnownAgent>& knownAgents()
         { QStringLiteral("opencode"), QStringLiteral("OpenCode") } };
     return agents;
 }
+const QList<std::pair<QString, bool>>& viewerDefaults()
+{
+    static const QList<std::pair<QString, bool>> defaults { { QStringLiteral("documents"), true },
+        { QStringLiteral("documentPages"), true }, { QStringLiteral("darkDocuments"), false },
+        { QStringLiteral("sheets"), true }, { QStringLiteral("darkSheets"), true },
+        { QStringLiteral("presentations"), true }, { QStringLiteral("pdfs"), true },
+        { QStringLiteral("darkPdfs"), false } };
+    return defaults;
+}
 }
 DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepRunningByDefault, QObject* parent)
     : QObject(parent)
@@ -41,6 +50,39 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepR
     if (const auto keep = m_settings->value(QStringLiteral("app/keepRunning")); keep.isValid())
         m_keepRunning = keep.toBool();
     m_closeHintShown = m_settings->value(QStringLiteral("app/closeHintShown"), false).toBool();
+    for (const auto& [name, usual] : viewerDefaults())
+        m_viewers.insert(name, m_settings->value(QStringLiteral("viewers/") + name, usual).toBool());
+}
+QVariantMap DesktopSettings::viewers() const
+{
+    QVariantMap viewers;
+    for (const auto& [name, on] : m_viewers.asKeyValueRange())
+        viewers.insert(name, on);
+    return viewers;
+}
+QVariantMap DesktopSettings::shownViews() const
+{
+    return { { QStringLiteral("docx"), m_viewers.value(QStringLiteral("documents")) },
+        { QStringLiteral("xlsx"), m_viewers.value(QStringLiteral("sheets")) },
+        { QStringLiteral("pptx"), m_viewers.value(QStringLiteral("presentations")) },
+        { QStringLiteral("pdf"), m_viewers.value(QStringLiteral("pdfs")) } };
+}
+QVariantMap DesktopSettings::viewPreferences() const
+{
+    const auto dark = [this](const QString& name) { return QVariantMap { { QStringLiteral("dark"), m_viewers.value(name) } }; };
+    return { { QStringLiteral("docx"),
+                 QVariantMap { { QStringLiteral("pages"), m_viewers.value(QStringLiteral("documentPages")) },
+                     { QStringLiteral("dark"), m_viewers.value(QStringLiteral("darkDocuments")) } } },
+        { QStringLiteral("xlsx"), dark(QStringLiteral("darkSheets")) }, { QStringLiteral("pptx"), QVariantMap {} },
+        { QStringLiteral("pdf"), dark(QStringLiteral("darkPdfs")) } };
+}
+void DesktopSettings::setViewer(const QString& name, bool on)
+{
+    if (!m_viewers.contains(name) || m_viewers.value(name) == on)
+        return;
+    m_viewers.insert(name, on);
+    persist();
+    emit settingsChanged();
 }
 QString DesktopSettings::agentOf(const QString& text)
 {
@@ -155,9 +197,11 @@ bool DesktopSettings::persist()
     if (m_keepRunning)
         m_settings->setValue(QStringLiteral("app/keepRunning"), *m_keepRunning);
     m_settings->setValue(QStringLiteral("app/closeHintShown"), m_closeHintShown);
+    for (const auto& [name, on] : m_viewers.asKeyValueRange())
+        m_settings->setValue(QStringLiteral("viewers/") + name, on);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
-        m_error = tr("Kodosi could not save the terminal settings.");
+        m_error = tr("Kodosi could not save its settings.");
         emit settingsErrorChanged();
         return false;
     }

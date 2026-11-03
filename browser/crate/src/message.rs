@@ -69,12 +69,6 @@ pub enum Input {
         #[serde(default)]
         modifiers: u8,
     },
-    Touch {
-        action: TouchAction,
-        points: Vec<TouchPoint>,
-        #[serde(default)]
-        modifiers: u8,
-    },
     Text {
         text: String,
     },
@@ -130,22 +124,6 @@ pub enum MouseButton {
 pub enum KeyAction {
     Down,
     Up,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TouchAction {
-    Start,
-    Move,
-    End,
-    Cancel,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct TouchPoint {
-    pub id: u32,
-    pub x: f64,
-    pub y: f64,
 }
 
 /// All that a viewer shows around the picture.

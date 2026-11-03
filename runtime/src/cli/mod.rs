@@ -73,12 +73,12 @@ enum Action {
         about = "Print the skill that lets an agent work with the people and agents in Kodosi, or another part of it."
     )]
     Skill {
-        /// canvas: how to show files and use the shared browser; documents: how to edit Office files and PDFs with people; page: the page template of the canvas.
+        /// canvas: how to show files and use the shared browser; documents: how to edit documents, sheets, presentations and PDFs with people; page: the page template of the canvas.
         #[arg(value_enum)]
         topic: Option<SkillTopic>,
     },
     #[command(
-        about = "Show files on the canvas of this terminal: pages, pictures, PDFs and Office files."
+        about = "Show files on the canvas of this terminal: pages, pictures, documents, sheets, presentations and PDFs."
     )]
     Show {
         #[arg(required = true)]
@@ -98,7 +98,7 @@ enum Action {
         arguments: Vec<String>,
     },
     #[command(
-        about = "Read and edit a Word, Excel, PowerPoint or PDF file together with the people in it.",
+        about = "Read and edit a .docx, .xlsx, .pptx or .pdf file together with the people in it.",
         disable_help_flag = true
     )]
     Doc {

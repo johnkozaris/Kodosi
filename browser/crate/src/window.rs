@@ -727,14 +727,6 @@ impl Live {
                     mac,
                 ),
             ),
-            Input::Touch {
-                action,
-                points,
-                modifiers,
-            } => self.page(
-                "Input.dispatchTouchEvent",
-                &input::touch(action, &points, modifiers, mac),
-            ),
             Input::Text { text } => self.page("Input.insertText", &json!({ "text": text })),
             Input::Open { address } => self.page("Page.navigate", &json!({ "url": address })),
             Input::Back => self.move_in_history(-1),

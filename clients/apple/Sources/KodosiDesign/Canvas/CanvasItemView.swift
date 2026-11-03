@@ -188,6 +188,7 @@ public struct CanvasBrowserView: View {
 /// The item of a canvas that a device shows: a page, a file or the browser.
 public struct CanvasItemView: View {
     @Environment(\.theme) private var theme
+    @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()
     let session: RuntimeSession
     let shown: CanvasShown
     let store: CanvasStore
@@ -223,7 +224,7 @@ public struct CanvasItemView: View {
         case let .browser(browser):
             CanvasBrowserView(browser: browser, feed: store.feed(session.id), typing: typing)
         case let .item(item):
-            if let view = item.view, !item.missing {
+            if let view = item.view, !item.missing, viewers.shows(view) {
                 CanvasDocumentView(session: session.id, item: item, view: view, store: store, pages: pages, openBrowser: openBrowser)
             } else {
                 file(item)
@@ -243,7 +244,7 @@ public struct CanvasItemView: View {
         if let content, content.key == item.key {
             switch item.kind {
             case .page: CanvasPageView(frame: frame, content: content.data, openBrowser: openBrowser, ask: ask)
-            case .picture, .pdf, .office: CanvasFileView(content: content.data, name: item.name).transition(.opacity)
+            case .picture, .pdf, .document, .sheet, .presentation: CanvasFileView(content: content.data, name: item.name).transition(.opacity)
             }
         } else if item.missing {
             CanvasMissing(item: item)

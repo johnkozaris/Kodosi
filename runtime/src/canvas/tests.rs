@@ -14,8 +14,13 @@ fn a_file_shows_by_its_extension() {
     assert_eq!(kind_of(Path::new("/a/shot.png")), Some(CanvasKind::Picture));
     assert_eq!(kind_of(Path::new("/a/paper.pdf")), Some(CanvasKind::Pdf));
     assert_eq!(
-        kind_of(Path::new("/a/sheet.xlsx")),
-        Some(CanvasKind::Office)
+        kind_of(Path::new("/a/notes.pages")),
+        Some(CanvasKind::Document)
+    );
+    assert_eq!(kind_of(Path::new("/a/plan.xlsx")), Some(CanvasKind::Sheet));
+    assert_eq!(
+        kind_of(Path::new("/a/talk.KEY")),
+        Some(CanvasKind::Presentation)
     );
     assert_eq!(kind_of(Path::new("/a/run.sh")), None);
     assert_eq!(kind_of(Path::new("/a/README")), None);

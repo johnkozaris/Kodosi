@@ -1406,16 +1406,29 @@ dependencies = [
  "clap",
  "document",
  "documents",
- "excel",
+ "docx",
  "getrandom 0.4.3",
  "pdf",
- "powerpoint",
- "serde",
+ "pptx",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
- "word",
+ "xlsx",
+]
+
+[[package]]
+name = "docx"
+version = "0.1.0"
+dependencies = [
+ "document",
+ "package",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "text",
+ "zip",
 ]
 
 [[package]]
@@ -1590,19 +1603,6 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
-]
-
-[[package]]
-name = "excel"
-version = "0.1.0"
-dependencies = [
- "document",
- "formualizer",
- "package",
- "roxmltree",
- "serde",
- "serde_json",
- "zip",
 ]
 
 [[package]]
@@ -3601,7 +3601,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a6394b9e965e73d0a289ee54f589087e2c676aedf60885baf52c76b771e4958"
 
 [[package]]
-name = "powerpoint"
+name = "pptx"
 version = "0.1.0"
 dependencies = [
  "document",
@@ -5938,21 +5938,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
-name = "word"
-version = "0.1.0"
-dependencies = [
- "document",
- "package",
- "roxmltree",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "text",
- "ts-rs",
- "zip",
-]
-
-[[package]]
 name = "writeable"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6020,6 +6005,19 @@ dependencies = [
  "libc",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "xlsx"
+version = "0.1.0"
+dependencies = [
+ "document",
+ "formualizer",
+ "package",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "zip",
 ]
 
 [[package]]

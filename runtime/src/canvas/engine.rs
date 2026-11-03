@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Once},
     time::Duration,
 };
 
@@ -23,6 +23,8 @@ const FEED_KEY: &str = "6eh21KvaRNcq4kfPMxINLLm+OsMXLgIT6VWfYlU3fow=";
 const MOST_FEED: usize = 64 * 1024;
 const MOST_ARCHIVE: u64 = 1024 * 1024 * 1024;
 const LOOK_LIMIT: Duration = Duration::from_secs(30);
+/// Chromium has a security release about every two weeks, so a host looks each day.
+const LOOK_EVERY: Duration = Duration::from_hours(24);
 const NO_ENGINE: &str = "Kodosi could not get its browser. Check the network and open it again.";
 const NOT_FOR_THIS_COMPUTER: &str = "Kodosi has no browser for this computer yet.";
 const CURRENT: &str = "current.json";
@@ -61,6 +63,7 @@ pub(crate) struct BrowserStatus {
 pub(crate) struct BrowserHost {
     folder: PathBuf,
     browsers: Arc<OnceCell<Browsers>>,
+    updating: Arc<Once>,
 }
 
 impl BrowserHost {
@@ -68,31 +71,59 @@ impl BrowserHost {
         Self {
             folder: data_root.join("browser"),
             browsers: Arc::default(),
+            updating: Arc::new(Once::new()),
         }
     }
 
     /// The browsers. `progress` hears the part of the first download, from 0 to 100.
     pub(super) async fn browsers(&self, progress: impl Fn(u8) + Send) -> Result<&Browsers, String> {
-        self.browsers
+        let browsers = self
+            .browsers
             .get_or_try_init(|| async {
-                let engines = self.folder.join("engine");
                 let engine = match on_disk() {
                     Some(program) => program,
-                    None => match installed(&engines).await {
-                        Some((_, program)) => {
-                            let later = engines.clone();
-                            tokio::spawn(async move { drop(install(&later, |_| {}).await) });
+                    None => match installed(&self.engines()).await {
+                        Some((version, program)) => {
+                            remove_others(&self.engines(), &version).await;
                             program
                         }
-                        None => install(&engines, progress).await?,
+                        None => install(&self.engines(), progress).await?,
                     },
                 };
-                Ok(Browsers::new(Settings {
+                Ok::<_, String>(Browsers::new(Settings {
                     engine,
                     profiles: self.profiles(),
                 }))
             })
-            .await
+            .await?;
+        if on_disk().is_none() {
+            self.updating.call_once(|| self.keep_current());
+        }
+        Ok(browsers)
+    }
+
+    /// Gets each newer engine while the host runs. A browser that starts later uses it, a
+    /// browser that runs keeps its own, and the older engine goes when the host starts again.
+    fn keep_current(&self) {
+        let engines = self.engines();
+        let browsers = Arc::clone(&self.browsers);
+        tokio::spawn(async move {
+            loop {
+                match install(&engines, |_| {}).await {
+                    Ok(program) => {
+                        if let Some(browsers) = browsers.get() {
+                            browsers.use_engine(program);
+                        }
+                    }
+                    Err(problem) => tracing::debug!(%problem, "no newer browser now"),
+                }
+                tokio::time::sleep(LOOK_EVERY).await;
+            }
+        });
+    }
+
+    fn engines(&self) -> PathBuf {
+        self.folder.join("engine")
     }
 
     fn profiles(&self) -> PathBuf {
@@ -238,7 +269,6 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
     tokio::fs::write(engines.join(CURRENT), text)
         .await
         .map_err(|_| NO_ENGINE.to_owned())?;
-    remove_others(engines, &feed.version).await;
     Ok(program)
 }
 
@@ -339,13 +369,20 @@ async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), String> {
     .map_err(|_| NO_ENGINE.to_owned())
 }
 
+/// Removes each engine but this version, with the archives of downloads that stopped.
 async fn remove_others(engines: &Path, version: &str) {
     let Ok(mut entries) = tokio::fs::read_dir(engines).await else {
         return;
     };
     while let Ok(Some(entry)) = entries.next_entry().await {
-        if entry.path().is_dir() && entry.file_name() != version {
+        let name = entry.file_name();
+        if name == version || name == CURRENT {
+            continue;
+        }
+        if entry.path().is_dir() {
             drop(tokio::fs::remove_dir_all(entry.path()).await);
+        } else {
+            drop(tokio::fs::remove_file(entry.path()).await);
         }
     }
 }
@@ -387,5 +424,22 @@ mod tests {
             installed(folder.path()).await,
             Some(("1.2".to_owned(), folder.path().join("1.2/bin/chrome")))
         );
+    }
+
+    #[tokio::test]
+    async fn a_start_keeps_only_the_current_engine() {
+        let folder = tempfile::tempdir().unwrap();
+        for engine in ["1.1/bin", "1.2/bin"] {
+            std::fs::create_dir_all(folder.path().join(engine)).unwrap();
+        }
+        std::fs::write(folder.path().join("1.3.tar.gz"), "half").unwrap();
+        std::fs::write(folder.path().join(CURRENT), "{}").unwrap();
+        remove_others(folder.path(), "1.2").await;
+        let mut left: Vec<String> = std::fs::read_dir(folder.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["1.2", CURRENT]);
     }
 }

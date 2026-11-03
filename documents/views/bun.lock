@@ -29,8 +29,8 @@
       "name": "@documents/contract",
       "version": "0.1.0",
     },
-    "excel": {
-      "name": "@documents/excel",
+    "xlsx": {
+      "name": "@documents/xlsx",
       "version": "0.1.0",
       "dependencies": {
         "@documents/bar": "workspace:*",
@@ -50,10 +50,10 @@
       "dependencies": {
         "@documents/client": "workspace:*",
         "@documents/contract": "workspace:*",
-        "@documents/excel": "workspace:*",
+        "@documents/xlsx": "workspace:*",
         "@documents/pdf": "workspace:*",
-        "@documents/powerpoint": "workspace:*",
-        "@documents/word": "workspace:*",
+        "@documents/pptx": "workspace:*",
+        "@documents/docx": "workspace:*",
       },
     },
     "pdf": {
@@ -67,8 +67,8 @@
         "pdfjs-dist": "6.4.299",
       },
     },
-    "powerpoint": {
-      "name": "@documents/powerpoint",
+    "pptx": {
+      "name": "@documents/pptx",
       "version": "0.1.0",
       "dependencies": {
         "@documents/bar": "workspace:*",
@@ -90,8 +90,8 @@
         "prosemirror-transform": "1.12.0",
       },
     },
-    "word": {
-      "name": "@documents/word",
+    "docx": {
+      "name": "@documents/docx",
       "version": "0.1.0",
       "dependencies": {
         "@documents/bar": "workspace:*",
@@ -129,17 +129,17 @@
 
     "@documents/contract": ["@documents/contract@workspace:contract"],
 
-    "@documents/excel": ["@documents/excel@workspace:excel"],
+    "@documents/xlsx": ["@documents/xlsx@workspace:xlsx"],
 
     "@documents/kit": ["@documents/kit@workspace:kit"],
 
     "@documents/pdf": ["@documents/pdf@workspace:pdf"],
 
-    "@documents/powerpoint": ["@documents/powerpoint@workspace:powerpoint"],
+    "@documents/pptx": ["@documents/pptx@workspace:pptx"],
 
     "@documents/text-parity": ["@documents/text-parity@workspace:text-parity"],
 
-    "@documents/word": ["@documents/word@workspace:word"],
+    "@documents/docx": ["@documents/docx@workspace:docx"],
 
     "@flatten-js/interval-tree": ["@flatten-js/interval-tree@1.1.3", "", {}, "sha512-xhFWUBoHJFF77cJO1D6REjdgJEMRf2Y2Z+eKEPav8evGKcLSnj1ud5pLXQSbGuxF3VSvT1rWhMfVpXEKJLTL+A=="],
 

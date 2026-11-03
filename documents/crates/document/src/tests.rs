@@ -913,7 +913,23 @@ fn json_values_that_are_not_changes_are_refused() {
         messages_for(1, &effects).as_slice(),
         [ToClient::Refused {
             reason: RefusedReason::Invalid,
+            detail: Some(detail),
             ..
-        }]
+        }] if detail.starts_with("The change is not valid")
+    ));
+}
+
+#[test]
+fn a_base_from_before_the_file_opened_again_says_so() {
+    let mut document = opened();
+    connect(&mut document, 1, "ana");
+    let effects = message_to(&mut document, 1, change_frame(1, 4, &set("a1", "x")));
+    assert!(matches!(
+        messages_for(1, &effects).as_slice(),
+        [ToClient::Refused {
+            reason: RefusedReason::Invalid,
+            detail: Some(detail),
+            ..
+        }] if detail.contains("rev 0 now")
     ));
 }

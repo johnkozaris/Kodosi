@@ -144,7 +144,7 @@ fn page_object(model: &Model, id: &str) -> Result<lopdf::ObjectId, Refused> {
         .iter()
         .find(|page| page.id == id)
         .and_then(write::id_of)
-        .ok_or_else(|| Refused::Invalid(format!("no page {id}")))
+        .ok_or_else(|| Refused::Invalid(format!("There is no page {id}.")))
 }
 
 fn do_work(model: &Model, work: &PageWork) -> Result<Vec<u8>, Refused> {
@@ -162,7 +162,9 @@ fn do_work(model: &Model, work: &PageWork) -> Result<Vec<u8>, Refused> {
         }
         PageWork::Rotate { page, degrees } => {
             if degrees % 90 != 0 {
-                return Err(Refused::Invalid("a page turns by 90 degrees".to_owned()));
+                return Err(Refused::Invalid(
+                    "A page turns by 90, 180 or 270 degrees.".to_owned(),
+                ));
             }
             let id = page_object(model, page)?;
             let current = model
@@ -181,7 +183,7 @@ fn do_work(model: &Model, work: &PageWork) -> Result<Vec<u8>, Refused> {
         }
         PageWork::Remove { page } => {
             if model.pages.len() == 1 {
-                return Err(Refused::Invalid("the last page stays".to_owned()));
+                return Err(Refused::Invalid("A PDF keeps its last page.".to_owned()));
             }
             let id = page_object(model, page)?;
             write::pages_update(&model.file, |_, order| {
@@ -250,11 +252,11 @@ fn apply_one(model: &mut Model, change: Change, assets: &mut Assets) -> Result<C
         }
         Change::Work { work } | Change::Worked { work, .. } => work_on(model, work, assets)?,
         Change::Base { asset } => {
-            let hash =
-                hash_from_hex(&asset).ok_or_else(|| Refused::Invalid("no hash".to_owned()))?;
+            let hash = hash_from_hex(&asset)
+                .ok_or_else(|| Refused::Invalid("The asset has no valid hash.".to_owned()))?;
             let bytes = assets
                 .get(&hash)
-                .ok_or_else(|| Refused::Invalid(format!("no asset {asset}")))?
+                .ok_or_else(|| Refused::Invalid(format!("There is no asset {asset}.")))?
                 .to_vec();
             take_file(model, bytes, assets)?;
             Change::Base { asset }
@@ -265,7 +267,7 @@ fn apply_one(model: &mut Model, change: Change, assets: &mut Assets) -> Result<C
                 .map(|change| apply_one(model, change, assets))
                 .collect::<Result<_, _>>()?,
         },
-        Change::Ops { .. } => return Err(Refused::Invalid("ops inside ops".to_owned())),
+        Change::Ops { .. } => return Err(Refused::Invalid("Ops cannot hold ops.".to_owned())),
     })
 }
 
@@ -286,7 +288,7 @@ fn page_at(model: &Model, number: u32) -> Result<String, Refused> {
         .pages
         .get(index)
         .map(|page| page.id.clone())
-        .ok_or_else(|| Refused::Invalid(format!("no page {number}")))
+        .ok_or_else(|| Refused::Invalid(format!("There is no page {number}.")))
 }
 
 fn new_note_id(model: &Model, taken: usize) -> String {
@@ -325,7 +327,7 @@ fn to_changes(model: &Model, ops: Vec<Op>) -> Result<Vec<Change>, Refused> {
             },
             Op::RemoveNote { note } => {
                 if !model.notes.contains_key(&note) {
-                    return Err(Refused::Invalid(format!("no note {note}")));
+                    return Err(Refused::Invalid(format!("There is no note {note}.")));
                 }
                 Change::Note {
                     id: note,
@@ -336,7 +338,7 @@ fn to_changes(model: &Model, ops: Vec<Op>) -> Result<Vec<Change>, Refused> {
                 let known =
                     model.fields.contains_key(&name) || model.file_fields.contains_key(&name);
                 if !known && value.is_none() {
-                    return Err(Refused::Invalid(format!("no field {name}")));
+                    return Err(Refused::Invalid(format!("There is no field {name}.")));
                 }
                 Change::Field { name, value }
             }

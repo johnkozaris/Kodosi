@@ -57,6 +57,10 @@
   stroke-width: 2;
 }
 
+.document-bar button[hidden] {
+  display: none;
+}
+
 .document-bar button,
 .bar-popover button {
   display: inline-flex;

@@ -1,4 +1,4 @@
-//! An Office file as a package of parts. A document can come from anyone, so reading limits the
+//! An Open XML file as a package of parts. A document can come from anyone, so reading limits the
 //! entries, the unpacked size and the compression ratio, and it checks each entry name. Writing
 //! copies each part that did not change byte for byte.
 
@@ -100,7 +100,7 @@ impl<'a> Package<'a> {
         };
         rels.root_element()
             .children()
-            .filter(|node| node.has_tag_name((RELATIONSHIPS, "Relationship")))
+            .filter(|node| node.has_tag_name((PACKAGE_RELATIONSHIPS, "Relationship")))
             .filter_map(|node| {
                 let external = node.attribute("TargetMode") == Some("External");
                 let target = node.attribute("Target")?;
@@ -121,7 +121,14 @@ impl<'a> Package<'a> {
     }
 }
 
-const RELATIONSHIPS: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
+/// The namespace of the relationships between parts.
+pub const PACKAGE_RELATIONSHIPS: &str =
+    "http://schemas.openxmlformats.org/package/2006/relationships";
+/// The namespace of the relationship ids in a part.
+pub const RELATIONSHIPS: &str =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+/// The same namespace in the strict form of the standard.
+pub const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relation {
@@ -131,7 +138,7 @@ pub struct Relation {
 }
 
 /// The part that a relative target names, seen from a folder.
-pub fn join_part(folder: &str, target: &str) -> String {
+fn join_part(folder: &str, target: &str) -> String {
     let mut parts: Vec<&str> = if target.starts_with('/') {
         Vec::new()
     } else {

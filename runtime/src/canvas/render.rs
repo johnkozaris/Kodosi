@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::json;
 use shared_browser::HostPage;
 
-use super::{CanvasAnswer, PipeEnds, engine::BrowserHost};
+use super::{CanvasAnswer, DocumentView, PipeEnds, engine::BrowserHost, view_of};
 use crate::documents::DocumentHost;
 
 /// How long the pictures of one file may take, once the browser runs.
@@ -24,7 +24,7 @@ const MOST_PICTURES: usize = 300;
 #[derive(Parser)]
 #[command(name = "kodosi doc render")]
 pub(super) struct RenderArguments {
-    /// A Word, Excel, `PowerPoint` or PDF file.
+    /// A document, sheet, presentation or PDF.
     pub file: PathBuf,
     /// The folder of the pictures. Without it, they go to a folder of temporary files.
     #[arg(long)]
@@ -40,15 +40,12 @@ struct Area {
     height: f64,
 }
 
-/// The view that draws a file, and the size of the page that it draws in.
-fn view_of(file: &Path) -> Option<(&'static str, (u32, u32))> {
-    let extension = file.extension()?.to_str()?.to_ascii_lowercase();
-    match extension.as_str() {
-        "docx" => Some(("word", (1100, 900))),
-        "xlsx" => Some(("excel", (1400, 900))),
-        "pptx" => Some(("powerpoint", (1440, 900))),
-        "pdf" => Some(("pdf", (1100, 900))),
-        _ => None,
+/// The size of the page that a view draws in.
+const fn page_size(view: DocumentView) -> (u32, u32) {
+    match view {
+        DocumentView::Docx | DocumentView::Pdf => (1100, 900),
+        DocumentView::Xlsx => (1400, 900),
+        DocumentView::Pptx => (1440, 900),
     }
 }
 
@@ -115,12 +112,12 @@ pub(super) async fn render(
     file: PathBuf,
     out: PathBuf,
 ) -> Result<CanvasAnswer, String> {
-    let (view, size) =
-        view_of(&file).ok_or("kodosi doc render draws Word, Excel, PowerPoint and PDF files.")?;
+    let view =
+        view_of(&file).ok_or("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")?;
     let views = views().ok_or("This Kodosi has no document views to draw with.")?;
     let browsers = host.browsers(|_| {}).await?;
     let mut page = browsers
-        .host_page(&profile, views, size, &script(view))
+        .host_page(&profile, views, page_size(view), &script(view.name()))
         .await
         .map_err(|problem| problem.to_string())?;
     let drawn = tokio::time::timeout(
@@ -247,11 +244,11 @@ mod tests {
     #[test]
     fn each_kind_of_file_gets_its_view() {
         assert_eq!(
-            view_of(Path::new("plan.DOCX")).map(|(view, _)| view),
-            Some("word")
+            view_of(Path::new("plan.DOCX")).map(DocumentView::name),
+            Some("docx")
         );
         assert_eq!(
-            view_of(Path::new("a/b.pdf")).map(|(view, _)| view),
+            view_of(Path::new("a/b.pdf")).map(DocumentView::name),
             Some("pdf")
         );
         assert_eq!(view_of(Path::new("notes.txt")), None);
@@ -267,6 +264,6 @@ mod tests {
 
     #[test]
     fn the_script_names_the_view_as_text() {
-        assert!(script("excel").contains(r#"kind: "excel""#));
+        assert!(script("xlsx").contains(r#"kind: "xlsx""#));
     }
 }

@@ -4,7 +4,7 @@ use clap::Parser;
 use documents::{Documents, Viewer};
 use documents_cli::{Agents, Command, formats};
 
-/// Reads and edits Word, Excel, `PowerPoint` and PDF files as one more client of a live document.
+/// Reads and edits .docx, .xlsx, .pptx and .pdf files as one more client of a live document.
 #[derive(Parser)]
 #[command(name = "documents", version)]
 struct Arguments {

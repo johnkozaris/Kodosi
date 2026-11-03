@@ -15,6 +15,6 @@
     "noEmit": true,
     "types": ["bun", "vite/client"]
   },
-  "include": ["bar", "client", "contract", "excel", "kit", "pdf", "powerpoint", "word"],
+  "include": ["bar", "client", "contract", "xlsx", "kit", "pdf", "pptx", "docx"],
   "exclude": ["**/dist", "**/node_modules"]
 }

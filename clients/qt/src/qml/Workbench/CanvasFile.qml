@@ -19,11 +19,12 @@ Item {
         anchors.centerIn: parent
         width: Math.min(340, parent.width - 32)
         title: root.item.name
-        message: (root.item.kind === "page" ? qsTr("Page") : root.item.kind === "pdf" ? qsTr("PDF") : qsTr("Office file"))
+        message: (root.item.kind === "page" ? qsTr("Page") : root.item.kind === "pdf" ? qsTr("PDF")
+            : root.item.kind === "sheet" ? qsTr("Sheet") : root.item.kind === "presentation" ? qsTr("Presentation") : qsTr("Document"))
             + " · " + root.size(root.item.bytes || 0)
-            + (root.item.kind === "office" ? "" : "\n" + qsTr("This computer does not let Kodosi show pages in a sandbox."))
+            + (["document", "sheet", "presentation"].includes(root.item.kind) ? "" : "\n" + qsTr("This computer does not let Kodosi show pages in a sandbox."))
         art: IconTile {
-            iconName: root.item.kind === "office" ? "office" : "page"
+            iconName: ["document", "sheet", "presentation"].includes(root.item.kind) ? root.item.kind : "page"
             size: 56
         }
 

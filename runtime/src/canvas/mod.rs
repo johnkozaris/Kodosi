@@ -71,16 +71,30 @@ pub enum CanvasKind {
     Page,
     Picture,
     Pdf,
-    Office,
+    Document,
+    Sheet,
+    Presentation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentView {
-    Word,
-    Excel,
-    Powerpoint,
+    Docx,
+    Xlsx,
+    Pptx,
     Pdf,
+}
+
+impl DocumentView {
+    /// The name of the view in the view bundle.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Docx => "docx",
+            Self::Xlsx => "xlsx",
+            Self::Pptx => "pptx",
+            Self::Pdf => "pdf",
+        }
+    }
 }
 
 /// A device's two ends of a live document's pipe: frames go in and come out, and the pipe ends
@@ -345,9 +359,9 @@ fn bounded(text: &str, most: usize) -> bool {
 pub fn view_of(path: &std::path::Path) -> Option<DocumentView> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match extension.as_str() {
-        "docx" => DocumentView::Word,
-        "xlsx" => DocumentView::Excel,
-        "pptx" => DocumentView::Powerpoint,
+        "docx" => DocumentView::Docx,
+        "xlsx" => DocumentView::Xlsx,
+        "pptx" => DocumentView::Pptx,
         "pdf" => DocumentView::Pdf,
         _ => return None,
     })
@@ -361,8 +375,9 @@ pub fn kind_of(path: &std::path::Path) -> Option<CanvasKind> {
         | "yml" | "toml" | "xml" | "diff" | "patch" => CanvasKind::Page,
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" => CanvasKind::Picture,
         "pdf" => CanvasKind::Pdf,
-        "docx" | "doc" | "xlsx" | "xls" | "pptx" | "ppt" | "odt" | "ods" | "odp" | "rtf"
-        | "pages" | "numbers" | "key" => CanvasKind::Office,
+        "docx" | "doc" | "odt" | "rtf" | "pages" => CanvasKind::Document,
+        "xlsx" | "xls" | "ods" | "numbers" => CanvasKind::Sheet,
+        "pptx" | "ppt" | "odp" | "key" => CanvasKind::Presentation,
         _ => return None,
     })
 }

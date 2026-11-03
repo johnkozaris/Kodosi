@@ -46,7 +46,7 @@ and closes what is done. Your conversation with Dosi follows you to every comput
 **Share a live terminal.** Give a friend full control of a running terminal and its agent.
 
 **A canvas next to each terminal.** An agent shows you a page, a plan or a picture beside
-its terminal. Word, Excel, PowerPoint and PDF files are live: you, your friends and the
+its terminal. Documents, sheets, presentations and PDFs are live: you, your friends and the
 agent edit the same real file at once. The agent also uses a browser that you share with
 it: you see what it does as live video, and you click and type in the same pages.
 

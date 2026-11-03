@@ -99,11 +99,12 @@ struct CanvasScreen: View {
                         .transition(.opacity)
                     } else if let session, let current, let frame {
                         CanvasItemView(session: session, shown: current, store: store, frame: frame, pages: model.terminals.documentPages,
-                                       typing: typing, ask: ask(current, in: session)) { address in
+                                       typing: typing, ask: ask(current, in: session))
+                        { address in
                             openBrowser(of: session, at: address)
                         }
-                            .id(current.key)
-                            .transition(.opacity)
+                        .id(current.key)
+                        .transition(.opacity)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {

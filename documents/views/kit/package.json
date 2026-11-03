@@ -8,9 +8,9 @@
   "dependencies": {
     "@documents/client": "workspace:*",
     "@documents/contract": "workspace:*",
-    "@documents/excel": "workspace:*",
+    "@documents/xlsx": "workspace:*",
     "@documents/pdf": "workspace:*",
-    "@documents/powerpoint": "workspace:*",
-    "@documents/word": "workspace:*"
+    "@documents/pptx": "workspace:*",
+    "@documents/docx": "workspace:*"
   }
 }

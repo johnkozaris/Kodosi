@@ -493,7 +493,8 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
         const auto missing = item.value(QStringLiteral("missing"));
         if (!entry.isObject() || !text(item.value(QStringLiteral("key")), 1024)
             || !text(item.value(QStringLiteral("name")), 512)
-            || !QStringList { QStringLiteral("page"), QStringLiteral("picture"), QStringLiteral("pdf"), QStringLiteral("office") }
+            || !QStringList { QStringLiteral("page"), QStringLiteral("picture"), QStringLiteral("pdf"), QStringLiteral("document"),
+                                QStringLiteral("sheet"), QStringLiteral("presentation") }
                     .contains(item.value(QStringLiteral("kind")).toString())
             || !count(item.value(QStringLiteral("revision"))) || !count(item.value(QStringLiteral("bytes")))
             || !count(item.value(QStringLiteral("changed"))) || (!missing.isUndefined() && !missing.isBool()))

@@ -23,6 +23,14 @@
   inset: 0;
 }
 
+.document-view[data-scheme="dark"][data-dark-pages] .pdf-page {
+  background: #1a1a1a;
+}
+
+.document-view[data-scheme="dark"][data-dark-pages] .pdf-page > canvas {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
 .pdf-layer {
   position: absolute;
   inset: 0;

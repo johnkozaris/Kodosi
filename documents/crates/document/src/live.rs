@@ -395,19 +395,29 @@ impl<F: Format> Document<F> {
             return Vec::new();
         };
         if !seat.viewer.can_edit {
-            return vec![refuse(pipe, seq, RefusedReason::Invalid, None)];
+            let detail = "This person can only read the file.".to_owned();
+            return vec![refuse(pipe, seq, RefusedReason::Invalid, Some(detail))];
         }
         if seq <= self.seqs.get(&client).copied().unwrap_or(0) {
             return Vec::new();
         }
-        let Ok(change) = serde_json::from_value::<F::Change>(body) else {
-            return vec![refuse(pipe, seq, RefusedReason::Invalid, None)];
+        let change = match serde_json::from_value::<F::Change>(body) {
+            Ok(change) => change,
+            Err(error) => {
+                let detail = format!("The change is not valid: {error}.");
+                return vec![refuse(pipe, seq, RefusedReason::Invalid, Some(detail))];
+            }
         };
         if base > self.rev {
-            return vec![refuse(pipe, seq, RefusedReason::Invalid, None)];
+            let detail = format!(
+                "The file opened again since rev {base} and is at rev {} now. Read again.",
+                self.rev
+            );
+            return vec![refuse(pipe, seq, RefusedReason::Invalid, Some(detail))];
         }
         let Some(since) = self.log_since(base) else {
-            return vec![refuse(pipe, seq, RefusedReason::Behind, None)];
+            let detail = format!("The changes since rev {base} are gone. Read again.");
+            return vec![refuse(pipe, seq, RefusedReason::Behind, Some(detail))];
         };
         let since = since.to_vec();
         match F::apply(&mut self.model, change, &since, &mut self.assets) {

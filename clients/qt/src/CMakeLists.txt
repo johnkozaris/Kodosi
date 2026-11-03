@@ -14,6 +14,7 @@ set_source_files_properties(
     qml/Settings/ProviderSettings.qml
     qml/Settings/DosiSettings.qml
     qml/Settings/BrowserSettings.qml
+    qml/Settings/DocumentSettings.qml
     PROPERTIES QT_QML_INTERNAL_TYPE TRUE
 )
 
@@ -282,6 +283,7 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/KeyboardSettings.qml
         qml/Settings/ProviderSettings.qml
         qml/Settings/BrowserSettings.qml
+        qml/Settings/DocumentSettings.qml
         qml/Settings/DosiSettings.qml
         qml/Controls/AccountMark.qml
         qml/Controls/Arrive.qml

@@ -328,7 +328,7 @@ enum CanvasPreview: @unchecked Sendable {
             let head = content.prefix(64 * 1024)
             let text = (0 ... 3).lazy.compactMap { String(bytes: head.dropLast($0), encoding: .utf8) }.first
             return text.flatMap(title(in:)).map(CanvasPreview.title)
-        case .office:
+        case .document, .sheet, .presentation:
             return nil
         }
     }

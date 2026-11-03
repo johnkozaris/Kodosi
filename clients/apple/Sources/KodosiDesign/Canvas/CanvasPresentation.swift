@@ -30,7 +30,9 @@ public extension CanvasItem.Kind {
         case .page: "doc.richtext"
         case .picture: "photo"
         case .pdf: "doc.text"
-        case .office: "doc"
+        case .document: "doc"
+        case .sheet: "tablecells"
+        case .presentation: "play.rectangle"
         }
     }
 
@@ -39,7 +41,9 @@ public extension CanvasItem.Kind {
         case .page: String(localized: "Page", bundle: .module)
         case .picture: String(localized: "Picture", bundle: .module)
         case .pdf: String(localized: "PDF", bundle: .module)
-        case .office: String(localized: "Office file", bundle: .module)
+        case .document: String(localized: "Document", bundle: .module)
+        case .sheet: String(localized: "Sheet", bundle: .module)
+        case .presentation: String(localized: "Presentation", bundle: .module)
         }
     }
 }

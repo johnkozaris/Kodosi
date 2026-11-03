@@ -6680,7 +6680,13 @@
                                     "const": "pdf"
                                   },
                                   {
-                                    "const": "office"
+                                    "const": "document"
+                                  },
+                                  {
+                                    "const": "sheet"
+                                  },
+                                  {
+                                    "const": "presentation"
                                   }
                                 ]
                               },
@@ -6699,13 +6705,13 @@
                                   {
                                     "oneOf": [
                                       {
-                                        "const": "word"
+                                        "const": "docx"
                                       },
                                       {
-                                        "const": "excel"
+                                        "const": "xlsx"
                                       },
                                       {
-                                        "const": "powerpoint"
+                                        "const": "pptx"
                                       },
                                       {
                                         "const": "pdf"
@@ -8284,7 +8290,13 @@
                         "const": "pdf"
                       },
                       {
-                        "const": "office"
+                        "const": "document"
+                      },
+                      {
+                        "const": "sheet"
+                      },
+                      {
+                        "const": "presentation"
                       }
                     ]
                   },

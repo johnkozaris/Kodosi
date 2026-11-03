@@ -8,17 +8,17 @@
     "bar",
     "client",
     "contract",
-    "excel",
+    "xlsx",
     "kit",
     "pdf",
-    "powerpoint",
+    "pptx",
     "text-parity",
-    "word"
+    "docx"
   ],
   "scripts": {
     "build": "tsc && vite build",
     "tsc": "tsc",
-    "test": "bun test word",
+    "test": "bun test docx",
     "format": "biome check --write .",
     "format:check": "biome check ."
   },

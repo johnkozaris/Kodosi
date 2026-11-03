@@ -73,18 +73,21 @@ progress bar. A program that reports nothing shows no state.
 
 ## 4. See what an agent shows
 
-An agent can show you a page, Markdown, a picture, a PDF or an Office file on the canvas
-of its terminal, and use a browser that you share with it. Agents that Kodosi starts know
-how; tell another agent to read `kodosi skill canvas`. When the canvas has something, the
-terminal's header shows a key for its files and one for its browser, with a copper dot for
-news. Select one to open the canvas beside the terminal; More room gives the canvas the
+An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet or a
+presentation on the canvas of its terminal, and use a browser that you share with it.
+Agents that Kodosi starts know how; tell another agent to read `kodosi skill canvas`. When
+the canvas has something, the terminal's header shows a key for its files and one for its
+browser, with a copper dot for news. Select one to open the canvas beside the terminal; More room gives the canvas the
 stage and keeps the terminal small in its corner. Close a part with the × on its key, and
 open it again with +. Open Browser in the actions key opens the browser before the agent
 uses it, and Add a File puts a file on the canvas and into the terminal's folder; you can
 also drop a file on the canvas. On the iPhone, the canvas key is in the terminal's bar.
 
-- A Word, Excel, PowerPoint or PDF file is live: you, the people in the terminal and the
-  agent edit it at the same time, and it stays a normal file in its folder.
+- A document, sheet, presentation or PDF is live: you, the people in the terminal and the
+  agent edit it at the same time, and it stays a normal file in its folder. When a
+  document has tracked changes, its bar has a key that accepts or rejects them. Settings ›
+  Documents turns each viewer off or on, shows documents as pages or as text that fits
+  the canvas, and makes pages dark when Kodosi is dark.
 
 - A page has no network. Its links open in your own browser, and a `localhost` link in
   the shared browser.

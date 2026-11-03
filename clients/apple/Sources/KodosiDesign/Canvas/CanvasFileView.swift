@@ -5,7 +5,7 @@ import SwiftUI
     import QuickLook
 #endif
 
-/// A picture, PDF or Office file of a canvas, which Quick Look shows from a copy in the
+/// A picture, PDF, document, sheet or presentation of a canvas, which Quick Look shows from a copy in the
 /// temporary folder that goes when the view goes.
 public struct CanvasFileView: View {
     let content: Data

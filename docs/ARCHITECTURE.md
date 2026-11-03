@@ -141,8 +141,9 @@ with one viewer for each window.
 [browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
 each terminal: plain Chromium with no engine patches, started hidden with a debug port on
 `127.0.0.1` and the capture extension. On Linux it runs on its own Xvfb display. The first
-window gets the engine from a signed feed, and an update comes the same way. An engine that
-`KODOSI_BROWSER_ENGINE` names replaces the feed in a development build.
+window gets the engine from a signed feed. The host looks at the feed each day: a browser
+that starts after an update uses the new engine, a browser that runs keeps its own, and the
+old engine goes when the host starts again.
 
 While a device looks, the extension's tab capture feeds `VideoEncoder`, and H.264 frames
 reach the host on a local socket with a one-time token. A viewer's pipe carries these

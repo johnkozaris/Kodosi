@@ -279,7 +279,7 @@ async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<Str
     let shown = path.display().to_string();
     let kind = kind_of(&path).ok_or_else(|| {
         format!(
-            "{shown}: the canvas shows pages (HTML, Markdown, text), pictures, PDF and Office files."
+            "{shown}: the canvas shows pages (HTML, Markdown, text), pictures, documents, sheets, presentations and PDFs."
         )
     })?;
     let metadata = tokio::fs::metadata(&path)
