@@ -341,7 +341,7 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
         TestRemoteRequest::Control { reply, .. } => {
             reply.send(Ok(Value::Null)).expect("input result");
         }
-        TestRemoteRequest::Checkpoint => panic!("view input expected"),
+        _ => panic!("view input expected"),
     }
     let refused = terminal.send_input(Bytes::from_static(b"y")).await;
     assert_eq!(
@@ -422,7 +422,7 @@ async fn confirm(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TerminalCo
             reply.send(Ok(Value::Null)).expect("control result");
             control
         }
-        TestRemoteRequest::Checkpoint => panic!("control expected"),
+        _ => panic!("control expected"),
     }
 }
 
@@ -902,7 +902,7 @@ async fn unknown_input_result_is_not_retried_and_makes_the_terminal_connect_agai
                 .send(Err(crate::network::Error::Closed))
                 .expect("unknown result");
         }
-        TestRemoteRequest::Checkpoint => panic!("input expected"),
+        _ => panic!("input expected"),
     }
     interrupted(&mut changes, &terminal).await;
     assert!(requests.try_recv().is_err());
@@ -945,4 +945,54 @@ async fn the_end_from_the_host_ends_a_view_that_did_not_get_all_output() {
         }
     }
     assert!(terminal.is_closed());
+}
+
+fn picture(fill: u8) -> Picture {
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(4096, fill);
+    Picture::new(Bytes::from(bytes)).expect("picture")
+}
+
+async fn picture_state(changes: &mut mpsc::Receiver<SessionChange>) -> PictureState {
+    loop {
+        if let SessionChange::Picture { state, .. } =
+            tokio::time::timeout(Duration::from_secs(2), changes.recv())
+                .await
+                .expect("picture change timeout")
+                .expect("picture change")
+        {
+            return state;
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_picture_pasted_again_while_it_travels_goes_once_and_the_next_picture_follows() {
+    let (terminal, _view, mut requests, _updates, mut changes) = start().await;
+    terminal.picture(picture(1)).await.expect("first paste");
+    let TestRemoteRequest::Picture { reply, .. } = next_request(&mut requests).await else {
+        panic!("picture expected");
+    };
+    assert_eq!(picture_state(&mut changes).await, PictureState::Sending);
+    for _ in 0..3 {
+        terminal.picture(picture(1)).await.expect("same paste");
+    }
+    terminal.picture(picture(2)).await.expect("other paste");
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), requests.recv())
+            .await
+            .is_err()
+    );
+    reply.send(Ok(())).expect("arrived");
+    assert_eq!(picture_state(&mut changes).await, PictureState::Sent);
+    let TestRemoteRequest::Picture { picture: next, .. } = next_request(&mut requests).await else {
+        panic!("next picture expected");
+    };
+    assert_eq!(next.digest, picture(2).digest);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), requests.recv())
+            .await
+            .is_err()
+    );
+    terminal.disconnect();
 }

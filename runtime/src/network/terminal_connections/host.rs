@@ -7,12 +7,12 @@ use super::{
     channel::{Channel, Transport},
     link::{HostEvent, Hosted, Pipe},
     pacer::Pacer,
-    wire::{Accept, ControlResult, End, Frame, Refuse},
+    wire::{Accept, ControlResult, End, Frame, PictureOffer, PictureState, PictureStep, Refuse},
     *,
 };
 use crate::{
-    network::{CheckpointCut, TerminalStatus},
-    terminal::TerminalMetadata,
+    network::{CheckpointCut, HostPicture, TerminalStatus},
+    terminal::{Picture, TERMINAL_PICTURE_MAX_BYTES, TerminalMetadata},
 };
 
 const VIEWERS: usize = crate::protocol::TERMINAL_VIEWERS_MOST;
@@ -24,6 +24,23 @@ const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const STATUS_SPACING: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
+type PictureAnswer = std::pin::Pin<
+    Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, String>)> + Send>,
+>;
+
+/// The pictures that all views of this host's terminals send at once.
+static PICTURE_MEMORY: tokio::sync::Semaphore =
+    tokio::sync::Semaphore::const_new(4 * TERMINAL_PICTURE_MAX_BYTES);
+const PICTURE_DAMAGED: &str = "The picture arrived damaged. Paste it again.";
+const PICTURES_BUSY: &str =
+    "The other computer is receiving other pictures. Paste it again in a moment.";
+
+/// A picture whose parts a view sends.
+struct Receiving {
+    offer: PictureOffer,
+    bytes: Vec<u8>,
+    _memory: tokio::sync::SemaphorePermit<'static>,
+}
 type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
 type Controls = FuturesUnordered<std::pin::Pin<Box<dyn Future<Output = Frame> + Send>>>;
 
@@ -453,18 +470,20 @@ async fn connect(
         .map_err(|_| Error::Closed)?;
     let authorization = cancel.child_token();
     let _authorization = authorization.clone().drop_guard();
-    let mut stream = Stream::new(
-        channel,
-        output,
-        &publication.requests,
-        Controller {
-            connection: id,
-            authorization,
-        },
-    );
-    let ended = stream.serve().await;
+    let (ended, channel) = {
+        let mut stream = Stream::new(
+            channel,
+            output,
+            &publication.requests,
+            Controller {
+                connection: id,
+                authorization,
+            },
+        );
+        (stream.serve().await, stream.channel)
+    };
     if ended.is_ok() {
-        stream.channel.close().await;
+        channel.close().await;
     }
     ended
 }
@@ -578,6 +597,8 @@ struct Stream<'a, T> {
     input_confirmed: u64,
     inputs: Inputs,
     controls: Controls,
+    picture: Option<Receiving>,
+    picture_answer: Option<PictureAnswer>,
 }
 
 enum Skip {
@@ -615,6 +636,8 @@ impl<'a, T: Transport> Stream<'a, T> {
             input_confirmed: 0,
             inputs: Inputs::new(),
             controls: Controls::new(),
+            picture: None,
+            picture_answer: None,
         }
     }
 
@@ -650,6 +673,10 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 Some(answer) = self.controls.next(), if !self.controls.is_empty() => {
                     self.channel.send(&answer).await?;
+                }
+                answer = async { match self.picture_answer.as_mut() { Some(answer) => answer.await, None => std::future::pending().await } }, if self.picture_answer.is_some() => {
+                    self.picture_answer = None;
+                    self.picture_answered(answer).await?;
                 }
                 _ = heartbeat.tick() => {
                     if self.heard.elapsed() >= CHANNEL_SILENCE {
@@ -1018,9 +1045,154 @@ impl<'a, T: Transport> Stream<'a, T> {
                     }
                 }));
             }
+            Frame::Picture(offer) => self.offered(offer).await?,
+            Frame::PicturePart { id, offset, bytes } => self.part(id, offset, &bytes).await?,
             _ => return Err(invalid("Unsupported terminal viewer frame.")),
         }
         Ok(())
+    }
+
+    /// A view offers a picture. The terminal pastes it at once if it has its file.
+    async fn offered(&mut self, offer: PictureOffer) -> Result<()> {
+        let digest = crate::terminal::picture_digest(&offer.sha256)
+            .filter(|_| offer.size > 0 && offer.size <= TERMINAL_PICTURE_MAX_BYTES as u64)
+            .ok_or_else(|| invalid("The picture offer is not valid."))?;
+        if self.picture.is_some() || self.picture_answer.is_some() {
+            return Err(invalid("A view sends one picture at a time."));
+        }
+        let reply = self
+            .submit_picture(HostPicture::Known {
+                digest,
+                format: offer.format,
+            })
+            .await?;
+        self.picture_answer = Some(Box::pin(async move {
+            let known = match tokio::time::timeout(CONTROL_TIMEOUT, reply).await {
+                Ok(Ok(Ok(answer))) => Ok(answer.get("missing") != Some(&Value::Bool(true))),
+                Ok(Ok(Err(message))) => Err(message),
+                _ => Err("The terminal did not take the picture.".to_owned()),
+            };
+            (offer, known)
+        }));
+        Ok(())
+    }
+
+    async fn part(&mut self, id: Uuid, offset: u64, bytes: &[u8]) -> Result<()> {
+        let Some(receiving) = self
+            .picture
+            .as_mut()
+            .filter(|receiving| receiving.offer.id == id && offset == receiving.bytes.len() as u64)
+        else {
+            return Err(invalid("A picture part arrived out of order."));
+        };
+        if offset + bytes.len() as u64 > receiving.offer.size {
+            return Err(invalid("A picture part exceeds its picture."));
+        }
+        receiving.bytes.extend_from_slice(bytes);
+        let received = receiving.bytes.len() as u64;
+        self.channel
+            .send(&Frame::PictureState(PictureState {
+                id,
+                received,
+                step: PictureStep::Receiving,
+                message: String::new(),
+            }))
+            .await?;
+        if received == receiving.offer.size
+            && let Some(receiving) = self.picture.take()
+        {
+            self.paste(receiving).await?;
+        }
+        Ok(())
+    }
+
+    /// Pastes a picture whose parts all arrived, if it is the picture that the view offered.
+    async fn paste(&mut self, receiving: Receiving) -> Result<()> {
+        let Receiving {
+            offer,
+            bytes,
+            _memory: memory,
+        } = receiving;
+        let picture = Picture::new(Bytes::from(bytes))
+            .ok()
+            .filter(|picture| picture.sha256() == offer.sha256 && picture.format == offer.format);
+        let Some(picture) = picture else {
+            return self
+                .picture_answered((offer, Err(PICTURE_DAMAGED.to_owned())))
+                .await;
+        };
+        let reply = self.submit_picture(HostPicture::Whole(picture)).await?;
+        self.picture_answer = Some(Box::pin(async move {
+            let pasted = match tokio::time::timeout(CONTROL_TIMEOUT, reply).await {
+                Ok(Ok(Ok(_))) => Ok(true),
+                Ok(Ok(Err(message))) => Err(message),
+                _ => Err("The terminal did not take the picture.".to_owned()),
+            };
+            drop(memory);
+            (offer, pasted)
+        }));
+        Ok(())
+    }
+
+    /// Answers a view's picture: pasted, refused, or asked for when this host does not have it.
+    async fn picture_answered(
+        &mut self,
+        (offer, answer): (PictureOffer, std::result::Result<bool, String>),
+    ) -> Result<()> {
+        let (id, size) = (offer.id, offer.size);
+        let state = move |step, message: String| {
+            Frame::PictureState(PictureState {
+                id,
+                received: if step == PictureStep::Pasted { size } else { 0 },
+                step,
+                message,
+            })
+        };
+        let frame = match answer {
+            Ok(true) => state(PictureStep::Pasted, String::new()),
+            Err(message) => state(PictureStep::Refused, message),
+            Ok(false) => {
+                let memory = u32::try_from(offer.size)
+                    .ok()
+                    .and_then(|size| PICTURE_MEMORY.try_acquire_many(size).ok());
+                match memory {
+                    Some(memory) => {
+                        let frame = state(PictureStep::Receiving, String::new());
+                        self.picture = Some(Receiving {
+                            bytes: Vec::with_capacity(
+                                usize::try_from(offer.size).unwrap_or_default(),
+                            ),
+                            offer,
+                            _memory: memory,
+                        });
+                        frame
+                    }
+                    None => state(PictureStep::Refused, PICTURES_BUSY.to_owned()),
+                }
+            }
+        };
+        self.channel.send(&frame).await.map(|_| ())
+    }
+
+    #[expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "exclusive borrow keeps the non-Sync pending futures Send across the await"
+    )]
+    async fn submit_picture(&mut self, picture: HostPicture) -> Result<Reply> {
+        let (reply, response) = oneshot::channel();
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            self.requests.send(HostRequest::Picture {
+                connection_id: self.controller.connection,
+                authorization: self.controller.authorization.clone(),
+                picture,
+                reply,
+            }),
+        )
+        .await
+        .map_err(|_| Error::Busy)?
+        .map_err(|_| Error::Closed)?;
+        Ok(response)
     }
 
     #[expect(

@@ -13,6 +13,8 @@ pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
+/// A picture part fills a frame of 64 KiB, which needs no padding.
+pub(crate) const PICTURE_PART: usize = 64 * 1024 - HEADER - 24;
 const CALL_REQUEST: usize = 64 * 1024;
 const CALL_ANSWER: usize = 512 * 1024;
 const CONTROL_LIMIT: usize = 32 * 1024;
@@ -49,6 +51,33 @@ pub(crate) struct End {
 pub(crate) struct ControlResult {
     pub request_id: Uuid,
     pub accepted: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PictureOffer {
+    pub id: Uuid,
+    pub size: u64,
+    pub sha256: String,
+    pub format: crate::terminal::PictureFormat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PictureStep {
+    Receiving,
+    Pasted,
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PictureState {
+    pub id: Uuid,
+    pub received: u64,
+    pub step: PictureStep,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub message: String,
 }
 
@@ -100,6 +129,13 @@ pub(crate) enum Frame {
         request_id: Uuid,
         value: Value,
     },
+    Picture(PictureOffer),
+    PicturePart {
+        id: Uuid,
+        offset: u64,
+        bytes: Bytes,
+    },
+    PictureState(PictureState),
 }
 
 /// Whether a control's answer fits one frame.
@@ -113,6 +149,7 @@ impl Frame {
         matches!(self, Self::Keyframe { .. } | Self::Output { .. })
     }
 
+    #[expect(clippy::too_many_lines, reason = "one match encodes every frame")]
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         let (kind, body) = match self {
             Self::Accept(accept) => (2, serde_json::to_vec(accept)?),
@@ -199,6 +236,18 @@ impl Frame {
                 body.extend_from_slice(&call_json(value, CALL_ANSWER)?);
                 (18, body)
             }
+            Self::Picture(offer) => (19, serde_json::to_vec(offer)?),
+            Self::PicturePart { id, offset, bytes } => {
+                if bytes.is_empty() || bytes.len() > PICTURE_PART {
+                    return Err(invalid("A picture part exceeds its bound."));
+                }
+                let mut body = Vec::with_capacity(24 + bytes.len());
+                body.extend_from_slice(id.as_bytes());
+                body.extend_from_slice(&offset.to_be_bytes());
+                body.extend_from_slice(bytes);
+                (20, body)
+            }
+            Self::PictureState(state) => (21, serde_json::to_vec(state)?),
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -234,6 +283,7 @@ impl Frame {
         Ok(Some((frame, length)))
     }
 
+    #[expect(clippy::too_many_lines, reason = "one match decodes every frame")]
     fn decode(kind: u8, body: &[u8]) -> Result<Self> {
         let json = |limit: usize| {
             if body.len() > limit {
@@ -331,6 +381,19 @@ impl Frame {
                     value: call_value(&body[16..])?,
                 }
             }
+            19 => Self::Picture(serde_json::from_slice(json(1024)?)?),
+            20 => {
+                if body.len() <= 24 || body.len() > 24 + PICTURE_PART {
+                    return Err(invalid("A picture part is invalid."));
+                }
+                Self::PicturePart {
+                    id: Uuid::from_slice(&body[..16])
+                        .map_err(|_| invalid("A picture part is invalid."))?,
+                    offset: read64(body, 16),
+                    bytes: Bytes::copy_from_slice(&body[24..]),
+                }
+            }
+            21 => Self::PictureState(serde_json::from_slice(json(4096)?)?),
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
     }

@@ -273,3 +273,77 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
     let (_, reason) = view.ended.await.unwrap();
     assert_eq!(reason, "Lost.");
 }
+
+#[tokio::test]
+async fn a_view_sends_the_parts_of_a_picture_only_when_the_host_asks_and_ends_when_it_is_pasted() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(3 * PICTURE_PART + 10, 7);
+    let picture = crate::terminal::Picture::new(Bytes::from(bytes.clone())).unwrap();
+    let (reply, pasted) = oneshot::channel();
+    view.commands
+        .send(RemoteRequest::Picture {
+            picture: picture.clone(),
+            reply,
+        })
+        .await
+        .unwrap();
+    let Frame::Picture(offer) = view.sent_by_view().await else {
+        panic!("picture offer");
+    };
+    assert_eq!(
+        (offer.size, offer.sha256.as_str()),
+        (bytes.len() as u64, picture.sha256().as_str())
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), view.host.receive())
+            .await
+            .is_err()
+    );
+    let answer = |received, step| {
+        Frame::PictureState(PictureState {
+            id: offer.id,
+            received,
+            step,
+            message: String::new(),
+        })
+    };
+    view.host
+        .send(&answer(0, PictureStep::Receiving))
+        .await
+        .unwrap();
+    let mut arrived = Vec::new();
+    while arrived.len() < bytes.len() {
+        let Frame::PicturePart { id, offset, bytes } = view.sent_by_view().await else {
+            panic!("picture part");
+        };
+        assert_eq!((id, offset), (offer.id, arrived.len() as u64));
+        arrived.extend_from_slice(&bytes);
+        view.host
+            .send(&answer(arrived.len() as u64, PictureStep::Receiving))
+            .await
+            .unwrap();
+    }
+    assert_eq!(arrived, bytes);
+    view.host
+        .send(&answer(bytes.len() as u64, PictureStep::Pasted))
+        .await
+        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(5), pasted)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_ok()
+    );
+    let mut last = None;
+    while let Ok(Some(RemoteUpdate::Picture { sent, total })) =
+        tokio::time::timeout(Duration::from_millis(100), view.updates.recv()).await
+    {
+        last = Some((sent, total));
+    }
+    assert_eq!(last, Some((bytes.len() as u64, bytes.len() as u64)));
+}

@@ -698,6 +698,18 @@ impl TerminalTarget {
         }
     }
 
+    /// Pastes a picture: here at once, and in a terminal of another computer when it arrives.
+    fn paste_picture(
+        &self,
+        picture: crate::terminal::Picture,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => Box::pin(terminal.paste_picture(picture)),
+            Self::Remote(terminal) => Box::pin(terminal.picture(picture)),
+        }
+    }
+
     /// Asks the canvas of the terminal. An answer from another computer is checked first.
     fn canvas(
         &self,
@@ -2757,6 +2769,23 @@ impl Runtime {
                 instance_id,
                 reason,
             } => self.remote_lost(id, incarnation, instance_id, reason, false),
+            SessionChange::Picture {
+                id,
+                incarnation,
+                instance_id,
+                state,
+                sent,
+                total,
+                message,
+            } => {
+                if self.connections.get(&id).is_some_and(|connection| {
+                    connection.incarnation_id == incarnation
+                        && connection.instance_id == instance_id
+                }) {
+                    self.emit(json!({"type":"term.picture", "sessionId":id, "state":state,
+                        "sent":sent, "total":total, "message":message}));
+                }
+            }
         }
     }
 

@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 74;
+pub const VERSION: u32 = 75;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -269,6 +269,16 @@ pub enum Command {
         text: String,
         #[serde(default)]
         enter: bool,
+    },
+    #[serde(rename = "session.picture")]
+    Picture {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        path: String,
     },
     #[serde(rename = "session.message")]
     Message {
@@ -1061,6 +1071,24 @@ pub enum EventBody {
         title: String,
         body: String,
     },
+    #[serde(rename = "term.picture")]
+    TerminalPicture {
+        session_id: String,
+        state: PictureState,
+        sent: u64,
+        total: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
+}
+
+/// Where a picture that a person pasted into a terminal of another computer is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum PictureState {
+    Sending,
+    Sent,
+    Failed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -1390,6 +1418,7 @@ impl EventBody {
             Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
             Self::TerminalNotification { .. } => "term.notification",
+            Self::TerminalPicture { .. } => "term.picture",
         }
     }
 }
@@ -1472,6 +1501,7 @@ impl Command {
             Self::InterruptSession { .. } => "session.interrupt",
             Self::RunInSession { .. } => "session.run",
             Self::Input { .. } => "session.input",
+            Self::Picture { .. } => "session.picture",
             Self::Message { .. } => "session.message",
             Self::Visible { .. } => "session.visible",
             Self::Read { .. } => "session.read",
@@ -1587,6 +1617,7 @@ impl Command {
             | Self::InterruptSession { request_id, .. }
             | Self::RunInSession { request_id, .. }
             | Self::Input { request_id, .. }
+            | Self::Picture { request_id, .. }
             | Self::Message { request_id, .. }
             | Self::Visible { request_id, .. }
             | Self::Read { request_id, .. }
@@ -1644,6 +1675,7 @@ impl Command {
             | Self::InterruptSession { session_id, .. }
             | Self::RunInSession { session_id, .. }
             | Self::Input { session_id, .. }
+            | Self::Picture { session_id, .. }
             | Self::Message { session_id, .. }
             | Self::Read { session_id, .. }
             | Self::Show { session_id, .. }
@@ -1681,6 +1713,10 @@ impl Command {
                 ..
             }
             | Self::Input {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::Picture {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1969,6 +2005,11 @@ impl Command {
             {
                 return Err(Error::Invalid(
                     "Input must contain 1 byte to 1 MiB.".to_owned(),
+                ));
+            }
+            Self::Picture { path, .. } if !std::path::Path::new(path).is_absolute() => {
+                return Err(Error::Invalid(
+                    "Name the picture by its absolute path.".to_owned(),
                 ));
             }
             Self::Message { text, .. }

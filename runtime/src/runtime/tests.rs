@@ -2119,6 +2119,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         Vec::new(),
         Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
     .await
@@ -2351,6 +2352,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         Vec::new(),
         Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
     .await
@@ -2455,6 +2457,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         Vec::new(),
         Default::default(),
         crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
     .await

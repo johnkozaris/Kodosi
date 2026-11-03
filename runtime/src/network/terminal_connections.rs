@@ -39,7 +39,6 @@ mod channel;
 #[cfg(feature = "host")]
 mod host;
 mod link;
-#[cfg(feature = "host")]
 mod pacer;
 mod participant;
 
@@ -113,6 +112,10 @@ pub(crate) enum RemoteRequest {
         reply: oneshot::Sender<Result<Value>>,
     },
     Checkpoint,
+    Picture {
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+    },
 }
 
 #[cfg(feature = "host")]

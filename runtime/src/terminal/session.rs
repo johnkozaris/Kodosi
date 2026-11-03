@@ -9,11 +9,13 @@ use std::{
 use bytes::Bytes;
 use kodosi_pty::{KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, watch};
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::context::{Contexts, LocalMachine, TerminalContext};
 use super::emulator::{SessionTerminalHandle, TerminalEffect};
+use super::picture::{self, Picture};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
@@ -24,7 +26,7 @@ use super::{
 use crate::{
     Error, Result,
     canvas::{Canvas, CanvasHandle},
-    network::{CheckpointCut, HostRequest, PublishedFrame, TerminalControl},
+    network::{CheckpointCut, HostPicture, HostRequest, PublishedFrame, TerminalControl},
 };
 
 const COMMAND_CAPACITY: usize = 64;
@@ -52,6 +54,10 @@ enum Request {
     Input {
         connection: Uuid,
         write: PendingWrite,
+    },
+    Picture {
+        picture: Picture,
+        reply: oneshot::Sender<Result<()>>,
     },
     Send {
         write: PendingWrite,
@@ -108,7 +114,7 @@ impl TerminalSession {
     /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
     /// reads; the note itself is in each terminal's environment. Its `plugin` folder holds the
     /// skills of Kodosi for agents that load plugins. The terminal shows `screen` above the
-    /// output of its program.
+    /// output of its program, and keeps the pictures that people paste in `pictures`.
     #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
     pub(crate) async fn spawn(
         id: Uuid,
@@ -121,6 +127,7 @@ impl TerminalSession {
         screen: Vec<u8>,
         (size, cell): (TerminalSize, CellPixels),
         canvas: CanvasHandle,
+        pictures: PathBuf,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let clear_line = clear_line_keys(&program);
@@ -210,6 +217,8 @@ impl TerminalSession {
             published_context: None,
             canvas,
             canvas_state,
+            pictures,
+            saving: JoinSet::new(),
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
             next_refresh: tokio::time::Instant::now(),
@@ -263,6 +272,16 @@ impl TerminalSession {
             self.send(Request::Input { connection, write })
         });
         await_reply(admission, response)
+    }
+
+    /// Saves a picture that a person pastes and pastes the path of its file, as a terminal
+    /// pastes a dropped file.
+    pub(crate) fn paste_picture(
+        &self,
+        picture: Picture,
+    ) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::Picture { picture, reply }), response)
     }
 
     pub(crate) fn send_input(
@@ -654,9 +673,19 @@ struct LocalActor {
     published_context: Option<TerminalContext>,
     canvas: CanvasHandle,
     canvas_state: watch::Receiver<Canvas>,
+    pictures: PathBuf,
+    saving: JoinSet<SavedPicture>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
     next_refresh: tokio::time::Instant,
+}
+
+/// A pasted picture whose file is saved, so its path can be pasted. A picture of a view on
+/// another computer is pasted only while that view may type.
+struct SavedPicture {
+    authorization: Option<CancellationToken>,
+    path: Result<PathBuf>,
+    completion: InputCompletion,
 }
 
 impl LocalActor {
@@ -1339,6 +1368,9 @@ impl LocalActor {
                 return self.release(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
+            Request::Picture { picture, reply } => {
+                self.save_picture(None, picture, InputCompletion::Local(reply));
+            }
             Request::Send { write, message } => self.accept_command_input(write, message),
             Request::Read { history, reply } => {
                 if !reply.is_closed() {
@@ -1519,8 +1551,85 @@ impl LocalActor {
                     .host_control(connection_id, authorization, control, reply)
                     .await;
             }
+            HostRequest::Picture {
+                authorization,
+                picture,
+                reply,
+                ..
+            } => match picture {
+                HostPicture::Whole(picture) => {
+                    self.save_picture(Some(authorization), picture, InputCompletion::Remote(reply))
+                }
+                HostPicture::Known { digest, format } => {
+                    let path = self.pictures.join(picture::name(&digest, format));
+                    if path.is_file() {
+                        self.paste_saved(SavedPicture {
+                            authorization: Some(authorization),
+                            path: Ok(path),
+                            completion: InputCompletion::Remote(reply),
+                        })
+                        .await;
+                    } else {
+                        drop(reply.send(Ok(serde_json::json!({"missing": true}))));
+                    }
+                }
+            },
         }
         None
+    }
+
+    fn save_picture(
+        &mut self,
+        authorization: Option<CancellationToken>,
+        picture: Picture,
+        completion: InputCompletion,
+    ) {
+        let folder = self.pictures.clone();
+        self.saving.spawn(async move {
+            let path = tokio::task::spawn_blocking(move || picture::save(&folder, &picture))
+                .await
+                .map_err(|error| Error::Other(format!("The picture was not saved: {error}")))
+                .and_then(|saved| saved);
+            SavedPicture {
+                authorization,
+                path,
+                completion,
+            }
+        });
+    }
+
+    /// Pastes the path of a saved picture as a person's input.
+    async fn paste_saved(&mut self, saved: SavedPicture) {
+        let SavedPicture {
+            authorization,
+            path,
+            completion,
+        } = saved;
+        let write = match path {
+            Ok(_)
+                if authorization
+                    .as_ref()
+                    .is_some_and(CancellationToken::is_cancelled) =>
+            {
+                Err(Error::Stale)
+            }
+            Ok(path) => self
+                .emulator
+                .paste(picture::paste_text(&path))
+                .await
+                .and_then(|bytes| {
+                    PendingWrite::new(Bytes::from(bytes), &self.input_budget, authorization)
+                }),
+            Err(error) => Err(error),
+        };
+        match write {
+            Ok(mut write) => {
+                write.completion = Some(completion);
+                self.typed_at = Some(tokio::time::Instant::now());
+                self.queue.push_back(write);
+            }
+            Err(error) => completion.send(Err(error)),
+        }
     }
 
     /// A canvas request of a person on another computer. It does not wait for the terminal.
@@ -1702,6 +1811,7 @@ impl LocalActor {
                     }
                     false
                 },
+                Some(saved) = self.saving.join_next(), if !self.saving.is_empty() => { if let Ok(saved) = saved { self.paste_saved(saved).await; } false }
                 transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
                     Ok(Transfer::Read(0)) => break "The terminal ended.".to_owned(),
                     Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } false }
@@ -1762,6 +1872,9 @@ impl LocalActor {
         }));
         drop(self.emulator.shutdown().await);
         drop(self.pty);
+        self.saving.abort_all();
+        let pictures = self.pictures.clone();
+        drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(pictures)).await);
         self.completed.send_replace(Some(completion));
         drop(
             self.changes

@@ -1,13 +1,36 @@
 use super::{
     channel::{Channel, Transport},
     link::Pipe,
-    wire::{ControlResult, Frame},
+    pacer::Pacer,
+    wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
 
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
+const PROGRESS_SPACING: Duration = Duration::from_millis(100);
+const PICTURE_NOT_CONFIRMED: &str =
+    "The other computer did not confirm the picture. Paste it again.";
+
+/// A picture on its way to the host. The host asks for its parts when it does not have the
+/// picture, and keeps at most half a second of them in transit, as it does with output.
+struct Upload {
+    id: Uuid,
+    picture: crate::terminal::Picture,
+    reply: oneshot::Sender<Result<()>>,
+    asked: bool,
+    sent: u64,
+    pacer: Pacer,
+    told: tokio::time::Instant,
+    deadline: tokio::time::Instant,
+}
+
+impl Upload {
+    fn wants_part(&mut self) -> bool {
+        self.asked && self.sent < self.picture.bytes.len() as u64 && self.pacer.room()
+    }
+}
 
 struct Pending {
     reply: oneshot::Sender<Result<Value>>,
@@ -205,6 +228,7 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    upload: Option<Upload>,
 }
 
 impl<T: Transport> Viewer<T> {
@@ -228,6 +252,7 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            upload: None,
         }
     }
 
@@ -286,7 +311,11 @@ impl<T: Transport> Viewer<T> {
                         drop(pending.reply.send(Err(invalid("The host did not confirm the operation, and Kodosi did not send it again."))));
                     }
                 }
+                if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
+                    drop(upload.reply.send(Err(invalid(PICTURE_NOT_CONFIRMED))));
+                }
             }
+            () = std::future::ready(()), if self.upload.as_mut().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
                 self.acknowledge().await?;
             }
@@ -353,6 +382,7 @@ impl<T: Transport> Viewer<T> {
                 self.input_sent += length;
                 drop(reply.send(Ok(Value::Null)));
             }
+            RemoteRequest::Picture { picture, reply } => self.offer(picture, reply).await?,
             RemoteRequest::Control { control, reply } => {
                 if !self.started {
                     drop(reply.send(Err(invalid(
@@ -491,7 +521,98 @@ impl<T: Transport> Viewer<T> {
                     drop(pending.reply.send(Ok(value)));
                 }
             }
+            Frame::PictureState(state) => self.picture_state(state).await?,
             _ => return Err(invalid("Unsupported terminal host frame.")),
+        }
+        Ok(())
+    }
+
+    async fn offer(
+        &mut self,
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+    ) -> Result<()> {
+        if !self.started {
+            drop(reply.send(Err(invalid(
+                "Wait for the terminal snapshot before sending a picture.",
+            ))));
+            return Ok(());
+        }
+        if self.upload.is_some() {
+            drop(reply.send(Err(Error::Busy)));
+            return Ok(());
+        }
+        let id = Uuid::now_v7();
+        self.channel
+            .send(&Frame::Picture(PictureOffer {
+                id,
+                size: picture.bytes.len() as u64,
+                sha256: picture.sha256(),
+                format: picture.format,
+            }))
+            .await?;
+        let now = tokio::time::Instant::now();
+        self.upload = Some(Upload {
+            id,
+            picture,
+            reply,
+            asked: false,
+            sent: 0,
+            pacer: Pacer::default(),
+            told: now,
+            deadline: now + CONTROL_TIMEOUT,
+        });
+        Ok(())
+    }
+
+    async fn send_part(&mut self) -> Result<()> {
+        let Some(upload) = self.upload.as_mut() else {
+            return Ok(());
+        };
+        let start = usize::try_from(upload.sent).map_err(|_| invalid(PICTURE_NOT_CONFIRMED))?;
+        let end = upload.picture.bytes.len().min(start + PICTURE_PART);
+        let frame = Frame::PicturePart {
+            id: upload.id,
+            offset: upload.sent,
+            bytes: upload.picture.bytes.slice(start..end),
+        };
+        upload.sent = end as u64;
+        upload
+            .pacer
+            .sent((end - start) as u64, tokio::time::Instant::now());
+        self.channel.send(&frame).await.map(|_| ())
+    }
+
+    async fn picture_state(&mut self, state: PictureState) -> Result<()> {
+        let Some(upload) = self.upload.as_mut().filter(|upload| upload.id == state.id) else {
+            return Err(invalid("The host answered for another picture."));
+        };
+        let now = tokio::time::Instant::now();
+        let total = upload.picture.bytes.len() as u64;
+        match state.step {
+            PictureStep::Receiving => {
+                upload.pacer.acknowledge(state.received, now)?;
+                upload.asked = true;
+                upload.deadline = now + CONTROL_TIMEOUT;
+                if upload.told + PROGRESS_SPACING <= now || state.received == total {
+                    upload.told = now;
+                    self.update(RemoteUpdate::Picture {
+                        sent: state.received,
+                        total,
+                    })
+                    .await?;
+                }
+            }
+            PictureStep::Pasted => {
+                if let Some(upload) = self.upload.take() {
+                    drop(upload.reply.send(Ok(())));
+                }
+            }
+            PictureStep::Refused => {
+                if let Some(upload) = self.upload.take() {
+                    drop(upload.reply.send(Err(invalid(state.message))));
+                }
+            }
         }
         Ok(())
     }

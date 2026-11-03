@@ -1753,6 +1753,60 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.picture"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "path"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "agent": {
             "anyOf": [
               {
@@ -11522,11 +11576,77 @@
           "body"
         ],
         "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sent": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "state": {
+            "oneOf": [
+              {
+                "const": "sending"
+              },
+              {
+                "const": "sent"
+              },
+              {
+                "const": "failed"
+              }
+            ]
+          },
+          "total": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "type": {
+            "const": "term.picture"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "sessionId",
+          "state",
+          "sent",
+          "total"
+        ],
+        "type": "object"
       }
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 74,
+  "protocolVersion": 75,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,
