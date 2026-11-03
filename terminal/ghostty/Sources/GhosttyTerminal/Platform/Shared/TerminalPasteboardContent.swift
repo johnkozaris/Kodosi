@@ -19,6 +19,10 @@ enum TerminalPasteboardContent {
         return UTType(mimeType: mime)?.identifier ?? mime
     }
 
+    /// The types of a picture, in the order that a paste takes them: the formats that agents
+    /// read first, and then those that the app converts.
+    static let pictureTypes: [UTType] = [.png, .jpeg, .gif, .webP, .tiff, .heic]
+
     static func text(string: String?, urls: [URL]) -> String? {
         if !urls.isEmpty {
             return urls
@@ -45,6 +49,12 @@ enum TerminalPasteboardContent {
         )
     }
 
+    static func picture(from pasteboard: NSPasteboard = .general) -> Data? {
+        pictureTypes.lazy
+            .compactMap { pasteboard.data(forType: NSPasteboard.PasteboardType($0.identifier)) }
+            .first
+    }
+
     static func write(_ representations: [Representation], to pasteboard: NSPasteboard = .general) {
         let types = representations.map {
             NSPasteboard.PasteboardType(typeIdentifier(mime: $0.mime))
@@ -61,6 +71,12 @@ enum TerminalPasteboardContent {
 
     static func text(from pasteboard: UIPasteboard = .general) -> String? {
         text(string: pasteboard.string, urls: pasteboard.urls ?? [])
+    }
+
+    static func picture(from pasteboard: UIPasteboard = .general) -> Data? {
+        pictureTypes.lazy
+            .compactMap { pasteboard.data(forPasteboardType: $0.identifier) }
+            .first ?? pasteboard.image?.pngData()
     }
 
     static func write(_ representations: [Representation], to pasteboard: UIPasteboard = .general) {

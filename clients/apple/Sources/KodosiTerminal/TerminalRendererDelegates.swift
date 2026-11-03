@@ -12,11 +12,13 @@ final class TerminalRendererDelegateProxy:
     TerminalSurfaceLifecycleDelegate,
     TerminalSurfaceOpenURLDelegate,
     TerminalSurfaceHoverLinkDelegate,
-    TerminalSurfaceClipboardReadDelegate
+    TerminalSurfaceClipboardReadDelegate,
+    TerminalSurfacePictureDelegate
 {
     weak var target: TerminalViewState?
     var viewportDidResize: (() -> Void)?
     var clipboardReadRequested: ((@escaping @MainActor (Bool) -> Void) -> Void)?
+    var picturePasted: ((Data) -> Void)?
     var asksBeforeClipboardRead = true
     /// The computer that runs the terminal, when it is not this device.
     var otherComputer: String?
@@ -88,6 +90,10 @@ final class TerminalRendererDelegateProxy:
 
     func terminalDidUpdateHoverLink(_ url: String?) {
         forward { $0.terminalDidUpdateHoverLink(url) }
+    }
+
+    func terminalDidPastePicture(_ picture: Data) {
+        picturePasted?(picture)
     }
 
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {

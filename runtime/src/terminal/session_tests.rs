@@ -30,7 +30,7 @@ async fn shell_at(
         Uuid::now_v7(),
         PathBuf::from("/bin/sh"),
         vec!["-c".to_owned(), script.to_owned()],
-        directory,
+        directory.clone(),
         None,
         None,
         Vec::new(),
@@ -40,6 +40,7 @@ async fn shell_at(
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir()),
         ),
+        directory.join("pictures"),
         changes,
     )
     .await
@@ -764,6 +765,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         published_context: None,
         canvas: canvas.clone(),
         canvas_state: canvas.state(),
+        pictures: std::env::temp_dir().join(Uuid::now_v7().to_string()),
+        saving: JoinSet::new(),
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
         next_refresh: tokio::time::Instant::now(),
@@ -1046,6 +1049,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir()),
         ),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
     .await
@@ -1099,6 +1103,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir()),
         ),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
     .await
@@ -1143,6 +1148,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir()),
         ),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
     .await
@@ -1379,6 +1385,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir()),
         ),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
     .await
@@ -1456,4 +1463,44 @@ fn terminals_find_the_kodosi_command_of_the_running_app_first() {
     ])
     .expect("path");
     assert_eq!(path_with_command(&later, &folder), first);
+}
+
+#[tokio::test]
+async fn a_pasted_picture_is_saved_once_and_its_path_is_pasted_as_the_program_asked() {
+    let (session, _changes, _root) = shell(
+        r"stty raw -echo
+printf '\033[?2004hPASTE-READY'
+exec /bin/cat",
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    wait_text(&mut subscription, b"PASTE-READY").await;
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(70_000, 5);
+    let picture = Picture::new(Bytes::from(bytes.clone())).expect("picture");
+    session
+        .paste_picture(picture.clone())
+        .await
+        .expect("pasted picture");
+    let echoed = wait_text(&mut subscription, b"\x1b[201~").await;
+    let start = echoed
+        .windows(6)
+        .position(|window| window == b"\x1b[200~")
+        .expect("bracketed paste")
+        + 6;
+    let end = start
+        + echoed[start..]
+            .windows(6)
+            .position(|window| window == b"\x1b[201~")
+            .expect("end of the paste");
+    let path = PathBuf::from(std::str::from_utf8(&echoed[start..end]).expect("pasted path"));
+    assert_eq!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(picture.name().as_str())
+    );
+    assert_eq!(std::fs::read(&path).expect("saved picture"), bytes);
+    session.paste_picture(picture).await.expect("pasted again");
+    wait_text(&mut subscription, path.to_str().expect("path").as_bytes()).await;
+    session.close().await.expect("close");
+    assert!(!path.exists());
 }

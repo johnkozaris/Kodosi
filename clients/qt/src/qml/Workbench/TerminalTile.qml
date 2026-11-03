@@ -475,8 +475,63 @@ Item {
                 onLinkQuestionRequested: (link, target) => linkReview.ask(link, target)
                 onLinkRefused: (target, reason) => linkReview.refuse(target, reason)
                 onOperationError: message => root.terminalOperationError = message
+                onPicturePasted: path => Models.SessionActions.pastePicture(root.sessionId, path)
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
+            }
+            Item {
+                id: pictureCard
+                readonly property var picture: root.session.kind === "remote" ? Models.Sessions.pictures[root.sessionId] || null : null
+                property var shown: null
+                readonly property string label: shown && shown.arrived
+                    ? qsTr("Picture sent to %1").arg(root.session.hostLabel || "")
+                    : qsTr("Sending picture to %1").arg(root.session.hostLabel || "")
+                readonly property string percent: shown ? qsTr("%1%").arg(Math.round(shown.fraction * 100)) : ""
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: pictureRow.implicitWidth + 24
+                height: 34
+                opacity: picture ? 1 : 0
+                visible: opacity > 0
+                objectName: root.objectName + ".picture"
+                Accessible.role: Accessible.StaticText
+                Accessible.name: shown && !shown.arrived ? label + " " + percent : label
+
+                onPictureChanged: if (picture) shown = picture
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.reduceMotion ? 0 : KodosiTheme.motionFade } }
+
+                Raised {
+                    anchors.fill: parent
+                    radius: height / 2
+                    fill: KodosiTheme.terminalLifted
+                    dark: true
+                    elevation: 2
+                }
+                RowLayout {
+                    id: pictureRow
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 10
+                    spacing: 9
+
+                    ProgressRing {
+                        progress: pictureCard.shown ? (pictureCard.shown.arrived ? 1 : pictureCard.shown.fraction) : 0
+                        track: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.22)
+                    }
+                    PlainLabel { text: pictureCard.label; color: KodosiTheme.terminalInk }
+                    RollingText {
+                        visible: pictureCard.shown && !pictureCard.shown.arrived
+                        text: pictureCard.percent
+                        color: KodosiTheme.terminalInkMuted
+                    }
+                }
+            }
+            Connections {
+                target: Models.Sessions
+                function onPictureFailed(sessionId, message) {
+                    if (sessionId === root.sessionId)
+                        root.terminalOperationError = message;
+                }
             }
             Timer {
                 interval: 300

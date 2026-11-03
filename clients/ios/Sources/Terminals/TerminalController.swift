@@ -85,6 +85,10 @@ final class TerminalController {
         store.live.inputError(for: sessionId)
     }
 
+    var picture: TerminalPicture? {
+        store.live.picture(for: sessionId)
+    }
+
     var canType: Bool {
         presence.focused
     }

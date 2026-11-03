@@ -78,6 +78,9 @@ conversation follows the person to all their computers.
   still shows its hidden terminals.
 - Programs get what Ghostty gives them, such as Kitty images and clipboard writes. A
   clipboard read asks first only in another person's terminal.
+- A pasted picture goes to the computer of the terminal as a file, and the terminal gets
+  the path of the file as a paste, so an agent attaches it. While a picture goes to another
+  computer, its terminal shows how much arrived, and pasting it again sends nothing more.
 - Any program can show a link, so a link opens by Ghostty's rules. A web or mail link
   opens at once. A file or folder opens, but not a file that can run a program. A link to
   another app asks first. A link with hidden characters or an incomplete address does not

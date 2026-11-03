@@ -39,6 +39,7 @@ mod dosi;
 mod messages;
 #[cfg(feature = "host")]
 mod restore;
+
 #[cfg(test)]
 mod tests;
 
@@ -718,6 +719,18 @@ impl TerminalTarget {
         }
     }
 
+    /// Pastes a picture: here at once, and in a terminal of another computer when it arrives.
+    fn paste_picture(
+        &self,
+        picture: crate::terminal::Picture,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => Box::pin(terminal.paste_picture(picture)),
+            Self::Remote(terminal) => Box::pin(terminal.picture(picture)),
+        }
+    }
+
     /// Asks the canvas of the terminal. An answer from another computer is checked first.
     fn canvas(
         &self,
@@ -748,7 +761,11 @@ impl TerminalTarget {
     /// computer of the terminal knows a person on another computer by their connection.
     #[cfg_attr(
         not(feature = "host"),
-        expect(unused_variables, reason = "for a local terminal")
+        expect(
+            unused_variables,
+            clippy::needless_pass_by_value,
+            reason = "for a local terminal"
+        )
     )]
     fn document(
         &self,
@@ -1092,6 +1109,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     {
         crate::canvas::close_left(&config.data_root).await;
         crate::canvas::keep_profiles(&config.data_root, &restore.returning());
+        remove_pictures(&config.data_root).await;
     }
     #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
@@ -1501,6 +1519,8 @@ impl Runtime {
         self.services.close().await;
         #[cfg(feature = "host")]
         crate::canvas::close_left(&self.config.data_root).await;
+        #[cfg(feature = "host")]
+        remove_pictures(&self.config.data_root).await;
         self.network.shutdown().await;
     }
 
@@ -2821,6 +2841,23 @@ impl Runtime {
                 instance_id,
                 reason,
             } => self.remote_lost(id, incarnation, instance_id, reason, false),
+            SessionChange::Picture {
+                id,
+                incarnation,
+                instance_id,
+                state,
+                sent,
+                total,
+                message,
+            } => {
+                if self.connections.get(&id).is_some_and(|connection| {
+                    connection.incarnation_id == incarnation
+                        && connection.instance_id == instance_id
+                }) {
+                    self.emit(json!({"type":"session.picture", "sessionId":id,
+                        "state":state, "sent":sent, "total":total, "message":message}));
+                }
+            }
         }
     }
 
@@ -3002,4 +3039,11 @@ impl Runtime {
             });
         }
     }
+}
+
+/// Removes the pictures that people pasted into terminals that are gone.
+#[cfg(feature = "host")]
+async fn remove_pictures(data_root: &Path) {
+    let pictures = crate::terminal::pictures_root(data_root);
+    drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(pictures)).await);
 }

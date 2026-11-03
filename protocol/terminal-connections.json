@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 23,
   "oldestTerminalConnectionProtocolVersion": 23,
-  "channelProtocolVersion": 5,
+  "channelProtocolVersion": 6,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a side whose channel has no selected protocol closes the channel and shows that the other computer must update Kodosi. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
@@ -177,33 +177,58 @@
         "direction": "host",
         "body": "requestId:16 bytes, the JSON answer of a canvas control: a part of a file, a picture of the browser or done; at most 524288 bytes"
       },
-      "pipeOpen": {
+      "picture": {
         "type": 19,
+        "direction": "viewer",
+        "body": "JSON: id, size, sha256 (64 lowercase hexadecimal characters), format (png, jpeg, gif, webp); at most 1024 bytes"
+      },
+      "picturePart": {
+        "type": 20,
+        "direction": "viewer",
+        "body": "id:16 bytes, offset:u64be, at most 32737 bytes of the picture, so a frame is 32768 bytes"
+      },
+      "pictureState": {
+        "type": 21,
+        "direction": "host",
+        "body": "JSON: id, received (bytes), at (when the host had them: microseconds since it asked for the parts; 0 with pasted and refused), step (receiving, pasted, refused), message (with refused)"
+      },
+      "pipeOpen": {
+        "type": 22,
         "direction": "viewer",
         "body": "pipe (16 bytes), then JSON [key, name]: key names the document, or browser for the terminal's browser; name is the name of the person"
       },
       "pipeData": {
-        "type": 20,
+        "type": 23,
         "direction": "both",
         "body": "pipe (16 bytes), more:u8, a part of one document frame; a frame is complete at the part with more 0",
         "partMaxBytes": 32768
       },
       "pipeClose": {
-        "type": 21,
+        "type": 24,
         "direction": "both",
         "body": "pipe (16 bytes)"
       },
       "directAsk": {
-        "type": 22,
+        "type": 25,
         "direction": "viewer",
         "body": "pipe (16 bytes): the viewer asks for a straight connection for this pipe"
       },
       "directOffer": {
-        "type": 23,
+        "type": 26,
         "direction": "host",
         "body": "pipe (16 bytes), then a JSON array of at most 8 addresses (ip:port); an empty array sends the pipe to the channel"
       }
     }
+  },
+  "pictures": {
+    "purpose": "a person pastes a picture into a terminal of another computer",
+    "start": "the viewer sends picture and waits; a host that has a file of that picture pastes its path and answers pasted, and otherwise answers receiving with received 0, or refused",
+    "parts": "after receiving, the viewer sends the parts in order; in transit are twice the bytes that the link carries in the shortest round trip of a part, at the fastest speed at which parts arrived in a round trip on the host's clock, and at most half a second of them; the host answers each part with receiving and the bytes it has",
+    "paste": "when all bytes arrived, the host checks the size, sha256 and format, saves the picture in a private folder of the terminal, pastes the path of its file as input of the viewer, in bracketed paste marks when the program asked for them, and answers pasted; it answers refused when the picture is damaged or the terminal did not take it",
+    "limits": "a picture has at most 33554432 bytes; a viewer sends one picture at a time; the host holds at most 134217728 bytes of pictures for all viewers and refuses more",
+    "timeoutSeconds": 12,
+    "late": "a viewer without an answer for timeoutSeconds stops waiting for that picture; on the host the next picture of the viewer takes its place, and a late answer for it changes nothing",
+    "lost": "a picture whose channel is lost does not arrive and is not sent again"
   },
   "calls": {
     "purpose": "a device asks another computer of its person for the choices of a new terminal and starts one there",

@@ -182,9 +182,18 @@ private struct TerminalScreenContent: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let picture = controller.picture, let computer = session?.otherComputer {
+                    PictureNotice(computer: computer, fraction: picture.fraction, arrived: picture.arrived)
+                        .padding(10)
+                        .transition(.opacity.combined(with: .offset(y: 8)))
+                        .allowsHitTesting(false)
+                }
+            }
             .terminalScope()
             .animation(theme.motion.soft, value: liveKey)
             .animation(theme.motion.soft, value: controller.sizeNote)
+            .animation(theme.motion.spring, value: controller.picture == nil)
     }
 
     @ViewBuilder

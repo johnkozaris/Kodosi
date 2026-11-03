@@ -286,6 +286,13 @@ enum TerminalAction {
         #[arg(long)]
         enter: bool,
     },
+    /// Paste a picture into a terminal, as a person does: Kodosi saves it on the terminal's
+    /// computer and types the path of its file. It waits until the picture arrives there.
+    Picture {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+        file: PathBuf,
+    },
     /// Give a terminal a new name.
     Rename {
         #[arg(help = TERMINAL)]
@@ -418,7 +425,7 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
         }
     };
     let json_output = args.json;
-    match dispatch(args).await {
+    match Box::pin(dispatch(args)).await {
         Ok(code) => code,
         Err(error) => {
             let message = match error {
@@ -542,6 +549,10 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             )
             .await?;
             attach_with_demand(&config.data_root, session, &mut client).await
+        }
+        Action::Terminal(TerminalAction::Picture { terminal, file }) => {
+            let session = context.session_id(&terminal)?;
+            picture(&mut client, &mut context, session, &file, json_output).await
         }
         Action::Terminal(TerminalAction::Share { terminal, friends }) => {
             share(
@@ -1649,6 +1660,53 @@ fn key_text(key: &str) -> Result<String> {
         }
     };
     Ok(named.to_owned())
+}
+
+/// Pastes a picture and waits until it arrives on the terminal's computer.
+async fn picture(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    session: Uuid,
+    file: &Path,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::absolute(file)?;
+    open_remote(client, context, session).await?;
+    let command = json!({"type":"session.picture","sessionId":session,
+        "expectedRuntimeIncarnationId":context.incarnation(session)?,"path":path});
+    let answer = request(client, context, command, json_output).await?;
+    if context.session(session)?["kind"] != "remote" {
+        return output(&answer, json_output, "Kodosi pasted the picture.");
+    }
+    let event = tokio::time::timeout(Duration::from_mins(10), async {
+        loop {
+            let frame = client.next().await?;
+            let Some(event) = frame.get("event").filter(|event| context.observe(event)) else {
+                continue;
+            };
+            if event["type"] == "session.picture"
+                && event["sessionId"] == session.to_string().as_str()
+                && event["state"] != "sending"
+            {
+                return Ok::<_, Error>(event.clone());
+            }
+        }
+    })
+    .await
+    .map_err(|_| Error::Other("The picture did not arrive in 10 minutes.".to_owned()))??;
+    if event["state"] == "failed" {
+        return Err(Error::Other(
+            event["message"]
+                .as_str()
+                .unwrap_or("The picture did not arrive.")
+                .to_owned(),
+        ));
+    }
+    output(
+        &event,
+        json_output,
+        "The picture arrived, and Kodosi pasted it.",
+    )
 }
 
 async fn open_remote(

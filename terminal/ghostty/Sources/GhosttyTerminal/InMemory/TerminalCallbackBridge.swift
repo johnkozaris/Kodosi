@@ -42,6 +42,10 @@ final class TerminalCallbackBridge {
         }
     }
 
+    func pastePicture(_ picture: Data) {
+        (delegate as? any TerminalSurfacePictureDelegate)?.terminalDidPastePicture(picture)
+    }
+
     func askToShareClipboard() {
         guard let delegate = delegate as? any TerminalSurfaceClipboardReadDelegate else { return }
         delegate.terminalDidRequestClipboardRead { [weak self] allowed in

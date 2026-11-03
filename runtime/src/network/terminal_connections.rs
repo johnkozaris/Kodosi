@@ -134,6 +134,10 @@ pub(crate) enum RemoteRequest {
         pipe: Uuid,
         reply: oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>,
     },
+    Picture {
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+    },
 }
 
 /// Carries a pipe of a viewer until a side ends it.

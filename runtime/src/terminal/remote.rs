@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::subscribers::{DATA_CAPACITY, MAX_RAW_BYTES, Subscribers};
 use super::validation::validate_terminal_checkpoint;
 use super::{
-    CellPixels, Checkpoint, ControlFrame, DataFrame, SessionChange, Subscription,
+    CellPixels, Checkpoint, ControlFrame, DataFrame, Picture, SessionChange, Subscription,
     TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
@@ -28,9 +28,13 @@ use crate::{
         CONTROL_TIMEOUT, CheckpointCut, RemoteConnection, RemoteControl, RemoteUpdate,
         TerminalControl,
     },
+    protocol::PictureState,
 };
 
 const CONTROL_CAPACITY: usize = 64;
+const PICTURES_WAITING: usize = 8;
+const PICTURE_LOST: &str =
+    "The connection to the other computer was lost, so the picture did not arrive. Paste it again.";
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
@@ -63,6 +67,10 @@ enum Request {
         key: String,
         name: String,
         reply: oneshot::Sender<Result<crate::canvas::PipeEnds>>,
+    },
+    Picture {
+        picture: Picture,
+        reply: oneshot::Sender<Result<()>>,
     },
 }
 
@@ -267,6 +275,20 @@ impl RemoteTerminal {
         )
     }
 
+    /// Sends a pasted picture to the terminal's computer, after the pictures that wait. A
+    /// picture that waits or travels already is not sent again.
+    pub(crate) fn picture(
+        &self,
+        picture: Picture,
+    ) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, result) = oneshot::channel();
+        wait_for(
+            self.send(Request::Picture { picture, reply }),
+            result,
+            CONTROL_TIMEOUT,
+        )
+    }
+
     pub(crate) fn disconnect(&self) {
         self.cancellation.cancel();
     }
@@ -348,6 +370,13 @@ impl RequestedResize {
     }
 }
 
+/// The picture that travels to the terminal's computer.
+struct Sending {
+    digest: [u8; 32],
+    total: u64,
+    result: Pin<Box<dyn Future<Output = crate::network::Result<()>> + Send>>,
+}
+
 struct InFlight {
     result: Pin<Box<dyn Future<Output = crate::network::Result<Value>> + Send>>,
     replies: Vec<oneshot::Sender<Result<Value>>>,
@@ -397,6 +426,8 @@ struct RemoteActor {
     resize_owner: Option<(Uuid, CancellationToken)>,
     requested: HashMap<Uuid, RequestedResize>,
     typed_at: Option<tokio::time::Instant>,
+    pictures: VecDeque<Picture>,
+    sending: Option<Sending>,
 }
 
 impl RemoteActor {
@@ -435,6 +466,8 @@ impl RemoteActor {
             resize_owner: None,
             requested: HashMap::new(),
             typed_at: None,
+            pictures: VecDeque::new(),
+            sending: None,
         }
     }
 
@@ -469,6 +502,15 @@ impl RemoteActor {
         }
         for waiting in self.pending.drain(..) {
             waiting.reply.reject(refuse());
+        }
+        if let Some(sending) = self.sending.take() {
+            self.tell_picture(
+                sending.total,
+                PictureState::Failed,
+                0,
+                Some(PICTURE_LOST.to_owned()),
+            )
+            .await;
         }
         self.reset();
         self.capture_requested = false;
@@ -707,6 +749,7 @@ impl RemoteActor {
                 self.geometry(size, cell, at_sequence);
             }
             RemoteUpdate::Resync => self.reset(),
+            RemoteUpdate::Picture { sent, total } => self.picture_progress(sent, total),
             RemoteUpdate::Ended | RemoteUpdate::Closed { .. } => return Err(Error::Stopped),
         }
         Ok(())
@@ -1087,14 +1130,108 @@ impl RemoteActor {
         }
     }
 
+    /// Tells how much of the picture arrived. A progress that does not fit the queue waits for
+    /// the next one.
+    fn picture_progress(&self, sent: u64, total: u64) {
+        if self
+            .sending
+            .as_ref()
+            .is_some_and(|sending| sending.total == total)
+        {
+            drop(self.changes.try_send(SessionChange::Picture {
+                id: self.connection.session.id,
+                incarnation: self.connection.session.incarnation_id,
+                instance_id: self.instance_id,
+                state: PictureState::Sending,
+                sent,
+                total,
+                message: None,
+            }));
+        }
+    }
+
+    fn wait_picture(&mut self, picture: Picture) -> Result<()> {
+        let digest = picture.digest;
+        if self
+            .sending
+            .as_ref()
+            .is_some_and(|sending| sending.digest == digest)
+            || self.pictures.iter().any(|waiting| waiting.digest == digest)
+        {
+            return Ok(());
+        }
+        if self.pictures.len() >= PICTURES_WAITING {
+            return Err(Error::Invalid(
+                "Kodosi still sends earlier pictures to this terminal. Paste this one in a moment."
+                    .to_owned(),
+            ));
+        }
+        self.pictures.push_back(picture);
+        Ok(())
+    }
+
+    async fn next_picture(&mut self) {
+        if self.sending.is_some() || self.next_sequence.is_none() {
+            return;
+        }
+        let Some(picture) = self.pictures.pop_front() else {
+            return;
+        };
+        let sending = Sending {
+            digest: picture.digest,
+            total: picture.bytes.len() as u64,
+            result: Box::pin(self.controls.send_picture(picture)),
+        };
+        self.tell_picture(sending.total, PictureState::Sending, 0, None)
+            .await;
+        self.sending = Some(sending);
+    }
+
+    #[expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "exclusive borrow keeps the actor future Send across the await"
+    )]
+    async fn tell_picture(
+        &mut self,
+        total: u64,
+        state: PictureState,
+        sent: u64,
+        message: Option<String>,
+    ) {
+        drop(
+            self.changes
+                .send(SessionChange::Picture {
+                    id: self.connection.session.id,
+                    incarnation: self.connection.session.incarnation_id,
+                    instance_id: self.instance_id,
+                    state,
+                    sent,
+                    total,
+                    message,
+                })
+                .await,
+        );
+    }
+
     async fn step(&mut self, tick: &mut tokio::time::Interval) -> Step {
         let interrupted = self.interrupted.load(Ordering::Acquire);
         if !interrupted {
             self.next_control();
+            self.next_picture().await;
         }
         let outcome = tokio::select! {
             () = self.cancellation.cancelled() => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
             result = async { match self.in_flight.as_mut() { Some(active) => active.result.as_mut().await, None => std::future::pending().await } } => self.finish_control(result),
+            result = async { match self.sending.as_mut() { Some(sending) => sending.result.as_mut().await, None => std::future::pending().await } } => {
+                if let Some(sending) = self.sending.take() {
+                    let (state, message) = match result {
+                        Ok(()) => (PictureState::Sent, None),
+                        Err(error) => (PictureState::Failed, Some(error.to_string())),
+                    };
+                    self.tell_picture(sending.total, state, sending.total, message).await;
+                }
+                Ok(())
+            }
             update = self.connection.updates.recv(), if !interrupted => return self.connection_update(update),
             request = self.requests.recv() => match request {
                 Some(Request::Reconnected(connection)) => { self.resume(*connection); Ok(()) }
@@ -1126,6 +1263,10 @@ impl RemoteActor {
                 }
                 Some(Request::Document { pipe, key, name, reply }) => {
                     drop(reply.send(self.controls.open_pipe(pipe, key, name).map_err(Error::from)));
+                    Ok(())
+                }
+                Some(Request::Picture { picture, reply }) => {
+                    drop(reply.send(self.wait_picture(picture)));
                     Ok(())
                 }
                 None => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
@@ -1165,6 +1306,10 @@ impl RemoteActor {
         self.requests.close();
         self.subscribers
             .close(&reason, self.next_sequence.unwrap_or(self.delivered));
+        if let Some(sending) = self.sending.take() {
+            self.tell_picture(sending.total, PictureState::Failed, 0, Some(reason.clone()))
+                .await;
+        }
         for waiting in self.pending {
             waiting.reply.reject(Error::Other(reason.clone()));
         }

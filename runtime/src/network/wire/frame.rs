@@ -17,6 +17,8 @@ pub(crate) const PIPE_PART: usize = 32 * 1024;
 pub(crate) const MOST_DIRECT_ADDRESSES: usize = 8;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
+/// A picture part fills a frame of 32 KiB, as output does, so it needs no padding.
+pub(crate) const PICTURE_PART: usize = 32 * 1024 - HEADER - 24;
 const CALL_REQUEST: usize = 64 * 1024;
 const CALL_ANSWER: usize = 512 * 1024;
 const CONTROL_LIMIT: usize = 32 * 1024;
@@ -53,6 +55,35 @@ pub(crate) struct End {
 pub(crate) struct ControlResult {
     pub request_id: Uuid,
     pub accepted: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PictureOffer {
+    pub id: Uuid,
+    pub size: u64,
+    pub sha256: String,
+    pub format: crate::terminal::PictureFormat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PictureStep {
+    Receiving,
+    Pasted,
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PictureState {
+    pub id: Uuid,
+    pub received: u64,
+    /// When the host had them: microseconds since it asked for the parts.
+    pub at: u64,
+    pub step: PictureStep,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub message: String,
 }
 
@@ -104,6 +135,13 @@ pub(crate) enum Frame {
         request_id: Uuid,
         value: Value,
     },
+    Picture(PictureOffer),
+    PicturePart {
+        id: Uuid,
+        offset: u64,
+        bytes: Bytes,
+    },
+    PictureState(PictureState),
     PipeOpen {
         pipe: Uuid,
         key: String,
@@ -231,13 +269,25 @@ impl Frame {
                 body.extend_from_slice(&call_json(value, CALL_ANSWER)?);
                 (18, body)
             }
+            Self::Picture(offer) => (19, serde_json::to_vec(offer)?),
+            Self::PicturePart { id, offset, bytes } => {
+                if bytes.is_empty() || bytes.len() > PICTURE_PART {
+                    return Err(invalid("A picture part exceeds its bound."));
+                }
+                let mut body = Vec::with_capacity(24 + bytes.len());
+                body.extend_from_slice(id.as_bytes());
+                body.extend_from_slice(&offset.to_be_bytes());
+                body.extend_from_slice(bytes);
+                (20, body)
+            }
+            Self::PictureState(state) => (21, serde_json::to_vec(state)?),
             Self::PipeOpen { pipe, key, name } => {
                 let mut body = pipe.as_bytes().to_vec();
                 body.extend_from_slice(&serde_json::to_vec(&(key, name))?);
                 if body.len() > 16 + CONTROL_LIMIT {
                     return Err(invalid("Terminal control exceeds its bound."));
                 }
-                (19, body)
+                (22, body)
             }
             Self::PipeData { pipe, more, part } => {
                 if part.len() > PIPE_PART {
@@ -247,17 +297,17 @@ impl Frame {
                 body.extend_from_slice(pipe.as_bytes());
                 body.push(u8::from(*more));
                 body.extend_from_slice(part);
-                (20, body)
+                (23, body)
             }
-            Self::PipeClose { pipe } => (21, pipe.as_bytes().to_vec()),
-            Self::DirectAsk { pipe } => (22, pipe.as_bytes().to_vec()),
+            Self::PipeClose { pipe } => (24, pipe.as_bytes().to_vec()),
+            Self::DirectAsk { pipe } => (25, pipe.as_bytes().to_vec()),
             Self::DirectOffer { pipe, addresses } => {
                 if addresses.len() > MOST_DIRECT_ADDRESSES {
                     return Err(invalid("Terminal control exceeds its bound."));
                 }
                 let mut body = pipe.as_bytes().to_vec();
                 body.extend_from_slice(&serde_json::to_vec(addresses)?);
-                (23, body)
+                (26, body)
             }
         };
         let length = padded(HEADER + body.len());
@@ -392,7 +442,20 @@ impl Frame {
                     value: call_value(&body[16..])?,
                 }
             }
-            19 => {
+            19 => Self::Picture(serde_json::from_slice(json(1024)?)?),
+            20 => {
+                if body.len() <= 24 || body.len() > 24 + PICTURE_PART {
+                    return Err(invalid("A picture part is invalid."));
+                }
+                Self::PicturePart {
+                    id: Uuid::from_slice(&body[..16])
+                        .map_err(|_| invalid("A picture part is invalid."))?,
+                    offset: read64(body, 16),
+                    bytes: Bytes::copy_from_slice(&body[24..]),
+                }
+            }
+            21 => Self::PictureState(serde_json::from_slice(json(4096)?)?),
+            22 => {
                 if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
                     return Err(invalid("Document open frame is invalid."));
                 }
@@ -403,7 +466,7 @@ impl Frame {
                     name,
                 }
             }
-            20 => {
+            23 => {
                 if body.len() < 17 || body.len() > 17 + PIPE_PART || body[16] > 1 {
                     return Err(invalid("Document part is invalid."));
                 }
@@ -413,19 +476,19 @@ impl Frame {
                     part: Bytes::copy_from_slice(&body[17..]),
                 }
             }
-            21 => {
+            24 => {
                 exact(body, 16)?;
                 Self::PipeClose {
                     pipe: pipe_id(body)?,
                 }
             }
-            22 => {
+            25 => {
                 exact(body, 16)?;
                 Self::DirectAsk {
                     pipe: pipe_id(body)?,
                 }
             }
-            23 => {
+            26 => {
                 if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
                     return Err(invalid("Direct offer frame is invalid."));
                 }

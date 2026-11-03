@@ -38,6 +38,11 @@ the shell of the new terminal.
   `localhost` address opens in the terminal's shared browser. Kodosi asks before it opens
   a link in another app. It does not open a file that can run a program, or a file of a
   terminal on another computer.
+- To give an agent a picture, such as a screenshot, paste it with ⌘V (Ctrl+Shift+V on
+  Linux and Windows, Paste on the iPhone). Kodosi saves it on the computer of the terminal
+  and pastes the path of its file, and the agent attaches it. A terminal on another
+  computer shows how much of the picture arrived. The agent's own key for pictures, such
+  as Ctrl+V in Claude Code, reads the clipboard of the computer where the agent runs.
 - To give an agent its own copy of a repository, hover the repository folder in the
   sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
   Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.

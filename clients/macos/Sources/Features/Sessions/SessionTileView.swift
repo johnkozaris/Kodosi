@@ -201,6 +201,19 @@ struct SessionTileView: View {
                     failure(message: message, manager: manager)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                let picture = manager.picture(for: session.id)
+                ZStack {
+                    if let picture, let computer = session.otherComputer {
+                        PictureNotice(computer: computer, fraction: picture.fraction, arrived: picture.arrived)
+                            .padding(10)
+                            .transition(.opacity.combined(with: .offset(y: 8))
+                                .combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
+                    }
+                }
+                .animation(theme.motion.spring, value: picture == nil)
+                .allowsHitTesting(false)
+            }
             if let message = manager.inputError(for: session.id) {
                 HStack(spacing: 8) {
                     Circle().fill(theme.colors.caution).frame(width: 6, height: 6)

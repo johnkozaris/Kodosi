@@ -15,7 +15,9 @@ pub(crate) use frame::MOST_DIRECT_ADDRESSES;
 pub(crate) use frame::answer_fits;
 #[cfg(feature = "host")]
 pub(crate) use frame::{Accept, OUTPUT_FRAME, Refuse};
-pub(crate) use frame::{ControlResult, Frame, PIPE_PART};
+pub(crate) use frame::{
+    ControlResult, Frame, PICTURE_PART, PIPE_PART, PictureOffer, PictureState, PictureStep,
+};
 #[cfg(any(feature = "host", test))]
 pub(crate) use frame::{End, KEYFRAME_PART};
 

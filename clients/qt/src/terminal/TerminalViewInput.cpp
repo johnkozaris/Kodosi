@@ -3,8 +3,11 @@
 
 #include <kodosi_runtime.h>
 
+#include <QBuffer>
 #include <QClipboard>
 #include <QCursor>
+#include <QDir>
+#include <QImage>
 #include <QDesktopServices>
 #include <QGuiApplication>
 #include <QHoverEvent>
@@ -761,6 +764,9 @@ void TerminalView::pasteClipboard()
     }
     auto text = clipboard->text(QClipboard::Clipboard).toUtf8();
     if (text.isEmpty()) {
+        if (const auto* mime = clipboard->mimeData(QClipboard::Clipboard); mime != nullptr) {
+            pastePicture(*mime);
+        }
         return;
     }
     if (text.size() > maximumQueuedInputBytes
@@ -775,6 +781,38 @@ void TerminalView::pasteClipboard()
         return;
     }
     (void)enqueueInput(std::move(*encoded));
+}
+
+void TerminalView::pastePicture(const QMimeData& mime)
+{
+    // Agents read these formats as they are; another picture becomes PNG.
+    QByteArray picture;
+    for (const auto* type : { "image/png", "image/jpeg", "image/gif", "image/webp" }) {
+        picture = mime.data(QString::fromLatin1(type));
+        if (!picture.isEmpty()) {
+            break;
+        }
+    }
+    if (picture.isEmpty() && mime.hasImage()) {
+        QBuffer png(&picture);
+        png.open(QIODevice::WriteOnly);
+        qvariant_cast<QImage>(mime.imageData()).save(&png, "PNG");
+    }
+    if (picture.isEmpty()) {
+        return;
+    }
+    auto file = std::make_unique<QTemporaryFile>(QDir::temp().filePath(QStringLiteral("kodosi-picture-XXXXXX")));
+    if (!file->open() || file->write(picture) != picture.size() || !file->flush()) {
+        emit operationError(tr("Kodosi could not keep the picture to paste it."));
+        return;
+    }
+    const auto path = file->fileName();
+    file->close();
+    m_pictures.push_back(std::move(file));
+    while (m_pictures.size() > 4) {
+        m_pictures.pop_front();
+    }
+    emit picturePasted(path);
 }
 
 void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)

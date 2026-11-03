@@ -2,6 +2,7 @@
 #include <QHash>
 #include <QJsonArray>
 #include <QSet>
+#include <QTimer>
 #include <QUuid>
 #include <algorithm>
 #include <tuple>
@@ -169,6 +170,32 @@ void SessionCatalogModel::alert(const QString& id)
     const bool calls = found->isOwner || presentation(*found).canControl;
     const auto words = report(*found);
     emit alertChanged(id, !calls || waitState(*found).isEmpty() ? QString {} : words.isEmpty() ? signLabel(*found) : words);
+}
+
+void SessionCatalogModel::receivePicture(const QJsonObject& event)
+{
+    const auto id = event.value(QStringLiteral("sessionId")).toString();
+    if (!session(id))
+        return;
+    const auto state = event.value(QStringLiteral("state")).toString();
+    if (state == QStringLiteral("failed")) {
+        m_pictures.remove(id);
+        emit picturesChanged();
+        emit pictureFailed(id, event.value(QStringLiteral("message")).toString());
+        return;
+    }
+    const auto total = event.value(QStringLiteral("total")).toDouble();
+    const auto sent = state == QStringLiteral("sent") ? total : event.value(QStringLiteral("sent")).toDouble();
+    const QVariantMap picture { { QStringLiteral("fraction"), total > 0 ? std::min(1.0, sent / total) : 0.0 },
+        { QStringLiteral("arrived"), state == QStringLiteral("sent") } };
+    m_pictures.insert(id, picture);
+    emit picturesChanged();
+    if (state == QStringLiteral("sent")) {
+        QTimer::singleShot(2000, this, [this, id, picture] {
+            if (m_pictures.value(id) == picture && m_pictures.remove(id) > 0)
+                emit picturesChanged();
+        });
+    }
 }
 
 namespace {

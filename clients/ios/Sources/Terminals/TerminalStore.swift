@@ -93,6 +93,8 @@ final class TerminalStore {
             bells[id, default: 0] += 1
         case "document.frame", "document.closed":
             canvas.receive(event)
+        case "session.picture":
+            live.receivePicture(event)
         default:
             break
         }

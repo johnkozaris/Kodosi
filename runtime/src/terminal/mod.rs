@@ -1,6 +1,7 @@
 mod context;
 #[cfg(feature = "host")]
 mod emulator;
+mod picture;
 mod remote;
 #[cfg(feature = "host")]
 mod session;
@@ -24,6 +25,11 @@ pub(crate) const AGENT_ASKS: &str =
 pub(crate) const NO_AGENT: &str = "No agent in this terminal reports its state, so it gets no messages. Type into it with kodosi terminal input.";
 
 pub use context::{ContextPlace, PlaceKind, TerminalContext};
+#[cfg(feature = "host")]
+pub(crate) use picture::picture_digest;
+#[cfg(feature = "host")]
+pub(crate) use picture::pictures_root;
+pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::TerminalSession;
@@ -117,5 +123,14 @@ pub(crate) enum SessionChange {
         incarnation: Uuid,
         instance_id: Uuid,
         reason: String,
+    },
+    Picture {
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+        state: crate::protocol::PictureState,
+        sent: u64,
+        total: u64,
+        message: Option<String>,
     },
 }

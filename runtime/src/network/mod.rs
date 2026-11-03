@@ -290,6 +290,22 @@ pub enum HostRequest {
         name: String,
         reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
     },
+    Picture {
+        connection_id: Uuid,
+        authorization: tokio_util::sync::CancellationToken,
+        picture: HostPicture,
+        reply: oneshot::Sender<std::result::Result<Value, String>>,
+    },
+}
+
+/// A picture that a person on another computer pastes. The host pastes a known picture from
+/// its file, if it still has it, and answers `missing` if not.
+pub enum HostPicture {
+    Known {
+        digest: [u8; 32],
+        format: crate::terminal::PictureFormat,
+    },
+    Whole(crate::terminal::Picture),
 }
 
 #[derive(Clone)]
@@ -334,6 +350,10 @@ pub enum RemoteUpdate {
     Resync,
     Closed {
         reason: String,
+    },
+    Picture {
+        sent: u64,
+        total: u64,
     },
 }
 
@@ -399,6 +419,35 @@ impl RemoteControl {
             self.cancellation.clone(),
             (pipe, key, name),
         ))
+    }
+
+    /// Sends a pasted picture to the host, which pastes the path of its file. The connection
+    /// sends one picture at a time and tells its progress as updates.
+    pub fn send_picture(
+        &self,
+        picture: crate::terminal::Picture,
+    ) -> impl Future<Output = Result<()>> + Send + use<> {
+        const LOST: &str = "The connection to the other computer was lost, so the picture did not arrive. Paste it again.";
+        let (reply, response) = oneshot::channel();
+        let admission = if self.cancellation.is_cancelled() {
+            Err(invalid(LOST))
+        } else {
+            self.commands
+                .try_send(terminal_connections::RemoteRequest::Picture { picture, reply })
+                .map_err(|error| match error {
+                    mpsc::error::TrySendError::Full(_) => Error::Busy,
+                    mpsc::error::TrySendError::Closed(_) => invalid(LOST),
+                })
+        };
+        let cancellation = self.cancellation.clone();
+        async move {
+            admission?;
+            tokio::select! {
+                biased;
+                result = response => result.map_err(|_| invalid(LOST))?,
+                () = cancellation.cancelled() => Err(invalid(LOST)),
+            }
+        }
     }
 
     #[expect(

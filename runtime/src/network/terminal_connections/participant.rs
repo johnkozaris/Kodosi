@@ -1,14 +1,133 @@
+use std::collections::VecDeque;
+
 use super::{
     channel::{Channel, Transport},
     direct,
     link::Pipe,
-    wire::{ControlResult, Frame},
+    wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
 
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
+const PROGRESS_SPACING: Duration = Duration::from_millis(100);
+const PICTURE_NOT_CONFIRMED: &str =
+    "The other computer did not confirm the picture. Paste it again.";
+const PICTURE_TRANSIT_SECONDS: f64 = 0.5;
+
+/// A picture on its way to the host. The host asks for its parts when it does not have the
+/// picture. In transit are twice the bytes that the link carries in the shortest round trip of
+/// a part, and at most half a second of them, as of output: so the link stays full, and input
+/// waits behind the parts for about one round trip. The speed is how fast the parts arrived on
+/// the host's clock, which answers that come late or together do not change.
+struct Upload {
+    id: Uuid,
+    picture: crate::terminal::Picture,
+    reply: oneshot::Sender<Result<()>>,
+    asked: bool,
+    sent: u64,
+    received: u64,
+    /// Each part in transit: where it ends and when it left.
+    parts: VecDeque<(u64, tokio::time::Instant)>,
+    /// The host's recent answers: when it had the bytes, in microseconds, and how many.
+    arrivals: VecDeque<(u64, u64)>,
+    round_trip: Duration,
+    speed: f64,
+    told: tokio::time::Instant,
+    deadline: tokio::time::Instant,
+}
+
+impl Upload {
+    fn new(
+        id: Uuid,
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+        now: tokio::time::Instant,
+    ) -> Self {
+        Self {
+            id,
+            picture,
+            reply,
+            asked: false,
+            sent: 0,
+            received: 0,
+            parts: VecDeque::new(),
+            arrivals: VecDeque::new(),
+            round_trip: Duration::MAX,
+            speed: 0.0,
+            told: now,
+            deadline: now + CONTROL_TIMEOUT,
+        }
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a window does not need exact byte counts"
+    )]
+    fn wants_part(&self) -> bool {
+        let transit = (2.0 * self.round_trip.as_secs_f64()).min(PICTURE_TRANSIT_SECONDS);
+        self.asked
+            && self.sent < self.picture.bytes.len() as u64
+            && (self.sent == self.received
+                || ((self.sent - self.received) as f64) < self.speed * transit)
+    }
+
+    fn part(&mut self, now: tokio::time::Instant) -> Result<Frame> {
+        let start = usize::try_from(self.sent).map_err(|_| invalid(PICTURE_NOT_CONFIRMED))?;
+        let end = self.picture.bytes.len().min(start + PICTURE_PART);
+        let frame = Frame::PicturePart {
+            id: self.id,
+            offset: self.sent,
+            bytes: self.picture.bytes.slice(start..end),
+        };
+        self.sent = end as u64;
+        self.parts.push_back((self.sent, now));
+        Ok(frame)
+    }
+
+    /// The host had `received` bytes at `at`. Each part that arrived tells a round trip, and the
+    /// bytes that arrived in the last round trip on the host's clock tell the speed.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a speed does not need exact byte counts"
+    )]
+    fn received(&mut self, received: u64, at: u64, now: tokio::time::Instant) -> Result<()> {
+        if received < self.received || received > self.sent {
+            return Err(invalid(
+                "The host confirmed bytes of the picture that were not sent.",
+            ));
+        }
+        self.received = received;
+        while let Some(&(end, left)) = self.parts.front()
+            && end <= received
+        {
+            self.parts.pop_front();
+            let trip = now.saturating_duration_since(left);
+            if !trip.is_zero() {
+                self.round_trip = self.round_trip.min(trip);
+            }
+        }
+        let span = u64::try_from(self.round_trip.as_micros()).unwrap_or(u64::MAX);
+        while self
+            .arrivals
+            .get(1)
+            .is_some_and(|&(then, _)| then.saturating_add(span) <= at)
+        {
+            self.arrivals.pop_front();
+        }
+        if let Some(&(then, before)) = self.arrivals.front()
+            && then.saturating_add(span) <= at
+            && then < at
+        {
+            self.speed = self
+                .speed
+                .max((received - before) as f64 * 1e6 / (at - then) as f64);
+        }
+        self.arrivals.push_back((at, received));
+        Ok(())
+    }
+}
 
 struct Pending {
     reply: oneshot::Sender<Result<Value>>,
@@ -219,6 +338,7 @@ struct Viewer<T> {
     pipes: BTreeMap<Uuid, PipeOut>,
     host: Arc<direct::Host>,
     asking: BTreeMap<Uuid, oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>>,
+    upload: Option<Upload>,
 }
 
 impl<T: Transport> Viewer<T> {
@@ -246,6 +366,7 @@ impl<T: Transport> Viewer<T> {
             pipes: BTreeMap::new(),
             host,
             asking: BTreeMap::new(),
+            upload: None,
         }
     }
 
@@ -304,7 +425,11 @@ impl<T: Transport> Viewer<T> {
                         drop(pending.reply.send(Err(invalid("The host did not confirm the operation, and Kodosi did not send it again."))));
                     }
                 }
+                if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
+                    drop(upload.reply.send(Err(invalid(PICTURE_NOT_CONFIRMED))));
+                }
             }
+            () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
                 self.acknowledge().await?;
             }
@@ -371,6 +496,7 @@ impl<T: Transport> Viewer<T> {
                 self.input_sent += length;
                 drop(reply.send(Ok(Value::Null)));
             }
+            RemoteRequest::Picture { picture, reply } => self.offer(picture, reply).await?,
             RemoteRequest::Control { control, reply } => {
                 if !self.started {
                     drop(reply.send(Err(invalid(
@@ -441,7 +567,9 @@ impl<T: Transport> Viewer<T> {
                 self.asking.insert(pipe, reply);
                 self.channel.send(&Frame::DirectAsk { pipe }).await?;
             }
-            RemoteRequest::Control { .. } | RemoteRequest::Checkpoint => {}
+            RemoteRequest::Control { .. }
+            | RemoteRequest::Picture { .. }
+            | RemoteRequest::Checkpoint => {}
         }
         Ok(())
     }
@@ -578,7 +706,80 @@ impl<T: Transport> Viewer<T> {
                     drop(waiting.send((Arc::clone(&self.host), addresses)));
                 }
             }
+            Frame::PictureState(state) => self.picture_state(state).await?,
             _ => return Err(invalid("Unsupported terminal host frame.")),
+        }
+        Ok(())
+    }
+
+    async fn offer(
+        &mut self,
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+    ) -> Result<()> {
+        if !self.started {
+            drop(reply.send(Err(invalid(
+                "Wait for the terminal snapshot before sending a picture.",
+            ))));
+            return Ok(());
+        }
+        if self.upload.is_some() {
+            drop(reply.send(Err(Error::Busy)));
+            return Ok(());
+        }
+        let id = Uuid::now_v7();
+        self.channel
+            .send(&Frame::Picture(PictureOffer {
+                id,
+                size: picture.bytes.len() as u64,
+                sha256: picture.sha256(),
+                format: picture.format,
+            }))
+            .await?;
+        self.upload = Some(Upload::new(id, picture, reply, tokio::time::Instant::now()));
+        Ok(())
+    }
+
+    async fn send_part(&mut self) -> Result<()> {
+        let Some(upload) = self.upload.as_mut() else {
+            return Ok(());
+        };
+        let frame = upload.part(tokio::time::Instant::now())?;
+        self.channel.send(&frame).await.map(|_| ())
+    }
+
+    /// Follows the host's answer for the picture on its way. A late answer, for a picture that
+    /// this view stopped waiting for, changes nothing.
+    async fn picture_state(&mut self, state: PictureState) -> Result<()> {
+        let Some(upload) = self.upload.as_mut().filter(|upload| upload.id == state.id) else {
+            return Ok(());
+        };
+        let now = tokio::time::Instant::now();
+        let total = upload.picture.bytes.len() as u64;
+        match state.step {
+            PictureStep::Receiving => {
+                upload.received(state.received, state.at, now)?;
+                upload.asked = true;
+                upload.deadline = now + CONTROL_TIMEOUT;
+                if upload.told + PROGRESS_SPACING <= now || state.received == total {
+                    upload.told = now;
+                    self.update(RemoteUpdate::Picture {
+                        sent: state.received,
+                        total,
+                    })
+                    .await?;
+                }
+            }
+            PictureStep::Pasted => {
+                if let Some(upload) = self.upload.take() {
+                    drop(upload.reply.send(Ok(())));
+                }
+            }
+            PictureStep::Refused => {
+                if let Some(upload) = self.upload.take() {
+                    drop(upload.reply.send(Err(invalid(state.message))));
+                }
+            }
         }
         Ok(())
     }
