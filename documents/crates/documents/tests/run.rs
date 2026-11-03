@@ -263,20 +263,31 @@ fn viewers_that_open_a_file_at_once_share_one_document_and_its_journal() {
 }
 
 #[tokio::test]
-async fn a_write_of_another_program_merges_in_its_name() {
+async fn a_write_of_another_program_merges_in() {
     let rig = rig();
     let mut ana = joined(&rig.documents, &rig.file, "ana").await;
     change(&ana, 1, 0, "a1", "from ana").await;
     assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
-    rig.documents.writer(&rig.file, "script").await.unwrap();
     std::fs::write(&rig.file, r#"{"b1":"from script"}"#).unwrap();
     match message(&mut ana).await {
-        ToClient::Changed(changed) => assert_eq!(changed.author, "script"),
+        ToClient::Changed(changed) => assert_eq!(changed.author, "Another program"),
         other => panic!("{other:?}"),
     }
     rig.documents.close().await;
     assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("from ana"));
     assert_eq!(file_value(&rig.file, "b1").as_deref(), Some("from script"));
+}
+
+#[tokio::test]
+async fn two_spellings_of_a_path_open_one_document() {
+    let rig = rig();
+    let folder = rig.file.parent().unwrap();
+    std::fs::create_dir(folder.join("sub")).unwrap();
+    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
+    let mut ben = joined(&rig.documents, &folder.join("sub/../a.notes"), "ben").await;
+    assert!(matches!(message(&mut ana).await, ToClient::Peer(_)));
+    change(&ana, 1, 0, "a1", "from ana").await;
+    assert!(matches!(message(&mut ben).await, ToClient::Changed(_)));
 }
 
 #[tokio::test]

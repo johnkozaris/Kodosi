@@ -6,6 +6,7 @@
 use std::{
     collections::HashMap,
     fmt::Write as _,
+    io::Read as _,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, PoisonError},
     time::{Duration, Instant},
@@ -23,6 +24,8 @@ use xlsx::Xlsx;
 const ANSWER_LIMIT: Duration = Duration::from_mins(1);
 /// How long an agent stays among the people after its last command.
 const SEAT_KEPT: Duration = Duration::from_secs(30);
+/// The largest file of ops or text to start from that an agent can give.
+const MOST_TEXT: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Failed {
@@ -188,7 +191,7 @@ fn parse_ops(text: &str) -> Result<Value, Failed> {
     let source = if text.trim_start().starts_with(['[', '{']) {
         text.to_owned()
     } else {
-        std::fs::read_to_string(text)?
+        read_text(Path::new(text))?
     };
     let parsed: Value = serde_json::from_str(&source)
         .map_err(|error| Failed::Says(format!("The ops are not JSON: {error}")))?;
@@ -258,7 +261,7 @@ fn new_file(file: &Path, from: Option<&Path>) -> Result<String, Failed> {
     if file.exists() {
         return Err(Failed::Says(format!("The file {} exists.", file.display())));
     }
-    let source = from.map(std::fs::read_to_string).transpose()?;
+    let source = from.map(read_text).transpose()?;
     let extension = from
         .and_then(Path::extension)
         .and_then(|extension| extension.to_str())
@@ -273,6 +276,26 @@ fn new_file(file: &Path, from: Option<&Path>) -> Result<String, Failed> {
     .map_err(Failed::Says)?;
     std::fs::write(file, bytes)?;
     Ok(format!("Made {}.\n", file.display()))
+}
+
+/// The text of a file that an agent names. The host reads it, so it reads only a file of a
+/// bounded size.
+fn read_text(path: &Path) -> Result<String, Failed> {
+    if !std::fs::metadata(path)?.is_file() {
+        return Err(Failed::Says(format!("{} is not a file.", path.display())));
+    }
+    let mut text = String::new();
+    std::fs::File::open(path)?
+        .take(MOST_TEXT + 1)
+        .read_to_string(&mut text)?;
+    if text.len() as u64 > MOST_TEXT {
+        return Err(Failed::Says(format!(
+            "{} is larger than {} MB.",
+            path.display(),
+            MOST_TEXT / 1024 / 1024
+        )));
+    }
+    Ok(text)
 }
 
 fn random_client() -> Result<String, Failed> {
@@ -432,7 +455,7 @@ impl Agents {
         path: &Path,
     ) -> Result<Arc<tokio::sync::Mutex<Seat>>, Failed> {
         self.forget_old();
-        let key = (viewer.id.clone(), std::path::absolute(path)?);
+        let key = (viewer.id.clone(), documents::real_path(path)?);
         let known = self.lock().get(&key).cloned();
         if let Some(seat) = known {
             return Ok(seat);

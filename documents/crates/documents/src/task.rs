@@ -41,10 +41,6 @@ pub(crate) enum Command {
         waiting: Arc<AtomicUsize>,
     },
     Input(Input),
-    Writer {
-        name: String,
-        done: oneshot::Sender<()>,
-    },
     Flush {
         done: oneshot::Sender<()>,
     },
@@ -133,7 +129,6 @@ pub(crate) async fn start(
         last_unsaved: unsaved,
         retry_at: None,
         close_at: Some(Instant::now() + CLOSE_AFTER),
-        writer: None,
         sealing: false,
     };
     tokio::spawn(task.run(incoming, outside));
@@ -184,7 +179,6 @@ struct Task {
     last_unsaved: Option<Instant>,
     retry_at: Option<Instant>,
     close_at: Option<Instant>,
-    writer: Option<String>,
     sealing: bool,
 }
 
@@ -251,10 +245,6 @@ impl Task {
                         self.pipes.remove(pipe);
                     }
                     effects.extend(self.document.step(input));
-                }
-                Command::Writer { name, done } => {
-                    self.writer = Some(name);
-                    let _sent = done.send(());
                 }
                 Command::Flush { done } => {
                     self.run_effects(std::mem::take(&mut effects)).await;
@@ -464,14 +454,12 @@ impl Task {
         if hash_of(&file) == hash_of(&self.disk) {
             return false;
         }
-        let writer = self.writer.clone().unwrap_or_else(|| OUTSIDE.to_owned());
         let effects = self.document.step(Input::FileChanged {
             file: file.clone(),
-            writer,
+            writer: OUTSIDE.to_owned(),
         });
         if effects.contains(&Effect::FileTaken) {
             self.disk = file;
-            self.writer = None;
         }
         self.run_effects(effects).await;
         false

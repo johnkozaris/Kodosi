@@ -78,7 +78,7 @@ impl Documents {
     /// Opens a file, or joins it if it is open, and gives a viewer its pipe. The viewer's first
     /// frame is `join`.
     pub async fn open(&self, path: &Path, viewer: Viewer) -> Result<Pipe, OpenError> {
-        let path = absolute(path)?;
+        let path = real_path(path)?;
         let commands = self.task_of(&path).await?;
         let pipe = self.shared.next_pipe.fetch_add(1, Ordering::Relaxed);
         let (outgoing, incoming) = mpsc::unbounded_channel();
@@ -139,20 +139,6 @@ impl Documents {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Names the program whose write to this file comes next.
-    pub async fn writer(&self, path: &Path, name: &str) -> Result<(), OpenError> {
-        let path = absolute(path)?;
-        let commands = self.lock().get(&path).map(|open| open.commands.clone());
-        if let Some(commands) = commands {
-            let (done, taken) = tokio::sync::oneshot::channel();
-            let name = name.to_owned();
-            if commands.send(Command::Writer { name, done }).await.is_ok() {
-                drop(taken.await);
-            }
-        }
-        Ok(())
-    }
-
     /// Saves each open document now, and waits until the file holds its changes.
     pub async fn flush(&self) {
         let open: Vec<_> = self
@@ -180,8 +166,19 @@ impl Documents {
     }
 }
 
-fn absolute(path: &Path) -> io::Result<PathBuf> {
-    std::path::absolute(path)
+/// The one path of a file, so that each spelling of it, such as one through `..` or a link, opens
+/// the same document.
+pub fn real_path(path: &Path) -> io::Result<PathBuf> {
+    let real = std::fs::canonicalize(path)?;
+    #[cfg(windows)]
+    if let Some(plain) = real
+        .to_str()
+        .and_then(|text| text.strip_prefix(r"\\?\"))
+        .filter(|plain| plain.get(1..3) == Some(r":\"))
+    {
+        return Ok(PathBuf::from(plain));
+    }
+    Ok(real)
 }
 
 fn name_of(path: &Path) -> String {

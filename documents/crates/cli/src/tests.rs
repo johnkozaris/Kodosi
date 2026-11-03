@@ -87,7 +87,22 @@ fn rev_of(read: &Value) -> u64 {
 }
 
 #[tokio::test]
-async fn an_agent_writes_a_word_file_through_the_live_document() {
+async fn ops_come_only_from_a_file() {
+    let rig = rig();
+    let file = rig.new_file("a.xlsx", None).await;
+    let refused = rig
+        .run(Command::Apply(ApplyArguments {
+            file,
+            ops: rig.folder.path().display().to_string(),
+            base: 0,
+            track: false,
+        }))
+        .await;
+    assert!(matches!(refused, Err(Failed::Says(text)) if text.ends_with("is not a file.")));
+}
+
+#[tokio::test]
+async fn an_agent_writes_a_docx_file_through_the_live_document() {
     let rig = rig();
     let file = rig
         .new_file(
