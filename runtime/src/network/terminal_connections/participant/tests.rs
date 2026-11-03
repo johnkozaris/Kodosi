@@ -307,6 +307,7 @@ async fn a_view_sends_the_parts_of_a_picture_only_when_the_host_asks_and_ends_wh
         Frame::PictureState(PictureState {
             id: offer.id,
             received,
+            at: 0,
             step,
             message: String::new(),
         })
@@ -372,6 +373,7 @@ async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_th
         .send(&Frame::PictureState(PictureState {
             id: late.id,
             received: 0,
+            at: 0,
             step: PictureStep::Refused,
             message: "Late.".to_owned(),
         }))
@@ -389,14 +391,20 @@ async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_th
 
 #[test]
 fn a_picture_fills_the_link_and_input_waits_behind_its_parts_for_about_one_round_trip() {
-    let (speed, one_way) = (1_000_000.0, Duration::from_millis(40));
+    let (speed, one_way, burst) = (
+        1_000_000.0,
+        Duration::from_millis(40),
+        Duration::from_millis(100),
+    );
     let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
     bytes.resize(4_000_000, 7);
     let picture = crate::terminal::Picture::new(Bytes::from(bytes)).unwrap();
     let start = tokio::time::Instant::now();
     let mut upload = Upload::new(Uuid::now_v7(), picture, oneshot::channel().0, start);
     upload.asked = true;
-    let (mut now, mut free, mut waited) = (start, start, Duration::ZERO);
+    let mut now = start + one_way;
+    upload.received(0, 0, now).unwrap();
+    let (mut free, mut waited) = (now, Duration::ZERO);
     let mut answers = VecDeque::new();
     loop {
         while upload.wants_part() {
@@ -407,16 +415,22 @@ fn a_picture_fills_the_link_and_input_waits_behind_its_parts_for_about_one_round
             waited = waited.max(leaves - now);
             let length = f64::from(u32::try_from(bytes.len()).unwrap());
             free = leaves + Duration::from_secs_f64(length / speed);
-            answers.push_back((free + 2 * one_way, upload.sent));
+            let arrived = free + one_way - start;
+            let bursts = (arrived + one_way).as_micros().div_ceil(burst.as_micros());
+            answers.push_back((
+                start + burst * u32::try_from(bursts).unwrap(),
+                upload.sent,
+                u64::try_from(arrived.as_micros()).unwrap(),
+            ));
         }
-        let Some((at, received)) = answers.pop_front() else {
+        let Some((at, received, host)) = answers.pop_front() else {
             break;
         };
         now = at;
-        upload.received(received, now).unwrap();
+        upload.received(received, host, now).unwrap();
     }
     assert_eq!(upload.received, 4_000_000);
     let took = now - start;
-    assert!(took < Duration::from_millis(4400), "{took:?}");
-    assert!(waited < 4 * one_way, "{waited:?}");
+    assert!(took < Duration::from_secs(5), "{took:?}");
+    assert!(waited < 2 * upload.round_trip, "{waited:?}");
 }

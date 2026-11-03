@@ -18,7 +18,8 @@ const PICTURE_TRANSIT_SECONDS: f64 = 0.5;
 /// A picture on its way to the host. The host asks for its parts when it does not have the
 /// picture. In transit are twice the bytes that the link carries in the shortest round trip of
 /// a part, and at most half a second of them, as of output: so the link stays full, and input
-/// waits behind the parts for about one round trip.
+/// waits behind the parts for about one round trip. The speed is how fast the parts arrived on
+/// the host's clock, which answers that come late or together do not change.
 struct Upload {
     id: Uuid,
     picture: crate::terminal::Picture,
@@ -26,8 +27,10 @@ struct Upload {
     asked: bool,
     sent: u64,
     received: u64,
-    /// Each part in transit: where it ends, when it left, and how much had arrived then.
-    parts: VecDeque<(u64, tokio::time::Instant, u64)>,
+    /// Each part in transit: where it ends and when it left.
+    parts: VecDeque<(u64, tokio::time::Instant)>,
+    /// The host's recent answers: when it had the bytes, in microseconds, and how many.
+    arrivals: VecDeque<(u64, u64)>,
     round_trip: Duration,
     speed: f64,
     told: tokio::time::Instant,
@@ -49,6 +52,7 @@ impl Upload {
             sent: 0,
             received: 0,
             parts: VecDeque::new(),
+            arrivals: VecDeque::new(),
             round_trip: Duration::MAX,
             speed: 0.0,
             told: now,
@@ -77,35 +81,49 @@ impl Upload {
             bytes: self.picture.bytes.slice(start..end),
         };
         self.sent = end as u64;
-        self.parts.push_back((self.sent, now, self.received));
+        self.parts.push_back((self.sent, now));
         Ok(frame)
     }
 
-    /// The host has `received` bytes. Each part that arrived tells a round trip and the speed
-    /// of the link in it.
+    /// The host had `received` bytes at `at`. Each part that arrived tells a round trip, and the
+    /// bytes that arrived in the last round trip on the host's clock tell the speed.
     #[expect(
         clippy::cast_precision_loss,
         reason = "a speed does not need exact byte counts"
     )]
-    fn received(&mut self, received: u64, now: tokio::time::Instant) -> Result<()> {
+    fn received(&mut self, received: u64, at: u64, now: tokio::time::Instant) -> Result<()> {
         if received < self.received || received > self.sent {
             return Err(invalid(
                 "The host confirmed bytes of the picture that were not sent.",
             ));
         }
         self.received = received;
-        while let Some(&(end, left, arrived)) = self.parts.front()
+        while let Some(&(end, left)) = self.parts.front()
             && end <= received
         {
             self.parts.pop_front();
             let trip = now.saturating_duration_since(left);
             if !trip.is_zero() {
                 self.round_trip = self.round_trip.min(trip);
-                self.speed = self
-                    .speed
-                    .max((received - arrived) as f64 / trip.as_secs_f64());
             }
         }
+        let span = u64::try_from(self.round_trip.as_micros()).unwrap_or(u64::MAX);
+        while self
+            .arrivals
+            .get(1)
+            .is_some_and(|&(then, _)| then.saturating_add(span) <= at)
+        {
+            self.arrivals.pop_front();
+        }
+        if let Some(&(then, before)) = self.arrivals.front()
+            && then.saturating_add(span) <= at
+            && then < at
+        {
+            self.speed = self
+                .speed
+                .max((received - before) as f64 * 1e6 / (at - then) as f64);
+        }
+        self.arrivals.push_back((at, received));
         Ok(())
     }
 }
@@ -651,7 +669,7 @@ impl<T: Transport> Viewer<T> {
         let total = upload.picture.bytes.len() as u64;
         match state.step {
             PictureStep::Receiving => {
-                upload.received(state.received, now)?;
+                upload.received(state.received, state.at, now)?;
                 upload.asked = true;
                 upload.deadline = now + CONTROL_TIMEOUT;
                 if upload.told + PROGRESS_SPACING <= now || state.received == total {

@@ -39,6 +39,7 @@ const PICTURES_BUSY: &str =
 struct Receiving {
     offer: PictureOffer,
     bytes: Vec<u8>,
+    asked: tokio::time::Instant,
     _memory: tokio::sync::SemaphorePermit<'static>,
 }
 type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
@@ -1095,6 +1096,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             .send(&Frame::PictureState(PictureState {
                 id,
                 received,
+                at: u64::try_from(receiving.asked.elapsed().as_micros()).unwrap_or(u64::MAX),
                 step: PictureStep::Receiving,
                 message: String::new(),
             }))
@@ -1113,6 +1115,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             offer,
             bytes,
             _memory: memory,
+            ..
         } = receiving;
         let picture = Picture::new(Bytes::from(bytes))
             .ok()
@@ -1145,6 +1148,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             Frame::PictureState(PictureState {
                 id,
                 received: if step == PictureStep::Pasted { size } else { 0 },
+                at: 0,
                 step,
                 message,
             })
@@ -1164,6 +1168,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                                 usize::try_from(offer.size).unwrap_or_default(),
                             ),
                             offer,
+                            asked: tokio::time::Instant::now(),
                             _memory: memory,
                         });
                         frame

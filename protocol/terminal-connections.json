@@ -190,14 +190,14 @@
       "pictureState": {
         "type": 21,
         "direction": "host",
-        "body": "JSON: id, received (bytes), step (receiving, pasted, refused), message (with refused)"
+        "body": "JSON: id, received (bytes), at (when the host had them: microseconds since it asked for the parts; 0 with pasted and refused), step (receiving, pasted, refused), message (with refused)"
       }
     }
   },
   "pictures": {
     "purpose": "a person pastes a picture into a terminal of another computer",
     "start": "the viewer sends picture and waits; a host that has a file of that picture pastes its path and answers pasted, and otherwise answers receiving with received 0, or refused",
-    "parts": "after receiving, the viewer sends the parts in order; in transit are twice the bytes that the link carries in the shortest round trip of a part, at the fastest speed of a round trip, and at most half a second of them; the host answers each part with receiving and the bytes it has",
+    "parts": "after receiving, the viewer sends the parts in order; in transit are twice the bytes that the link carries in the shortest round trip of a part, at the fastest speed at which parts arrived in a round trip on the host's clock, and at most half a second of them; the host answers each part with receiving and the bytes it has",
     "paste": "when all bytes arrived, the host checks the size, sha256 and format, saves the picture in a private folder of the terminal, pastes the path of its file as input of the viewer, in bracketed paste marks when the program asked for them, and answers pasted; it answers refused when the picture is damaged or the terminal did not take it",
     "limits": "a picture has at most 33554432 bytes; a viewer sends one picture at a time; the host holds at most 134217728 bytes of pictures for all viewers and refuses more",
     "timeoutSeconds": 12,

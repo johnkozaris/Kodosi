@@ -76,6 +76,8 @@ pub(crate) enum PictureStep {
 pub(crate) struct PictureState {
     pub id: Uuid,
     pub received: u64,
+    /// When the host had them: microseconds since it asked for the parts.
+    pub at: u64,
     pub step: PictureStep,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub message: String,
