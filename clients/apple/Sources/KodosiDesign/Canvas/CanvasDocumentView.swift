@@ -85,6 +85,11 @@ public final class CanvasDocumentPages {
         return page
     }
 
+    /// The words that a person selected in the page of a file, while the page is open.
+    public func selectedWords(of key: String, in session: String) async -> String? {
+        await pages["\(session)/\(key)"]?.selectedWords()
+    }
+
     fileprivate func leave(_ key: String, in session: String) {
         let place = "\(session)/\(key)"
         closing[place] = Task { [weak self] in
@@ -153,6 +158,11 @@ final class CanvasDocumentPage {
         Task {
             _ = try? await page.callJavaScript("documentHost.prefer(preferences)", arguments: ["preferences": preferences], contentWorld: .page)
         }
+    }
+
+    func selectedWords() async -> String? {
+        let words = try? await page.callJavaScript("return documentHost.selection()", contentWorld: .page) as? String
+        return words?.isEmpty == false ? words : nil
     }
 
     func close() {

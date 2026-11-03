@@ -399,6 +399,12 @@ ApplicationWindow {
 
         target: Models.SessionActions
     }
+    Item {
+        id: documentParking
+
+        visible: false
+        Component.onCompleted: DocumentViews.parking = documentParking
+    }
     Loader {
         id: detailsLoader
         active: false

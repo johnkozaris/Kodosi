@@ -29,6 +29,7 @@ Item {
     readonly property bool local: session.kind === "local"
     readonly property bool agent: Models.DesktopSettings.agentOf(session.program || "") !== "shell"
     property string readyKey: ""
+    property string placedKey: ""
     property int readyCount: 0
     property string failure: ""
 
@@ -61,29 +62,22 @@ Item {
             ++readyCount;
         }
     }
-    // A document that a person leaves stays open a while, with its place and its undo.
     // The live view of a file, when this device shows it in one.
     function liveView(item) {
         return item && item.missing !== true && Models.CanvasWeb.available
             && Models.DesktopSettings.shownViews[item.view] === true ? item.view : "";
     }
-    function keepDocument() {
-        const view = liveView(files.find(file => file.key === currentKey));
-        if (view.length === 0)
+    // Puts the view of the current file in its place, and takes the one before off the screen,
+    // where it waits a while with its place and its undo.
+    function placeDocument() {
+        const key = !shelf && documentView.length > 0 ? currentKey : "";
+        if (key === placedKey)
             return;
-        for (let at = 0; at < documents.count; ++at) {
-            if (documents.get(at).key === currentKey)
-                return;
-        }
-        documents.append({ key: currentKey, view: view });
-    }
-    function forgetDocument(key) {
-        for (let at = 0; at < documents.count; ++at) {
-            if (documents.get(at).key === key) {
-                documents.remove(at);
-                return;
-            }
-        }
+        if (placedKey.length > 0)
+            DocumentViews.hide(sessionId, placedKey);
+        placedKey = key;
+        if (key.length > 0)
+            DocumentViews.show(sessionId, key, documentView, documentPlace);
     }
     function ask(key) {
         const send = words => {
@@ -91,7 +85,9 @@ Item {
                 root.asked();
         };
         const page = body.item as CanvasPage;
-        if (page && key === root.currentKey)
+        if (key === root.placedKey)
+            DocumentViews.selection(root.sessionId, key, send);
+        else if (page && key === root.currentKey)
             page.selection(send);
         else
             send("");
@@ -106,14 +102,20 @@ Item {
     }
 
     objectName: "canvas." + sessionId
-    onDocumentViewChanged: keepDocument()
+    onDocumentViewChanged: Qt.callLater(placeDocument)
+    onShelfChanged: Qt.callLater(placeDocument)
+    Component.onCompleted: placeDocument()
+    Component.onDestruction: {
+        if (placedKey.length > 0)
+            DocumentViews.hide(sessionId, placedKey);
+    }
     Accessible.id: objectName
     Accessible.role: Accessible.Pane
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
     onCurrentKeyChanged: {
-        keepDocument();
+        Qt.callLater(placeDocument);
         body.active = false;
         body.active = true;
         Qt.callLater(markSeen);
@@ -512,22 +514,11 @@ Item {
                             }
                         }
                     }
-                    Repeater {
-                        model: ListModel { id: documents }
+                    Item {
+                        id: documentPlace
 
-                        CanvasDocument {
-                            id: document
-
-                            anchors.fill: parent
-                            sessionId: root.sessionId
-                            visible: !root.shelf && root.documentView.length > 0 && root.currentKey === key
-
-                            Timer {
-                                interval: 300000
-                                running: !document.visible
-                                onTriggered: root.forgetDocument(document.key)
-                            }
-                        }
+                        anchors.fill: parent
+                        visible: root.placedKey.length > 0
                     }
                     Loader {
                         id: body

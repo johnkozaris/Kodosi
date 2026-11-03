@@ -191,6 +191,13 @@ struct CanvasScreen: View {
 
     private func ask(about shown: CanvasShown, words: String?, in session: RuntimeSession) {
         Task {
+            let words: String? = if let words {
+                words
+            } else if case let .item(item) = shown, item.view != nil {
+                await model.terminals.documentPages.selectedWords(of: item.key, in: session.id)
+            } else {
+                nil
+            }
             do {
                 try await model.terminals.mutate("session.input", session: session,
                                                  fields: ["text": .string(CanvasQuestion.about(shown, words: words))])

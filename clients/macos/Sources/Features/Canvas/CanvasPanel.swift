@@ -271,6 +271,8 @@ struct CanvasPanel: View {
                       shown.key == deps.canvas.current(session)?.key
             {
                 await frame?.selectedWords()
+            } else if case let .item(item) = shown, item.view != nil {
+                await deps.documentPages.selectedWords(of: item.key, in: session.id)
             } else {
                 nil
             }

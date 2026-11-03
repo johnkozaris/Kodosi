@@ -91,8 +91,8 @@ also drop a file on the canvas. On the iPhone, the canvas key is in the terminal
 
 - A page has no network. Its links open in your own browser, and a `localhost` link in
   the shared browser.
-- Select words on a page, then Ask about this. Kodosi types the file and the words into
-  the terminal, and you write the question.
+- Select words on a page or in a document, then Ask about this. Kodosi types the file and
+  the words into the terminal, and you write the question.
 - Click and type in the shared browser as in your own. The agent sees the same pages and
   sign-ins, and its next command tells it that you used the browser. After 10 minutes with
   no use the browser sleeps, and it opens its last page again when you look at it or the

@@ -18,7 +18,7 @@ WebEngineView {
 
     readonly property string host: `
         new QWebChannel(qt.webChannelTransport, ({ objects: { page } }) => {
-          const host = window.documentView.hosted(
+          const host = window.documentHost = window.documentView.hosted(
             { kind: page.view, theme: page.look, preferences: page.preferences, ready: () => page.ready() },
             (frame) => page.sent(frame),
           );
@@ -30,6 +30,11 @@ WebEngineView {
           page.started();
         });`
 
+    // Gives `done` the words that the person selected.
+    function selection(done) {
+        runJavaScript("window.documentHost ? window.documentHost.selection() : ''", WebEngineScript.MainWorld,
+            words => done(typeof words === "string" ? words : ""));
+    }
     function join() {
         root.pipe = Models.CanvasDocuments.open(root.sessionId, root.key);
         if (root.pipe.length === 0)

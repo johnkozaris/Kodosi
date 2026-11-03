@@ -4,6 +4,7 @@ set_source_files_properties(
     qml/Theme/Mentions.qml
     qml/Dosi/Fold.qml
     qml/Controls/Tip.qml
+    qml/Workbench/DocumentViews.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 set_source_files_properties(
@@ -379,6 +380,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/CanvasFile.qml
         qml/Workbench/CanvasPage.qml
         qml/Workbench/CanvasPanel.qml
+        qml/Workbench/DocumentViews.qml
         qml/Workbench/CanvasStage.qml
         qml/Workbench/ClipboardReadDialog.qml
         qml/Workbench/CloseTerminalDialog.qml

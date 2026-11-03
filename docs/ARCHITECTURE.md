@@ -129,7 +129,9 @@ it opens the file and replays the journal. An outside write merges by comparing 
 last saved state. The document closes 60 seconds after its last view leaves.
 
 The view bundle is one static page in each app, in a closed web page with no way to the
-network. A view's frames go through the app to `document.open`, `document.send` and
+network. Each app keeps the web page of a file apart from its canvas, so a page that leaves
+the screen keeps its place and its undo, and it closes after five minutes out of sight.
+A view's frames go through the app to `document.open`, `document.send` and
 `document.frame`. On the same computer the host's local connection carries them. From
 another device they travel on the terminal's encrypted channel as pipe frames, when the
 pacer has room and no terminal output waits. Agents use the same server with `kodosi doc`,
