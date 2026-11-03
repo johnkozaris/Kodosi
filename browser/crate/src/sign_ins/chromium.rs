@@ -255,6 +255,10 @@ fn system_password(application: &str) -> Option<Vec<u8>> {
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the same signature as on the other systems"
+)]
 fn opener_of(family: &Family, _folder: &Path) -> Result<Box<dyn Opener>, CopyError> {
     Ok(Box::new(SealKeys {
         with_key: Some(key_of(b"peanuts")),

@@ -1,4 +1,4 @@
-//! H.264 for an app that has no decoder of its own: Qt WebEngine usually has none.
+//! H.264 for an app that has no decoder of its own, such as the Linux and Windows app.
 
 use openh264::{decoder::Decoder, formats::YUVSource as _};
 
@@ -39,15 +39,15 @@ pub unsafe extern "C" fn kodosi_video_decoder_decode(
     }
     let decoder = unsafe { &mut *decoder };
     let unit = unsafe { std::slice::from_raw_parts(data, length) };
-    let Ok(decoded) = decoder.decoder.decode(unit) else {
+    let Ok(output) = decoder.decoder.decode(unit) else {
         return -1;
     };
-    let Some(decoded) = decoded else {
+    let Some(yuv) = output else {
         return 0;
     };
-    let (width, height) = decoded.dimensions();
+    let (width, height) = yuv.dimensions();
     decoder.rgba.resize(width * height * 4, 0);
-    decoded.write_rgba8(&mut decoder.rgba);
+    yuv.write_rgba8(&mut decoder.rgba);
     unsafe {
         picture.write(KodosiPicture {
             width: u32::try_from(width).unwrap_or(0),
