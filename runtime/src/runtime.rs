@@ -39,6 +39,7 @@ mod dosi;
 mod messages;
 #[cfg(feature = "host")]
 mod restore;
+
 #[cfg(test)]
 mod tests;
 
@@ -1042,6 +1043,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     {
         crate::canvas::close_left(&config.data_root).await;
         crate::canvas::keep_profiles(&config.data_root, &restore.returning());
+        remove_pictures(&config.data_root).await;
     }
     #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
@@ -1449,6 +1451,8 @@ impl Runtime {
         self.stop_locals().await;
         #[cfg(feature = "host")]
         crate::canvas::close_left(&self.config.data_root).await;
+        #[cfg(feature = "host")]
+        remove_pictures(&self.config.data_root).await;
         self.network.shutdown().await;
     }
 
@@ -2967,4 +2971,11 @@ impl Runtime {
             });
         }
     }
+}
+
+/// Removes the pictures that people pasted into terminals that are gone.
+#[cfg(feature = "host")]
+async fn remove_pictures(data_root: &Path) {
+    let pictures = crate::terminal::pictures_root(data_root);
+    drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(pictures)).await);
 }

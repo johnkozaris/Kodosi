@@ -1558,7 +1558,7 @@ impl LocalActor {
                 ..
             } => match picture {
                 HostPicture::Whole(picture) => {
-                    self.save_picture(Some(authorization), picture, InputCompletion::Remote(reply))
+                    self.save_picture(Some(authorization), picture, InputCompletion::Remote(reply));
                 }
                 HostPicture::Known { digest, format } => {
                     let path = self.pictures.join(picture::name(&digest, format));
