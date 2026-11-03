@@ -54,8 +54,7 @@ extension AppDependencies {
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
         case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
-        case "term", "session": receiveTerminal(event)
-        case "document": canvas.receive(event)
+        case "term", "session", "document": receiveTerminal(event)
         default: break
         }
     }
@@ -94,6 +93,10 @@ extension AppDependencies {
     }
 
     private func receiveTerminal(_ event: RuntimeEvent) {
+        if event.type.hasPrefix("document.") {
+            canvas.receive(event)
+            return
+        }
         if event.type == "session.show", let id = event.string("sessionId") {
             bringToFront()
             workbench.section = .sessions

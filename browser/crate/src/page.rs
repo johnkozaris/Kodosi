@@ -220,8 +220,8 @@ mod tests {
     fn a_page_gets_files_of_its_folder_only() {
         let folder = Path::new("/views");
         assert_eq!(
-            file_of(folder, "https://kodosi.invalid/assets/word.js?v=1"),
-            Some(PathBuf::from("/views/assets/word.js"))
+            file_of(folder, "https://kodosi.invalid/assets/docx.js?v=1"),
+            Some(PathBuf::from("/views/assets/docx.js"))
         );
         assert_eq!(file_of(folder, "https://kodosi.invalid/../secret"), None);
         assert_eq!(file_of(folder, "https://kodosi.invalid//etc/passwd"), None);

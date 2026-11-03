@@ -379,10 +379,7 @@
             view.delegateProxy.endViewUpdate()
         }
 
-        static func dismantleNSView(
-            _ view: TerminalRendererHostedView,
-            coordinator _: (),
-        ) {
+        static func dismantleNSView(_ view: TerminalRendererHostedView, coordinator _: ()) {
             view.onFocusChange = nil
             view.shareShortcut = nil
             view.viewportText = nil

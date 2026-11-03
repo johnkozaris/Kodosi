@@ -23,9 +23,9 @@ pub(crate) use actor::{CanvasHandle, CanvasServices, close_left, keep_profiles};
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
 pub const PART_BYTES: usize = 256 * 1024;
-/// The frames that wait on each side of a document's pipe.
 /// The key of the pipe that carries the live picture of a terminal's browser.
 pub(crate) const BROWSER_PIPE: &str = "browser";
+/// The frames that wait on each side of a document's pipe.
 pub(crate) const PIPE_QUEUE: usize = 64;
 pub(crate) const MOST_PIPE_FRAME: usize = 64 * 1024 * 1024;
 pub const MOST_PATHS: usize = MOST_ITEMS;

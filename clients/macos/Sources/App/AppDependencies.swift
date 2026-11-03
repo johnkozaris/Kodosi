@@ -435,9 +435,4 @@ final class AppDependencies {
     func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
         commandSink.perform(type, fields)
     }
-
-    func copyInvite() {
-        inviteRequested = Date()
-        people.requestInvite()
-    }
 }

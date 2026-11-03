@@ -162,7 +162,8 @@ async fn place(part: &Path, folder: &Path, name: &str) -> std::io::Result<PathBu
             .open(&path)
             .await
         {
-            Ok(_) => {
+            Ok(claimed) => {
+                drop(claimed);
                 fs::rename(part, &path).await?;
                 return Ok(path);
             }

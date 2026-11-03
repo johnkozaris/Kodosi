@@ -102,9 +102,9 @@ its agent reports a state other than waiting for a person and nobody types there
 Enter follows as a key of its own.
 
 The host also writes a plugin folder with the `kodosi`, `kodosi-canvas` and
-`kodosi-documents` skills in its
-`agents` folder at each start. Claude Code finds it through `CLAUDE_CODE_PLUGIN_DIRS`, after
-the person's own folders, and the launcher gives it to Copilot CLI with `--plugin-dir`.
+`kodosi-documents` skills in its `agents` folder at each start. Claude Code finds it
+through `CLAUDE_CODE_PLUGIN_DIRS`, after the person's own folders, and the launcher gives
+it to Copilot CLI with `--plugin-dir`.
 Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
 own folders, so an agent outside a Kodosi terminal does not change.
 

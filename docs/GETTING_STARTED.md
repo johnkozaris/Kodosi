@@ -82,11 +82,12 @@ An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet or
 presentation on the canvas of its terminal, and use a browser that you share with it.
 Agents that Kodosi starts know how; tell another agent to read `kodosi skill canvas`. When
 the canvas has something, the terminal's header shows a key for its files and one for its
-browser, with a copper dot for news. Select one to open the canvas beside the terminal; More room gives the canvas the
-stage and keeps the terminal small in its corner. Close a part with the × on its key, and
-open it again with +. Open Browser in the actions key opens the browser before the agent
-uses it, and Add a File puts a file on the canvas and into the terminal's folder; you can
-also drop a file on the canvas. On the iPhone, the canvas key is in the terminal's bar.
+browser, with a copper dot for news. Select one to open the canvas beside the terminal;
+More room gives the canvas the stage and keeps the terminal small in its corner. Close a
+part with the × on its key, and open it again with +. Open Browser in the actions key opens
+the browser before the agent uses it, and Add a File puts a file on the canvas and into the
+terminal's folder; you can also drop a file on the canvas. On the iPhone, the canvas key is
+in the terminal's bar.
 
 - A document, sheet, presentation or PDF is live: you, the people in the terminal and the
   agent edit it at the same time, and it stays a normal file in its folder. When a

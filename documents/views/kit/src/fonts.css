@@ -1,5 +1,5 @@
-/* Office's fonts are missing on many computers. Each name takes the font itself when the
-   computer has it, then a font of the same size, then a common one of the same kind. */
+/* The fonts that documents name are missing on many computers. Each name takes the font itself
+   when the computer has it, then a font of the same size, then a common one of the same kind. */
 
 @font-face {
   font-family: "Calibri";

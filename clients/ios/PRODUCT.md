@@ -29,8 +29,8 @@ computer.
   parts in the bar. A long press on a key closes its part, and the plus key opens a
   closed part or the browser, or adds a file. The files are tabs over the file, or all as
   cards, and a long press on one has Save a Copy, Ask about this and Remove from canvas.
-  Documents, sheets, presentations and PDFs are live, and other pictures and files show with
-  Quick Look. In the shared browser, taps and drags are clicks and scrolling, and the
+  Documents, sheets, presentations and PDFs are live, and other pictures and files show
+  with Quick Look. In the shared browser, taps and drags are clicks and scrolling, and the
   keyboard key types into it.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
