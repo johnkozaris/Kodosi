@@ -13,8 +13,8 @@ pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
-/// A picture part fills a frame of 64 KiB, which needs no padding.
-pub(crate) const PICTURE_PART: usize = 64 * 1024 - HEADER - 24;
+/// A picture part fills a frame of 32 KiB, as output does, so it needs no padding.
+pub(crate) const PICTURE_PART: usize = 32 * 1024 - HEADER - 24;
 const CALL_REQUEST: usize = 64 * 1024;
 const CALL_ANSWER: usize = 512 * 1024;
 const CONTROL_LIMIT: usize = 32 * 1024;

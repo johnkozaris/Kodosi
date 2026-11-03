@@ -39,6 +39,7 @@ mod channel;
 #[cfg(feature = "host")]
 mod host;
 mod link;
+#[cfg(feature = "host")]
 mod pacer;
 mod participant;
 

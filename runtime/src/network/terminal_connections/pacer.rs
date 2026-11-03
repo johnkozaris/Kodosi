@@ -3,14 +3,12 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 use crate::network::{Result, invalid};
-#[cfg(feature = "host")]
 use crate::terminal::{TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES};
 
 const INITIAL_WINDOW: u64 = 16 * 1024;
 const MINIMUM_WINDOW: u64 = 4 * 1024;
 const MAXIMUM_WINDOW: u64 = 8 * 1024 * 1024;
 const TRANSIT_SECONDS: f64 = 0.5;
-#[cfg(feature = "host")]
 const IMAGE_SECONDS: f64 = 2.0;
 const SAMPLE: Duration = Duration::from_millis(200);
 
@@ -29,7 +27,6 @@ enum Sample {
 pub(super) struct Pacer {
     sent: u64,
     acknowledged: u64,
-    #[cfg(feature = "host")]
     bulk: u64,
     rate: f64,
     sample: Sample,
@@ -54,7 +51,6 @@ impl Pacer {
         }
     }
 
-    #[cfg(feature = "host")]
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
@@ -88,13 +84,11 @@ impl Pacer {
         self.sent += bytes;
     }
 
-    #[cfg(feature = "host")]
     pub(super) const fn bulk(&mut self) {
         self.bulk = self.sent;
         self.blocked();
     }
 
-    #[cfg(feature = "host")]
     pub(super) const fn idle(&mut self) {
         if self.acknowledged >= self.bulk {
             self.sample = Sample::Idle;
@@ -185,7 +179,6 @@ mod tests {
         assert_eq!(slow.window(), MINIMUM_WINDOW);
     }
 
-    #[cfg(feature = "host")]
     #[test]
     fn a_snapshot_in_transit_shows_the_speed_of_a_slow_link() {
         let start = Instant::now();
@@ -199,7 +192,6 @@ mod tests {
         assert_eq!(slow.window(), 8000);
     }
 
-    #[cfg(feature = "host")]
     #[test]
     fn output_that_arrived_in_full_shows_the_least_speed_and_does_not_decrease_the_estimate() {
         let start = Instant::now();
@@ -217,7 +209,6 @@ mod tests {
         assert_eq!(pacer.window(), 300_000);
     }
 
-    #[cfg(feature = "host")]
     #[test]
     fn a_snapshot_holds_the_image_pixels_that_the_link_carries_in_two_seconds() {
         let start = Instant::now();

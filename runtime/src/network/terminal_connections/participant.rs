@@ -1,7 +1,8 @@
+use std::collections::VecDeque;
+
 use super::{
     channel::{Channel, Transport},
     link::Pipe,
-    pacer::Pacer,
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
@@ -12,23 +13,100 @@ const UNCONFIRMED_INPUT: u64 = 64 * 1024;
 const PROGRESS_SPACING: Duration = Duration::from_millis(100);
 const PICTURE_NOT_CONFIRMED: &str =
     "The other computer did not confirm the picture. Paste it again.";
+const PICTURE_TRANSIT_SECONDS: f64 = 0.5;
 
 /// A picture on its way to the host. The host asks for its parts when it does not have the
-/// picture, and keeps at most half a second of them in transit, as it does with output.
+/// picture. In transit are twice the bytes that the link carries in the shortest round trip of
+/// a part, and at most half a second of them, as of output: so the link stays full, and input
+/// waits behind the parts for about one round trip.
 struct Upload {
     id: Uuid,
     picture: crate::terminal::Picture,
     reply: oneshot::Sender<Result<()>>,
     asked: bool,
     sent: u64,
-    pacer: Pacer,
+    received: u64,
+    /// Each part in transit: where it ends, when it left, and how much had arrived then.
+    parts: VecDeque<(u64, tokio::time::Instant, u64)>,
+    round_trip: Duration,
+    speed: f64,
     told: tokio::time::Instant,
     deadline: tokio::time::Instant,
 }
 
 impl Upload {
-    fn wants_part(&mut self) -> bool {
-        self.asked && self.sent < self.picture.bytes.len() as u64 && self.pacer.room()
+    fn new(
+        id: Uuid,
+        picture: crate::terminal::Picture,
+        reply: oneshot::Sender<Result<()>>,
+        now: tokio::time::Instant,
+    ) -> Self {
+        Self {
+            id,
+            picture,
+            reply,
+            asked: false,
+            sent: 0,
+            received: 0,
+            parts: VecDeque::new(),
+            round_trip: Duration::MAX,
+            speed: 0.0,
+            told: now,
+            deadline: now + CONTROL_TIMEOUT,
+        }
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a window does not need exact byte counts"
+    )]
+    fn wants_part(&self) -> bool {
+        let transit = (2.0 * self.round_trip.as_secs_f64()).min(PICTURE_TRANSIT_SECONDS);
+        self.asked
+            && self.sent < self.picture.bytes.len() as u64
+            && (self.sent == self.received
+                || ((self.sent - self.received) as f64) < self.speed * transit)
+    }
+
+    fn part(&mut self, now: tokio::time::Instant) -> Result<Frame> {
+        let start = usize::try_from(self.sent).map_err(|_| invalid(PICTURE_NOT_CONFIRMED))?;
+        let end = self.picture.bytes.len().min(start + PICTURE_PART);
+        let frame = Frame::PicturePart {
+            id: self.id,
+            offset: self.sent,
+            bytes: self.picture.bytes.slice(start..end),
+        };
+        self.sent = end as u64;
+        self.parts.push_back((self.sent, now, self.received));
+        Ok(frame)
+    }
+
+    /// The host has `received` bytes. Each part that arrived tells a round trip and the speed
+    /// of the link in it.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a speed does not need exact byte counts"
+    )]
+    fn received(&mut self, received: u64, now: tokio::time::Instant) -> Result<()> {
+        if received < self.received || received > self.sent {
+            return Err(invalid(
+                "The host confirmed bytes of the picture that were not sent.",
+            ));
+        }
+        self.received = received;
+        while let Some(&(end, left, arrived)) = self.parts.front()
+            && end <= received
+        {
+            self.parts.pop_front();
+            let trip = now.saturating_duration_since(left);
+            if !trip.is_zero() {
+                self.round_trip = self.round_trip.min(trip);
+                self.speed = self
+                    .speed
+                    .max((received - arrived) as f64 / trip.as_secs_f64());
+            }
+        }
+        Ok(())
     }
 }
 
@@ -315,7 +393,7 @@ impl<T: Transport> Viewer<T> {
                     drop(upload.reply.send(Err(invalid(PICTURE_NOT_CONFIRMED))));
                 }
             }
-            () = std::future::ready(()), if self.upload.as_mut().is_some_and(Upload::wants_part) => self.send_part().await?,
+            () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
                 self.acknowledge().await?;
             }
@@ -551,17 +629,7 @@ impl<T: Transport> Viewer<T> {
                 format: picture.format,
             }))
             .await?;
-        let now = tokio::time::Instant::now();
-        self.upload = Some(Upload {
-            id,
-            picture,
-            reply,
-            asked: false,
-            sent: 0,
-            pacer: Pacer::default(),
-            told: now,
-            deadline: now + CONTROL_TIMEOUT,
-        });
+        self.upload = Some(Upload::new(id, picture, reply, tokio::time::Instant::now()));
         Ok(())
     }
 
@@ -569,17 +637,7 @@ impl<T: Transport> Viewer<T> {
         let Some(upload) = self.upload.as_mut() else {
             return Ok(());
         };
-        let start = usize::try_from(upload.sent).map_err(|_| invalid(PICTURE_NOT_CONFIRMED))?;
-        let end = upload.picture.bytes.len().min(start + PICTURE_PART);
-        let frame = Frame::PicturePart {
-            id: upload.id,
-            offset: upload.sent,
-            bytes: upload.picture.bytes.slice(start..end),
-        };
-        upload.sent = end as u64;
-        upload
-            .pacer
-            .sent((end - start) as u64, tokio::time::Instant::now());
+        let frame = upload.part(tokio::time::Instant::now())?;
         self.channel.send(&frame).await.map(|_| ())
     }
 
@@ -593,7 +651,7 @@ impl<T: Transport> Viewer<T> {
         let total = upload.picture.bytes.len() as u64;
         match state.step {
             PictureStep::Receiving => {
-                upload.pacer.acknowledge(state.received, now)?;
+                upload.received(state.received, now)?;
                 upload.asked = true;
                 upload.deadline = now + CONTROL_TIMEOUT;
                 if upload.told + PROGRESS_SPACING <= now || state.received == total {

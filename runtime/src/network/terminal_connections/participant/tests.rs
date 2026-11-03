@@ -386,3 +386,37 @@ async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_th
         .unwrap();
     assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
 }
+
+#[test]
+fn a_picture_fills_the_link_and_input_waits_behind_its_parts_for_about_one_round_trip() {
+    let (speed, one_way) = (1_000_000.0, Duration::from_millis(40));
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(4_000_000, 7);
+    let picture = crate::terminal::Picture::new(Bytes::from(bytes)).unwrap();
+    let start = tokio::time::Instant::now();
+    let mut upload = Upload::new(Uuid::now_v7(), picture, oneshot::channel().0, start);
+    upload.asked = true;
+    let (mut now, mut free, mut waited) = (start, start, Duration::ZERO);
+    let mut answers = VecDeque::new();
+    loop {
+        while upload.wants_part() {
+            let Frame::PicturePart { bytes, .. } = upload.part(now).unwrap() else {
+                panic!("picture part");
+            };
+            let leaves = free.max(now);
+            waited = waited.max(leaves - now);
+            let length = f64::from(u32::try_from(bytes.len()).unwrap());
+            free = leaves + Duration::from_secs_f64(length / speed);
+            answers.push_back((free + 2 * one_way, upload.sent));
+        }
+        let Some((at, received)) = answers.pop_front() else {
+            break;
+        };
+        now = at;
+        upload.received(received, now).unwrap();
+    }
+    assert_eq!(upload.received, 4_000_000);
+    let took = now - start;
+    assert!(took < Duration::from_millis(4400), "{took:?}");
+    assert!(waited < 4 * one_way, "{waited:?}");
+}
