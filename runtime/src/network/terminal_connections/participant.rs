@@ -132,6 +132,7 @@ impl Upload {
 struct Pending {
     reply: oneshot::Sender<Result<Value>>,
     deadline: tokio::time::Instant,
+    closes: bool,
 }
 
 pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteConnection> {
@@ -175,6 +176,9 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
             () = network.inner.shutdown.cancelled() => Ok(()),
             result = viewer.run(&network, &credentials, &dto, &public) => result,
         };
+        if let Err(error) = &result {
+            viewer.settle(error);
+        }
         if !cancel.is_cancelled() {
             let reason = result.err().map_or_else(
                 || "Remote terminal disconnected.".to_owned(),
@@ -328,6 +332,7 @@ struct Viewer<T> {
     snapshot: Vec<u8>,
     snapshot_sequence: Option<u64>,
     started: bool,
+    ended: bool,
     received: u64,
     acknowledged: u64,
     acknowledge_at: Option<tokio::time::Instant>,
@@ -356,6 +361,7 @@ impl<T: Transport> Viewer<T> {
             snapshot: Vec::new(),
             snapshot_sequence: None,
             started: false,
+            ended: false,
             received: 0,
             acknowledged: 0,
             acknowledge_at: None,
@@ -374,6 +380,19 @@ impl<T: Transport> Viewer<T> {
         match self.input_sent - self.input_confirmed {
             0 => reason,
             _ => format!("{reason} {INPUT_NOT_SENT}"),
+        }
+    }
+
+    /// A close that waits when its terminal is gone did its work. Its answer can lose the race
+    /// with the end of the terminal, and the service drops the pipe of a terminal that is gone.
+    fn settle(&mut self, error: &Error) {
+        if !self.ended && !matches!(error, Error::Backend { status: 404, .. }) {
+            return;
+        }
+        for (_, pending) in std::mem::take(&mut self.pending) {
+            if pending.closes {
+                drop(pending.reply.send(Ok(Value::Null)));
+            }
         }
     }
 
@@ -509,6 +528,7 @@ impl<T: Transport> Viewer<T> {
                     return Ok(());
                 }
                 let request_id = Uuid::now_v7();
+                let closes = matches!(control, TerminalControl::Close);
                 let frame = Frame::Control {
                     request_id,
                     control,
@@ -526,6 +546,7 @@ impl<T: Transport> Viewer<T> {
                     Pending {
                         reply,
                         deadline: tokio::time::Instant::now() + CONTROL_TIMEOUT,
+                        closes,
                     },
                 );
             }
@@ -669,6 +690,7 @@ impl<T: Transport> Viewer<T> {
                     .await?;
             }
             Frame::End(_) => {
+                self.ended = true;
                 self.input_confirmed = self.input_sent;
                 self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);

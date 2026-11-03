@@ -952,6 +952,20 @@ async fn stale_discovery_does_not_cancel_a_direct_link_open() {
 }
 
 #[tokio::test]
+async fn a_close_counts_as_done_when_the_list_no_longer_has_the_terminal() {
+    let (mut runtime, _root) = registry_fixture();
+    let (listed, gone) = (Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote_session(listed, Uuid::now_v7())]);
+    let close = |id: Uuid| Command::CloseSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+        expected_runtime_incarnation_id: Uuid::now_v7().to_string(),
+    };
+    assert!(!runtime.closed_and_gone(&close(listed)));
+    assert!(runtime.closed_and_gone(&close(gone)));
+}
+
+#[tokio::test]
 async fn a_client_that_goes_leaves_its_documents() {
     let (mut runtime, _root) = registry_fixture();
     let (gone, kept) = (CancellationToken::new(), CancellationToken::new());

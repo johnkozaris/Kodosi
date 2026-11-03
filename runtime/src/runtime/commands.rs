@@ -866,6 +866,16 @@ impl Runtime {
         Ok(())
     }
 
+    /// A close of a terminal on another computer did its work when the list no longer has the
+    /// terminal, even when the end of the terminal came before the host's answer.
+    pub(super) fn closed_and_gone(&self, command: &Command) -> bool {
+        matches!(command, Command::CloseSession { .. })
+            && command
+                .session_id()
+                .and_then(|id| Uuid::parse_str(id).ok())
+                .is_some_and(|id| !self.hosts(&id) && !self.listed.contains_key(&id))
+    }
+
     fn end_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
         let closing = matches!(command, Command::CloseSession { .. });
@@ -1326,6 +1336,7 @@ impl Runtime {
             Completion::Terminal { command, result } if current => {
                 match result {
                     Ok(()) => self.result(&command),
+                    Err(_) if self.closed_and_gone(&command) => self.result(&command),
                     Err(error) => self.error(&command, &error),
                 }
                 if matches!(
