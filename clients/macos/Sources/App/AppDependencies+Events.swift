@@ -99,7 +99,7 @@ extension AppDependencies {
             activateSession(id)
             return
         }
-        if event.type == "term.picture" {
+        if event.type == "session.picture" {
             terminalManager.receivePicture(event)
             return
         }

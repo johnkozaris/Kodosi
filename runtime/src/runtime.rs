@@ -2786,8 +2786,8 @@ impl Runtime {
                     connection.incarnation_id == incarnation
                         && connection.instance_id == instance_id
                 }) {
-                    self.emit(json!({"type":"term.picture", "sessionId":id, "state":state,
-                        "sent":sent, "total":total, "message":message}));
+                    self.emit(json!({"type":"session.picture", "sessionId":id,
+                        "state":state, "sent":sent, "total":total, "message":message}));
                 }
             }
         }

@@ -1668,7 +1668,7 @@ async fn picture(
             let Some(event) = frame.get("event").filter(|event| context.observe(event)) else {
                 continue;
             };
-            if event["type"] == "term.picture"
+            if event["type"] == "session.picture"
                 && event["sessionId"] == session.to_string().as_str()
                 && event["state"] != "sending"
             {

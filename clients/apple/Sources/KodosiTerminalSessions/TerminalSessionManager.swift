@@ -348,7 +348,7 @@ public final class TerminalSessionManager {
     }
 
     /// Pastes a picture into a terminal. Kodosi saves it on the terminal's computer and pastes
-    /// the path of its file; in a terminal of another computer, `term.picture` tells how much
+    /// the path of its file; in a terminal of another computer, `session.picture` tells how much
     /// of it arrived.
     public func pastePicture(_ picture: Data, sessionId: String) {
         guard let incarnation = runtimeIncarnationsBySession[sessionId] else { return }

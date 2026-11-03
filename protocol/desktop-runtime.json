@@ -7144,6 +7144,72 @@
             ]
           },
           "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sent": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "state": {
+            "oneOf": [
+              {
+                "const": "sending"
+              },
+              {
+                "const": "sent"
+              },
+              {
+                "const": "failed"
+              }
+            ]
+          },
+          "total": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "type": {
+            "const": "session.picture"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "sessionId",
+          "state",
+          "sent",
+          "total"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
             "type": "string"
           },
           "operation": {
@@ -11574,72 +11640,6 @@
           "runtimeIncarnationId",
           "title",
           "body"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "sent": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "state": {
-            "oneOf": [
-              {
-                "const": "sending"
-              },
-              {
-                "const": "sent"
-              },
-              {
-                "const": "failed"
-              }
-            ]
-          },
-          "total": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "type": {
-            "const": "term.picture"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "state",
-          "sent",
-          "total"
         ],
         "type": "object"
       }

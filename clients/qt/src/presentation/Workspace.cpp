@@ -291,7 +291,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_sessions.alert(event.value(QStringLiteral("sessionId")).toString());
         return;
     }
-    if (type == QStringLiteral("term.picture")) {
+    if (type == QStringLiteral("session.picture")) {
         m_sessions.receivePicture(event);
         return;
     }

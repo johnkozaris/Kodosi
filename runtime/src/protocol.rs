@@ -927,6 +927,17 @@ pub enum EventBody {
     },
     #[serde(rename = "session.show")]
     SessionShow { session_id: String },
+    /// A picture that a person pasted into a terminal of another computer. It is no control of
+    /// the terminal's view, so its name does not start with `term.`.
+    #[serde(rename = "session.picture")]
+    SessionPicture {
+        session_id: String,
+        state: PictureState,
+        sent: u64,
+        total: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
     #[serde(rename = "session.error")]
     SessionError {
         request_id: String,
@@ -1070,15 +1081,6 @@ pub enum EventBody {
         runtime_incarnation_id: String,
         title: String,
         body: String,
-    },
-    #[serde(rename = "term.picture")]
-    TerminalPicture {
-        session_id: String,
-        state: PictureState,
-        sent: u64,
-        total: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        message: Option<String>,
     },
 }
 
@@ -1393,6 +1395,7 @@ impl EventBody {
             Self::DevicesError { .. } => "devices.error",
             Self::SessionsSnapshot { .. } => "sessions.snapshot",
             Self::SessionShow { .. } => "session.show",
+            Self::SessionPicture { .. } => "session.picture",
             Self::SessionResult { .. } => "session.result",
             Self::SessionError { .. } => "session.error",
             Self::RoomSnapshot { .. } => "room.snapshot",
@@ -1418,7 +1421,6 @@ impl EventBody {
             Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
             Self::TerminalNotification { .. } => "term.notification",
-            Self::TerminalPicture { .. } => "term.picture",
         }
     }
 }
