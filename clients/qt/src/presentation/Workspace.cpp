@@ -394,7 +394,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("provider.error") || type == QStringLiteral("folders.error")
         || type.startsWith(QStringLiteral("canvas.")) || type.startsWith(QStringLiteral("browser."))
-        || !type.endsWith(QStringLiteral(".error")))
+        || type.startsWith(QStringLiteral("document.")) || !type.endsWith(QStringLiteral(".error")))
         return;
     const auto id = event.value(QStringLiteral("requestId")).toString();
     if (type == QStringLiteral("room.error")) {
