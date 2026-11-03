@@ -519,6 +519,7 @@ private slots:
     void terminalViewSendsItsSizeOnlyWhileItMayResize();
     void terminalViewWaitsQuietlyForItsConnection();
     void terminalViewDefersResizeWhileEffectivelyHidden();
+    void terminalViewSendsItsSizeWhenItIsEnabledAgain();
     void surfaceControllerFencesSessionIncarnations();
     void surfaceControllerKeepsBindingsIndependent();
     void surfaceControllerKeepsSameSessionSurfacesIndependent();
@@ -3668,6 +3669,42 @@ void TerminalKernelTest::terminalViewDefersResizeWhileEffectivelyHidden()
         dispatcher.terminalCommands.size(),
         2,
         250);
+}
+
+void TerminalKernelTest::terminalViewSendsItsSizeWhenItIsEnabledAgain()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("disabled"),
+        QStringLiteral("disabled-subscription"),
+        13,
+    };
+    view.setWidth(800);
+    view.setHeight(400);
+    view.setEnabled(false);
+    view.setTerminalInteraction(false, true);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("disabled-incarnation")));
+    makeTerminalReady(registry, subscription);
+    QTRY_VERIFY_WITH_TIMEOUT(view.terminalReady(), 250);
+    QTest::qWait(20);
+    QCOMPARE(dispatcher.terminalCommands.size(), 0);
+
+    view.setEnabled(true);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        dispatcher.terminalCommands.size(),
+        1,
+        250);
+    QCOMPARE(
+        dispatcher.terminalCommands.constLast()
+            .value(QStringLiteral("type"))
+            .toString(),
+        QStringLiteral("session.resize"));
 }
 
 void TerminalKernelTest::surfaceControllerFencesSessionIncarnations()
