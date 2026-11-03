@@ -1,6 +1,6 @@
-import { type Editor, getMarkRange } from "@tiptap/core";
-import type { Mark, Node as ProseNode } from "@tiptap/pm/model";
-import type { EditorState } from "@tiptap/pm/state";
+import type { Editor } from "@tiptap/core";
+import type { Mark, Node as ProseNode, ResolvedPos } from "@tiptap/pm/model";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { DocxView, StyleLook } from "./styles";
 
 export type Align = "left" | "center" | "right" | "both";
@@ -200,15 +200,29 @@ function isChange(mark: Mark): boolean {
   return mark.type.name === "insertion" || mark.type.name === "deletion";
 }
 
-/** The tracked changes in the selection, or the whole change at the caret. */
+/**
+ * The changed text that touches a caret, from the first to the last change of the run, so a
+ * replacement (a deletion next to an insertion) is one decision.
+ */
+function changeRunAt(at: ResolvedPos): { from: number; to: number } | undefined {
+  const runs: { from: number; to: number }[] = [];
+  at.parent.forEach((node, offset) => {
+    if (!node.marks.some(isChange)) return;
+    const from = at.start() + offset;
+    const last = runs.at(-1);
+    if (last && last.to === from) last.to = from + node.nodeSize;
+    else runs.push({ from, to: from + node.nodeSize });
+  });
+  return runs.find((run) => run.from <= at.pos && at.pos <= run.to);
+}
+
+/** The tracked changes in the selection, or the changes that touch the caret. */
 function changesAt(state: EditorState, all: boolean): Tracked[] {
   let { from, to } = all ? { from: 0, to: state.doc.content.size } : state.selection;
   if (!all && from === to) {
-    const at = state.doc.resolve(from);
-    const mark = [...(at.nodeAfter?.marks ?? []), ...(at.nodeBefore?.marks ?? [])].find(isChange);
-    const range = mark ? getMarkRange(at, mark.type, mark.attrs) : undefined;
-    if (!range) return [];
-    ({ from, to } = range);
+    const run = changeRunAt(state.doc.resolve(from));
+    if (!run) return [];
+    ({ from, to } = run);
   }
   const changes: Tracked[] = [];
   state.doc.nodesBetween(from, to, (node, position) => {
@@ -238,21 +252,26 @@ export function canDecide(state: EditorState): boolean {
 }
 
 /**
- * Accepts or rejects tracked changes in one step, which undo takes back. An accepted insertion
- * and a rejected deletion lose their mark, and the text of the others goes.
+ * The one step that accepts or rejects tracked changes, which undo takes back. An accepted
+ * insertion and a rejected deletion lose their mark, and the text of the others goes.
  */
-export function decide(editor: Editor, accept: boolean, all: boolean): void {
-  const changes = changesAt(editor.state, all);
-  if (changes.length === 0) return;
+export function decision(state: EditorState, accept: boolean, all: boolean): Transaction | null {
+  const changes = changesAt(state, all);
+  if (changes.length === 0) return null;
   const stays = (change: Tracked) => (change.mark.type.name === "insertion") === accept;
-  const transaction = editor.state.tr;
+  const transaction = state.tr;
   for (const change of changes.filter(stays)) {
     transaction.removeMark(change.from, change.to, change.mark);
   }
   for (const change of changes.filter((change) => !stays(change)).reverse()) {
     transaction.delete(transaction.mapping.map(change.from), transaction.mapping.map(change.to));
   }
-  editor.view.dispatch(transaction);
+  return transaction;
+}
+
+export function decide(editor: Editor, accept: boolean, all: boolean): void {
+  const transaction = decision(editor.state, accept, all);
+  if (transaction) editor.view.dispatch(transaction);
 }
 
 export function canIndent(state: EditorState, step: 1 | -1): boolean {
