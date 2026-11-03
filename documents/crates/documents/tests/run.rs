@@ -187,7 +187,8 @@ async fn a_clean_close_saves_and_leaves_no_journal() {
     assert_eq!(left, 0);
 }
 
-/// Starts the documents again after a crash, and checks that the answered change `a1` is back.
+/// Starts the documents again after a crash, and checks that the answered change `a1` is back and
+/// reaches the file by itself.
 fn a1_comes_back(state: &Path, file: &Path) {
     assert_eq!(file_value(file, "a1"), None);
     let restarted = tokio::runtime::Runtime::new().unwrap();
@@ -205,8 +206,12 @@ fn a1_comes_back(state: &Path, file: &Path) {
             message(&mut ben).await,
             ToClient::Joined { rev: 1, .. }
         ));
-        documents.close().await;
+        assert!(matches!(
+            message(&mut ben).await,
+            ToClient::Saved { rev: 1, .. }
+        ));
         assert_eq!(file_value(file, "a1").as_deref(), Some("kept"));
+        documents.close().await;
     });
 }
 

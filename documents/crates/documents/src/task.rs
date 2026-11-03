@@ -93,8 +93,14 @@ async fn write_whole(path: &Path, bytes: &[u8]) -> io::Result<std::fs::Metadata>
     let result = async {
         let current = tokio::fs::metadata(path).await?;
         tokio::fs::write(&temporary, bytes).await?;
+        // Windows flushes a file only through a handle that may write it.
+        tokio::fs::OpenOptions::new()
+            .write(true)
+            .open(&temporary)
+            .await?
+            .sync_data()
+            .await?;
         tokio::fs::set_permissions(&temporary, current.permissions()).await?;
-        tokio::fs::File::open(&temporary).await?.sync_data().await?;
         tokio::fs::rename(&temporary, path).await?;
         tokio::fs::metadata(path).await
     }
@@ -113,6 +119,7 @@ pub(crate) async fn start(
     let disk = tokio::fs::read(&path).await?;
     let stamp = stamp_of(&tokio::fs::metadata(&path).await?);
     let (document, journal, outside) = open_or_restore(&path, &folder, &disk, format.as_ref())?;
+    let unsaved = (document.rev() != document.saved_rev()).then(Instant::now);
     let (commands, incoming) = mpsc::channel(COMMANDS);
     let task = Task {
         document,
@@ -122,8 +129,8 @@ pub(crate) async fn start(
         disk,
         stamp,
         pipes: HashMap::new(),
-        first_unsaved: None,
-        last_unsaved: None,
+        first_unsaved: unsaved,
+        last_unsaved: unsaved,
         retry_at: None,
         close_at: Some(Instant::now() + CLOSE_AFTER),
         writer: None,
