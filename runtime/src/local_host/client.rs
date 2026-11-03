@@ -225,8 +225,33 @@ fn finalizing(events: &[Value]) -> bool {
         == Some(true)
 }
 
+/// Connects to the running host. A host that stops can take a connection and close it before its
+/// endpoint goes, so a connection that closes in the handshake tries again for a moment.
+async fn connect_past_stopping_host(root: &Path) -> Result<Client> {
+    let deadline = tokio::time::Instant::now() + STOPPING_HOST_WAIT;
+    loop {
+        match Client::connect(root).await {
+            Err(Error::Io(error)) if closed(&error) && tokio::time::Instant::now() < deadline => {
+                tokio::time::sleep(STOPPING_HOST_RETRY).await;
+            }
+            result => return result,
+        }
+    }
+}
+
+fn closed(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::UnexpectedEof
+            | io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::NotConnected
+    )
+}
+
 async fn connect_or_spawn(root: &Path) -> Result<Client> {
-    match Client::connect(root).await {
+    match connect_past_stopping_host(root).await {
         Ok(client) => return Ok(client),
         Err(Error::Io(error))
             if matches!(
