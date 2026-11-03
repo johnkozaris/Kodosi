@@ -474,6 +474,7 @@ impl Runtime {
         let pipe = parse_id(pipe)?;
         self.reachable(id)?;
         self.job_capacity()?;
+        self.prune_pipes();
         if self.pipes.len() >= MOST_PIPES {
             return Err(Error::Busy);
         }
@@ -507,12 +508,12 @@ impl Runtime {
             sender,
             mut receiver,
         } = ends;
-        self.pipes.retain(|_, open| !open.sender.is_closed());
         self.pipes.insert(
             pipe,
             super::OpenPipe {
                 sender,
                 filling: Vec::new(),
+                lifetime: lifetime.clone(),
             },
         );
         let events = self.events.clone();

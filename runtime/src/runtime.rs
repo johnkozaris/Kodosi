@@ -972,6 +972,7 @@ struct TerminalNotice {
 struct OpenPipe {
     sender: mpsc::Sender<Vec<u8>>,
     filling: Vec<u8>,
+    lifetime: CancellationToken,
 }
 
 struct Runtime {
@@ -1277,6 +1278,13 @@ impl Runtime {
             .retain(|_, (lifetime, _)| !lifetime.is_cancelled());
     }
 
+    /// A client that goes without closing its documents leaves them, so the others do not see
+    /// it there.
+    fn prune_pipes(&mut self) {
+        self.pipes
+            .retain(|_, open| !open.lifetime.is_cancelled() && !open.sender.is_closed());
+    }
+
     fn entries(&self) -> Vec<SessionEntry> {
         let mut entries = self.remotes.values().cloned().collect::<Vec<_>>();
         #[cfg(feature = "host")]
@@ -1474,7 +1482,7 @@ impl Runtime {
                         None => {},
                     }
                 }
-                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
+                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
                 _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
             }
         }

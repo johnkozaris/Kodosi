@@ -952,6 +952,34 @@ async fn stale_discovery_does_not_cancel_a_direct_link_open() {
 }
 
 #[tokio::test]
+async fn a_client_that_goes_leaves_its_documents() {
+    let (mut runtime, _root) = registry_fixture();
+    let (gone, kept) = (CancellationToken::new(), CancellationToken::new());
+    let mut documents = Vec::new();
+    for lifetime in [&gone, &kept] {
+        let (sender, document) = mpsc::channel(1);
+        runtime.pipes.insert(
+            Uuid::now_v7(),
+            OpenPipe {
+                sender,
+                filling: Vec::new(),
+                lifetime: lifetime.clone(),
+            },
+        );
+        documents.push(document);
+    }
+    gone.cancel();
+    runtime.prune_pipes();
+    assert_eq!(runtime.pipes.len(), 1);
+    assert!(documents[0].recv().await.is_none());
+    assert!(
+        documents[1]
+            .try_recv()
+            .is_err_and(|error| error == mpsc::error::TryRecvError::Empty)
+    );
+}
+
+#[tokio::test]
 async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_new_connection() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
