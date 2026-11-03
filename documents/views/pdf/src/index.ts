@@ -14,8 +14,10 @@ import {
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
 import { ArrowDown, ArrowUp, Eraser, RotateCw, StickyNote, Trash2 } from "lucide";
-import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// The legacy build fills in what the hosts' engines lack, such as Map.getOrInsertComputed in
+// QtWebEngine 6.14.
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import "./pdf.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
