@@ -4,30 +4,37 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(unix)]
 use aes::Aes128;
+#[cfg(unix)]
 use cbc::{
     Decryptor,
     cipher::{BlockModeDecrypt as _, KeyIvInit as _, block_padding::Pkcs7},
 };
 use rusqlite::{Connection, OpenFlags};
 use serde::Deserialize;
+#[cfg(unix)]
 use sha1::Sha1;
 
 use super::{Cookie, CopyError, Kind, SignInSource, store_copy};
 
+#[cfg(unix)]
 const SALT: &[u8] = b"saltysalt";
+#[cfg(unix)]
 const IV: [u8; 16] = [b' '; 16];
+#[cfg(unix)]
 const KEY_BYTES: usize = 16;
 #[cfg(target_os = "macos")]
 const KEY_ROUNDS: u32 = 1003;
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 const KEY_ROUNDS: u32 = 1;
 const HOST_HASH_BYTES: usize = 32;
 /// From this version of the store, each value starts with a hash of its host.
 const HASHED_FROM: i64 = 24;
 const SECONDS_TO_1970: f64 = 11_644_473_600.0;
 const MICROSECONDS: f64 = 1_000_000.0;
-const WITH_KEY: &[u8] = b"v10";
+pub(super) const WITH_KEY: &[u8] = b"v10";
+#[cfg(unix)]
 const WITH_SYSTEM_KEY: &[u8] = b"v11";
 const BOUND_TO_APP: &[u8] = b"v20";
 
@@ -181,18 +188,21 @@ pub(crate) trait Opener {
 }
 
 /// The keys of a store on a Mac or on Linux.
+#[cfg(unix)]
 #[derive(Default)]
 struct SealKeys {
     with_key: Option<[u8; KEY_BYTES]>,
     with_system_key: Option<[u8; KEY_BYTES]>,
 }
 
+#[cfg(unix)]
 fn key_of(password: &[u8]) -> [u8; KEY_BYTES] {
     let mut key = [0; KEY_BYTES];
     pbkdf2::pbkdf2_hmac::<Sha1>(password, SALT, KEY_ROUNDS, &mut key);
     key
 }
 
+#[cfg(unix)]
 fn opened(key: &[u8; KEY_BYTES], sealed: &[u8]) -> Option<Vec<u8>> {
     let mut buffer = sealed.to_vec();
     let plain = Decryptor::<Aes128>::new(key.into(), (&IV).into())
@@ -201,6 +211,7 @@ fn opened(key: &[u8; KEY_BYTES], sealed: &[u8]) -> Option<Vec<u8>> {
     Some(plain.to_vec())
 }
 
+#[cfg(unix)]
 impl Opener for SealKeys {
     fn open(&self, sealed: &[u8]) -> Option<Vec<u8>> {
         if let Some(rest) = sealed.strip_prefix(WITH_KEY) {
@@ -418,7 +429,7 @@ pub(super) fn read(
     read_store(&copy, opener.as_ref(), &BoundCookies::read(folder))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use cbc::{Encryptor, cipher::BlockModeEncrypt as _};
     use sha2::{Digest as _, Sha256};

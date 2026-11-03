@@ -3,9 +3,9 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// The live documents of the app, each in its own web view. A view belongs to this object, so no
-// canvas takes it along when the canvas goes. A view off the screen waits in the parking place
-// with its place in the file and its undo, and it closes after five minutes there.
+// The live documents of the app, each in its own web view. A view belongs to the parking place of
+// the window, so no canvas takes it along when the canvas goes. A view off the screen waits there
+// with its place in the file and its undo, and it closes after five minutes.
 QtObject {
     id: root
 
@@ -32,7 +32,7 @@ QtObject {
     function show(sessionId, key, view, place) {
         const name = nameOf(sessionId, key);
         if (!pages[name])
-            pages[name] = page.createObject(root, { sessionId: sessionId, key: key, view: view });
+            pages[name] = page.createObject(parking, { sessionId: sessionId, key: key, view: view });
         const shown = pages[name];
         shown.parent = place;
         shown.anchors.fill = place;

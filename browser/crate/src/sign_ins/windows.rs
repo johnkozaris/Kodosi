@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use aes_gcm::{Aes256Gcm, KeyInit as _, Nonce, aead::Aead as _};
+use aes_gcm::{Aes256Gcm, KeyInit as _, aead::Aead as _};
 use base64::Engine as _;
 use serde::Deserialize;
 use windows_sys::Win32::{
@@ -8,11 +8,13 @@ use windows_sys::Win32::{
     Security::Cryptography::{CRYPT_INTEGER_BLOB, CryptUnprotectData},
 };
 
-use super::{CopyError, chromium::Opener};
+use super::{
+    CopyError,
+    chromium::{Opener, WITH_KEY},
+};
 
 const NONCE_BYTES: usize = 12;
 const KEY_MARK: &[u8] = b"DPAPI";
-const WITH_KEY: &[u8] = b"v10";
 
 #[derive(Deserialize)]
 struct LocalState {
@@ -30,7 +32,7 @@ impl Opener for GcmKey {
     fn open(&self, sealed: &[u8]) -> Option<Vec<u8>> {
         let rest = sealed.strip_prefix(WITH_KEY)?;
         let (nonce, body) = rest.split_at_checked(NONCE_BYTES)?;
-        self.0.decrypt(Nonce::from_slice(nonce), body).ok()
+        self.0.decrypt(nonce.try_into().ok()?, body).ok()
     }
 }
 
