@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::{
     contract::{
@@ -266,8 +266,9 @@ impl<F: Format> Document<F> {
                 rev,
             } if !joined => self.join(pipe, contract, client, epoch, rev),
             ToDocument::Change { seq, base, body } if joined => self.change(pipe, seq, base, body),
-            ToDocument::Place { body, .. } if joined => self.place(pipe, body),
+            ToDocument::Place { rev, body } if joined => self.place(pipe, rev, body),
             ToDocument::Query { id, body } if joined => self.query(pipe, id, body),
+            ToDocument::People { id } if joined => self.people(pipe, id),
             _ => vec![Effect::Drop { pipe }],
         }
     }
@@ -331,6 +332,7 @@ impl<F: Format> Document<F> {
         };
         let peer = ToClient::Peer(Peer {
             id: client,
+            person: seat.viewer.id.clone(),
             name: seat.viewer.name.clone(),
             place: Value::Null,
         });
@@ -369,6 +371,7 @@ impl<F: Format> Document<F> {
             .filter_map(|seat| {
                 Some(Peer {
                     id: seat.client.clone()?,
+                    person: seat.viewer.id.clone(),
                     name: seat.viewer.name.clone(),
                     place: seat.place.clone(),
                 })
@@ -443,6 +446,9 @@ impl<F: Format> Document<F> {
     ) -> Vec<Effect> {
         self.rev += 1;
         let seals = F::seals(&change);
+        for seat in self.seats.values_mut() {
+            F::map_place(&mut seat.place, &change);
+        }
         let ordered = Ordered {
             rev: self.rev,
             author,
@@ -464,7 +470,15 @@ impl<F: Format> Document<F> {
         effects
     }
 
-    fn place(&mut self, pipe: PipeId, body: Value) -> Vec<Effect> {
+    /// Keeps where a person is as the document is now, and tells the others, who are at this rev
+    /// when the place reaches them. A place from before the log is dropped.
+    fn place(&mut self, pipe: PipeId, rev: Rev, mut body: Value) -> Vec<Effect> {
+        let Some(since) = self.log_since(rev) else {
+            return Vec::new();
+        };
+        for ordered in since {
+            F::map_place(&mut body, &ordered.change);
+        }
         let others = self.others(pipe);
         let Some(seat) = self.seats.get_mut(&pipe) else {
             return Vec::new();
@@ -475,10 +489,31 @@ impl<F: Format> Document<F> {
         };
         let peer = ToClient::Peer(Peer {
             id,
+            person: seat.viewer.id.clone(),
             name: seat.viewer.name.clone(),
             place: body,
         });
         vec![send_to(others, &peer)]
+    }
+
+    fn people(&self, pipe: PipeId, id: u64) -> Vec<Effect> {
+        let people = self
+            .seats
+            .iter()
+            .filter(|(other, seat)| **other != pipe && seat.client.is_some())
+            .map(|(_, seat)| {
+                json!({
+                    "name": seat.viewer.name,
+                    "place": F::describe_place(&self.model, &seat.place),
+                })
+            })
+            .collect();
+        let answer = ToClient::Answer {
+            id,
+            rev: self.rev,
+            body: Value::Array(people),
+        };
+        vec![send_to(vec![pipe], &answer)]
     }
 
     fn query(&self, pipe: PipeId, id: u64, body: Value) -> Vec<Effect> {

@@ -381,6 +381,7 @@ impl Live {
                 let (x, y) = seat.pointer?;
                 Some(Pointer {
                     viewer: seat.viewer.id.clone(),
+                    person: seat.viewer.person.clone(),
                     name: seat.viewer.name.clone(),
                     x,
                     y,

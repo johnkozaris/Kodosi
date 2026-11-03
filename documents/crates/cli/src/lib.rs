@@ -12,7 +12,7 @@ use std::{
 };
 
 use clap::{Args, Subcommand};
-use document::{CONTRACT, Catchup, Format, Frame, Guide, Peer, ToClient, ToDocument, contract};
+use document::{CONTRACT, Catchup, Format, Frame, Guide, ToClient, ToDocument, contract};
 use documents::{Documents, Formats, OpenError, Pipe, Viewer, format};
 use docx::Docx;
 use pdf::Pdf;
@@ -287,7 +287,6 @@ struct Seat {
     rev: u64,
     seq: u64,
     next_query: u64,
-    peers: HashMap<String, Peer>,
     used_at: Instant,
 }
 
@@ -306,7 +305,6 @@ impl Seat {
                 ToClient::Joined {
                     rev,
                     seq,
-                    peers,
                     catchup: Catchup::Snapshot { .. } | Catchup::Missed { .. },
                     ..
                 } => {
@@ -315,10 +313,6 @@ impl Seat {
                         rev,
                         seq,
                         next_query: 1,
-                        peers: peers
-                            .into_iter()
-                            .map(|peer| (peer.id.clone(), peer))
-                            .collect(),
                         used_at: Instant::now(),
                     });
                 }
@@ -331,22 +325,19 @@ impl Seat {
     }
 
     fn note(&mut self, message: ToClient) {
-        match message {
-            ToClient::Changed(changed) => self.rev = changed.rev,
-            ToClient::Peer(peer) => {
-                self.peers.insert(peer.id.clone(), peer);
-            }
-            ToClient::Left { id } => {
-                self.peers.remove(&id);
-            }
-            _ => {}
+        if let ToClient::Changed(changed) = message {
+            self.rev = changed.rev;
         }
     }
 
     async fn query(&mut self, body: Value) -> Result<(u64, Value), Failed> {
+        self.ask(|id| ToDocument::Query { id, body }).await
+    }
+
+    async fn ask(&mut self, asked: impl FnOnce(u64) -> ToDocument) -> Result<(u64, Value), Failed> {
         let id = self.next_query;
         self.next_query += 1;
-        send(&self.pipe, &ToDocument::Query { id, body }).await?;
+        send(&self.pipe, &asked(id)).await?;
         loop {
             match message(&mut self.pipe).await? {
                 ToClient::Answer {
@@ -494,12 +485,7 @@ impl Agents {
                 kind_of(&arguments.file)?;
                 let seat = self.seat(viewer, &arguments.file).await?;
                 let mut seat = seat.lock().await;
-                seat.query(json!({ "kind": "check" })).await?;
-                let people: Vec<Value> = seat
-                    .peers
-                    .values()
-                    .map(|peer| json!({ "name": peer.name, "place": peer.place }))
-                    .collect();
+                let (_, people) = seat.ask(|id| ToDocument::People { id }).await?;
                 seat.used_at = Instant::now();
                 drop(seat);
                 Ok(pretty(&json!({ "people": people })))

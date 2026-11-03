@@ -5,10 +5,12 @@ const JSON: u8 = 0;
 const FRAME: u8 = 1;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 8;
 
-/// Who looks at a window. The host decides this, and the window trusts it.
+/// Who looks at a window. The host decides this, and the window trusts it. `id` names one view,
+/// and each view of one person has the same `person`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Viewer {
     pub id: String,
+    pub person: String,
     pub name: String,
 }
 
@@ -161,6 +163,7 @@ pub struct Tab {
 #[serde(rename_all = "camelCase")]
 pub struct Pointer {
     pub viewer: String,
+    pub person: String,
     pub name: String,
     pub x: f64,
     pub y: f64,

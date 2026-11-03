@@ -5,12 +5,13 @@ mod apply;
 mod blank;
 mod model;
 mod ops;
+mod place;
 mod read;
 mod styles;
 mod write;
 
 use document::{Answer, Assets, Format, Guide, Ordered, Refused, Snapshot, Unreadable, Unwritable};
-use serde_json::json;
+use serde_json::{Value, json};
 
 pub use blank::new_file;
 pub use model::{Change, Docx, Model, Query};
@@ -55,6 +56,14 @@ impl Format for Docx {
 
     fn guide() -> Guide {
         ops::guide()
+    }
+
+    fn map_place(place: &mut Value, change: &Change) {
+        place::map(place, change);
+    }
+
+    fn describe_place(model: &Model, place: &Value) -> Value {
+        place::describe(&model.doc, place)
     }
 }
 

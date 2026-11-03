@@ -47,6 +47,12 @@ interface Snapshot {
   fields: Record<string, string>;
 }
 
+/** Where a person is: the page in the middle of their view, and the note that they chose. */
+interface Place {
+  page?: string;
+  note?: string;
+}
+
 type PageWork =
   | { kind: "order"; pages: string[] }
   | { kind: "rotate"; page: string; degrees: number }
@@ -104,6 +110,7 @@ class PdfEditor implements Editor, Pictures {
   private canEdit = true;
   private tool: Tool = "read";
   private page: string | null = null;
+  private here: Place = {};
   private opened: Promise<void> = Promise.resolve();
 
   constructor(
@@ -115,6 +122,31 @@ class PdfEditor implements Editor, Pictures {
     root.append(this.bar.element);
     this.pagesRoot = root.appendChild(document.createElement("div"));
     this.pagesRoot.className = "document-page pdf-pages";
+    this.pagesRoot.addEventListener("scroll", () => this.placeInView(), { passive: true });
+  }
+
+  /** Where the person is: a page, and the note that they chose on it. */
+  private placeAt(page: string, note?: string): void {
+    if (this.here.page === page && this.here.note === note) return;
+    this.here = note ? { page, note } : { page };
+    this.client.place(this.here);
+  }
+
+  /** The page in the middle of the view is the person's page. */
+  private placeInView(): void {
+    const view = this.pagesRoot.getBoundingClientRect();
+    const middle = view.top + view.height / 2;
+    let nearest: string | undefined;
+    let distance = Number.POSITIVE_INFINITY;
+    for (const [id, holder] of this.holders) {
+      const box = holder.element.getBoundingClientRect();
+      const away = Math.max(0, box.top - middle, middle - box.bottom);
+      if (away < distance) {
+        distance = away;
+        nearest = id;
+      }
+    }
+    if (nearest && nearest !== this.here.page) this.placeAt(nearest);
   }
 
   private showBar(): void {
@@ -218,7 +250,7 @@ class PdfEditor implements Editor, Pictures {
       element.addEventListener("pointerdown", () => {
         this.page = page.id;
         this.showPicked();
-        this.client.place({ page: page.id });
+        this.placeAt(page.id);
       });
       const layer = element.appendChild(document.createElement("div"));
       layer.className = "pdf-layer";
@@ -227,6 +259,8 @@ class PdfEditor implements Editor, Pictures {
     }
     this.page ??= snapshot.pages[0]?.id ?? null;
     this.showPicked();
+    this.here = {};
+    this.placeInView();
   }
 
   private showPage(id: string): Promise<void> {
@@ -327,11 +361,11 @@ class PdfEditor implements Editor, Pictures {
     }
     for (const widget of widgets) this.drawField(holder, viewport, widget);
     for (const peer of this.people) {
-      if ((peer.place as { page?: string } | null)?.page !== id) continue;
+      if ((peer.place as Place | null)?.page !== id) continue;
       const mark = holder.layer.appendChild(document.createElement("span"));
       mark.className = "pdf-peer";
       mark.textContent = peer.name;
-      mark.style.background = colorOf(peer.id);
+      mark.style.background = colorOf(peer.person);
     }
   }
 
@@ -351,8 +385,11 @@ class PdfEditor implements Editor, Pictures {
     mark.title = note.author ? `${note.author}: ${note.text}` : note.text;
     this.place(mark, viewport, note.rect);
     if (note.color) mark.style.background = `#${note.color}66`;
+    const chosen = this.people.find((peer) => (peer.place as Place | null)?.note === id);
+    if (chosen) mark.style.outline = `2px solid ${colorOf(chosen.person)}`;
     mark.addEventListener("click", (event) => {
       event.stopPropagation();
+      this.placeAt(note.page, id);
       if (!this.canEdit) return;
       const text = window.prompt("Note", note.text);
       if (text !== null) this.change({ kind: "note", id, note: text ? { ...note, text } : null });

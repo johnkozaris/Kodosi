@@ -28,8 +28,9 @@ look.
   `rejectChanges` decide tracked changes when a person asks you to.
 - `kodosi doc check <file>` lists formula errors, shapes that leave their slide, empty
   placeholders, tracked changes and notes. Run it after each change.
-- `kodosi doc selection <file>` says who is here and what each person has selected. Use it
-  when a person says "this one" or "here".
+- `kodosi doc selection <file>` says who is here and what each person has selected, as `read`
+  names it: a block id and the selected words, a range such as `Sheet1!B2:C4`, a slide and a
+  shape, or a page and a note. Use it when a person says "this one" or "here".
 - `kodosi doc render <file>` draws each page, slide or sheet as people see it, and prints the
   paths of the pictures. `--out <folder>` puts them in that folder.
 

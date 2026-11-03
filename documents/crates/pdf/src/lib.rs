@@ -9,6 +9,7 @@ mod redact;
 mod write;
 
 use document::{Answer, Assets, Format, Guide, Ordered, Refused, Snapshot, Unreadable, Unwritable};
+use serde_json::{Value, json};
 
 pub use model::{Change, Model, Note, Page, PageWork, Pdf, Query};
 pub use ops::Op;
@@ -59,6 +60,23 @@ impl Format for Pdf {
                 ..
             }
         )
+    }
+
+    /// The page by its number, as `read` names it, and the note by its id.
+    fn describe_place(model: &Model, place: &Value) -> Value {
+        let id = place.get("page").and_then(Value::as_str);
+        let Some(index) = model
+            .pages
+            .iter()
+            .position(|page| Some(page.id.as_str()) == id)
+        else {
+            return Value::Null;
+        };
+        let mut described = json!({ "page": index + 1 });
+        if let Some(note) = place.get("note").and_then(Value::as_str) {
+            described["note"] = json!(note);
+        }
+        described
     }
 }
 

@@ -1512,8 +1512,14 @@ impl LocalActor {
                 reply,
             } => {
                 let canvas = self.canvas.clone();
+                let view = connection_id.to_string();
+                let person = self
+                    .viewers
+                    .get(&connection_id)
+                    .cloned()
+                    .unwrap_or_else(|| view.clone());
                 tokio::spawn(async move {
-                    let ends = canvas.document(&key, connection_id.to_string(), name).await;
+                    let ends = canvas.document(&key, view, person, name).await;
                     drop(reply.send(ends));
                 });
             }

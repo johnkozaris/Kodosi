@@ -16,7 +16,7 @@ fn invalid(error: impl std::fmt::Display) -> Refused {
     Refused::Invalid(error.to_string())
 }
 
-fn block_id(node: &Node) -> Option<&str> {
+pub(crate) fn block_id(node: &Node) -> Option<&str> {
     node.attrs().get("id").and_then(Value::as_str)
 }
 

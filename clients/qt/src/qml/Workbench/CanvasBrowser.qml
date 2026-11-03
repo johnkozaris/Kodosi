@@ -350,14 +350,14 @@ Item {
                     width: name.implicitWidth + 10
                     height: name.implicitHeight + 2
                     radius: height / 2
-                    color: KodosiTheme.accent
+                    color: Identity.personTint(modelData.person)
 
                     PlainLabel {
                         id: name
 
                         anchors.centerIn: parent
                         text: parent.modelData.name
-                        color: KodosiTheme.accentInk
+                        color: "#ffffff"
                         font.pixelSize: KodosiTheme.fontCaption
                     }
                 }

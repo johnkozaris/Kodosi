@@ -2,6 +2,7 @@
 import type { JsonValue } from "./serde_json/JsonValue";
 
 /**
- * Someone who is here.
+ * Someone who is here, in one view. `person` is the viewer's id, the same in each view of
+ * them, and `place` is where they are as the document is now.
  */
-export type Peer = { id: string, name: string, place: JsonValue, };
+export type Peer = { id: string, person: string, name: string, place: JsonValue, };

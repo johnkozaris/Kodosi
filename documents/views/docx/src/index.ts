@@ -21,6 +21,7 @@ import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
 import { DocxBar } from "./bar";
 import * as commands from "./commands";
 import { PAGE_GAP, pages } from "./pages";
+import { type Place, placeOf, shownPlace } from "./places";
 import { extensions } from "./schema";
 import { type DocxView, pageSize, styleSheet } from "./styles";
 import "./docx.css";
@@ -30,31 +31,28 @@ interface Snapshot {
   view: DocxView;
 }
 
-interface Place {
-  from: number;
-  to: number;
+/** Another person's place in this copy. */
+interface Shown extends Place {
+  peer: Peer;
 }
 
-const peerKey = new PluginKey<DecorationSet>("peers");
+interface Peers {
+  shown: readonly Shown[];
+  marks: DecorationSet;
+}
+
+const peerKey = new PluginKey<Peers>("peers");
 const PAGE_INSET = 16;
 /** How long the pages of a rendering may take to stop moving, in pauses. */
 const MOST_PAUSES = 30;
 const PAUSE_MS = 100;
 
-function placeOf(body: unknown, size: number): Place | null {
-  const place = body as Partial<Place> | null;
-  if (typeof place?.from !== "number" || typeof place.to !== "number") return null;
-  return { from: Math.min(place.from, size), to: Math.min(place.to, size) };
-}
-
-function peerDecorations(doc: ProseNode, peers: readonly Peer[]): DecorationSet {
+function peerMarks(doc: ProseNode, shown: readonly Shown[]): DecorationSet {
   const decorations: Decoration[] = [];
-  for (const peer of peers) {
-    const place = placeOf(peer.place, doc.content.size);
-    if (!place) continue;
-    const color = colorOf(peer.id);
-    if (place.to > place.from) {
-      decorations.push(Decoration.inline(place.from, place.to, { style: `background:${color}33` }));
+  for (const { peer, from, to } of shown) {
+    const color = colorOf(peer.person);
+    if (to > from) {
+      decorations.push(Decoration.inline(from, to, { style: `background:${color}33` }));
     }
     const caret = document.createElement("span");
     caret.className = "peer-caret";
@@ -62,7 +60,7 @@ function peerDecorations(doc: ProseNode, peers: readonly Peer[]): DecorationSet 
     const name = caret.appendChild(document.createElement("span"));
     name.textContent = peer.name;
     name.style.background = color;
-    decorations.push(Decoration.widget(place.to, caret, { side: 1 }));
+    decorations.push(Decoration.widget(to, caret, { side: 1, key: `${peer.id} ${peer.name}` }));
   }
   return DecorationSet.create(doc, decorations);
 }
@@ -91,20 +89,39 @@ function blockIds(): Plugin {
   });
 }
 
-function peersPlugin(): Plugin<DecorationSet> {
-  return new Plugin<DecorationSet>({
+/**
+ * Where the other people are. Each place moves with every change of this copy, and a peer
+ * whose place is new comes in from the document's order.
+ */
+function peersPlugin(): Plugin<Peers> {
+  return new Plugin<Peers>({
     key: peerKey,
     state: {
-      init: () => DecorationSet.empty,
-      apply(transaction, current) {
+      init: () => ({ shown: [], marks: DecorationSet.empty }),
+      apply(transaction, current, _old, state) {
         const peers = transaction.getMeta(peerKey) as readonly Peer[] | undefined;
-        if (peers) return peerDecorations(transaction.doc, peers);
-        return current.map(transaction.mapping, transaction.doc);
+        if (!peers && !transaction.docChanged) return current;
+        const moved = transaction.docChanged
+          ? current.shown.map((place) => ({
+              ...place,
+              from: transaction.mapping.map(place.from, 1),
+              to: transaction.mapping.map(place.to, 1),
+            }))
+          : current.shown;
+        const shown = peers
+          ? peers.flatMap((peer) => {
+              const known = moved.find((place) => place.peer === peer);
+              if (known) return [known];
+              const place = placeOf(peer.place);
+              return place ? [{ peer, ...shownPlace(state, place) }] : [];
+            })
+          : moved;
+        return { shown, marks: peerMarks(state.doc, shown) };
       },
     },
     props: {
       decorations(state) {
-        return peerKey.getState(state);
+        return peerKey.getState(state)?.marks;
       },
     },
   });
@@ -140,6 +157,7 @@ class DocxEditor implements ViewEditor, Pictures {
   private choosing: MutationObserver | undefined;
   private view: DocxView = { styles: null, numbering: null, page: null };
   private pageAreas: Area[] = [];
+  private placeWaits = false;
 
   constructor(
     private readonly root: HTMLElement,
@@ -230,12 +248,9 @@ class DocxEditor implements ViewEditor, Pictures {
       editable: person.canEdit,
       enableInputRules: false,
       enablePasteRules: false,
-      onTransaction: ({ editor, transaction }) => {
+      onTransaction: ({ transaction }) => {
         if (transaction.docChanged) client.pull();
-        if (transaction.selectionSet || transaction.docChanged) {
-          const { from, to } = editor.state.selection;
-          client.place({ from, to });
-        }
+        if (transaction.selectionSet || transaction.docChanged) this.sendPlace();
         this.bar.update();
       },
     });
@@ -318,6 +333,20 @@ class DocxEditor implements ViewEditor, Pictures {
       mapSelectionBackward: true,
     });
     editor.view.dispatch(transaction);
+    if (own && this.placeWaits) this.sendPlace();
+  }
+
+  /**
+   * The place goes as the document is at the client's rev. While this copy's steps wait for
+   * their answer, it differs from that rev, so the place waits too.
+   */
+  private sendPlace(): void {
+    const state = this.editor?.state;
+    if (!state) return;
+    this.placeWaits = sendableSteps(state) !== null;
+    if (!this.placeWaits) {
+      this.client.place({ from: state.selection.from, to: state.selection.to });
+    }
   }
 
   peers(peers: readonly Peer[]): void {

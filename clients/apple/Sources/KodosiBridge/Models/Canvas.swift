@@ -240,6 +240,7 @@ public enum CanvasError: LocalizedError, Equatable {
 public struct BrowserWindow: Decodable, Equatable, Sendable {
     public struct Pointer: Decodable, Equatable, Identifiable, Sendable {
         public let viewer: String
+        public let person: String
         public let name: String
         public let x: Double
         public let y: Double

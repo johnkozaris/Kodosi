@@ -744,7 +744,8 @@ impl TerminalTarget {
         }
     }
 
-    /// Joins a live document of the terminal's canvas, on this computer or on another one.
+    /// Joins a live document of the terminal's canvas, on this computer or on another one. The
+    /// computer of the terminal knows a person on another computer by their connection.
     #[cfg_attr(
         not(feature = "host"),
         expect(unused_variables, reason = "for a local terminal")
@@ -754,15 +755,18 @@ impl TerminalTarget {
         pipe: Uuid,
         key: String,
         name: String,
+        person: Option<String>,
         consumer: Uuid,
     ) -> Pin<Box<dyn Future<Output = Result<crate::canvas::PipeEnds>> + Send>> {
         match self {
             #[cfg(feature = "host")]
             Self::Local(terminal) => {
                 let canvas = terminal.canvas.clone();
+                let view = consumer.to_string();
+                let person = person.unwrap_or_else(|| view.clone());
                 Box::pin(async move {
                     canvas
-                        .document(&key, consumer.to_string(), name)
+                        .document(&key, view, person, name)
                         .await
                         .map_err(Error::Invalid)
                 })

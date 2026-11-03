@@ -106,6 +106,21 @@ impl Format for Sheet {
     fn seals(change: &Change) -> bool {
         matches!(change, Change::Seal)
     }
+
+    fn map_place(place: &mut Value, change: &Change) {
+        let line = place.get("line").and_then(Value::as_u64);
+        if let (Change::Insert { at, .. }, Some(line)) = (change, line)
+            && line >= *at as u64
+        {
+            place["line"] = json!(line + 1);
+        }
+    }
+
+    fn describe_place(model: &Model, place: &Value) -> Value {
+        let line = place.get("line").and_then(Value::as_u64);
+        line.and_then(|line| model.lines.get(usize::try_from(line).ok()?))
+            .map_or(Value::Null, |text| json!({ "text": text }))
+    }
 }
 
 fn file_of(model: &Model) -> Vec<u8> {
@@ -380,6 +395,38 @@ fn places_go_to_the_others_and_not_to_the_journal() {
     assert!(matches!(
         messages_for(3, &joined).as_slice(),
         [ToClient::Joined { peers, .. }] if peers.len() == 1
+    ));
+}
+
+#[test]
+fn a_place_moves_with_each_change_after_it_and_an_agent_reads_it_in_the_formats_words() {
+    let mut document = opened();
+    connect(&mut document, 1, "ana");
+    connect(&mut document, 2, "ben");
+    let insert = |line: &str| Change::Insert {
+        at: 0,
+        line: line.to_owned(),
+    };
+    message_to(&mut document, 2, change_frame(1, 0, &insert("one")));
+    message_to(&mut document, 2, change_frame(2, 1, &insert("two")));
+    let placed = message_to(
+        &mut document,
+        1,
+        frame(&ToDocument::Place {
+            rev: 1,
+            body: json!({ "line": 0 }),
+        }),
+    );
+    assert!(matches!(
+        messages_for(2, &placed).as_slice(),
+        [ToClient::Peer(peer)] if peer.place == json!({ "line": 1 }) && peer.person == "ana"
+    ));
+    message_to(&mut document, 2, change_frame(3, 2, &insert("three")));
+    let asked = message_to(&mut document, 2, frame(&ToDocument::People { id: 7 }));
+    assert!(matches!(
+        messages_for(2, &asked).as_slice(),
+        [ToClient::Answer { id: 7, rev: 3, body }]
+            if *body == json!([{ "name": "ana", "place": { "text": "one" } }])
     ));
 }
 

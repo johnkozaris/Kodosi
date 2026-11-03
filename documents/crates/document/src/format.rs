@@ -142,6 +142,15 @@ pub trait Format: 'static {
     fn seals(_change: &Self::Change) -> bool {
         false
     }
+
+    /// Moves a view's place across a change that came after it, as the change moves the content.
+    /// A place that names its parts by id stays as it is.
+    fn map_place(_place: &mut Value, _change: &Self::Change) {}
+
+    /// A place in the words of `read`, for agents.
+    fn describe_place(_model: &Self::Model, place: &Value) -> Value {
+        place.clone()
+    }
 }
 
 #[cfg(test)]

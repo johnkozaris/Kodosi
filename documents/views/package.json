@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc && vite build",
     "tsc": "tsc",
-    "test": "bun test docx",
+    "test": "bun test client docx",
     "format": "biome check --write .",
     "format:check": "biome check ."
   },

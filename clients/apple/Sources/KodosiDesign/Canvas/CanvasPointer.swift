@@ -60,12 +60,13 @@ struct BrowserPointersLayer: View {
         GeometryReader { geometry in
             ForEach(feed.window.pointers) { pointer in
                 if let at = feed.viewPoint(x: pointer.x, y: pointer.y, in: geometry.size) {
+                    let tint = PersonTint.color(for: pointer.person)
                     ZStack(alignment: .topLeading) {
-                        AgentArrow(color: theme.colors.accent, pressed: false)
+                        AgentArrow(color: tint, pressed: false)
                         Text(verbatim: pointer.name).appTextStyle(.caption).lineLimit(1)
-                            .foregroundStyle(theme.colors.onAccent)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Capsule().fill(theme.colors.accent))
+                            .background(Capsule().fill(tint))
                             .offset(x: 12, y: 18)
                             .fixedSize()
                     }

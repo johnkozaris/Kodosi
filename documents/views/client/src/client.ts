@@ -51,7 +51,7 @@ export class Client {
   private readonly assetWaiters = new Map<string, ((bytes: Uint8Array) => void)[]>();
   private incoming: Promise<void> = Promise.resolve();
   private placeTimer: ReturnType<typeof setTimeout> | undefined;
-  private nextPlace: unknown;
+  private nextPlace: { rev: number; body: ToDocumentBody } | undefined;
   private placeSentAt = 0;
 
   /** `joined` runs each time that the document takes this client in. */
@@ -103,9 +103,6 @@ export class Client {
       case "joined": {
         this.epoch = message.epoch;
         this.lastSeq = message.seq;
-        this.peers.clear();
-        for (const peer of message.peers) this.peers.set(peer.id, peer);
-        editor?.peers([...this.peers.values()]);
         if (message.catchup.kind === "snapshot") {
           this.rev = message.rev;
           editor?.load(message.catchup.snapshot, {
@@ -116,6 +113,9 @@ export class Client {
         } else {
           for (const changed of message.catchup.changes) this.applied(changed);
         }
+        this.peers.clear();
+        for (const peer of message.peers) this.peers.set(peer.id, peer);
+        editor?.peers([...this.peers.values()]);
         this.joined();
         this.pull();
         break;
@@ -184,15 +184,18 @@ export class Client {
     });
   }
 
-  /** Where the person is, at most ten times a second. */
+  /**
+   * Where the person is, at most ten times a second, as the document is at this client's rev.
+   * The document moves the place across the changes that come after that rev.
+   */
   place(body: unknown): void {
-    this.nextPlace = body;
+    this.nextPlace = { rev: this.rev, body: body as ToDocumentBody };
     if (this.placeTimer !== undefined) return;
     const wait = Math.max(0, this.placeSentAt + PLACE_EVERY - Date.now());
     this.placeTimer = setTimeout(() => {
       this.placeTimer = undefined;
       this.placeSentAt = Date.now();
-      this.send({ type: "place", rev: this.rev, body: this.nextPlace as ToDocumentBody });
+      if (this.nextPlace) this.send({ type: "place", ...this.nextPlace });
     }, wait);
   }
 

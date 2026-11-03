@@ -236,7 +236,6 @@ class PptxEditor implements Editor, Pictures {
 
   private drawList(): void {
     const slides = this.deck?.slides ?? [];
-    const taken = new Set(this.people.flatMap((peer) => (peer.place as Place | null)?.slide ?? []));
     this.list.replaceChildren(
       ...slides.map((slide, index) => {
         const item = document.createElement("button");
@@ -244,7 +243,17 @@ class PptxEditor implements Editor, Pictures {
         item.className = "slides-item";
         item.textContent = String(index + 1);
         item.ariaPressed = String(slide.id === this.current);
-        item.dataset.peer = String(taken.has(slide.id));
+        const here = this.people.filter((peer) => (peer.place as Place | null)?.slide === slide.id);
+        if (here.length > 0) {
+          const peers = item.appendChild(document.createElement("span"));
+          peers.className = "slides-peers";
+          for (const peer of here) {
+            const dot = peers.appendChild(document.createElement("span"));
+            dot.className = "slides-peer";
+            dot.title = peer.name;
+            dot.style.background = colorOf(peer.person);
+          }
+        }
         item.draggable = this.canEdit;
         item.addEventListener("click", () => this.open(slide.id));
         item.addEventListener("dragstart", (event) => {
@@ -339,7 +348,7 @@ class PptxEditor implements Editor, Pictures {
       const place = peer.place as Place | null;
       const shape = slide.shapes.find((known) => known.id === place?.shape);
       if (place?.slide !== slide.id || !shape) continue;
-      const color = colorOf(peer.id);
+      const color = colorOf(peer.person);
       const mark = new Konva.Group({
         name: "peer",
         x: pixels(shape.x),

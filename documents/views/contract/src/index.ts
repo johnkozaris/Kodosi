@@ -7,4 +7,4 @@ export type { ToClient } from "./generated/ToClient";
 export type { ToDocument } from "./generated/ToDocument";
 export type { Viewer } from "./generated/Viewer";
 
-export const CONTRACT = 1;
+export const CONTRACT = 2;

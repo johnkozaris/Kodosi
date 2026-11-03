@@ -9,6 +9,7 @@ mod formats;
 mod formula;
 mod model;
 mod ops;
+mod place;
 mod read;
 mod write;
 
@@ -54,6 +55,14 @@ impl Format for Xlsx {
 
     fn guide() -> Guide {
         ops::guide()
+    }
+
+    fn map_place(place: &mut serde_json::Value, change: &Change) {
+        place::map(place, change);
+    }
+
+    fn describe_place(model: &Model, place: &serde_json::Value) -> serde_json::Value {
+        place::describe(model, place)
     }
 }
 

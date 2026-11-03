@@ -382,6 +382,34 @@ fn sizes_and_merges_reach_the_file() {
 }
 
 #[test]
+fn a_place_moves_with_its_rows_and_reads_as_a_range() {
+    let mut model = read(&xlsx_file());
+    let mut place = json!({
+        "sheet": model.sheets[0].id,
+        "row": 2,
+        "column": 1,
+        "endRow": 3,
+        "endColumn": 1,
+        "editing": true,
+    });
+    let inserted = Op::InsertRows {
+        sheet: "Data".to_owned(),
+        at: 1,
+        count: 2,
+    };
+    let change = ops(&mut model, vec![inserted]).unwrap();
+    Xlsx::map_place(&mut place, &change);
+    assert_eq!(
+        (place["row"].clone(), place["endRow"].clone()),
+        (json!(4), json!(5))
+    );
+    assert_eq!(
+        Xlsx::describe_place(&model, &place),
+        json!({ "range": "Data!B5:B6", "editing": true })
+    );
+}
+
+#[test]
 fn moved_rows_take_what_points_at_them() {
     let sheet = SHEET
         .replace(" x14ac:custom=\"kept\"", "")

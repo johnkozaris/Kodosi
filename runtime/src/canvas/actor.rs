@@ -70,8 +70,7 @@ enum Job {
         reply: Reply,
     },
     Watch {
-        id: String,
-        name: String,
+        viewer: shared_browser::Viewer,
         reply: oneshot::Sender<Result<PipeEnds, String>>,
     },
     Downloaded {
@@ -191,17 +190,24 @@ impl CanvasHandle {
         .await
     }
 
-    /// Joins the live document of an item of this canvas.
+    /// Joins the live document of an item of this canvas. `view` names this one view, and
+    /// `person` is the same in each view of one person.
     pub(crate) async fn document(
         &self,
         key: &str,
-        id: String,
+        view: String,
+        person: String,
         name: String,
     ) -> Result<PipeEnds, String> {
         if key == BROWSER_PIPE {
             let (reply, answer) = oneshot::channel();
+            let viewer = shared_browser::Viewer {
+                id: view,
+                person,
+                name,
+            };
             self.jobs
-                .try_send(Job::Watch { id, name, reply })
+                .try_send(Job::Watch { viewer, reply })
                 .map_err(|_| "The canvas is busy. Try again in a moment.".to_owned())?;
             return answer
                 .await
@@ -217,7 +223,7 @@ impl CanvasHandle {
             return Err("This file is not on the canvas.".to_owned());
         }
         let viewer = documents::Viewer {
-            id,
+            id: person,
             name,
             can_edit: true,
         };
@@ -461,10 +467,10 @@ impl Actor {
                     drop(reply.send(drawn));
                 });
             }
-            Job::Watch { id, name, reply } => {
+            Job::Watch { viewer, reply } => {
                 let browser = self.browser();
                 self.publish();
-                tokio::spawn(async move { drop(reply.send(browser.watch(id, name).await)) });
+                tokio::spawn(async move { drop(reply.send(browser.watch(viewer).await)) });
             }
             Job::Downloaded { path } => {
                 if let Err(problem) = self.files.show(vec![path], &self.stamp).await {

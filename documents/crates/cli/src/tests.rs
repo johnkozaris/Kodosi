@@ -224,7 +224,7 @@ async fn the_guide_prints_ops_with_their_fields() {
 async fn selection_says_who_else_is_here() {
     let rig = rig();
     let file = rig.new_file("a.docx", None).await;
-    rig.read(&file).await;
+    let read = rig.read(&file).await;
     let mut person = rig
         .documents
         .open(
@@ -250,7 +250,7 @@ async fn selection_says_who_else_is_here() {
     person.receive().await.unwrap();
     let place = document::ToDocument::Place {
         rev: 0,
-        body: json!({ "block": "b1" }),
+        body: json!({ "from": 1, "to": 1 }),
     };
     person
         .send(document::contract::encode_message(&place))
@@ -262,5 +262,8 @@ async fn selection_says_who_else_is_here() {
         .unwrap();
     let people = answer["people"].as_array().unwrap();
     assert_eq!(people[0]["name"], "Ana");
-    assert_eq!(people[0]["place"]["block"], "b1");
+    assert_eq!(
+        people[0]["place"]["block"],
+        read["content"]["blocks"][0]["id"]
+    );
 }

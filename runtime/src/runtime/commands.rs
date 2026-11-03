@@ -477,7 +477,10 @@ impl Runtime {
             return Err(Error::Busy);
         }
         let name = self.person.clone().unwrap_or_else(|| "Someone".to_owned());
-        let ends = self.target(id)?.document(pipe, key.clone(), name, consumer);
+        let person = self.scope.user.clone();
+        let ends = self
+            .target(id)?
+            .document(pipe, key.clone(), name, person, consumer);
         let command = command.clone();
         self.spawn(async move {
             Completion::Document {

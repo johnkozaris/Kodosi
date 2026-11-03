@@ -450,14 +450,10 @@ impl Browser {
 
     /// Gives a person the live picture of this browser. The two ends carry the browser's own
     /// messages, so one who only looks needs nothing more.
-    pub(super) async fn watch(
-        self: &Arc<Self>,
-        id: String,
-        name: String,
-    ) -> Result<PipeEnds, String> {
+    pub(super) async fn watch(self: &Arc<Self>, viewer: Viewer) -> Result<PipeEnds, String> {
         let window = self.window().await?;
         let mut pipe = window
-            .watch(Viewer { id, name })
+            .watch(viewer)
             .await
             .map_err(|problem| problem.to_string())?;
         let (sender, mut from_view) = mpsc::channel::<Vec<u8>>(PIPE_QUEUE);

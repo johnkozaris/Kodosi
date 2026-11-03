@@ -187,6 +187,37 @@ fn a_view_can_send_steps_and_the_saved_file_reads_the_same() {
 }
 
 #[test]
+fn a_place_moves_with_steps_before_it_and_reads_as_its_block_and_words() {
+    let mut model = read(&docx_file(THREE));
+    let second = blocks(&model)[1]["id"].clone();
+    let plain = 8 + "bold words and ".len();
+    let mut place = json!({ "from": plain, "to": plain + "plain".len() });
+    let change = Change::Steps {
+        steps: vec![json!({
+            "stepType": "replace",
+            "from": 2,
+            "to": 2,
+            "slice": { "content": [{ "type": "text", "text": "A " }] },
+        })],
+        touched: Vec::new(),
+        keep: BTreeMap::default(),
+        sources: BTreeMap::default(),
+    };
+    let change = applied(&mut model, change).unwrap();
+    Docx::map_place(&mut place, &change);
+    assert_eq!(place, json!({ "from": plain + 2, "to": plain + 7 }));
+    assert_eq!(
+        Docx::describe_place(&model, &place),
+        json!({ "block": second, "selected": "plain" })
+    );
+    let caret = json!({ "from": plain + 2, "to": plain + 2 });
+    assert_eq!(
+        Docx::describe_place(&model, &caret),
+        json!({ "block": second })
+    );
+}
+
+#[test]
 fn old_steps_are_behind_and_old_ops_only_when_they_meet() {
     let mut model = read(&docx_file(THREE));
     let first = blocks(&model)[0]["id"].as_str().unwrap().to_owned();

@@ -4,4 +4,4 @@ import type { JsonValue } from "./serde_json/JsonValue";
 /**
  * What a client sends to its document.
  */
-export type ToDocument = { "type": "join", contract: number, client: string, epoch: number, rev: number, } | { "type": "change", seq: number, base: number, body: JsonValue, } | { "type": "place", rev: number, body: JsonValue, } | { "type": "query", id: number, body: JsonValue, };
+export type ToDocument = { "type": "join", contract: number, client: string, epoch: number, rev: number, } | { "type": "change", seq: number, base: number, body: JsonValue, } | { "type": "place", rev: number, body: JsonValue, } | { "type": "query", id: number, body: JsonValue, } | { "type": "people", id: number, };

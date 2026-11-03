@@ -6,7 +6,7 @@ use serde_json::Value;
 use ts_rs::TS;
 
 /// Views and the CLI with another number cannot join.
-pub const CONTRACT: u32 = 1;
+pub const CONTRACT: u32 = 2;
 
 const JSON_FRAME: u8 = 0;
 const GZIP_FRAME: u8 = 1;
@@ -18,7 +18,7 @@ const MOST_UNPACKED: u64 = 256 * 1024 * 1024;
 pub type Rev = u64;
 pub type Seq = u64;
 
-/// A person or an agent, as the host names them.
+/// A person or an agent, as the host names them. Each view of one person has the same `id`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -52,6 +52,7 @@ pub enum ToDocument {
         base: Rev,
         body: Value,
     },
+    /// Where the person is, as the document was at `rev`.
     Place {
         #[ts(type = "number")]
         rev: Rev,
@@ -61,6 +62,12 @@ pub enum ToDocument {
         #[ts(type = "number")]
         id: u64,
         body: Value,
+    },
+    /// Who else is here and where, in the words of `read`. The answer is a list of names and
+    /// places.
+    People {
+        #[ts(type = "number")]
+        id: u64,
     },
 }
 
@@ -78,12 +85,14 @@ pub struct Changed {
     pub body: Value,
 }
 
-/// Someone who is here.
+/// Someone who is here, in one view. `person` is the viewer's id, the same in each view of
+/// them, and `place` is where they are as the document is now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Peer {
     pub id: String,
+    pub person: String,
     pub name: String,
     pub place: Value,
 }
