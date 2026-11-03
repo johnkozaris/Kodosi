@@ -16,6 +16,7 @@ struct Terminal {
     frames: broadcast::Sender<PublishedFrame>,
     sequence: Arc<AtomicU64>,
     input: mpsc::UnboundedReceiver<Vec<u8>>,
+    pictures: mpsc::UnboundedReceiver<Bytes>,
     image_budgets: mpsc::UnboundedReceiver<u64>,
     viewer: Channel<Pipe>,
     received: u64,
@@ -97,9 +98,11 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
     let (requests, mut received) = mpsc::channel(64);
     let sequence = Arc::new(AtomicU64::new(0));
     let (typed, input) = mpsc::unbounded_channel();
+    let (pasted, pictures) = mpsc::unbounded_channel();
     let (image_budget, image_budgets) = mpsc::unbounded_channel();
     let (barrier, current) = (frames.clone(), Arc::clone(&sequence));
     tokio::spawn(async move {
+        let mut saved = std::collections::HashSet::new();
         while let Some(request) = received.recv().await {
             match request {
                 HostRequest::Bootstrap {
@@ -128,28 +131,45 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 HostRequest::Control { reply, .. } => {
                     drop(reply.send(Err("The terminal refused the size.".to_owned())));
                 }
+                HostRequest::Picture { picture, reply, .. } => {
+                    let answer = match picture {
+                        HostPicture::Known { digest, .. } if !saved.contains(&digest) => {
+                            json!({"missing": true})
+                        }
+                        HostPicture::Known { .. } => json!({"accepted": true}),
+                        HostPicture::Whole(picture) => {
+                            saved.insert(picture.digest);
+                            drop(pasted.send(picture.bytes));
+                            json!({"accepted": true})
+                        }
+                    };
+                    drop(reply.send(Ok(answer)));
+                }
                 _ => {}
             }
         }
     });
     let served = tokio::spawn(async move {
-        let mut stream = Stream::new(
-            channel,
-            output,
-            &requests,
-            Controller {
-                connection: Uuid::now_v7(),
-                authorization: CancellationToken::new(),
-            },
-        );
-        let result = stream.serve().await;
-        stream.channel.close().await;
+        let (result, channel) = {
+            let mut stream = Stream::new(
+                channel,
+                output,
+                &requests,
+                Controller {
+                    connection: Uuid::now_v7(),
+                    authorization: CancellationToken::new(),
+                },
+            );
+            (stream.serve().await, stream.channel)
+        };
+        channel.close().await;
         result
     });
     Terminal {
         frames,
         sequence,
         input,
+        pictures,
         image_budgets,
         viewer,
         received: 0,
@@ -416,4 +436,112 @@ async fn the_end_reaches_the_view_after_the_output_that_waits() {
     assert_eq!(end.final_sequence, 1);
     assert!(terminal.served.await.unwrap().is_ok());
     assert!(terminal.viewer.receive().await.unwrap().is_none());
+}
+
+impl Terminal {
+    async fn picture_state(&mut self) -> PictureState {
+        loop {
+            match self.next().await {
+                Frame::PictureState(state) => return state,
+                Frame::Keyframe { .. } | Frame::Output { .. } => self.acknowledge().await,
+                _ => {}
+            }
+        }
+    }
+
+    async fn offer(&mut self, picture: &Picture, sha256: String) -> PictureState {
+        let id = Uuid::now_v7();
+        self.viewer
+            .send(&Frame::Picture(PictureOffer {
+                id,
+                size: picture.bytes.len() as u64,
+                sha256,
+                format: picture.format,
+            }))
+            .await
+            .unwrap();
+        let state = self.picture_state().await;
+        assert_eq!(state.id, id);
+        state
+    }
+
+    async fn send_parts(&mut self, id: Uuid, bytes: &[u8]) -> PictureState {
+        let mut offset = 0;
+        for part in bytes.chunks(wire::PICTURE_PART) {
+            self.viewer
+                .send(&Frame::PicturePart {
+                    id,
+                    offset,
+                    bytes: Bytes::copy_from_slice(part),
+                })
+                .await
+                .unwrap();
+            offset += part.len() as u64;
+            let state = self.picture_state().await;
+            assert_eq!(
+                (state.step, state.received),
+                (PictureStep::Receiving, offset)
+            );
+        }
+        self.picture_state().await
+    }
+}
+
+fn picture(fill: u8) -> Picture {
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(2 * wire::PICTURE_PART + 99, fill);
+    Picture::new(Bytes::from(bytes)).unwrap()
+}
+
+#[tokio::test]
+async fn a_picture_is_pasted_once_all_its_parts_arrive_and_later_again_from_its_file() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let first = picture(1);
+    let asked = terminal.offer(&first, first.sha256()).await;
+    assert_eq!((asked.step, asked.received), (PictureStep::Receiving, 0));
+    let done = terminal.send_parts(asked.id, &first.bytes).await;
+    assert_eq!(done.step, PictureStep::Pasted);
+    assert_eq!(terminal.pictures.recv().await.unwrap(), first.bytes);
+
+    let again = terminal.offer(&first, first.sha256()).await;
+    assert_eq!(again.step, PictureStep::Pasted);
+    assert!(terminal.pictures.try_recv().is_err());
+
+    let damaged = picture(2);
+    let asked = terminal.offer(&damaged, picture(3).sha256()).await;
+    assert_eq!(asked.step, PictureStep::Receiving);
+    let refused = terminal.send_parts(asked.id, &damaged.bytes).await;
+    assert_eq!(
+        (refused.step, refused.message.as_str()),
+        (PictureStep::Refused, PICTURE_DAMAGED)
+    );
+    assert!(terminal.pictures.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn a_picture_takes_the_place_of_one_whose_parts_stopped() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let stopped = picture(1);
+    let asked = terminal.offer(&stopped, stopped.sha256()).await;
+    terminal
+        .viewer
+        .send(&Frame::PicturePart {
+            id: asked.id,
+            offset: 0,
+            bytes: stopped.bytes.slice(..wire::PICTURE_PART),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        terminal.picture_state().await.received,
+        wire::PICTURE_PART as u64
+    );
+    let next = picture(2);
+    let asked = terminal.offer(&next, next.sha256()).await;
+    assert_eq!((asked.step, asked.received), (PictureStep::Receiving, 0));
+    let done = terminal.send_parts(asked.id, &next.bytes).await;
+    assert_eq!(done.step, PictureStep::Pasted);
+    assert_eq!(terminal.pictures.recv().await.unwrap(), next.bytes);
 }

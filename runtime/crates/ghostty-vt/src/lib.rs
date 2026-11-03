@@ -130,6 +130,20 @@ impl Terminal {
         self.raw.encode_focus(focused)
     }
 
+    /// Pasted text without control characters, in bracketed paste marks when the program
+    /// asked for them.
+    pub fn encode_paste(&mut self, text: &str) -> Result<Vec<u8>, Error> {
+        let text = text
+            .chars()
+            .filter(|character| !character.is_control())
+            .collect::<String>();
+        Ok(if self.raw.mode(2004, false)? {
+            [b"\x1b[200~".as_slice(), text.as_bytes(), b"\x1b[201~"].concat()
+        } else {
+            text.into_bytes()
+        })
+    }
+
     pub fn compression_activity(&mut self) -> Result<u64, Error> {
         self.raw.compression_activity()
     }

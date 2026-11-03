@@ -6,6 +6,8 @@
 
 #include <QFont>
 #include <QJsonObject>
+#include <QMimeData>
+#include <QTemporaryFile>
 #include <QKeySequence>
 #include <QList>
 #include <QPoint>
@@ -17,6 +19,7 @@
 #include <atomic>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <variant>
@@ -150,6 +153,8 @@ signals:
     void clipboardReadRequested();
     void linkQuestionRequested(QUrl link, QString target);
     void linkRefused(QString target, QString reason);
+    // A paste of a picture with no text, saved in a file that the host reads.
+    void picturePasted(QString path);
 
 protected:
     bool event(QEvent* event) override;
@@ -239,6 +244,9 @@ private:
     // The computer that runs the terminal, when it is not this one.
     QString m_otherComputer;
     std::deque<QByteArray> m_inputQueue;
+    // The newest pasted pictures, which their files keep until the host has read them.
+    std::deque<std::unique_ptr<QTemporaryFile>> m_pictures;
+    void pastePicture(const QMimeData& mime);
     qsizetype m_queuedInputBytes = 0;
     bool m_inputRetryQueued = false;
     std::uint8_t m_inputBackoffStep = 0;

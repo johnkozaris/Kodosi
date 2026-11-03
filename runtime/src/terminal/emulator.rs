@@ -72,6 +72,10 @@ enum TerminalCommand {
         focused: bool,
         reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
+    Paste {
+        text: String,
+        reply_tx: oneshot::Sender<Result<Vec<u8>>>,
+    },
     Text {
         history: bool,
         reply_tx: oneshot::Sender<Result<String>>,
@@ -167,6 +171,11 @@ impl SessionTerminalHandle {
 
     pub(super) async fn set_focused(&self, focused: bool) -> Result<Vec<u8>> {
         self.request(|reply_tx| TerminalCommand::SetFocused { focused, reply_tx })
+            .await
+    }
+
+    pub(super) async fn paste(&self, text: String) -> Result<Vec<u8>> {
+        self.request(|reply_tx| TerminalCommand::Paste { text, reply_tx })
             .await
     }
 
@@ -543,6 +552,9 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
+                    }
+                    TerminalCommand::Paste { text, reply_tx } => {
+                        drop(reply_tx.send(terminal.terminal.encode_paste(&text).map_err(terminal_error)));
                     }
                     TerminalCommand::CursorAtPrompt { reply_tx } => {
                         let state = terminal.terminal.state().map_err(terminal_error);

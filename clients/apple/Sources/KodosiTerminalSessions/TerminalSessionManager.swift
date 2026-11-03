@@ -49,6 +49,7 @@ public final class TerminalSessionManager {
     ) -> Void
 
     private var inputErrorsBySession: [String: String] = [:]
+    private var picturesBySession: [String: TerminalPicture] = [:]
     var renderStateBySession: [String: TerminalRenderState] = [:]
     var resizeNotesBySession: [String: String] = [:]
     private var runtimeIncarnationsBySession: [String: String] = [:]
@@ -194,6 +195,7 @@ public final class TerminalSessionManager {
         existing?.resizeDelivery.reset()
         existing?.token.deactivate()
         inputErrorsBySession.removeValue(forKey: sessionId)
+        picturesBySession.removeValue(forKey: sessionId)
         renderStateBySession.removeValue(forKey: sessionId)
         resizeNotesBySession.removeValue(forKey: sessionId)
         TerminalInputQueue.shared.cancel(sessionId: sessionId)
@@ -244,6 +246,10 @@ public final class TerminalSessionManager {
             },
         )
 
+        renderer.pastePicture = { [weak self, token] picture in
+            guard token.isActive else { return }
+            self?.pastePicture(picture, sessionId: sessionId)
+        }
         renderer.setStyle(style())
         renderStateBySession[sessionId] = .connecting
 
@@ -335,6 +341,58 @@ public final class TerminalSessionManager {
 
     public func clearInputError(for sessionId: String) {
         inputErrorsBySession.removeValue(forKey: sessionId)
+    }
+
+    public func picture(for sessionId: String) -> TerminalPicture? {
+        picturesBySession[sessionId]
+    }
+
+    /// Pastes a picture into a terminal. Kodosi saves it on the terminal's computer and pastes
+    /// the path of its file; in a terminal of another computer, `session.picture` tells how much
+    /// of it arrived.
+    public func pastePicture(_ picture: Data, sessionId: String) {
+        guard let incarnation = runtimeIncarnationsBySession[sessionId] else { return }
+        Task {
+            var file: URL?
+            do {
+                file = try await TerminalPictureFile.write(picture)
+                _ = try await commandSink.request("session.picture", [
+                    "sessionId": .string(sessionId),
+                    "expectedRuntimeIncarnationId": .string(incarnation),
+                    "path": .string(file?.path ?? ""),
+                ])
+            } catch is CocoaError {
+                inputErrorsBySession[sessionId] = String(localized: "Kodosi cannot read this picture.", bundle: .module)
+            } catch {
+                inputErrorsBySession[sessionId] = error.localizedDescription
+            }
+            if let file {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+    }
+
+    public func receivePicture(_ event: RuntimeEvent) {
+        guard let sessionId = event.string("sessionId"), sessions[sessionId] != nil else { return }
+        let total = (try? event.value("total", as: UInt64.self)) ?? 0
+        switch event.string("state") {
+        case "sending":
+            let sent = (try? event.value("sent", as: UInt64.self)) ?? 0
+            picturesBySession[sessionId] = TerminalPicture(sent: sent, total: total, arrived: false)
+        case "sent":
+            let arrived = TerminalPicture(sent: total, total: total, arrived: true)
+            picturesBySession[sessionId] = arrived
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                if picturesBySession[sessionId] == arrived {
+                    picturesBySession.removeValue(forKey: sessionId)
+                }
+            }
+        default:
+            picturesBySession.removeValue(forKey: sessionId)
+            inputErrorsBySession[sessionId] = event.string("message")
+                ?? String(localized: "The picture did not arrive. Paste it again.", bundle: .module)
+        }
     }
 
     private func recordInputFailure(_ failure: TerminalInputFailure, sessionId: String) {

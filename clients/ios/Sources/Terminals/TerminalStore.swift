@@ -90,6 +90,8 @@ final class TerminalStore {
         case "term.bell":
             guard let id = event.string("sessionId"), watchingSessionId == id else { return }
             bells[id, default: 0] += 1
+        case "session.picture":
+            live.receivePicture(event)
         default:
             break
         }

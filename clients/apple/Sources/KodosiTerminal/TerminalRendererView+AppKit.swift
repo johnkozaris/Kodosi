@@ -388,6 +388,7 @@
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
             view.delegateProxy.clipboardReadRequested = nil
+            view.delegateProxy.picturePasted = nil
             view.delegateProxy.linkReviewRequested = nil
             if view.window?.firstResponder === view {
                 view.window?.makeFirstResponder(nil)
@@ -410,6 +411,7 @@
             view.delegateProxy.clipboardReadRequested = { [weak view] answer in
                 view?.askToShareClipboard(sessionName: sessionName, answer)
             }
+            view.delegateProxy.picturePasted = allowsInput ? session.pastePicture : nil
             view.delegateProxy.linkReviewRequested = { [weak view] link in
                 view?.review(link)
             }

@@ -99,6 +99,10 @@ extension AppDependencies {
             activateSession(id)
             return
         }
+        if event.type == "session.picture" {
+            terminalManager.receivePicture(event)
+            return
+        }
         if event.type == "term.attention", let id = event.string("sessionId"), let current = session(id) {
             if let alert = current.alert, !isFront() {
                 terminalNotifications.alert(alert, session: current)

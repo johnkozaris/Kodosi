@@ -149,7 +149,12 @@ private enum TerminalCallbacks {
         }
         let string = TerminalPasteboardContent.text()
         guard let string else {
-            TerminalDebugLog.log(.input, "clipboard paste read empty")
+            if let picture = TerminalPasteboardContent.picture() {
+                TerminalDebugLog.log(.input, "clipboard paste read picture bytes=\(picture.count)")
+                Task { @MainActor in bridge.pastePicture(picture) }
+            } else {
+                TerminalDebugLog.log(.input, "clipboard paste read empty")
+            }
             return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
         }
 

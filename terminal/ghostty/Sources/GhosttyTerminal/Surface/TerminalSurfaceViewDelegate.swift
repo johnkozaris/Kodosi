@@ -1,3 +1,4 @@
+import Foundation
 import GhosttyKit
 
 @MainActor
@@ -35,6 +36,12 @@ public protocol TerminalSurfaceHoverLinkDelegate: TerminalSurfaceViewDelegate {
 @MainActor
 public protocol TerminalSurfaceClipboardReadDelegate: TerminalSurfaceViewDelegate {
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void)
+}
+
+/// A paste of a picture with no text. The terminal pastes no text for it.
+@MainActor
+public protocol TerminalSurfacePictureDelegate: TerminalSurfaceViewDelegate {
+    func terminalDidPastePicture(_ picture: Data)
 }
 
 @MainActor

@@ -328,6 +328,11 @@ bool SessionActionsModel::input(const QString& id, const QString& text)
     return !text.isEmpty() && command(QStringLiteral("session.input"), id, { { QStringLiteral("text"), text } });
 }
 
+bool SessionActionsModel::pastePicture(const QString& id, const QString& path)
+{
+    return !path.isEmpty() && command(QStringLiteral("session.picture"), id, { { QStringLiteral("path"), path } });
+}
+
 bool SessionActionsModel::share(
     const QString& id, const QStringList& users, const QStringList& expectedUsers)
 {

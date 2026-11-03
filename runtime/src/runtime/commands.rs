@@ -125,6 +125,7 @@ impl Runtime {
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
+            Command::Picture { .. } => self.paste_picture(command)?,
             #[cfg(feature = "host")]
             Command::Message { .. } => self.send_message(command)?,
             #[cfg(not(feature = "host"))]
@@ -499,6 +500,33 @@ impl Runtime {
                 command,
                 result: input.await,
             }
+        });
+        Ok(())
+    }
+
+    fn paste_picture(&mut self, command: &Command) -> Result<()> {
+        let Command::Picture {
+            session_id,
+            expected_runtime_incarnation_id,
+            path,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a picture".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        let target = self.target(id)?;
+        let path = path.clone();
+        let command = command.clone();
+        self.spawn(async move {
+            let result = match crate::terminal::Picture::read(path).await {
+                Ok(picture) => target.paste_picture(picture).await,
+                Err(error) => Err(error),
+            };
+            Completion::Terminal { command, result }
         });
         Ok(())
     }
@@ -1759,6 +1787,7 @@ async fn create_session(
         screen,
         grid,
         crate::canvas::CanvasHandle::spawn(id, &config.data_root),
+        crate::terminal::pictures_root(&config.data_root).join(id.to_string()),
         changes,
     )
     .await
