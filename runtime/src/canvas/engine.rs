@@ -238,6 +238,7 @@ async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
 async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf, String> {
     let client = reqwest::Client::builder()
         .connect_timeout(LOOK_LIMIT)
+        .read_timeout(LOOK_LIMIT)
         .build()
         .map_err(|_| NO_ENGINE.to_owned())?;
     let feed = feed(&client).await?;
