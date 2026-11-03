@@ -445,6 +445,19 @@ async fn connect(
         channel.close().await;
         return Ok(());
     }
+    let info = publication.info.read().await.clone();
+    let accept = Frame::Accept(Accept {
+        protocol_version: crate::protocol::CHANNEL_VERSION,
+        session_id: info.session_id,
+        incarnation_id: info.incarnation_id,
+        host_device_id: credentials.keys.device_id.clone(),
+    });
+    if channel.version().is_err() {
+        // An older viewer reads this version and says that its own Kodosi must update.
+        channel.send(&accept).await?;
+        channel.close().await;
+        return Ok(());
+    }
     let admitted = Admitted {
         user: user.clone(),
         device: device.clone(),
@@ -454,16 +467,7 @@ async fn connect(
     if let Ok(mut viewers) = viewers.lock() {
         viewers.insert(id, admitted);
     }
-    let info = publication.info.read().await.clone();
-    let version = channel.version()?;
-    channel
-        .send(&Frame::Accept(Accept {
-            protocol_version: version,
-            session_id: info.session_id,
-            incarnation_id: info.incarnation_id,
-            host_device_id: credentials.keys.device_id.clone(),
-        }))
-        .await?;
+    channel.send(&accept).await?;
     publication
         .requests
         .send(HostRequest::Connected {

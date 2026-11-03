@@ -78,6 +78,7 @@ impl Host {
                 Channel::connect(Tcp(stream), &self.keys, &self.device, &self.key)
                     .await
                     .ok()
+                    .filter(|channel| channel.version().is_ok())
             })
             .collect::<FuturesUnordered<_>>();
         tokio::time::timeout(TRYING, async {
@@ -342,6 +343,7 @@ async fn welcome(
         stream.set_nodelay(true).ok()?;
         if let Ok(channel) = Channel::accept(Tcp(stream), keys).await
             && channel.peer_key().is_ok_and(|key| key == viewer)
+            && channel.version().is_ok()
         {
             return Some(channel);
         }

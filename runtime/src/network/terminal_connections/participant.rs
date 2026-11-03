@@ -235,12 +235,12 @@ async fn open(
         &public,
     )
     .await?;
+    let version = channel.version()?;
     match tokio::time::timeout(Duration::from_secs(20), channel.receive())
         .await
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            let version = channel.version()?;
             if accept.protocol_version != version {
                 return Err(Error::ChannelVersion {
                     peer_newer: accept.protocol_version > version,

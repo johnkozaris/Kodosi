@@ -4,7 +4,7 @@
   "channelProtocolVersion": 6,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
-    "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a side whose channel has no selected protocol closes the channel and shows that the other computer must update Kodosi. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
+    "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
   },
   "routes": {
     "device": "/ws/device"
