@@ -1088,9 +1088,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         answers: std::sync::Mutex::new(HashMap::new()),
     };
     tokio::spawn(async move {
-        runtime
-            .run(receiver, change_rx, network_events, dosi_messages)
-            .await;
+        Box::pin(runtime.run(receiver, change_rx, network_events, dosi_messages)).await;
         #[cfg(feature = "host")]
         server.shutdown().await;
         let _ = stopped.send(true);
