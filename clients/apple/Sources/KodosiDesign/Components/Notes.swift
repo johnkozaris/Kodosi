@@ -17,6 +17,39 @@ public struct ProgressCaption: View {
     }
 }
 
+/// A pasted picture on its way to another computer: how much of it arrived, and then that it
+/// arrived.
+public struct PictureNotice: View {
+    @Environment(\.theme) private var theme
+    public let computer: String
+    public let fraction: Double
+    public let arrived: Bool
+
+    public init(computer: String, fraction: Double, arrived: Bool) {
+        self.computer = computer
+        self.fraction = fraction
+        self.arrived = arrived
+    }
+
+    public var body: some View {
+        HStack(spacing: 9) {
+            ProgressRing(value: arrived ? 1 : fraction, size: 15, lineWidth: 2.4)
+            Text(arrived ? "Picture sent to \(computer)" : "Sending picture to \(computer)")
+                .appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+            if !arrived {
+                Text(fraction, format: .percent.precision(.fractionLength(0)))
+                    .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
+                    .contentTransition(.numericText(value: fraction))
+                    .animation(theme.motion.snappy, value: fraction)
+            }
+        }
+        .padding(.leading, 10).padding(.trailing, 14).frame(height: 34)
+        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("terminal.picture")
+    }
+}
+
 public struct ErrorNote: View {
     @Environment(\.theme) private var theme
     public let message: String

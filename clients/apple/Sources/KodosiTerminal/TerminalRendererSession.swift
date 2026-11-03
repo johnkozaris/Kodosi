@@ -139,6 +139,8 @@ public final class TerminalRendererSession: ObservableObject {
         public let cursor = TerminalCursor()
     #endif
 
+    /// Pastes a picture when the person pastes one with no text.
+    public var pastePicture: ((Data) -> Void)?
     private let backend: InMemoryTerminalSession
     private let inputAuthority: TerminalInputAuthority
     private let accessibilityUpdateRelay: TerminalAccessibilityUpdateRelay

@@ -50,6 +50,12 @@ bounded buffering; a view on another device gets them over its own end-to-end en
 channel through the backend. The host does not replay input whose delivery is uncertain,
 and a stale view cannot control a replacement terminal.
 
+A pasted picture travels as a file. The app gives its host the picture, and a view of a
+terminal on another computer sends it on its channel, only when that host does not have it
+yet, in parts that keep at most half a second in transit. The terminal's host saves it in
+a private folder of the terminal, which goes when the terminal ends, and pastes the path of
+the file as input of the view.
+
 A client asks for the grid of the view that will show a new terminal, so its program
 starts at its final width. The view in focus sets the size of its terminal. When that
 view leaves, the focused view whose size the terminal had before sets it again. Input from a view is a person's;

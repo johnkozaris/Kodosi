@@ -123,7 +123,9 @@ open class UITerminalView: UIView {
                 self?.copySelectedTextToPasteboard()
             })
         }
-        if surface != nil, UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs {
+        if surface != nil, UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs
+            || UIPasteboard.general.hasImages
+        {
             elements.append(UIAction(
                 title: "Paste",
                 image: UIImage(systemName: "doc.on.clipboard")
@@ -192,7 +194,8 @@ open class UITerminalView: UIView {
             return surface?.hasSelection() == true
         case #selector(paste(_:)):
             return surface != nil
-                && (UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs)
+                && (UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs
+                    || UIPasteboard.general.hasImages)
         case #selector(selectAll(_:)):
             return surface != nil
         default:

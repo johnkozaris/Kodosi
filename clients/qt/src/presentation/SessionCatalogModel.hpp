@@ -16,6 +16,8 @@ class SessionCatalogModel final : public QAbstractListModel {
     Q_PROPERTY(QVariantList sessions READ sessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QVariantList listedSessions READ listedSessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QStringList attention READ attention NOTIFY attentionChanged)
+    // Each pasted picture on its way to another computer: how much of it arrived, by terminal.
+    Q_PROPERTY(QVariantMap pictures READ pictures NOTIFY picturesChanged)
     Q_PROPERTY(AuthorityState authorityState READ authorityState NOTIFY authorityStateChanged)
     Q_PROPERTY(QString authorityError READ authorityError NOTIFY authorityStateChanged)
 public:
@@ -74,6 +76,8 @@ public:
     [[nodiscard]] QVariantList sessions() const;
     [[nodiscard]] QVariantList listedSessions() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
+    [[nodiscard]] QVariantMap pictures() const { return m_pictures; }
+    void receivePicture(const QJsonObject& event);
     [[nodiscard]] QStringList visible() const;
     Q_INVOKABLE void setVisible(const QString& id, bool visible);
     [[nodiscard]] bool waiting(const QString& id) const;
@@ -105,6 +109,8 @@ signals:
     void attentionChanged();
     void visibleChanged();
     void alertChanged(const QString& sessionId, const QString& text);
+    void picturesChanged();
+    void pictureFailed(const QString& sessionId, const QString& message);
     void sessionsHidden(const QStringList& sessionIds);
 
 private:
@@ -113,6 +119,7 @@ private:
     mutable std::optional<QVariantList> m_listedCache;
     mutable std::optional<QVariantList> m_groupsCache;
     QStringList m_attention;
+    QVariantMap m_pictures;
     QHash<QString, int> m_views;
     AuthorityState m_state = Loading;
     QString m_error;
