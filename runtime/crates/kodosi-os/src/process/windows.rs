@@ -140,7 +140,7 @@ impl EndRequest {
         Ok(Self)
     }
 
-    pub(super) async fn received(&mut self) {
+    pub(super) async fn received(&self) {
         std::future::pending::<()>().await;
     }
 }
