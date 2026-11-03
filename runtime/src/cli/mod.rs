@@ -416,7 +416,7 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
         }
     };
     let json_output = args.json;
-    match dispatch(args).await {
+    match Box::pin(dispatch(args)).await {
         Ok(code) => code,
         Err(error) => {
             let message = match error {
