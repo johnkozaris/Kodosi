@@ -3,6 +3,11 @@ import KodosiBridge
 import KodosiDesign
 
 extension AppDependencies {
+    func copyInvite() {
+        inviteRequested = Date()
+        people.requestInvite()
+    }
+
     func personName(_ id: String) -> String {
         if id == account.userId {
             return account.selfName

@@ -211,6 +211,9 @@ private struct TerminalActions: View {
                     deps.openBrowser(of: session)
                     canvasPlace.show(session, nil)
                 }
+                PanelMenuRow(Text("Add a File…"), icon: .symbol(CanvasSymbol.addFile), identifier: "\(stageId).addFile") {
+                    deps.addFile(to: session)
+                }
             }
             PanelMenuRow(Text("Details"), icon: .symbol("info.circle"), identifier: "\(stageId).details") {
                 deps.workbench.detailsSessionId = session.id

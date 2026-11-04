@@ -2791,244 +2791,36 @@
               {
                 "additionalProperties": false,
                 "properties": {
-                  "after": {
+                  "data": {
+                    "type": "string"
+                  },
+                  "last": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "offset": {
                     "format": "u64",
                     "type": "integer"
                   },
+                  "page": {
+                    "type": "boolean"
+                  },
                   "type": {
-                    "const": "picture"
+                    "const": "attach"
+                  },
+                  "upload": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "type",
-                  "after"
-                ],
-                "type": "object"
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "events": {
-                    "items": {
-                      "oneOf": [
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "button": {
-                              "oneOf": [
-                                {
-                                  "const": "none"
-                                },
-                                {
-                                  "const": "left"
-                                },
-                                {
-                                  "const": "middle"
-                                },
-                                {
-                                  "const": "right"
-                                }
-                              ]
-                            },
-                            "clickCount": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "deltaX": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "deltaY": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "mousePressed"
-                                },
-                                {
-                                  "const": "mouseReleased"
-                                },
-                                {
-                                  "const": "mouseMoved"
-                                },
-                                {
-                                  "const": "mouseWheel"
-                                }
-                              ]
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "type": {
-                              "const": "mouse"
-                            },
-                            "x": {
-                              "format": "i32",
-                              "type": "integer"
-                            },
-                            "y": {
-                              "format": "i32",
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "x",
-                            "y"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "code": {
-                              "type": "string"
-                            },
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "keyDown"
-                                },
-                                {
-                                  "const": "keyUp"
-                                },
-                                {
-                                  "const": "rawKeyDown"
-                                },
-                                {
-                                  "const": "char"
-                                }
-                              ]
-                            },
-                            "key": {
-                              "type": "string"
-                            },
-                            "keyCode": {
-                              "format": "u32",
-                              "type": "integer"
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "text": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "type": {
-                              "const": "key"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "key",
-                            "code"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "eventType": {
-                              "oneOf": [
-                                {
-                                  "const": "touchStart"
-                                },
-                                {
-                                  "const": "touchMove"
-                                },
-                                {
-                                  "const": "touchEnd"
-                                },
-                                {
-                                  "const": "touchCancel"
-                                }
-                              ]
-                            },
-                            "modifiers": {
-                              "format": "u8",
-                              "type": "integer"
-                            },
-                            "points": {
-                              "items": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "x": {
-                                    "format": "i32",
-                                    "type": "integer"
-                                  },
-                                  "y": {
-                                    "format": "i32",
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "x",
-                                  "y"
-                                ],
-                                "type": "object"
-                              },
-                              "type": "array"
-                            },
-                            "type": {
-                              "const": "touch"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "eventType",
-                            "points"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "text": {
-                              "type": "string"
-                            },
-                            "type": {
-                              "const": "text"
-                            }
-                          },
-                          "required": [
-                            "type",
-                            "text"
-                          ],
-                          "type": "object"
-                        }
-                      ]
-                    },
-                    "type": "array"
-                  },
-                  "height": {
-                    "format": "u32",
-                    "type": "integer"
-                  },
-                  "type": {
-                    "const": "input"
-                  },
-                  "width": {
-                    "format": "u32",
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "type",
-                  "events",
-                  "width",
-                  "height"
+                  "upload",
+                  "name",
+                  "offset",
+                  "data",
+                  "last"
                 ],
                 "type": "object"
               },
@@ -3057,101 +2849,11 @@
                         "additionalProperties": false,
                         "properties": {
                           "do": {
-                            "const": "back"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "forward"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "reload"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "tab"
-                          },
-                          "id": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "do",
-                          "id"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "newTab"
-                          }
-                        },
-                        "required": [
-                          "do"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
-                            "const": "closeTab"
-                          },
-                          "id": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "do",
-                          "id"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
                             "const": "wake"
-                          },
-                          "height": {
-                            "format": "u32",
-                            "type": "integer"
-                          },
-                          "width": {
-                            "format": "u32",
-                            "type": "integer"
                           }
                         },
                         "required": [
-                          "do",
-                          "width",
-                          "height"
+                          "do"
                         ],
                         "type": "object"
                       }
@@ -3186,6 +2888,389 @@
           "requestId",
           "sessionId",
           "request"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "arguments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "folder": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "canvas.document"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "folder",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.status"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.copy"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "name"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.forget"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.clear"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "pipe": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "document.open"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "pipe",
+          "key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data": {
+            "type": "string"
+          },
+          "more": {
+            "type": "boolean"
+          },
+          "pipe": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "document.send"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "pipe",
+          "more",
+          "data"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pipe": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "document.close"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "pipe"
         ],
         "type": "object"
       },
@@ -6516,6 +6601,17 @@
                                     }
                                   ]
                                 },
+                                "getting": {
+                                  "anyOf": [
+                                    {
+                                      "format": "u8",
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "height": {
                                   "format": "u32",
                                   "type": "integer"
@@ -6638,7 +6734,13 @@
                                     "const": "pdf"
                                   },
                                   {
-                                    "const": "office"
+                                    "const": "document"
+                                  },
+                                  {
+                                    "const": "sheet"
+                                  },
+                                  {
+                                    "const": "presentation"
                                   }
                                 ]
                               },
@@ -6651,6 +6753,29 @@
                               "revision": {
                                 "format": "u64",
                                 "type": "integer"
+                              },
+                              "view": {
+                                "anyOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "const": "docx"
+                                      },
+                                      {
+                                        "const": "xlsx"
+                                      },
+                                      {
+                                        "const": "pptx"
+                                      },
+                                      {
+                                        "const": "pdf"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -8285,7 +8410,13 @@
                         "const": "pdf"
                       },
                       {
-                        "const": "office"
+                        "const": "document"
+                      },
+                      {
+                        "const": "sheet"
+                      },
+                      {
+                        "const": "presentation"
                       }
                     ]
                   },
@@ -8342,45 +8473,15 @@
                 "additionalProperties": false,
                 "properties": {
                   "answer": {
-                    "const": "picture"
+                    "const": "attached"
                   },
-                  "frame": {
-                    "anyOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "data": {
-                            "type": "string"
-                          },
-                          "height": {
-                            "format": "u32",
-                            "type": "integer"
-                          },
-                          "width": {
-                            "format": "u32",
-                            "type": "integer"
-                          }
-                        },
-                        "required": [
-                          "width",
-                          "height",
-                          "data"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sequence": {
-                    "format": "u64",
-                    "type": "integer"
+                  "key": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "answer",
-                  "sequence"
+                  "key"
                 ],
                 "type": "object"
               }
@@ -8457,6 +8558,289 @@
           "requestId",
           "operation",
           "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sites": {
+            "anyOf": [
+              {
+                "format": "u64",
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "browser.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "document.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "document.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data": {
+            "type": "string"
+          },
+          "more": {
+            "type": "boolean"
+          },
+          "pipe": {
+            "type": "string"
+          },
+          "sequence": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "type": {
+            "const": "document.frame"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "pipe",
+          "sequence",
+          "more",
+          "data"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pipe": {
+            "type": "string"
+          },
+          "type": {
+            "const": "document.closed"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "pipe"
         ],
         "type": "object"
       },
@@ -11646,7 +12030,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 75,
+  "protocolVersion": 78,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

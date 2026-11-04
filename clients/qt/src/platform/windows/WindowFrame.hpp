@@ -26,6 +26,7 @@ private:
 
     void alignClient();
     [[nodiscard]] bool fitClient(void* parameters) const;
+    [[nodiscard]] qintptr hitTest(int x, int y) const;
     void paint() const;
 };
 

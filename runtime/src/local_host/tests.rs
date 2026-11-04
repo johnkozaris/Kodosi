@@ -223,6 +223,27 @@ async fn a_client_starts_from_the_account_that_the_host_read() {
 }
 
 #[tokio::test]
+async fn a_connection_that_a_stopping_host_closes_tries_again() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let host = tokio::spawn(async move {
+        drop(listener.accept().await.unwrap());
+        welcome_client(
+            &mut listener,
+            vec![scoped("system.ready", None, 1)],
+            Vec::new(),
+        )
+        .await
+    });
+    let client = connect_or_start(&root).await.unwrap();
+    assert_eq!(client.initial_events[0]["type"], "system.ready");
+    drop(host.await.unwrap());
+}
+
+#[tokio::test]
 async fn a_client_hears_why_the_host_could_not_read_the_saved_sign_in() {
     let storage = tempfile::tempdir().unwrap();
     let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();

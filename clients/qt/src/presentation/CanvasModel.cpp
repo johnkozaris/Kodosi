@@ -1,11 +1,12 @@
 #include "presentation/CanvasModel.hpp"
+#include "presentation/LocalAddress.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
 
-#include <QClipboard>
 #include <QDateTime>
 #include <QDesktopServices>
-#include <QGuiApplication>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSet>
@@ -20,12 +21,10 @@ namespace kodosi {
 namespace {
 constexpr qsizetype mostStoredBytes = 64 * 1024 * 1024;
 constexpr qint64 mostItemBytes = 32 * 1024 * 1024;
-constexpr qsizetype mostEvents = 64;
-constexpr qsizetype mostTyped = 16 * 1024;
+constexpr qsizetype partBytes = 256 * 1024;
 constexpr qsizetype mostWords = 600;
 constexpr int mostPublished = 16;
 constexpr int mostRounds = 4;
-constexpr qint64 pictureRest = 1000;
 const auto browserItem = QStringLiteral("browser");
 const auto pageScheme = QStringLiteral("kodosi-canvas");
 
@@ -139,8 +138,6 @@ void CanvasModel::observe()
             m_picks.remove(id);
             moved = true;
         }
-        if (canvas.value(QStringLiteral("browser")).toMap().isEmpty())
-            m_feeds.remove(id);
     }
     const auto gone = [&ids](const QString& id) { return !ids.contains(id); };
     m_firstSeen.removeIf([&](const auto& entry) { return gone(entry.key()); });
@@ -151,7 +148,6 @@ void CanvasModel::observe()
     m_closed.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_opening.removeIf(gone);
     m_shelves.removeIf(gone);
-    m_feeds.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_readings.removeIf([&](const auto& entry) { return gone(entry.value().sessionId); });
     for (const auto& id : QStringList(m_storedOrder)) {
         if (gone(id.section(QLatin1Char('\n'), 0, 0))) {
@@ -284,16 +280,23 @@ void CanvasModel::showShelf(const QString& sessionId, bool shown)
     touch();
 }
 
-void CanvasModel::openBrowser(const QString& sessionId)
+void CanvasModel::openBrowser(const QString& sessionId, const QUrl& address)
 {
+    const QVariantMap open { { QStringLiteral("do"), QStringLiteral("open") },
+        { QStringLiteral("url"), address.toString(QUrl::FullyEncoded) } };
     if (present(sessionId).contains(browserItem)) {
         show(sessionId, browserItem);
+        if (!address.isEmpty())
+            act(sessionId, open);
         return;
     }
     m_closed[sessionId].remove(browserItem);
     m_opening.insert(sessionId);
     touch();
-    wake(sessionId);
+    if (address.isEmpty())
+        wake(sessionId);
+    else
+        act(sessionId, open);
 }
 
 bool CanvasModel::opensBrowser(const QString& sessionId) const
@@ -358,22 +361,23 @@ QString CanvasModel::about(const QString& place, const QString& words)
     return line.isEmpty() ? QStringLiteral("About %1: ").arg(place) : QStringLiteral("About %1: \"%2\" ").arg(place, line);
 }
 
-bool CanvasModel::followable(const QUrl& link, bool otherComputer)
+bool CanvasModel::followable(const QUrl& link)
 {
     const auto scheme = link.scheme().toLower();
     if (scheme == QStringLiteral("mailto"))
         return link.isValid();
-    if (!link.isValid() || (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")) || link.host().isEmpty())
-        return false;
-    const auto host = link.host().toLower();
-    return !otherComputer
-        || (host != QStringLiteral("localhost") && host != QStringLiteral("127.0.0.1") && host != QStringLiteral("::1")
-            && !host.endsWith(QStringLiteral(".localhost")));
+    return link.isValid() && (scheme == QStringLiteral("http") || scheme == QStringLiteral("https"))
+        && !link.host().isEmpty();
 }
 
-bool CanvasModel::follow(const QUrl& link, bool otherComputer)
+void CanvasModel::follow(const QString& sessionId, const QUrl& link)
 {
-    return followable(link, otherComputer) && QDesktopServices::openUrl(link);
+    if (!followable(link))
+        return;
+    if (link.scheme().toLower() != QStringLiteral("mailto") && isLocalAddress(link.host()))
+        openBrowser(sessionId, link);
+    else
+        QDesktopServices::openUrl(link);
 }
 
 bool CanvasModel::load(const QString& sessionId, const QString& key)
@@ -548,100 +552,157 @@ void CanvasModel::saveCopy(const QString& sessionId, const QString& key)
         read(sessionId, key, true);
 }
 
-void CanvasModel::watch(const QString& sessionId)
+void CanvasModel::attach(const QString& sessionId, const QUrl& file)
 {
-    auto& feed = m_feeds[sessionId];
-    ++feed.watchers;
-    if (!feed.asking)
-        askPicture(sessionId);
+    upload(sessionId, file, false);
 }
 
-void CanvasModel::unwatch(const QString& sessionId)
+// The files of a page go into the folder of the terminal first, because the browser runs on the
+// computer of the terminal.
+void CanvasModel::giveFiles(const QString& sessionId, const QList<QUrl>& files)
 {
-    if (const auto found = m_feeds.find(sessionId); found != m_feeds.end())
-        found->watchers = std::max(0, found->watchers - 1);
+    auto& giving = m_giving[sessionId];
+    giving.waiting = 1;
+    giving.paths.clear();
+    for (const auto& file : files)
+        giving.waiting += upload(sessionId, file, true) ? 1 : 0;
+    gave(sessionId, {});
 }
 
-void CanvasModel::askPicture(const QString& sessionId)
+void CanvasModel::gave(const QString& sessionId, const QString& path)
 {
-    auto& feed = m_feeds[sessionId];
-    feed.asking = true;
-    const auto sent = now();
-    if (const auto error = ask(Asked::Picture, sessionId,
-            { { QStringLiteral("type"), QStringLiteral("picture") },
-                { QStringLiteral("after"), static_cast<qint64>(feed.sequence) } });
-        !error.isEmpty()) {
-        feed.asking = false;
-        failBrowser(sessionId, error);
-        retryPicture(sessionId, sent);
+    const auto found = m_giving.find(sessionId);
+    if (found == m_giving.end())
+        return;
+    if (!path.isEmpty())
+        found->paths.append(path);
+    if (--found->waiting == 0)
+        emit filesGiven(sessionId, m_giving.take(sessionId).paths);
+}
+
+bool CanvasModel::upload(const QString& sessionId, const QUrl& file, const bool forPage)
+{
+    QFile source(file.toLocalFile());
+    if (!file.isLocalFile() || !source.open(QIODevice::ReadOnly)) {
+        emit problem(tr("Kodosi could not read this file."));
+        return false;
+    }
+    if (source.size() > mostItemBytes) {
+        emit problem(tr("The canvas takes files up to 32 MB."));
+        return false;
+    }
+    const auto upload = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    m_uploads.insert(upload, { sessionId, QFileInfo(source).fileName(), source.readAll(), 0, forPage });
+    return sendPart(upload);
+}
+
+bool CanvasModel::sendPart(const QString& upload)
+{
+    const auto found = m_uploads.find(upload);
+    if (found == m_uploads.end())
+        return false;
+    const auto part = found->data.mid(found->offset, partBytes);
+    const QJsonObject request { { QStringLiteral("type"), QStringLiteral("attach") },
+        { QStringLiteral("upload"), upload }, { QStringLiteral("name"), found->name },
+        { QStringLiteral("offset"), static_cast<qint64>(found->offset) },
+        { QStringLiteral("data"), QString::fromLatin1(part.toBase64()) },
+        { QStringLiteral("last"), found->offset + part.size() >= found->data.size() },
+        { QStringLiteral("page"), found->forPage } };
+    found->offset += part.size();
+    if (const auto error = ask(Asked::Attach, found->sessionId, request, upload); !error.isEmpty()) {
+        m_uploads.erase(found);
+        emit problem(error);
+        return false;
+    }
+    return true;
+}
+
+void CanvasModel::openBrowserSettings()
+{
+    m_browserDone.clear();
+    m_browserProblem.clear();
+    emit browserChanged();
+    askBrowserStatus();
+}
+
+void CanvasModel::askBrowserStatus()
+{
+    m_browserStatusRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    const QJsonObject fields { { QStringLiteral("type"), QStringLiteral("browser.status") },
+        { QStringLiteral("requestId"), m_browserStatusRequest } };
+    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
+        m_browserStatusRequest.clear();
+        m_browserProblem = sent.error().message;
+        emit browserChanged();
     }
 }
 
-void CanvasModel::receivePicture(const QString& sessionId, const QJsonObject& answer, qint64 sent)
+void CanvasModel::browserStep(const QString& key, const QString& type, QJsonObject fields)
 {
-    const auto feed = m_feeds.find(sessionId);
-    if (feed == m_feeds.end())
+    if (!m_browserWork.isEmpty())
         return;
-    feed->asking = false;
-    const auto sequence = answer.value(QStringLiteral("sequence")).toInteger(-1);
-    if (answer.value(QStringLiteral("answer")).toString() != QStringLiteral("picture") || sequence < 0) {
-        failBrowser(sessionId, tr("Kodosi got a canvas answer it cannot read."));
-        retryPicture(sessionId, sent);
+    m_browserStepRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    m_browserWork = key;
+    m_browserProblem.clear();
+    fields.insert(QStringLiteral("type"), type);
+    fields.insert(QStringLiteral("requestId"), m_browserStepRequest);
+    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
+        m_browserStepRequest.clear();
+        m_browserWork.clear();
+        m_browserProblem = sent.error().message;
+    }
+    emit browserChanged();
+}
+
+void CanvasModel::copySignIns(const QString& source)
+{
+    browserStep(source, QStringLiteral("browser.copy"), { { QStringLiteral("name"), source } });
+}
+
+void CanvasModel::forgetSignIns()
+{
+    browserStep(QStringLiteral("forget"), QStringLiteral("browser.forget"));
+}
+
+void CanvasModel::removeBrowsingData()
+{
+    browserStep(QStringLiteral("clear"), QStringLiteral("browser.clear"));
+}
+
+void CanvasModel::applyBrowser(const QJsonObject& event)
+{
+    const auto request = event.value(QStringLiteral("requestId")).toString();
+    if (request.isEmpty() || (request != m_browserStatusRequest && request != m_browserStepRequest))
+        return;
+    const auto failed = event.value(QStringLiteral("type")).toString() == QStringLiteral("browser.error");
+    if (failed)
+        m_browserProblem = event.value(QStringLiteral("message")).toString();
+    if (request == m_browserStatusRequest) {
+        m_browserStatusRequest.clear();
+        if (!failed) {
+            m_browserSources.clear();
+            const auto sources = event.value(QStringLiteral("sources")).toArray();
+            for (const auto& source : sources)
+                m_browserSources.append(source.toString());
+            m_browserSites = event.value(QStringLiteral("sites")).toInt();
+            m_browserEngine = event.value(QStringLiteral("engine")).toString();
+            m_browserKnown = true;
+        }
+        emit browserChanged();
         return;
     }
-    const auto frame = answer.value(QStringLiteral("frame")).toObject();
-    if (frame.isEmpty()) {
-        retryPicture(sessionId, sent);
-        return;
+    m_browserStepRequest.clear();
+    const auto key = std::exchange(m_browserWork, {});
+    const auto operation = event.value(QStringLiteral("operation")).toString();
+    if (!failed && operation == QStringLiteral("browser.copy")) {
+        m_browserDone.insert(key, tr("Copied for %n sites", nullptr, event.value(QStringLiteral("sites")).toInt()));
+    } else if (!failed) {
+        m_browserDone.clear();
+        if (operation == QStringLiteral("browser.clear"))
+            m_browserDone.insert(key, tr("Removed"));
     }
-    const auto jpeg = decoded(frame.value(QStringLiteral("data")));
-    QImage image;
-    const auto width = frame.value(QStringLiteral("width")).toInteger();
-    const auto height = frame.value(QStringLiteral("height")).toInteger();
-    if (!jpeg || !image.loadFromData(*jpeg, "JPEG") || width <= 0 || height <= 0) {
-        failBrowser(sessionId, tr("Kodosi got a canvas answer it cannot read."));
-        retryPicture(sessionId, sent);
-        return;
-    }
-    feed->sequence = static_cast<quint64>(sequence);
-    feed->image = std::move(image);
-    feed->browser = QSizeF(static_cast<qreal>(width), static_cast<qreal>(height));
-    feed->failure.clear();
-    emit pictureChanged(sessionId);
-    if (feed->watchers > 0)
-        askPicture(sessionId);
-}
-
-void CanvasModel::retryPicture(const QString& sessionId, qint64 sent)
-{
-    QTimer::singleShot(std::max<qint64>(0, pictureRest - (now() - sent)), this, [this, sessionId] {
-        const auto feed = m_feeds.constFind(sessionId);
-        if (feed != m_feeds.cend() && feed->watchers > 0 && !feed->asking)
-            askPicture(sessionId);
-    });
-}
-
-void CanvasModel::failBrowser(const QString& sessionId, const QString& message)
-{
-    m_feeds[sessionId].failure = message;
-    emit pictureChanged(sessionId);
-}
-
-QVariantMap CanvasModel::picture(const QString& sessionId) const
-{
-    const auto feed = m_feeds.value(sessionId);
-    return { { QStringLiteral("sequence"), feed.sequence }, { QStringLiteral("shows"), !feed.image.isNull() },
-        { QStringLiteral("failure"), feed.failure } };
-}
-
-QImage CanvasModel::browserImage(const QString& sessionId) const
-{
-    return m_feeds.value(sessionId).image;
-}
-
-void CanvasModel::setBrowserView(const QString& sessionId, qreal width, qreal height)
-{
-    m_feeds[sessionId].view = QSizeF(width, height);
+    emit browserChanged();
+    askBrowserStatus();
 }
 
 void CanvasModel::act(const QString& sessionId, const QVariantMap& action)
@@ -650,96 +711,34 @@ void CanvasModel::act(const QString& sessionId, const QVariantMap& action)
             { { QStringLiteral("type"), QStringLiteral("act") },
                 { QStringLiteral("action"), QJsonObject::fromVariantMap(action) } });
         !error.isEmpty())
-        failBrowser(sessionId, error);
+        emit problem(error);
 }
 
 void CanvasModel::wake(const QString& sessionId)
 {
-    const auto view = m_feeds.value(sessionId).view;
-    act(sessionId,
-        { { QStringLiteral("do"), QStringLiteral("wake") }, { QStringLiteral("width"), qRound(view.width()) },
-            { QStringLiteral("height"), qRound(view.height()) } });
+    act(sessionId, { { QStringLiteral("do"), QStringLiteral("wake") } });
 }
 
-std::optional<QPoint> CanvasModel::browserPoint(QPointF point, QSizeF view, QSizeF picture, QSizeF browser)
+std::optional<QPointF> CanvasModel::browserPoint(QPointF point, QSizeF view, QSizeF browser)
 {
-    if (picture.width() <= 0 || picture.height() <= 0 || browser.height() <= 0 || view.width() <= 0
-        || view.height() <= 0)
+    if (browser.width() <= 0 || browser.height() <= 0 || view.width() <= 0 || view.height() <= 0)
         return std::nullopt;
-    const auto fit = std::min(view.width() / picture.width(), view.height() / picture.height());
-    const QPointF origin((view.width() - picture.width() * fit) / 2, (view.height() - picture.height() * fit) / 2);
-    const auto perPixel = picture.height() / browser.height();
-    const auto x = (point.x() - origin.x()) / fit / perPixel;
-    const auto y = (point.y() - origin.y()) / fit / perPixel;
+    const auto fit = std::min(view.width() / browser.width(), view.height() / browser.height());
+    const QPointF origin((view.width() - browser.width() * fit) / 2, (view.height() - browser.height() * fit) / 2);
+    const auto x = (point.x() - origin.x()) / fit;
+    const auto y = (point.y() - origin.y()) / fit;
     if (x < 0 || y < 0 || x >= browser.width() || y >= browser.height())
         return std::nullopt;
-    return QPoint(static_cast<int>(x), static_cast<int>(y));
+    return QPointF(x, y);
 }
 
-std::optional<QPointF> CanvasModel::pointInView(QPoint point, QSizeF view, QSizeF picture, QSizeF browser)
+std::optional<QPointF> CanvasModel::pointInView(QPointF point, QSizeF view, QSizeF browser)
 {
-    if (picture.width() <= 0 || picture.height() <= 0 || browser.height() <= 0 || view.width() <= 0
-        || view.height() <= 0)
+    if (browser.width() <= 0 || browser.height() <= 0 || view.width() <= 0 || view.height() <= 0)
         return std::nullopt;
-    const auto fit = std::min(view.width() / picture.width(), view.height() / picture.height());
-    const QPointF origin((view.width() - picture.width() * fit) / 2, (view.height() - picture.height() * fit) / 2);
-    const auto perPixel = picture.height() / browser.height();
-    return QPointF(origin.x() + point.x() * perPixel * fit, origin.y() + point.y() * perPixel * fit);
-}
-
-QVariant CanvasModel::viewPoint(const QString& sessionId, int x, int y) const
-{
-    const auto feed = m_feeds.constFind(sessionId);
-    if (feed == m_feeds.cend())
-        return {};
-    const auto at = pointInView(QPoint(x, y), feed->view, QSizeF(feed->image.size()), feed->browser);
-    return at ? QVariant(*at) : QVariant {};
-}
-
-std::optional<QPoint> CanvasModel::point(const QString& sessionId, qreal x, qreal y) const
-{
-    const auto feed = m_feeds.constFind(sessionId);
-    if (feed == m_feeds.cend())
-        return std::nullopt;
-    return browserPoint(QPointF(x, y), feed->view, QSizeF(feed->image.size()), feed->browser);
-}
-
-int CanvasModel::browserModifiers(int modifiers)
-{
-    return (modifiers & Qt::AltModifier ? 1 : 0) | (modifiers & Qt::ControlModifier ? 2 : 0)
-        | (modifiers & Qt::MetaModifier ? 4 : 0) | (modifiers & Qt::ShiftModifier ? 8 : 0);
-}
-
-void CanvasModel::pointer(const QString& sessionId, const QString& type, qreal x, qreal y, int button, int clicks,
-    int modifiers)
-{
-    const auto at = point(sessionId, x, y);
-    if (!at)
-        return;
-    const auto name = button == Qt::LeftButton ? QStringLiteral("left")
-        : button == Qt::RightButton            ? QStringLiteral("right")
-        : button == Qt::MiddleButton           ? QStringLiteral("middle")
-                                               : QStringLiteral("none");
-    send(sessionId,
-        { { QStringLiteral("type"), QStringLiteral("mouse") }, { QStringLiteral("eventType"), type },
-            { QStringLiteral("x"), at->x() }, { QStringLiteral("y"), at->y() }, { QStringLiteral("button"), name },
-            { QStringLiteral("clickCount"), type == QStringLiteral("mouseMoved") ? 0 : std::clamp(clicks, 0, 3) },
-            { QStringLiteral("deltaX"), 0 }, { QStringLiteral("deltaY"), 0 },
-            { QStringLiteral("modifiers"), browserModifiers(modifiers) } });
-}
-
-void CanvasModel::wheel(const QString& sessionId, qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers)
-{
-    const auto at = point(sessionId, x, y);
-    if (!at)
-        return;
-    const auto delta = pixels.isNull() ? angle * 100 / 120 : pixels;
-    send(sessionId,
-        { { QStringLiteral("type"), QStringLiteral("mouse") }, { QStringLiteral("eventType"), QStringLiteral("mouseWheel") },
-            { QStringLiteral("x"), at->x() }, { QStringLiteral("y"), at->y() },
-            { QStringLiteral("button"), QStringLiteral("none") }, { QStringLiteral("clickCount"), 0 },
-            { QStringLiteral("deltaX"), -delta.x() }, { QStringLiteral("deltaY"), -delta.y() },
-            { QStringLiteral("modifiers"), browserModifiers(modifiers) } });
+    const auto fit = std::min(view.width() / browser.width(), view.height() / browser.height());
+    const QPointF origin((view.width() - browser.width() * fit) / 2, (view.height() - browser.height() * fit) / 2);
+    return QPointF(origin.x() + point.x() * fit, origin.y() + point.y() * fit);
 }
 
 std::optional<CanvasModel::BrowserKey> CanvasModel::browserKey(int key)
@@ -792,90 +791,6 @@ std::optional<CanvasModel::BrowserKey> CanvasModel::browserKey(int key)
         found->windows };
 }
 
-bool CanvasModel::key(const QString& sessionId, int key, const QString& text, int modifiers, bool down)
-{
-    const bool command = modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
-    const auto printable = !text.isEmpty() && std::ranges::all_of(text, [](QChar character) { return character.isPrint(); });
-    const auto found = browserKey(key);
-    if (!found) {
-        if (down && printable && !command)
-            type(sessionId, text);
-        return down && printable && !command;
-    }
-    QString typed = printable ? text : QString {};
-    if (key >= Qt::Key_A && key <= Qt::Key_Z && !printable)
-        typed = modifiers & Qt::ShiftModifier ? QChar(u'A' + (key - Qt::Key_A)) : QChar(u'a' + (key - Qt::Key_A));
-    else if (key >= Qt::Key_0 && key <= Qt::Key_9 && !printable)
-        typed = QChar(u'0' + (key - Qt::Key_0));
-    press(sessionId, *found, typed, down, modifiers);
-    return true;
-}
-
-void CanvasModel::press(const QString& sessionId, const BrowserKey& key, const QString& typed, bool down, int modifiers)
-{
-    const bool command = modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
-    QString text;
-    if (down && key.code == QStringLiteral("Space"))
-        text = QStringLiteral(" ");
-    else if (down && key.named == QStringLiteral("Enter"))
-        text = QStringLiteral("\r");
-    else if (down && key.named.isEmpty() && !command)
-        text = typed;
-    QJsonObject event { { QStringLiteral("type"), QStringLiteral("key") },
-        { QStringLiteral("eventType"),
-            !down ? QStringLiteral("keyUp") : text.isEmpty() ? QStringLiteral("rawKeyDown") : QStringLiteral("keyDown") },
-        { QStringLiteral("key"), key.named.isEmpty() ? typed : key.named }, { QStringLiteral("code"), key.code },
-        { QStringLiteral("keyCode"), key.windows }, { QStringLiteral("modifiers"), browserModifiers(modifiers) } };
-    if (!text.isEmpty())
-        event.insert(QStringLiteral("text"), text);
-    send(sessionId, event);
-}
-
-void CanvasModel::type(const QString& sessionId, const QString& text)
-{
-    if (!text.isEmpty())
-        send(sessionId, { { QStringLiteral("type"), QStringLiteral("text") }, { QStringLiteral("text"), text.left(mostTyped) } });
-}
-
-void CanvasModel::paste(const QString& sessionId)
-{
-    type(sessionId, QGuiApplication::clipboard()->text());
-}
-
-void CanvasModel::send(const QString& sessionId, QJsonObject input)
-{
-    auto& feed = m_feeds[sessionId];
-    const auto moved = [](const QJsonObject& event) {
-        return event.value(QStringLiteral("eventType")).toString() == QStringLiteral("mouseMoved");
-    };
-    if (moved(input) && !feed.pending.isEmpty() && moved(feed.pending.last()))
-        feed.pending.last() = std::move(input);
-    else
-        feed.pending.append(std::move(input));
-    if (!feed.sending)
-        flush(sessionId);
-}
-
-void CanvasModel::flush(const QString& sessionId)
-{
-    auto& feed = m_feeds[sessionId];
-    while (!feed.pending.isEmpty()) {
-        QJsonArray events;
-        while (!feed.pending.isEmpty() && events.size() < mostEvents)
-            events.append(feed.pending.takeFirst());
-        const auto error = ask(Asked::Input, sessionId,
-            { { QStringLiteral("type"), QStringLiteral("input") }, { QStringLiteral("events"), events },
-                { QStringLiteral("width"), qRound(feed.view.width()) },
-                { QStringLiteral("height"), qRound(feed.view.height()) } });
-        if (error.isEmpty()) {
-            feed.sending = true;
-            return;
-        }
-        failBrowser(sessionId, error);
-    }
-    feed.sending = false;
-}
-
 QString CanvasModel::ask(Asked asked, const QString& sessionId, QJsonObject request, const QString& key)
 {
     const auto id = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
@@ -906,39 +821,34 @@ void CanvasModel::apply(const QJsonObject& event)
         else
             receivePart(request, answer);
         return;
-    case Asked::Picture:
-        if (!failed) {
-            receivePicture(request.sessionId, answer, request.sent);
-            return;
-        }
-        if (const auto feed = m_feeds.find(request.sessionId); feed != m_feeds.end()) {
-            feed->asking = false;
-            failBrowser(request.sessionId, message);
-            retryPicture(request.sessionId, request.sent);
-        }
-        return;
-    case Asked::Input:
-        if (const auto feed = m_feeds.find(request.sessionId); feed != m_feeds.end()) {
-            feed->sending = false;
-            if (failed)
-                failBrowser(request.sessionId, message);
-            flush(request.sessionId);
-        }
-        return;
     case Asked::Act:
         if (failed && m_opening.remove(request.sessionId)) {
             emit problem(message);
             touch();
-        } else if (failed)
-            failBrowser(request.sessionId, message);
-        else if (const auto feed = m_feeds.find(request.sessionId); feed != m_feeds.end() && !feed->failure.isEmpty()) {
-            feed->failure.clear();
-            emit pictureChanged(request.sessionId);
+        } else if (failed) {
+            emit problem(message);
         }
         return;
     case Asked::Remove:
         if (failed)
             emit problem(message);
+        return;
+    case Asked::Attach:
+        if (!failed && !answer.contains(QStringLiteral("key"))) {
+            if (const auto forPage = m_uploads.value(request.key).forPage; !sendPart(request.key) && forPage)
+                gave(request.sessionId, {});
+            return;
+        }
+        if (const auto upload = m_uploads.take(request.key); failed) {
+            emit problem(message);
+            if (upload.forPage)
+                gave(request.sessionId, {});
+        } else if (upload.forPage) {
+            gave(request.sessionId, answer.value(QStringLiteral("key")).toString());
+        } else {
+            show(request.sessionId, QStringLiteral("files"));
+            pick(request.sessionId, answer.value(QStringLiteral("key")).toString());
+        }
         return;
     }
 }
@@ -957,7 +867,8 @@ void CanvasModel::reset()
     m_storedOrder.clear();
     m_readings.clear();
     m_requests.clear();
-    m_feeds.clear();
+    m_uploads.clear();
+    m_giving.clear();
     m_published.clear();
     touch();
 }

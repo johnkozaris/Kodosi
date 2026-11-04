@@ -4,9 +4,8 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserDoingKind, BrowserInput, BrowserPoint, CanvasAnswer, CanvasHandle,
-    CanvasKind, CanvasRequest, KeyEvent, MOST_ITEMS, MouseButton, MouseEvent, PART_BYTES, browser,
-    files::Files, files::Stamp, kind_of, page,
+    BrowserAct, BrowserDoingKind, BrowserPoint, CanvasAnswer, CanvasHandle, CanvasKind,
+    CanvasRequest, MOST_ITEMS, PART_BYTES, browser, files::Files, files::Stamp, kind_of, page,
 };
 
 #[test]
@@ -15,8 +14,13 @@ fn a_file_shows_by_its_extension() {
     assert_eq!(kind_of(Path::new("/a/shot.png")), Some(CanvasKind::Picture));
     assert_eq!(kind_of(Path::new("/a/paper.pdf")), Some(CanvasKind::Pdf));
     assert_eq!(
-        kind_of(Path::new("/a/sheet.xlsx")),
-        Some(CanvasKind::Office)
+        kind_of(Path::new("/a/notes.pages")),
+        Some(CanvasKind::Document)
+    );
+    assert_eq!(kind_of(Path::new("/a/plan.xlsx")), Some(CanvasKind::Sheet));
+    assert_eq!(
+        kind_of(Path::new("/a/talk.KEY")),
+        Some(CanvasKind::Presentation)
     );
     assert_eq!(kind_of(Path::new("/a/run.sh")), None);
     assert_eq!(kind_of(Path::new("/a/README")), None);
@@ -32,37 +36,6 @@ fn requests_from_other_computers_have_bounds() {
     assert!(read("/a/plan.md".to_owned()).is_valid());
     assert!(!read("a".repeat(2000)).is_valid());
     assert!(!read("/a/\0".to_owned()).is_valid());
-    let input = |events: Vec<BrowserInput>| CanvasRequest::Input {
-        events,
-        width: 800,
-        height: 600,
-    };
-    let click = BrowserInput::Mouse {
-        event_type: MouseEvent::MousePressed,
-        x: 10,
-        y: 20,
-        button: MouseButton::Left,
-        click_count: 1,
-        delta_x: 0,
-        delta_y: 0,
-        modifiers: 0,
-    };
-    assert!(input(vec![click.clone()]).is_valid());
-    assert!(!input(Vec::new()).is_valid());
-    assert!(!input(vec![click; 65]).is_valid());
-    assert!(
-        !input(vec![BrowserInput::Mouse {
-            event_type: MouseEvent::MouseMoved,
-            x: 1_000_000,
-            y: 0,
-            button: MouseButton::None,
-            click_count: 0,
-            delta_x: 0,
-            delta_y: 0,
-            modifiers: 0,
-        }])
-        .is_valid()
-    );
     assert!(
         !CanvasRequest::Act {
             action: BrowserAct::Open { url: " ".into() }
@@ -74,15 +47,13 @@ fn requests_from_other_computers_have_bounds() {
 #[test]
 fn a_request_and_an_answer_have_their_wire_form() {
     let request: CanvasRequest = serde_json::from_value(json!({
-        "type": "input",
-        "events": [{"type": "key", "eventType": "keyDown", "key": "Enter", "code": "Enter"}],
-        "width": 800,
-        "height": 600,
+        "type": "act",
+        "action": {"do": "open", "url": "http://localhost:3000"},
     }))
     .unwrap();
     assert!(request.is_valid());
     assert!(
-        serde_json::from_value::<CanvasRequest>(json!({"type": "picture", "after": 1, "x": 1}))
+        serde_json::from_value::<CanvasRequest>(json!({"type": "remove", "keys": [], "x": 1}))
             .is_err()
     );
     let answer = CanvasAnswer::Stale {
@@ -149,21 +120,115 @@ async fn the_canvas_refuses_what_it_cannot_show() {
 }
 
 #[tokio::test]
-async fn a_person_opens_the_browser_by_waking_it() {
+async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
     let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path());
-    let act = |action| CanvasRequest::Act { action };
-    let reload = canvas.request(act(BrowserAct::Reload)).await.unwrap_err();
-    assert!(reload.contains("has no browser"), "{reload}");
-    let wake = canvas
-        .request(act(BrowserAct::Wake {
-            width: 0,
-            height: 0,
-        }))
-        .await;
-    assert_eq!(wake, Err(browser::missing().unwrap().to_owned()));
-    assert!(canvas.current().is_none());
-    canvas.end(true).await;
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attach = |upload: uuid::Uuid, offset, data: &[u8], last| CanvasRequest::Attach {
+        upload: upload.to_string(),
+        name: "notes.md".to_owned(),
+        offset,
+        data: base64::engine::general_purpose::STANDARD.encode(data),
+        last,
+        page: false,
+    };
+    for number in ["notes.md", "notes 2.md"] {
+        let upload = uuid::Uuid::now_v7();
+        let first = canvas.request(attach(upload, 0, b"# He", false)).await;
+        assert_eq!(first.unwrap(), CanvasAnswer::Done);
+        let path = folder.path().join(number);
+        assert!(!path.exists());
+        let last = canvas.request(attach(upload, 4, b"llo", true)).await;
+        let CanvasAnswer::Attached { key } = last.unwrap() else {
+            panic!("attached");
+        };
+        assert!(key.ends_with(number), "{key}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"# Hello");
+    }
+    let items = canvas.current().unwrap().items;
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].name, "notes 2.md");
+    assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 2);
+}
+
+#[tokio::test]
+async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attach = |name: &str, upload: uuid::Uuid, offset| CanvasRequest::Attach {
+        upload: upload.to_string(),
+        name: name.to_owned(),
+        offset,
+        data: "AAAA".to_owned(),
+        last: false,
+        page: false,
+    };
+    let upload = uuid::Uuid::now_v7();
+    canvas.request(attach("a.md", upload, 0)).await.unwrap();
+    let lost = canvas.request(attach("a.md", upload, 9)).await.unwrap_err();
+    assert!(lost.contains("got lost"), "{lost}");
+    let kind = canvas
+        .request(attach("a.zip", uuid::Uuid::now_v7(), 0))
+        .await
+        .unwrap_err();
+    assert!(kind.contains("The canvas shows"), "{kind}");
+    assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn a_file_for_a_page_of_any_kind_goes_into_the_folder_and_not_on_the_canvas() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path()),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let attached = canvas
+        .request(CanvasRequest::Attach {
+            upload: uuid::Uuid::now_v7().to_string(),
+            name: "data.zip".to_owned(),
+            offset: 0,
+            data: "UEsDBA==".to_owned(),
+            last: true,
+            page: true,
+        })
+        .await
+        .unwrap();
+    let CanvasAnswer::Attached { key } = attached else {
+        panic!("attached");
+    };
+    assert_eq!(std::fs::read(&key).unwrap(), b"PK\x03\x04");
+    assert!(
+        canvas
+            .current()
+            .is_none_or(|canvas| canvas.items.is_empty())
+    );
+}
+
+#[test]
+fn a_file_name_has_no_folders() {
+    let attach = |name: &str| CanvasRequest::Attach {
+        upload: uuid::Uuid::now_v7().to_string(),
+        name: name.to_owned(),
+        offset: 0,
+        data: String::new(),
+        last: true,
+        page: false,
+    };
+    assert!(attach("plan.docx").is_valid());
+    for name in ["", "..", "a/b.md", "a\\b.md", "C:b.md"] {
+        assert!(!attach(name).is_valid(), "{name}");
+    }
 }
 
 #[tokio::test]
@@ -365,67 +430,4 @@ fn people_see_what_the_agent_does_and_where() {
         ),
         None
     );
-}
-
-#[test]
-fn input_reaches_the_browser_in_its_own_form() {
-    let enter = browser::stream_input(BrowserInput::Key {
-        event_type: KeyEvent::KeyDown,
-        key: "Enter".into(),
-        code: "Enter".into(),
-        text: None,
-        key_code: 13,
-        modifiers: 0,
-    })
-    .unwrap();
-    assert_eq!(enter["type"], "input_keyboard");
-    assert_eq!(enter["text"], "\r");
-    let command = browser::stream_input(BrowserInput::Key {
-        event_type: KeyEvent::KeyDown,
-        key: "a".into(),
-        code: "KeyA".into(),
-        text: None,
-        key_code: 65,
-        modifiers: 4,
-    })
-    .unwrap();
-    let expected = if cfg!(target_os = "macos") { 4 } else { 2 };
-    assert_eq!(command["modifiers"], expected);
-    assert_eq!(
-        browser::stream_input(BrowserInput::Text {
-            text: "pasted".into()
-        }),
-        Err("pasted".to_owned())
-    );
-}
-
-#[test]
-fn the_browser_takes_the_size_of_a_view_but_stays_as_wide_as_its_window() {
-    assert_eq!(browser::sized(1200, 800), Some((1200, 800)));
-    assert_eq!(browser::sized(451, 690), Some((500, 690)));
-    assert_eq!(browser::sized(120, 690), None);
-    assert_eq!(browser::sized(1200, 9000), None);
-}
-
-#[test]
-fn tabs_and_pictures_from_agent_browser_are_bounded() {
-    let tabs = browser::read_tabs(&json!({"success": true, "data": {"tabs": [
-        {"tabId": "t1", "title": "Docs", "url": "https://example.com", "type": "page", "active": true},
-        {"tabId": "t2", "title": "Worker", "url": "", "type": "service_worker", "active": false},
-    ]}}));
-    assert_eq!(tabs.len(), 1);
-    assert_eq!(tabs[0].id, "t1");
-    assert!(tabs[0].active);
-    let Some(browser::Streamed::Picture(picture)) = browser::streamed(
-        &json!({"type": "frame", "data": "abc", "metadata": {"deviceWidth": 800, "deviceHeight": 600}})
-            .to_string(),
-    ) else {
-        panic!("a frame is a picture");
-    };
-    assert_eq!((picture.width, picture.height), (800, 600));
-    assert!(matches!(
-        browser::streamed(&json!({"type": "url", "url": "https://example.com/next"}).to_string()),
-        Some(browser::Streamed::Moved)
-    ));
-    assert!(browser::streamed(&json!({"type": "status"}).to_string()).is_none());
 }

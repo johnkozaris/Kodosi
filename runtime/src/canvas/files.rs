@@ -110,6 +110,7 @@ impl Files {
                         key,
                         name: name.clone(),
                         kind,
+                        view: super::view_of(&path),
                         revision: 1,
                         bytes: seen.bytes,
                         changed,
@@ -143,6 +144,7 @@ impl Files {
                     key,
                     name: name_of(&path),
                     kind,
+                    view: super::view_of(&path),
                     revision: 1,
                     bytes: 0,
                     changed: stamp.next(),
@@ -277,7 +279,7 @@ async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<Str
     let shown = path.display().to_string();
     let kind = kind_of(&path).ok_or_else(|| {
         format!(
-            "{shown}: the canvas shows pages (HTML, Markdown, text), pictures, PDF and Office files."
+            "{shown}: the canvas shows pages (HTML, Markdown, text), pictures, documents, sheets, presentations and PDFs."
         )
     })?;
     let metadata = tokio::fs::metadata(&path)
@@ -355,7 +357,7 @@ fn is_html(path: &Path) -> bool {
         .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "html" | "htm"))
 }
 
-fn key_of(path: &Path) -> String {
+pub(super) fn key_of(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 

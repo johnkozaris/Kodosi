@@ -635,6 +635,9 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     ));
     (
         Runtime {
+            pipes: HashMap::new(),
+            #[cfg(feature = "host")]
+            services: crate::canvas::CanvasServices::new(&config.data_root),
             #[cfg(feature = "host")]
             dosi: crate::dosi::Engine::load(
                 &config.data_root,
@@ -654,7 +657,6 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
             mentions: messages::Mentions::default(),
-            #[cfg(feature = "host")]
             person: Some("Ana".to_owned()),
             #[cfg(feature = "host")]
             config,
@@ -947,6 +949,48 @@ async fn stale_discovery_does_not_cancel_a_direct_link_open() {
     runtime.replace_remotes(vec![]);
     assert!(runtime.opening.contains_key(&id));
     assert!(!cancellation.is_cancelled());
+}
+
+#[tokio::test]
+async fn a_close_counts_as_done_when_the_list_no_longer_has_the_terminal() {
+    let (mut runtime, _root) = registry_fixture();
+    let (listed, gone) = (Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote_session(listed, Uuid::now_v7())]);
+    let close = |id: Uuid| Command::CloseSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+        expected_runtime_incarnation_id: Uuid::now_v7().to_string(),
+    };
+    assert!(!runtime.closed_and_gone(&close(listed)));
+    assert!(runtime.closed_and_gone(&close(gone)));
+}
+
+#[tokio::test]
+async fn a_client_that_goes_leaves_its_documents() {
+    let (mut runtime, _root) = registry_fixture();
+    let (gone, kept) = (CancellationToken::new(), CancellationToken::new());
+    let mut documents = Vec::new();
+    for lifetime in [&gone, &kept] {
+        let (sender, document) = mpsc::channel(1);
+        runtime.pipes.insert(
+            Uuid::now_v7(),
+            OpenPipe {
+                sender,
+                filling: Vec::new(),
+                lifetime: lifetime.clone(),
+            },
+        );
+        documents.push(document);
+    }
+    gone.cancel();
+    runtime.prune_pipes();
+    assert_eq!(runtime.pipes.len(), 1);
+    assert!(documents[0].recv().await.is_none());
+    assert!(
+        documents[1]
+            .try_recv()
+            .is_err_and(|error| error == mpsc::error::TryRecvError::Empty)
+    );
 }
 
 #[tokio::test]
@@ -2118,7 +2162,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -2332,6 +2376,13 @@ fn only_messages_after_the_first_look_at_a_room_name_agents() {
     );
 }
 
+#[cfg(feature = "host")]
+fn stand_in_canvas() -> crate::canvas::CanvasHandle {
+    let folder = std::env::temp_dir();
+    let services = crate::canvas::CanvasServices::new(&folder);
+    crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &folder, services)
+}
+
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
@@ -2351,7 +2402,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -2456,7 +2507,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         None,
         Vec::new(),
         Default::default(),
-        crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        stand_in_canvas(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )

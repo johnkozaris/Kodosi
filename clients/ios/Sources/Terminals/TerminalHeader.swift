@@ -62,6 +62,7 @@ struct TerminalMenu: View {
     @Binding var showsSharing: Bool
     let interrupt: () -> Void
     let openBrowser: () -> Void
+    let addFile: () -> Void
 
     var body: some View {
         Menu {
@@ -79,6 +80,8 @@ struct TerminalMenu: View {
                     .accessibilityIdentifier("terminal.menu.interrupt")
                 Button("Open Browser", systemImage: "globe", action: openBrowser)
                     .accessibilityIdentifier("terminal.menu.browser")
+                Button("Add a File…", systemImage: CanvasSymbol.addFile, action: addFile)
+                    .accessibilityIdentifier("terminal.menu.addFile")
             }
             if session.canLeave || session.canClose {
                 Divider()

@@ -35,7 +35,11 @@ async fn shell_at(
         None,
         Vec::new(),
         grid,
-        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        CanvasHandle::spawn(
+            Uuid::now_v7(),
+            &std::env::temp_dir(),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        ),
         directory.join("pictures"),
         changes,
     )
@@ -714,7 +718,11 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let (changes, _) = mpsc::channel(16);
     let (completed, _) = watch::channel(None);
     let authorization = CancellationToken::new();
-    let canvas = CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir());
+    let canvas = CanvasHandle::spawn(
+        Uuid::now_v7(),
+        &std::env::temp_dir(),
+        crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+    );
     let mut actor = LocalActor {
         id: Uuid::now_v7(),
         incarnation: Uuid::now_v7(),
@@ -1036,7 +1044,11 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         None,
         Vec::new(),
         Default::default(),
-        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        CanvasHandle::spawn(
+            Uuid::now_v7(),
+            &std::env::temp_dir(),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1086,7 +1098,11 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         None,
         b"\x1b[1mbefore\x1b[0m\r\n".to_vec(),
         Default::default(),
-        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        CanvasHandle::spawn(
+            Uuid::now_v7(),
+            &std::env::temp_dir(),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1127,7 +1143,11 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         None,
         Vec::new(),
         Default::default(),
-        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        CanvasHandle::spawn(
+            Uuid::now_v7(),
+            &std::env::temp_dir(),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1360,7 +1380,11 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         None,
         Vec::new(),
         Default::default(),
-        CanvasHandle::spawn(Uuid::now_v7(), &std::env::temp_dir()),
+        CanvasHandle::spawn(
+            Uuid::now_v7(),
+            &std::env::temp_dir(),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )

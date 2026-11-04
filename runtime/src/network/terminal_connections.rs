@@ -6,7 +6,6 @@ use std::{
 #[cfg(feature = "host")]
 use std::{collections::BTreeSet, sync::atomic::AtomicBool};
 
-#[cfg(any(feature = "host", test))]
 use bytes::Bytes;
 use futures_util::{SinkExt as _, StreamExt as _};
 use reqwest::Method;
@@ -21,7 +20,6 @@ use tokio_tungstenite::{
     Connector, MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest as _, protocol::WebSocketConfig},
 };
-#[cfg(feature = "host")]
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -36,6 +34,7 @@ use super::{HostRequest, LocalPublication, PublicationOutput, PublishedFrame};
 
 mod calls;
 mod channel;
+mod direct;
 #[cfg(feature = "host")]
 mod host;
 mod link;
@@ -107,16 +106,58 @@ impl Publication {
     }
 }
 
+/// The live documents that one connection holds open.
+#[cfg(feature = "host")]
+const MOST_PIPES: usize = 16;
+
 pub(crate) enum RemoteRequest {
     Control {
         control: TerminalControl,
         reply: oneshot::Sender<Result<Value>>,
     },
     Checkpoint,
+    PipeOpen {
+        pipe: Uuid,
+        key: String,
+        name: String,
+        frames: mpsc::Sender<Vec<u8>>,
+    },
+    PipeData {
+        pipe: Uuid,
+        more: bool,
+        part: Bytes,
+    },
+    PipeClose {
+        pipe: Uuid,
+    },
+    DirectAsk {
+        pipe: Uuid,
+        reply: oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>,
+    },
     Picture {
         picture: crate::terminal::Picture,
         reply: oneshot::Sender<Result<()>>,
     },
+}
+
+/// Carries a pipe of a viewer until a side ends it.
+pub(super) fn open_pipe(
+    commands: mpsc::Sender<RemoteRequest>,
+    cancel: CancellationToken,
+    (id, key, name): (Uuid, String, String),
+) -> crate::canvas::PipeEnds {
+    let (to_view, receiver) = mpsc::channel(crate::canvas::PIPE_QUEUE);
+    let (sender, from_view) = mpsc::channel(crate::canvas::PIPE_QUEUE);
+    tokio::spawn(direct::run(direct::Pipe {
+        commands,
+        cancel,
+        id,
+        key,
+        name,
+        to_view,
+        from_view,
+    }));
+    crate::canvas::PipeEnds { sender, receiver }
 }
 
 #[cfg(feature = "host")]

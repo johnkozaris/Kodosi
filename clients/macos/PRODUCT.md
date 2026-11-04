@@ -47,11 +47,13 @@ click on it puts them side by side again. Hide canvas leaves the terminal alone.
 
 The files are tabs over the file, and the key with their count shows them all as cards.
 A pointer on a tab or a card shows the key that takes the file off the canvas. A file's
-menu has Open in its app for a file of this Mac, Save a copy for a file of another
-computer, Ask about this, which names the terminal's agent, and Remove from canvas.
-Pictures, PDFs and Office files show with Quick Look. In the shared browser, the bar has
-back, forward, reload, the address, the tabs and the last action of the agent, and the
-picture takes clicks, scrolling and keys.
+menu has Save a copy, Ask about this, which names the terminal's agent, and Remove from
+canvas. The plus key and the terminal's actions add a file, and a drop on the canvas does
+too. Documents, sheets, presentations and PDFs are live, and other pictures and files show
+with Quick Look. In the shared browser, the bar has back, forward, reload, the address, the
+tabs and the last action of the agent, and the picture takes clicks, scrolling and keys.
+When macOS keeps a copy from reading Safari's sign-ins, Settings › Browser has a button
+that opens Full Disk Access.
 
 ## Rooms
 

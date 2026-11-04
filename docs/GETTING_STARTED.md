@@ -34,9 +34,10 @@ the shell of the new terminal.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
-  program that uses the mouse. The link opens on the device that you use. Kodosi asks
-  before it opens a link in another app. It does not open a file that can run a program,
-  or a file or `localhost` address of a terminal on another computer.
+  program that uses the mouse. The link opens on the device that you use, and a
+  `localhost` address opens in the terminal's shared browser. Kodosi asks before it opens
+  a link in another app. It does not open a file that can run a program, or a file of a
+  terminal on another computer.
 - To give an agent a picture, such as a screenshot, paste it with ⌘V (Ctrl+Shift+V on
   Linux and Windows, Paste on the iPhone). Kodosi saves it on the computer of the terminal
   and pastes the path of its file, and the agent attaches it. A terminal on another
@@ -77,23 +78,37 @@ progress bar. A program that reports nothing shows no state.
 
 ## 4. See what an agent shows
 
-An agent can show you a page, Markdown, a picture, a PDF or an Office file on the canvas
-of its terminal, and use a browser that you share with it. Agents that Kodosi starts know
-how; tell another agent to read `kodosi skill canvas`. When the canvas has something, the
-terminal's header shows a key for its files and one for its browser, with a copper dot for
-news. Select one to open the canvas beside the terminal; More room gives the canvas the
-stage and keeps the terminal small in its corner. Close a part with the × on its key, and
-open it again with +. Open Browser in the actions key opens the browser before the agent
-uses it. On the iPhone, the canvas key is in the terminal's bar.
+An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet or a
+presentation on the canvas of its terminal, and use a browser that you share with it.
+Agents that Kodosi starts know how; tell another agent to read `kodosi skill canvas`. When
+the canvas has something, the terminal's header shows a key for its files and one for its
+browser, with a copper dot for news. Select one to open the canvas beside the terminal;
+More room gives the canvas the stage and keeps the terminal small in its corner. Close a
+part with the × on its key, and open it again with +. Open Browser in the actions key opens
+the browser before the agent uses it, and Add a File puts a file on the canvas and into the
+terminal's folder; you can also drop a file on the canvas. On the iPhone, the canvas key is
+in the terminal's bar.
 
-- A page has no network. Its links open in your own browser.
-- Select words on a page, then Ask about this. Kodosi types the file and the words into
-  the terminal, and you write the question.
+- A document, sheet, presentation or PDF is live: you, the people in the terminal and the
+  agent edit it at the same time, and it stays a normal file in its folder. When a
+  document has tracked changes, its bar has a key that accepts or rejects them. Settings ›
+  Documents turns each viewer off or on, shows documents as pages or as text that fits
+  the canvas, and makes pages dark when Kodosi is dark.
+
+- A page has no network. Its links open in your own browser, and a `localhost` link in
+  the shared browser.
+- Select words on a page or in a document, then Ask about this. Kodosi types the file and
+  the words into the terminal, and you write the question.
 - Click and type in the shared browser as in your own. The agent sees the same pages and
   sign-ins, and its next command tells it that you used the browser. After 10 minutes with
   no use the browser sleeps, and it opens its last page again when you look at it or the
-  agent uses it. The browser needs Chrome, Chromium, Edge or Brave on the computer of the
-  terminal.
+  agent uses it. The first browser on a computer gets Kodosi Browser, so it takes a moment.
+- To use your sign-ins in your private terminals, select Copy beside a browser in
+  Settings › Browser. Remove takes away what you copied, and Remove All removes every
+  sign-in and all site data of your private terminals. On a Mac, a copy from Safari
+  needs Full Disk Access for Kodosi.
+- On one network, the browser's picture goes straight between your devices. macOS and iOS
+  ask once for local network access; without it, the picture goes through the service.
 - Everyone who can open the terminal sees its canvas and uses its browser. When the
   terminal closes, its canvas and the browser's sign-ins go.
 

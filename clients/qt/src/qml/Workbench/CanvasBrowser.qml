@@ -13,40 +13,51 @@ Item {
 
     required property string sessionId
     required property var browser
-    property var picture: Models.Canvas.picture(sessionId)
-    property bool watching: false
     property real pressedAt: 0
     property point pressedPoint: Qt.point(0, 0)
     property int clicks: 0
     readonly property string browserState: browser.state || ""
     readonly property var activeTab: (browser.tabs || []).find(tab => tab.active) || null
-    readonly property string failure: picture.failure || browser.problem || ""
+    readonly property string failure: browser.problem || ""
+    readonly property var parts: video.window
+    readonly property bool choosing: !!parts.chooser
 
-    function follow() {
-        if (watching && browserState !== "awake") {
-            Models.Canvas.unwatch(sessionId);
-            watching = false;
+    onChoosingChanged: {
+        if (choosing && !Models.DesktopFiles.requestPageFiles(sessionId, parts.chooser.several === true))
+            video.step({ kind: "files", paths: [] });
+    }
+
+    Connections {
+        target: Models.Canvas
+
+        function onFilesGiven(sessionId, paths) {
+            if (sessionId === root.sessionId)
+                video.step({ kind: "files", paths: paths });
         }
-        if (browserState === "awake" && !watching) {
-            Models.Canvas.watch(sessionId);
-            watching = true;
-        }
-        if (browserState === "asleep" && !browser.problem && surface.width > 0 && surface.height > 0)
-            Models.Canvas.wake(sessionId);
     }
-    function resized() {
-        Models.Canvas.setBrowserView(sessionId, surface.width, surface.height);
-        follow();
-    }
-    function act(action) {
-        Models.Canvas.act(sessionId, action);
-    }
+
     function open() {
         const typed = address.text.trim();
         if (typed.length === 0)
             return;
-        act({ do: "open", url: typed.indexOf("://") >= 0 || typed.startsWith("about:") ? typed : "https://" + typed });
+        video.step({ kind: "open", address: typed.indexOf("://") >= 0 || typed.startsWith("about:") ? typed : "https://" + typed });
         surface.forceActiveFocus();
+    }
+    function cursor(shape) {
+        switch (shape) {
+        case "pointer": return Qt.PointingHandCursor;
+        case "text": return Qt.IBeamCursor;
+        case "crosshair": return Qt.CrossCursor;
+        case "grab": return Qt.OpenHandCursor;
+        case "grabbing": return Qt.ClosedHandCursor;
+        case "not-allowed": return Qt.ForbiddenCursor;
+        case "wait": return Qt.WaitCursor;
+        case "col-resize":
+        case "ew-resize": return Qt.SizeHorCursor;
+        case "row-resize":
+        case "ns-resize": return Qt.SizeVerCursor;
+        default: return Qt.ArrowCursor;
+        }
     }
     function press(mouse) {
         const now = Date.now();
@@ -54,24 +65,9 @@ Item {
         clicks = now - pressedAt < 450 && near ? Math.min(3, clicks + 1) : 1;
         pressedAt = now;
         pressedPoint = Qt.point(mouse.x, mouse.y);
-        Models.Canvas.pointer(sessionId, "mousePressed", mouse.x, mouse.y, mouse.button, clicks, mouse.modifiers);
+        video.pointer("press", mouse.x, mouse.y, mouse.button, clicks, mouse.modifiers);
     }
 
-    onBrowserStateChanged: follow()
-    Component.onCompleted: resized()
-    Component.onDestruction: {
-        if (watching)
-            Models.Canvas.unwatch(sessionId);
-    }
-
-    Connections {
-        function onPictureChanged(id) {
-            if (id === root.sessionId)
-                root.picture = Models.Canvas.picture(id);
-        }
-
-        target: Models.Canvas
-    }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -84,9 +80,9 @@ Item {
             spacing: 4
             enabled: root.browserState === "awake"
 
-            KIconButton { glyph: "chevron-left"; size: 26; Accessible.name: qsTr("Back"); objectName: "canvas.browser.back"; onClicked: root.act({ do: "back" }) }
-            KIconButton { glyph: "chevron-right"; size: 26; Accessible.name: qsTr("Forward"); objectName: "canvas.browser.forward"; onClicked: root.act({ do: "forward" }) }
-            KIconButton { glyph: "refresh"; size: 26; Accessible.name: qsTr("Reload"); objectName: "canvas.browser.reload"; onClicked: root.act({ do: "reload" }) }
+            KIconButton { glyph: "chevron-left"; size: 26; Accessible.name: qsTr("Back"); objectName: "canvas.browser.back"; onClicked: video.step({ kind: "back" }) }
+            KIconButton { glyph: "chevron-right"; size: 26; Accessible.name: qsTr("Forward"); objectName: "canvas.browser.forward"; onClicked: video.step({ kind: "forward" }) }
+            KIconButton { glyph: "refresh"; size: 26; Accessible.name: qsTr("Reload"); objectName: "canvas.browser.reload"; onClicked: video.step({ kind: "reload" }) }
             KTextField {
                 id: address
 
@@ -130,16 +126,16 @@ Item {
 
                             text: modelData.title || modelData.url
                             iconName: modelData.active ? "check" : "globe"
-                            onTriggered: root.act({ do: "tab", id: modelData.id })
+                            onTriggered: video.step({ kind: "tab", id: modelData.id })
                         }
                     }
                     MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-                    KMenuItem { text: qsTr("New tab"); iconName: "plus"; onTriggered: root.act({ do: "newTab" }) }
+                    KMenuItem { text: qsTr("New tab"); iconName: "plus"; onTriggered: video.step({ kind: "newTab" }) }
                     KMenuItem {
                         text: qsTr("Close tab")
                         iconName: "close"
                         enabled: !!root.activeTab
-                        onTriggered: root.act({ do: "closeTab", id: root.activeTab.id })
+                        onTriggered: video.step({ kind: "closeTab", id: root.activeTab.id })
                     }
                 }
             }
@@ -149,7 +145,7 @@ Item {
                 size: 26
                 Accessible.name: qsTr("New tab")
                 objectName: "canvas.browser.newTab"
-                onClicked: root.act({ do: "newTab" })
+                onClicked: video.step({ kind: "newTab" })
             }
             PlainLabel {
                 Layout.fillWidth: true
@@ -188,51 +184,50 @@ Item {
             Accessible.role: Accessible.Graphic
             Accessible.name: root.activeTab ? root.activeTab.title || root.activeTab.url : qsTr("Shared browser")
 
-            onWidthChanged: root.resized()
-            onHeightChanged: root.resized()
             Keys.onPressed: event => {
                 pointer.shown = null;
                 if (event.matches(StandardKey.Paste)) {
-                    Models.Canvas.paste(root.sessionId);
+                    video.paste();
                     event.accepted = true;
                     return;
                 }
-                event.accepted = Models.Canvas.key(root.sessionId, event.key, event.text, event.modifiers, true);
+                event.accepted = video.key(event.key, event.text, event.modifiers, true);
             }
             Keys.onReleased: event => {
                 if (!event.matches(StandardKey.Paste))
-                    event.accepted = Models.Canvas.key(root.sessionId, event.key, event.text, event.modifiers, false);
+                    event.accepted = video.key(event.key, event.text, event.modifiers, false);
             }
 
-            Image {
+            Models.BrowserVideo {
+                id: video
+
                 anchors.fill: parent
-                visible: root.browserState === "awake" && root.picture.shows
-                source: visible ? "image://canvas/browser/" + root.sessionId + "/" + root.picture.sequence : ""
-                fillMode: Image.PreserveAspectFit
-                cache: false
-                smooth: true
+                documents: Models.CanvasDocuments
+                sessionId: root.sessionId
+                active: !root.browser.problem
+                visible: root.browserState === "awake" && shows
             }
             MouseArea {
                 anchors.fill: parent
                 enabled: root.browserState === "awake"
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 hoverEnabled: true
-                cursorShape: Qt.ArrowCursor
+                cursorShape: root.cursor(root.parts.shape || "")
 
                 onPressed: mouse => {
                     surface.forceActiveFocus();
                     pointer.shown = null;
                     root.press(mouse);
                 }
-                onReleased: mouse => Models.Canvas.pointer(root.sessionId, "mouseReleased", mouse.x, mouse.y, mouse.button, root.clicks, mouse.modifiers)
+                onReleased: mouse => video.pointer("release", mouse.x, mouse.y, mouse.button, root.clicks, mouse.modifiers)
                 onPositionChanged: mouse => {
                     const held = mouse.buttons & Qt.LeftButton ? Qt.LeftButton : mouse.buttons & Qt.RightButton ? Qt.RightButton
                         : mouse.buttons & Qt.MiddleButton ? Qt.MiddleButton : Qt.NoButton;
-                    Models.Canvas.pointer(root.sessionId, "mouseMoved", mouse.x, mouse.y, held, 0, mouse.modifiers);
+                    video.pointer("move", mouse.x, mouse.y, held, 0, mouse.modifiers);
                 }
                 onWheel: wheel => {
                     pointer.shown = null;
-                    Models.Canvas.wheel(root.sessionId, wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers);
+                    video.wheel(wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers);
                 }
             }
             Item {
@@ -253,7 +248,7 @@ Item {
                 function place() {
                     if (!doing || !doing.point)
                         return;
-                    const at = Models.Canvas.viewPoint(root.sessionId, doing.point.x, doing.point.y);
+                    const at = video.viewPoint(doing.point.x, doing.point.y);
                     if (at === undefined || at === null)
                         return;
                     glide.enabled = shown !== null;
@@ -342,11 +337,111 @@ Item {
                     }
                 }
             }
+            Repeater {
+                model: root.parts.pointers || []
+
+                Rectangle {
+                    required property var modelData
+                    readonly property var at: video.viewPoint(modelData.x, modelData.y)
+
+                    x: at ? at.x : 0
+                    y: at ? at.y : 0
+                    visible: !!at
+                    width: name.implicitWidth + 10
+                    height: name.implicitHeight + 2
+                    radius: height / 2
+                    color: Identity.personTint(modelData.person)
+
+                    PlainLabel {
+                        id: name
+
+                        anchors.centerIn: parent
+                        text: parent.modelData.name
+                        color: "#ffffff"
+                        font.pixelSize: KodosiTheme.fontCaption
+                    }
+                }
+            }
+            KMenu {
+                id: pageMenu
+
+                readonly property var list: root.parts.menu || null
+
+                onListChanged: list ? popup(video, video.width / 2 - 100, video.height / 3) : close()
+                onClosed: {
+                    if (list)
+                        video.step({ kind: "choose", menu: list.id });
+                }
+
+                Instantiator {
+                    model: pageMenu.list ? pageMenu.list.items : []
+                    onObjectAdded: (index, item) => pageMenu.insertItem(index, item)
+                    onObjectRemoved: (index, item) => pageMenu.removeItem(item)
+                    delegate: KMenuItem {
+                        required property var modelData
+                        required property int index
+
+                        text: modelData.label
+                        enabled: modelData.enabled
+                        iconName: modelData.chosen ? "check" : ""
+                        onTriggered: video.step({ kind: "choose", menu: pageMenu.list.id, choice: index })
+                    }
+                }
+            }
+            Rectangle {
+                id: pageDialog
+
+                readonly property var dialog: root.parts.dialog || null
+
+                anchors.centerIn: parent
+                visible: !!dialog
+                width: Math.min(340, parent.width - 32)
+                height: column.implicitHeight + 28
+                radius: KodosiTheme.radiusMd
+                color: KodosiTheme.lifted
+
+                ColumnLayout {
+                    id: column
+
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    PlainLabel {
+                        Layout.fillWidth: true
+                        text: pageDialog.dialog ? pageDialog.dialog.message : ""
+                        wrapMode: Text.Wrap
+                    }
+                    KTextField {
+                        id: answer
+
+                        Layout.fillWidth: true
+                        visible: !!pageDialog.dialog && pageDialog.dialog.kind === "prompt"
+                        text: pageDialog.dialog ? pageDialog.dialog.text : ""
+                    }
+                    RowLayout {
+                        Layout.alignment: Qt.AlignRight
+
+                        KButton {
+                            visible: !!pageDialog.dialog && pageDialog.dialog.kind !== "alert"
+                            text: qsTr("Cancel")
+                            onClicked: video.step({ kind: "dialog", accept: false })
+                        }
+                        KButton {
+                            text: qsTr("OK")
+                            variant: KButton.Primary
+                            onClicked: video.step(answer.visible ? { kind: "dialog", accept: true, text: answer.text }
+                                : { kind: "dialog", accept: true })
+                        }
+                    }
+                }
+            }
             EmptyState {
                 anchors.centerIn: parent
                 width: Math.min(320, parent.width - 32)
                 visible: root.browserState !== "awake"
-                title: root.browserState === "starting" ? qsTr("Starting the browser") : qsTr("The browser sleeps")
+                title: root.browser.getting !== undefined ? qsTr("Getting the browser, %1%").arg(root.browser.getting)
+                    : root.browserState === "starting" ? qsTr("Starting the browser") : qsTr("The browser sleeps")
                 message: root.browserState === "asleep" ? root.browser.problem || "" : ""
                 art: KIcon {
                     width: 28

@@ -12,11 +12,13 @@ struct TerminalFrame;
 
 // A link that a person clicked opens by Ghostty's rules: web and mail links open, a
 // file or folder opens unless it can run code, a link to another app asks first, and
-// a malformed or disguised link does not open. A file or a local address in a terminal
-// of another computer is on that computer, so it does not open here.
+// a malformed or disguised link does not open. A file in a terminal of another computer
+// is on that computer, so it does not open here. A local address opens in the shared
+// browser of the terminal, which runs on the computer of the terminal.
 struct TerminalLinkDecision {
     enum class Action {
         Open,
+        Browser,
         Ask,
         Refuse,
     };

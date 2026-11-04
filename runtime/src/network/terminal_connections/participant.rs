@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use super::{
     channel::{Channel, Transport},
+    direct,
     link::Pipe,
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
@@ -131,6 +132,7 @@ impl Upload {
 struct Pending {
     reply: oneshot::Sender<Result<Value>>,
     deadline: tokio::time::Instant,
+    closes: bool,
 }
 
 pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteConnection> {
@@ -162,13 +164,21 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
+    let host = Arc::new(direct::Host::new(
+        network.channel_keys(&credentials)?,
+        dto.host_device_id.clone(),
+        public.clone(),
+    ));
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone());
+        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), host);
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
             result = viewer.run(&network, &credentials, &dto, &public) => result,
         };
+        if let Err(error) = &result {
+            viewer.settle(error);
+        }
         if !cancel.is_cancelled() {
             let reason = result.err().map_or_else(
                 || "Remote terminal disconnected.".to_owned(),
@@ -229,12 +239,12 @@ async fn open(
         &public,
     )
     .await?;
+    let version = channel.version()?;
     match tokio::time::timeout(Duration::from_secs(20), channel.receive())
         .await
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            let version = channel.version()?;
             if accept.protocol_version != version {
                 return Err(Error::ChannelVersion {
                     peer_newer: accept.protocol_version > version,
@@ -309,6 +319,11 @@ async fn host_trusted(
     Ok(())
 }
 
+struct PipeOut {
+    frames: mpsc::Sender<Vec<u8>>,
+    filling: Vec<u8>,
+}
+
 struct Viewer<T> {
     channel: Channel<T>,
     commands: mpsc::Receiver<RemoteRequest>,
@@ -317,6 +332,7 @@ struct Viewer<T> {
     snapshot: Vec<u8>,
     snapshot_sequence: Option<u64>,
     started: bool,
+    ended: bool,
     received: u64,
     acknowledged: u64,
     acknowledge_at: Option<tokio::time::Instant>,
@@ -324,6 +340,9 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    pipes: BTreeMap<Uuid, PipeOut>,
+    host: Arc<direct::Host>,
+    asking: BTreeMap<Uuid, oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>>,
     upload: Option<Upload>,
 }
 
@@ -332,6 +351,7 @@ impl<T: Transport> Viewer<T> {
         channel: Channel<T>,
         commands: mpsc::Receiver<RemoteRequest>,
         updates: mpsc::Sender<RemoteUpdate>,
+        host: Arc<direct::Host>,
     ) -> Self {
         Self {
             channel,
@@ -341,6 +361,7 @@ impl<T: Transport> Viewer<T> {
             snapshot: Vec::new(),
             snapshot_sequence: None,
             started: false,
+            ended: false,
             received: 0,
             acknowledged: 0,
             acknowledge_at: None,
@@ -348,6 +369,9 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            pipes: BTreeMap::new(),
+            host,
+            asking: BTreeMap::new(),
             upload: None,
         }
     }
@@ -356,6 +380,19 @@ impl<T: Transport> Viewer<T> {
         match self.input_sent - self.input_confirmed {
             0 => reason,
             _ => format!("{reason} {INPUT_NOT_SENT}"),
+        }
+    }
+
+    /// A close that waits when its terminal is gone did its work. Its answer can lose the race
+    /// with the end of the terminal, and the service drops the pipe of a terminal that is gone.
+    fn settle(&mut self, error: &Error) {
+        if !self.ended && !matches!(error, Error::Backend { status: 404, .. }) {
+            return;
+        }
+        for (_, pending) in std::mem::take(&mut self.pending) {
+            if pending.closes {
+                drop(pending.reply.send(Ok(Value::Null)));
+            }
         }
     }
 
@@ -491,6 +528,7 @@ impl<T: Transport> Viewer<T> {
                     return Ok(());
                 }
                 let request_id = Uuid::now_v7();
+                let closes = matches!(control, TerminalControl::Close);
                 let frame = Frame::Control {
                     request_id,
                     control,
@@ -508,9 +546,72 @@ impl<T: Transport> Viewer<T> {
                     Pending {
                         reply,
                         deadline: tokio::time::Instant::now() + CONTROL_TIMEOUT,
+                        closes,
                     },
                 );
             }
+            pipe => self.pipe_request(pipe).await?,
+        }
+        Ok(())
+    }
+
+    async fn pipe_request(&mut self, request: RemoteRequest) -> Result<()> {
+        match request {
+            RemoteRequest::PipeOpen {
+                pipe,
+                key,
+                name,
+                frames,
+            } => {
+                self.pipes.insert(
+                    pipe,
+                    PipeOut {
+                        frames,
+                        filling: Vec::new(),
+                    },
+                );
+                self.channel
+                    .send(&Frame::PipeOpen { pipe, key, name })
+                    .await?;
+            }
+            RemoteRequest::PipeData { pipe, more, part } => {
+                self.channel
+                    .send(&Frame::PipeData { pipe, more, part })
+                    .await?;
+            }
+            RemoteRequest::PipeClose { pipe } => {
+                self.pipes.remove(&pipe);
+                self.channel.send(&Frame::PipeClose { pipe }).await?;
+            }
+            RemoteRequest::DirectAsk { pipe, reply } => {
+                self.asking.retain(|_, waiting| !waiting.is_closed());
+                self.asking.insert(pipe, reply);
+                self.channel.send(&Frame::DirectAsk { pipe }).await?;
+            }
+            RemoteRequest::Control { .. }
+            | RemoteRequest::Picture { .. }
+            | RemoteRequest::Checkpoint => {}
+        }
+        Ok(())
+    }
+
+    /// A slow view loses its pipe and joins again, so the terminal never waits for it.
+    async fn pipe_part(&mut self, pipe: Uuid, more: bool, part: &[u8]) -> Result<()> {
+        let Some(open) = self.pipes.get_mut(&pipe) else {
+            return Ok(());
+        };
+        if open.filling.len() + part.len() > crate::canvas::MOST_PIPE_FRAME {
+            return Err(invalid("A document frame exceeds its bound."));
+        }
+        open.filling.extend_from_slice(part);
+        if !more
+            && open
+                .frames
+                .try_send(std::mem::take(&mut open.filling))
+                .is_err()
+        {
+            self.pipes.remove(&pipe);
+            self.channel.send(&Frame::PipeClose { pipe }).await?;
         }
         Ok(())
     }
@@ -589,6 +690,7 @@ impl<T: Transport> Viewer<T> {
                     .await?;
             }
             Frame::End(_) => {
+                self.ended = true;
                 self.input_confirmed = self.input_sent;
                 self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);
@@ -615,6 +717,15 @@ impl<T: Transport> Viewer<T> {
             Frame::ControlValue { request_id, value } => {
                 if let Some(pending) = self.pending.remove(&request_id) {
                     drop(pending.reply.send(Ok(value)));
+                }
+            }
+            Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part).await?,
+            Frame::PipeClose { pipe } => {
+                self.pipes.remove(&pipe);
+            }
+            Frame::DirectOffer { pipe, addresses } => {
+                if let Some(waiting) = self.asking.remove(&pipe) {
+                    drop(waiting.send((Arc::clone(&self.host), addresses)));
                 }
             }
             Frame::PictureState(state) => self.picture_state(state).await?,

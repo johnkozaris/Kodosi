@@ -33,6 +33,7 @@ private struct TerminalScreenContent: View {
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
     @State private var canvasOpen = false
+    @State private var addingFile = false
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
@@ -91,6 +92,8 @@ private struct TerminalScreenContent: View {
                         ? nil
                         : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                             openBrowser(of: session)
+                        } addFile: {
+                            addingFile = true
                         },
                 )
             }
@@ -117,11 +120,14 @@ private struct TerminalScreenContent: View {
                     }
                     TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                         openBrowser(of: session)
+                    } addFile: {
+                        addingFile = true
                     }
                 }
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
         .onAppear { controller.appear(active: scenePhase == .active) }
         .onDisappear { controller.disappear() }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
@@ -154,16 +160,11 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 
-    private func openBrowser(of session: RuntimeSession) {
-        let canvas = model.terminals.canvas
-        if session.canvas?.browser != nil {
-            canvas.show(.browser, in: session)
-        } else {
-            Task {
-                do {
-                    try await canvas.openBrowser(in: session.id)
-                } catch { model.notices.show(error) }
-            }
+    private func openBrowser(of session: RuntimeSession, at address: URL? = nil) {
+        Task {
+            do {
+                try await model.terminals.canvas.openBrowser(of: session, at: address)
+            } catch { model.notices.show(error) }
         }
         canvasOpen = true
     }
@@ -209,6 +210,7 @@ private struct TerminalScreenContent: View {
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         otherComputer: session.otherComputer,
+                        opensBrowser: { address in openBrowser(of: session, at: address) },
                         isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                         onFocusChange: { focused in
                             keyboard.terminalFocused(focused)

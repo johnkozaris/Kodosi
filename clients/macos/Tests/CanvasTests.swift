@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import KodosiBridge
+@testable import KodosiBridge
 import KodosiDesign
 @testable import KodosiDesktop
 import Testing
@@ -70,25 +70,23 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
 
 @Test func `a point of the view becomes a point of the browser`() {
     let wide = CGSize(width: 1000, height: 500)
-    let picture = CGSize(width: 1280, height: 720)
-    #expect(BrowserFeed.point(CGPoint(x: 500, y: 250), in: wide, picture: picture, browser: picture) == .init(x: 640, y: 360))
-    #expect(BrowserFeed.point(CGPoint(x: 10, y: 250), in: wide, picture: picture, browser: picture) == nil)
-    let sharp = CGSize(width: 2560, height: 1440)
-    #expect(BrowserFeed.point(CGPoint(x: 500, y: 250), in: wide, picture: sharp, browser: picture) == .init(x: 640, y: 360))
+    let browser = CGSize(width: 1280, height: 720)
+    #expect(BrowserFeed.point(CGPoint(x: 500, y: 250), in: wide, browser: browser) == .init(x: 640, y: 360))
+    #expect(BrowserFeed.point(CGPoint(x: 10, y: 250), in: wide, browser: browser) == nil)
     let narrow = CGSize(width: 451, height: 690)
-    let page = CGSize(width: 451, height: 690)
-    let window = CGSize(width: 500, height: 690)
-    #expect(BrowserFeed.point(CGPoint(x: 75.8, y: 103.3), in: narrow, picture: window, browser: page) == .init(x: 84, y: 77))
+    #expect(BrowserFeed.point(CGPoint(x: 75.8, y: 103.3), in: narrow, browser: narrow) == .init(x: 75.8, y: 103.3))
 }
 
 @Test func `the agent's point of the browser lands where the person sees it`() {
     let wide = CGSize(width: 1000, height: 500)
-    let picture = CGSize(width: 1280, height: 720)
-    let middle = BrowserFeed.viewPoint(.init(x: 640, y: 360), in: wide, picture: picture, browser: picture)
-    #expect(middle == CGPoint(x: 500, y: 250))
-    let sharp = CGSize(width: 2560, height: 1440)
-    #expect(BrowserFeed.viewPoint(.init(x: 640, y: 360), in: wide, picture: sharp, browser: picture) == CGPoint(x: 500, y: 250))
-    #expect(BrowserFeed.viewPoint(.init(x: 1, y: 1), in: .zero, picture: picture, browser: picture) == nil)
+    let browser = CGSize(width: 1280, height: 720)
+    #expect(BrowserFeed.viewPoint(CGPoint(x: 640, y: 360), in: wide, browser: browser) == CGPoint(x: 500, y: 250))
+    #expect(BrowserFeed.viewPoint(CGPoint(x: 1, y: 1), in: .zero, browser: browser) == nil)
+}
+
+@Test func `a frame of the browser splits at its start codes`() {
+    let frame = Data([0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 0])
+    #expect(H264Samples.units(of: frame).map(Array.init) == [[0x67, 1, 2], [0x68, 3], [0x65, 4, 0]])
 }
 
 @Test func `a canvas and its terminal share the stage, or the canvas fills it`() {

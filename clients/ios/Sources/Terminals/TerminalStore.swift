@@ -22,6 +22,7 @@ final class TerminalStore {
     @ObservationIgnored let commands: CommandSink
     @ObservationIgnored let notices: NoticeCenter
     let canvas: CanvasStore
+    @ObservationIgnored let documentPages = CanvasDocumentPages()
     @ObservationIgnored let focus: TerminalProcessFocusCoordinator
     @ObservationIgnored let live: TerminalSessionManager
 
@@ -90,6 +91,8 @@ final class TerminalStore {
         case "term.bell":
             guard let id = event.string("sessionId"), watchingSessionId == id else { return }
             bells[id, default: 0] += 1
+        case "document.frame", "document.closed":
+            canvas.receive(event)
         case "session.picture":
             live.receivePicture(event)
         default:

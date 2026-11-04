@@ -181,6 +181,20 @@ ApplicationWindow {
                 PathRectangle { width: glow.width; height: glow.height }
             }
         }
+        Item {
+            visible: window.drawsTitleBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: KodosiTheme.titleBarHeight
+
+            DragHandler {
+                target: null
+                onActiveChanged: if (active) window.startSystemMove()
+            }
+            TapHandler {
+                onDoubleTapped: window.visibility === Window.Maximized ? window.showNormal() : window.showMaximized()
+            }
+        }
         RowLayout {
             anchors.fill: parent
             spacing: 0
@@ -398,6 +412,12 @@ ApplicationWindow {
         }
 
         target: Models.SessionActions
+    }
+    Item {
+        id: documentParking
+
+        visible: false
+        Component.onCompleted: DocumentViews.parking = documentParking
     }
     Loader {
         id: detailsLoader

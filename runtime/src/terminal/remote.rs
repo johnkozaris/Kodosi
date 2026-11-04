@@ -62,6 +62,12 @@ enum Request {
         request: crate::canvas::CanvasRequest,
         reply: oneshot::Sender<Result<Value>>,
     },
+    Document {
+        pipe: Uuid,
+        key: String,
+        name: String,
+        reply: oneshot::Sender<Result<crate::canvas::PipeEnds>>,
+    },
     Picture {
         picture: Picture,
         reply: oneshot::Sender<Result<()>>,
@@ -244,6 +250,26 @@ impl RemoteTerminal {
         let (reply, result) = oneshot::channel();
         wait_for(
             self.send(Request::Canvas { request, reply }),
+            result,
+            CONTROL_TIMEOUT,
+        )
+    }
+
+    /// Joins a live document on the computer of this terminal.
+    pub(crate) fn document(
+        &self,
+        pipe: Uuid,
+        key: String,
+        name: String,
+    ) -> impl Future<Output = Result<crate::canvas::PipeEnds>> + Send + use<> {
+        let (reply, result) = oneshot::channel();
+        wait_for(
+            self.send(Request::Document {
+                pipe,
+                key,
+                name,
+                reply,
+            }),
             result,
             CONTROL_TIMEOUT,
         )
@@ -1229,6 +1255,14 @@ impl RemoteActor {
                         let answer = controls.send_control(TerminalControl::Canvas { request }).await;
                         drop(reply.send(answer.map_err(Error::from)));
                     });
+                    Ok(())
+                }
+                Some(Request::Document { reply, .. }) if interrupted => {
+                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
+                    Ok(())
+                }
+                Some(Request::Document { pipe, key, name, reply }) => {
+                    drop(reply.send(self.controls.open_pipe(pipe, key, name).map_err(Error::from)));
                     Ok(())
                 }
                 Some(Request::Picture { picture, reply }) => {

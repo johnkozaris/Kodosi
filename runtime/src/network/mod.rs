@@ -284,6 +284,12 @@ pub enum HostRequest {
     Disconnected {
         connection_id: Uuid,
     },
+    Document {
+        connection_id: Uuid,
+        key: String,
+        name: String,
+        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
+    },
     Picture {
         connection_id: Uuid,
         authorization: tokio_util::sync::CancellationToken,
@@ -396,6 +402,23 @@ impl RemoteControl {
                     .map_err(|_|invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again."))?,
             ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again.")),
         }
+    }
+
+    /// Opens a pipe to a live document on the host. Each frame goes in parts.
+    pub(crate) fn open_pipe(
+        &self,
+        pipe: Uuid,
+        key: String,
+        name: String,
+    ) -> Result<crate::canvas::PipeEnds> {
+        if self.cancellation.is_cancelled() {
+            return Err(Error::Closed);
+        }
+        Ok(terminal_connections::open_pipe(
+            self.commands.clone(),
+            self.cancellation.clone(),
+            (pipe, key, name),
+        ))
     }
 
     /// Sends a pasted picture to the host, which pastes the path of its file. The connection

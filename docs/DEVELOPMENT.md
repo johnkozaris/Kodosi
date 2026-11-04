@@ -12,7 +12,7 @@ Install `just`, Python 3 and the toolchains of the part you change.
 `.tools/rust/`. Keep every tool and dependency inside the project. The
 [Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md) and
 [iOS](../clients/ios/README.md) guides list the native prerequisites; on Windows run the
-recipes in Git Bash.
+recipes in Git Bash. The apps need Bun for the document views.
 
 ## Commands
 
@@ -22,6 +22,9 @@ Run these from the repository root; `just --list` shows the rest.
 | --- | --- |
 | `just rust-cli-build` | Build the development CLI |
 | `just agent-browser-build` | Build the pinned agent-browser of the shared browser next to the development CLI |
+| `just documents-check` | Build and test the document views, crates and app |
+| `just documents-app-run <files>` | Run the documents app with a window for each file |
+| `just browser-check` | Lint and test the shared browser crate |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
 | `just check-all` | The Rust and backend checks |
@@ -72,6 +75,11 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 ships next to the `kodosi` program, by its version and Git commit. Each app build makes
 it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
 pin, check the release and its tag first, change both lines and build each app.
+
+[Chromium.lock](../browser/build/Chromium.lock) pins the Chromium of Kodosi Browser.
+`browser/build/build-engine.py --output-dir <folder>` builds it on each computer, with its
+archive and its entry in the signed feed. A development build uses the engine whose program
+`KODOSI_BROWSER_ENGINE` names, and no feed.
 
 ## Isolated validation
 

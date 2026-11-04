@@ -450,6 +450,10 @@ struct SidebarTerminalRow: View {
                 deps.workbench.openCanvas(session.id)
                 deps.openBrowser(of: session)
             }
+            Button("Add a File…") {
+                deps.activateSession(session.id)
+                deps.addFile(to: session)
+            }
         }
         if staged {
             Button("Minimize") { deps.dismissSession(session.id) }

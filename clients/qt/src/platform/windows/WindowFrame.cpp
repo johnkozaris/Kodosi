@@ -10,6 +10,7 @@
 
 #include <dwmapi.h>
 #include <shellapi.h>
+#include <windowsx.h>
 
 #include <array>
 
@@ -98,6 +99,9 @@ bool WindowFrame::nativeEventFilter(const QByteArray& eventType, void* message, 
             return false;
         *result = 0;
         return true;
+    case WM_NCHITTEST:
+        *result = hitTest(GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam));
+        return true;
     case WM_NCPAINT:
         paint();
         *result = 0;
@@ -125,6 +129,25 @@ bool WindowFrame::fitClient(void* parameters) const
         leaveAutoHideTaskbars(hwnd, client);
     }
     return true;
+}
+
+// Qt 6.12 hit-tests an expanded client area with a mouse press of its own, which the window then
+// gets again from Windows. The client area holds the whole window except its resize edges.
+qintptr WindowFrame::hitTest(int x, int y) const
+{
+    const auto hwnd = static_cast<HWND>(m_handle);
+    RECT frame {};
+    if (IsZoomed(hwnd) || m_window.visibility() == QWindow::FullScreen || !GetWindowRect(hwnd, &frame))
+        return HTCLIENT;
+    const auto dpi = GetDpiForWindow(hwnd);
+    const auto edge = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+    const bool left = x < frame.left + edge;
+    const bool right = x >= frame.right - edge;
+    if (y < frame.top + edge)
+        return left ? HTTOPLEFT : right ? HTTOPRIGHT : HTTOP;
+    if (y >= frame.bottom - edge)
+        return left ? HTBOTTOMLEFT : right ? HTBOTTOMRIGHT : HTBOTTOM;
+    return left ? HTLEFT : right ? HTRIGHT : HTCLIENT;
 }
 
 // Qt 6.12 derives an expanded client area's frame from the window style; custom margins correct it.

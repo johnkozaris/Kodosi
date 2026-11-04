@@ -85,16 +85,31 @@ conversation follows the person to all their computers.
   opens at once. A file or folder opens, but not a file that can run a program. A link to
   another app asks first. A link with hidden characters or an incomplete address does not
   open; the app tells why and can copy the link.
-- A link opens on the device where the person selects it. In a terminal of another
-  computer, a file or a local address such as `localhost` is on that computer, so it does
-  not open; the app names that computer.
+- A link opens on the device where the person selects it. A local address such as
+  `localhost` opens in the terminal's shared browser, on the terminal's computer. In a
+  terminal of another computer, a file is on that computer, so it does not open; the app
+  names that computer.
 
 ## Canvas
 
 - Each terminal has a canvas with two parts: its files and its shared browser. Its agent
-  puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF or
-  an Office file. The canvas shows the newest first and keeps 20. When a file changes,
-  each device shows the new version.
+  puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF, a
+  document, a sheet or a presentation. A person adds a file with Add a File or a drop, on
+  any device: it goes into the terminal's folder on the terminal's computer, a taken name
+  gets a number, and the limit is 32 MB. The canvas shows the newest first and keeps 20.
+  When a file changes, each device shows the new version. Save a Copy keeps a copy on the
+  device.
+- A document (.docx), sheet (.xlsx), presentation (.pptx) or PDF on the canvas is live.
+  The people and agents of the terminal edit it at the same time, each sees where the
+  others are, and each edit reaches all of them at once. The file stays a normal file on
+  the terminal's computer, and Kodosi saves it there a moment after each change. A change
+  that another program saves merges in. When the computer is away, a person goes on, and
+  the edits wait on the device. A person accepts or rejects the tracked changes of a
+  document, one by one or all at once.
+- Settings › Documents turns each viewer on or off on the device: the document, sheet,
+  presentation and PDF viewer. A viewer that is off shows a preview, or Save a Copy where
+  the app has no preview. Documents show as pages or as text that fits the canvas, and
+  documents, sheets and PDFs can go dark with the app.
 - The terminal has a key for each part that has something, with a dot for news, and the
   files key names a file for a moment when the agent shows or changes it. A key opens
   the canvas at its part. An open canvas follows the newest file until the person picks
@@ -104,16 +119,24 @@ conversation follows the person to all their computers.
 - A page runs its scripts in a closed frame. It reaches no network, no files and no
   storage that stays. A link in a page opens on the device by the link rules.
 - A terminal can have one shared browser. The agent uses it with `kodosi browser` and
-  agent-browser's commands, and the people see it on the canvas and click and type in it,
-  with the same sign-ins. It has one size: the view where a person used it last. When a
-  person used it, the agent's next browser command says so. It runs the Chrome, Chromium,
-  Edge or Brave of the terminal's computer, sleeps after 10 minutes with no use and
+  agent-browser's commands, and the people see it on the canvas as live video and click
+  and type in it, each with a named pointer. It has one size: the view where a person used
+  it last. When a person used it, the agent's next browser command says so. It runs Kodosi
+  Browser, a plain Chromium that Kodosi gets the first time and keeps up to date. It never
+  shows a window or an icon on the computer. It sleeps after 10 minutes with no use and
   nobody looking, and opens its last page again when it wakes. While the agent acts in
-  it, a pointer with the agent's mark shows where.
+  it, a pointer with the agent's mark shows where. A download lands in the terminal's
+  folder and on the canvas.
+- A person keeps one set of sign-ins on each computer, and all their private terminals
+  use it. Settings › Browser shows the computer's Kodosi Browser, copies the sign-ins of
+  another browser on that computer, says for how many sites, and removes what it copied
+  or all browsing data of the private terminals. A shared terminal has a browser profile
+  of its own, so sharing a terminal shares no kept sign-in.
 - Ask about this types the item and the selected words into the terminal, and the person
   writes the question.
-- Everyone who can open the terminal sees its canvas and uses its browser. Closing the
-  terminal removes its canvas and deletes its browser's sign-ins.
+- Everyone who can open the terminal sees its canvas, edits its files and uses its
+  browser. Closing the terminal removes its canvas and leaves its files where they are; a
+  shared terminal's browser profile goes with it.
 
 ## Starting work
 

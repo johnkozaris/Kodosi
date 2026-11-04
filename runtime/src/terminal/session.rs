@@ -132,6 +132,7 @@ impl TerminalSession {
     ) -> Result<Self> {
         let clear_line = clear_line_keys(&program);
         let launch_directory = directory.clone();
+        canvas.moved_to(directory.clone());
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
@@ -1282,6 +1283,7 @@ impl LocalActor {
         {
             return false;
         }
+        self.canvas.moved_to(path.clone());
         self.working_directory = path;
         self.metadata_dirty = true;
         true
@@ -1535,6 +1537,12 @@ impl LocalActor {
                     self.publish_presence();
                 }
             }
+            HostRequest::Document {
+                connection_id,
+                key,
+                name,
+                reply,
+            } => self.document(connection_id, key, name, reply),
             HostRequest::Disconnected { connection_id } => {
                 self.viewers.remove(&connection_id);
                 self.publish_presence();
@@ -1576,6 +1584,26 @@ impl LocalActor {
             },
         }
         None
+    }
+
+    fn document(
+        &self,
+        connection_id: Uuid,
+        key: String,
+        name: String,
+        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
+    ) {
+        let canvas = self.canvas.clone();
+        let view = connection_id.to_string();
+        let person = self
+            .viewers
+            .get(&connection_id)
+            .cloned()
+            .unwrap_or_else(|| view.clone());
+        tokio::spawn(async move {
+            let ends = canvas.document(&key, view, person, name).await;
+            drop(reply.send(ends));
+        });
     }
 
     fn save_picture(

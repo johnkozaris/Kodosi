@@ -354,6 +354,16 @@ Item {
                                 }
                             }
                             KMenuItem {
+                                text: qsTr("Add a file…")
+                                iconName: "files"
+                                visible: root.session.canControl === true
+                                objectName: root.objectName + ".addFile"
+                                onTriggered: {
+                                    Models.DesktopFiles.requestFiles(root.sessionId);
+                                    root.canvasRequested("");
+                                }
+                            }
+                            KMenuItem {
                                 text: qsTr("Details")
                                 iconName: "info"
                                 objectName: root.objectName + ".details"
@@ -458,6 +468,10 @@ Item {
                     context.popup(point.x, point.y);
                 }
                 onClipboardReadRequested: clipboardRead.open()
+                onBrowserLinkRequested: link => {
+                    Models.Canvas.openBrowser(root.sessionId, link);
+                    root.canvasRequested("");
+                }
                 onLinkQuestionRequested: (link, target) => linkReview.ask(link, target)
                 onLinkRefused: (target, reason) => linkReview.refuse(target, reason)
                 onOperationError: message => root.terminalOperationError = message

@@ -79,7 +79,7 @@ impl ChannelKeys {
             .with_client_cert_resolver(Arc::new(AlwaysResolvesClientRawPublicKeys::new(own)));
         client.resumption = Resumption::in_memory_sessions(RESUMABLE_HOSTS);
         client.enable_sni = false;
-        client.alpn_protocols = vec![channel_protocol()];
+        client.alpn_protocols = channel_protocols();
         Ok(Self {
             public: signing_public.to_vec(),
             client: Arc::new(client),
@@ -281,12 +281,21 @@ fn server_config(provider: &Arc<CryptoProvider>, own: Arc<CertifiedKey>) -> Resu
     server.session_storage = ServerSessionMemoryCache::new(RESUMABLE_VIEWS);
     server.send_tls13_tickets = 2;
     server.send_half_rtt_data = true;
-    server.alpn_protocols = vec![channel_protocol()];
+    server.alpn_protocols = channel_protocols();
     Ok(server)
 }
 
 fn channel_protocol() -> Vec<u8> {
     format!("kodosi-channel/{}", crate::protocol::CHANNEL_VERSION).into_bytes()
+}
+
+/// Each channel version up to this one, newest first. The host takes the newest that both sides
+/// have, so two versions of Kodosi still meet, and the newer one can say which side must update.
+fn channel_protocols() -> Vec<Vec<u8>> {
+    (1..=crate::protocol::CHANNEL_VERSION)
+        .rev()
+        .map(|version| format!("kodosi-channel/{version}").into_bytes())
+        .collect()
 }
 
 fn certified(provider: &CryptoProvider, signing_pkcs8: &[u8]) -> Result<Arc<CertifiedKey>> {
@@ -642,6 +651,55 @@ pub(super) mod tests {
             panic!("the value");
         };
         assert_eq!(received, value);
+    }
+
+    /// The keys of a Kodosi that offers only its own channel version.
+    fn channel_keys_of_version(keys: &DeviceKeys, version: u32) -> ChannelKeys {
+        let keys = channel_keys(keys);
+        let protocol = format!("kodosi-channel/{version}").into_bytes();
+        let mut client = (*keys.client).clone();
+        client.alpn_protocols = vec![protocol.clone()];
+        let mut server = (*keys.server).clone();
+        server.alpn_protocols = vec![protocol];
+        ChannelKeys {
+            public: keys.public,
+            client: Arc::new(client),
+            server: Arc::new(server),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_older_peer_meets_this_one_at_its_own_version_and_this_one_says_so() {
+        let (host, viewer) = (
+            DeviceKeys::generate().unwrap(),
+            DeviceKeys::generate().unwrap(),
+        );
+        let older = crate::protocol::CHANNEL_VERSION - 1;
+        let protocol = format!("kodosi-channel/{older}").into_bytes();
+        let (view, hosted) = join(
+            &channel_keys(&host),
+            &channel_keys_of_version(&viewer, older),
+            host.signing_public(),
+        )
+        .await;
+        assert_eq!(hosted.tls.alpn_protocol(), Some(protocol.as_slice()));
+        assert!(matches!(
+            hosted.version(),
+            Err(Error::ChannelVersion { peer_newer: false })
+        ));
+        drop(view);
+        let (view, hosted) = join(
+            &channel_keys_of_version(&host, older),
+            &channel_keys(&viewer),
+            host.signing_public(),
+        )
+        .await;
+        assert_eq!(view.tls.alpn_protocol(), Some(protocol.as_slice()));
+        assert!(matches!(
+            view.version(),
+            Err(Error::ChannelVersion { peer_newer: false })
+        ));
+        drop(hosted);
     }
 
     fn channel_keys_without_protocol(keys: &DeviceKeys) -> ChannelKeys {

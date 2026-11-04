@@ -3,20 +3,31 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "host")]
 mod actor;
 #[cfg(feature = "host")]
+mod attach;
+#[cfg(feature = "host")]
 mod browser;
+#[cfg(feature = "host")]
+mod engine;
 #[cfg(feature = "host")]
 mod files;
 #[cfg(feature = "host")]
 mod page;
+#[cfg(feature = "host")]
+mod render;
 #[cfg(all(test, feature = "host"))]
 mod tests;
 
 #[cfg(feature = "host")]
-pub(crate) use actor::{CanvasHandle, close_left, keep_profiles};
+pub(crate) use actor::{CanvasHandle, CanvasServices, close_left, keep_profiles};
 
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
 pub const PART_BYTES: usize = 256 * 1024;
+/// The key of the pipe that carries the live picture of a terminal's browser.
+pub(crate) const BROWSER_PIPE: &str = "browser";
+/// The frames that wait on each side of a document's pipe.
+pub(crate) const PIPE_QUEUE: usize = 64;
+pub(crate) const MOST_PIPE_FRAME: usize = 64 * 1024 * 1024;
 pub const MOST_PATHS: usize = MOST_ITEMS;
 pub const MOST_ARGUMENTS: usize = 512;
 const MOST_TABS: usize = 10;
@@ -24,13 +35,9 @@ const MOST_TITLE: usize = 512;
 const MOST_URL: usize = 512;
 const MOST_KEY: usize = 1024;
 const MOST_NAME: usize = 512;
-const MOST_EVENTS: usize = 64;
-const MOST_TYPED: usize = 16 * 1024;
 const MOST_PROBLEM: usize = 1024;
-const MOST_PICTURE: usize = 400 * 1024;
 const MOST_SIDE: u32 = 4096;
 const MOST_TEXT: usize = 1024 * 1024;
-const MOST_POSITION: i32 = 100_000;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -48,6 +55,9 @@ pub struct CanvasItem {
     pub key: String,
     pub name: String,
     pub kind: CanvasKind,
+    /// The live view of this file, when the file has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<DocumentView>,
     pub revision: u64,
     pub bytes: u64,
     pub changed: u64,
@@ -61,7 +71,38 @@ pub enum CanvasKind {
     Page,
     Picture,
     Pdf,
-    Office,
+    Document,
+    Sheet,
+    Presentation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentView {
+    Docx,
+    Xlsx,
+    Pptx,
+    Pdf,
+}
+
+impl DocumentView {
+    /// The name of the view in the view bundle.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Docx => "docx",
+            Self::Xlsx => "xlsx",
+            Self::Pptx => "pptx",
+            Self::Pdf => "pdf",
+        }
+    }
+}
+
+/// A device's two ends of a live document's pipe: frames go in and come out, and the pipe ends
+/// when either side lets go.
+#[derive(Debug)]
+pub struct PipeEnds {
+    pub sender: tokio::sync::mpsc::Sender<Vec<u8>>,
+    pub receiver: tokio::sync::mpsc::Receiver<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -73,6 +114,9 @@ pub struct CanvasBrowser {
     pub tabs: Vec<BrowserTab>,
     pub width: u32,
     pub height: u32,
+    /// The part of the first download of Kodosi Browser, from 0 to 100.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub getting: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doing: Option<BrowserDoing>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -153,107 +197,21 @@ pub enum CanvasRequest {
         #[serde(default)]
         keys: Vec<String>,
     },
-    Picture {
-        after: u64,
-    },
-    Input {
-        events: Vec<BrowserInput>,
-        width: u32,
-        height: u32,
+    /// One part of a file that a person adds. The file goes into the folder of the terminal.
+    Attach {
+        upload: String,
+        name: String,
+        offset: u64,
+        data: String,
+        last: bool,
+        /// A file for a page of the browser goes into the folder of the terminal, of any kind,
+        /// and not on the canvas.
+        #[serde(default)]
+        page: bool,
     },
     Act {
         action: BrowserAct,
     },
-}
-
-/// A person's pointer, key or text in the shared browser, in the browser's own pixels.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(
-    tag = "type",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    deny_unknown_fields
-)]
-pub enum BrowserInput {
-    Mouse {
-        event_type: MouseEvent,
-        x: i32,
-        y: i32,
-        #[serde(default)]
-        button: MouseButton,
-        #[serde(default)]
-        click_count: u8,
-        #[serde(default)]
-        delta_x: i32,
-        #[serde(default)]
-        delta_y: i32,
-        #[serde(default)]
-        modifiers: u8,
-    },
-    Key {
-        event_type: KeyEvent,
-        key: String,
-        code: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        text: Option<String>,
-        #[serde(default)]
-        key_code: u32,
-        #[serde(default)]
-        modifiers: u8,
-    },
-    Touch {
-        event_type: TouchEvent,
-        points: Vec<TouchPoint>,
-        #[serde(default)]
-        modifiers: u8,
-    },
-    Text {
-        text: String,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub enum MouseEvent {
-    MousePressed,
-    MouseReleased,
-    MouseMoved,
-    MouseWheel,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "lowercase")]
-pub enum MouseButton {
-    #[default]
-    None,
-    Left,
-    Middle,
-    Right,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub enum KeyEvent {
-    KeyDown,
-    KeyUp,
-    RawKeyDown,
-    Char,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub enum TouchEvent {
-    TouchStart,
-    TouchMove,
-    TouchEnd,
-    TouchCancel,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(deny_unknown_fields)]
-pub struct TouchPoint {
-    pub x: i32,
-    pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -265,13 +223,7 @@ pub struct TouchPoint {
 )]
 pub enum BrowserAct {
     Open { url: String },
-    Back,
-    Forward,
-    Reload,
-    Tab { id: String },
-    NewTab,
-    CloseTab { id: String },
-    Wake { width: u32, height: u32 },
+    Wake,
 }
 
 /// What the canvas answers. A device checks an answer from another computer before it uses it.
@@ -301,20 +253,9 @@ pub enum CanvasAnswer {
         key: String,
         revision: u64,
     },
-    Picture {
-        sequence: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        frame: Option<BrowserFrame>,
+    Attached {
+        key: String,
     },
-}
-
-/// One JPEG picture of the browser, in base64.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct BrowserFrame {
-    pub width: u32,
-    pub height: u32,
-    pub data: String,
 }
 
 impl Canvas {
@@ -368,49 +309,20 @@ impl CanvasRequest {
             Self::Remove { keys } => {
                 keys.len() <= MOST_ITEMS && keys.iter().all(|key| bounded(key, MOST_KEY))
             }
-            Self::Picture { .. } => true,
-            Self::Input { events, .. } => {
-                !events.is_empty()
-                    && events.len() <= MOST_EVENTS
-                    && events.iter().all(BrowserInput::is_valid)
+            Self::Attach {
+                upload, name, data, ..
+            } => {
+                uuid::Uuid::parse_str(upload).is_ok()
+                    && !name.is_empty()
+                    && bounded(name, MOST_NAME)
+                    && !matches!(name.as_str(), "." | "..")
+                    && !name.contains(['/', '\\', ':', '\0'])
+                    && data.len() <= PART_BYTES.div_ceil(3) * 4
             }
             Self::Act { action } => match action {
                 BrowserAct::Open { url } => !url.trim().is_empty() && bounded(url, 4096),
-                BrowserAct::Tab { id } | BrowserAct::CloseTab { id } => {
-                    !id.is_empty() && bounded(id, 64)
-                }
-                BrowserAct::Back
-                | BrowserAct::Forward
-                | BrowserAct::Reload
-                | BrowserAct::NewTab
-                | BrowserAct::Wake { .. } => true,
+                BrowserAct::Wake => true,
             },
-        }
-    }
-}
-
-impl BrowserInput {
-    fn is_valid(&self) -> bool {
-        let near = |value: &i32| value.unsigned_abs() <= MOST_POSITION.unsigned_abs();
-        match self {
-            Self::Mouse {
-                x,
-                y,
-                delta_x,
-                delta_y,
-                ..
-            } => [x, y, delta_x, delta_y].into_iter().all(near),
-            Self::Key {
-                key, code, text, ..
-            } => {
-                bounded(key, 32)
-                    && bounded(code, 32)
-                    && text.as_deref().is_none_or(|text| bounded(text, 16))
-            }
-            Self::Touch { points, .. } => {
-                points.len() <= 10 && points.iter().all(|point| near(&point.x) && near(&point.y))
-            }
-            Self::Text { text } => !text.is_empty() && bounded(text, MOST_TYPED),
         }
     }
 }
@@ -434,16 +346,25 @@ impl CanvasAnswer {
                     && offset <= total
                     && data.len() <= PART_BYTES.div_ceil(3) * 4
             }
-            Self::Stale { key, .. } => bounded(key, MOST_KEY),
-            Self::Picture { frame, .. } => frame.as_ref().is_none_or(|frame| {
-                frame.width <= 8192 && frame.height <= 8192 && frame.data.len() <= MOST_PICTURE
-            }),
+            Self::Stale { key, .. } | Self::Attached { key } => bounded(key, MOST_KEY),
         }
     }
 }
 
 fn bounded(text: &str, most: usize) -> bool {
     text.len() <= most && !text.contains('\0')
+}
+
+/// The live view of a file, by its extension.
+pub fn view_of(path: &std::path::Path) -> Option<DocumentView> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    Some(match extension.as_str() {
+        "docx" => DocumentView::Docx,
+        "xlsx" => DocumentView::Xlsx,
+        "pptx" => DocumentView::Pptx,
+        "pdf" => DocumentView::Pdf,
+        _ => return None,
+    })
 }
 
 /// What a file shows as on the canvas, by its extension.
@@ -454,8 +375,9 @@ pub fn kind_of(path: &std::path::Path) -> Option<CanvasKind> {
         | "yml" | "toml" | "xml" | "diff" | "patch" => CanvasKind::Page,
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" => CanvasKind::Picture,
         "pdf" => CanvasKind::Pdf,
-        "docx" | "doc" | "xlsx" | "xls" | "pptx" | "ppt" | "odt" | "ods" | "odp" | "rtf"
-        | "pages" | "numbers" | "key" => CanvasKind::Office,
+        "docx" | "doc" | "odt" | "rtf" | "pages" => CanvasKind::Document,
+        "xlsx" | "xls" | "ods" | "numbers" => CanvasKind::Sheet,
+        "pptx" | "ppt" | "odp" | "key" => CanvasKind::Presentation,
         _ => return None,
     })
 }

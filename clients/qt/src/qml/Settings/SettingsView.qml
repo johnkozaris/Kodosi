@@ -66,6 +66,8 @@ Item {
                         { value: 5, label: qsTr("Keyboard"), icon: "keyboard" },
                         { value: 1, label: qsTr("Agents"), icon: "agent" },
                         { value: 4, label: "Dosi", icon: "eye" },
+                        { value: 6, label: qsTr("Browser"), icon: "globe" },
+                        { value: 7, label: qsTr("Documents"), icon: "document" },
                         { value: 2, label: qsTr("Account"), icon: "people" },
                         { value: 3, label: qsTr("Devices"), icon: "laptop" }
                     ]
@@ -104,6 +106,14 @@ Item {
             DosiSettings {
                 Layout.fillWidth: true
                 visible: root.section === 4
+            }
+            BrowserSettings {
+                Layout.fillWidth: true
+                visible: root.section === 6
+            }
+            DocumentSettings {
+                Layout.fillWidth: true
+                visible: root.section === 7
             }
             Item { Layout.preferredHeight: 30 }
         }

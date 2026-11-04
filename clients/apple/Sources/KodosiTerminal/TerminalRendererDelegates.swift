@@ -23,6 +23,8 @@ final class TerminalRendererDelegateProxy:
     /// The computer that runs the terminal, when it is not this device.
     var otherComputer: String?
     var linkReviewRequested: ((TerminalLink) -> Void)?
+    /// Opens a local address in the shared browser of the terminal.
+    var opensBrowser: (URL) -> Void = { _ in }
     var opensLink: (URL) -> Void = { url in
         #if os(macOS)
             NSWorkspace.shared.open(url)
@@ -76,9 +78,12 @@ final class TerminalRendererDelegateProxy:
             return opensLink(URL(string: url).flatMap { $0.scheme == nil ? nil : $0 } ?? URL(filePath: url))
         }
         let link = TerminalLink(url, otherComputer: otherComputer)
-        if case let .open(target) = link.decision {
+        switch link.decision {
+        case let .open(target):
             opensLink(target)
-        } else {
+        case let .browser(target):
+            opensBrowser(target)
+        case .ask, .refuse:
             linkReviewRequested?(link)
         }
     }

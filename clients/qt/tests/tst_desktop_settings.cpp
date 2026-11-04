@@ -44,6 +44,26 @@ private slots:
         }
         QVERIFY(kodosi::DesktopSettings(std::make_unique<QSettings>(path, QSettings::IniFormat)).branchFolder().isEmpty());
     }
+    void aViewerThatIsOffLeavesItsFilesAndItsChoicesStay()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath(QStringLiteral("settings.ini"));
+        {
+            kodosi::DesktopSettings settings(std::make_unique<QSettings>(path, QSettings::IniFormat));
+            QCOMPARE(settings.shownViews().value(QStringLiteral("xlsx")).toBool(), true);
+            QCOMPARE(settings.viewPreferences().value(QStringLiteral("xlsx")).toMap().value(QStringLiteral("dark")).toBool(), true);
+            settings.setViewer(QStringLiteral("sheets"), false);
+            settings.setViewer(QStringLiteral("documentPages"), false);
+            settings.setViewer(QStringLiteral("unknown"), false);
+        }
+        kodosi::DesktopSettings restored(std::make_unique<QSettings>(path, QSettings::IniFormat));
+        QCOMPARE(restored.shownViews().value(QStringLiteral("xlsx")).toBool(), false);
+        QCOMPARE(restored.shownViews().value(QStringLiteral("docx")).toBool(), true);
+        const auto document = restored.viewPreferences().value(QStringLiteral("docx")).toMap();
+        QCOMPARE(document.value(QStringLiteral("pages")).toBool(), false);
+        QCOMPARE(document.value(QStringLiteral("dark")).toBool(), false);
+        QVERIFY(!restored.viewers().contains(QStringLiteral("unknown")));
+    }
     void withoutAChosenFolderTheLauncherStartsInTheHomeFolder()
     {
         QTemporaryDir directory;

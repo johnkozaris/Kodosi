@@ -5,8 +5,8 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     DesktopSettings& settings,
     DesktopStateModel& desktop, SessionCatalogModel& sessions, TerminalTilingLayoutModel& tiling,
     DesktopFileIntegration& files, ApplicationLifecycleModel& lifecycle,
-    TerminalSurfaceController& surfaces, DesktopTray& tray, CanvasModel& canvas, CanvasWeb& canvasWeb,
-    ShortcutsModel& shortcuts)
+    TerminalSurfaceController& surfaces, DesktopTray& tray, CanvasModel& canvas, CanvasDocuments& documents,
+    CanvasWeb& canvasWeb, ShortcutsModel& shortcuts)
 {
     AppStateForeign::instance = &workspace;
     AccountModelForeign::instance = &workspace.account();
@@ -28,6 +28,7 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     TerminalSurfaceControllerForeign::instance = &surfaces;
     DesktopTrayForeign::instance = &tray;
     CanvasModelForeign::instance = &canvas;
+    CanvasDocumentsForeign::instance = &documents;
     CanvasWebForeign::instance = &canvasWeb;
     ShortcutsModelForeign::instance = &shortcuts;
 }

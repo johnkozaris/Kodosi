@@ -845,7 +845,6 @@ void TerminalView::itemChange(const ItemChange change, const ItemChangeData& val
     } else if (change == ItemVisibleHasChanged) {
         synchronizeInteraction();
         updateBlinkTimer();
-        scheduleResize();
     } else if (change == ItemSceneChange) {
         QObject::disconnect(m_windowVisibilityConnection);
         if (value.window != nullptr) {
@@ -856,7 +855,6 @@ void TerminalView::itemChange(const ItemChange change, const ItemChangeData& val
                 [this] {
                     synchronizeInteraction();
                     updateBlinkTimer();
-                    scheduleResize();
                 });
         }
         synchronizeInteraction();
@@ -882,6 +880,8 @@ void TerminalView::clearPendingInput()
 void TerminalView::synchronizeInteraction()
 {
     if (interactionAvailable()) {
+        // A size skipped while the view could not act goes out now.
+        scheduleResize();
         if (auto* inputMethod = QGuiApplication::inputMethod())
             inputMethod->update(Qt::ImEnabled | Qt::ImCursorRectangle);
         if (hasActiveFocus() && m_terminalReady) {

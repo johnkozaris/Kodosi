@@ -26,6 +26,28 @@ def bytes_sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def cargo_metadata(manifest: Path, target: str | None) -> dict:
+    platform = ["--filter-platform", target] if target else []
+    result = subprocess.run(
+        [
+            "cargo",
+            "metadata",
+            "--locked",
+            "--format-version",
+            "1",
+            *platform,
+            "--manifest-path",
+            str(manifest),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail(result.stderr.decode("utf-8", errors="replace"))
+    return json.loads(result.stdout)
+
+
 def load_overrides(path: Path) -> tuple[dict[tuple[str, str, str], dict], bytes]:
     manifest_payload = path.read_bytes()
     try:
@@ -112,25 +134,7 @@ def main() -> None:
     except (OSError, ValueError) as error:
         fail(str(error))
 
-    result = subprocess.run(
-        [
-            "cargo",
-            "metadata",
-            "--locked",
-            "--format-version",
-            "1",
-            "--filter-platform",
-            arguments.target,
-            "--manifest-path",
-            str(arguments.manifest),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if result.returncode != 0:
-        fail(result.stderr.decode("utf-8", errors="replace"))
-    metadata = json.loads(result.stdout)
+    metadata = cargo_metadata(arguments.manifest, arguments.target)
     packages = {package["id"]: package for package in metadata["packages"]}
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     roots = [
@@ -159,7 +163,6 @@ def main() -> None:
     override_destination = output_dir / "rust-license-overrides.json"
     override_destination.write_bytes(override_payload)
     inventory: list[dict[str, object]] = []
-    used_overrides: set[tuple[str, str, str]] = set()
     external = sorted(
         (
             packages[package_id]
@@ -219,7 +222,6 @@ def main() -> None:
                 )
             if override["license"] != license_expression:
                 fail(f"override license identity differs for {package['name']}")
-            used_overrides.add(key)
             source = (
                 arguments.overrides.parent / Path(override["file"])
             ).resolve(strict=True)
@@ -250,8 +252,11 @@ def main() -> None:
             }
         )
 
-    if used_overrides != set(overrides):
-        unused = sorted(set(overrides) - used_overrides)
+    resolved_on_any_target = {
+        (package["name"], package["version"], package["source"])
+        for package in cargo_metadata(arguments.manifest, None)["packages"]
+    }
+    if unused := sorted(set(overrides) - resolved_on_any_target):
         fail(f"override manifest contains unused identities: {unused}")
     document = {
         "schemaVersion": 2,

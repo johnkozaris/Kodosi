@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - runtime/**
+      - documents/**
+      - browser/**
       - protocol/**
       - terminal/ghostty/**
       - Ghostty.lock

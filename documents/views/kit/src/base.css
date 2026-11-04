@@ -1,0 +1,101 @@
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.document-view {
+  --surface: light-dark(#f7f2e8, #181411);
+  --surface-behind: light-dark(#e8e0d2, #0c0a08);
+  --raised: light-dark(#fefbf5, #251d19);
+  --lifted: light-dark(#fffdf9, #2e241f);
+  --well: light-dark(#e8e0d2, #0c0a08);
+  --ink: light-dark(#25160e, #f1e9e3);
+  --ink-soft: light-dark(#5f4838, #b3a094);
+  --ink-faint: light-dark(#8a7262, #8c7a6f);
+  --line: light-dark(#d9ccba, #3b2f29);
+  --accent: light-dark(#9a4516, #eaa47e);
+  --ui-font: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface-behind);
+  color: var(--ink);
+  font-family: var(--ui-font);
+  font-size: 13px;
+}
+
+.document-view[data-scheme="light"] {
+  color-scheme: light;
+}
+
+.document-view[data-scheme="dark"] {
+  color-scheme: dark;
+}
+
+:root:has(.document-view[data-render]) {
+  scrollbar-width: none;
+}
+
+.document-view[data-render] {
+  height: auto;
+  min-height: 100vh;
+}
+
+.document-view[data-render] .document-bar {
+  display: none;
+}
+
+.document-view[data-render] .document-page {
+  flex: none;
+  overflow: visible;
+}
+
+.document-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-state {
+  flex: none;
+  color: var(--ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.document-peers {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.document-peer {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.document-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.document-closed,
+.document-away {
+  padding: 8px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}

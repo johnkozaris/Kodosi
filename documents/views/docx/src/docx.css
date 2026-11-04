@@ -1,0 +1,117 @@
+.docx-page {
+  padding: 16px;
+}
+
+.docx-page {
+  --page-color: #ffffff;
+}
+
+.docx-page .tiptap {
+  box-sizing: border-box;
+  margin: 0 auto;
+  background: var(--page-color);
+  color: #111111;
+  outline: none;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.docx-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.docx-page td {
+  padding: 2pt 4pt;
+  vertical-align: top;
+  border: 1px solid #999999;
+}
+
+.docx-page td > p {
+  margin: 0;
+}
+
+.docx-page [data-opaque] {
+  color: #666666;
+}
+
+.docx-page div[data-opaque] {
+  padding: 6px;
+  border: 1px dashed #bbbbbb;
+}
+
+.docx-page img {
+  max-width: 100%;
+  height: auto;
+}
+
+.docx-page a {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+.docx-page ins {
+  color: #0b7a3b;
+  text-decoration: underline;
+}
+
+.docx-page del {
+  color: #b5304d;
+  text-decoration: line-through;
+}
+
+.docx-page .page-space {
+  display: block;
+  user-select: none;
+}
+
+.docx-page td.page-break-cell {
+  padding: 0;
+  border: 0;
+}
+
+.document-view[data-fit] .docx-page .tiptap {
+  width: auto;
+  padding: 24px clamp(16px, 6%, 56px);
+}
+
+.document-view[data-fit] .docx-page :is(.page-space, tr.page-break) {
+  display: none;
+}
+
+/* A dark page turns the light of its text around, and pictures and the gaps between pages
+   turn back to their own colors. */
+.document-view[data-scheme="dark"][data-dark-pages] .docx-page {
+  --page-color: #1a1a1a;
+}
+
+.document-view[data-scheme="dark"][data-dark-pages] .docx-page .tiptap > :not(.page-space),
+.document-view[data-scheme="dark"][data-dark-pages]
+  .docx-page
+  .tiptap
+  > :not(.page-space)
+  :is(img, .page-space, .peer-caret) {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.peer-caret {
+  position: relative;
+  margin: 0 -1px;
+  border-left: 2px solid;
+}
+
+.peer-caret > span {
+  position: absolute;
+  top: -1.4em;
+  left: -2px;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  color: #ffffff;
+  font:
+    600 10px / 1.4 system-ui,
+    sans-serif;
+  text-indent: 0;
+  white-space: nowrap;
+  pointer-events: none;
+}

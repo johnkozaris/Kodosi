@@ -1,0 +1,15 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "package"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+roxmltree = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+
+[lints]
+workspace = true

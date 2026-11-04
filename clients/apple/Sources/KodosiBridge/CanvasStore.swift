@@ -14,22 +14,17 @@ public final class CanvasStore {
 
     private struct Answer: Decodable {
         let answer: String
+        let key: String?
         let revision: UInt64?
         let offset: UInt64?
         let total: UInt64?
         let data: String?
-        let sequence: UInt64?
-        let frame: AnsweredFrame?
         let text: String?
     }
 
-    private struct AnsweredFrame: Decodable {
-        let width: Int
-        let height: Int
-        let data: String
-    }
-
     private static let mostStoredBytes = 64 * 1024 * 1024
+    private static let mostFileBytes = 32 * 1024 * 1024
+    private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
     private var marks: [String: [String: UInt64]] = [:]
@@ -49,9 +44,33 @@ public final class CanvasStore {
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
+    @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
+    /// The terminals that ran in the last list. A link of a terminal that runs again joins at once.
+    @ObservationIgnored private var running: Set<String> = []
 
     public init(commands: CommandSink) {
         self.commands = commands
+    }
+
+    /// A link to the live picture of a terminal's browser.
+    func browser(of session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey)
+        documents.add(link)
+        return link
+    }
+
+    /// A link to the live document of an item.
+    public func document(_ item: CanvasItem, in session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: item.key)
+        documents.add(link)
+        return link
+    }
+
+    /// Takes the frames of live documents, which reach only the client that opened them.
+    public func receive(_ event: RuntimeEvent) {
+        for link in documents.allObjects {
+            link.receive(event)
+        }
     }
 
     /// Follows the terminal list. What a canvas showed before this device saw it is not news.
@@ -81,6 +100,11 @@ public final class CanvasStore {
         for key in stored.keys where !ids.contains(key.session) {
             forget(key)
         }
+        let runs = Set(sessions.filter { $0.status == .running }.map(\.id))
+        for link in documents.allObjects where runs.contains(link.session) && !running.contains(link.session) {
+            link.reachable()
+        }
+        running = runs
     }
 
     public func isNew(_ shown: CanvasShown, in session: String) -> Bool {
@@ -213,22 +237,26 @@ public final class CanvasStore {
         return (revision, data)
     }
 
-    /// The next picture of the browser after `sequence`, or none when the browser shows no change
-    /// for a while.
-    public func picture(in session: String, after sequence: UInt64) async throws -> BrowserFrame? {
-        let answer = try await ask(session, .object(["type": .string("picture"), "after": .uint(sequence)]))
-        guard answer.answer == "picture", let sequence = answer.sequence else { throw CanvasError.unreadable }
-        guard let frame = answer.frame else { return nil }
-        guard let jpeg = Data(base64Encoded: frame.data) else { throw CanvasError.unreadable }
-        return BrowserFrame(sequence: sequence, width: frame.width, height: frame.height, jpeg: jpeg)
+    /// What Settings › Browser shows of this computer.
+    public func browserStatus() async throws -> BrowserStatus {
+        let event = try await commands.request("browser.status", [:])
+        return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"))
     }
 
-    /// Sends a person's input with the size of the view where they use the browser.
-    public func send(_ events: [BrowserInput], width: Int, height: Int, in session: String) async throws {
-        let events = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(events))
-        _ = try await ask(session, .object([
-            "type": .string("input"), "events": events, "width": .int(Int64(width)), "height": .int(Int64(height)),
-        ]))
+    /// Copies the sign-ins of a browser into the profile of this person's private terminals, and
+    /// says for how many sites.
+    public func copySignIns(from source: String) async throws -> Int {
+        try await commands.request("browser.copy", ["name": .string(source)]).value("sites")
+    }
+
+    /// Removes what copies brought, and says for how many sites.
+    public func removeCopiedSignIns() async throws -> Int {
+        try await commands.request("browser.forget", [:]).value("sites")
+    }
+
+    /// Removes the profile of this person's private terminals, with every sign-in and all site data.
+    public func removeBrowsingData() async throws {
+        _ = try await commands.request("browser.clear", [:])
     }
 
     /// Whether a person on this device opens the browser of a terminal, which did not come yet.
@@ -236,20 +264,66 @@ public final class CanvasStore {
         opening.contains(session)
     }
 
-    /// Opens the shared browser of a terminal, which then shows on its canvas.
-    public func openBrowser(in session: String) async throws {
-        closed[session]?[.browser] = nil
-        opening.insert(session)
+    /// Shows the shared browser of a terminal on its canvas, and opens it there when the terminal
+    /// has none. With an address, it goes to that address.
+    public func openBrowser(of session: RuntimeSession, at address: URL? = nil) async throws {
+        let open = address.map { BrowserAct.open($0.absoluteString) }
+        guard session.canvas?.browser == nil else {
+            show(.browser, in: session)
+            if let open {
+                try await act(open, in: session.id)
+            }
+            return
+        }
+        closed[session.id]?[.browser] = nil
+        opening.insert(session.id)
         do {
-            try await act(.wake(width: 0, height: 0), in: session)
+            try await act(open ?? .wake, in: session.id)
         } catch {
-            opening.remove(session)
+            opening.remove(session.id)
             throw error
         }
     }
 
     public func act(_ act: BrowserAct, in session: String) async throws {
         _ = try await ask(session, .object(["type": .string("act"), "action": act.json]))
+    }
+
+    /// Adds a file to the canvas of a terminal. It goes into the folder of the terminal, on the
+    /// computer of the terminal.
+    public func attach(_ file: URL, in session: String) async throws {
+        try await pick(upload(file, to: session), in: session)
+    }
+
+    /// Puts a file into the folder of a terminal, and says where it is on that computer. A file
+    /// for a page of the browser can be of any kind, and stays off the canvas.
+    func upload(_ file: URL, to session: String, page: Bool = false) async throws -> String? {
+        let granted = file.startAccessingSecurityScopedResource()
+        defer {
+            if granted {
+                file.stopAccessingSecurityScopedResource()
+            }
+        }
+        let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        guard data.count <= Self.mostFileBytes else {
+            throw RuntimeError.operation(String(localized: "The canvas takes files up to 32 MB.", bundle: .module))
+        }
+        if !page {
+            closed[session]?[.files] = nil
+        }
+        let upload = UUIDv7.generate()
+        var offset = 0
+        var key: String?
+        repeat {
+            let end = min(offset + Self.partBytes, data.count)
+            key = try await ask(session, .object([
+                "type": .string("attach"), "upload": .string(upload), "name": .string(file.lastPathComponent),
+                "offset": .uint(UInt64(offset)), "data": .string(data[offset ..< end].base64EncodedString()),
+                "last": .bool(end == data.count), "page": .bool(page),
+            ])).key
+            offset = end
+        } while offset < data.count
+        return key
     }
 
     public func remove(_ keys: [String], in session: String) async throws {

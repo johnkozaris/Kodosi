@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - clients/qt/**
+      - documents/**
+      - browser/**
       - protocol/**
       - runtime/**
       - terminal/ghostty/**
@@ -14,6 +16,7 @@ on:
       - rust-toolchain.toml
       - AgentBrowser.lock
       - scripts/build-agent-browser.py
+      - scripts/build-document-views.py
       - scripts/build-runtime-library.py
       - scripts/generate-update-site.py
       - scripts/tests/**
@@ -48,6 +51,9 @@ jobs:
         with:
           tool: just
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
       - run: rustup toolchain install
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

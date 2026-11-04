@@ -1,0 +1,95 @@
+[workspace]
+
+[workspace.lints.rust]
+dead_code = "warn"
+elided_lifetimes_in_paths = "warn"
+let_underscore_drop = "warn"
+unreachable_pub = "warn"
+unsafe_code = "deny"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+clone_on_ref_ptr = "warn"
+dbg_macro = "warn"
+exit = "warn"
+expect_used = "warn"
+missing_errors_doc = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+print_stderr = "warn"
+print_stdout = "warn"
+todo = "warn"
+unwrap_used = "warn"
+redundant_pub_crate = "allow"
+must_use_candidate = "allow"
+missing_const_for_fn = "allow"
+
+[package]
+edition = "2024"
+license = "Apache-2.0"
+name = "shared-browser"
+publish = false
+rust-version = "1.99.1"
+version = "0.1.0"
+
+[features]
+default = ["host"]
+host = [
+  "dep:aes",
+  "dep:aes-gcm",
+  "dep:base64",
+  "dep:cbc",
+  "dep:futures-util",
+  "dep:getrandom",
+  "dep:pbkdf2",
+  "dep:rusqlite",
+  "dep:secret-service",
+  "dep:security-framework",
+  "dep:sha1",
+  "dep:thiserror",
+  "dep:tokio",
+  "dep:tokio-tungstenite",
+  "dep:tracing",
+  "dep:windows-sys",
+]
+
+[dependencies]
+base64 = { version = "0.23.1", optional = true }
+bytes = "1.12.1"
+futures-util = { version = "0.3.34", optional = true }
+getrandom = { version = "0.4.3", optional = true }
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"], optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = { version = "2.0.21", optional = true }
+tokio = { version = "1.54.1", features = ["fs", "io-util", "macros", "net", "process", "rt", "sync", "time"], optional = true }
+tokio-tungstenite = { version = "0.30.0", optional = true }
+tracing = { version = "0.1.44", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+aes = { version = "0.9.3", optional = true }
+cbc = { version = "0.2.1", features = ["block-padding"], optional = true }
+pbkdf2 = { version = "0.13.0", optional = true }
+sha1 = { version = "0.11.0", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "3.7.0", optional = true }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+secret-service = { version = "5.2.0", features = ["rt-tokio-crypto-rust"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+aes-gcm = { version = "0.11.1", optional = true }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Cryptography"], optional = true }
+
+[dev-dependencies]
+base64 = "0.23.1"
+sha2 = "0.11.1"
+tempfile = "3.27.0"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "test-util"] }
+
+[lints]
+workspace = true

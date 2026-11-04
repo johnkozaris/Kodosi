@@ -4,6 +4,9 @@ cpp_compat = true
 include_guard = "KODOSI_RUNTIME_H"
 documentation = false
 
+[defines]
+"target_vendor = apple" = "__APPLE__"
+
 [export]
 prefix = ""
 include = []
@@ -11,6 +14,8 @@ include = []
 [export.rename]
 "KodosiCallbacks" = "kodosi_callbacks_t"
 "KodosiStartFailure" = "kodosi_start_failure_t"
+"KodosiPicture" = "kodosi_picture_t"
+"KodosiVideoDecoder" = "kodosi_video_decoder_t"
 "EventCb" = "kodosi_event_cb_t"
 "TerminalDataCb" = "kodosi_terminal_data_cb_t"
 "TerminalControlCb" = "kodosi_terminal_control_cb_t"

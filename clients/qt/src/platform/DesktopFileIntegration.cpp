@@ -88,6 +88,48 @@ bool DesktopFileIntegration::requestDirectory(const QString& purpose, const QStr
     emit busyChanged();
     return true;
 }
+bool DesktopFileIntegration::requestFiles(const QString& purpose)
+{
+    return pickFiles(tr("Add files to the canvas"), true, [this, purpose](const QList<QUrl>& files) {
+        if (!files.isEmpty())
+            emit filesPicked(purpose, files);
+    });
+}
+
+bool DesktopFileIntegration::requestPageFiles(const QString& sessionId, const bool several)
+{
+    return pickFiles(tr("Choose files for this page"), several,
+        [this, sessionId](const QList<QUrl>& files) { emit pageFilesPicked(sessionId, files); });
+}
+
+bool DesktopFileIntegration::pickFiles(const QString& title, const bool several, std::function<void(const QList<QUrl>&)> done)
+{
+    if (m_dialog) {
+        fail(tr("A file dialog is already open."));
+        return false;
+    }
+    clearError();
+    auto* dialog = new QFileDialog;
+    m_dialog = dialog;
+    dialog->setWindowTitle(title);
+    dialog->setAccessibleName(title);
+    dialog->setFileMode(several ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
+    dialog->setSupportedSchemes({ QStringLiteral("file") });
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->setDirectory(QDir::homePath());
+    connect(dialog, &QDialog::finished, this, [this, dialog, done = std::move(done)](int result) {
+        m_dialog.clear();
+        emit busyChanged();
+        done(result == QDialog::Accepted ? dialog->selectedUrls() : QList<QUrl> {});
+        dialog->deleteLater();
+    });
+    dialog->setAttribute(Qt::WA_NativeWindow);
+    if (dialog->windowHandle() && m_window)
+        dialog->windowHandle()->setTransientParent(m_window);
+    dialog->show();
+    emit busyChanged();
+    return true;
+}
 void DesktopFileIntegration::cancelDirectory()
 {
     if (m_dialog)

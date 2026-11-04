@@ -54,7 +54,7 @@ extension AppDependencies {
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
         case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
-        case "term", "session": receiveTerminal(event)
+        case "term", "session", "document": receiveTerminal(event)
         default: break
         }
     }
@@ -73,7 +73,7 @@ extension AppDependencies {
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
-        guard delivery == .app, !["provider.", "room.", "canvas."].contains(where: event.type.hasPrefix) else { return }
+        guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
         people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage
@@ -93,6 +93,10 @@ extension AppDependencies {
     }
 
     private func receiveTerminal(_ event: RuntimeEvent) {
+        if event.type.hasPrefix("document.") {
+            canvas.receive(event)
+            return
+        }
         if event.type == "session.show", let id = event.string("sessionId") {
             bringToFront()
             workbench.section = .sessions

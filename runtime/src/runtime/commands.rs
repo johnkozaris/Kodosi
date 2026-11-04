@@ -32,6 +32,9 @@ use crate::{
 #[cfg(feature = "host")]
 use std::sync::Arc;
 
+use base64::Engine as _;
+
+const MOST_PIPES: usize = 32;
 const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
 #[cfg(not(feature = "host"))]
 const NO_DOSI: &str = "Dosi runs on the computer that hosts your terminals.";
@@ -61,6 +64,7 @@ impl Runtime {
                 }
                 Ok(())
             }
+            Command::DocumentOpen { .. } => self.open_document(command, consumer, lifetime),
             Command::DisconnectRemote { session_id, .. } => {
                 self.release_view(parse_id(session_id)?, consumer);
                 self.result(command);
@@ -137,11 +141,34 @@ impl Runtime {
             Command::Read { .. } => self.read(command)?,
             Command::CanvasAsk { .. } => self.ask_canvas(command)?,
             #[cfg(feature = "host")]
-            Command::CanvasShow { .. } | Command::CanvasBrowse { .. } => {
+            Command::BrowserStatus { .. }
+            | Command::BrowserCopy { .. }
+            | Command::BrowserForget { .. }
+            | Command::BrowserClear { .. } => self.use_browser_settings(command)?,
+            #[cfg(not(feature = "host"))]
+            Command::BrowserStatus { .. }
+            | Command::BrowserCopy { .. }
+            | Command::BrowserForget { .. }
+            | Command::BrowserClear { .. } => {
+                return Err(Error::Invalid(
+                    "The browsers of a computer are in the app on that computer.".to_owned(),
+                ));
+            }
+            Command::DocumentSend { .. } => self.send_to_document(command)?,
+            Command::DocumentClose { pipe, .. } => {
+                self.pipes.remove(&parse_id(pipe)?);
+                self.result(command);
+            }
+            #[cfg(feature = "host")]
+            Command::CanvasShow { .. }
+            | Command::CanvasBrowse { .. }
+            | Command::CanvasDocument { .. } => {
                 self.use_canvas(command)?;
             }
             #[cfg(not(feature = "host"))]
-            Command::CanvasShow { .. } | Command::CanvasBrowse { .. } => {
+            Command::CanvasShow { .. }
+            | Command::CanvasBrowse { .. }
+            | Command::CanvasDocument { .. } => {
                 return Err(Error::Invalid(
                     "Agents show files on the canvas of their own terminal.".to_owned(),
                 ));
@@ -427,6 +454,161 @@ impl Runtime {
         Ok(())
     }
 
+    /// Joins a live document for a person. The document's frames reach only this client.
+    fn open_document(
+        &mut self,
+        command: &Command,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+    ) -> Result<()> {
+        let Command::DocumentOpen {
+            session_id,
+            pipe,
+            key,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a document".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        let pipe = parse_id(pipe)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        self.prune_pipes();
+        if self.pipes.len() >= MOST_PIPES {
+            return Err(Error::Busy);
+        }
+        let name = self.person.clone().unwrap_or_else(|| "Someone".to_owned());
+        let person = self.scope.user.clone();
+        let ends = self
+            .target(id)?
+            .document(pipe, key.clone(), name, person, consumer);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Document {
+                command,
+                pipe,
+                consumer,
+                lifetime,
+                result: ends.await,
+            }
+        });
+        Ok(())
+    }
+
+    /// Gives the frames of a document to the client that opened it, in parts.
+    fn carry_document(
+        &mut self,
+        pipe: Uuid,
+        ends: crate::canvas::PipeEnds,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+    ) {
+        let crate::canvas::PipeEnds {
+            sender,
+            mut receiver,
+        } = ends;
+        self.pipes.insert(
+            pipe,
+            super::OpenPipe {
+                sender,
+                filling: Vec::new(),
+                lifetime: lifetime.clone(),
+            },
+        );
+        let events = self.events.clone();
+        let (user, epoch) = (self.scope.user.clone(), self.scope.epoch);
+        tokio::spawn(async move {
+            let send = |value: Value| {
+                if let Ok(mut event) = crate::Event::new(user.clone(), epoch, value) {
+                    event.recipient = Some(consumer);
+                    drop(events.send(event));
+                }
+            };
+            let mut sequence = 0_u64;
+            loop {
+                let frame = tokio::select! {
+                    () = lifetime.cancelled() => None,
+                    frame = receiver.recv() => frame,
+                };
+                let Some(frame) = frame else {
+                    break;
+                };
+                let parts = frame.len().div_ceil(crate::canvas::PART_BYTES);
+                for (index, part) in frame.chunks(crate::canvas::PART_BYTES).enumerate() {
+                    send(json!({
+                        "type": "document.frame",
+                        "pipe": pipe,
+                        "sequence": sequence,
+                        "more": index + 1 < parts,
+                        "data": base64::engine::general_purpose::STANDARD.encode(part),
+                    }));
+                    sequence += 1;
+                }
+            }
+            send(json!({ "type": "document.closed", "pipe": pipe }));
+        });
+    }
+
+    fn send_to_document(&mut self, command: &Command) -> Result<()> {
+        let Command::DocumentSend {
+            pipe, more, data, ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a document frame".to_owned()));
+        };
+        let id = parse_id(pipe)?;
+        let open = self.pipes.get_mut(&id).ok_or(Error::NotFound)?;
+        let part = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .map_err(|_| Error::Invalid("The document part is not valid.".to_owned()))?;
+        if open.filling.len() + part.len() > crate::canvas::MOST_PIPE_FRAME {
+            self.pipes.remove(&id);
+            return Err(Error::Invalid("The document frame is too long.".to_owned()));
+        }
+        open.filling.extend_from_slice(&part);
+        if !more {
+            let frame = std::mem::take(&mut open.filling);
+            if open.sender.try_send(frame).is_err() {
+                self.pipes.remove(&id);
+                return Err(Error::Busy);
+            }
+        }
+        Ok(())
+    }
+
+    /// The steps of Settings › Browser. Only the app's Settings send these, for a person's own
+    /// step.
+    #[cfg(feature = "host")]
+    fn use_browser_settings(&mut self, command: &Command) -> Result<()> {
+        self.job_capacity()?;
+        let browsers = self.services.browsers.clone();
+        let command = command.clone();
+        self.spawn(async move {
+            let result = match &command {
+                Command::BrowserCopy { name, .. } => browsers
+                    .copy_sign_ins(name)
+                    .await
+                    .map(|sites| json!({ "sites": sites })),
+                Command::BrowserForget { .. } => browsers
+                    .forget_sign_ins()
+                    .await
+                    .map(|sites| json!({ "sites": sites })),
+                Command::BrowserClear { .. } => browsers.clear().await.map(|()| json!({})),
+                _ => {
+                    let status = browsers.status().await;
+                    Ok(json!({
+                        "sources": status.sources,
+                        "sites": status.sites,
+                        "engine": status.engine,
+                    }))
+                }
+            };
+            Completion::Browser { command, result }
+        });
+        Ok(())
+    }
+
     /// An agent's `kodosi show` and `kodosi browser`, on the canvas of its own terminal.
     #[cfg(feature = "host")]
     fn use_canvas(&mut self, command: &Command) -> Result<()> {
@@ -466,6 +648,11 @@ impl Runtime {
                         .browse(PathBuf::from(folder), arguments.clone(), terminal, agent)
                         .await
                 }
+                Command::CanvasDocument {
+                    folder, arguments, ..
+                } => Ok(canvas
+                    .document_command(agent, terminal, PathBuf::from(folder), arguments.clone())
+                    .await),
                 _ => Err("expected a canvas command".to_owned()),
             };
             Completion::Canvas { command, result }
@@ -679,6 +866,16 @@ impl Runtime {
         Ok(())
     }
 
+    /// A close of a terminal on another computer did its work when the list no longer has the
+    /// terminal, even when the end of the terminal came before the host's answer.
+    pub(super) fn closed_and_gone(&self, command: &Command) -> bool {
+        matches!(command, Command::CloseSession { .. })
+            && command
+                .session_id()
+                .and_then(|id| Uuid::parse_str(id).ok())
+                .is_some_and(|id| !self.hosts(&id) && !self.listed.contains_key(&id))
+    }
+
     fn end_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
         let closing = matches!(command, Command::CloseSession { .. });
@@ -825,9 +1022,11 @@ impl Runtime {
         let config = self.config.clone();
         let changes = self.changes.clone();
         let launcher = Arc::clone(&self.launcher);
+        let services = self.services.clone();
         self.creating.insert(id, command.clone());
         self.spawn(async move {
-            let result = create_session(id, config, &launcher, &command, screen, changes).await;
+            let result =
+                create_session(id, config, services, &launcher, &command, screen, changes).await;
             Completion::Created { id, result }
         });
         Ok(id)
@@ -1137,6 +1336,7 @@ impl Runtime {
             Completion::Terminal { command, result } if current => {
                 match result {
                     Ok(()) => self.result(&command),
+                    Err(_) if self.closed_and_gone(&command) => self.result(&command),
                     Err(error) => self.error(&command, &error),
                 }
                 if matches!(
@@ -1222,6 +1422,31 @@ impl Runtime {
                 Err(message) => self.error(&command, &Error::Invalid(message)),
             },
             Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
+            #[cfg(feature = "host")]
+            Completion::Browser { command, result } => match result {
+                Ok(fields) => {
+                    let mut value = super::answer(&command, Ok(()));
+                    if let (Some(value), Value::Object(fields)) = (value.as_object_mut(), fields) {
+                        value.extend(fields);
+                    }
+                    self.emit(value);
+                }
+                Err(message) => self.error(&command, &Error::Invalid(message)),
+            },
+            Completion::Document {
+                command,
+                pipe,
+                consumer,
+                lifetime,
+                result,
+            } if current => match result {
+                Ok(ends) => {
+                    self.carry_document(pipe, ends, consumer, lifetime);
+                    self.result(&command);
+                }
+                Err(error) => self.error(&command, &error),
+            },
+            Completion::Document { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
@@ -1712,6 +1937,7 @@ async fn start_folder(
 async fn create_session(
     id: Uuid,
     config: Config,
+    services: crate::canvas::CanvasServices,
     launcher: &Arc<Launcher>,
     command: &Command,
     screen: Option<PathBuf>,
@@ -1786,7 +2012,7 @@ async fn create_session(
         Some(config.data_root.join("agents")),
         screen,
         grid,
-        crate::canvas::CanvasHandle::spawn(id, &config.data_root),
+        crate::canvas::CanvasHandle::spawn(id, &config.data_root, services),
         crate::terminal::pictures_root(&config.data_root).join(id.to_string()),
         changes,
     )

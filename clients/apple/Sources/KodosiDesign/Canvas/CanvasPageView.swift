@@ -17,21 +17,22 @@ public struct CanvasAsk {
 }
 
 /// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
-/// no files and no storage that stays. A web or mail link opens on this device. Words that a
-/// person selects get a key that asks the agent about them.
+/// no files and no storage that stays. A web or mail link opens on this device, and a local
+/// address in the shared browser of the terminal. Words that a person selects get a key that asks
+/// the agent about them.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     let frame: CanvasFrame
     let content: Data
-    let otherComputer: String?
+    let openBrowser: (URL) -> Void
     let ask: CanvasAsk?
     @State private var shown = false
 
-    public init(frame: CanvasFrame, content: Data, otherComputer: String?, ask: CanvasAsk? = nil) {
+    public init(frame: CanvasFrame, content: Data, openBrowser: @escaping (URL) -> Void, ask: CanvasAsk? = nil) {
         self.frame = frame
         self.content = content
-        self.otherComputer = otherComputer
+        self.openBrowser = openBrowser
         self.ask = ask
     }
 
@@ -43,7 +44,7 @@ public struct CanvasPageView: View {
             .overlay { selectionKey }
             .task(id: content) {
                 frame.links.open = { url in openURL(url) }
-                frame.links.otherComputer = otherComputer
+                frame.links.openBrowser = openBrowser
                 await frame.show(content)
                 withAnimation(theme.motion.fade) { shown = true }
             }
@@ -201,18 +202,19 @@ private final class SelectionWatcher: NSObject, WKScriptMessageHandler {
 @MainActor
 final class CanvasLinks {
     var open: (URL) -> Void = { _ in }
-    var otherComputer: String?
+    var openBrowser: (URL) -> Void = { _ in }
 
-    /// Web and mail links open on this device. A local address of another computer is on that
-    /// computer, so it does not open.
+    /// Web and mail links open on this device. A local address is on the computer of the terminal,
+    /// so it opens in the shared browser of the terminal.
     func follow(_ url: URL) {
         switch url.scheme?.lowercased() {
         case "http", "https":
             guard let host = url.host(), !host.isEmpty else { return }
-            if otherComputer != nil, ["localhost", "127.0.0.1", "::1", "[::1]"].contains(host.lowercased()) || host.hasSuffix(".localhost") {
-                return
+            if url.isLocalAddress {
+                openBrowser(url)
+            } else {
+                open(url)
             }
-            open(url)
         case "mailto":
             open(url)
         default:

@@ -23,6 +23,8 @@ struct SettingsView: View {
                     switch workbench.settingsSection {
                     case .providers: ProviderSettingsView()
                     case .dosi: DosiSettingsView()
+                    case .browser: BrowserSettingsView()
+                    case .documents: DocumentSettingsView()
                     case .devices: DeviceSettingsView()
                     case .terminal: TerminalSettingsView()
                     case .keyboard: KeyboardSettingsView()
@@ -45,6 +47,8 @@ private extension WorkbenchState.SettingsSection {
         case .keyboard: String(localized: "Keyboard")
         case .providers: String(localized: "Agents")
         case .dosi: String(localized: "Dosi")
+        case .browser: String(localized: "Browser")
+        case .documents: String(localized: "Documents")
         case .devices: String(localized: "Account")
         case .general: String(localized: "General")
         }
@@ -56,6 +60,8 @@ private extension WorkbenchState.SettingsSection {
         case .keyboard: "keyboard"
         case .providers: "sparkles"
         case .dosi: "eyes"
+        case .browser: "globe"
+        case .documents: "doc.text"
         case .devices: "person.crop.circle"
         case .general: "gearshape"
         }

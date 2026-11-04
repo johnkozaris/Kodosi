@@ -1,10 +1,10 @@
 {
   "terminalConnectionProtocolVersion": 23,
   "oldestTerminalConnectionProtocolVersion": 23,
-  "channelProtocolVersion": 5,
+  "channelProtocolVersion": 6,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
-    "channel": "the viewer offers the ALPN protocol kodosi-channel/ and its channelProtocolVersion, and a host that has that version selects it; a side whose channel has no selected protocol closes the channel and shows that the other computer must update Kodosi. The accept frame carries the version of the channel; a viewer whose channel has another version closes the channel and shows which side must update Kodosi"
+    "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
   },
   "routes": {
     "device": "/ws/device"
@@ -191,6 +191,32 @@
         "type": 21,
         "direction": "host",
         "body": "JSON: id, received (bytes), at (when the host had them: microseconds since it asked for the parts; 0 with pasted and refused), step (receiving, pasted, refused), message (with refused)"
+      },
+      "pipeOpen": {
+        "type": 22,
+        "direction": "viewer",
+        "body": "pipe (16 bytes), then JSON [key, name]: key names the document, or browser for the terminal's browser; name is the name of the person"
+      },
+      "pipeData": {
+        "type": 23,
+        "direction": "both",
+        "body": "pipe (16 bytes), more:u8, a part of one document frame; a frame is complete at the part with more 0",
+        "partMaxBytes": 32768
+      },
+      "pipeClose": {
+        "type": 24,
+        "direction": "both",
+        "body": "pipe (16 bytes)"
+      },
+      "directAsk": {
+        "type": 25,
+        "direction": "viewer",
+        "body": "pipe (16 bytes): the viewer asks for a straight connection for this pipe"
+      },
+      "directOffer": {
+        "type": 26,
+        "direction": "host",
+        "body": "pipe (16 bytes), then a JSON array of at most 8 addresses (ip:port); an empty array sends the pipe to the channel"
       }
     }
   },
@@ -269,5 +295,14 @@
     "hostFrame": "end",
     "order": "output that waits is sent before end when the viewer is current",
     "lostConnection": "a closed transport without end is a lost connection, not the end of the terminal"
+  },
+  "direct": {
+    "transport": "TLS 1.3 of the channel, on TCP, with the same keys, ALPN and resumption",
+    "ports": "the host listens on the first free TCP port from 47360 to 47379 on IPv4, for at most 5 seconds and only after directAsk",
+    "hostCheck": "the viewer key must equal the key that the viewer proved on the terminal's channel",
+    "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",
+    "frames": "the first frame is pipeOpen, then pipeData and pipeClose of that one pipe, and heartbeat in both directions every 5 seconds; 15 silent seconds end the connection",
+    "trying": "the viewer tries all addresses at once for 500 ms; when none answers, pipeOpen goes on the channel",
+    "life": "the path stays until the pipe ends, and the view then joins again; the connection ends with the access of the viewer"
   }
 }

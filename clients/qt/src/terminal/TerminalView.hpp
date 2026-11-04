@@ -151,6 +151,7 @@ signals:
     void connectionCompleted(bool connected, std::int32_t result);
     void terminalClosed();
     void clipboardReadRequested();
+    void browserLinkRequested(QUrl link);
     void linkQuestionRequested(QUrl link, QString target);
     void linkRefused(QString target, QString reason);
     // A paste of a picture with no text, saved in a file that the host reads.

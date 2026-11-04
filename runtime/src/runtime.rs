@@ -430,6 +430,14 @@ struct Scope {
 }
 
 #[cfg(feature = "host")]
+impl Local {
+    fn tell_canvas_who_shares(&self) {
+        let shared = !self.entry.shared_with.is_empty() || self.entry.mission_id.is_some();
+        self.terminal.canvas.set_shared(shared);
+    }
+}
+
+#[cfg(feature = "host")]
 struct Local {
     terminal: TerminalSession,
     entry: SessionEntry,
@@ -608,6 +616,18 @@ enum Completion {
         result: std::result::Result<crate::canvas::CanvasAnswer, String>,
     },
     #[cfg(feature = "host")]
+    Browser {
+        command: Command,
+        result: std::result::Result<Value, String>,
+    },
+    Document {
+        command: Command,
+        pipe: Uuid,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+        result: Result<crate::canvas::PipeEnds>,
+    },
+    #[cfg(feature = "host")]
     Provider {
         command: Command,
         result: Result<Value>,
@@ -733,6 +753,44 @@ impl TerminalTarget {
                         .filter(crate::canvas::CanvasAnswer::is_valid)
                         .ok_or_else(|| crate::protocol::OTHER_VERSION.to_owned())
                 })
+            }
+        }
+    }
+
+    /// Joins a live document of the terminal's canvas, on this computer or on another one. The
+    /// computer of the terminal knows a person on another computer by their connection.
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(
+            unused_variables,
+            clippy::needless_pass_by_value,
+            reason = "for a local terminal"
+        )
+    )]
+    fn document(
+        &self,
+        pipe: Uuid,
+        key: String,
+        name: String,
+        person: Option<String>,
+        consumer: Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<crate::canvas::PipeEnds>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(terminal) => {
+                let canvas = terminal.canvas.clone();
+                let view = consumer.to_string();
+                let person = person.unwrap_or_else(|| view.clone());
+                Box::pin(async move {
+                    canvas
+                        .document(&key, view, person, name)
+                        .await
+                        .map_err(Error::Invalid)
+                })
+            }
+            Self::Remote(terminal) => {
+                let opened = terminal.document(pipe, key, name);
+                Box::pin(opened)
             }
         }
     }
@@ -910,12 +968,21 @@ struct TerminalNotice {
     status: Option<TerminalStatus>,
 }
 
+/// A live document that a client of this runtime holds open.
+struct OpenPipe {
+    sender: mpsc::Sender<Vec<u8>>,
+    filling: Vec<u8>,
+    lifetime: CancellationToken,
+}
+
 struct Runtime {
     host: Option<crate::HostKind>,
     #[cfg(feature = "host")]
     config: Config,
     #[cfg(feature = "host")]
     launcher: Arc<crate::agents::Launcher>,
+    #[cfg(feature = "host")]
+    services: crate::canvas::CanvasServices,
     #[cfg(feature = "host")]
     dosi: crate::dosi::Engine,
     #[cfg(feature = "host")]
@@ -924,7 +991,6 @@ struct Runtime {
     restore: restore::Restore,
     #[cfg(feature = "host")]
     mentions: messages::Mentions,
-    #[cfg(feature = "host")]
     person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
@@ -934,6 +1000,7 @@ struct Runtime {
     #[cfg(feature = "host")]
     creating: HashMap<Uuid, Command>,
     listed: HashMap<Uuid, RemoteSession>,
+    pipes: HashMap<Uuid, OpenPipe>,
     remotes: HashMap<Uuid, SessionEntry>,
     starting: HashMap<Uuid, Starting>,
     connections: HashMap<Uuid, RemoteTerminal>,
@@ -1053,13 +1120,15 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     network.answer_calls(handle.command_client().answering());
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
+        pipes: HashMap::new(),
+        #[cfg(feature = "host")]
+        services: crate::canvas::CanvasServices::new(&config.data_root),
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
         restore,
         #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
-        #[cfg(feature = "host")]
         person: None,
         #[cfg(feature = "host")]
         config,
@@ -1207,6 +1276,13 @@ impl Runtime {
             .retain(|_, answer| !answer.lifetime.is_cancelled());
         self.visible
             .retain(|_, (lifetime, _)| !lifetime.is_cancelled());
+    }
+
+    /// A client that goes without closing its documents leaves them, so the others do not see
+    /// it there.
+    fn prune_pipes(&mut self) {
+        self.pipes
+            .retain(|_, open| !open.lifetime.is_cancelled() && !open.sender.is_closed());
     }
 
     fn entries(&self) -> Vec<SessionEntry> {
@@ -1406,7 +1482,7 @@ impl Runtime {
                         None => {},
                     }
                 }
-                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.reconnect_views(); }
+                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
                 _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
             }
         }
@@ -1447,6 +1523,8 @@ impl Runtime {
         self.save_screens().await;
         #[cfg(feature = "host")]
         self.stop_locals().await;
+        #[cfg(feature = "host")]
+        self.services.close().await;
         #[cfg(feature = "host")]
         crate::canvas::close_left(&self.config.data_root).await;
         #[cfg(feature = "host")]
@@ -1808,6 +1886,7 @@ impl Runtime {
                 };
                 local.entry.mission_id = sharing.room;
                 local.entry.mission_name = None;
+                local.tell_canvas_who_shares();
             }
         }
     }
@@ -2064,6 +2143,7 @@ impl Runtime {
             local.entry.shared_with.clear();
             local.entry.mission_id = None;
             local.entry.mission_name = None;
+            local.tell_canvas_who_shares();
             local.entry.owner_user_id.clone_from(&self.scope.user);
             local.entry.host_device_id = None;
         }
@@ -2132,10 +2212,7 @@ impl Runtime {
                 }
                 "auth.ready" | "auth.required" | "auth.error" => {
                     self.latest_auth = None;
-                    #[cfg(feature = "host")]
-                    {
-                        self.person = event.event["displayName"].as_str().map(str::to_owned);
-                    }
+                    self.person = event.event["displayName"].as_str().map(str::to_owned);
                 }
                 _ => {}
             }
@@ -2289,6 +2366,7 @@ impl Runtime {
                 local.entry.mission_id = room.map(|room| room.to_string());
             }
             local.room_sequence = sequence;
+            local.tell_canvas_who_shares();
             self.publish_catalog();
         }
     }

@@ -1,6 +1,7 @@
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The canvas key in the navigation bar: there when the canvas shows something, with a
 /// breathing dot for news.
@@ -27,6 +28,33 @@ struct CanvasKey: View {
     }
 }
 
+private struct CanvasCopy {
+    let name: String
+    let data: Data
+}
+
+/// Lets a person pick files for the canvas of a terminal.
+struct CanvasFilePicker: ViewModifier {
+    @Environment(AppModel.self) private var model
+    @Binding var isPresented: Bool
+    let session: RuntimeSession?
+    let added: () -> Void
+
+    func body(content: Content) -> some View {
+        content.fileImporter(isPresented: $isPresented, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+            guard let session, case let .success(files) = result else { return }
+            Task {
+                do {
+                    for file in files {
+                        try await model.terminals.canvas.attach(file, in: session.id)
+                    }
+                    added()
+                } catch { model.notices.show(error) }
+            }
+        }
+    }
+}
+
 /// The canvas of a terminal full screen: its parts in the bar, the files as tabs or cards, and
 /// the part that it shows.
 struct CanvasScreen: View {
@@ -36,6 +64,8 @@ struct CanvasScreen: View {
     let sessionId: String
     @State private var frame: CanvasFrame?
     @State private var typing = false
+    @State private var addingFile = false
+    @State private var copy: CanvasCopy?
 
     private var store: CanvasStore {
         model.terminals.canvas
@@ -68,10 +98,13 @@ struct CanvasScreen: View {
                         }
                         .transition(.opacity)
                     } else if let session, let current, let frame {
-                        CanvasItemView(session: session, shown: current, store: store, frame: frame, typing: typing,
-                                       ask: ask(current, in: session))
-                            .id(current.key)
-                            .transition(.opacity)
+                        CanvasItemView(session: session, shown: current, store: store, frame: frame, pages: model.terminals.documentPages,
+                                       typing: typing, ask: ask(current, in: session))
+                        { address in
+                            openBrowser(of: session, at: address)
+                        }
+                        .id(current.key)
+                        .transition(.opacity)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
@@ -103,6 +136,8 @@ struct CanvasScreen: View {
                             } else {
                                 store.show(section, in: session)
                             }
+                        } add: {
+                            addingFile = true
                         }
                     }
                 }
@@ -116,6 +151,9 @@ struct CanvasScreen: View {
                 }
             }
         }
+        .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) {})
+        .fileExporter(isPresented: Binding { copy != nil } set: { _ in copy = nil }, item: copy?.data, contentTypes: [.data],
+                      defaultFilename: copy?.name) { _ in copy = nil }
         .onAppear {
             if frame == nil {
                 frame = CanvasFrame()
@@ -135,6 +173,9 @@ struct CanvasScreen: View {
 
     @ViewBuilder
     private func actions(_ item: CanvasItem, in session: RuntimeSession) -> some View {
+        if !item.missing {
+            Button("Save a Copy…", systemImage: "square.and.arrow.down") { save(item, from: session) }
+        }
         if session.canControl, session.agent.isAgent {
             Button(session.askTitle, systemImage: "text.bubble") { ask(about: .item(item), words: nil, in: session) }
         }
@@ -150,6 +191,13 @@ struct CanvasScreen: View {
 
     private func ask(about shown: CanvasShown, words: String?, in session: RuntimeSession) {
         Task {
+            let words: String? = if let words {
+                words
+            } else if case let .item(item) = shown, item.view != nil {
+                await model.terminals.documentPages.selectedWords(of: item.key, in: session.id)
+            } else {
+                nil
+            }
             do {
                 try await model.terminals.mutate("session.input", session: session,
                                                  fields: ["text": .string(CanvasQuestion.about(shown, words: words))])
@@ -158,14 +206,19 @@ struct CanvasScreen: View {
         }
     }
 
-    private func openBrowser(of session: RuntimeSession) {
-        if session.canvas?.browser != nil {
-            store.show(.browser, in: session)
-            return
-        }
+    private func save(_ item: CanvasItem, from session: RuntimeSession) {
         Task {
             do {
-                try await store.openBrowser(in: session.id)
+                let (_, data) = try await store.content(of: item, in: session.id)
+                copy = CanvasCopy(name: item.name, data: data)
+            } catch { model.notices.show(error) }
+        }
+    }
+
+    private func openBrowser(of session: RuntimeSession, at address: URL? = nil) {
+        Task {
+            do {
+                try await store.openBrowser(of: session, at: address)
             } catch { model.notices.show(error) }
         }
     }

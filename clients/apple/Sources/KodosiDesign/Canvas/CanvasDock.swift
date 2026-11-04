@@ -17,6 +17,7 @@ public struct CanvasDock: View {
     let press: (CanvasSection) -> Void
     let close: ((CanvasSection) -> Void)?
     let open: ((CanvasSection) -> Void)?
+    let add: (() -> Void)?
     @State private var told: Told?
     @State private var tellings = 0
     @State private var pointed: CanvasSection?
@@ -24,7 +25,7 @@ public struct CanvasDock: View {
 
     public init(session: RuntimeSession, store: CanvasStore, chosen: CanvasSection?, flight: Namespace.ID? = nil, identifier: String,
                 press: @escaping (CanvasSection) -> Void, close: ((CanvasSection) -> Void)? = nil,
-                open: ((CanvasSection) -> Void)? = nil)
+                open: ((CanvasSection) -> Void)? = nil, add: (() -> Void)? = nil)
     {
         self.session = session
         self.store = store
@@ -34,6 +35,7 @@ public struct CanvasDock: View {
         self.press = press
         self.close = close
         self.open = open
+        self.add = add
     }
 
     private struct Told: Equatable {
@@ -61,7 +63,7 @@ public struct CanvasDock: View {
             .wellCapsule()
             .fixedSize()
             .modifier(Flight(id: session.id, space: flight))
-            if let open, !closed.isEmpty {
+            if let open, !closed.isEmpty || add != nil {
                 adder(closed, open: open)
                     .transition(.opacity)
             }
@@ -196,6 +198,16 @@ public struct CanvasDock: View {
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("\(identifier).open.\(section.rawValue)")
                         }
+                        if let add {
+                            Button {
+                                adding = false
+                                add()
+                            } label: {
+                                MenuRow(title: String(localized: "Add a File…", bundle: .module), symbol: CanvasSymbol.addFile)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("\(identifier).add")
+                        }
                     }
                     .padding(6).frame(width: 184)
                 }
@@ -203,6 +215,10 @@ public struct CanvasDock: View {
             Menu {
                 ForEach(closed) { section in
                     Button(section.title, systemImage: section.symbol) { open(section) }
+                }
+                if let add {
+                    Button(String(localized: "Add a File…", bundle: .module), systemImage: CanvasSymbol.addFile, action: add)
+                        .accessibilityIdentifier("\(identifier).add")
                 }
             } label: { plus }
                 .accessibilityLabel(Text("Open", bundle: .module))

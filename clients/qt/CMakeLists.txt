@@ -31,7 +31,7 @@ find_package(
     Qt6 ${KODOSI_QT_VERSION}
     EXACT
     REQUIRED
-    COMPONENTS Core Gui Qml Quick QuickControls2 Test WebEngineCore WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
+    COMPONENTS Core Gui Qml Quick QuickControls2 Test WebChannelQuick WebEngineCore WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
 )
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -162,6 +162,14 @@ set(agent_browser_notices "")
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(agent_browser_notices --notices "${KODOSI_AGENT_BROWSER_DIR}/notices")
 endif()
+set(KODOSI_DOCUMENT_VIEWS "${PROJECT_BINARY_DIR}/generated/DocumentViews")
+add_custom_target(kodosi-document-views-build ALL
+    COMMAND
+        "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/scripts/build-document-views.py"
+        --output-dir "${KODOSI_DOCUMENT_VIEWS}"
+    COMMENT "Building the document views"
+    VERBATIM
+)
 add_custom_target(kodosi-agent-browser-build ALL
     COMMAND
         "${CMAKE_COMMAND}" -E env ${KODOSI_CARGO_ENVIRONMENT}

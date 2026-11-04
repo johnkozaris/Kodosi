@@ -1,0 +1,48 @@
+.xlsx-holder {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.document-view[data-render] .xlsx-holder {
+  flex: none;
+  height: 100vh;
+}
+
+.xlsx-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.xlsx-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.xlsx-mark {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid;
+}
+
+.xlsx-mark span {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 0 4px;
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.xlsx-editing {
+  width: 9px;
+  height: 9px;
+  margin-right: 3px;
+  vertical-align: -1px;
+  stroke-width: 2.5;
+}

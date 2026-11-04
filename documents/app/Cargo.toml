@@ -1,0 +1,26 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "documents-app"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "documents-app"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = "2.7.4"
+
+[dependencies]
+documents = { workspace = true }
+documents-cli = { path = "../crates/cli" }
+tauri = "2.12.5"
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-opener = "2.7.2"
+tauri-plugin-single-instance = "2.5.5"
+tokio = { version = "1.54.1", features = ["macros", "sync"] }
+
+[lints]
+workspace = true

@@ -1,4 +1,5 @@
 #include "SessionFixture.hpp"
+#include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
@@ -141,78 +142,19 @@ private slots:
     void aPointOfTheViewBecomesAPointOfTheBrowser()
     {
         const QSizeF wide(1000, 500);
-        const QSizeF picture(1280, 720);
-        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(500, 250), wide, picture, picture), QPoint(640, 360));
-        QVERIFY(!kodosi::CanvasModel::browserPoint(QPointF(10, 250), wide, picture, picture));
-        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(500, 250), wide, QSizeF(2560, 1440), picture), QPoint(640, 360));
-        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(75.8, 103.3), QSizeF(451, 690), QSizeF(500, 690), QSizeF(451, 690)),
-            QPoint(84, 77));
-        QCOMPARE(kodosi::CanvasModel::pointInView(QPoint(640, 360), wide, QSizeF(2560, 1440), picture), QPointF(500, 250));
-        QCOMPARE(kodosi::CanvasModel::pointInView(QPoint(0, 0), wide, picture, picture), QPointF(55.5555555555555, 0));
+        const QSizeF browser(1280, 720);
+        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(500, 250), wide, browser), QPointF(640, 360));
+        QVERIFY(!kodosi::CanvasModel::browserPoint(QPointF(10, 250), wide, browser));
+        QCOMPARE(kodosi::CanvasModel::pointInView(QPointF(0, 0), wide, browser), QPointF(55.55555555555554, 0));
     }
 
-    void theBrowserGetsTheKeysOfAUsKeyboardAndOneBatchOfInputAtATime()
+    void theBrowserKnowsTheKeysOfAUsKeyboard()
     {
         QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_A)->code, QStringLiteral("KeyA"));
         QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Exclam)->code, QStringLiteral("Digit1"));
         QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Return)->named, QStringLiteral("Enter"));
         QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Left)->windows, 37);
         QVERIFY(!kodosi::CanvasModel::browserKey(Qt::Key_Shift));
-
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        model.setBrowserView(id, 800, 600);
-        QVERIFY(model.key(id, Qt::Key_A, QStringLiteral("a"), Qt::NoModifier, true));
-        QCOMPARE(commands.values.size(), 1);
-        const auto events = commands.request().value(QStringLiteral("events")).toArray();
-        QCOMPARE(events.first().toObject().value(QStringLiteral("text")).toString(), QStringLiteral("a"));
-        QCOMPARE(commands.request().value(QStringLiteral("width")).toInt(), 800);
-        QVERIFY(model.key(id, Qt::Key_A, QStringLiteral("\u0001"), Qt::ControlModifier, true));
-        QVERIFY(model.key(id, Qt::Key_A, QString {}, Qt::ControlModifier, false));
-        QCOMPARE(commands.values.size(), 1);
-        model.apply(answer(commands, { { QStringLiteral("answer"), QStringLiteral("done") } }));
-        const auto queued = commands.request().value(QStringLiteral("events")).toArray();
-        QCOMPARE(queued.size(), 2);
-        QCOMPARE(queued.first().toObject().value(QStringLiteral("eventType")).toString(), QStringLiteral("rawKeyDown"));
-        QCOMPARE(queued.first().toObject().value(QStringLiteral("key")).toString(), QStringLiteral("a"));
-        QCOMPARE(queued.first().toObject().value(QStringLiteral("modifiers")).toInt(), 2);
-        QVERIFY(model.key(id, Qt::Key_Eacute, QStringLiteral("é"), Qt::NoModifier, true));
-        QVERIFY(!model.key(id, Qt::Key_Shift, QString {}, Qt::ShiftModifier, true));
-    }
-
-    void theBrowserPictureFollowsEachNewFrame()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        QSignalSpy pictures(&model, &kodosi::CanvasModel::pictureChanged);
-        model.watch(id);
-        QCOMPARE(commands.request().value(QStringLiteral("type")).toString(), QStringLiteral("picture"));
-        QCOMPARE(commands.request().value(QStringLiteral("after")).toInt(), 0);
-        QImage frame(64, 36, QImage::Format_RGB32);
-        frame.fill(Qt::darkGreen);
-        QByteArray jpeg;
-        QBuffer buffer(&jpeg);
-        buffer.open(QIODevice::WriteOnly);
-        QVERIFY(frame.save(&buffer, "JPEG"));
-        model.apply(answer(commands, { { QStringLiteral("answer"), QStringLiteral("picture") }, { QStringLiteral("sequence"), 7 },
-                                         { QStringLiteral("frame"), QJsonObject { { QStringLiteral("width"), 32 },
-                                                                        { QStringLiteral("height"), 18 },
-                                                                        { QStringLiteral("data"), QString::fromLatin1(jpeg.toBase64()) } } } }));
-        QCOMPARE(pictures.size(), 1);
-        QCOMPARE(model.browserImage(id).size(), QSize(64, 36));
-        QCOMPARE(model.picture(id).value(QStringLiteral("sequence")).toInt(), 7);
-        QCOMPARE(commands.request().value(QStringLiteral("after")).toInt(), 7);
-        model.setBrowserView(id, 640, 360);
-        model.pointer(id, QStringLiteral("mousePressed"), 320, 180, Qt::LeftButton, 1, Qt::NoModifier);
-        const auto press = commands.request().value(QStringLiteral("events")).toArray().first().toObject();
-        QCOMPARE(press.value(QStringLiteral("x")).toInt(), 16);
-        QCOMPARE(press.value(QStringLiteral("y")).toInt(), 9);
-        QCOMPARE(press.value(QStringLiteral("button")).toString(), QStringLiteral("left"));
-        model.unwatch(id);
     }
 
     void askAboutThisTypesOneLineForThePersonToFinish()
@@ -224,16 +166,13 @@ private slots:
         QCOMPARE(kodosi::CanvasModel::about(QStringLiteral("x"), QString(700, QLatin1Char('w'))).size(), 612);
     }
 
-    void aPageLinkOpensOnThisDeviceButNotALocalAddressOfAnotherComputer()
+    void aPageFollowsOnlyWebAndMailLinks()
     {
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("https://kodosi.com/docs")), true));
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("mailto:ana@example.com")), true));
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://localhost:3000")), false));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://localhost:3000")), true));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://[::1]:3000")), true));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://app.localhost")), true));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("file:///etc/passwd")), false));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("javascript:alert(1)")), false));
+        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("https://kodosi.com/docs"))));
+        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("mailto:ana@example.com"))));
+        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://localhost:3000"))));
+        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("file:///etc/passwd"))));
+        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("javascript:alert(1)"))));
     }
 
     void aPartClosesOnThisDeviceUntilItChanges()
@@ -316,6 +255,134 @@ private slots:
         desktop.openCanvas(id);
         QVERIFY(desktop.unstageSession(id));
         QVERIFY(desktop.canvasSessionId().isEmpty());
+    }
+
+    void aPersonAddsAFileInPartsAndTheCanvasShowsIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        QTemporaryDir directory;
+        QFile file(directory.filePath(QStringLiteral("plan.md")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QByteArray(300 * 1024, 'a'));
+        file.close();
+        model.attach(id, QUrl::fromLocalFile(file.fileName()));
+        QCOMPARE(commands.request().value(QStringLiteral("type")).toString(), QStringLiteral("attach"));
+        QCOMPARE(commands.request().value(QStringLiteral("name")).toString(), QStringLiteral("plan.md"));
+        QVERIFY(!commands.request().value(QStringLiteral("last")).toBool());
+        model.apply(answer(commands, { { QStringLiteral("answer"), QStringLiteral("done") } }));
+        QCOMPARE(commands.request().value(QStringLiteral("offset")).toInt(), 256 * 1024);
+        QVERIFY(commands.request().value(QStringLiteral("last")).toBool());
+        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
+        model.apply(answer(commands,
+            { { QStringLiteral("answer"), QStringLiteral("attached") }, { QStringLiteral("key"), QStringLiteral("/work/plan.md") } }));
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
+    }
+
+    void aDocumentFrameComesBackWholeAndAGapBreaksThePipe()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
+        QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
+        QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        const auto request = commands.values.last().value(QStringLiteral("requestId"));
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") }, { QStringLiteral("requestId"), request } });
+        QCOMPARE(opened.size(), 1);
+        const auto part = [&pipe](int sequence, bool more, const QByteArray& data) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+                { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
+                { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
+        };
+        documents.apply(part(0, true, "Hel"));
+        QCOMPARE(received.size(), 0);
+        documents.apply(part(1, false, "lo"));
+        QCOMPARE(received.size(), 1);
+        QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("Hello").toBase64()));
+        documents.apply(part(3, false, "x"));
+        QCOMPARE(lost.size(), 1);
+        documents.send(pipe, QStringLiteral("AAAA"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+    }
+
+    void aDocumentHearsWhenItsTerminalRunsAgain()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        QSignalSpy reachable(&documents, &kodosi::CanvasDocuments::reachable);
+        auto remote = test::session(1, true);
+        remote.insert(QStringLiteral("status"), QStringLiteral("reconnecting"));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 0);
+        remote.insert(QStringLiteral("status"), QStringLiteral("running"));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 1);
+        QCOMPARE(reachable.first().first().toString(), test::id(1));
+        sessions.apply(test::snapshot({ remote }));
+        QCOMPARE(reachable.size(), 1);
+    }
+
+    void aLargeFrameGoesInPartsOfWholeLetterGroups()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        documents.send(pipe, QString(600 * 1024, u'A'));
+        QCOMPARE(commands.values.size(), 3);
+        const auto first = commands.values.at(1);
+        QVERIFY(first.value(QStringLiteral("more")).toBool());
+        QCOMPARE(first.value(QStringLiteral("data")).toString().size() % 4, 0);
+        QVERIFY(!commands.values.at(2).value(QStringLiteral("more")).toBool());
+    }
+
+    void aBrowserStepShowsWhatItDidAndAsksForTheNewStatus()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto answer = [&](const QString& type, const QString& operation, QJsonObject fields) {
+            fields.insert(QStringLiteral("type"), type);
+            fields.insert(QStringLiteral("operation"), operation);
+            fields.insert(QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")));
+            model.applyBrowser(fields);
+        };
+        model.openBrowserSettings();
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
+            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome"), QStringLiteral("Firefox") } },
+                { QStringLiteral("sites"), 0 } });
+        QVERIFY(model.browserKnown());
+        QCOMPARE(model.browserSources(), QStringList({ QStringLiteral("Chrome"), QStringLiteral("Firefox") }));
+        QVERIFY(model.browserEngine().isEmpty());
+
+        model.copySignIns(QStringLiteral("Chrome"));
+        QCOMPARE(model.browserWork(), QStringLiteral("Chrome"));
+        model.forgetSignIns();
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.copy"));
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.copy"), { { QStringLiteral("sites"), 12 } });
+        QVERIFY(model.browserWork().isEmpty());
+        QCOMPARE(model.browserDone().value(QStringLiteral("Chrome")).toString(), QStringLiteral("Copied for 12 sites"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.status"));
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
+            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome") } }, { QStringLiteral("sites"), 12 },
+                { QStringLiteral("engine"), QStringLiteral("Chromium 156.0.8078.47") } });
+        QCOMPARE(model.browserSites(), 12);
+        QCOMPARE(model.browserEngine(), QStringLiteral("Chromium 156.0.8078.47"));
+
+        model.forgetSignIns();
+        answer(QStringLiteral("browser.result"), QStringLiteral("browser.forget"), { { QStringLiteral("sites"), 12 } });
+        QVERIFY(model.browserDone().isEmpty());
+
+        model.removeBrowsingData();
+        answer(QStringLiteral("browser.error"), QStringLiteral("browser.clear"),
+            { { QStringLiteral("message"), QStringLiteral("The profile could not go.") } });
+        QCOMPARE(model.browserProblem(), QStringLiteral("The profile could not go."));
+        QVERIFY(!model.browserDone().contains(QStringLiteral("clear")));
     }
 };
 

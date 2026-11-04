@@ -1,4 +1,6 @@
 #include "terminal/TerminalLink.hpp"
+
+#include "presentation/LocalAddress.hpp"
 #include "terminal/TerminalFrame.hpp"
 
 #include <QByteArray>
@@ -65,28 +67,6 @@ bool isThisComputer(const QString& host)
 {
     return host.compare(QStringLiteral("localhost"), Qt::CaseInsensitive) == 0
         || host.compare(QSysInfo::machineHostName(), Qt::CaseInsensitive) == 0;
-}
-
-bool isByte(const QString& part)
-{
-    bool number = false;
-    const auto value = part.toUInt(&number);
-    return number && value <= 255;
-}
-
-// An address on the loopback interface names the computer that serves it.
-bool isLoopback(QString host)
-{
-    host = host.toLower();
-    if (host.startsWith(u'[') && host.endsWith(u']')) {
-        host = host.sliced(1, host.size() - 2);
-    }
-    if (host == QStringLiteral("localhost") || host.endsWith(QStringLiteral(".localhost"))
-        || host == QStringLiteral("0.0.0.0") || host == QStringLiteral("::") || host == QStringLiteral("::1")) {
-        return true;
-    }
-    const auto parts = host.split(u'.');
-    return parts.size() == 4 && parts.first() == QStringLiteral("127") && std::ranges::all_of(parts, isByte);
 }
 
 // Opening one of these runs code, whatever the program in the terminal says it is.
@@ -188,10 +168,9 @@ TerminalLinkDecision decideTerminalLink(const QString& value, const QString& oth
         if (link.host().isEmpty()) {
             return refuse(shown, QT_TRANSLATE_NOOP("TerminalLink", "The web link has no host."));
         }
-        if (!otherComputer.isEmpty() && isLoopback(link.host())) {
-            return refuse(shown, QT_TRANSLATE_NOOP("TerminalLink", "The address is on %1."), otherComputer);
-        }
-        return {TerminalLinkDecision::Action::Open, link, shown, {}};
+        const auto action
+            = isLocalAddress(link.host()) ? TerminalLinkDecision::Action::Browser : TerminalLinkDecision::Action::Open;
+        return {action, link, shown, {}};
     }
     if (scheme == QStringLiteral("mailto")) {
         if (link.path().isEmpty()) {

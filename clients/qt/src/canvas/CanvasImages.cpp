@@ -15,9 +15,7 @@ QImage CanvasImages::requestImage(const QString& id, QSize* size, const QSize& r
 {
     const auto parts = id.split(QLatin1Char('/'));
     QImage image;
-    if (parts.size() == 3 && parts[0] == QStringLiteral("browser")) {
-        image = m_canvas.browserImage(parts[1]);
-    } else if (parts.size() == 2 && parts[0] == QStringLiteral("item")) {
+    if (parts.size() == 2 && parts[0] == QStringLiteral("item")) {
         if (const auto content = m_canvas.published(parts[1].toInt())) {
             QBuffer buffer;
             buffer.setData(*content);

@@ -1,9 +1,11 @@
 #pragma once
 #include "accessibility/AccessibilityScope.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
+#include "canvas/BrowserVideo.hpp"
 #include "canvas/CanvasWeb.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
+#include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -244,6 +246,16 @@ public:
     static kodosi::CanvasModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
+struct CanvasDocumentsForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::CanvasDocuments)
+    QML_NAMED_ELEMENT(CanvasDocuments)
+    QML_SINGLETON
+public:
+    inline static kodosi::CanvasDocuments* instance = nullptr;
+    static kodosi::CanvasDocuments* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
 struct CanvasWebForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::CanvasWeb)
@@ -252,6 +264,12 @@ struct CanvasWebForeign {
 public:
     inline static kodosi::CanvasWeb* instance = nullptr;
     static kodosi::CanvasWeb* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
+struct BrowserVideoForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::BrowserVideo)
+    QML_NAMED_ELEMENT(BrowserVideo)
 };
 
 struct TerminalViewForeign {
@@ -274,5 +292,6 @@ struct KeyedListModelForeign {
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
-    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasWeb&, ShortcutsModel&);
+    ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasDocuments&,
+    CanvasWeb&, ShortcutsModel&);
 }

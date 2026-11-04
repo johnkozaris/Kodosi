@@ -13,6 +13,7 @@
         private let allowsInput: Bool
         private let asksBeforeClipboardRead: Bool
         private let otherComputer: String?
+        private let opensBrowser: (URL) -> Void
         private let isSurfaceVisible: Bool
         private let onFocusChange: (Bool) -> Void
 
@@ -25,6 +26,7 @@
             allowsInput: Bool,
             asksBeforeClipboardRead: Bool = true,
             otherComputer: String? = nil,
+            opensBrowser: @escaping (URL) -> Void,
             isSurfaceVisible: Bool,
             onFocusChange: @escaping (Bool) -> Void,
         ) {
@@ -36,6 +38,7 @@
             self.allowsInput = allowsInput
             self.asksBeforeClipboardRead = asksBeforeClipboardRead
             self.otherComputer = otherComputer
+            self.opensBrowser = opensBrowser
             self.isSurfaceVisible = isSurfaceVisible
             self.onFocusChange = onFocusChange
         }
@@ -50,6 +53,7 @@
                 allowsInput: allowsInput,
                 asksBeforeClipboardRead: asksBeforeClipboardRead,
                 otherComputer: otherComputer,
+                opensBrowser: opensBrowser,
                 isSurfaceVisible: isSurfaceVisible,
                 onFocusChange: onFocusChange,
             )
@@ -109,6 +113,7 @@
         let allowsInput: Bool
         let asksBeforeClipboardRead: Bool
         let otherComputer: String?
+        let opensBrowser: (URL) -> Void
         let isSurfaceVisible: Bool
         let onFocusChange: (Bool) -> Void
 
@@ -153,6 +158,7 @@
             view.delegateProxy.viewportDidResize = nil
             view.delegateProxy.asksBeforeClipboardRead = asksBeforeClipboardRead
             view.delegateProxy.otherComputer = otherComputer
+            view.delegateProxy.opensBrowser = opensBrowser
             view.delegateProxy.clipboardReadRequested = { [weak view] answer in
                 view?.askToShareClipboard(sessionName: sessionName, answer)
             }

@@ -78,6 +78,30 @@ pub(super) async fn browse(
         .unwrap_or(1))
 }
 
+/// Runs a document command and gives its exit code.
+pub(super) async fn document(
+    arguments: Vec<String>,
+    client: &mut local_host::Client,
+    context: &mut Context,
+    json_output: bool,
+) -> Result<u8> {
+    let session = terminal()?;
+    let folder = super::path(Some(PathBuf::from(".")))?
+        .ok_or_else(|| Error::Invalid("This folder is not available.".to_owned()))?;
+    let event = request(
+        client,
+        context,
+        json!({"type":"canvas.document","sessionId":session,"folder":folder,"arguments":arguments}),
+        json_output,
+    )
+    .await?;
+    output(&event, json_output, answer_text(&event))?;
+    Ok(event["answer"]["code"]
+        .as_i64()
+        .and_then(|code| u8::try_from(code).ok())
+        .unwrap_or(1))
+}
+
 pub(super) async fn run(
     action: Option<CanvasAction>,
     client: &mut local_host::Client,

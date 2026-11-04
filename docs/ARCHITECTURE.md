@@ -101,9 +101,10 @@ agent on any computer, as a terminal control. The terminal types a message only 
 its agent reports a state other than waiting for a person and nobody types there, and
 Enter follows as a key of its own.
 
-The host also writes a plugin folder with the `kodosi` and `kodosi-canvas` skills in its
-`agents` folder at each start. Claude Code finds it through `CLAUDE_CODE_PLUGIN_DIRS`, after
-the person's own folders, and the launcher gives it to Copilot CLI with `--plugin-dir`.
+The host also writes a plugin folder with the `kodosi`, `kodosi-canvas` and
+`kodosi-documents` skills in its `agents` folder at each start. Claude Code finds it
+through `CLAUDE_CODE_PLUGIN_DIRS`, after the person's own folders, and the launcher gives
+it to Copilot CLI with `--plugin-dir`.
 Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
 own folders, so an agent outside a Kodosi terminal does not change.
 
@@ -118,18 +119,72 @@ terminal's encrypted channel. An app asks for the content of one revision with
 `canvas.request` and gets it in parts of 256 KiB, so a device of another computer reads
 it over the same channel. Each app keeps what it read by revision.
 
-The shared browser is the agent-browser program next to the `kodosi` program, with the
-terminal's own session, a profile in the host's data folder, Kodosi's settings and none of
-the person's `AGENT_BROWSER_*` variables. agent-browser starts the computer's Chrome,
-Chromium, Edge or Brave. The host runs each `kodosi browser <command>` in the agent's
-folder, and reads the tabs after each command and when a page moves. While a command runs,
-the browser's state names the agent, what it does and the point of its target, which
-agent-browser's `get box --json` gives; with a device looking, the command waits a moment
-after that state, so the agent's pointer arrives first. While a device looks, the host
-relays the JPEG pictures of agent-browser's stream to it and the person's input back. After 10 minutes with no command, no input and nobody looking, the host closes
-the browser and keeps its profile. When the host stops, it closes every browser; the
-terminal's restore record keeps the canvas and the browser's last page. Closing the
-terminal deletes the profile, and a new host deletes the profiles that no terminal has.
+A person adds a file with `canvas.request` in parts too. The host writes the parts beside
+the file's place in the terminal's folder, so an agent never sees a part of it, and a new
+empty file claims the free name before the whole file moves there.
+
+### Live documents
+
+[documents/](../documents/) is a decoupled system: its crates and views import nothing of
+Kodosi. One task on the host owns each open file and keeps a plain document value. Each
+change goes through that value in order, reaches the journal, and then goes to every view
+with its rev. A key-named change is always valid. A change that names a position is valid
+only on the latest positions; else the view moves its edit and sends it again. So there is
+no CRDT. The host saves two seconds after the last change and at most 15 seconds after the
+first, swaps only the changed parts of the file, and renames it into place. After a crash
+it opens the file and replays the journal. An outside write merges by comparing it with the
+last saved state. The document closes 60 seconds after its last view leaves.
+
+The view bundle is one static page in each app, in a closed web page with no way to the
+network. Each app keeps the web page of a file apart from its canvas, so a page that leaves
+the screen keeps its place and its undo, and it closes after five minutes out of sight.
+A view's frames go through the app to `document.open`, `document.send` and
+`document.frame`. On the same computer the host's local connection carries them. From
+another device they travel on the terminal's encrypted channel as pipe frames, when the
+pacer has room and no terminal output waits. Agents use the same server with `kodosi doc`,
+which the host runs by its arguments. The Tauri app in `documents/app/` is a second host,
+with one viewer for each window.
+
+### Shared browser
+
+[browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
+each terminal: plain Chromium with no engine patches, started hidden with a debug port on
+`127.0.0.1` and the capture extension. On Linux it runs on its own Xvfb display. The first
+window gets the engine from a signed feed. The host looks at the feed each day: a browser
+that starts after an update uses the new engine, a browser that runs keeps its own, and the
+old engine goes when the host starts again.
+
+While a device looks, the extension's tab capture feeds `VideoEncoder`, and H.264 frames
+reach the host on a local socket with a one-time token. A viewer's pipe carries these
+frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
+window, and the host steers its bitrate from the round trip, so no queue forms. A viewer
+that falls behind gets nothing until the next key frame. The Mac and iPhone apps show frames
+on a display layer. The Linux and Windows app decodes with OpenH264 in the runtime library.
+Clicks, keys and text come back on the pipe, and the host gives them to the page on the
+debug port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as
+state, and the app draws them.
+
+A viewer on another device asks on the terminal's channel for a straight connection. The
+host opens a port from 47360 to 47379 for a few seconds, and answers with its addresses.
+The viewer tries them at once, and the channel's TLS runs on TCP with the same device keys.
+The host lets only the viewer's device through. When no address answers, the pipe uses the
+terminal's channel, where terminal output goes first. The path stays until the pipe ends,
+and the view then joins again.
+
+The host runs each `kodosi browser <command>` in the agent's folder as agent-browser on that
+debug port, with the terminal's own session, Kodosi's settings and none of the person's
+`AGENT_BROWSER_*` variables. agent-browser leaves the port after a minute with no command,
+because a page can notice a client there. While a command runs, the browser's state names
+the agent, what it does and the point of its target, which agent-browser's `get box --json`
+gives, and the command waits a moment, so the agent's pointer arrives first.
+
+After 10 minutes with no use and nobody looking, the window closes. The browser exits with
+its last window, and the terminal's restore record keeps the last page. A person's private
+terminals share one kept profile. A shared terminal has a profile of its own, which goes
+with the terminal, and a new host deletes the profiles that no terminal has. Settings ›
+Browser reads the cookies of another browser's store before a browser starts, puts them
+into the kept profile on the debug port, and notes which ones, so a button can remove them
+again. Another button deletes the kept profile.
 
 ## Contracts
 

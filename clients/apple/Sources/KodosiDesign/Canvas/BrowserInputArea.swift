@@ -23,8 +23,7 @@ private extension BrowserFeed {
     func press(_ key: BrowserKeys.Key, typed: String?, down: Bool, modifiers: BrowserInput.Modifiers) {
         let name = key.named ?? typed ?? ""
         let text = down ? (key.code == "Space" ? " " : key.named == "Enter" ? "\r" : key.named == nil ? typed : nil) : nil
-        let event: BrowserInput.KeyEvent = down ? (text == nil ? .rawKeyDown : .keyDown) : .keyUp
-        send(.key(event, key: name, code: key.code, text: text, keyCode: key.windows, modifiers: modifiers))
+        send(.key(down ? .keyDown : .keyUp, key: name, code: key.code, text: text, keyCode: key.windows, modifiers: modifiers))
     }
 }
 
@@ -57,11 +56,20 @@ extension BrowserKeys {
 
         func updateNSView(_ view: BrowserInputView, context _: Context) {
             view.feed = feed
+            view.show(shape: feed.window.shape)
         }
     }
 
     final class BrowserInputView: NSView {
         var feed: BrowserFeed
+        private var shape = ""
+
+        func show(shape: String) {
+            if shape != self.shape {
+                self.shape = shape
+                window?.invalidateCursorRects(for: self)
+            }
+        }
 
         init(feed: BrowserFeed) {
             self.feed = feed
@@ -83,6 +91,24 @@ extension BrowserKeys {
 
         override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
             true
+        }
+
+        override func resetCursorRects() {
+            addCursorRect(bounds, cursor: Self.cursor(feed.window.shape))
+        }
+
+        private static func cursor(_ shape: String) -> NSCursor {
+            switch shape {
+            case "pointer": .pointingHand
+            case "text", "vertical-text": .iBeam
+            case "crosshair": .crosshair
+            case "grab": .openHand
+            case "grabbing": .closedHand
+            case "not-allowed": .operationNotAllowed
+            case "col-resize", "ew-resize", "e-resize", "w-resize": .resizeLeftRight
+            case "row-resize", "ns-resize", "n-resize", "s-resize": .resizeUpDown
+            default: .arrow
+            }
         }
 
         override func updateTrackingAreas() {
@@ -138,8 +164,8 @@ extension BrowserKeys {
         override func scrollWheel(with event: NSEvent) {
             guard let point = feed.browserPoint(convert(event.locationInWindow, from: nil), in: bounds.size) else { return }
             let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 40
-            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Int(-event.scrollingDeltaX * scale),
-                             deltaY: Int(-event.scrollingDeltaY * scale), modifiers: Self.modifiers(event.modifierFlags)))
+            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-event.scrollingDeltaX * scale),
+                             deltaY: Double(-event.scrollingDeltaY * scale), modifiers: Self.modifiers(event.modifierFlags)))
         }
 
         override func keyDown(with event: NSEvent) {
@@ -294,7 +320,7 @@ extension BrowserKeys {
             let delta = CGPoint(x: moved.x - panned.x, y: moved.y - panned.y)
             panned = moved
             guard let point = feed.browserPoint(gesture.location(in: self), in: bounds.size) else { return }
-            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Int(-delta.x), deltaY: Int(-delta.y)))
+            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-delta.x), deltaY: Double(-delta.y)))
         }
 
         static func modifiers(_ flags: UIKeyModifierFlags) -> BrowserInput.Modifiers {

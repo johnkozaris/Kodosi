@@ -37,7 +37,7 @@ symbols=$("$llvm_nm" --defined-only --extern-only --quiet "$archive" | awk 'NF {
 if grep -q '^_ghostty_' <<<"$symbols"; then
     fail "contains Ghostty definitions. The app must link exactly one Ghostty image, the locked one."
 fi
-declared=$(perl -0777 -ne 'while (/\b(kodosi_[A-Za-z0-9_]+)\s*\(/g) { print "_$1\n" }' "$header" | sort -u)
+declared=$(grep -v '^#include' "$header" | clang -E -P -x c - | perl -0777 -ne 'while (/\b(kodosi_[A-Za-z0-9_]+)\s*\(/g) { print "_$1\n" }' | sort -u)
 exported=$(grep '^_kodosi_' <<<"$symbols" | sort -u || true)
 if [[ -z "$declared" || "$declared" != "$exported" ]]; then
     diff -u <(printf '%s\n' "$declared") <(printf '%s\n' "$exported") >&2 || true

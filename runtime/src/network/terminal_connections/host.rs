@@ -1,16 +1,18 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use futures_util::stream::{FuturesOrdered, FuturesUnordered};
 use tokio::task::JoinSet;
 
 use super::{
     channel::{Channel, Transport},
+    direct::Door,
     link::{HostEvent, Hosted, Pipe},
     pacer::Pacer,
     wire::{Accept, ControlResult, End, Frame, PictureOffer, PictureState, PictureStep, Refuse},
     *,
 };
 use crate::{
+    canvas::{MOST_PIPE_FRAME, PIPE_QUEUE},
     network::{CheckpointCut, HostPicture, TerminalStatus},
     terminal::{Picture, TERMINAL_PICTURE_MAX_BYTES, TerminalMetadata},
 };
@@ -426,7 +428,8 @@ async fn connect(
     cancel: &CancellationToken,
 ) -> Result<()> {
     let id = pipe.id();
-    let mut channel = Channel::accept(pipe, &*network.channel_keys(credentials)?).await?;
+    let keys = network.channel_keys(credentials)?;
+    let mut channel = Channel::accept(pipe, &keys).await?;
     let key = channel.peer_key()?;
     if let Err(refuse) = admit(
         network,
@@ -442,25 +445,29 @@ async fn connect(
         channel.close().await;
         return Ok(());
     }
+    let info = publication.info.read().await.clone();
+    let accept = Frame::Accept(Accept {
+        protocol_version: crate::protocol::CHANNEL_VERSION,
+        session_id: info.session_id,
+        incarnation_id: info.incarnation_id,
+        host_device_id: credentials.keys.device_id.clone(),
+    });
+    if channel.version().is_err() {
+        // An older viewer reads this version and says that its own Kodosi must update.
+        channel.send(&accept).await?;
+        channel.close().await;
+        return Ok(());
+    }
     let admitted = Admitted {
         user: user.clone(),
         device: device.clone(),
-        key,
+        key: key.clone(),
         cancel: cancel.clone(),
     };
     if let Ok(mut viewers) = viewers.lock() {
         viewers.insert(id, admitted);
     }
-    let info = publication.info.read().await.clone();
-    let version = channel.version()?;
-    channel
-        .send(&Frame::Accept(Accept {
-            protocol_version: version,
-            session_id: info.session_id,
-            incarnation_id: info.incarnation_id,
-            host_device_id: credentials.keys.device_id.clone(),
-        }))
-        .await?;
+    channel.send(&accept).await?;
     publication
         .requests
         .send(HostRequest::Connected {
@@ -471,6 +478,13 @@ async fn connect(
         .map_err(|_| Error::Closed)?;
     let authorization = cancel.child_token();
     let _authorization = authorization.clone().drop_guard();
+    let door = Door::new(
+        keys,
+        key,
+        publication.requests.clone(),
+        id,
+        authorization.clone(),
+    );
     let (ended, channel) = {
         let mut stream = Stream::new(
             channel,
@@ -480,6 +494,7 @@ async fn connect(
                 connection: id,
                 authorization,
             },
+            door,
         );
         (stream.serve().await, stream.channel)
     };
@@ -545,6 +560,9 @@ async fn admit(
     }
 }
 
+const LEAVING_FRAMES: usize = 64;
+const PIPE_PARTS_WAITING: usize = 256;
+
 struct Controller {
     connection: Uuid,
     authorization: CancellationToken,
@@ -576,11 +594,33 @@ enum Captured {
     Ended(End),
 }
 
+/// What the documents of this connection give it to send.
+enum Leaving {
+    Frame { pipe: Uuid, frame: Vec<u8> },
+    Closed { pipe: Uuid },
+}
+
+struct PipeIn {
+    sender: mpsc::Sender<Vec<u8>>,
+    filling: Vec<u8>,
+}
+
+/// Carries a document's frames to the connection until the document or the connection ends.
+async fn leave(pipe: Uuid, mut frames: mpsc::Receiver<Vec<u8>>, leaving: mpsc::Sender<Leaving>) {
+    while let Some(frame) = frames.recv().await {
+        if leaving.send(Leaving::Frame { pipe, frame }).await.is_err() {
+            return;
+        }
+    }
+    drop(leaving.send(Leaving::Closed { pipe }).await);
+}
+
 struct Stream<'a, T> {
     channel: Channel<T>,
     output: PublicationOutput,
     requests: &'a mpsc::Sender<HostRequest>,
     controller: Controller,
+    door: Door,
     pacer: Pacer,
     parts: VecDeque<Bytes>,
     waiting: VecDeque<Waiting>,
@@ -598,6 +638,10 @@ struct Stream<'a, T> {
     input_confirmed: u64,
     inputs: Inputs,
     controls: Controls,
+    pipes: HashMap<Uuid, PipeIn>,
+    pipe_parts: VecDeque<Frame>,
+    leaving: mpsc::Receiver<Leaving>,
+    leaving_to: mpsc::Sender<Leaving>,
     picture: Option<Receiving>,
     picture_answer: Option<PictureAnswer>,
 }
@@ -614,12 +658,15 @@ impl<'a, T: Transport> Stream<'a, T> {
         output: PublicationOutput,
         requests: &'a mpsc::Sender<HostRequest>,
         controller: Controller,
+        door: Door,
     ) -> Self {
+        let (leaving_to, leaving) = mpsc::channel(LEAVING_FRAMES);
         Self {
             channel,
             output,
             requests,
             controller,
+            door,
             pacer: Pacer::default(),
             parts: VecDeque::new(),
             waiting: VecDeque::new(),
@@ -637,6 +684,10 @@ impl<'a, T: Transport> Stream<'a, T> {
             input_confirmed: 0,
             inputs: Inputs::new(),
             controls: Controls::new(),
+            pipes: HashMap::new(),
+            pipe_parts: VecDeque::new(),
+            leaving,
+            leaving_to,
             picture: None,
             picture_answer: None,
         }
@@ -719,6 +770,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                         };
                     }
                 }
+                Some(left) = self.leaving.recv(), if self.pipe_parts.len() < PIPE_PARTS_WAITING => {
+                    self.left(left);
+                }
                 () = async { tokio::time::sleep_until(capture.unwrap_or_else(tokio::time::Instant::now)).await }, if capture.is_some() => {}
                 () = async { tokio::time::sleep_until(exact.unwrap_or_else(tokio::time::Instant::now)).await }, if exact.is_some() => {
                     self.live = false;
@@ -729,6 +783,114 @@ impl<'a, T: Transport> Stream<'a, T> {
     }
 
     async fn advance(&mut self) -> Result<Option<End>> {
+        let end = self.advance_terminal().await?;
+        if end.is_none() {
+            self.send_pipe_parts().await?;
+        }
+        Ok(end)
+    }
+
+    /// Terminal output goes first. Documents use the room that it leaves.
+    async fn send_pipe_parts(&mut self) -> Result<()> {
+        while !self.pipe_parts.is_empty()
+            && self.parts.is_empty()
+            && (!self.live || self.waiting.is_empty())
+            && self.pacer.room()
+        {
+            let Some(frame) = self.pipe_parts.pop_front() else {
+                break;
+            };
+            let sent = self.channel.send(&frame).await?;
+            if frame.carries_output() {
+                self.pacer.sent(sent as u64, tokio::time::Instant::now());
+            }
+        }
+        Ok(())
+    }
+
+    fn left(&mut self, left: Leaving) {
+        match left {
+            Leaving::Closed { pipe } => {
+                self.pipes.remove(&pipe);
+                self.pipe_parts.push_back(Frame::PipeClose { pipe });
+            }
+            Leaving::Frame { pipe, frame } => {
+                let parts = frame.len().div_ceil(wire::PIPE_PART);
+                for (index, part) in frame.chunks(wire::PIPE_PART).enumerate() {
+                    self.pipe_parts.push_back(Frame::PipeData {
+                        pipe,
+                        more: index + 1 < parts,
+                        part: Bytes::copy_from_slice(part),
+                    });
+                }
+            }
+        }
+    }
+
+    /// Asks the terminal for a document. A slow open does not hold the terminal, and frames
+    /// that the viewer sends in that time wait in the pipe.
+    fn open_pipe(&mut self, pipe: Uuid, key: String, name: String) {
+        if self.pipes.len() >= MOST_PIPES {
+            self.pipe_parts.push_back(Frame::PipeClose { pipe });
+            return;
+        }
+        let (sender, mut waiting) = mpsc::channel(PIPE_QUEUE);
+        self.pipes.insert(
+            pipe,
+            PipeIn {
+                sender,
+                filling: Vec::new(),
+            },
+        );
+        let requests = self.requests.clone();
+        let leaving = self.leaving_to.clone();
+        let connection_id = self.controller.connection;
+        tokio::spawn(async move {
+            let (reply, response) = oneshot::channel();
+            let request = HostRequest::Document {
+                connection_id,
+                key,
+                name,
+                reply,
+            };
+            let ends = match requests.send(request).await {
+                Ok(()) => response.await.ok().and_then(std::result::Result::ok),
+                Err(_) => None,
+            };
+            let Some(ends) = ends else {
+                drop(leaving.send(Leaving::Closed { pipe }).await);
+                return;
+            };
+            tokio::spawn(leave(pipe, ends.receiver, leaving));
+            while let Some(frame) = waiting.recv().await {
+                if ends.sender.send(frame).await.is_err() {
+                    return;
+                }
+            }
+        });
+    }
+
+    fn pipe_part(&mut self, pipe: Uuid, more: bool, part: &Bytes) -> Result<()> {
+        let Some(open) = self.pipes.get_mut(&pipe) else {
+            return Ok(());
+        };
+        if open.filling.len() + part.len() > MOST_PIPE_FRAME {
+            return Err(invalid("A document frame exceeds its bound."));
+        }
+        open.filling.extend_from_slice(part);
+        if !more
+            && open
+                .sender
+                .try_send(std::mem::take(&mut open.filling))
+                .is_err()
+        {
+            self.pipes.remove(&pipe);
+            self.pipe_parts.push_back(Frame::PipeClose { pipe });
+        }
+        Ok(())
+    }
+
+    async fn advance_terminal(&mut self) -> Result<Option<End>> {
         loop {
             if !self.live && self.parts.is_empty() && self.pacer.in_transit() == 0 {
                 self.pacer.idle();
@@ -1045,6 +1207,17 @@ impl<'a, T: Transport> Stream<'a, T> {
                         }),
                     }
                 }));
+            }
+            Frame::PipeOpen { pipe, key, name } => self.open_pipe(pipe, key, name),
+            Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part)?,
+            Frame::PipeClose { pipe } => {
+                self.pipes.remove(&pipe);
+            }
+            Frame::DirectAsk { pipe } => {
+                let addresses = self.door.open().await;
+                self.channel
+                    .send(&Frame::DirectOffer { pipe, addresses })
+                    .await?;
             }
             Frame::Picture(offer) => self.offered(offer).await?,
             Frame::PicturePart { id, offset, bytes } => self.part(id, offset, &bytes).await?,

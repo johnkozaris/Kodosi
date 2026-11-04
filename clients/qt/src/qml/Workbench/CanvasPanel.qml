@@ -23,10 +23,13 @@ Item {
     readonly property var current: currentKey === "browser" && canvas && canvas.browser ? { key: "browser", kind: "browser", browser: canvas.browser }
         : files.filter(item => item.key === currentKey).map(item => ({ key: item.key, kind: item.kind, title: item.name,
             missing: item.missing === true, item: item }))[0] || null
-    readonly property string loadKey: current && current.item && !current.missing ? current.key + "\n" + current.item.revision : ""
+    readonly property string documentView: current ? liveView(current.item) : ""
+    readonly property string loadKey: current && current.item && !current.missing && documentView.length === 0
+        ? current.key + "\n" + current.item.revision : ""
     readonly property bool local: session.kind === "local"
     readonly property bool agent: Models.DesktopSettings.agentOf(session.program || "") !== "shell"
     property string readyKey: ""
+    property string placedKey: ""
     property int readyCount: 0
     property string failure: ""
 
@@ -38,12 +41,19 @@ Item {
         if (currentKey.length > 0)
             Models.Canvas.saw(sessionId, currentKey);
     }
+    function documentKind(kind) {
+        return kind === "document" || kind === "sheet" || kind === "presentation";
+    }
+    function kindName(kind) {
+        return kind === "picture" ? qsTr("Picture") : kind === "pdf" ? qsTr("PDF") : kind === "document" ? qsTr("Document")
+            : kind === "sheet" ? qsTr("Sheet") : kind === "presentation" ? qsTr("Presentation") : qsTr("Page");
+    }
     function glyph(kind) {
-        return kind === "picture" ? "picture" : kind === "office" ? "office" : "page";
+        return kind === "picture" || root.documentKind(kind) ? kind : "page";
     }
     function load() {
         failure = "";
-        if (!current || !current.item || current.missing)
+        if (!current || !current.item || current.missing || documentView.length > 0)
             return;
         if (readyKey !== current.key)
             readyKey = "";
@@ -52,13 +62,32 @@ Item {
             ++readyCount;
         }
     }
+    // The live view of a file, when this device shows it in one.
+    function liveView(item) {
+        return item && item.missing !== true && Models.CanvasWeb.available
+            && Models.DesktopSettings.shownViews[item.view] === true ? item.view : "";
+    }
+    // Puts the view of the current file in its place, and takes the one before off the screen,
+    // where it waits a while with its place and its undo.
+    function placeDocument() {
+        const key = !shelf && documentView.length > 0 ? currentKey : "";
+        if (key === placedKey)
+            return;
+        if (placedKey.length > 0)
+            DocumentViews.hide(sessionId, placedKey);
+        placedKey = key;
+        if (key.length > 0)
+            DocumentViews.show(sessionId, key, documentView, documentPlace);
+    }
     function ask(key) {
         const send = words => {
             if (Models.SessionActions.input(root.sessionId, Models.Canvas.question(root.sessionId, key, words)))
                 root.asked();
         };
         const page = body.item as CanvasPage;
-        if (page && key === root.currentKey)
+        if (key === root.placedKey)
+            DocumentViews.selection(root.sessionId, key, send);
+        else if (page && key === root.currentKey)
             page.selection(send);
         else
             send("");
@@ -73,12 +102,20 @@ Item {
     }
 
     objectName: "canvas." + sessionId
+    onDocumentViewChanged: Qt.callLater(placeDocument)
+    onShelfChanged: Qt.callLater(placeDocument)
+    Component.onCompleted: placeDocument()
+    Component.onDestruction: {
+        if (placedKey.length > 0)
+            DocumentViews.hide(sessionId, placedKey);
+    }
     Accessible.id: objectName
     Accessible.role: Accessible.Pane
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
     onCurrentKeyChanged: {
+        Qt.callLater(placeDocument);
         body.active = false;
         body.active = true;
         Qt.callLater(markSeen);
@@ -109,6 +146,15 @@ Item {
         target: Models.Canvas
     }
     HoverHandler { id: hover }
+    DropArea {
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: drop => {
+            for (const file of drop.urls)
+                Models.Canvas.attach(root.sessionId, file);
+            drop.accept(Qt.CopyAction);
+        }
+    }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -132,6 +178,7 @@ Item {
                 }
                 onOpenRequested: section => section === "browser" ? Models.Canvas.openBrowser(root.sessionId)
                     : Models.Canvas.show(root.sessionId, section)
+                onAddRequested: Models.DesktopFiles.requestFiles(root.sessionId)
             }
             Item { Layout.fillWidth: true }
             Row {
@@ -439,8 +486,7 @@ Item {
                                         PlainLabel {
                                             width: card.width
                                             text: card.modelData.missing === true ? qsTr("Not there now")
-                                                : (card.modelData.kind === "picture" ? qsTr("Picture") : card.modelData.kind === "pdf" ? qsTr("PDF")
-                                                    : card.modelData.kind === "office" ? qsTr("Office file") : qsTr("Page")) + " · " + root.size(card.modelData.bytes || 0)
+                                                : root.kindName(card.modelData.kind) + " · " + root.size(card.modelData.bytes || 0)
                                             color: KodosiTheme.inkFaint
                                             font.pixelSize: KodosiTheme.fontCaption
                                             horizontalAlignment: Text.AlignHCenter
@@ -468,17 +514,23 @@ Item {
                             }
                         }
                     }
+                    Item {
+                        id: documentPlace
+
+                        anchors.fill: parent
+                        visible: root.placedKey.length > 0
+                    }
                     Loader {
                         id: body
 
                         anchors.fill: parent
                         visible: !root.shelf
-                        sourceComponent: !root.current ? null
+                        sourceComponent: !root.current || root.documentView.length > 0 ? null
                             : root.current.kind === "browser" ? browserView
                             : root.current.missing ? missingView
                             : root.readyKey !== root.current.key ? (root.failure.length > 0 ? failureView : loadingView)
                             : root.current.kind === "picture" ? pictureView
-                            : root.current.kind === "office" || !Models.CanvasWeb.available ? fileView
+                            : root.documentKind(root.current.kind) || !Models.CanvasWeb.available ? fileView
                             : pageView
                     }
                     Spinner {
@@ -496,15 +548,9 @@ Item {
         property var item: null
 
         KMenuItem {
-            text: qsTr("Open in its app")
-            iconName: "open"
-            visible: root.local && !!fileMenu.item && fileMenu.item.missing !== true
-            onTriggered: Models.DesktopFiles.openPath(fileMenu.item.key)
-        }
-        KMenuItem {
             text: qsTr("Save a copy")
             iconName: "save"
-            visible: !root.local && !!fileMenu.item && fileMenu.item.missing !== true
+            visible: !!fileMenu.item && fileMenu.item.missing !== true
             onTriggered: Models.Canvas.saveCopy(root.sessionId, fileMenu.item.key)
         }
         KMenuItem {
@@ -531,7 +577,7 @@ Item {
         id: pageView
 
         CanvasPage {
-            otherComputer: !root.local
+            sessionId: root.sessionId
             address: root.readyCount >= 0 && root.current ? Models.Canvas.pageAddress(root.sessionId, root.current.key) : ""
         }
     }

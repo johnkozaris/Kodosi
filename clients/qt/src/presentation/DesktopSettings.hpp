@@ -1,7 +1,9 @@
 #pragma once
+#include <QMap>
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QVariantMap>
 #include <memory>
 #include <optional>
 namespace kodosi {
@@ -18,6 +20,9 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(QString branchFolder READ branchFolder NOTIFY settingsChanged)
     Q_PROPERTY(QString lastComputer READ lastComputer WRITE setLastComputer NOTIFY settingsChanged)
     Q_PROPERTY(bool keepRunning READ keepRunning WRITE setKeepRunning NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantMap viewers READ viewers NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantMap shownViews READ shownViews NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantMap viewPreferences READ viewPreferences NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
 public:
     enum CursorStyle { Block, Bar, Underline };
@@ -36,6 +41,9 @@ public:
     QString lastComputer() const { return m_computer; }
     bool keepRunning() const { return m_keepRunning.value_or(m_keepRunningByDefault); }
     bool closeHintShown() const { return m_closeHintShown; }
+    QVariantMap viewers() const;
+    QVariantMap shownViews() const;
+    QVariantMap viewPreferences() const;
     QString settingsError() const { return m_error; }
     Q_INVOKABLE bool apply(
         const QString& family, int size, int cursor, double lineHeight, int scrollback, bool blink);
@@ -44,6 +52,7 @@ public:
     void setKeepRunning(bool keep);
     void setCloseHintShown();
     Q_INVOKABLE void setBranchFolder(const QString& path);
+    Q_INVOKABLE void setViewer(const QString& name, bool on);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);
     Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& text);
@@ -60,6 +69,7 @@ private:
     double m_lineHeight = 1.0;
     bool m_blink = false;
     std::optional<bool> m_keepRunning;
+    QMap<QString, bool> m_viewers;
     bool m_closeHintShown = false;
     bool persist();
     void clearError();

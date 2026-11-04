@@ -193,6 +193,11 @@ private struct RoomTerminals: View {
                     state.showsCanvas = true
                     deps.openBrowser(of: session)
                 }
+                Button("Add a File…") {
+                    open(session)
+                    state.showsCanvas = true
+                    deps.addFile(to: session)
+                }
             }
             if deps.workbench.stagedSessionIds.contains(session.id) {
                 Button("Minimize") { deps.dismissSession(session.id) }

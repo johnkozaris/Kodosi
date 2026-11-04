@@ -86,6 +86,10 @@
 
 #define KODOSI_LOG_ERROR 2
 
+#if !defined(__APPLE__)
+typedef struct kodosi_video_decoder_t kodosi_video_decoder_t;
+#endif
+
 typedef struct kodosi_start_failure_t {
   int32_t code;
   int32_t host_kind;
@@ -137,6 +141,14 @@ typedef struct kodosi_callbacks_t {
   kodosi_terminal_connect_result_cb_t on_terminal_connect_result;
   kodosi_terminal_checkpoint_cb_t on_terminal_checkpoint;
 } kodosi_callbacks_t;
+
+#if !defined(__APPLE__)
+typedef struct kodosi_picture_t {
+  uint32_t width;
+  uint32_t height;
+  const uint8_t *rgba;
+} kodosi_picture_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -206,6 +218,23 @@ int32_t kodosi_terminal_disconnect(void *handle,
                                    const char *subscription_id,
                                    uint64_t generation)
 ;
+
+#if !defined(__APPLE__)
+ struct kodosi_video_decoder_t *kodosi_video_decoder_new(void) ;
+#endif
+
+#if !defined(__APPLE__)
+
+int32_t kodosi_video_decoder_decode(struct kodosi_video_decoder_t *decoder,
+                                    const uint8_t *data,
+                                    uintptr_t length,
+                                    struct kodosi_picture_t *picture)
+;
+#endif
+
+#if !defined(__APPLE__)
+ void kodosi_video_decoder_free(struct kodosi_video_decoder_t *decoder) ;
+#endif
 
 #ifdef __cplusplus
 }
