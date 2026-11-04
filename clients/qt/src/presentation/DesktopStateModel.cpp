@@ -132,6 +132,7 @@ void DesktopStateModel::openCanvas(const QString& id)
     if (!selectSession(id))
         return;
     m_hiddenCanvases.remove(id);
+    m_canvasesLeftOpen.remove(id);
     if (m_mode != Focus) {
         m_mode = Focus;
         emit stageLayoutModeChanged();
@@ -159,10 +160,13 @@ void DesktopStateModel::endCanvas()
 }
 void DesktopStateModel::followCanvas(const QString& id)
 {
-    if (m_canvas.isEmpty() || m_canvas == id)
+    if (m_canvas == id)
         return;
+    const bool back = m_canvasesLeftOpen.remove(id);
+    if (!m_canvas.isEmpty())
+        m_canvasesLeftOpen.insert(m_canvas);
     const auto session = m_sessions ? m_sessions->session(id) : std::nullopt;
-    if (session && !session->canvas.isEmpty()) {
+    if (session && !session->canvas.isEmpty() && (back || !m_canvas.isEmpty())) {
         m_canvas = id;
         emit canvasChanged();
     } else {
@@ -187,6 +191,7 @@ bool DesktopStateModel::unstageSession(const QString& id)
 {
     if (!m_staged.removeOne(id))
         return false;
+    m_canvasesLeftOpen.remove(id);
     if (m_canvas == id)
         endCanvas();
     m_computers.remove(id);
@@ -216,6 +221,7 @@ void DesktopStateModel::toggleFocusForSelectedSession()
     } else if (!m_selected.isEmpty()) {
         m_mode = Focus;
         emit stageLayoutModeChanged();
+        followCanvas(m_selected);
     }
 }
 void DesktopStateModel::setModalVisible(QObject* modal, bool visible)
@@ -245,6 +251,7 @@ void DesktopStateModel::switchAccount(const QString& userId)
     m_canvas.clear();
     m_canvasWide = false;
     m_hiddenCanvases.clear();
+    m_canvasesLeftOpen.clear();
     m_canvasesSeen.clear();
     m_mode = Grid;
     emit canvasChanged();
@@ -422,6 +429,7 @@ void DesktopStateModel::reconcileCanvas()
         && (m_mode == Focus || m_staged == QStringList { m_selected }))
         openCanvas(m_selected);
     m_hiddenCanvases.removeIf([&](const QString& id) { return !seen.contains(id); });
+    m_canvasesLeftOpen.removeIf([&](const QString& id) { return !seen.contains(id); });
     m_canvasesSeen = seen;
 }
 void DesktopStateModel::remember(const QString& id)

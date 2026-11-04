@@ -130,6 +130,30 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     #expect(workbench.canvasSessionId == nil)
 }
 
+@Test @MainActor func `a canvas left open is open again when the person comes back to its terminal`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasBack"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount(nil)
+    let plain = try terminal("01992e43-53db-7040-8e02-f6ebf4149b29", canvas: nil)
+    let shown = try terminal(canvas: ["sequence": .uint(1), "items": .array([item("plan.md", changed: 1)])])
+    _ = workbench.reconcile([shown, plain])
+    workbench.showSession(shown.id)
+    workbench.showSession(plain.id)
+    workbench.openCanvas(shown.id)
+    workbench.showSession(plain.id)
+    #expect(workbench.canvasSessionId == nil)
+    workbench.showSession(shown.id)
+    #expect(workbench.canvasSessionId == shown.id)
+    workbench.selectAdjacentSession(offset: 1)
+    workbench.toggleFocus(plain.id)
+    workbench.toggleFocus(shown.id)
+    #expect(workbench.canvasSessionId == shown.id)
+    workbench.hideCanvas()
+    workbench.showSession(plain.id)
+    workbench.showSession(shown.id)
+    #expect(workbench.canvasSessionId == nil)
+}
+
 @Test @MainActor func `a canvas that a person opens before it has anything shows when it comes`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasLater"))
     let workbench = WorkbenchState(defaults: defaults)
