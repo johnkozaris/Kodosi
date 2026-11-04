@@ -78,7 +78,8 @@ type Change =
   | { kind: "base"; asset: string }
   | { kind: "group"; changes: Change[] };
 
-interface Widget {
+/** A form field or a link of a page, as pdf.js reads it. */
+interface Annotation {
   subtype: string;
   fieldName?: string;
   fieldType?: string;
@@ -88,6 +89,10 @@ interface Widget {
   radioButton?: boolean;
   exportValue?: string;
   options?: { exportValue: string; displayValue: string }[];
+  /** A web or mail address that pdf.js found safe to open. */
+  url?: string;
+  /** A place in the file: a name, or the page and the position. */
+  dest?: string | unknown[] | null;
 }
 
 type Tool = "read" | "note" | "redact";
@@ -397,7 +402,7 @@ class PdfEditor implements Editor, Pictures {
       viewport,
     }).render();
     this.bindPointer(id, holder);
-    this.drawLayer(id, holder, (await page.getAnnotations()) as Widget[]);
+    this.drawLayer(id, holder, (await page.getAnnotations()) as Annotation[]);
     await painted;
   }
 
@@ -493,14 +498,17 @@ class PdfEditor implements Editor, Pictures {
     return large ? rect : null;
   }
 
-  private drawLayer(id: string, holder: Holder, widgets: Widget[]): void {
+  private drawLayer(id: string, holder: Holder, annotations: Annotation[]): void {
     const viewport = holder.viewport;
     if (!viewport) return;
     holder.layer.replaceChildren();
+    for (const link of annotations) {
+      if (link.subtype === "Link") this.drawLink(holder, viewport, link);
+    }
     for (const [noteId, note] of Object.entries(this.snapshot?.notes ?? {})) {
       if (note.page === id) this.drawNote(holder, viewport, noteId, note);
     }
-    for (const widget of widgets) this.drawField(holder, viewport, widget);
+    for (const widget of annotations) this.drawField(holder, viewport, widget);
     for (const peer of this.people) {
       if ((peer.place as Place | null)?.page !== id) continue;
       const mark = holder.layer.appendChild(document.createElement("span"));
@@ -539,7 +547,56 @@ class PdfEditor implements Editor, Pictures {
     });
   }
 
-  private drawField(holder: Holder, viewport: pdfjs.PageViewport, widget: Widget): void {
+  /**
+   * A web or mail link opens as the host opens links, which is in the browser of the device. A
+   * link to a place in the file scrolls there.
+   */
+  private drawLink(holder: Holder, viewport: pdfjs.PageViewport, link: Annotation): void {
+    if (!link.url && !link.dest) return;
+    const mark = holder.layer.appendChild(document.createElement("a"));
+    mark.className = "pdf-link";
+    this.place(mark, viewport, link.rect);
+    if (link.url) {
+      mark.href = link.url;
+      mark.target = "_blank";
+      mark.rel = "noopener";
+      mark.title = link.url;
+      return;
+    }
+    mark.href = "#";
+    mark.addEventListener("click", (event) => {
+      event.preventDefault();
+      this.goTo(link.dest).catch(console.error);
+    });
+  }
+
+  /** Scrolls to a place in the file: the top of its page, or the height that it names there. */
+  private async goTo(dest: Annotation["dest"]): Promise<void> {
+    const pdf = this.document;
+    const explicit = typeof dest === "string" ? await pdf?.getDestination(dest) : dest;
+    const target = explicit?.[0];
+    if (!pdf || !explicit || target === undefined || target === null) return;
+    const index =
+      typeof target === "number"
+        ? target
+        : await pdf.getPageIndex(target as Parameters<typeof pdf.getPageIndex>[0]);
+    const id = this.snapshot?.pages[index]?.id;
+    const holder = id ? this.holders.get(id) : undefined;
+    if (!holder) return;
+    const kind = (explicit[1] as { name?: string } | null | undefined)?.name;
+    const top =
+      kind === "XYZ" ? explicit[3] : kind === "FitH" || kind === "FitBH" ? explicit[2] : null;
+    const page = await pdf.getPage(index + 1);
+    const [, down] =
+      typeof top === "number"
+        ? page.getViewport({ scale: ACTUAL }).convertToViewportPoint(0, top)
+        : [0, 0];
+    const area = this.pagesRoot.getBoundingClientRect();
+    const box = holder.element.getBoundingClientRect();
+    this.pagesRoot.scrollTop += box.top - area.top + Math.max(0, down ?? 0) * this.scale;
+  }
+
+  private drawField(holder: Holder, viewport: pdfjs.PageViewport, widget: Annotation): void {
     const name = widget.fieldName;
     if (widget.subtype !== "Widget" || !name) return;
     const known = this.snapshot?.fields[name] ?? String(widget.fieldValue ?? "");
@@ -583,7 +640,7 @@ class PdfEditor implements Editor, Pictures {
       const index = pages.findIndex((page) => page.id === id);
       if (!holder.viewport || index < 0) continue;
       pdf.getPage(index + 1).then(async (page) => {
-        this.drawLayer(id, holder, (await page.getAnnotations()) as Widget[]);
+        this.drawLayer(id, holder, (await page.getAnnotations()) as Annotation[]);
       }, console.error);
     }
   }

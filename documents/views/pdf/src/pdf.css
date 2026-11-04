@@ -12,6 +12,11 @@
   cursor: crosshair;
 }
 
+.pdf-pages[data-tool="note"] .pdf-link,
+.pdf-pages[data-tool="redact"] .pdf-link {
+  pointer-events: none;
+}
+
 /* Auto margins center a page, and a page wider than the view starts at its left edge, where
    the view can scroll to it. */
 .pdf-page {
@@ -45,6 +50,10 @@
 
 .pdf-layer > * {
   pointer-events: auto;
+}
+
+.pdf-link {
+  position: absolute;
 }
 
 .pdf-note {

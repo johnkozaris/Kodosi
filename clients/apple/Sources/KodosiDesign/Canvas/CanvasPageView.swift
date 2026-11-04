@@ -17,19 +17,19 @@ public struct CanvasAsk {
 }
 
 /// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
-/// no files and no storage that stays. A web or mail link opens on this device, and a local
-/// address in the shared browser of the terminal. Words that a person selects get a key that asks
-/// the agent about them.
+/// no files and no storage that stays. A web or mail link opens in the browser of this device;
+/// only a local address of a terminal on another computer opens in its shared browser. Words that
+/// a person selects get a key that asks the agent about them.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     let frame: CanvasFrame
     let content: Data
-    let openBrowser: (URL) -> Void
+    let openBrowser: ((URL) -> Void)?
     let ask: CanvasAsk?
     @State private var shown = false
 
-    public init(frame: CanvasFrame, content: Data, openBrowser: @escaping (URL) -> Void, ask: CanvasAsk? = nil) {
+    public init(frame: CanvasFrame, content: Data, openBrowser: ((URL) -> Void)?, ask: CanvasAsk? = nil) {
         self.frame = frame
         self.content = content
         self.openBrowser = openBrowser
@@ -202,15 +202,16 @@ private final class SelectionWatcher: NSObject, WKScriptMessageHandler {
 @MainActor
 final class CanvasLinks {
     var open: (URL) -> Void = { _ in }
-    var openBrowser: (URL) -> Void = { _ in }
+    /// The shared browser of a terminal on another computer.
+    var openBrowser: ((URL) -> Void)?
 
-    /// Web and mail links open on this device. A local address is on the computer of the terminal,
-    /// so it opens in the shared browser of the terminal.
+    /// Web and mail links open in the browser of this device. A local address of a terminal on
+    /// another computer names that computer, so only the shared browser of the terminal reaches it.
     func follow(_ url: URL) {
         switch url.scheme?.lowercased() {
         case "http", "https":
             guard let host = url.host(), !host.isEmpty else { return }
-            if url.isLocalAddress {
+            if url.isLocalAddress, let openBrowser {
                 openBrowser(url)
             } else {
                 open(url)
