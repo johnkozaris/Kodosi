@@ -3,6 +3,8 @@ const QUEUE_MOST = 2;
 const FRAME_RATE = 60;
 /** Constrained Baseline, level 5.2: every decoder reads it, and it holds 4K at 60 frames. */
 const CODEC = "avc1.42E034";
+const RECONNECT_FIRST_MS = 250;
+const RECONNECT_LAST_MS = 5000;
 
 /** @type {WebSocket} */
 let socket;
@@ -176,13 +178,29 @@ function fromHost(event) {
   else chrome.runtime.sendMessage({ to: "worker", command });
 }
 
-async function connect() {
-  const answer = await fetch(chrome.runtime.getURL("connection.json"));
-  const { port, token } = await answer.json();
-  socket = new WebSocket(`ws://127.0.0.1:${port}/${token}`);
+/** A host that lost the connection takes the next one, so this page connects again. */
+async function connect(wait = RECONNECT_FIRST_MS) {
+  const again = () => setTimeout(() => connect(Math.min(wait * 2, RECONNECT_LAST_MS)), wait);
+  let address;
+  try {
+    const { port, token } = await (await fetch(chrome.runtime.getURL("connection.json"))).json();
+    address = `ws://127.0.0.1:${port}/${token}`;
+  } catch {
+    again();
+    return;
+  }
+  socket = new WebSocket(address);
   socket.binaryType = "arraybuffer";
   socket.onmessage = fromHost;
-  socket.onopen = () => chrome.runtime.sendMessage({ to: "worker", command: { type: "report" } });
+  socket.onopen = () => {
+    wait = RECONNECT_FIRST_MS;
+    chrome.runtime.sendMessage({ to: "worker", command: { type: "report" } });
+  };
+  socket.onclose = () => {
+    for (const capture of captures.values()) capture.stop();
+    captures.clear();
+    again();
+  };
 }
 
 chrome.runtime.onMessage.addListener((request) => {

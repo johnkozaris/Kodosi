@@ -377,6 +377,11 @@ fn receive(frame: &Value, pending: &Pending, state: &State) {
                 pending.fail(state, request, message);
             }
         }
+        Some("resync") => {
+            tracing::warn!(
+                "the app fell behind the host's events, so answers in between may come late"
+            );
+        }
         _ => {}
     }
 }

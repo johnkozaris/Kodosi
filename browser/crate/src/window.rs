@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -33,6 +36,8 @@ const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
 /// The menu that a right-click opens, which the page does not know about.
 const CONTEXT_MENU: u32 = u32::MAX;
+/// Numbers each join, so that a pipe that goes frees only the seat that it took.
+static SEATS: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) const FIRST_SIZE: Size = Size {
     width: 1280,
@@ -43,6 +48,7 @@ pub(crate) const FIRST_SIZE: Size = Size {
 pub(crate) enum Event {
     Join {
         viewer: Viewer,
+        seat: u64,
         outgoing: mpsc::Sender<Bytes>,
     },
     Message {
@@ -51,6 +57,7 @@ pub(crate) enum Event {
     },
     Leave {
         viewer: String,
+        seat: u64,
     },
     Touch,
     Close,
@@ -107,12 +114,18 @@ impl Window {
     pub async fn watch(&self, viewer: Viewer) -> Result<Pipe, Error> {
         let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
         let id = viewer.id.clone();
+        let seat = SEATS.fetch_add(1, Ordering::Relaxed);
         self.events
-            .send(Event::Join { viewer, outgoing })
+            .send(Event::Join {
+                viewer,
+                seat,
+                outgoing,
+            })
             .await
             .map_err(|_| Error::Stopped)?;
         Ok(Pipe {
             viewer: id,
+            seat,
             incoming,
             events: self.events.clone(),
         })
@@ -166,6 +179,7 @@ impl Window {
 /// A viewer's end. The host carries these bytes in any way it likes.
 pub struct Pipe {
     viewer: String,
+    seat: u64,
     incoming: mpsc::Receiver<Bytes>,
     events: mpsc::Sender<Event>,
 }
@@ -190,15 +204,17 @@ impl Pipe {
 impl Drop for Pipe {
     fn drop(&mut self) {
         let viewer = std::mem::take(&mut self.viewer);
+        let seat = self.seat;
         let events = self.events.clone();
         if events
             .try_send(Event::Leave {
                 viewer: viewer.clone(),
+                seat,
             })
             .is_err()
         {
             tokio::spawn(async move {
-                drop(events.send(Event::Leave { viewer }).await);
+                drop(events.send(Event::Leave { viewer, seat }).await);
             });
         }
     }
@@ -243,8 +259,19 @@ pub(crate) async fn open(
 
 struct Seat {
     viewer: Viewer,
+    number: u64,
     outgoing: mpsc::Sender<Bytes>,
     pointer: Option<(f64, f64)>,
+}
+
+/// Frees a viewer's seat only for the join that took it. A viewer that joined again on a new
+/// pipe keeps its new seat when the earlier pipe goes.
+fn free(seats: &mut HashMap<String, Seat>, viewer: &str, number: u64) -> bool {
+    let taken = seats.get(viewer).is_some_and(|seat| seat.number == number);
+    if taken {
+        seats.remove(viewer);
+    }
+    taken
 }
 
 struct OpenMenu {
@@ -287,6 +314,9 @@ struct Live {
     dialog_session: Option<String>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
+    /// Steps that came before the window knew its page, such as the address of a new window:
+    /// the latest of each kind.
+    waiting: Vec<(&'static str, serde_json::Value)>,
 }
 
 impl Live {
@@ -322,6 +352,7 @@ impl Live {
             dialog_session: None,
             chooser: None,
             downloads: HashMap::new(),
+            waiting: Vec::new(),
         }
     }
 
@@ -369,6 +400,7 @@ impl Live {
         if self.dirty {
             self.publish();
         }
+        self.send_waiting();
         self.flow.is_empty() && now.duration_since(self.used_at) >= SLEEP_AFTER
     }
 
@@ -414,24 +446,30 @@ impl Live {
 
     async fn handle(&mut self, event: Event) {
         match event {
-            Event::Join { viewer, outgoing } => {
+            Event::Join {
+                viewer,
+                seat,
+                outgoing,
+            } => {
                 let state = self.state_for(&viewer.id);
                 drop(outgoing.try_send(ToViewer::State(Box::new(state)).encode()));
                 self.seats.insert(
                     viewer.id.clone(),
                     Seat {
                         viewer,
+                        number: seat,
                         outgoing,
                         pointer: None,
                     },
                 );
             }
             Event::Message { viewer, message } => self.message(&viewer, message).await,
-            Event::Leave { viewer } => {
-                self.seats.remove(&viewer);
-                self.flow.leave(&viewer);
-                self.update_capture();
-                self.dirty = true;
+            Event::Leave { viewer, seat } => {
+                if free(&mut self.seats, &viewer, seat) {
+                    self.flow.leave(&viewer);
+                    self.update_capture();
+                    self.dirty = true;
+                }
             }
             Event::Touch => self.used_at = Instant::now(),
             Event::Close => {}
@@ -561,6 +599,7 @@ impl Live {
             .collect();
         self.reported = tabs;
         self.dirty = true;
+        self.send_waiting();
         if !self.flow.is_empty() {
             self.match_scale();
         }
@@ -589,7 +628,7 @@ impl Live {
         clippy::cast_precision_loss,
         reason = "a size is at most 4096 and a scale is at most 4"
     )]
-    fn capture(&self, tab: i64) {
+    fn capture(&mut self, tab: i64) {
         self.match_scale();
         let pixels = |length: u32| ((length as f32 * self.size.scale) as u32).clamp(2, 7680);
         self.engine.command(ToExtension::Capture {
@@ -603,14 +642,14 @@ impl Live {
 
     /// The page draws at the scale of the viewer, so that it has the pixels that the capture
     /// asks for. Chrome does not enlarge a page for a capture; it puts bars around it.
-    fn match_scale(&self) {
+    fn match_scale(&mut self) {
         let metrics = json!({
             "width": 0,
             "height": 0,
             "deviceScaleFactor": self.size.scale,
             "mobile": false,
         });
-        self.page("Emulation.setDeviceMetricsOverride", &metrics);
+        self.page_soon("Emulation.setDeviceMetricsOverride", metrics);
     }
 
     async fn resize(&mut self, size: Size) {
@@ -652,9 +691,34 @@ impl Live {
         self.engine.session_of(target)
     }
 
+    /// Input for the page that the person sees. With no page there is nothing to point at.
     fn page(&self, method: &str, params: &serde_json::Value) {
         if let Some(session) = self.active_session() {
             self.engine.devtools().send(method, params, Some(&session));
+        } else {
+            tracing::debug!(method, "the window has no page for an input");
+        }
+    }
+
+    /// A step that the page must get, such as an address. A new window learns its page a
+    /// moment after it opens, so the step waits for it.
+    fn page_soon(&mut self, method: &'static str, params: serde_json::Value) {
+        if let Some(session) = self.active_session() {
+            self.engine.devtools().send(method, &params, Some(&session));
+            return;
+        }
+        keep_latest(&mut self.waiting, method, params);
+    }
+
+    fn send_waiting(&mut self) {
+        if self.waiting.is_empty() {
+            return;
+        }
+        let Some(session) = self.active_session() else {
+            return;
+        };
+        for (method, params) in std::mem::take(&mut self.waiting) {
+            self.engine.devtools().send(method, &params, Some(&session));
         }
     }
 
@@ -729,10 +793,10 @@ impl Live {
                 ),
             ),
             Input::Text { text } => self.page("Input.insertText", &json!({ "text": text })),
-            Input::Open { address } => self.page("Page.navigate", &json!({ "url": address })),
+            Input::Open { address } => self.page_soon("Page.navigate", json!({ "url": address })),
             Input::Back => self.move_in_history(-1),
             Input::Forward => self.move_in_history(1),
-            Input::Reload => self.page("Page.reload", &json!({})),
+            Input::Reload => self.page_soon("Page.reload", json!({})),
             Input::Tab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.chosen = Some(tab);
@@ -908,6 +972,15 @@ impl Live {
     }
 }
 
+fn keep_latest(
+    waiting: &mut Vec<(&'static str, serde_json::Value)>,
+    method: &'static str,
+    params: serde_json::Value,
+) {
+    waiting.retain(|(kind, _)| *kind != method);
+    waiting.push((method, params));
+}
+
 fn fitted(size: Size) -> Option<Size> {
     (SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0).then_some(
         Size {
@@ -965,6 +1038,57 @@ async fn free_name(folder: &Path, name: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn seat(number: u64) -> Seat {
+        Seat {
+            viewer: Viewer {
+                id: "app".to_owned(),
+                person: "ana".to_owned(),
+                name: "Ana".to_owned(),
+            },
+            number,
+            outgoing: mpsc::channel(1).0,
+            pointer: None,
+        }
+    }
+
+    #[test]
+    fn a_viewer_that_joins_again_keeps_its_new_seat_when_the_earlier_pipe_goes() {
+        let mut seats = HashMap::new();
+        seats.insert("app".to_owned(), seat(1));
+        seats.insert("app".to_owned(), seat(2));
+        assert!(!free(&mut seats, "app", 1));
+        assert_eq!(seats.get("app").map(|seat| seat.number), Some(2));
+        assert!(free(&mut seats, "app", 2));
+        assert!(seats.is_empty());
+    }
+
+    #[test]
+    fn a_new_window_opens_the_latest_address_that_came_before_its_page() {
+        let mut waiting = Vec::new();
+        keep_latest(
+            &mut waiting,
+            "Page.navigate",
+            json!({ "url": "https://a.test" }),
+        );
+        keep_latest(
+            &mut waiting,
+            "Emulation.setDeviceMetricsOverride",
+            json!({}),
+        );
+        keep_latest(
+            &mut waiting,
+            "Page.navigate",
+            json!({ "url": "https://b.test" }),
+        );
+        assert_eq!(
+            waiting,
+            vec![
+                ("Emulation.setDeviceMetricsOverride", json!({})),
+                ("Page.navigate", json!({ "url": "https://b.test" })),
+            ]
+        );
+    }
 
     #[test]
     fn a_narrow_view_keeps_the_browser_at_its_narrowest() {

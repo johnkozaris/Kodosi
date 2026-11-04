@@ -241,6 +241,7 @@ async fn serve_commands(
     host: HostDescription,
 ) -> Result<()> {
     let (snapshot, mut events) = runtime.observe().await?;
+    let mut direct = runtime.direct().await?;
     let initial = snapshot
         .iter()
         .map(serde_json::to_value)
@@ -280,14 +281,19 @@ async fn serve_commands(
             event=events.recv()=>match event {
                 Ok(event) if event.reaches(runtime.consumer())=>write_event(&mut writer,&event).await?,
                 Ok(_)=>{}
-                Err(broadcast::error::RecvError::Lagged(_))=>{
+                Err(broadcast::error::RecvError::Lagged(skipped))=>{
+                    tracing::warn!(skipped, "a client fell behind the host's events, so it starts again from a snapshot");
                     write_json(&mut writer,&json!({"kind":"resync"})).await?;
                     let (snapshot, receiver) = runtime.observe().await?;
                     events = receiver;
                     for event in snapshot { write_event(&mut writer,&event).await?; }
                 }
                 Err(broadcast::error::RecvError::Closed)=>return Ok(()),
-            }
+            },
+            event=direct.recv()=>match event {
+                Some(event)=>write_event(&mut writer,&event).await?,
+                None=>return Ok(()),
+            },
         }
     }
 }

@@ -341,8 +341,11 @@ private slots:
         QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("Hello").toBase64()));
         documents.apply(part(3, false, "x"));
         QCOMPARE(lost.size(), 1);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        const auto sent = commands.values.size();
         documents.send(pipe, QStringLiteral("AAAA"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.size(), sent);
     }
 
     void aDocumentHearsWhenItsTerminalRunsAgain()

@@ -1,13 +1,28 @@
-use std::{fmt::Write as _, io, path::Path, time::Duration};
+use std::{
+    fmt::Write as _,
+    io,
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use bytes::Bytes;
 use futures_util::{SinkExt as _, StreamExt as _};
 use serde::{Deserialize, Serialize};
-use tokio::{net::TcpListener, sync::mpsc};
-use tokio_tungstenite::tungstenite::{
-    Message,
-    handshake::server::{Callback, ErrorResponse, Request, Response},
-    http::StatusCode,
+use tokio::{
+    net::{TcpListener, TcpStream},
+    sync::mpsc,
+};
+use tokio_tungstenite::{
+    WebSocketStream,
+    tungstenite::{
+        Message,
+        handshake::server::{Callback, ErrorResponse, Request, Response},
+        http::StatusCode,
+    },
 };
 
 use crate::{Error, message::MenuItem};
@@ -26,6 +41,7 @@ const EXTENSION_FILES: &[(&str, &str)] = &[
     ("worker.js", include_str!("../../extension/worker.js")),
 ];
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
+const HANDSHAKE_LIMIT: Duration = Duration::from_secs(5);
 const HEADER: usize = 8 + 1 + 8;
 
 /// The id that the key in the extension's manifest gives it.
@@ -132,6 +148,9 @@ pub(crate) enum FromExtension {
     },
     #[serde(skip)]
     Frame(EncodedFrame),
+    /// The extension connected again, with none of its captures.
+    #[serde(skip)]
+    Reconnected,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,35 +191,83 @@ impl Socket {
         })
     }
 
-    /// Takes the one connection that shows the token, and then stops listening, so the token
-    /// opens nothing a second time.
+    /// Carries one connection that shows the token at a time, and refuses others while it runs.
+    /// The extension connects again when its page starts again, so a broken connection makes
+    /// room for the next one, and the windows start their captures again.
     pub(crate) async fn accept(
         self,
-        commands: mpsc::Receiver<ToExtension>,
+        mut commands: mpsc::Receiver<ToExtension>,
         reports: mpsc::Sender<FromExtension>,
     ) -> Result<(), Error> {
-        let path = format!("/{}", self.token);
-        let socket = tokio::time::timeout(CONNECT_LIMIT, async {
-            loop {
-                let (stream, _) = self.listener.accept().await?;
-                let path = path.clone();
-                let accepted =
-                    tokio_tungstenite::accept_hdr_async(stream, Admission { path }).await;
-                if let Ok(socket) = accepted {
-                    return Ok::<_, Error>(socket);
-                }
+        let busy = Arc::new(AtomicBool::new(false));
+        let (connected_in, mut connected) = mpsc::channel(1);
+        tokio::spawn(admit(
+            self.listener,
+            format!("/{}", self.token),
+            Arc::clone(&busy),
+            connected_in,
+        ));
+        let mut socket = tokio::time::timeout(CONNECT_LIMIT, connected.recv())
+            .await
+            .ok()
+            .flatten()
+            .ok_or_else(|| Error::Engine("the extension did not connect".to_owned()))?;
+        loop {
+            if !carry(socket, &mut commands, &reports).await {
+                return Ok(());
             }
-        })
-        .await
-        .map_err(|_| Error::Engine("the extension did not connect".to_owned()))??;
-        drop(self.listener);
-        carry(socket, commands, reports).await;
-        Ok(())
+            busy.store(false, Ordering::Release);
+            tracing::info!("the browser's extension disconnected, and it may connect again");
+            socket = tokio::select! {
+                next = connected.recv() => match next {
+                    Some(next) => next,
+                    None => return Ok(()),
+                },
+                () = reports.closed() => return Ok(()),
+            };
+            tracing::info!("the browser's extension connected again");
+            if reports.send(FromExtension::Reconnected).await.is_err() {
+                return Ok(());
+            }
+        }
+    }
+}
+
+/// Takes the connections that show the token, one at a time, until the browser stops.
+async fn admit(
+    listener: TcpListener,
+    path: String,
+    busy: Arc<AtomicBool>,
+    connected: mpsc::Sender<WebSocketStream<TcpStream>>,
+) {
+    loop {
+        let stream = tokio::select! {
+            accepted = listener.accept() => match accepted {
+                Ok((stream, _)) => stream,
+                Err(problem) => {
+                    tracing::warn!(%problem, "the browser's extension cannot connect");
+                    return;
+                }
+            },
+            () = connected.closed() => return,
+        };
+        let admission = Admission {
+            path: path.clone(),
+            busy: Arc::clone(&busy),
+        };
+        let handshake = tokio_tungstenite::accept_hdr_async(stream, admission);
+        if let Ok(Ok(socket)) = tokio::time::timeout(HANDSHAKE_LIMIT, handshake).await {
+            busy.store(true, Ordering::Release);
+            if connected.send(socket).await.is_err() {
+                return;
+            }
+        }
     }
 }
 
 struct Admission {
     path: String,
+    busy: Arc<AtomicBool>,
 }
 
 impl Callback for Admission {
@@ -210,7 +277,8 @@ impl Callback for Admission {
             .headers()
             .get("origin")
             .is_some_and(|value| value == origin.as_str());
-        if from_extension && request.uri().path() == self.path {
+        if from_extension && request.uri().path() == self.path && !self.busy.load(Ordering::Acquire)
+        {
             Ok(response)
         } else {
             let mut refused = ErrorResponse::new(None);
@@ -220,11 +288,14 @@ impl Callback for Admission {
     }
 }
 
+/// Carries commands and reports until the connection breaks, and says whether the browser
+/// still runs.
 async fn carry<S>(
     socket: S,
-    mut commands: mpsc::Receiver<ToExtension>,
-    reports: mpsc::Sender<FromExtension>,
-) where
+    commands: &mut mpsc::Receiver<ToExtension>,
+    reports: &mpsc::Sender<FromExtension>,
+) -> bool
+where
     S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
         + futures_util::Sink<Message>
         + Unpin,
@@ -233,25 +304,25 @@ async fn carry<S>(
     loop {
         tokio::select! {
             command = commands.recv() => {
-                let Some(command) = command else { return };
+                let Some(command) = command else { return false };
                 let Ok(text) = serde_json::to_string(&command) else {
                     continue;
                 };
                 if sink.send(Message::text(text)).await.is_err() {
-                    return;
+                    return true;
                 }
             }
             message = source.next() => {
                 let report = match message {
                     Some(Ok(Message::Binary(body))) => encoded_frame(&body).map(FromExtension::Frame),
                     Some(Ok(Message::Text(text))) => serde_json::from_str(&text).ok(),
-                    Some(Ok(Message::Close(_)) | Err(_)) | None => return,
+                    Some(Ok(Message::Close(_)) | Err(_)) | None => return true,
                     Some(Ok(_)) => None,
                 };
                 if let Some(report) = report
                     && reports.send(report).await.is_err()
                 {
-                    return;
+                    return false;
                 }
             }
         }
@@ -329,7 +400,7 @@ mod tests {
         let socket = Socket::open().await.unwrap();
         let port = socket.port;
         let token = socket.token.clone();
-        let (_commands, waiting) = mpsc::channel(1);
+        let (commands, waiting) = mpsc::channel(1);
         let (reports, mut incoming) = mpsc::channel(1);
         let accepted = tokio::spawn(socket.accept(waiting, reports));
         let address = format!("ws://127.0.0.1:{port}/{token}");
@@ -357,11 +428,25 @@ mod tests {
             Some(FromExtension::Copied { tab: 1, .. })
         ));
 
-        let mut second = address.into_client_request().unwrap();
-        second.headers_mut().insert("origin", origin);
+        let mut second = address.clone().into_client_request().unwrap();
+        second.headers_mut().insert("origin", origin.clone());
         assert!(tokio_tungstenite::connect_async(second).await.is_err());
 
         drop(extension);
+        let again = loop {
+            let mut request = address.clone().into_client_request().unwrap();
+            request.headers_mut().insert("origin", origin.clone());
+            if let Ok((again, _)) = tokio_tungstenite::connect_async(request).await {
+                break again;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+        assert!(matches!(
+            incoming.recv().await,
+            Some(FromExtension::Reconnected)
+        ));
+        drop(commands);
         assert!(accepted.await.unwrap().is_ok());
+        drop(again);
     }
 }
