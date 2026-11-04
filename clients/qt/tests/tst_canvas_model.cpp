@@ -257,6 +257,33 @@ private slots:
         QVERIFY(desktop.canvasSessionId().isEmpty());
     }
 
+    void aCanvasLeftOpenIsOpenAgainWhenThePersonComesBack()
+    {
+        QTemporaryDir directory;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::DesktopStateModel desktop(
+            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
+        desktop.attachSessionCatalog(&sessions);
+        const auto shown = test::id(1);
+        const auto plain = test::id(2);
+        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })), test::session(2) }));
+        QVERIFY(desktop.selectSession(plain));
+        desktop.openCanvas(shown);
+        QVERIFY(desktop.selectSession(plain));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        QVERIFY(desktop.selectSession(shown));
+        QCOMPARE(desktop.canvasSessionId(), shown);
+        QVERIFY(desktop.selectSession(plain));
+        desktop.toggleFocusForSelectedSession();
+        QVERIFY(desktop.selectSession(shown));
+        desktop.toggleFocusForSelectedSession();
+        QCOMPARE(desktop.canvasSessionId(), shown);
+        desktop.hideCanvas();
+        QVERIFY(desktop.selectSession(plain));
+        QVERIFY(desktop.selectSession(shown));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+    }
+
     void aPersonAddsAFileInPartsAndTheCanvasShowsIt()
     {
         Commands commands;

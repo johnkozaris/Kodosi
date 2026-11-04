@@ -119,6 +119,16 @@ private slots:
         QCOMPARE(navigation.count(), 0);
     }
 
+    void aRoomKeepsItsCanvasOpenOnATerminalWithoutOne()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({test::session(1)}), 0);
+        f.workspace.missions().open(test::id(10));
+        f.workspace.missions().setPresentation(QStringLiteral("showsCanvas"), true);
+        QVERIFY(f.workspace.sessionActions().activateInRoom(test::id(1)));
+        QVERIFY(f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool());
+    }
+
     void updatingRoomTasksPreservesTheirVisibleOrder()
     {
         Fixture f;
