@@ -113,9 +113,9 @@ struct RoomHeader: View {
                 .help("Kodosi encrypts everything in this room end to end.")
             }
             .layoutPriority(1)
-            Spacer(minLength: 8)
+            Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
             SectionDock(items: dockItems, selection: state.shownSection, identifier: "room.section") { state.shownSection = $0 }
-            Spacer(minLength: 8)
+            Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
             if let failure = state.failure, !state.conversationVisible, deps.rooms[roomId] != nil || state.shownSection == 0 {
                 NoticeDot(message: failure) { Task { await deps.readRoom(roomId) } } dismiss: { state.failure = nil }
             }

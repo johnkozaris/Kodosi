@@ -11,7 +11,7 @@ struct SidebarRail: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Color.clear.frame(height: Metrics.titleBarHeight - 10)
+            Color.clear.frame(height: Metrics.titleBarHeight - 10).titleBarGap()
             IconButton(title: "Show sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
                 deps.workbench.sidebarCollapsed.toggle()
             }
