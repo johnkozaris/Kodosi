@@ -29,6 +29,13 @@ export interface TextLook {
   scale: number | null;
 }
 
+/** Where a click on text or a shape goes: an address, another slide, or a step of the show. */
+export interface Link {
+  href?: string | null;
+  slide?: string | null;
+  jump?: string | null;
+}
+
 interface TextStyle {
   bold: boolean;
   italic: boolean;
@@ -36,19 +43,23 @@ interface TextStyle {
   color: string | null;
   points: number;
   font: string;
+  link: Link | null;
 }
 
+/** A link takes the link color of the theme and an underline, as PowerPoint draws it. */
 function styleOf(marks: readonly Mark[], level: Level = {}, scale = 1): TextStyle {
   const style = marks.find((mark) => mark.type.name === "textStyle")?.attrs;
   const has = (name: string) => marks.some((mark) => mark.type.name === name);
+  const link = (marks.find((mark) => mark.type.name === "link")?.attrs as Link | undefined) ?? null;
   const size = Number(style?.size ?? level.size ?? 0);
   return {
     bold: has("bold") || level.bold === true,
     italic: has("italic") || level.italic === true,
-    underline: has("underline"),
-    color: (style?.color as string | null) ?? level.color ?? null,
+    underline: has("underline") || link !== null,
+    color: (style?.color as string | null) ?? (link ? "scheme:hlink" : null) ?? level.color ?? null,
     points: (size ? size * POINTS_PER_SIZE_UNIT : DEFAULT_POINTS) * scale,
     font: (style?.font as string | null) ?? level.font ?? DEFAULT_FONT,
+    link,
   };
 }
 
@@ -79,6 +90,7 @@ const MARK_DOM: Record<string, MarkSpec["toDOM"]> = {
   bold: () => ["strong", 0],
   italic: () => ["em", 0],
   underline: () => ["u", 0],
+  link: (mark) => ["a", { "data-link": "", title: linkTitle(mark.attrs as Link) }, 0],
   textStyle: (mark) => {
     const look = styleOf([mark]);
     const color = look.color?.startsWith("scheme:") === false ? `color:#${look.color};` : "";
@@ -112,11 +124,28 @@ export interface Piece {
   font: string;
   color: string | null;
   underline: boolean;
+  link: Link | null;
 }
 
 export interface Line {
   baseline: number;
+  /** The height of the line above its baseline. */
+  height: number;
   pieces: Piece[];
+}
+
+/** What a person sees before a link opens. */
+export function linkTitle(link: Link): string {
+  if (link.href) return link.href;
+  if (link.slide) return "Another slide";
+  return (
+    {
+      nextslide: "Next slide",
+      previousslide: "Previous slide",
+      firstslide: "First slide",
+      lastslide: "Last slide",
+    }[link.jump ?? ""] ?? ""
+  );
 }
 
 interface TextWord extends Piece {
@@ -146,6 +175,7 @@ function wordsOf(
         font,
         color: style.color,
         underline: style.underline,
+        link: style.link,
         height: style.points * PIXELS_PER_POINT,
       });
     }
@@ -240,13 +270,14 @@ export function layOut(
             font: words[0]?.font ?? `${DEFAULT_POINTS}px ${DEFAULT_FONT}`,
             color: words[0]?.color ?? null,
             underline: false,
+            link: null,
           });
         }
         for (const word of words) {
           pieces.push({ ...word, x });
           x += word.width;
         }
-        out.push({ baseline: top + lineHeight, pieces });
+        out.push({ baseline: top + lineHeight, height: lineHeight, pieces });
         top += lineHeight * LINE_HEIGHT;
         first = false;
       }

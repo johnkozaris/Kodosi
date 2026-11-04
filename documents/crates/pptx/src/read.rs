@@ -292,6 +292,8 @@ struct Reader<'p, 'file, 'input> {
     source: &'input str,
     raws: &'p mut HashMap<String, String>,
     relations: &'p HashMap<String, Relation>,
+    /// The id of each slide, by its part, for a link to another slide.
+    slides: &'p HashMap<String, String>,
     package: &'p mut Package<'file>,
     assets: &'p mut Assets,
 }
@@ -377,6 +379,11 @@ impl<'input> Reader<'_, '_, 'input> {
             let props = self.keep(self.xml_of(properties));
             marks.push(mark("run", Some(&json!({ "props": props })))?);
             marks.extend(look_marks(&run_look(properties))?);
+            if let Some(link) =
+                local(properties, "hlinkClick").and_then(|click| self.link_of(click))
+            {
+                marks.push(mark("link", Some(&link))?);
+            }
         }
         if let Some(text) = local(run, "t")
             .and_then(|text| text.text())
@@ -424,6 +431,7 @@ impl<'input> Reader<'_, '_, 'input> {
             inherited.text_look(placeholder.as_deref(), body)
         });
         let asset = self.picture(element);
+        let link = local(names, "hlinkClick").and_then(|click| self.link_of(click));
         Ok(Some(Shape {
             id: names.attribute("id").unwrap_or_default().to_owned(),
             name: names.attribute("name").unwrap_or_default().to_owned(),
@@ -441,10 +449,29 @@ impl<'input> Reader<'_, '_, 'input> {
             fill: color_of(properties),
             line: properties.and_then(|node| color_of(local(node, "ln"))),
             asset,
+            link,
             text,
             look,
             order,
         }))
+    }
+
+    /// Where a click goes: a web or mail address, another slide, or a step of the show. The
+    /// run or shape keeps its click in its own XML, so a save keeps it.
+    fn link_of(&self, click: Xml<'_, '_>) -> Option<Value> {
+        let action = click.attribute("action").unwrap_or_default();
+        if let Some(jump) = action.strip_prefix("ppaction://hlinkshowjump?jump=") {
+            return Some(json!({ "jump": jump }));
+        }
+        let relation = self.relations.get(relation_id(click, "id")?)?;
+        if action.starts_with("ppaction://hlinksldjump") {
+            return self
+                .slides
+                .get(&relation.target)
+                .map(|slide| json!({ "slide": slide }));
+        }
+        (relation.external || relation.kind.ends_with("/hyperlink"))
+            .then(|| json!({ "href": relation.target }))
     }
 
     fn picture(&mut self, element: Xml<'_, 'input>) -> Option<String> {
@@ -577,6 +604,31 @@ fn linked_part(relations: &HashMap<String, Relation>, kind: &str) -> Option<Stri
         .map(|relation| relation.target.clone())
 }
 
+/// The id of each slide by its part, for links that jump to a slide.
+fn slide_ids(
+    entries: &[Xml<'_, '_>],
+    relations: &HashMap<String, Relation>,
+) -> HashMap<String, String> {
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let relation = relations.get(relation_id(*entry, "id")?)?;
+            Some((relation.target.clone(), entry.attribute("id")?.to_owned()))
+        })
+        .collect()
+}
+
+fn inherited(master: Option<&str>, layout: Option<&str>) -> Inherited {
+    let [title, body, other] = master.map(text_styles).unwrap_or_default();
+    Inherited {
+        master: master.map(placeholders).unwrap_or_default(),
+        layout: layout.map(placeholders).unwrap_or_default(),
+        title,
+        body,
+        other,
+    }
+}
+
 pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable> {
     let mut package = Package::open(file).map_err(broken)?;
     let presentation_xml = package
@@ -597,9 +649,14 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
         ..Model::default()
     };
     let list = local(root, "sldIdLst");
-    let entries = list.iter().flat_map(Xml::children).filter(Xml::is_element);
+    let entries: Vec<Xml<'_, '_>> = list
+        .iter()
+        .flat_map(Xml::children)
+        .filter(Xml::is_element)
+        .collect();
+    let slide_ids = slide_ids(&entries, &relations);
     let mut first_master = None;
-    for (index, entry) in entries.enumerate() {
+    for (index, entry) in entries.into_iter().enumerate() {
         let part = relation_id(entry, "id")
             .and_then(|id| relations.get(id))
             .map(|relation| relation.target.clone())
@@ -620,18 +677,12 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
         if first_master.is_none() {
             first_master.clone_from(&master);
         }
-        let [title, body, other] = master_xml.as_deref().map(text_styles).unwrap_or_default();
-        let inherited = Inherited {
-            master: master_xml.as_deref().map(placeholders).unwrap_or_default(),
-            layout: layout_xml.as_deref().map(placeholders).unwrap_or_default(),
-            title,
-            body,
-            other,
-        };
+        let inherited = inherited(master_xml.as_deref(), layout_xml.as_deref());
         let mut reader = Reader {
             source: &xml,
             raws: &mut model.raws,
             relations: &slide_relations,
+            slides: &slide_ids,
             package: &mut package,
             assets,
         };
@@ -653,6 +704,7 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
                 source,
                 raws: &mut model.raws,
                 relations: relations.unwrap_or(&empty),
+                slides: &slide_ids,
                 package: &mut package,
                 assets,
             };

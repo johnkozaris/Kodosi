@@ -100,11 +100,8 @@ struct CanvasScreen: View {
                     } else if let session, let current, let frame {
                         CanvasItemView(session: session, shown: current, store: store, frame: frame, pages: model.terminals.documentPages,
                                        typing: typing, ask: ask(current, in: session))
-                        { address in
-                            openBrowser(of: session, at: address)
-                        }
-                        .id(current.key)
-                        .transition(.opacity)
+                            .id(current.key)
+                            .transition(.opacity)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
@@ -215,10 +212,10 @@ struct CanvasScreen: View {
         }
     }
 
-    private func openBrowser(of session: RuntimeSession, at address: URL? = nil) {
+    private func openBrowser(of session: RuntimeSession) {
         Task {
             do {
-                try await store.openBrowser(of: session, at: address)
+                try await store.openBrowser(of: session)
             } catch { model.notices.show(error) }
         }
     }

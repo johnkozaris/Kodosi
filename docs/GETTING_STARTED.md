@@ -34,10 +34,9 @@ the shell of the new terminal.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
-  program that uses the mouse. The link opens on the device that you use, and a
-  `localhost` address opens in the terminal's shared browser. Kodosi asks before it opens
-  a link in another app. It does not open a file that can run a program, or a file of a
-  terminal on another computer.
+  program that uses the mouse. The link opens in your own browser on the device that you
+  use. Kodosi asks before it opens a link in another app. It does not open a file that
+  can run a program, or a file or a `localhost` address of a terminal on another computer.
 - To give an agent a picture, such as a screenshot, paste it with ⌘V (Ctrl+Shift+V on
   Linux and Windows, Paste on the iPhone). Kodosi saves it on the computer of the terminal
   and pastes the path of its file, and the agent attaches it. A terminal on another
@@ -95,8 +94,10 @@ in the terminal's bar.
   Documents turns each viewer off or on, shows documents as pages or as text that fits
   the canvas, and makes pages dark when Kodosi is dark.
 
-- A page has no network. Its links open in your own browser, and a `localhost` link in
-  the shared browser.
+- A page has no network. Links in pages, documents, sheets, presentations and PDFs open in
+  your own browser by the same rules as terminal links. Where you can edit, ⌘-click a link
+  (Ctrl-click on Linux and Windows); elsewhere a click opens it, and on the iPhone a tap. A
+  link to a slide or a cell of the same file goes there.
 - Select words on a page or in a document, then Ask about this. Kodosi types the file and
   the words into the terminal, and you write the question.
 - Click and type in the shared browser as in your own. The agent sees the same pages and

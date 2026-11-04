@@ -264,7 +264,7 @@ void ControlsTest::terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink()
                     .map(button => button.text);
             }
             function copyLink() { links.standardButton(Dialog.Apply).clicked(); }
-            TerminalLinkDialog {
+            LinkDialog {
                 id: links
                 objectName: "test.links"
                 onCopyRequested: target => window.copies = window.copies.concat([target])

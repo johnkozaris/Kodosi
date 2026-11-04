@@ -4,6 +4,8 @@ import {
   areaOf,
   type Client,
   colorOf,
+  followLink,
+  opensLink,
   type Person,
   type Pictures,
   Status,
@@ -416,28 +418,17 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 }
 
-/** A host sees an ordinary link, and opens it by its own rules. */
-function follow(address: string): void {
-  if (!/^(https?|mailto):/i.test(address)) return;
-  const link = document.createElement("a");
-  link.href = address;
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.click();
-}
-
-/** A click places the caret, so a link opens with ⌘ or Ctrl, as in a terminal. */
 function followsLinks(): Plugin {
   return new Plugin({
     props: {
       handleClick(view, position, event) {
-        if (!event.metaKey && !event.ctrlKey) return false;
+        if (!opensLink(event, view.editable)) return false;
         const link = view.state.doc
           .resolve(position)
           .marks()
           .find((mark) => mark.type.name === "link");
         if (!link) return false;
-        follow(link.attrs.href as string);
+        followLink(link.attrs.href as string);
         return true;
       },
     },

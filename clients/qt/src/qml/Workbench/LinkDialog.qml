@@ -8,6 +8,8 @@ KDialog {
     property url link
     property string target: ""
     property string reason: ""
+    // Where the link comes from, so a person knows whom they trust.
+    property string trust: qsTr("The link comes from terminal output. Open it only if you trust it.")
     readonly property bool refused: reason.length > 0
 
     signal copyRequested(string target)
@@ -65,7 +67,7 @@ KDialog {
         PlainLabel {
             width: parent.width
             visible: !root.refused
-            text: qsTr("The link comes from terminal output. Open it only if you trust it.")
+            text: root.trust
             color: KodosiTheme.inkMuted
             wrapMode: Text.WordWrap
         }

@@ -36,6 +36,8 @@ pub struct Shape {
     pub fill: Option<String>,
     pub line: Option<String>,
     pub asset: Option<String>,
+    /// Where a click on the whole shape goes, as a link mark of its text says.
+    pub link: Option<Value>,
     pub text: Option<Node>,
     /// The look that its text takes from the master, the layout and the shape, by level.
     pub look: Value,
@@ -165,6 +167,7 @@ impl Shape {
             "fill": self.fill,
             "line": self.line,
             "asset": self.asset,
+            "link": self.link,
             "text": self.text.as_ref().map(|text| text.to_json(schema())),
             "look": self.look,
             "order": self.order,
@@ -192,6 +195,7 @@ impl Shape {
             fill: text("fill"),
             line: text("line"),
             asset: text("asset"),
+            link: json.get("link").filter(|link| !link.is_null()).cloned(),
             text: tree,
             look: json.get("look").cloned().unwrap_or(Value::Null),
             order: json["order"].as_u64().unwrap_or(0),

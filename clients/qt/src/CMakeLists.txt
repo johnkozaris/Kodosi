@@ -79,7 +79,8 @@ qt_add_library(kodosi-application STATIC
     presentation/CanvasDocuments.cpp
     presentation/CanvasDocuments.hpp
     presentation/CanvasModel.cpp
-    presentation/LocalAddress.cpp
+    presentation/Link.cpp
+    presentation/Link.hpp
     presentation/CanvasModel.hpp
     presentation/DesktopSettings.cpp
     presentation/DesktopSettings.hpp
@@ -389,6 +390,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/LauncherDropdown.qml
         qml/Workbench/LauncherPrompt.qml
         qml/Workbench/LauncherSheet.qml
+        qml/Workbench/LinkDialog.qml
         qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
@@ -398,7 +400,6 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
-        qml/Workbench/TerminalLinkDialog.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES

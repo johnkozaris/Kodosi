@@ -222,7 +222,6 @@ pub enum CanvasRequest {
     deny_unknown_fields
 )]
 pub enum BrowserAct {
-    Open { url: String },
     Wake,
 }
 
@@ -319,10 +318,7 @@ impl CanvasRequest {
                     && !name.contains(['/', '\\', ':', '\0'])
                     && data.len() <= PART_BYTES.div_ceil(3) * 4
             }
-            Self::Act { action } => match action {
-                BrowserAct::Open { url } => !url.trim().is_empty() && bounded(url, 4096),
-                BrowserAct::Wake => true,
-            },
+            Self::Act { action: BrowserAct::Wake } => true,
         }
     }
 }

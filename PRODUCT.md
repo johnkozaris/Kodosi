@@ -85,10 +85,10 @@ conversation follows the person to all their computers.
   opens at once. A file or folder opens, but not a file that can run a program. A link to
   another app asks first. A link with hidden characters or an incomplete address does not
   open; the app tells why and can copy the link.
-- A link opens on the device where the person selects it. A local address such as
-  `localhost` opens in the terminal's shared browser, on the terminal's computer. In a
-  terminal of another computer, a file is on that computer, so it does not open; the app
-  names that computer.
+- A link opens on the device where the person selects it, in the person's own browser or
+  app. Only agents open pages in the shared browser. In a terminal of another computer, a
+  file or a local address such as `localhost` is on that computer, so it does not open;
+  the app names that computer.
 
 ## Canvas
 
@@ -117,7 +117,10 @@ conversation follows the person to all their computers.
   it again or opens the browser. Each device keeps its own state of the keys and the
   canvas.
 - A page runs its scripts in a closed frame. It reaches no network, no files and no
-  storage that stays. A link in a page opens on the device by the link rules.
+  storage that stays. A link in a page, document, sheet, presentation or PDF opens on the
+  device by the link rules. Where the person can edit, a link opens with ⌘-click
+  (Ctrl-click on Linux and Windows); elsewhere, and on a touch screen, a click or a tap
+  opens it. A link to a slide or to a cell of the same file goes there.
 - A terminal can have one shared browser. The agent uses it with `kodosi browser` and
   agent-browser's commands, and the people see it on the canvas as live video and click
   and type in it, each with a named pointer. It has one size: the view where a person used

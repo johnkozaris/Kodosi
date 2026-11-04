@@ -417,27 +417,11 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
 
 /// A person's step that needs no view of the browser.
 public enum BrowserAct: Equatable, Sendable {
-    case open(String)
     case wake
 
     var json: JSONValue {
         switch self {
-        case let .open(url): .object(["do": .string("open"), "url": .string(url)])
         case .wake: .object(["do": .string("wake")])
         }
-    }
-}
-
-public extension URL {
-    /// Whether a web address is on the loopback interface, so that it names the computer that
-    /// serves it.
-    var isLocalAddress: Bool {
-        guard let host = host()?.lowercased() else { return false }
-        let name = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if ["localhost", "0.0.0.0", "::", "::1"].contains(name) || name.hasSuffix(".localhost") {
-            return true
-        }
-        let parts = name.split(separator: ".", omittingEmptySubsequences: false)
-        return parts.count == 4 && parts[0] == "127" && parts.allSatisfy { UInt8($0) != nil }
     }
 }

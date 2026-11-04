@@ -265,20 +265,16 @@ public final class CanvasStore {
     }
 
     /// Shows the shared browser of a terminal on its canvas, and opens it there when the terminal
-    /// has none. With an address, it goes to that address.
-    public func openBrowser(of session: RuntimeSession, at address: URL? = nil) async throws {
-        let open = address.map { BrowserAct.open($0.absoluteString) }
+    /// has none.
+    public func openBrowser(of session: RuntimeSession) async throws {
         guard session.canvas?.browser == nil else {
             show(.browser, in: session)
-            if let open {
-                try await act(open, in: session.id)
-            }
             return
         }
         closed[session.id]?[.browser] = nil
         opening.insert(session.id)
         do {
-            try await act(open ?? .wake, in: session.id)
+            try await act(.wake, in: session.id)
         } catch {
             opening.remove(session.id)
             throw error

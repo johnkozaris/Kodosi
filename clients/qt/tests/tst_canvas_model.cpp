@@ -166,22 +166,28 @@ private slots:
         QCOMPARE(kodosi::CanvasModel::about(QStringLiteral("x"), QString(700, QLatin1Char('w'))).size(), 612);
     }
 
-    void aPageFollowsOnlyWebAndMailLinks()
+    void aLinkOnTheCanvasOfAnotherComputerOpensNoAddressOfThatComputerHere()
     {
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("https://kodosi.com/docs"))));
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("mailto:ana@example.com"))));
-        QVERIFY(kodosi::CanvasModel::followable(QUrl(QStringLiteral("http://localhost:3000"))));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("file:///etc/passwd"))));
-        QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("javascript:alert(1)"))));
-    }
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        auto remote = test::session(1, true);
+        remote.insert(QStringLiteral("hostName"), QStringLiteral("studio"));
+        sessions.apply(test::snapshot({ remote }));
+        QSignalSpy refused(&model, &kodosi::CanvasModel::linkRefused);
+        QSignalSpy asked(&model, &kodosi::CanvasModel::linkQuestionRequested);
 
-    void aLinkOpensInTheSharedBrowserOnlyForALocalAddressOfAnotherComputer()
-    {
-        const QUrl local(QStringLiteral("http://localhost:3000"));
-        QVERIFY(kodosi::CanvasModel::inSharedBrowser(local, true));
-        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(local, false));
-        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(QUrl(QStringLiteral("https://kodosi.com/docs")), true));
-        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(QUrl(QStringLiteral("mailto:ana@example.com")), true));
+        model.follow(test::id(1), QUrl(QStringLiteral("http://localhost:3000/")));
+        QCOMPARE(refused.size(), 1);
+        QCOMPARE(refused.first().at(0).toString(), test::id(1));
+        QCOMPARE(refused.first().at(2).toString(), QStringLiteral("The address is on studio."));
+
+        model.follow(test::id(1), QUrl(QStringLiteral("file:///home/ana/plan.md")));
+        QCOMPARE(refused.last().at(2).toString(), QStringLiteral("The file is on studio."));
+
+        model.follow(test::id(1), QUrl(QStringLiteral("vscode://file/home/ana/main.rs")));
+        QCOMPARE(asked.size(), 1);
+        QVERIFY(commands.values.isEmpty());
     }
 
     void aPartClosesOnThisDeviceUntilItChanges()

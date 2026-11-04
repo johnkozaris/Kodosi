@@ -14,7 +14,7 @@ struct CanvasDocumentView: View {
     let view: CanvasItem.View
     let store: CanvasStore
     let pages: CanvasDocumentPages
-    let openBrowser: ((URL) -> Void)?
+    let otherComputer: String?
     @State private var page: CanvasDocumentPage?
 
     var body: some View {
@@ -37,7 +37,7 @@ struct CanvasDocumentView: View {
                                    preferences: viewers.preferences(for: view))
             }
             page?.links.open = { url in openURL(url) }
-            page?.links.openBrowser = openBrowser
+            page?.links.otherComputer = otherComputer
             page?.restyle(look)
             page?.prefer(viewers.preferences(for: view))
         }

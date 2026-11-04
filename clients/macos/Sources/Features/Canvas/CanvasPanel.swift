@@ -157,11 +157,8 @@ struct CanvasPanel: View {
                     } else if let current, let frame {
                         CanvasItemView(session: session, shown: current, store: deps.canvas, frame: frame, pages: deps.documentPages,
                                        ask: ask(current))
-                        { address in
-                            deps.openBrowser(of: session, at: address)
-                        }
-                        .id(current.key)
-                        .transition(.opacity)
+                            .id(current.key)
+                            .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -308,10 +305,10 @@ struct CanvasPanel: View {
 
 extension AppDependencies {
     /// Shows the shared browser of a terminal on its canvas, and opens it when the terminal has none.
-    func openBrowser(of session: RuntimeSession, at address: URL? = nil) {
+    func openBrowser(of session: RuntimeSession) {
         Task { @MainActor in
             do {
-                try await canvas.openBrowser(of: session, at: address)
+                try await canvas.openBrowser(of: session)
             } catch { errorMessage = error.localizedDescription }
         }
     }

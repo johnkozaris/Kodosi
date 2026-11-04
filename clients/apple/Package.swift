@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "KodosiKit", targets: ["KodosiKit"]),
         .library(name: "KodosiBridge", targets: ["KodosiBridge"]),
         .library(name: "KodosiDesign", targets: ["KodosiDesign"]),
+        .library(name: "KodosiLinks", targets: ["KodosiLinks"]),
         .library(name: "KodosiTerminal", targets: ["KodosiTerminal"]),
         .library(name: "KodosiTerminalSessions", targets: ["KodosiTerminalSessions"]),
     ],
@@ -35,8 +36,12 @@ let package = Package(
             swiftSettings: swiftSettings,
         ),
         .target(
+            name: "KodosiLinks",
+            swiftSettings: swiftSettings,
+        ),
+        .target(
             name: "KodosiDesign",
-            dependencies: ["KodosiBridge"],
+            dependencies: ["KodosiBridge", "KodosiLinks"],
             resources: [.process("Resources")],
             swiftSettings: swiftSettings,
         ),
@@ -44,6 +49,7 @@ let package = Package(
             name: "KodosiTerminal",
             dependencies: [
                 "KodosiKit",
+                "KodosiLinks",
                 .product(name: "GhosttyTerminal", package: "ghostty"),
             ],
             swiftSettings: swiftSettings,
@@ -59,7 +65,14 @@ let package = Package(
         ),
         .testTarget(
             name: "KodosiTerminalTests",
-            dependencies: ["KodosiTerminal"],
+            dependencies: ["KodosiTerminal", "KodosiLinks"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ],
+        ),
+        .testTarget(
+            name: "KodosiLinksTests",
+            dependencies: ["KodosiLinks"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ],

@@ -6,7 +6,9 @@ import {
   type Client,
   colorOf,
   type Editor,
+  followLink,
   Outbox,
+  opensLink,
   type Person,
   type Pictures,
   Status,
@@ -22,7 +24,15 @@ import { EditorView } from "@tiptap/pm/view";
 import Konva from "konva";
 import { Plus, TextCursorInput, Trash2, Undo2 } from "lucide";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
-import { layOut, levelRules, type Measure, schema, type TextLook } from "./text";
+import {
+  type Link,
+  layOut,
+  levelRules,
+  linkTitle,
+  type Measure,
+  schema,
+  type TextLook,
+} from "./text";
 import "./pptx.css";
 
 interface Shape {
@@ -39,6 +49,7 @@ interface Shape {
   fill: string | null;
   line: string | null;
   asset: string | null;
+  link: Link | null;
   text: unknown;
   look: TextLook | null;
   order: number;
@@ -404,7 +415,52 @@ class PptxEditor implements Editor, Pictures {
     if (shape.asset) this.drawPicture(group, shape.asset, width, height);
     if (shape.text && shape.id !== this.textShape) group.add(this.textNode(shape, width, height));
     if (editable) this.bindShape(group, shape);
+    if (shape.link) this.linkOn(group, shape.link, editable);
     layer.add(group);
+  }
+
+  /**
+   * A shape or words that open a link: with a click where a person only looks, and with ⌘ or Ctrl
+   * where they edit, since there a click picks the shape.
+   */
+  private linkOn(node: Konva.Node, link: Link, editing: boolean): void {
+    const holder = () => this.stage?.container();
+    node.on("mouseenter", () => {
+      const element = holder();
+      if (!element) return;
+      element.style.cursor = "pointer";
+      element.title = linkTitle(link);
+    });
+    node.on("mouseleave", () => {
+      const element = holder();
+      if (!element) return;
+      element.style.cursor = "";
+      element.title = "";
+    });
+    node.on("click tap", (event) => {
+      if (!opensLink(event.evt as MouseEvent, editing)) return;
+      event.cancelBubble = true;
+      this.follow(link);
+    });
+  }
+
+  private follow(link: Link): void {
+    if (link.href) {
+      followLink(link.href);
+      return;
+    }
+    const slides = this.deck?.slides ?? [];
+    const index = slides.findIndex((slide) => slide.id === this.current);
+    const steps: Record<string, number> = {
+      nextslide: index + 1,
+      previousslide: index - 1,
+      firstslide: 0,
+      lastslide: slides.length - 1,
+    };
+    const target = link.slide
+      ? slides.find((slide) => slide.id === link.slide)
+      : slides[steps[link.jump ?? ""] ?? -1];
+    if (target) this.open(target.id);
   }
 
   private fontMeasure(): Measure {
@@ -414,7 +470,7 @@ class PptxEditor implements Editor, Pictures {
     };
   }
 
-  private textNode(shape: Shape, width: number, height: number): Konva.Shape {
+  private textNode(shape: Shape, width: number, height: number): Konva.Group {
     const state = this.texts.get(textKey(this.current, shape.id));
     const tree = state?.doc ?? ProseNode.fromJSON(schema, shape.text);
     const lines = layOut(
@@ -425,21 +481,37 @@ class PptxEditor implements Editor, Pictures {
       this.fontMeasure(),
     );
     const fallback = this.color("scheme:tx1") ?? "#1a1a1a";
-    return new Konva.Shape({
-      x: TEXT_INSET,
-      y: TEXT_INSET,
-      listening: false,
-      sceneFunc: (context) => {
-        for (const line of lines) {
-          for (const piece of line.pieces) {
-            context.setAttr("font", piece.font);
-            context.setAttr("fillStyle", this.color(piece.color) ?? fallback);
-            context.fillText(piece.text, piece.x, line.baseline);
-            if (piece.underline) context.fillRect(piece.x, line.baseline + 2, piece.width, 1);
+    const text = new Konva.Group({ x: TEXT_INSET, y: TEXT_INSET });
+    text.add(
+      new Konva.Shape({
+        listening: false,
+        sceneFunc: (context) => {
+          for (const line of lines) {
+            for (const piece of line.pieces) {
+              context.setAttr("font", piece.font);
+              context.setAttr("fillStyle", this.color(piece.color) ?? fallback);
+              context.fillText(piece.text, piece.x, line.baseline);
+              if (piece.underline) context.fillRect(piece.x, line.baseline + 2, piece.width, 1);
+            }
           }
-        }
-      },
-    });
+        },
+      }),
+    );
+    for (const line of lines) {
+      for (const piece of line.pieces) {
+        if (!piece.link) continue;
+        const area = new Konva.Rect({
+          x: piece.x,
+          y: line.baseline - line.height,
+          width: piece.width,
+          height: line.height,
+          fill: "transparent",
+        });
+        this.linkOn(area, piece.link, this.canEdit);
+        text.add(area);
+      }
+    }
+    return text;
   }
 
   private drawPicture(group: Konva.Group, asset: string, width: number, height: number): void {
@@ -519,6 +591,16 @@ class PptxEditor implements Editor, Pictures {
         this.texts.set(key, next);
         if (transaction.docChanged) this.client.pull();
       },
+      handleClick: (view, position, event) => {
+        if (!opensLink(event, true)) return false;
+        const link = view.state.doc
+          .resolve(position)
+          .marks()
+          .find((mark) => mark.type.name === "link");
+        if (!link) return false;
+        this.follow(link.attrs as Link);
+        return true;
+      },
       handleDOMEvents: {
         blur: () => {
           this.closeText();
@@ -581,6 +663,7 @@ class PptxEditor implements Editor, Pictures {
       asset: null,
       text: { type: "doc", content: [{ type: "paragraph" }] },
       look: null,
+      link: null,
       order: slide.shapes.length,
     };
     slide.shapes.push(shape);

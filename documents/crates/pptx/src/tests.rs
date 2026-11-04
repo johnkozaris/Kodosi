@@ -60,6 +60,38 @@ fn deck() -> Vec<u8> {
     writer.finish().unwrap().into_inner()
 }
 
+/// The deck with links on its first slide: a web link on the title, a step to the next slide,
+/// and a box that goes to the second slide.
+fn linked_deck() -> Vec<u8> {
+    let slide = slide_xml("First")
+        .replace(
+            r#"<a:rPr lang="en-US" b="1" dirty="0"/><a:t>First</a:t></a:r>"#,
+            r#"<a:rPr lang="en-US" b="1" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr><a:t>First</a:t></a:r><a:r><a:rPr lang="en-US"><a:hlinkClick r:id="" action="ppaction://hlinkshowjump?jump=nextslide"/></a:rPr><a:t>Next</a:t></a:r>"#,
+        )
+        .replace(
+            r#"<p:cNvPr id="3" name="Box"/>"#,
+            r#"<p:cNvPr id="3" name="Box"><a:hlinkClick r:id="rId3" action="ppaction://hlinksldjump"/></p:cNvPr>"#,
+        );
+    let relations = format!(
+        r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{RELATIONSHIP}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="{RELATIONSHIP}/hyperlink" Target="https://kodosi.com/docs" TargetMode="External"/><Relationship Id="rId3" Type="{RELATIONSHIP}/slide" Target="slide2.xml"/></Relationships>"#
+    );
+    let file = deck();
+    let mut original = Package::open(&file).unwrap();
+    let names: Vec<String> = original.names().map(str::to_owned).collect();
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    for name in names {
+        let bytes = match name.as_str() {
+            "ppt/slides/slide1.xml" => slide.clone().into_bytes(),
+            "ppt/slides/_rels/slide1.xml.rels" => relations.clone().into_bytes(),
+            _ => original.bytes(&name).unwrap(),
+        };
+        writer.start_file(name, options).unwrap();
+        writer.write_all(&bytes).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}
+
 fn read(file: &[u8]) -> Model {
     Pptx::read(file, &mut Assets::default()).unwrap()
 }
@@ -342,4 +374,31 @@ fn the_guide_names_each_op_that_an_agent_can_send() {
         let parsed: Result<Op, _> = serde_json::from_value(example);
         assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
     }
+}
+
+#[test]
+fn a_link_on_a_run_or_a_shape_says_where_a_click_goes_and_a_save_keeps_it() {
+    let file = linked_deck();
+    let model = read(&file);
+    let snapshot = model.snapshot();
+    let shapes = &snapshot["slides"][0]["shapes"];
+    let runs = &shapes[0]["text"]["content"][0]["content"];
+    let link_of = |run: &Value| {
+        run["marks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|mark| mark["type"] == "link")
+            .map(|mark| mark["attrs"].clone())
+    };
+    assert_eq!(
+        link_of(&runs[0]),
+        Some(json!({ "href": "https://kodosi.com/docs", "slide": null, "jump": null }))
+    );
+    assert_eq!(
+        link_of(&runs[1]),
+        Some(json!({ "href": null, "slide": null, "jump": "nextslide" }))
+    );
+    assert_eq!(shapes[1]["link"], json!({ "slide": "257" }));
+    assert_eq!(saved(&model, &file), file);
 }

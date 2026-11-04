@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use document::Unreadable;
-use package::{Package, RELATIONSHIPS, STRICT_RELATIONSHIPS, escape};
+use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS, escape};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
     formats,
     formula::{parse_cell, parse_range, translate_shared},
-    model::{Anchor, Cell, DefinedName, Look, Model, Sheet, Value},
+    model::{Anchor, Cell, DefinedName, Link, Look, Model, Sheet, Value},
 };
 
 pub(crate) const WORKBOOK_PART: &str = "xl/workbook.xml";
@@ -75,7 +75,7 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         let Some(xml) = package.text(&part) else {
             continue;
         };
-        let mut sheet = read_sheet(&xml, &strings)?;
+        let mut sheet = read_sheet(&xml, &strings, &package.relations(&part))?;
         entry
             .attribute("sheetId")
             .unwrap_or_default()
@@ -202,7 +202,11 @@ pub(crate) fn merges_of(root: Xml<'_, '_>) -> Vec<[u32; 4]> {
     })
 }
 
-fn read_sheet(xml: &str, strings: &[String]) -> Result<Sheet, Unreadable> {
+fn read_sheet(
+    xml: &str,
+    strings: &[String],
+    relations: &HashMap<String, Relation>,
+) -> Result<Sheet, Unreadable> {
     let parsed = Document::parse(xml).map_err(broken)?;
     let root = parsed.root_element();
     let mut sheet = Sheet::default();
@@ -258,10 +262,32 @@ fn read_sheet(xml: &str, strings: &[String]) -> Result<Sheet, Unreadable> {
                 tag,
                 attribute,
                 ranges: element.attribute(*attribute)?.to_owned(),
+                link: (*tag == "hyperlink")
+                    .then(|| link_of(element, relations))
+                    .flatten(),
             })
         })
         .collect();
     Ok(sheet)
+}
+
+/// A hyperlink goes to an address through its relationship, or to a place in the workbook.
+fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Option<Link> {
+    let relation = element
+        .attributes()
+        .find(|attribute| {
+            attribute.name() == "id"
+                && matches!(
+                    attribute.namespace(),
+                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
+                )
+        })
+        .and_then(|attribute| relations.get(attribute.value()));
+    match (relation, element.attribute("location")) {
+        (Some(relation), _) if relation.external => Some(Link::Href(relation.target.clone())),
+        (_, Some(location)) if !location.is_empty() => Some(Link::Location(location.to_owned())),
+        _ => None,
+    }
 }
 
 /// The text of a formula. A cell of a shared group holds only the group's number, so its

@@ -5,6 +5,7 @@
 #endif
 import Foundation
 import GhosttyTerminal
+import KodosiLinks
 
 @MainActor
 final class TerminalRendererDelegateProxy:
@@ -22,9 +23,7 @@ final class TerminalRendererDelegateProxy:
     var asksBeforeClipboardRead = true
     /// The computer that runs the terminal, when it is not this device.
     var otherComputer: String?
-    var linkReviewRequested: ((TerminalLink) -> Void)?
-    /// Opens a local address in the shared browser of the terminal.
-    var opensBrowser: (URL) -> Void = { _ in }
+    var linkReviewRequested: ((ClickedLink) -> Void)?
     var opensLink: (URL) -> Void = { url in
         #if os(macOS)
             NSWorkspace.shared.open(url)
@@ -77,12 +76,10 @@ final class TerminalRendererDelegateProxy:
         guard kind == .unknown else {
             return opensLink(URL(string: url).flatMap { $0.scheme == nil ? nil : $0 } ?? URL(filePath: url))
         }
-        let link = TerminalLink(url, otherComputer: otherComputer)
+        let link = ClickedLink(url, otherComputer: otherComputer)
         switch link.decision {
         case let .open(target):
             opensLink(target)
-        case let .browser(target):
-            opensBrowser(target)
         case .ask, .refuse:
             linkReviewRequested?(link)
         }

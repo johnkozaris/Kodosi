@@ -2833,22 +2833,6 @@
                         "additionalProperties": false,
                         "properties": {
                           "do": {
-                            "const": "open"
-                          },
-                          "url": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "do",
-                          "url"
-                        ],
-                        "type": "object"
-                      },
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "do": {
                             "const": "wake"
                           }
                         },

@@ -41,6 +41,16 @@ pub(crate) struct Anchor {
     pub(crate) tag: &'static str,
     pub(crate) attribute: &'static str,
     pub(crate) ranges: String,
+    /// Where a click goes, for a hyperlink. The element keeps it in the file.
+    pub(crate) link: Option<Link>,
+}
+
+/// An address, or a place in the workbook such as `Sheet2!A1`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Link {
+    Href(String),
+    Location(String),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -242,6 +252,15 @@ impl Sheet {
             "merges": self.merges,
             "widths": self.widths,
             "heights": self.heights,
+            "links": self
+                .anchors
+                .iter()
+                .filter(|anchor| !anchor.ranges.is_empty())
+                .filter_map(|anchor| {
+                    let link = anchor.link.as_ref()?;
+                    Some(json!({ "ranges": anchor.ranges, "to": link }))
+                })
+                .collect::<Vec<_>>(),
         })
     }
 
