@@ -51,7 +51,7 @@ struct SessionTileHeader: View {
                     Location(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
-            Spacer(minLength: 4)
+            Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap()
             if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
                 DosiKeys(item: item, question: question).transition(AnyTransition.pop)
             }
