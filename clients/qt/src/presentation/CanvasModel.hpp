@@ -96,6 +96,7 @@ public:
     [[nodiscard]] static std::optional<BrowserKey> browserKey(int key);
     [[nodiscard]] static QString about(const QString& place, const QString& words);
     [[nodiscard]] static bool followable(const QUrl& link);
+    [[nodiscard]] static bool inSharedBrowser(const QUrl& link, bool otherComputer);
 
 signals:
     void changed();

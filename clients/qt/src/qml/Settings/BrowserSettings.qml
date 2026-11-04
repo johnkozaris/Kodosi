@@ -28,7 +28,7 @@ ColumnLayout {
             title: qsTr("Kodosi Browser")
             subtitle: !Models.Canvas.browserKnown ? qsTr("Looking on this computer")
                 : Models.Canvas.browserEngine.length > 0 ? Models.Canvas.browserEngine
-                : qsTr("Comes with the first browser")
+                : qsTr("Downloads when the shared browser first opens")
         }
     }
     ListGroup {

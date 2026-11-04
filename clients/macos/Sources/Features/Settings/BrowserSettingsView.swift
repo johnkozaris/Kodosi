@@ -75,7 +75,7 @@ struct BrowserSettingsView: View {
 
     private var engineLine: String {
         guard let status else { return String(localized: "Looking on this Mac") }
-        return status.engine ?? String(localized: "Comes with the first browser")
+        return status.engine ?? String(localized: "Downloads when the shared browser first opens")
     }
 
     private var copiedLine: String {

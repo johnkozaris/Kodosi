@@ -14,7 +14,7 @@ struct CanvasDocumentView: View {
     let view: CanvasItem.View
     let store: CanvasStore
     let pages: CanvasDocumentPages
-    let openBrowser: (URL) -> Void
+    let openBrowser: ((URL) -> Void)?
     @State private var page: CanvasDocumentPage?
 
     var body: some View {
@@ -23,6 +23,7 @@ struct CanvasDocumentView: View {
                 WebView(page.page)
                     .webViewLinkPreviews(.disabled)
                     .webViewBackForwardNavigationGestures(.disabled)
+                    .webViewMagnificationGestures(.disabled)
                     .opacity(page.shown ? 1 : 0)
                     .animation(theme.motion.fade, value: page.shown)
             }

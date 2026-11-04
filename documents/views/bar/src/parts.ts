@@ -17,6 +17,11 @@ export function keys(key: string, { shift = false } = {}): string {
   return APPLE ? `${shift ? "⇧" : ""}⌘${key}` : `Ctrl+${shift ? "Shift+" : ""}${key}`;
 }
 
+/** Whether a key comes with ⌘ on a Mac, or with Ctrl elsewhere, and with no Option or Alt. */
+export function commandKey(event: KeyboardEvent): boolean {
+  return !event.altKey && (APPLE ? event.metaKey : event.ctrlKey);
+}
+
 /** How much a bar holds: parts that need more room leave a narrower bar. */
 export type Room = "wide" | "mid" | "narrow" | "tiny";
 
@@ -346,6 +351,51 @@ export function stepperOf(label: string, step: (larger: boolean) => void, fits?:
     element: well,
     show(text, canShrink, canGrow) {
       value.textContent = text;
+      smaller.disabled = !canShrink;
+      larger.disabled = !canGrow;
+    },
+  };
+}
+
+export interface ZoomPart {
+  element: HTMLElement;
+  show(percent: number, canShrink: boolean, canGrow: boolean): void;
+}
+
+/**
+ * The size of the pages between a key that makes them smaller and one that makes them larger.
+ * The size opens the ways to fit the pages. A narrow bar keeps only the size.
+ */
+export function zoomOf(options: {
+  step(larger: boolean): void;
+  entries(): readonly MenuEntry[];
+}): ZoomPart {
+  const well = document.createElement("div");
+  well.className = "bar-well bar-zoom";
+  well.role = "group";
+  well.ariaLabel = "Zoom";
+  const key = (larger: boolean) => {
+    const button = fit(document.createElement("button"), "narrow");
+    button.type = "button";
+    button.className = "bar-toggle";
+    button.append(icon(larger ? Plus : Minus));
+    giveTip(button, larger ? "Zoom in" : "Zoom out", keys(larger ? "+" : "−"));
+    button.addEventListener("click", () => options.step(larger));
+    return button;
+  };
+  const smaller = well.appendChild(key(false));
+  const size = well.appendChild(document.createElement("button"));
+  size.type = "button";
+  size.className = "bar-zoom-size";
+  giveTip(size, "Zoom");
+  const open = opener("menu", (done) => menuOf(options.entries(), done), "end");
+  size.addEventListener("click", (event) => open(size, event.detail === 0));
+  const larger = well.appendChild(key(true));
+  return {
+    element: well,
+    show(percent, canShrink, canGrow) {
+      size.textContent = `${percent}%`;
+      size.ariaLabel = `Zoom ${percent}%`;
       smaller.disabled = !canShrink;
       larger.disabled = !canGrow;
     },

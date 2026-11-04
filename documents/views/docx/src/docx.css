@@ -6,9 +6,18 @@
   --page-color: #ffffff;
 }
 
-.docx-page .tiptap {
-  box-sizing: border-box;
+/* The sheet takes the scaled size of the pages, and the pages lie on it at their own size. */
+.docx-sheet {
+  position: relative;
   margin: 0 auto;
+}
+
+.docx-page .tiptap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  transform-origin: 0 0;
   background: var(--page-color);
   color: #111111;
   outline: none;
@@ -72,7 +81,6 @@
 }
 
 .document-view[data-fit] .docx-page .tiptap {
-  width: auto;
   padding: 24px clamp(16px, 6%, 56px);
 }
 

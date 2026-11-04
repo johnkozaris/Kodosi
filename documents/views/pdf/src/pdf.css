@@ -1,9 +1,10 @@
 .pdf-pages {
+  --zoom: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: calc(var(--zoom) * var(--space));
+  padding: calc(var(--zoom) * var(--space));
+  scrollbar-gutter: stable;
 }
 
 .pdf-pages[data-tool="note"] .pdf-page,
@@ -11,9 +12,17 @@
   cursor: crosshair;
 }
 
+.pdf-pages[data-tool="note"] .pdf-link,
+.pdf-pages[data-tool="redact"] .pdf-link {
+  pointer-events: none;
+}
+
+/* Auto margins center a page, and a page wider than the view starts at its left edge, where
+   the view can scroll to it. */
 .pdf-page {
   position: relative;
   flex: none;
+  margin-inline: auto;
   background: #ffffff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 }
@@ -21,6 +30,8 @@
 .pdf-page > canvas {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .document-view[data-scheme="dark"][data-dark-pages] .pdf-page {
@@ -41,6 +52,10 @@
   pointer-events: auto;
 }
 
+.pdf-link {
+  position: absolute;
+}
+
 .pdf-note {
   position: absolute;
   padding: 0;
@@ -56,6 +71,7 @@
   border: 1px solid rgb(0 0 0 / 0.2);
   background: rgb(220 230 255 / 0.5);
   color: #000000;
+  font-size: calc(var(--zoom) * 13px);
 }
 
 .pdf-peer {

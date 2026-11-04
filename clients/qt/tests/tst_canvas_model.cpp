@@ -175,6 +175,15 @@ private slots:
         QVERIFY(!kodosi::CanvasModel::followable(QUrl(QStringLiteral("javascript:alert(1)"))));
     }
 
+    void aLinkOpensInTheSharedBrowserOnlyForALocalAddressOfAnotherComputer()
+    {
+        const QUrl local(QStringLiteral("http://localhost:3000"));
+        QVERIFY(kodosi::CanvasModel::inSharedBrowser(local, true));
+        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(local, false));
+        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(QUrl(QStringLiteral("https://kodosi.com/docs")), true));
+        QVERIFY(!kodosi::CanvasModel::inSharedBrowser(QUrl(QStringLiteral("mailto:ana@example.com")), true));
+    }
+
     void aPartClosesOnThisDeviceUntilItChanges()
     {
         Commands commands;

@@ -1,3 +1,4 @@
+import { type Fitting, Zoom } from "@documents/bar";
 import {
   type Area,
   areaOf,
@@ -150,12 +151,16 @@ class DocxEditor implements ViewEditor, Pictures {
   private editor: Editor | undefined;
   private readonly bar: DocxBar;
   private readonly status: Status;
-  private readonly page: HTMLElement;
+  private readonly page = document.createElement("div");
+  private readonly sheet = document.createElement("div");
+  private readonly zoom: Zoom;
   private readonly look = document.createElement("style");
   private readonly clientKey = crypto.randomUUID();
-  private fitting: ResizeObserver | undefined;
-  private choosing: MutationObserver | undefined;
+  private readonly choosing: MutationObserver;
+  private sizing: ResizeObserver | undefined;
+  private scale = 1;
   private view: DocxView = { styles: null, numbering: null, page: null };
+  private shape = pageSize(this.view);
   private pageAreas: Area[] = [];
   private placeWaits = false;
 
@@ -164,11 +169,19 @@ class DocxEditor implements ViewEditor, Pictures {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = new DocxBar(root, this.status.element);
-    root.append(this.bar.element);
-    this.page = root.appendChild(document.createElement("div"));
     this.page.className = "document-page docx-page";
-    root.appendChild(this.look);
+    this.sheet.className = "docx-sheet";
+    this.page.append(this.sheet);
+    this.zoom = new Zoom({
+      area: this.page,
+      inset: PAGE_INSET,
+      fits: () => this.fits(),
+      scale: (scale) => this.scaleTo(scale),
+    });
+    this.bar = new DocxBar(root, [this.zoom.element, this.status.element]);
+    root.append(this.bar.element, this.page, this.look);
+    this.choosing = new MutationObserver(() => this.zoom.refit());
+    this.choosing.observe(root, { attributeFilter: ["data-fit"] });
   }
 
   /** A key that changes the file, which does nothing while the file is read only. */
@@ -215,11 +228,11 @@ class DocxEditor implements ViewEditor, Pictures {
     this.look.textContent = styleSheet(snapshot.view);
     const client = this.client;
     const clientID = this.clientKey;
-    const shape = pageSize(snapshot.view);
+    this.shape = pageSize(snapshot.view);
     const lookOf = (block: ProseNode) =>
       snapshot.view.styles?.styles[(block.attrs.style as string | null) ?? ""];
     this.editor = new Editor({
-      element: this.page,
+      element: this.sheet,
       extensions: [
         ...extensions,
         Extension.create({
@@ -233,7 +246,7 @@ class DocxEditor implements ViewEditor, Pictures {
             imagesPlugin(client),
             followsLinks(),
             pages(
-              shape,
+              this.shape,
               {
                 keepNext: (block) => lookOf(block)?.keepNext === true,
                 startsPage: (block) =>
@@ -255,12 +268,34 @@ class DocxEditor implements ViewEditor, Pictures {
       },
     });
     this.bar.show(this.editor, snapshot.view, person.canEdit);
-    this.fitting?.disconnect();
-    this.fitting = new ResizeObserver(() => this.fit(shape.width));
-    this.fitting.observe(this.page);
-    this.choosing?.disconnect();
-    this.choosing = new MutationObserver(() => this.fit(shape.width));
-    this.choosing.observe(this.root, { attributeFilter: ["data-fit"] });
+    this.sizing?.disconnect();
+    this.sizing = new ResizeObserver(() => this.sizeSheet());
+    this.sizing.observe(this.editor.view.dom);
+    this.zoom.refit();
+  }
+
+  /**
+   * The pages lay out once at their own size, so a zoom never moves a word: the scale only makes
+   * their picture larger or smaller. Text that fits the view lays out at the width that the
+   * scale gives it.
+   */
+  private scaleTo(scale: number): void {
+    this.scale = scale;
+    const root = this.editor?.view.dom;
+    if (!root) return;
+    const room = this.page.clientWidth - 2 * PAGE_INSET;
+    root.style.width = this.fitted() ? `${room / scale}px` : "";
+    root.style.transform = `scale(${scale})`;
+    root.dataset.scale = String(scale);
+    this.sizeSheet();
+  }
+
+  /** A transform leaves the layout as it is, so the sheet holds the place of the scaled pages. */
+  private sizeSheet(): void {
+    const root = this.editor?.view.dom;
+    if (!root) return;
+    this.sheet.style.width = `${root.offsetWidth * this.scale}px`;
+    this.sheet.style.height = `${root.offsetHeight * this.scale}px`;
   }
 
   /** The person chose text that fits the view over pages. */
@@ -269,10 +304,11 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 
   /** A page keeps its lines, so a narrow view shows it smaller. Text that fits needs no scale. */
-  private fit(pageWidth: number): void {
-    const root = this.editor?.view.dom;
-    const room = this.page.clientWidth - 2 * PAGE_INSET;
-    if (root) root.style.zoom = this.fitted() ? "1" : String(Math.min(1, room / pageWidth));
+  private fits(): Record<Fitting, number> {
+    if (this.fitted()) return { width: 1, page: 1 };
+    const width = (this.page.clientWidth - 2 * PAGE_INSET) / this.shape.width;
+    const height = (this.page.clientHeight - 2 * PAGE_INSET) / this.shape.height;
+    return { width, page: Math.min(width, height) };
   }
 
   /** The pages, once their breaks stop moving. */
@@ -298,7 +334,7 @@ class DocxEditor implements ViewEditor, Pictures {
   private pagesNow(): Area[] {
     const root = this.editor?.view.dom;
     if (!root) return [];
-    const zoom = Number(root.style.zoom) || 1;
+    const zoom = this.scale;
     const sheet = areaOf(root);
     const tops = [sheet.y];
     const bottoms: number[] = [];
@@ -372,8 +408,9 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 
   destroy(): void {
-    this.fitting?.disconnect();
-    this.choosing?.disconnect();
+    this.zoom.destroy();
+    this.choosing.disconnect();
+    this.sizing?.disconnect();
     this.bar.destroy();
     this.editor?.destroy();
   }

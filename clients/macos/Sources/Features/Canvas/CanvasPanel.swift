@@ -215,7 +215,7 @@ struct CanvasPanel: View {
             } add: {
                 deps.addFile(to: session)
             }
-            Spacer(minLength: 6)
+            Color.clear.frame(minWidth: 6, maxWidth: .infinity).titleBarGap()
             HStack(spacing: 0) {
                 IconButton(title: wide ? "Side by side" : "More room",
                            symbol: wide ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
