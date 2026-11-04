@@ -102,6 +102,8 @@ final class WorkbenchState {
     private var restoredIds: [String] = []
     /// The terminals whose canvas a person hid, so it does not open by itself again.
     private var hiddenCanvases: Set<String> = []
+    /// The terminals whose canvas was open when the person went to another terminal, so it opens again when they come back.
+    private var canvasesLeftOpen: Set<String> = []
     private var savedStage: [String] = []
     private var known: [String: RuntimeSession] = [:]
     private var departures: [Departure] = []
@@ -205,6 +207,7 @@ final class WorkbenchState {
         selectedSessionId = id
         focusedSessionId = id
         hiddenCanvases.remove(id)
+        canvasesLeftOpen.remove(id)
         if known[id]?.canvas != nil {
             canvasSessionId = id
         }
@@ -222,10 +225,15 @@ final class WorkbenchState {
         canvasWide = false
     }
 
-    /// With a canvas open, another terminal comes with its own canvas, or alone.
+    /// With a canvas open, another terminal comes with its own canvas, or alone. A terminal whose
+    /// canvas the person left open comes back with it.
     private func followCanvas(to id: String) {
-        guard let open = canvasSessionId, open != id else { return }
-        if known[id]?.canvas != nil {
+        guard canvasSessionId != id else { return }
+        let back = canvasesLeftOpen.remove(id) != nil
+        if let open = canvasSessionId {
+            canvasesLeftOpen.insert(open)
+        }
+        if known[id]?.canvas != nil, back || canvasSessionId != nil {
             canvasSessionId = id
         } else {
             endCanvas()
@@ -234,6 +242,7 @@ final class WorkbenchState {
 
     func dismissSession(_ id: String) {
         stagedSessionIds.removeAll { $0 == id }
+        canvasesLeftOpen.remove(id)
         if canvasSessionId == id {
             endCanvas()
         }
@@ -278,6 +287,9 @@ final class WorkbenchState {
             return
         }
         focusedSessionId = focusedSessionId == id ? nil : id
+        if focusedSessionId == id {
+            followCanvas(to: id)
+        }
     }
 
     func noteClosing(_ id: String) {
@@ -302,6 +314,7 @@ final class WorkbenchState {
         canvasSessionId = nil
         canvasWide = false
         hiddenCanvases = []
+        canvasesLeftOpen = []
         selectedSessionId = nil
         focusedSessionId = nil
         detailsSessionId = nil
@@ -349,6 +362,7 @@ final class WorkbenchState {
             openCanvas(id)
         }
         hiddenCanvases.formIntersection(current.keys)
+        canvasesLeftOpen.formIntersection(current.keys)
         closing.formIntersection(current.keys)
         let followed = follow(sessions)
         let listed = Set(sessions.filter { !$0.hidden }.map(\.id))

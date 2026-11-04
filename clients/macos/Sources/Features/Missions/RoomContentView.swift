@@ -252,9 +252,6 @@ private struct RoomTerminals: View {
     private func open(_ session: RuntimeSession) {
         withAnimation(theme.motion.snappy) {
             state.selectedTerminal = session.id
-            if session.canvas == nil {
-                state.showsCanvas = false
-            }
         }
         deps.activateSession(session.id, inRoom: roomId)
     }

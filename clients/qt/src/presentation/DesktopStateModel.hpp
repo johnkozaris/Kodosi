@@ -125,6 +125,7 @@ private:
     bool m_canvasWide = false;
     qreal m_canvasWidth = 0;
     QSet<QString> m_hiddenCanvases;
+    QSet<QString> m_canvasesLeftOpen;
     QHash<QString, bool> m_canvasesSeen;
     QHash<QString, Computer> m_pinComputers;
     QString m_stageKey;
