@@ -178,8 +178,26 @@
     width 220ms var(--easing);
 }
 
-.bar-stepper {
+.bar-stepper,
+.bar-zoom {
   gap: 0;
+}
+
+.document-bar .bar-zoom-size {
+  min-width: 44px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.document-bar .bar-zoom-size:hover,
+.document-bar .bar-zoom-size[data-open="true"] {
+  background: var(--raised);
+  box-shadow: var(--raised-rim), var(--resting);
 }
 
 .bar-stepper-value {

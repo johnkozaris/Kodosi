@@ -1,4 +1,15 @@
-import { Bar, gap, type Key, keyOf, readOnly, rule, type Toggles, wellOf } from "@documents/bar";
+import {
+  Bar,
+  type Fitting,
+  gap,
+  type Key,
+  keyOf,
+  readOnly,
+  rule,
+  type Toggles,
+  wellOf,
+  Zoom,
+} from "@documents/bar";
 import {
   type Area,
   areaOf,
@@ -81,25 +92,73 @@ interface Widget {
 
 type Tool = "read" | "note" | "redact";
 
+/** A picture of a page at a scale, and the drawing that makes it. */
+interface Picture {
+  scale: number;
+  shown: Promise<void>;
+  task: pdfjs.RenderTask | undefined;
+}
+
 interface Holder {
   element: HTMLElement;
   layer: HTMLElement;
+  /** The page at its actual size. */
   viewport: pdfjs.PageViewport | undefined;
   drawn: Promise<void> | undefined;
+  /** The newest picture of the page. An older one stays until it shows. */
+  picture: Picture | undefined;
+  /** Whether the page is in the view or near it. Only then does it keep a picture. */
+  near: boolean;
 }
 
-const SCALE = 1.4;
+/** CSS pixels for each point of a page at its actual size. */
+const ACTUAL = pdfjs.PixelsPerInch.PDF_TO_CSS_UNITS;
+/** The space around and between the pages at their actual size, in CSS pixels. */
+const SPACE = 12;
+/** The most pixels of one picture. Beyond them, a zoom enlarges the picture. */
+const MOST_PIXELS = 4096 * 4096;
+/** How long a zoom rests before the pages get pictures at its scale. */
+const REDRAW_MS = 150;
 const NOTE_POINTS = 24;
 const REDACT_LEAST_POINTS = 3;
 const RIGHT_ANGLE = 90;
 const NOTE_COLOR = "FFD400";
 
+/** The size of a page in points, as it lies after its rotation. */
+function sizeOf(page: Page): [number, number] {
+  return page.rotation % 180 === 0 ? [page.width, page.height] : [page.height, page.width];
+}
+
+/**
+ * Lays an element over a box of a page at its actual size, in shares of the page, so that it
+ * keeps its place at each zoom.
+ */
+function cover(element: HTMLElement, viewport: pdfjs.PageViewport, box: Rect): void {
+  const [left, top, right, bottom] = box;
+  element.style.left = `${(left / viewport.width) * 100}%`;
+  element.style.top = `${(top / viewport.height) * 100}%`;
+  element.style.width = `${((right - left) / viewport.width) * 100}%`;
+  element.style.height = `${((bottom - top) / viewport.height) * 100}%`;
+}
+
+function boxOf(from: [number, number], to: [number, number]): Rect {
+  return [
+    Math.min(from[0], to[0]),
+    Math.min(from[1], to[1]),
+    Math.max(from[0], to[0]),
+    Math.max(from[1], to[1]),
+  ];
+}
+
 class PdfEditor implements Editor, Pictures {
   private readonly pagesRoot: HTMLElement;
   private readonly bar: Bar;
   private readonly status: Status;
+  private readonly zoom: Zoom;
   private readonly outbox = new Outbox<Change>();
   private readonly holders = new Map<string, Holder>();
+  private scale = 1;
+  private resting = 0;
   private tools: Toggles | undefined;
   private pageKeys: Key[] = [];
   private snapshot: Snapshot | undefined;
@@ -122,7 +181,43 @@ class PdfEditor implements Editor, Pictures {
     root.append(this.bar.element);
     this.pagesRoot = root.appendChild(document.createElement("div"));
     this.pagesRoot.className = "document-page pdf-pages";
+    this.pagesRoot.style.setProperty("--space", `${SPACE}px`);
     this.pagesRoot.addEventListener("scroll", () => this.placeInView(), { passive: true });
+    this.zoom = new Zoom({
+      area: this.pagesRoot,
+      inset: 0,
+      fits: () => this.fits(),
+      scale: (scale) => this.zoomTo(scale),
+    });
+  }
+
+  /** The scales at which the widest page fills the view, and at which the largest page fits. */
+  private fits(): Record<Fitting, number> {
+    let width = 0;
+    let height = 0;
+    for (const page of this.snapshot?.pages ?? []) {
+      const [across, down] = sizeOf(page);
+      width = Math.max(width, across);
+      height = Math.max(height, down);
+    }
+    const across = (this.pagesRoot.clientWidth - 1) / (width * ACTUAL + 2 * SPACE);
+    const down = (this.pagesRoot.clientHeight - 1) / (height * ACTUAL + 2 * SPACE);
+    return { width: across, page: Math.min(across, down) };
+  }
+
+  /**
+   * The pages take their size at once. The pages near the view get a sharp picture once the
+   * zoom rests.
+   */
+  private zoomTo(scale: number): void {
+    this.scale = scale;
+    this.pagesRoot.style.setProperty("--zoom", String(scale));
+    clearTimeout(this.resting);
+    this.resting = window.setTimeout(() => {
+      for (const [id, holder] of this.holders) {
+        if (holder.near) this.showPage(id).catch(console.error);
+      }
+    }, REDRAW_MS);
   }
 
   /** Where the person is: a page, and the note that they chose on it. */
@@ -153,7 +248,7 @@ class PdfEditor implements Editor, Pictures {
     if (!this.canEdit) {
       this.tools = undefined;
       this.pageKeys = [];
-      this.bar.show(readOnly(), gap(), this.status.element);
+      this.bar.show(readOnly(), gap(), this.zoom.element, this.status.element);
       this.pick("read");
       return;
     }
@@ -177,6 +272,7 @@ class PdfEditor implements Editor, Pictures {
       rule(),
       ...this.pageKeys.map((key) => key.element),
       gap(),
+      this.zoom.element,
       this.status.element,
     );
     this.pick(this.tool);
@@ -228,25 +324,29 @@ class PdfEditor implements Editor, Pictures {
 
   private buildPages(snapshot: Snapshot): void {
     this.visible?.disconnect();
+    for (const holder of this.holders.values()) holder.picture?.task?.cancel();
     this.holders.clear();
     this.pagesRoot.replaceChildren();
     this.visible = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
           const id = (entry.target as HTMLElement).dataset.page;
-          if (id) this.showPage(id).catch(console.error);
+          const holder = id ? this.holders.get(id) : undefined;
+          if (!id || !holder) continue;
+          holder.near = entry.isIntersecting;
+          if (holder.near) this.showPage(id).catch(console.error);
+          else this.dropPicture(holder);
         }
       },
       { root: this.pagesRoot, rootMargin: "100% 0px" },
     );
     for (const page of snapshot.pages) {
-      const sideways = page.rotation % 180 !== 0;
+      const [width, height] = sizeOf(page);
       const element = this.pagesRoot.appendChild(document.createElement("div"));
       element.className = "pdf-page";
       element.dataset.page = page.id;
-      element.style.width = `${(sideways ? page.height : page.width) * SCALE}px`;
-      element.style.height = `${(sideways ? page.width : page.height) * SCALE}px`;
+      element.style.width = `calc(var(--zoom) * ${width * ACTUAL}px)`;
+      element.style.height = `calc(var(--zoom) * ${height * ACTUAL}px)`;
       element.addEventListener("pointerdown", () => {
         this.page = page.id;
         this.showPicked();
@@ -254,20 +354,29 @@ class PdfEditor implements Editor, Pictures {
       });
       const layer = element.appendChild(document.createElement("div"));
       layer.className = "pdf-layer";
-      this.holders.set(page.id, { element, layer, viewport: undefined, drawn: undefined });
+      this.holders.set(page.id, {
+        element,
+        layer,
+        viewport: undefined,
+        drawn: undefined,
+        picture: undefined,
+        near: true,
+      });
       this.visible.observe(element);
     }
+    this.zoom.refit();
     this.page ??= snapshot.pages[0]?.id ?? null;
     this.showPicked();
     this.here = {};
     this.placeInView();
   }
 
+  /** Draws a page once, and gives it a picture at the zoom. */
   private showPage(id: string): Promise<void> {
     const holder = this.holders.get(id);
     if (!holder) return Promise.resolve();
     holder.drawn ??= this.drawPage(id, holder);
-    return holder.drawn;
+    return holder.drawn.then(() => this.paint(id, holder));
   }
 
   private async drawPage(id: string, holder: Holder): Promise<void> {
@@ -275,19 +384,12 @@ class PdfEditor implements Editor, Pictures {
     const index = this.snapshot?.pages.findIndex((page) => page.id === id) ?? -1;
     if (!pdf || index < 0) return;
     const page = await pdf.getPage(index + 1);
-    const viewport = page.getViewport({ scale: SCALE });
+    const viewport = page.getViewport({ scale: ACTUAL });
     holder.viewport = viewport;
-    const ratio = window.devicePixelRatio || 1;
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.floor(viewport.width * ratio);
-    canvas.height = Math.floor(viewport.height * ratio);
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    holder.element.prepend(canvas);
-    await page.render({ canvas, viewport, transform: [ratio, 0, 0, ratio, 0, 0] }).promise;
+    const painted = this.paint(id, holder);
     const text = document.createElement("div");
     text.className = "textLayer";
-    text.style.setProperty("--total-scale-factor", String(SCALE));
+    text.style.setProperty("--total-scale-factor", `calc(var(--zoom) * ${ACTUAL})`);
     holder.element.insertBefore(text, holder.layer);
     await new pdfjs.TextLayer({
       textContentSource: page.streamTextContent(),
@@ -296,14 +398,61 @@ class PdfEditor implements Editor, Pictures {
     }).render();
     this.bindPointer(id, holder);
     this.drawLayer(id, holder, (await page.getAnnotations()) as Widget[]);
+    await painted;
+  }
+
+  /** Draws the picture of a page near the view at the zoom, unless one is there or on its way. */
+  private paint(id: string, holder: Holder): Promise<void> {
+    const scale = this.scale;
+    if (!holder.near) return Promise.resolve();
+    if (holder.picture?.scale === scale) return holder.picture.shown;
+    holder.picture?.task?.cancel();
+    const picture: Picture = { scale, shown: Promise.resolve(), task: undefined };
+    holder.picture = picture;
+    picture.shown = this.drawPicture(id, holder, picture);
+    return picture.shown;
+  }
+
+  private async drawPicture(id: string, holder: Holder, picture: Picture): Promise<void> {
+    const pdf = this.document;
+    const index = this.snapshot?.pages.findIndex((page) => page.id === id) ?? -1;
+    if (!pdf || index < 0) return;
+    const page = await pdf.getPage(index + 1);
+    if (holder.picture !== picture) return;
+    const viewport = page.getViewport({ scale: ACTUAL * picture.scale });
+    const area = viewport.width * viewport.height;
+    const ratio = Math.min(window.devicePixelRatio || 1, Math.sqrt(MOST_PIXELS / area));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width * ratio);
+    canvas.height = Math.floor(viewport.height * ratio);
+    picture.task = page.render({ canvas, viewport, transform: [ratio, 0, 0, ratio, 0, 0] });
+    try {
+      await picture.task.promise;
+    } catch (error) {
+      if (error instanceof pdfjs.RenderingCancelledException) return;
+      throw error;
+    }
+    if (holder.picture !== picture) return;
+    picture.task = undefined;
+    holder.element.querySelector(":scope > canvas")?.remove();
+    holder.element.prepend(canvas);
+  }
+
+  /** A page far from the view lets its picture go, and draws it again when it comes near. */
+  private dropPicture(holder: Holder): void {
+    holder.picture?.task?.cancel();
+    holder.picture = undefined;
+    holder.element.querySelector(":scope > canvas")?.remove();
   }
 
   private bindPointer(id: string, holder: Holder): void {
     let start: [number, number] | null = null;
     let box: HTMLElement | null = null;
+    /** Where the pointer is on the page at its actual size. */
     const pointOf = (event: PointerEvent): [number, number] => {
       const frame = holder.element.getBoundingClientRect();
-      return [event.clientX - frame.left, event.clientY - frame.top];
+      const scale = frame.width / (holder.viewport?.width || frame.width);
+      return [(event.clientX - frame.left) / scale, (event.clientY - frame.top) / scale];
     };
     holder.element.addEventListener("pointerdown", (event) => {
       if (this.tool === "note") {
@@ -318,12 +467,8 @@ class PdfEditor implements Editor, Pictures {
       }
     });
     holder.element.addEventListener("pointermove", (event) => {
-      if (!start || !box) return;
-      const point = pointOf(event);
-      box.style.left = `${Math.min(start[0], point[0])}px`;
-      box.style.top = `${Math.min(start[1], point[1])}px`;
-      box.style.width = `${Math.abs(point[0] - start[0])}px`;
-      box.style.height = `${Math.abs(point[1] - start[1])}px`;
+      if (!start || !box || !holder.viewport) return;
+      cover(box, holder.viewport, boxOf(start, pointOf(event)));
     });
     holder.element.addEventListener("pointerup", (event) => {
       if (!start) return;
@@ -339,14 +484,10 @@ class PdfEditor implements Editor, Pictures {
   private pdfRect(holder: Holder, from: [number, number], to: [number, number]): Rect | null {
     const viewport = holder.viewport;
     if (!viewport) return null;
-    const [left, top] = viewport.convertToPdfPoint(from[0], from[1]) as [number, number];
-    const [right, bottom] = viewport.convertToPdfPoint(to[0], to[1]) as [number, number];
-    const rect: Rect = [
-      Math.min(left, right),
-      Math.min(top, bottom),
-      Math.max(left, right),
-      Math.max(top, bottom),
-    ];
+    const rect = boxOf(
+      viewport.convertToPdfPoint(from[0], from[1]) as [number, number],
+      viewport.convertToPdfPoint(to[0], to[1]) as [number, number],
+    );
     const large =
       rect[2] - rect[0] > REDACT_LEAST_POINTS && rect[3] - rect[1] > REDACT_LEAST_POINTS;
     return large ? rect : null;
@@ -370,12 +511,14 @@ class PdfEditor implements Editor, Pictures {
   }
 
   private place(element: HTMLElement, viewport: pdfjs.PageViewport, rect: Rect): void {
-    const [left, top] = viewport.convertToViewportPoint(rect[0], rect[1]) as [number, number];
-    const [right, bottom] = viewport.convertToViewportPoint(rect[2], rect[3]) as [number, number];
-    element.style.left = `${Math.min(left, right)}px`;
-    element.style.top = `${Math.min(top, bottom)}px`;
-    element.style.width = `${Math.abs(right - left)}px`;
-    element.style.height = `${Math.abs(bottom - top)}px`;
+    cover(
+      element,
+      viewport,
+      boxOf(
+        viewport.convertToViewportPoint(rect[0], rect[1]) as [number, number],
+        viewport.convertToViewportPoint(rect[2], rect[3]) as [number, number],
+      ),
+    );
   }
 
   private drawNote(holder: Holder, viewport: pdfjs.PageViewport, id: string, note: Note): void {
@@ -563,6 +706,8 @@ class PdfEditor implements Editor, Pictures {
   }
 
   destroy(): void {
+    clearTimeout(this.resting);
+    this.zoom.destroy();
     this.bar.destroy();
     this.visible?.disconnect();
     this.loading?.destroy().catch(console.error);

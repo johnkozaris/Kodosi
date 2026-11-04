@@ -1,3 +1,4 @@
+import { type Fitting, Zoom } from "@documents/bar";
 import {
   type Area,
   areaOf,
@@ -150,12 +151,13 @@ class DocxEditor implements ViewEditor, Pictures {
   private editor: Editor | undefined;
   private readonly bar: DocxBar;
   private readonly status: Status;
-  private readonly page: HTMLElement;
+  private readonly page = document.createElement("div");
+  private readonly zoom: Zoom;
   private readonly look = document.createElement("style");
   private readonly clientKey = crypto.randomUUID();
-  private fitting: ResizeObserver | undefined;
-  private choosing: MutationObserver | undefined;
+  private readonly choosing: MutationObserver;
   private view: DocxView = { styles: null, numbering: null, page: null };
+  private shape = pageSize(this.view);
   private pageAreas: Area[] = [];
   private placeWaits = false;
 
@@ -164,11 +166,20 @@ class DocxEditor implements ViewEditor, Pictures {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = new DocxBar(root, this.status.element);
-    root.append(this.bar.element);
-    this.page = root.appendChild(document.createElement("div"));
     this.page.className = "document-page docx-page";
-    root.appendChild(this.look);
+    this.zoom = new Zoom({
+      area: this.page,
+      inset: PAGE_INSET,
+      fits: () => this.fits(),
+      scale: (scale) => {
+        const sheet = this.editor?.view.dom;
+        if (sheet) sheet.style.zoom = String(scale);
+      },
+    });
+    this.bar = new DocxBar(root, [this.zoom.element, this.status.element]);
+    root.append(this.bar.element, this.page, this.look);
+    this.choosing = new MutationObserver(() => this.zoom.refit());
+    this.choosing.observe(root, { attributeFilter: ["data-fit"] });
   }
 
   /** A key that changes the file, which does nothing while the file is read only. */
@@ -215,7 +226,7 @@ class DocxEditor implements ViewEditor, Pictures {
     this.look.textContent = styleSheet(snapshot.view);
     const client = this.client;
     const clientID = this.clientKey;
-    const shape = pageSize(snapshot.view);
+    this.shape = pageSize(snapshot.view);
     const lookOf = (block: ProseNode) =>
       snapshot.view.styles?.styles[(block.attrs.style as string | null) ?? ""];
     this.editor = new Editor({
@@ -233,7 +244,7 @@ class DocxEditor implements ViewEditor, Pictures {
             imagesPlugin(client),
             followsLinks(),
             pages(
-              shape,
+              this.shape,
               {
                 keepNext: (block) => lookOf(block)?.keepNext === true,
                 startsPage: (block) =>
@@ -255,12 +266,7 @@ class DocxEditor implements ViewEditor, Pictures {
       },
     });
     this.bar.show(this.editor, snapshot.view, person.canEdit);
-    this.fitting?.disconnect();
-    this.fitting = new ResizeObserver(() => this.fit(shape.width));
-    this.fitting.observe(this.page);
-    this.choosing?.disconnect();
-    this.choosing = new MutationObserver(() => this.fit(shape.width));
-    this.choosing.observe(this.root, { attributeFilter: ["data-fit"] });
+    this.zoom.refit();
   }
 
   /** The person chose text that fits the view over pages. */
@@ -269,10 +275,11 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 
   /** A page keeps its lines, so a narrow view shows it smaller. Text that fits needs no scale. */
-  private fit(pageWidth: number): void {
-    const root = this.editor?.view.dom;
-    const room = this.page.clientWidth - 2 * PAGE_INSET;
-    if (root) root.style.zoom = this.fitted() ? "1" : String(Math.min(1, room / pageWidth));
+  private fits(): Record<Fitting, number> {
+    if (this.fitted()) return { width: 1, page: 1 };
+    const width = (this.page.clientWidth - 2 * PAGE_INSET) / this.shape.width;
+    const height = (this.page.clientHeight - 2 * PAGE_INSET) / this.shape.height;
+    return { width, page: Math.min(width, height) };
   }
 
   /** The pages, once their breaks stop moving. */
@@ -372,8 +379,8 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 
   destroy(): void {
-    this.fitting?.disconnect();
-    this.choosing?.disconnect();
+    this.zoom.destroy();
+    this.choosing.disconnect();
     this.bar.destroy();
     this.editor?.destroy();
   }
