@@ -2,10 +2,10 @@ import AppKit
 import SwiftUI
 
 extension View {
-    /// Marks empty space as a part of the title bar while it lies at the top of the window: a
-    /// double-click there does what System Settings › Desktop & Dock gives a double-click on a
-    /// title bar, which is to fill the screen unless the person chose to minimize or to do nothing.
-    /// The space keeps its layout and its clicks.
+    /// Marks empty space as a part of the title bar while it starts in the band of the title bar
+    /// at the top of the window: a double-click there does what System Settings › Desktop & Dock
+    /// gives a double-click on a title bar, which is to fill the screen unless the person chose to
+    /// minimize or to do nothing. The space keeps its layout and its clicks.
     func titleBarGap() -> some View {
         modifier(TitleBarGap())
     }
@@ -44,7 +44,7 @@ private enum TitleBarGaps {
         else { return }
         let local = content.convert(event.locationInWindow, from: nil)
         let point = CGPoint(x: local.x, y: content.isFlipped ? local.y : content.bounds.height - local.y)
-        guard gaps.values.contains(where: { $0.minY <= Metrics.frameInset + 1 && $0.contains(point) }) else { return }
+        guard gaps.values.contains(where: { $0.minY < Metrics.titleBarHeight && $0.contains(point) }) else { return }
         switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
         case "Minimize": window.performMiniaturize(nil)
         case "None": break
