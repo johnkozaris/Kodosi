@@ -281,13 +281,19 @@ async fn feed(client: &reqwest::Client) -> Result<Feed, String> {
     serde_json::from_slice(&bytes).map_err(|_| NO_ENGINE.to_owned())
 }
 
+/// A feed that is not there means that no browser is out yet, which no network can change.
 async fn get(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
-    let bytes = client
+    let response = client
         .get(url)
         .timeout(LOOK_LIMIT)
         .send()
         .await
-        .and_then(reqwest::Response::error_for_status)
+        .map_err(|_| NO_ENGINE.to_owned())?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(NOT_FOR_THIS_COMPUTER.to_owned());
+    }
+    let bytes = response
+        .error_for_status()
         .map_err(|_| NO_ENGINE.to_owned())?
         .bytes()
         .await
@@ -396,6 +402,30 @@ mod tests {
     fn a_feed_with_a_wrong_signature_is_refused() {
         let wrong = base64::engine::general_purpose::STANDARD.encode([7_u8; 64]);
         assert!(check_signature(br#"{"version":"1"}"#, &wrong).is_err());
+    }
+
+    #[tokio::test]
+    async fn a_feed_that_is_not_out_says_that_there_is_no_browser_yet() {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            drop(tokio::io::AsyncReadExt::read(&mut stream, &mut request).await);
+            let answer =
+                b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n";
+            tokio::io::AsyncWriteExt::write_all(&mut stream, answer)
+                .await
+                .unwrap();
+        });
+        let feed = get(
+            &reqwest::Client::new(),
+            &format!("http://{address}/engine.json"),
+        )
+        .await;
+        assert_eq!(feed, Err(NOT_FOR_THIS_COMPUTER.to_owned()));
     }
 
     #[test]
