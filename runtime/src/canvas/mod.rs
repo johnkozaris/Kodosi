@@ -318,7 +318,9 @@ impl CanvasRequest {
                     && !name.contains(['/', '\\', ':', '\0'])
                     && data.len() <= PART_BYTES.div_ceil(3) * 4
             }
-            Self::Act { action: BrowserAct::Wake } => true,
+            Self::Act {
+                action: BrowserAct::Wake,
+            } => true,
         }
     }
 }

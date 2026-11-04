@@ -45,6 +45,12 @@ fn a_request_and_an_answer_have_their_wire_form() {
         "action": {"do": "wake"},
     }))
     .unwrap();
+    assert!(matches!(
+        request,
+        CanvasRequest::Act {
+            action: BrowserAct::Wake
+        }
+    ));
     assert!(request.is_valid());
     assert!(
         serde_json::from_value::<CanvasRequest>(json!({

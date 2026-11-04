@@ -434,7 +434,10 @@ impl Browser {
     }
 
     /// A person's step that needs no view of the browser: it wakes the browser.
-    pub(super) async fn act(self: &Arc<Self>, BrowserAct::Wake: BrowserAct) -> Result<CanvasAnswer, String> {
+    pub(super) async fn act(
+        self: &Arc<Self>,
+        BrowserAct::Wake: BrowserAct,
+    ) -> Result<CanvasAnswer, String> {
         self.window().await?;
         Ok(CanvasAnswer::Done)
     }
