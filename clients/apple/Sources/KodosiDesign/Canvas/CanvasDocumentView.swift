@@ -23,6 +23,7 @@ struct CanvasDocumentView: View {
                 WebView(page.page)
                     .webViewLinkPreviews(.disabled)
                     .webViewBackForwardNavigationGestures(.disabled)
+                    .webViewMagnificationGestures(.disabled)
                     .opacity(page.shown ? 1 : 0)
                     .animation(theme.motion.fade, value: page.shown)
             }

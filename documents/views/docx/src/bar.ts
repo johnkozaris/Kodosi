@@ -125,7 +125,8 @@ export class DocxBar {
 
   constructor(
     root: HTMLElement,
-    private readonly status: HTMLElement,
+    /** The parts at the end of the bar, such as the zoom and the status. */
+    private readonly end: readonly HTMLElement[],
   ) {
     this.bar = new Bar(root, "Format");
   }
@@ -139,7 +140,7 @@ export class DocxBar {
     this.view = view;
     if (!canEdit) {
       this.refresh = undefined;
-      this.bar.show(readOnly(), gap(), this.status);
+      this.bar.show(readOnly(), gap(), ...this.end);
       return;
     }
     const undoKey = keyOf({
@@ -224,7 +225,7 @@ export class DocxBar {
       text.element,
       changes.element,
       gap(),
-      this.status,
+      ...this.end,
     );
     this.refresh();
   }
