@@ -84,6 +84,34 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     #expect(BrowserFeed.viewPoint(CGPoint(x: 1, y: 1), in: .zero, browser: browser) == nil)
 }
 
+@Test @MainActor func `a document that loses its pipe closes it in the runtime`() async throws {
+    let commands = CommandSink()
+    var sent: [[String: JSONValue]] = []
+    commands.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(command)
+        }
+        return 0
+    }
+    let store = CanvasStore(commands: commands)
+    let link = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b28")
+    var lost = 0
+    link.onLost = { lost += 1 }
+    let opening = Task { try await link.open() }
+    while link.pipe == nil {
+        await Task.yield()
+    }
+    let pipe = try #require(link.pipe)
+    try store.receive(runtimeEvent("document.frame", fields: [
+        "pipe": .string(pipe), "sequence": .uint(3), "more": .bool(false), "data": .string("AAAA"),
+    ]))
+    #expect(lost == 1 && link.pipe == nil)
+    #expect(sent.last?["type"] == .string("document.close") && sent.last?["pipe"] == .string(pipe))
+    opening.cancel()
+    _ = await opening.result
+    #expect(sent.count(where: { $0["type"] == .string("document.close") }) == 1)
+}
+
 @Test func `a frame of the browser splits at its start codes`() {
     let frame = Data([0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 0])
     #expect(H264Samples.units(of: frame).map(Array.init) == [[0x67, 1, 2], [0x68, 3], [0x65, 4, 0]])

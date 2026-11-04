@@ -109,9 +109,10 @@ void CanvasDocuments::reset()
     m_running.clear();
 }
 
+// The runtime keeps a pipe until its client closes it, so a broken pipe closes there too.
 void CanvasDocuments::lose(const QString& pipe)
 {
-    m_pipes.remove(pipe);
+    close(pipe);
     emit lost(pipe);
 }
 

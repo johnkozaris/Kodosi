@@ -138,7 +138,7 @@ async fn serve(
     devtools: Devtools,
     session: String,
     folder: PathBuf,
-    mut events: mpsc::Receiver<devtools::Event>,
+    mut events: mpsc::UnboundedReceiver<devtools::Event>,
     said: mpsc::Sender<String>,
 ) {
     while let Some(event) = events.recv().await {

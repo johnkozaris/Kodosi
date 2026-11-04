@@ -138,6 +138,9 @@ impl Runner {
             for event in &initial {
                 deliver(&state, event);
             }
+            let Ok(mut direct) = runtime.direct().await else {
+                return;
+            };
             loop {
                 tokio::select! {
                     biased;
@@ -145,7 +148,8 @@ impl Runner {
                     event = events.recv() => match event {
                         Ok(event) if event.reaches(runtime.consumer()) => deliver(&state, &event),
                         Ok(_) => {}
-                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                        Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                            tracing::warn!(skipped, "the app fell behind the runtime's events, so it starts again from a snapshot");
                             match runtime.observe().await {
                                 Ok((snapshot, receiver)) => {
                                     events = receiver;
@@ -155,7 +159,11 @@ impl Runner {
                             }
                         }
                         Err(broadcast::error::RecvError::Closed) => break,
-                    }
+                    },
+                    event = direct.recv() => match event {
+                        Some(event) => deliver(&state, &event),
+                        None => break,
+                    },
                 }
             }
         })

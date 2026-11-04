@@ -6,9 +6,7 @@ use std::collections::BTreeSet;
 #[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-#[cfg(feature = "host")]
-use tokio::sync::mpsc;
-use tokio::sync::oneshot;
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -156,8 +154,10 @@ impl Runtime {
             }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { pipe, .. } => {
-                self.pipes.remove(&parse_id(pipe)?);
-                self.result(command);
+                let pipe = parse_id(pipe)?;
+                if self.pipes.remove(&pipe).is_none() && self.pipes_opening.contains(&pipe) {
+                    self.pipes_closed_early.insert(pipe);
+                }
             }
             #[cfg(feature = "host")]
             Command::CanvasShow { .. }
@@ -475,7 +475,11 @@ impl Runtime {
         self.reachable(id)?;
         self.job_capacity()?;
         self.prune_pipes();
-        if self.pipes.len() >= MOST_PIPES {
+        if self.pipes.len() + self.pipes_opening.len() >= MOST_PIPES {
+            tracing::warn!(
+                pipes = MOST_PIPES,
+                "the host keeps the most documents open, so a view waits"
+            );
             return Err(Error::Busy);
         }
         let name = self.person.clone().unwrap_or_else(|| "Someone".to_owned());
@@ -484,6 +488,7 @@ impl Runtime {
             .target(id)?
             .document(pipe, key.clone(), name, person, consumer);
         let command = command.clone();
+        self.pipes_opening.insert(pipe);
         self.spawn(async move {
             Completion::Document {
                 command,
@@ -496,7 +501,8 @@ impl Runtime {
         Ok(())
     }
 
-    /// Gives the frames of a document to the client that opened it, in parts.
+    /// Gives the frames of a document to the client that opened it, in parts. A client that
+    /// reads its own events gets them there, and a slow one holds up only its own frames.
     fn carry_document(
         &mut self,
         pipe: Uuid,
@@ -516,17 +522,20 @@ impl Runtime {
                 lifetime: lifetime.clone(),
             },
         );
-        let events = self.events.clone();
-        let (user, epoch) = (self.scope.user.clone(), self.scope.epoch);
+        let carrier = Carrier {
+            events: self.events.clone(),
+            direct: self
+                .direct
+                .get(&consumer)
+                .filter(|direct| !direct.is_closed())
+                .cloned(),
+            user: self.scope.user.clone(),
+            epoch: self.scope.epoch,
+            consumer,
+        };
         tokio::spawn(async move {
-            let send = |value: Value| {
-                if let Ok(mut event) = crate::Event::new(user.clone(), epoch, value) {
-                    event.recipient = Some(consumer);
-                    drop(events.send(event));
-                }
-            };
             let mut sequence = 0_u64;
-            loop {
+            'frames: loop {
                 let frame = tokio::select! {
                     () = lifetime.cancelled() => None,
                     frame = receiver.recv() => frame,
@@ -536,17 +545,24 @@ impl Runtime {
                 };
                 let parts = frame.len().div_ceil(crate::canvas::PART_BYTES);
                 for (index, part) in frame.chunks(crate::canvas::PART_BYTES).enumerate() {
-                    send(json!({
-                        "type": "document.frame",
-                        "pipe": pipe,
-                        "sequence": sequence,
-                        "more": index + 1 < parts,
-                        "data": base64::engine::general_purpose::STANDARD.encode(part),
-                    }));
+                    let sent = carrier
+                        .send(json!({
+                            "type": "document.frame",
+                            "pipe": pipe,
+                            "sequence": sequence,
+                            "more": index + 1 < parts,
+                            "data": base64::engine::general_purpose::STANDARD.encode(part),
+                        }))
+                        .await;
+                    if !sent {
+                        break 'frames;
+                    }
                     sequence += 1;
                 }
             }
-            send(json!({ "type": "document.closed", "pipe": pipe }));
+            carrier
+                .send(json!({ "type": "document.closed", "pipe": pipe }))
+                .await;
         });
     }
 
@@ -1439,14 +1455,26 @@ impl Runtime {
                 consumer,
                 lifetime,
                 result,
-            } if current => match result {
-                Ok(ends) => {
-                    self.carry_document(pipe, ends, consumer, lifetime);
-                    self.result(&command);
+            } if current => {
+                self.pipes_opening.remove(&pipe);
+                let closed = self.pipes_closed_early.remove(&pipe);
+                match result {
+                    Ok(_) if closed => self.error(
+                        &command,
+                        &Error::Invalid("The view closed before its document opened.".to_owned()),
+                    ),
+                    Ok(ends) => {
+                        self.carry_document(pipe, ends, consumer, lifetime);
+                        self.result(&command);
+                    }
+                    Err(error) => self.error(&command, &error),
                 }
-                Err(error) => self.error(&command, &error),
-            },
-            Completion::Document { command, .. } => self.error(&command, &Error::Stale),
+            }
+            Completion::Document { command, pipe, .. } => {
+                self.pipes_opening.remove(&pipe);
+                self.pipes_closed_early.remove(&pipe);
+                self.error(&command, &Error::Stale);
+            }
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
@@ -2133,4 +2161,28 @@ async fn provider_reply(
         _ => return Err(Error::Invalid("expected provider request".to_owned())),
     };
     Ok(result)
+}
+
+/// Takes the events of one pipe to the client that opened it.
+struct Carrier {
+    events: broadcast::Sender<crate::Event>,
+    direct: Option<mpsc::Sender<crate::Event>>,
+    user: Option<String>,
+    epoch: u64,
+    consumer: Uuid,
+}
+
+impl Carrier {
+    /// Sends one event, and says whether the client still takes them.
+    async fn send(&self, value: Value) -> bool {
+        let Ok(mut event) = crate::Event::new(self.user.clone(), self.epoch, value) else {
+            return true;
+        };
+        event.recipient = Some(self.consumer);
+        if let Some(direct) = &self.direct {
+            return direct.send(event).await.is_ok();
+        }
+        drop(self.events.send(event));
+        true
+    }
 }

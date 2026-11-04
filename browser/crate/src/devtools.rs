@@ -21,7 +21,6 @@ use crate::Error;
 
 const CALL_LIMIT: Duration = Duration::from_secs(10);
 const OUTGOING: usize = 1024;
-const EVENTS: usize = 1024;
 
 /// One event of the browser or of a page.
 #[derive(Debug)]
@@ -58,13 +57,17 @@ struct ReplyError {
 }
 
 impl Devtools {
-    pub(crate) async fn connect(address: &str) -> Result<(Self, mpsc::Receiver<Event>), Error> {
+    /// The reader takes each answer at once and queues the events without a limit, so a slow
+    /// reader of events never holds up the answers that it may wait for.
+    pub(crate) async fn connect(
+        address: &str,
+    ) -> Result<(Self, mpsc::UnboundedReceiver<Event>), Error> {
         let (socket, _) = tokio_tungstenite::connect_async(address)
             .await
             .map_err(|error| Error::Engine(format!("the debug port refused: {error}")))?;
         let (mut sink, mut source) = socket.split();
         let (outgoing, mut messages) = mpsc::channel::<String>(OUTGOING);
-        let (events_in, events) = mpsc::channel(EVENTS);
+        let (events_in, events) = mpsc::unbounded_channel();
         let pending = Pending::default();
         tokio::spawn(async move {
             while let Some(message) = messages.recv().await {
@@ -90,7 +93,6 @@ impl Devtools {
                             method,
                             params: reply.params.unwrap_or(Value::Null),
                         })
-                        .await
                         .is_err()
                 {
                     break;

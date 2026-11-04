@@ -1,7 +1,7 @@
 #[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     pin::Pin,
     sync::Arc,
     time::Duration,
@@ -68,6 +68,9 @@ const CALL_ANSWER: Duration = Duration::from_secs(20);
 const AGENT_ANSWER: Duration = Duration::from_secs(2);
 const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
+/// The frames of documents and of the browser that wait for one client. They go to their
+/// client alone, so a busy picture never pushes the other events of each client out.
+const DIRECT_QUEUE: usize = 256;
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
 
@@ -114,6 +117,10 @@ enum Request {
     },
     Snapshot(oneshot::Sender<Result<Vec<Event>>>),
     Observe(oneshot::Sender<Result<Observation>>),
+    Direct {
+        consumer: Uuid,
+        reply: oneshot::Sender<mpsc::Receiver<Event>>,
+    },
     Subscribe {
         session: Uuid,
         reply: oneshot::Sender<Result<Subscription>>,
@@ -279,6 +286,17 @@ impl RuntimeHandle {
         let (reply, response) = oneshot::channel();
         self.send(Request::Observe(reply))?;
         response.await.map_err(|_| Error::Stopped)?
+    }
+
+    /// The events for this client alone, such as the frames of its documents. Reading them
+    /// lets the runtime send the next ones.
+    pub async fn direct(&self) -> Result<mpsc::Receiver<Event>> {
+        let (reply, response) = oneshot::channel();
+        self.send(Request::Direct {
+            consumer: self.consumer.id,
+            reply,
+        })?;
+        response.await.map_err(|_| Error::Stopped)
     }
 
     pub async fn snapshot(&self) -> Result<Vec<Event>> {
@@ -1001,6 +1019,11 @@ struct Runtime {
     creating: HashMap<Uuid, Command>,
     listed: HashMap<Uuid, RemoteSession>,
     pipes: HashMap<Uuid, OpenPipe>,
+    /// The pipes whose documents are opening, and of them the ones that their client closed
+    /// already, which close as soon as they open.
+    pipes_opening: HashSet<Uuid>,
+    pipes_closed_early: HashSet<Uuid>,
+    direct: HashMap<Uuid, mpsc::Sender<Event>>,
     remotes: HashMap<Uuid, SessionEntry>,
     starting: HashMap<Uuid, Starting>,
     connections: HashMap<Uuid, RemoteTerminal>,
@@ -1121,6 +1144,9 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
         pipes: HashMap::new(),
+        pipes_opening: HashSet::new(),
+        pipes_closed_early: HashSet::new(),
+        direct: HashMap::new(),
         #[cfg(feature = "host")]
         services: crate::canvas::CanvasServices::new(&config.data_root),
         #[cfg(feature = "host")]
@@ -1220,18 +1246,26 @@ impl Runtime {
             .computer
             .clone()
             .filter(|computer| Some(computer) != own.as_ref());
-        if let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
+        let answered = crate::protocol::answers(command.operation());
+        if answered && let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
             self.refuse(command, consumer, &error);
-        } else if envelope.account_epoch != self.scope.epoch
+            return;
+        }
+        let outcome = if envelope.account_epoch != self.scope.epoch
             || envelope.account_user_id != self.scope.user
         {
-            self.error(command, &Error::Stale);
+            Err(Error::Stale)
         } else if let Some(computer) = elsewhere {
-            if let Err(error) = self.ask_computer(command, computer) {
+            self.ask_computer(command, computer)
+        } else {
+            self.apply_for_consumer(command, consumer, lifetime)
+        };
+        if let Err(error) = outcome {
+            if answered {
                 self.error(command, &error);
+            } else {
+                tracing::debug!(%error, operation = command.operation(), "a part of a document went nowhere");
             }
-        } else if let Err(error) = self.apply_for_consumer(command, consumer, lifetime) {
-            self.error(command, &error);
         }
     }
 
@@ -1397,6 +1431,10 @@ impl Runtime {
         if self.jobs.len() < MAX_JOBS {
             Ok(())
         } else {
+            tracing::warn!(
+                jobs = MAX_JOBS,
+                "every job of the host runs, so a step waits for none"
+            );
             Err(Error::Busy)
         }
     }
@@ -1950,6 +1988,12 @@ impl Runtime {
             Request::Observe(reply) => {
                 let receiver = self.events.subscribe();
                 drop(reply.send(self.snapshot_events().map(|events| (events, receiver))));
+            }
+            Request::Direct { consumer, reply } => {
+                let (sender, receiver) = mpsc::channel(DIRECT_QUEUE);
+                self.direct.retain(|_, sender| !sender.is_closed());
+                self.direct.insert(consumer, sender);
+                drop(reply.send(receiver));
             }
             Request::Subscribe { session, reply } => {
                 let target = self

@@ -208,7 +208,7 @@ impl CanvasHandle {
             };
             self.jobs
                 .try_send(Job::Watch { viewer, reply })
-                .map_err(|_| "The canvas is busy. Try again in a moment.".to_owned())?;
+                .map_err(|_| busy())?;
             return answer
                 .await
                 .unwrap_or_else(|_| Err("The terminal of this canvas closed.".to_owned()));
@@ -325,9 +325,7 @@ impl CanvasHandle {
 
     async fn ask(&self, job: impl FnOnce(Reply) -> Job) -> Result<CanvasAnswer, String> {
         let (reply, answer) = oneshot::channel();
-        self.jobs
-            .try_send(job(reply))
-            .map_err(|_| "The canvas is busy. Try again in a moment.".to_owned())?;
+        self.jobs.try_send(job(reply)).map_err(|_| busy())?;
         answer
             .await
             .unwrap_or_else(|_| Err("The terminal of this canvas closed.".to_owned()))
@@ -669,4 +667,9 @@ pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
 /// Closes the browsers that an earlier host left, for example after a crash.
 pub(crate) async fn close_left(data_root: &Path) {
     browser::close_left(data_root).await;
+}
+
+fn busy() -> String {
+    tracing::warn!("the queue of a canvas is full, so it refuses a step");
+    "The canvas is busy. Try again in a moment.".to_owned()
 }

@@ -636,6 +636,9 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     (
         Runtime {
             pipes: HashMap::new(),
+            pipes_opening: HashSet::new(),
+            pipes_closed_early: HashSet::new(),
+            direct: HashMap::new(),
             #[cfg(feature = "host")]
             services: crate::canvas::CanvasServices::new(&config.data_root),
             #[cfg(feature = "host")]
@@ -990,6 +993,114 @@ async fn a_client_that_goes_leaves_its_documents() {
         documents[1]
             .try_recv()
             .is_err_and(|error| error == mpsc::error::TryRecvError::Empty)
+    );
+}
+
+fn opened(runtime: &Runtime, pipe: Uuid, consumer: Uuid, ends: crate::canvas::PipeEnds) -> Job {
+    Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Document {
+            command: Command::DocumentOpen {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: Uuid::now_v7().to_string(),
+                pipe: pipe.to_string(),
+                key: "browser".to_owned(),
+            },
+            pipe,
+            consumer,
+            lifetime: CancellationToken::new(),
+            result: Ok(ends),
+        },
+    }
+}
+
+#[tokio::test]
+async fn a_stream_of_document_parts_leaves_room_for_the_requests_of_its_client() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let (user, epoch) = (runtime.scope.user.clone(), runtime.scope.epoch);
+    let envelope = |command| CommandEnvelope {
+        account_user_id: user.clone(),
+        account_epoch: epoch,
+        computer: None,
+        command,
+    };
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let pipe = Uuid::now_v7().to_string();
+    for _ in 0..=MAX_ANSWERS {
+        let part = Command::DocumentSend {
+            request_id: Uuid::now_v7().to_string(),
+            pipe: pipe.clone(),
+            more: false,
+            data: String::new(),
+        };
+        runtime.command(&envelope(part), consumer, lifetime.clone());
+    }
+    let visible = Command::Visible {
+        request_id: Uuid::now_v7().to_string(),
+        session_ids: Vec::new(),
+    };
+    runtime.command(&envelope(visible), consumer, lifetime);
+    let answers: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| (event.event.kind(), event.recipient))
+        .collect();
+    assert_eq!(answers, [("session.result", Some(consumer))]);
+    assert!(runtime.answers().is_empty());
+}
+
+#[tokio::test]
+async fn a_document_that_its_client_closed_while_it_opened_closes_when_it_opens() {
+    let (mut runtime, _root) = registry_fixture();
+    let pipe = Uuid::now_v7();
+    runtime.pipes_opening.insert(pipe);
+    runtime
+        .apply(&Command::DocumentClose {
+            request_id: Uuid::now_v7().to_string(),
+            pipe: pipe.to_string(),
+        })
+        .unwrap();
+    let (sender, mut document) = mpsc::channel(1);
+    let (_frames, receiver) = mpsc::channel(1);
+    runtime.complete(opened(
+        &runtime,
+        pipe,
+        Uuid::now_v7(),
+        crate::canvas::PipeEnds { sender, receiver },
+    ));
+    assert!(runtime.pipes.is_empty());
+    assert!(runtime.pipes_opening.is_empty() && runtime.pipes_closed_early.is_empty());
+    assert!(document.recv().await.is_none());
+}
+
+#[tokio::test]
+async fn a_client_that_reads_its_own_events_gets_the_frames_of_its_documents_there() {
+    let (mut runtime, _root) = registry_fixture();
+    let consumer = Uuid::now_v7();
+    let (own, mut direct) = mpsc::channel(4);
+    runtime.direct.insert(consumer, own);
+    let mut everyone = runtime.events.subscribe();
+    let (sender, _document) = mpsc::channel(1);
+    let (frames, receiver) = mpsc::channel(1);
+    let pipe = Uuid::now_v7();
+    runtime.pipes_opening.insert(pipe);
+    runtime.complete(opened(
+        &runtime,
+        pipe,
+        consumer,
+        crate::canvas::PipeEnds { sender, receiver },
+    ));
+    assert!(runtime.pipes.contains_key(&pipe));
+    frames.send(b"frame".to_vec()).await.unwrap();
+    let frame = direct.recv().await.unwrap();
+    assert_eq!(
+        (frame.event.kind(), frame.recipient),
+        ("document.frame", Some(consumer))
+    );
+    drop(frames);
+    assert_eq!(direct.recv().await.unwrap().event.kind(), "document.closed");
+    assert!(
+        std::iter::from_fn(|| everyone.try_recv().ok())
+            .all(|event| !event.event.kind().starts_with("document.frame"))
     );
 }
 

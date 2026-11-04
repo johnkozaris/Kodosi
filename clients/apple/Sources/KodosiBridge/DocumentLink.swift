@@ -36,7 +36,7 @@ public final class DocumentLink {
             reachedWhileBusy = false
         } catch {
             if pipe == opening {
-                pipe = nil
+                close()
             }
             throw error
         }
@@ -111,8 +111,9 @@ public final class DocumentLink {
         }
     }
 
+    /// The runtime keeps a pipe until its client closes it, so a broken pipe closes there too.
     private func lost() {
-        pipe = nil
+        close()
         onLost()
     }
 }

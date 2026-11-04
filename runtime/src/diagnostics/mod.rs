@@ -19,6 +19,9 @@ mod redact;
 const MAX_BYTES: u64 = 1024 * 1024;
 const MAX_RECORD_BYTES: usize = 32 * 1024;
 const CLIENT: &str = "kodosi_client";
+/// The crates whose records the logs keep: Kodosi's own, the shared browser and the live
+/// documents that the host runs.
+const LOGGED: [&str; 3] = ["kodosi", "shared_browser", "documents"];
 
 #[derive(Debug, Clone, Copy)]
 pub enum Role {
@@ -166,7 +169,10 @@ impl Visit for Body {
 
 impl Subscriber for Log {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        *metadata.level() <= Level::INFO && metadata.target().starts_with("kodosi")
+        *metadata.level() <= Level::INFO
+            && LOGGED
+                .iter()
+                .any(|name| metadata.target().starts_with(name))
     }
 
     fn new_span(&self, _: &Attributes<'_>) -> Id {
@@ -203,11 +209,17 @@ mod tests {
         tracing::subscriber::with_default(Log::new(root.path(), Role::Host, None), || {
             tracing::debug!("local client disconnected");
             tracing::warn!(error = "link lost", "remote access interrupted");
+            tracing::warn!(target: "shared_browser::engine", "the capture stopped");
+            tracing::warn!(target: "documents::task", "the journal goes on");
+            tracing::warn!(target: "hyper::proto", "connection error");
         });
         let written = read(root.path(), Role::Host);
-        assert_eq!(written.lines().count(), 1);
-        assert!(written.contains("WARN kodosi_runtime::diagnostics"));
-        assert!(written.ends_with("remote access interrupted error=\"link lost\"\n"));
+        let lines: Vec<&str> = written.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].contains("WARN kodosi_runtime::diagnostics"));
+        assert!(lines[0].ends_with("remote access interrupted error=\"link lost\""));
+        assert!(lines[1].contains("WARN shared_browser::engine"));
+        assert!(lines[2].contains("WARN documents::task"));
     }
 
     #[test]

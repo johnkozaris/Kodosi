@@ -27,7 +27,6 @@ const START_LIMIT: Duration = Duration::from_secs(30);
 const START_CHECK: Duration = Duration::from_millis(50);
 const ATTACH_LIMIT: Duration = Duration::from_secs(5);
 const COMMANDS: usize = 256;
-const PAGE_EVENTS: usize = 256;
 const STATE_FILE: &str = "engine-port";
 
 /// The tabs of the browser, by the windows that hosts opened. A window that a page opened
@@ -41,7 +40,7 @@ pub(crate) struct Routes {
     session_of_target: HashMap<String, String>,
     downloads: HashMap<String, i64>,
     /// The host's own pages, by their sessions.
-    pages: HashMap<String, mpsc::Sender<devtools::Event>>,
+    pages: HashMap<String, mpsc::UnboundedSender<devtools::Event>>,
 }
 
 impl Routes {
@@ -106,7 +105,7 @@ pub(crate) struct OpenedPage {
     pub target: String,
     pub context: String,
     pub session: String,
-    pub events: mpsc::Receiver<devtools::Event>,
+    pub events: mpsc::UnboundedReceiver<devtools::Event>,
 }
 
 pub(crate) struct Engine {
@@ -128,6 +127,7 @@ impl Engine {
         let folder = profiles.join(profile);
         tokio::fs::create_dir_all(&folder).await?;
         close_left(&folder).await;
+        forget_windows(&folder).await;
         let socket = extension::Socket::open().await?;
         let unpacked = folder.join("extension");
         extension::prepare(&unpacked, &socket).await?;
@@ -285,7 +285,7 @@ impl Engine {
             self.close_page(&target, &context).await;
             return Err(Error::Engine("the page did not attach".to_owned()));
         };
-        let (sender, events) = mpsc::channel(PAGE_EVENTS);
+        let (sender, events) = mpsc::unbounded_channel();
         self.routes().pages.insert(session.clone(), sender);
         Ok(OpenedPage {
             target,
@@ -334,7 +334,7 @@ impl Engine {
     }
 
     /// The host page that an event belongs to.
-    fn page_of(&self, event: &devtools::Event) -> Option<mpsc::Sender<devtools::Event>> {
+    fn page_of(&self, event: &devtools::Event) -> Option<mpsc::UnboundedSender<devtools::Event>> {
         self.routes().pages.get(event.session.as_deref()?).cloned()
     }
 
@@ -463,7 +463,27 @@ impl Engine {
         ))
     }
 
+    /// A window that is behind loses a frame and starts again at a key frame, so one slow
+    /// window never holds up the others or the browser's answers.
+    fn deliver_frame(&self, frame: extension::EncodedFrame) {
+        let stream = frame.stream;
+        let Some(sender) = self.routes().windows.get(&stream).cloned() else {
+            return;
+        };
+        if sender.try_send(Event::Frame(frame)).is_err() {
+            tracing::debug!(stream, "a window is behind, so it gets a key frame");
+            self.command(ToExtension::Keyframe { stream });
+        }
+    }
+
     fn report(&self, report: FromExtension) -> Vec<(mpsc::Sender<Event>, Event)> {
+        let report = match report {
+            FromExtension::Frame(frame) => {
+                self.deliver_frame(frame);
+                return Vec::new();
+            }
+            report => report,
+        };
         let mut routes = self.routes();
         let to_tab = |tab: i64, event: Event| {
             routes
@@ -472,12 +492,7 @@ impl Engine {
                 .unwrap_or_default()
         };
         match report {
-            FromExtension::Frame(frame) => routes
-                .windows
-                .get(&frame.stream)
-                .cloned()
-                .map(|sender| vec![(sender, Event::Frame(frame))])
-                .unwrap_or_default(),
+            FromExtension::Frame(_) => Vec::new(),
             FromExtension::Failed { stream, problem } => {
                 tracing::warn!(%problem, "the capture stopped");
                 routes
@@ -508,6 +523,11 @@ impl Engine {
                 link,
             } => to_tab(tab, Event::Context { selection, link }),
             FromExtension::Copied { tab, text } => to_tab(tab, Event::Copied(text)),
+            FromExtension::Reconnected => routes
+                .windows
+                .values()
+                .map(|sender| (sender.clone(), Event::CaptureFailed))
+                .collect(),
             FromExtension::Tabs { tabs, .. } => routes.place(&tabs),
         }
     }
@@ -531,9 +551,10 @@ fn dialog_of(params: &Value) -> Option<Dialog> {
     })
 }
 
+/// Never waits for a window, so the events of the browser always drain.
 async fn follow(
     engine: Arc<Engine>,
-    mut events: mpsc::Receiver<devtools::Event>,
+    mut events: mpsc::UnboundedReceiver<devtools::Event>,
     mut reports: mpsc::Receiver<FromExtension>,
 ) {
     let mut reporting = true;
@@ -555,7 +576,7 @@ async fn follow(
                     }
                     _ => match engine.page_of(&event) {
                         Some(page) => {
-                            drop(page.send(event).await);
+                            drop(page.send(event));
                             Vec::new()
                         }
                         None => engine.page_event(event).into_iter().collect(),
@@ -570,7 +591,9 @@ async fn follow(
             }
         };
         for (sender, event) in deliveries {
-            drop(sender.send(event).await);
+            if let Err(mpsc::error::TrySendError::Full(_)) = sender.try_send(event) {
+                tracing::debug!("a window is behind, so it misses an event of its page");
+            }
         }
     }
     engine.stopped.send_replace(true);
@@ -628,6 +651,18 @@ async fn close_left(profile: &Path) {
         while devtools::address_on(port).await.is_some() {
             tokio::time::sleep(START_CHECK).await;
         }
+    }
+}
+
+/// A browser brings back the windows of its last run, which no canvas shows and which would
+/// keep running their pages. The host opens each window that a canvas shows, so the browser
+/// starts without them.
+async fn forget_windows(profile: &Path) {
+    let sessions = profile.join("Default").join("Sessions");
+    if let Err(problem) = tokio::fs::remove_dir_all(&sessions).await
+        && problem.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::warn!(%problem, "the browser may bring back the windows of its last run");
     }
 }
 
@@ -724,6 +759,19 @@ async fn private_display() -> Result<(Child, String), Error> {
 mod tests {
     use super::*;
     use crate::extension::ReportedTab;
+
+    #[tokio::test]
+    async fn a_browser_starts_without_the_windows_of_its_last_run() {
+        let profile = tempfile::tempdir().unwrap();
+        let sessions = profile.path().join("Default").join("Sessions");
+        std::fs::create_dir_all(&sessions).unwrap();
+        std::fs::write(sessions.join("Session_1"), "windows").unwrap();
+        std::fs::write(profile.path().join("Default").join("Cookies"), "sign-ins").unwrap();
+        forget_windows(profile.path()).await;
+        assert!(!sessions.exists());
+        assert!(profile.path().join("Default").join("Cookies").exists());
+        forget_windows(profile.path()).await;
+    }
 
     fn tab(id: i64, window: i64, opener: Option<i64>, active: bool) -> ReportedTab {
         ReportedTab {
