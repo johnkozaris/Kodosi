@@ -370,11 +370,17 @@ bool CanvasModel::followable(const QUrl& link)
         && !link.host().isEmpty();
 }
 
+bool CanvasModel::inSharedBrowser(const QUrl& link, bool otherComputer)
+{
+    return otherComputer && link.scheme().toLower() != QStringLiteral("mailto") && isLocalAddress(link.host());
+}
+
 void CanvasModel::follow(const QString& sessionId, const QUrl& link)
 {
     if (!followable(link))
         return;
-    if (link.scheme().toLower() != QStringLiteral("mailto") && isLocalAddress(link.host()))
+    const auto session = m_sessions.session(sessionId);
+    if (inSharedBrowser(link, session && session->kind != QStringLiteral("local")))
         openBrowser(sessionId, link);
     else
         QDesktopServices::openUrl(link);

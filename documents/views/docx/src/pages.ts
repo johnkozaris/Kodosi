@@ -279,7 +279,7 @@ export function pages(
       );
       return;
     }
-    const zoom = Number(root.style.zoom) || 1;
+    const zoom = Number(root.dataset.scale) || 1;
     const holes = [...root.querySelectorAll(".page-break")]
       .map((space) => space.getBoundingClientRect())
       .map(({ top, height }) => ({ top, height }));
