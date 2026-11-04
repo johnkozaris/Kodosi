@@ -28,6 +28,7 @@ struct AppShell: View {
                         )
                     }
                     .padding([.top, .trailing, .bottom], Metrics.frameInset)
+                    .background(alignment: .top) { Color.clear.frame(height: Metrics.frameInset).titleBarGap() }
             }
             .accessibilityHidden(sheet != nil)
             .overlay(alignment: .top) { notice }

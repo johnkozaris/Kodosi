@@ -38,7 +38,7 @@ struct SidebarView: View {
             } else {
                 VStack(spacing: 0) {
                     HStack {
-                        Spacer()
+                        Color.clear.frame(maxWidth: .infinity).titleBarGap()
                         IconButton(title: "Hide sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
                             workbench.sidebarCollapsed.toggle()
                         }
