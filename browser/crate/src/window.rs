@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -309,6 +309,11 @@ struct Live {
     dialogs: Vec<(i64, Dialog)>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
+    /// Whether a page may start a download. Each action of a person or an agent allows one, as
+    /// in a browser, so a page cannot fill the folder on its own.
+    may_download: bool,
+    /// Downloads that a page started with no action before them, until they end.
+    refused: HashSet<String>,
     /// Steps that came before the window knew its page, such as the address of a new window:
     /// the latest of each kind.
     waiting: Vec<(&'static str, serde_json::Value)>,
@@ -346,6 +351,8 @@ impl Live {
             dialogs: Vec::new(),
             chooser: None,
             downloads: HashMap::new(),
+            may_download: true,
+            refused: HashSet::new(),
             waiting: Vec::new(),
         }
     }
@@ -465,7 +472,10 @@ impl Live {
                     self.dirty = true;
                 }
             }
-            Event::Touch => self.used_at = Instant::now(),
+            Event::Touch => {
+                self.used_at = Instant::now();
+                self.may_download = true;
+            }
             Event::Close => {}
             Event::Frame(frame) => self.frame(frame),
             Event::CaptureFailed => {
@@ -507,6 +517,15 @@ impl Live {
                 self.dirty = true;
             }
             Event::DownloadBegan { guid, name } => {
+                if !std::mem::take(&mut self.may_download) {
+                    self.engine.devtools().send(
+                        "Browser.cancelDownload",
+                        &json!({ "guid": guid }),
+                        None,
+                    );
+                    self.refused.insert(guid);
+                    return;
+                }
                 self.state.downloads.push(Download {
                     name: name.clone(),
                     path: String::new(),
@@ -706,6 +725,7 @@ impl Live {
         if !plain_move {
             self.used_at = Instant::now();
             self.used.send_replace(Some(self.used_at));
+            self.may_download = true;
         }
         match event {
             Input::Mouse {
@@ -898,6 +918,10 @@ impl Live {
     }
 
     async fn download_ended(&mut self, guid: &str, done: bool) {
+        if self.refused.remove(guid) {
+            drop(tokio::fs::remove_file(self.engine.download_path(guid)).await);
+            return;
+        }
         let Some(name) = self.downloads.remove(guid) else {
             return;
         };
