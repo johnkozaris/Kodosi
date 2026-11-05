@@ -720,6 +720,7 @@ dependencies = [
  "bytes",
  "cef",
  "futures-util",
+ "libc",
  "objc2",
  "objc2-app-kit",
  "openh264",

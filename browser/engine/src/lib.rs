@@ -25,6 +25,18 @@ pub fn run() -> i32 {
     start(std::ptr::null_mut())
 }
 
+/// A page process that crashes ends at once. Otherwise the system first writes a core file of
+/// Chromium's size, which takes a minute, and the tab waits for it.
+#[cfg(target_os = "linux")]
+fn no_core_files() {
+    let none = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    // SAFETY: `setrlimit` only reads the limit, which lives for the call.
+    unsafe { libc::setrlimit(libc::RLIMIT_CORE, &raw const none) };
+}
+
 /// CEF's bootstrap program calls this in each process on Windows, once it started the sandbox.
 #[cfg(windows)]
 #[unsafe(no_mangle)]
@@ -39,6 +51,8 @@ pub extern "C" fn RunWinMain(
 }
 
 fn start(sandbox: *mut u8) -> i32 {
+    #[cfg(target_os = "linux")]
+    no_core_files();
     #[cfg(target_os = "macos")]
     let Some(_framework) = mac::load_framework(false) else {
         return NO_FRAMEWORK;
