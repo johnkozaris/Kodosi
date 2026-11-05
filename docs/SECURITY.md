@@ -20,7 +20,9 @@ your kept sign-ins. The files on a canvas are normal files, and everyone who can
 terminal can edit them. A page on the canvas and a live document run in a closed frame
 with no network, no files and no storage that stays. While a shared browser is awake, its
 debug port and the driver port of each window listen on `127.0.0.1`, where other accounts
-of that computer can reach them.
+of that computer can reach them. A site in the shared browser saves one download into the
+terminal's folder for each action of a person or an agent, and it reaches your clipboard
+only when you copy.
 When a device opens the browser of a terminal on another computer, that computer listens
 on a TCP port for a few seconds, so that the two can connect straight. Only that device
 gets through, with the encryption of the terminal. The Linux app shows pages only where

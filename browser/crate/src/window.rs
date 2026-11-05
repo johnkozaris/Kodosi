@@ -34,6 +34,11 @@ const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
 const NARROWEST: u32 = 500;
 const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
+/// What a page says goes to every viewer with each change of the window, so it has bounds.
+const MOST_LINE: usize = 1024;
+const MOST_ADDRESS: usize = 8 * 1024;
+const MOST_MESSAGE: usize = 16 * 1024;
+const MOST_ITEMS: usize = 1000;
 /// The menu that a right-click opens, which the page does not know about.
 const CONTEXT_MENU: u32 = u32::MAX;
 const BLANK: &str = "about:blank";
@@ -498,7 +503,9 @@ impl Live {
                 self.state.copied = Some(cut(&text, MOST_TEXT));
                 self.dirty = true;
             }
-            Event::Dialog { tab, dialog } => {
+            Event::Dialog { tab, mut dialog } => {
+                dialog.message = cut(&dialog.message, MOST_MESSAGE);
+                dialog.text = cut(&dialog.text, MOST_MESSAGE);
                 self.dialogs.retain(|(other, _)| *other != tab);
                 self.dialogs.push((tab, dialog));
                 self.show_dialog();
@@ -603,8 +610,8 @@ impl Live {
             .iter()
             .map(|tab| Tab {
                 id: tab.id.to_string(),
-                title: tab.title.clone(),
-                address: tab.address.clone(),
+                title: cut(&tab.title, MOST_LINE),
+                address: cut(&tab.address, MOST_ADDRESS),
                 active: Some(tab.id) == self.active,
                 loading: tab.loading,
             })
@@ -831,6 +838,14 @@ impl Live {
             return;
         };
         self.open_menu = Some(OpenMenu { tab, frame, menu });
+        let items = items
+            .into_iter()
+            .take(MOST_ITEMS)
+            .map(|item| MenuItem {
+                label: cut(&item.label, MOST_LINE),
+                ..item
+            })
+            .collect();
         self.state.menu = Some(Menu {
             id: menu,
             viewer,
