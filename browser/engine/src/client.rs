@@ -25,6 +25,7 @@ pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
         DisplayHandlerBuilder::new(),
         LoadHandlerBuilder::new(),
         ContextMenuHandlerBuilder::new(),
+        RequestHandlerBuilder::new(),
     )
 }
 
@@ -43,6 +44,7 @@ wrap_client! {
         display: DisplayHandler,
         load: LoadHandler,
         context_menu: ContextMenuHandler,
+        requests: RequestHandler,
     }
 
     impl Client {
@@ -64,6 +66,10 @@ wrap_client! {
 
         fn context_menu_handler(&self) -> Option<ContextMenuHandler> {
             Some(self.context_menu.clone())
+        }
+
+        fn request_handler(&self) -> Option<RequestHandler> {
+            Some(self.requests.clone())
         }
 
         fn on_process_message_received(
@@ -262,6 +268,24 @@ wrap_load_handler! {
         ) {
             if let Some(tab) = id_of(browser) {
                 engine::with(|engine| engine.loading(tab, is_loading != 0));
+            }
+        }
+    }
+}
+
+wrap_request_handler! {
+    struct RequestHandlerBuilder;
+
+    impl RequestHandler {
+        fn on_render_process_terminated(
+            &self,
+            browser: Option<&mut Browser>,
+            _status: TerminationStatus,
+            _error_code: c_int,
+            _error_string: Option<&CefString>,
+        ) {
+            if let Some(browser) = browser {
+                engine::page_process_ended(browser);
             }
         }
     }

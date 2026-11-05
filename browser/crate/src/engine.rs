@@ -113,7 +113,8 @@ pub(crate) struct Engine {
     /// Changes each time the tabs have their windows again.
     placed: watch::Sender<()>,
     stopped: watch::Sender<bool>,
-    _process: Child,
+    /// Ends the engine when the host lets go of it.
+    _kept: oneshot::Sender<()>,
     downloads: PathBuf,
     next_window: AtomicI64,
     next_page: AtomicI64,
@@ -134,6 +135,8 @@ impl Engine {
         let port = free_port().await?;
         let mut process = launch(program, &arguments(&folder, &link, port))?;
         let address = wait_for_address(port, &mut process).await?;
+        let (kept, released) = oneshot::channel();
+        keep(process, released);
         let (devtools, events) = Devtools::connect(&address).await?;
         let downloads = folder.join("downloads");
         tokio::fs::create_dir_all(&downloads).await?;
@@ -162,7 +165,7 @@ impl Engine {
             routes: Arc::default(),
             placed: watch::Sender::new(()),
             stopped: watch::Sender::new(false),
-            _process: process,
+            _kept: kept,
             downloads,
             next_window: AtomicI64::new(1),
             next_page: AtomicI64::new(1),
@@ -693,6 +696,16 @@ async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Erro
     })
     .await
     .map_err(|_| Error::Engine("the debug port did not answer".to_owned()))?
+}
+
+/// Reaps the engine when it ends, and ends it when the host lets go of it first.
+fn keep(mut process: Child, released: oneshot::Receiver<()>) {
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = process.wait() => {}
+            _ = released => {}
+        }
+    });
 }
 
 /// Starts the program of an app bundle, or the program itself. The engine is a child of the

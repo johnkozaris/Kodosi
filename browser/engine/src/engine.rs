@@ -4,6 +4,7 @@ use std::{
     os::raw::c_int,
     rc::Rc,
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use cef::*;
@@ -18,6 +19,8 @@ const REPORT_DELAY_MS: i64 = 50;
 /// How long the browsers may take to close when the engine quits. The host waits longer.
 const QUIT_LIMIT_MS: i64 = 3000;
 const PAGE_SCALE: f32 = 1.0;
+/// A tab whose page process ends loads its page again, once in this time.
+const RELOAD_WAIT: Duration = Duration::from_mins(1);
 /// A page with no ground of its own shows white, as in a browser, not see-through.
 pub(crate) const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
 
@@ -171,6 +174,8 @@ struct Tab {
     opener: Option<i64>,
     /// The host's ask that opened the tab, until the tab's target is known.
     ask: Option<i64>,
+    /// When the tab's page process last ended.
+    ended: Option<Instant>,
     target: Option<String>,
     title: String,
     address: String,
@@ -331,6 +336,7 @@ impl Engine {
                         window,
                         opener,
                         ask,
+                        ended: None,
                         target: None,
                         title: String::new(),
                         address: String::new(),
@@ -480,6 +486,19 @@ impl Engine {
             tab.address = address;
             self.report_soon();
         }
+    }
+
+    /// Whether a tab whose page process ended loads its page again. A page that ends its
+    /// process again within a minute stays as it is, and the person's Reload tries again.
+    fn reloads(&mut self, browser: i64, now: Instant) -> bool {
+        let Some(tab) = self.tabs.get_mut(&browser) else {
+            return false;
+        };
+        let again = tab
+            .ended
+            .is_none_or(|ended| now.duration_since(ended) >= RELOAD_WAIT);
+        tab.ended = Some(now);
+        again
     }
 
     pub(crate) fn loading(&mut self, browser: i64, loading: bool) {
@@ -893,6 +912,13 @@ pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
     let registration = host.add_dev_tools_message_observer(Some(&mut observer));
     with(|engine| engine.observing(id, registration));
     host.execute_dev_tools_method(message, Some(&"Target.getTargetInfo".into()), None);
+}
+
+pub(crate) fn page_process_ended(browser: &Browser) {
+    let id = i64::from(browser.identifier());
+    if with(|engine| engine.reloads(id, Instant::now())).unwrap_or(false) {
+        browser.reload();
+    }
 }
 
 pub(crate) fn before_close(browser: &Browser) {
