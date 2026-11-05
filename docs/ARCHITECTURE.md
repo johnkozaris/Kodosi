@@ -143,7 +143,8 @@ A view's frames go through the app to `document.open`, `document.send` and
 another device they travel on the terminal's encrypted channel as pipe frames, when the
 pacer has room and no terminal output waits. Agents use the same server with `kodosi doc`,
 which the host runs by its arguments. The Tauri app in `documents/app/` is a second host,
-with one viewer for each window.
+with one viewer for each window. It is a separate build with its own workspace and
+`Cargo.lock`, so Kodosi links only the crates.
 
 ### Shared browser
 

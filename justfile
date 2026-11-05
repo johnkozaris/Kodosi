@@ -152,7 +152,7 @@ protocol-check:
 [group('rust')]
 rust-check: ghostty-check rust-format-check rust-compile-check rust-doc-build rust-lint rust-dependency-check protocol-check rust-test rust-coverage-check
 
-# Build, check and test the views, then lint and test the document crates and app.
+# Build, check and test the views, then lint and test the document crates.
 [group('rust')]
 documents-check:
     cd documents/views && bun install --frozen-lockfile && bun run build && bun run format:check && bun run test
@@ -160,13 +160,20 @@ documents-check:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path documents/Cargo.toml --locked --workspace --all-targets -- {{ test_lints }}
     cargo test --manifest-path documents/Cargo.toml --locked --workspace
 
+# Build the views, then lint the documents app, which has its own workspace and Cargo.lock.
+[group('rust')]
+documents-app-check:
+    cd documents/views && bun install --frozen-lockfile && bun run build
+    cargo fmt --manifest-path documents/app/Cargo.toml --all -- --check
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path documents/app/Cargo.toml --locked --all-targets -- {{ test_lints }}
+
 # Run the documents app with a window for each file; one file twice gives two people.
 [group('rust')]
 [no-cd]
 [positional-arguments]
 documents-app-run *files:
     cd "{{ justfile_directory() }}/documents/views" && bun install --frozen-lockfile && bun run build
-    cargo run --manifest-path "{{ justfile_directory() }}/documents/Cargo.toml" --locked -p documents-app -- "$@"
+    cargo run --manifest-path "{{ justfile_directory() }}/documents/app/Cargo.toml" --locked -- "$@"
 
 # Lint and test the shared browser crate.
 [group('rust')]
