@@ -47,6 +47,8 @@ pub(crate) struct Routes {
     pages: HashMap<String, mpsc::UnboundedSender<devtools::Event>>,
     /// Host pages that the engine opens, until it names their targets.
     opening: HashMap<i64, oneshot::Sender<String>>,
+    /// Tabs that a window's driver asked for, until the engine names their targets.
+    asked: HashMap<i64, oneshot::Sender<String>>,
     /// Targets that the host attaches to now.
     attaching: HashSet<String>,
     /// The engine's last report of its tabs, which the windows get again once the host attached.
@@ -104,14 +106,18 @@ pub(crate) struct OpenedPage {
 
 pub(crate) struct Engine {
     devtools: Devtools,
-    pub port: u16,
+    /// The browser's own debug connection.
+    address: String,
     commands: mpsc::Sender<ToEngine>,
     routes: Arc<Mutex<Routes>>,
+    /// Changes each time the tabs have their windows again.
+    placed: watch::Sender<()>,
     stopped: watch::Sender<bool>,
     _process: Child,
     downloads: PathBuf,
     next_window: AtomicI64,
     next_page: AtomicI64,
+    next_ask: AtomicI64,
 }
 
 impl Engine {
@@ -151,14 +157,16 @@ impl Engine {
         });
         let engine = Arc::new(Self {
             devtools,
-            port,
+            address,
             commands,
             routes: Arc::default(),
+            placed: watch::Sender::new(()),
             stopped: watch::Sender::new(false),
             _process: process,
             downloads,
             next_window: AtomicI64::new(1),
             next_page: AtomicI64::new(1),
+            next_ask: AtomicI64::new(1),
         });
         tokio::spawn(follow(Arc::clone(&engine), events, reports));
         Ok(engine)
@@ -184,6 +192,51 @@ impl Engine {
 
     pub(crate) fn session_of(&self, target: &str) -> Option<String> {
         self.routes().session_of_target.get(target).cloned()
+    }
+
+    pub(crate) fn address(&self) -> &str {
+        &self.address
+    }
+
+    pub(crate) fn placed(&self) -> watch::Receiver<()> {
+        self.placed.subscribe()
+    }
+
+    /// The window of a tab's target, once the engine placed the tab.
+    pub(crate) fn window_of(&self, target: &str) -> Option<i64> {
+        self.routes().targets.get(target).copied()
+    }
+
+    pub(crate) fn tab_of(&self, target: &str) -> Option<i64> {
+        self.routes()
+            .last_tabs
+            .iter()
+            .find(|tab| tab.target.as_deref() == Some(target))
+            .map(|tab| tab.id)
+    }
+
+    /// The target of a window's active tab.
+    pub(crate) fn active_target(&self, window: i64) -> Option<String> {
+        self.routes()
+            .last_tabs
+            .iter()
+            .find(|tab| tab.window == window && tab.active)
+            .and_then(|tab| tab.target.clone())
+    }
+
+    /// Opens a tab in a window, which becomes its active tab, and gives the tab's target.
+    pub(crate) async fn open_tab(&self, window: i64, address: &str) -> Option<String> {
+        let ask = self.next_ask.fetch_add(1, Ordering::Relaxed);
+        let (named, target) = oneshot::channel();
+        self.routes().asked.insert(ask, named);
+        self.command(ToEngine::NewTab {
+            window,
+            address: address.to_owned(),
+            ask: Some(ask),
+        });
+        let target = tokio::time::timeout(ATTACH_LIMIT, target).await;
+        self.routes().asked.remove(&ask);
+        target.ok()?.ok()
     }
 
     fn routes(&self) -> std::sync::MutexGuard<'_, Routes> {
@@ -284,6 +337,7 @@ impl Engine {
                 Vec::new()
             }
         };
+        self.placed.send_replace(());
         let session = session?;
         self.attached(&json!({ "sessionId": session, "targetInfo": { "targetId": target } }));
         for (sender, event) in deliveries {
@@ -516,12 +570,23 @@ impl Engine {
             } => to_tab(tab, Event::Context { selection, link }),
             FromEngine::Copied { tab, text } => to_tab(tab, Event::Copied(text)),
             FromEngine::Tabs { tabs, .. } => {
-                let mut routes = self.routes();
-                routes.last_tabs.clone_from(&tabs);
-                routes.place(&tabs)
+                let deliveries = {
+                    let mut routes = self.routes();
+                    routes.last_tabs.clone_from(&tabs);
+                    routes.place(&tabs)
+                };
+                self.placed.send_replace(());
+                deliveries
             }
             FromEngine::PageOpened { page, target } => {
                 let named = self.routes().opening.remove(&page);
+                if let Some(named) = named {
+                    drop(named.send(target));
+                }
+                Vec::new()
+            }
+            FromEngine::TabOpened { ask, target } => {
+                let named = self.routes().asked.remove(&ask);
                 if let Some(named) = named {
                     drop(named.send(target));
                 }

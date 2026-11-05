@@ -13,6 +13,8 @@ pub use message::{
 #[cfg(feature = "host")]
 mod devtools;
 #[cfg(feature = "host")]
+mod driver;
+#[cfg(feature = "host")]
 mod engine;
 #[cfg(feature = "host")]
 mod flow;
@@ -111,7 +113,7 @@ mod host {
                 return Ok(window.clone());
             }
             let engine = self.engine(&place.profile).await?;
-            let window = crate::window::open(engine, &place.address, place.folder);
+            let window = crate::window::open(engine, &place.address, place.folder)?;
             windows.insert(key, window.clone());
             drop(windows);
             Ok(window)

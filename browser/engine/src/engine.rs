@@ -145,8 +145,14 @@ pub(crate) struct Capture {
 /// Where a browser belongs. CEF gives each browser its id only when it exists.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Origin {
-    Tab { window: i64, opener: Option<i64> },
-    Page { page: i64 },
+    Tab {
+        window: i64,
+        opener: Option<i64>,
+        ask: Option<i64>,
+    },
+    Page {
+        page: i64,
+    },
 }
 
 /// A window of the host. The pages that its tabs open are tabs of it too.
@@ -163,6 +169,8 @@ struct Tab {
     browser: Browser,
     window: i64,
     opener: Option<i64>,
+    /// The host's ask that opened the tab, until the tab's target is known.
+    ask: Option<i64>,
     target: Option<String>,
     title: String,
     address: String,
@@ -288,6 +296,7 @@ impl Engine {
             Origin::Tab {
                 window,
                 opener: Some(opener),
+                ask: None,
             },
             known.shared.clone(),
         ))
@@ -300,7 +309,11 @@ impl Engine {
         let id = i64::from(browser.identifier());
         let quitting = self.quitting;
         let kept = match origin {
-            Origin::Tab { window, opener } => {
+            Origin::Tab {
+                window,
+                opener,
+                ask,
+            } => {
                 let kept = match self.windows.get_mut(&window) {
                     Some(known) if !known.closing && !quitting => {
                         if known.wanted || known.active.is_none() {
@@ -317,6 +330,7 @@ impl Engine {
                         browser: browser.clone(),
                         window,
                         opener,
+                        ask,
                         target: None,
                         title: String::new(),
                         address: String::new(),
@@ -356,8 +370,11 @@ impl Engine {
 
     pub(crate) fn target_known(&mut self, browser: i64, target: String) {
         if let Some(tab) = self.tabs.get_mut(&browser) {
-            tab.target = Some(target);
+            tab.target = Some(target.clone());
             tab.observer = None;
+            if let Some(ask) = tab.ask.take() {
+                self.link.send(&FromEngine::TabOpened { ask, target });
+            }
             self.report_soon();
         } else if let Some(page) = self.page_of_browser.get(&browser).copied() {
             if let Some(known) = self.pages.get_mut(&page) {
@@ -565,7 +582,11 @@ fn run(command: ToEngine) {
         | ToEngine::Keyframe { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
         ToEngine::Activate { tab } => activate(tab),
-        ToEngine::NewTab { window } => new_tab(window),
+        ToEngine::NewTab {
+            window,
+            address,
+            ask,
+        } => new_tab(window, &address, ask),
         ToEngine::CloseTab { tab } => close(with(|engine| engine.browser_of(tab)).flatten()),
         ToEngine::CloseWindow { window } => {
             for browser in with(|engine| engine.close_window(window)).unwrap_or_default() {
@@ -612,7 +633,7 @@ fn open_window(window: i64, address: &str, size: Size) {
     })
     .flatten();
     if let Some(shared) = shared {
-        open_tab(window, address, shared);
+        open_tab(window, address, None, shared);
     }
 }
 
@@ -684,7 +705,7 @@ fn activate(tab: i64) {
     show(shown);
 }
 
-fn new_tab(window: i64) {
+fn new_tab(window: i64, address: &str, ask: Option<i64>) {
     let shared = with(|engine| {
         let known = engine
             .windows
@@ -695,7 +716,7 @@ fn new_tab(window: i64) {
     })
     .flatten();
     if let Some(shared) = shared {
-        open_tab(window, "about:blank", shared);
+        open_tab(window, address, ask, shared);
     }
 }
 
@@ -739,11 +760,12 @@ fn quit() {
     }
 }
 
-fn open_tab(window: i64, address: &str, shared: Shared) {
+fn open_tab(window: i64, address: &str, ask: Option<i64>, shared: Shared) {
     let mut client = client::new(
         Origin::Tab {
             window,
             opener: None,
+            ask,
         },
         shared,
     );

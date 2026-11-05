@@ -63,8 +63,12 @@ pub enum ToEngine {
     Activate {
         tab: i64,
     },
+    /// Opens a tab in a window and makes it active. With an ask, the engine names the tab's
+    /// target once it knows it.
     NewTab {
         window: i64,
+        address: String,
+        ask: Option<i64>,
     },
     CloseTab {
         tab: i64,
@@ -149,6 +153,10 @@ pub enum FromEngine {
     },
     PageOpened {
         page: i64,
+        target: String,
+    },
+    TabOpened {
+        ask: i64,
         target: String,
     },
 }

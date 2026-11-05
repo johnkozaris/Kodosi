@@ -13,7 +13,7 @@ use serde_json::json;
 use tokio::sync::{mpsc, watch};
 
 use crate::{
-    Error,
+    Error, driver,
     engine::Engine,
     flow::{self, Flow},
     input,
@@ -36,6 +36,7 @@ const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
 /// The menu that a right-click opens, which the page does not know about.
 const CONTEXT_MENU: u32 = u32::MAX;
+const BLANK: &str = "about:blank";
 /// Numbers each join, so that a pipe that goes frees only the seat that it took.
 static SEATS: AtomicU64 = AtomicU64::new(1);
 
@@ -102,7 +103,7 @@ pub(crate) enum Event {
 /// One window of the shared browser, for a host.
 #[derive(Clone)]
 pub struct Window {
-    engine: Arc<Engine>,
+    driver: Arc<str>,
     events: mpsc::Sender<Event>,
     state: watch::Receiver<State>,
     open: watch::Receiver<bool>,
@@ -131,9 +132,9 @@ impl Window {
         })
     }
 
-    /// The port of the browser's debug connection, for the agent's driver.
-    pub fn debug_port(&self) -> u16 {
-        self.engine.port
+    /// The debug connection for the agent's driver, which shows the tabs of this window only.
+    pub fn driver(&self) -> &str {
+        &self.driver
     }
 
     pub fn state(&self) -> watch::Receiver<State> {
@@ -220,7 +221,8 @@ impl Drop for Pipe {
     }
 }
 
-pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Window {
+pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Result<Window, Error> {
+    let driver = driver::Listener::bind()?;
     let (events_in, events) = mpsc::channel(EVENTS);
     let id = engine.open_window(address, FIRST_SIZE, events_in.clone());
     let (state_in, state) = watch::channel(State {
@@ -230,8 +232,9 @@ pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Windo
     });
     let (open_in, open) = watch::channel(true);
     let (used_in, used) = watch::channel(None);
+    let driver = Arc::from(driver.serve(Arc::clone(&engine), id, open.clone()));
     let window = Window {
-        engine: Arc::clone(&engine),
+        driver,
         events: events_in,
         state,
         open,
@@ -243,7 +246,7 @@ pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Windo
         live.run(events, stopped).await;
         open_in.send_replace(false);
     });
-    window
+    Ok(window)
 }
 
 struct Seat {
@@ -755,7 +758,11 @@ impl Live {
                     self.engine.command(ToEngine::Activate { tab });
                 }
             }
-            Input::NewTab => self.engine.command(ToEngine::NewTab { window: self.id }),
+            Input::NewTab => self.engine.command(ToEngine::NewTab {
+                window: self.id,
+                address: BLANK.to_owned(),
+                ask: None,
+            }),
             Input::CloseTab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.engine.command(ToEngine::CloseTab { tab });

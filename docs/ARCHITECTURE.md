@@ -174,10 +174,15 @@ The host lets only the viewer's device through. When no address answers, the pip
 terminal's channel, where terminal output goes first. The path stays until the pipe ends,
 and the view then joins again.
 
-The host runs each `kodosi browser <command>` in the agent's folder as agent-browser on that
-debug port, with the terminal's own session, Kodosi's settings and none of the person's
-`AGENT_BROWSER_*` variables. agent-browser leaves the port after a minute with no command,
-because a page can notice a client there. While a command runs, the browser's state names
+The host runs each `kodosi browser <command>` in the agent's folder as agent-browser, with
+the terminal's own session, Kodosi's settings and none of the person's `AGENT_BROWSER_*`
+variables. agent-browser connects to its window's driver port, which the host serves on
+`127.0.0.1` in front of the debug port. There it sees only the tabs of its window, the
+active one first; a tab that it opens is a tab of the window, and a tab that it switches to
+becomes the window's active tab. The host answers the commands that would change the
+browser for every window, such as auto-attach and downloads, and refuses the ones that
+would end the browser. agent-browser leaves after a minute with no command, because a page
+can notice a client on the debug port. While a command runs, the browser's state names
 the agent, what it does and the point of its target, which agent-browser's `get box --json`
 gives, and the command waits a moment, so the agent's pointer arrives first.
 
