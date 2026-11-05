@@ -13,10 +13,12 @@ import json
 import os
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -46,9 +48,22 @@ ENTITLEMENTS = {
     },
 }
 MINIMUM_MAC = "12.0"
-# The parts of a CEF download that only a build uses. The SUID sandbox helper works only when
-# root owns it, which a download never is.
-CEF_BUILD_PARTS = {"include", "cmake", "libcef_dll", "CMakeLists.txt", "archive.json", "chrome-sandbox"}
+# The parts of a CEF download that a package leaves out or places itself. The SUID sandbox
+# helper works only when root owns it, which a download never is.
+CEF_LEFT_OUT = {
+    "include",
+    "cmake",
+    "libcef_dll",
+    "CMakeLists.txt",
+    "archive.json",
+    "chrome-sandbox",
+    "CREDITS.html",
+    "bootstrap.exe",
+    "bootstrapc.exe",
+}
+LICENSE_TEXT = re.compile(r"^(?:licen[cs]e|copying|notice)", re.I)
+# The texts of crates whose packages carry none, from their source at the commit of the package.
+CRATE_LICENSES = HERE / "licenses"
 
 
 def platform_name() -> str:
@@ -89,24 +104,95 @@ def environment() -> dict[str, str]:
 
 
 def check() -> None:
-    """Formats, lints and tests the engine, with warnings as errors."""
+    """Formats, lints and tests the engine, with warnings as errors, and finds the license of
+    each part."""
     manifest = ["--manifest-path", str(ENGINE / "Cargo.toml")]
     env = environment()
     run("cargo", "fmt", *manifest, "--", "--check", env=env)
     run("cargo", "clippy", "--locked", "--all-targets", *manifest, "--", "-D", "warnings", "-A", "clippy::unwrap_used", "-A", "clippy::expect_used", env=env)
     run("cargo", "test", "--locked", *manifest, env=env)
+    with tempfile.TemporaryDirectory() as folder:
+        notices(newest_cef(), Path(folder) / "licenses")
 
 
 def build(debug: bool) -> tuple[Path, Path]:
     """Builds the engine and returns its target folder and the CEF that it uses."""
     environment_of_build = environment()
     profile = [] if debug else ["--release"]
-    run("cargo", "build", "--locked", "--bins", *profile, "--manifest-path", str(ENGINE / "Cargo.toml"), env=environment_of_build)
-    target = ENGINE / "target" / ("debug" if debug else "release")
+    manifest = ["--manifest-path", str(ENGINE / "Cargo.toml")]
+    if platform.system() == "Windows":
+        run("cargo", "rustc", "--locked", "--lib", "--crate-type", "cdylib", *profile, *manifest, env=environment_of_build)
+    else:
+        run("cargo", "build", "--locked", "--bins", *profile, *manifest, env=environment_of_build)
+    return ENGINE / "target" / ("debug" if debug else "release"), newest_cef()
+
+
+def newest_cef() -> Path:
     found = sorted(CEF_CACHE.glob("*/cef_*/archive.json"), key=lambda path: path.stat().st_mtime)
     if not found:
         raise SystemExit(f"No CEF in {CEF_CACHE}")
-    return target, found[-1].parent
+    return found[-1].parent
+
+
+def host_target() -> str:
+    about = subprocess.run(["rustc", "-vV"], cwd=ROOT, check=True, capture_output=True, encoding="utf-8").stdout
+    return next(line.split(": ", 1)[1] for line in about.splitlines() if line.startswith("host: "))
+
+
+def crates() -> list[dict]:
+    """The crates that the engine links on this computer."""
+    metadata = json.loads(
+        subprocess.run(
+            ["cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", host_target(), "--manifest-path", str(ENGINE / "Cargo.toml")],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+        ).stdout
+    )
+    packages = {package["id"]: package for package in metadata["packages"]}
+    nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
+    linked: set[str] = set()
+    waiting = [metadata["resolve"]["root"]]
+    while waiting:
+        package = waiting.pop()
+        if package not in linked:
+            linked.add(package)
+            waiting += [dependency["pkg"] for dependency in nodes[package]["deps"] if any(kind["kind"] is None for kind in dependency["dep_kinds"])]
+    external = (packages[package] for package in linked if packages[package]["source"] is not None)
+    return sorted(external, key=lambda package: (package["name"], package["version"]))
+
+
+def cef_license(cef: Path) -> bytes:
+    archive = next(cef.parent.glob("cef_binary_*.tar.bz2"))
+    with tarfile.open(archive, "r:bz2") as tar:
+        for member in tar:
+            if member.name.count("/") == 1 and member.name.endswith("/LICENSE.txt"):
+                text = tar.extractfile(member)
+                if text is not None:
+                    return text.read()
+    raise SystemExit(f"No license in {archive.name}")
+
+
+def notices(cef: Path, folder: Path) -> None:
+    """Chromium's credits, the licenses of CEF and Kodosi, and the license of each crate."""
+    folder.mkdir(parents=True)
+    shutil.copy2(cef / "CREDITS.html", folder / "CREDITS.html")
+    (folder / "CEF-LICENSE.txt").write_bytes(cef_license(cef))
+    shutil.copy2(ROOT / "LICENSE", folder / "LICENSE.txt")
+    for package in crates():
+        name = f"{package['name']}-{package['version']}"
+        source = Path(package["manifest_path"]).parent
+        texts = [path for path in source.rglob("*") if path.is_file() and LICENSE_TEXT.match(path.name)]
+        if not texts:
+            source = CRATE_LICENSES / name
+            texts = sorted(source.glob("*"))
+        if not texts:
+            raise SystemExit(f"{name} has no license text; add it to {CRATE_LICENSES.relative_to(ROOT)}/{name}")
+        for text in texts:
+            copy = folder / "crates" / name / text.relative_to(source)
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(text, copy)
 
 
 def version_of(cef: Path) -> str:
@@ -146,7 +232,7 @@ def mac_app(target: Path, cef: Path, stage: Path, version: str) -> Path:
     frameworks.mkdir()
     shutil.copy2(target / "kodosi-browser", contents / "MacOS" / PRODUCT)
     info(contents / "Info.plist", PRODUCT, APP_ID, version)
-    shutil.copy2(cef / "CREDITS.html", contents / "Resources" / "CREDITS.html")
+    notices(cef, contents / "Resources" / "licenses")
     shutil.copytree(cef / "Chromium Embedded Framework.framework", frameworks / "Chromium Embedded Framework.framework", symlinks=True)
     for kind, suffix in HELPERS.items():
         name = f"{PRODUCT} Helper{kind}"
@@ -202,15 +288,19 @@ def plain_parts(target: Path, cef: Path, stage: Path, program: str) -> Path:
     folder = stage / "kodosi-browser"
     folder.mkdir()
     for part in cef.iterdir():
-        if part.name in CEF_BUILD_PARTS or part.suffix in (".lib", ".bz2"):
+        if part.name in CEF_LEFT_OUT or part.suffix in (".lib", ".bz2"):
             continue
         if part.is_dir():
             shutil.copytree(part, folder / part.name)
         else:
             shutil.copy2(part, folder / part.name)
-    built = target / ("kodosi-browser.exe" if program.endswith(".exe") else "kodosi-browser")
-    shutil.copy2(built, folder / program)
-    if platform.system() == "Linux":
+    notices(cef, folder / "licenses")
+    if platform.system() == "Windows":
+        # CEF's bootstrap program starts the sandbox, then runs the library of its own name.
+        shutil.copy2(cef / "bootstrap.exe", folder / program)
+        shutil.copy2(target / "kodosi_browser.dll", folder / Path(program).with_suffix(".dll"))
+    else:
+        shutil.copy2(target / "kodosi-browser", folder / program)
         run("strip", "--strip-unneeded", program, "libcef.so", folder=folder)
     return folder / program
 

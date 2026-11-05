@@ -149,15 +149,17 @@ with one viewer for each window. It is a separate build with its own workspace a
 ### Shared browser
 
 [browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
-each terminal: plain Chromium with no engine patches, started hidden with a debug port on
-`127.0.0.1` and the capture extension. On Linux it runs on its own Xvfb display. The first
-window gets the engine from a signed feed. The host looks at the feed each day: a browser
+each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a ready-built CEF:
+Chromium that draws each page off screen, with no window, no icon and no display, and a
+debug port on `127.0.0.1`. It talks with its host on one local WebSocket, which it opens
+with a one-time token, and it ends when that link ends. The first window gets the engine
+from a signed feed. The host looks at the feed each day: a browser
 that starts after an update uses the new engine, a browser that runs keeps its own, and the
 old engine goes when the host starts again.
 
-While a device looks, the extension's tab capture feeds `VideoEncoder`, and H.264 frames
-reach the host on a local socket with a one-time token. A viewer's pipe carries these
-frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
+While a device looks, the engine encodes the window's tab as H.264, with VideoToolbox on
+the Mac and OpenH264 on Linux and Windows, and sends the frames on its link. A viewer's
+pipe carries these frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
 window, and the host steers its bitrate from the round trip, so no queue forms. A viewer
 that falls behind gets nothing until the next key frame. The Mac and iPhone apps show frames
 on a display layer. The Linux and Windows app decodes with OpenH264 in the runtime library.

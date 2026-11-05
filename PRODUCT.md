@@ -125,8 +125,8 @@ conversation follows the person to all their computers.
   agent-browser's commands, and the people see it on the canvas as live video and click
   and type in it, each with a named pointer. It has one size: the view where a person used
   it last. When a person used it, the agent's next browser command says so. It runs Kodosi
-  Browser, a plain Chromium that Kodosi gets the first time and keeps up to date. It never
-  shows a window or an icon on the computer. It sleeps after 10 minutes with no use and
+  Browser, a Chromium that Kodosi gets the first time and keeps up to date. It never shows
+  a window or an icon on the computer. It sleeps after 10 minutes with no use and
   nobody looking, and opens its last page again when it wakes. While the agent acts in
   it, a pointer with the agent's mark shows where. A download lands in the terminal's
   folder and on the canvas.

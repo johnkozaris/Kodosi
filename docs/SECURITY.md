@@ -23,8 +23,8 @@ debug port listens on `127.0.0.1`, where other accounts of that computer can rea
 When a device opens the browser of a terminal on another computer, that computer listens
 on a TCP port for a few seconds, so that the two can connect straight. Only that device
 gets through, with the encryption of the terminal. The Linux app shows pages only where
-Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app and its page
-process make the user namespaces that the sandbox needs.
+Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process
+and Kodosi Browser make the user namespaces that the sandbox needs.
 
 ## What the service sees
 

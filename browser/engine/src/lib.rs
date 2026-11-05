@@ -20,8 +20,25 @@ const NO_FRAMEWORK: i32 = 70;
 const NO_START: i32 = 71;
 const NO_HOST: i32 = 72;
 
-/// The browser process, and on Linux and Windows also each of its child processes.
+/// The browser process, and on Linux also each of its child processes.
 pub fn run() -> i32 {
+    start(std::ptr::null_mut())
+}
+
+/// CEF's bootstrap program calls this in each process on Windows, once it started the sandbox.
+#[cfg(windows)]
+#[unsafe(no_mangle)]
+pub extern "C" fn RunWinMain(
+    _instance: *mut std::ffi::c_void,
+    _command_line: *mut u16,
+    _show: c_int,
+    sandbox: *mut std::ffi::c_void,
+    _version: *mut std::ffi::c_void,
+) -> c_int {
+    start(sandbox.cast())
+}
+
+fn start(sandbox: *mut u8) -> i32 {
     #[cfg(target_os = "macos")]
     let Some(_framework) = mac::load_framework(false) else {
         return NO_FRAMEWORK;
@@ -33,11 +50,7 @@ pub fn run() -> i32 {
     let _ = api_hash(sys::CEF_API_VERSION_LAST, 0);
     let args = Args::new();
     let mut app = engine::app();
-    let code = execute_process(
-        Some(args.as_main_args()),
-        Some(&mut app),
-        std::ptr::null_mut(),
-    );
+    let code = execute_process(Some(args.as_main_args()), Some(&mut app), sandbox);
     if code >= 0 {
         return code;
     }
@@ -58,7 +71,6 @@ pub fn run() -> i32 {
     let profile = options.profile.to_string_lossy().into_owned();
     let settings = Settings {
         windowless_rendering_enabled: 1,
-        no_sandbox: c_int::from(cfg!(windows)),
         root_cache_path: CefString::from(profile.as_str()),
         cache_path: CefString::from(profile.as_str()),
         persist_session_cookies: 1,
@@ -78,7 +90,7 @@ pub fn run() -> i32 {
         Some(args.as_main_args()),
         Some(&settings),
         Some(&mut app),
-        std::ptr::null_mut(),
+        sandbox,
     ) != 1
     {
         return NO_START;
