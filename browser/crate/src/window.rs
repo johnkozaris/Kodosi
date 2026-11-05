@@ -752,7 +752,9 @@ impl Live {
                 ),
             ),
             Input::Text { text } => self.page("Input.insertText", &json!({ "text": text })),
-            Input::Open { address } => self.page_soon("Page.navigate", json!({ "url": address })),
+            Input::Open { address } => {
+                self.page_soon("Page.navigate", json!({ "url": input::address(&address) }));
+            }
             Input::Back => self.move_in_history(-1),
             Input::Forward => self.move_in_history(1),
             Input::Reload => self.page_soon("Page.reload", json!({})),
