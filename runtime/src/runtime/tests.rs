@@ -779,6 +779,28 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
 }
 
 #[tokio::test]
+async fn input_to_a_terminal_that_stopped_shows_no_error_and_other_lost_input_does() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let scope = runtime.scope.clone();
+    let typed = |result| Job {
+        scope: scope.clone(),
+        completion: Completion::Input { result },
+    };
+    runtime.complete(typed(Err(Error::Stopped)));
+    assert!(events.try_recv().is_err());
+    runtime.complete(typed(Err(Error::Busy)));
+    let error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    assert_eq!(error["type"], "system.error");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("The terminal did not confirm the input")
+    );
+}
+
+#[tokio::test]
 async fn an_app_can_show_a_listed_terminal_of_another_computer_that_is_not_open() {
     let (mut runtime, _root) = registry_fixture();
     let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
