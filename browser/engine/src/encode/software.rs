@@ -38,7 +38,7 @@ struct Slot {
 
 type Shared = Arc<(Mutex<Slot>, Condvar)>;
 
-/// OpenH264 on a thread of its own, so a slow picture never holds up the browser. The newest
+/// `OpenH264` on a thread of its own, so a slow picture never holds up the browser. The newest
 /// picture replaces one that still waits, and the two picture buffers go round.
 pub(crate) struct Encoder {
     shared: Shared,
