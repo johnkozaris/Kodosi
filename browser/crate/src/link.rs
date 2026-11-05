@@ -97,19 +97,12 @@ pub enum ToEngine {
     Quit,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EngineWindow {
-    pub id: i64,
-    pub popup: bool,
-}
-
+/// A tab of a host window. The pages that a tab opens are tabs of its window too.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineTab {
     pub id: i64,
     pub window: i64,
-    pub opener: Option<i64>,
     /// The tab's target on the debug port, once the engine knows it.
     pub target: Option<String>,
     pub title: String,
@@ -127,7 +120,6 @@ pub struct EngineTab {
 )]
 pub enum FromEngine {
     Tabs {
-        windows: Vec<EngineWindow>,
         tabs: Vec<EngineTab>,
     },
     /// The pointer's look over the page, as a CSS cursor name.

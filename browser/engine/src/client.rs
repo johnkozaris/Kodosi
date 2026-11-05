@@ -22,9 +22,9 @@ pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
     ClientBuilder::new(
         RenderHandlerBuilder::new(shared),
         LifeSpanHandlerBuilder::new(origin),
-        DisplayHandlerBuilder::new(origin),
-        LoadHandlerBuilder::new(origin),
-        ContextMenuHandlerBuilder::new(origin),
+        DisplayHandlerBuilder::new(),
+        LoadHandlerBuilder::new(),
+        ContextMenuHandlerBuilder::new(),
     )
 }
 
@@ -219,14 +219,11 @@ wrap_life_span_handler! {
 }
 
 wrap_display_handler! {
-    struct DisplayHandlerBuilder {
-        origin: Origin,
-    }
+    struct DisplayHandlerBuilder;
 
     impl DisplayHandler {
         fn on_title_change(&self, browser: Option<&mut Browser>, title: Option<&CefString>) {
             let (Some(tab), Some(title)) = (id_of(browser), title) else { return };
-            let _ = self.origin;
             engine::with(|engine| engine.title(tab, title.to_string()));
         }
 
@@ -253,9 +250,7 @@ wrap_display_handler! {
 }
 
 wrap_load_handler! {
-    struct LoadHandlerBuilder {
-        origin: Origin,
-    }
+    struct LoadHandlerBuilder;
 
     impl LoadHandler {
         fn on_loading_state_change(
@@ -265,7 +260,6 @@ wrap_load_handler! {
             _can_go_back: c_int,
             _can_go_forward: c_int,
         ) {
-            let _ = self.origin;
             if let Some(tab) = id_of(browser) {
                 engine::with(|engine| engine.loading(tab, is_loading != 0));
             }
@@ -274,9 +268,7 @@ wrap_load_handler! {
 }
 
 wrap_context_menu_handler! {
-    struct ContextMenuHandlerBuilder {
-        origin: Origin,
-    }
+    struct ContextMenuHandlerBuilder;
 
     impl ContextMenuHandler {
         fn on_before_context_menu(
@@ -286,7 +278,6 @@ wrap_context_menu_handler! {
             params: Option<&mut ContextMenuParams>,
             model: Option<&mut MenuModel>,
         ) {
-            let _ = self.origin;
             if let Some(model) = model {
                 model.clear();
             }

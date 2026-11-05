@@ -233,6 +233,8 @@ struct Output {
     link: Link,
     waiting: AtomicUsize,
     failed: AtomicBool,
+    /// The link lost a picture, so the next one is a key frame.
+    want_key: AtomicBool,
 }
 
 struct Session {
@@ -367,7 +369,9 @@ impl Encoder {
         let Some(session) = &self.session else {
             return;
         };
-        if session.output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !self.want_key {
+        let output = &session.output;
+        let want_key = self.want_key || output.want_key.load(Ordering::Acquire);
+        if output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !want_key {
             return;
         }
         let mut target = ptr::null_mut();
@@ -388,7 +392,8 @@ impl Encoder {
         if copied != 0 {
             return;
         }
-        let key = std::mem::take(&mut self.want_key);
+        let key =
+            std::mem::take(&mut self.want_key) | output.want_key.swap(false, Ordering::AcqRel);
         let options = if key {
             // SAFETY: the key and the boolean are constants of the frameworks.
             dictionary(&[unsafe { (kVTEncodeFrameOptionKey_ForceKeyFrame, kCFBooleanTrue) }])
@@ -401,7 +406,7 @@ impl Encoder {
             flags: TIME_VALID,
             epoch: 0,
         };
-        session.output.waiting.fetch_add(1, Ordering::AcqRel);
+        output.waiting.fetch_add(1, Ordering::AcqRel);
         // SAFETY: the session and the buffer are live, and the session retains the buffer
         // until it encoded it.
         let status = unsafe {
@@ -416,19 +421,18 @@ impl Encoder {
             )
         };
         if status != 0 {
-            session.output.waiting.fetch_sub(1, Ordering::AcqRel);
+            output.waiting.fetch_sub(1, Ordering::AcqRel);
             self.want_key = key;
             self.fail(&format!("the encoder refused a picture: {status}"));
         }
     }
 
+    /// Makes every value first, so that no failure leaves a session behind.
     fn start(&self, width: usize, height: usize) -> Option<Session> {
-        let output = Arc::new(Output {
-            window: self.window,
-            link: self.link.clone(),
-            waiting: AtomicUsize::new(0),
-            failed: AtomicBool::new(false),
-        });
+        let (session_width, session_height) =
+            (i32::try_from(width).ok()?, i32::try_from(height).ok()?);
+        let rate = number_f64(f64::from(FRAME_RATE))?;
+        let interval = number_i64(KEY_INTERVAL)?;
         let format = number_i64(i64::from(NV12))?;
         let wide = number_i64(i64::try_from(width).ok()?)?;
         let high = number_i64(i64::try_from(height).ok()?)?;
@@ -449,6 +453,13 @@ impl Encoder {
                 kCFBooleanTrue,
             )
         }])?;
+        let output = Arc::new(Output {
+            window: self.window,
+            link: self.link.clone(),
+            waiting: AtomicUsize::new(0),
+            failed: AtomicBool::new(false),
+            want_key: AtomicBool::new(false),
+        });
         let refcon = Arc::into_raw(Arc::clone(&output))
             .cast_mut()
             .cast::<c_void>();
@@ -458,8 +469,8 @@ impl Encoder {
         let status = unsafe {
             VTCompressionSessionCreate(
                 ptr::null(),
-                i32::try_from(width).ok()?,
-                i32::try_from(height).ok()?,
+                session_width,
+                session_height,
                 H264,
                 specification.0,
                 attributes.0,
@@ -475,8 +486,6 @@ impl Encoder {
             self.fail(&format!("the encoder did not start: {status}"));
             return None;
         }
-        let rate = number_f64(f64::from(FRAME_RATE))?;
-        let interval = number_i64(KEY_INTERVAL)?;
         // SAFETY: the session is live and the values are live CF objects of the kinds that the
         // keys take.
         unsafe {
@@ -582,12 +591,15 @@ unsafe extern "C" fn encoded(
     };
     // SAFETY: as above.
     let time = unsafe { CMSampleBufferGetPresentationTimeStamp(sample) };
-    output.link.send_frame(&EncodedFrame {
+    let lost = output.link.send_frame(&EncodedFrame {
         window: output.window,
         key,
         timestamp: u64::try_from(time.value).unwrap_or(0),
         data: Bytes::from(data),
     });
+    if lost {
+        output.want_key.store(true, Ordering::Release);
+    }
 }
 
 /// The picture as Annex B, with the parameter sets before a key frame.

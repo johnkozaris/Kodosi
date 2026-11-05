@@ -167,8 +167,17 @@ impl HostPage {
             .map_err(|_| Error::Malformed)
     }
 
+    /// Closes the page, and the browser with it when nothing else uses it.
     pub async fn close(self) {
-        self.engine.close_page(self.page, Some(&self.target)).await;
+        let engine = Arc::clone(&self.engine);
+        drop(self);
+        engine.stop_if_idle().await;
+    }
+}
+
+impl Drop for HostPage {
+    fn drop(&mut self) {
+        self.engine.forget_page(self.page, Some(&self.target));
     }
 }
 

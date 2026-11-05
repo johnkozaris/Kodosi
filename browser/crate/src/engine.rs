@@ -34,8 +34,7 @@ const LINK_FILE: &str = "link.json";
 /// The program inside a Kodosi Browser app bundle.
 const BUNDLE_PROGRAM: &str = "Contents/MacOS/Kodosi Browser";
 
-/// The tabs of the browser, by the windows that hosts opened. A window that a page opened
-/// belongs with the page.
+/// The tabs of the browser, by the windows that the host opened.
 #[derive(Default)]
 pub(crate) struct Routes {
     windows: HashMap<i64, mpsc::Sender<Event>>,
@@ -52,6 +51,9 @@ pub(crate) struct Routes {
     attaching: HashSet<String>,
     /// The engine's last report of its tabs, which the windows get again once the host attached.
     last_tabs: Vec<EngineTab>,
+    /// Windows that lost a frame. The frames after it need it, so a window gets none until its
+    /// next key frame.
+    behind: HashSet<i64>,
 }
 
 impl Routes {
@@ -65,46 +67,27 @@ impl Routes {
         Some((window, self.windows.get(&window)?.clone()))
     }
 
-    /// Places each tab in its window, and tells each window its tabs.
+    /// Places each tab in its window, and tells each window its tabs and the engine's active
+    /// one.
     fn place(&mut self, tabs: &[EngineTab]) -> Vec<(mpsc::Sender<Event>, Event)> {
-        let openers: HashMap<i64, Option<i64>> =
-            tabs.iter().map(|tab| (tab.id, tab.opener)).collect();
-        let windows_of_tabs: HashMap<i64, i64> =
-            tabs.iter().map(|tab| (tab.id, tab.window)).collect();
-        let owner = |tab: &EngineTab| {
-            let mut current = tab.id;
-            for _ in 0..tabs.len() {
-                let window = windows_of_tabs.get(&current)?;
-                if self.windows.contains_key(window) {
-                    return Some(*window);
-                }
-                current = (*openers.get(&current)?)?;
-            }
-            None
-        };
         let mut placed: HashMap<i64, Vec<EngineTab>> = HashMap::new();
-        let mut tab_routes = HashMap::new();
-        let mut target_routes = HashMap::new();
-        for tab in tabs {
-            if let Some(window) = owner(tab) {
-                tab_routes.insert(tab.id, window);
-                if let Some(target) = &tab.target {
-                    target_routes.insert(target.clone(), window);
-                }
-                placed.entry(window).or_default().push(tab.clone());
+        self.tabs.clear();
+        self.targets.clear();
+        for tab in tabs
+            .iter()
+            .filter(|tab| self.windows.contains_key(&tab.window))
+        {
+            self.tabs.insert(tab.id, tab.window);
+            if let Some(target) = &tab.target {
+                self.targets.insert(target.clone(), tab.window);
             }
+            placed.entry(tab.window).or_default().push(tab.clone());
         }
-        self.tabs = tab_routes;
-        self.targets = target_routes;
         self.windows
             .iter()
             .map(|(window, sender)| {
                 let tabs = placed.remove(window).unwrap_or_default();
-                let popup = tabs
-                    .iter()
-                    .rfind(|tab| tab.window != *window)
-                    .map(|tab| tab.id);
-                let active = popup.or_else(|| tabs.iter().find(|tab| tab.active).map(|tab| tab.id));
+                let active = tabs.iter().find(|tab| tab.active).map(|tab| tab.id);
                 (sender.clone(), Event::Tabs { tabs, active })
             })
             .collect()
@@ -146,18 +129,6 @@ impl Engine {
         let mut process = launch(program, &arguments(&folder, &link, port))?;
         let address = wait_for_address(port, &mut process).await?;
         let (devtools, events) = Devtools::connect(&address).await?;
-        devtools
-            .call(
-                "Target.setAutoAttach",
-                json!({
-                    "autoAttach": true,
-                    "waitForDebuggerOnStart": false,
-                    "flatten": true,
-                    "filter": [{ "type": "page", "exclude": false }],
-                }),
-                None,
-            )
-            .await?;
         let downloads = folder.join("downloads");
         tokio::fs::create_dir_all(&downloads).await?;
         devtools
@@ -266,8 +237,9 @@ impl Engine {
         })
     }
 
-    /// CEF tells a browser-wide auto-attach of no page that opens later, so the host attaches to
-    /// each new target itself, and the windows get their tabs again with its session.
+    /// The host attaches to each new target itself, and the windows get their tabs again with
+    /// its session. CEF's browser-wide auto-attach misses the pages that the engine opens and
+    /// holds back the popups that a page opens.
     fn attach_new(self: &Arc<Self>, tabs: &[EngineTab]) {
         let targets: Vec<String> = {
             let mut routes = self.routes();
@@ -321,11 +293,16 @@ impl Engine {
     }
 
     pub(crate) async fn close_page(&self, page: i64, target: Option<&str>) {
+        self.forget_page(page, target);
+        self.stop_if_idle().await;
+    }
+
+    /// Closes a host page now; a dropped page has no time to wait for the browser to stop.
+    pub(crate) fn forget_page(&self, page: i64, target: Option<&str>) {
         if let Some(session) = target.and_then(|target| self.session_of(target)) {
             self.routes().pages.remove(&session);
         }
         self.command(ToEngine::ClosePage { page });
-        self.stop_if_idle().await;
     }
 
     /// The host page that an event belongs to.
@@ -338,6 +315,7 @@ impl Engine {
         let last = {
             let mut routes = self.routes();
             routes.windows.remove(&window);
+            routes.behind.remove(&window);
             routes.windows.is_empty() && routes.pages.is_empty()
         };
         if last {
@@ -476,11 +454,20 @@ impl Engine {
     /// window never holds up the others or the browser's answers.
     fn deliver_frame(&self, frame: EncodedFrame) {
         let window = frame.window;
-        let Some(sender) = self.routes().windows.get(&window).cloned() else {
+        let sender = {
+            let mut routes = self.routes();
+            if frame.key {
+                routes.behind.remove(&window);
+            } else if routes.behind.contains(&window) {
+                return;
+            }
+            routes.windows.get(&window).cloned()
+        };
+        let Some(sender) = sender else {
             return;
         };
-        if sender.try_send(Event::Frame(frame)).is_err() {
-            tracing::debug!(window, "a window is behind, so it gets a key frame");
+        if sender.try_send(Event::Frame(frame)).is_err() && self.routes().behind.insert(window) {
+            tracing::debug!(window, "a window is behind, so it waits for a key frame");
             self.command(ToEngine::Keyframe { window });
         }
     }
@@ -669,11 +656,10 @@ fn launch(engine: &Path, arguments: &[String]) -> Result<Child, Error> {
 mod tests {
     use super::*;
 
-    fn tab(id: i64, window: i64, opener: Option<i64>, active: bool) -> EngineTab {
+    fn tab(id: i64, window: i64, active: bool) -> EngineTab {
         EngineTab {
             id,
             window,
-            opener,
             target: Some(format!("target-{id}")),
             title: String::new(),
             address: String::new(),
@@ -701,9 +687,9 @@ mod tests {
     }
 
     #[test]
-    fn a_popup_belongs_to_the_window_of_its_opener_and_takes_the_picture() {
+    fn a_window_gets_its_tabs_and_the_engines_active_one() {
         let (mut routes, _receiver) = routes_with(&[1]);
-        let tabs = [tab(10, 1, None, true), tab(20, 2, Some(10), true)];
+        let tabs = [tab(10, 1, false), tab(20, 1, true)];
         let (tabs, active) = placed(routes.place(&tabs));
         assert_eq!(tabs, [10, 20]);
         assert_eq!(active, Some(20));
@@ -713,17 +699,11 @@ mod tests {
     #[test]
     fn a_tab_of_nobody_stays_out() {
         let (mut routes, _receiver) = routes_with(&[1]);
-        let tabs = [tab(10, 1, None, true), tab(30, 3, None, true)];
+        let tabs = [tab(10, 1, true), tab(30, 3, true)];
         let (tabs, active) = placed(routes.place(&tabs));
         assert_eq!(tabs, [10]);
         assert_eq!(active, Some(10));
-    }
-
-    #[test]
-    fn a_circle_of_openers_ends() {
-        let (mut routes, _receiver) = routes_with(&[1]);
-        let tabs = [tab(10, 2, Some(20), true), tab(20, 3, Some(10), true)];
-        assert_eq!(placed(routes.place(&tabs)).0, Vec::<i64>::new());
+        assert!(!routes.tabs.contains_key(&30));
     }
 
     #[test]

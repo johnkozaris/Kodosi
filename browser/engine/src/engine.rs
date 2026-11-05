@@ -9,14 +9,14 @@ use std::{
 use cef::*;
 use shared_browser::{
     MenuItem, Size,
-    link::{EngineTab, EngineWindow, FromEngine, ToEngine},
+    link::{EngineTab, FromEngine, ToEngine},
 };
 
 use crate::{client, encode::Encoder, link::Link, renderer};
 
 const REPORT_DELAY_MS: i64 = 50;
-/// The windows that pages open get ids that no host window has.
-const FIRST_OWN_WINDOW: i64 = 1 << 40;
+/// How long the browsers may take to close when the engine quits. The host waits longer.
+const QUIT_LIMIT_MS: i64 = 3000;
 const PAGE_SCALE: f32 = 1.0;
 /// A page with no ground of its own shows white, as in a browser, not see-through.
 pub(crate) const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
@@ -102,7 +102,18 @@ wrap_task! {
     }
 }
 
+wrap_task! {
+    struct EndTaskBuilder;
+
+    impl Task {
+        fn execute(&self) {
+            quit_message_loop();
+        }
+    }
+}
+
 /// The engine, unless it is borrowed: a handler that CEF calls while a command runs gets `None`.
+/// So no code calls CEF while it holds the engine.
 pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
     ENGINE.with(|engine| {
         let mut engine = engine.try_borrow_mut().ok()?;
@@ -138,12 +149,14 @@ pub(crate) enum Origin {
     Page { page: i64 },
 }
 
+/// A window of the host. The pages that its tabs open are tabs of it too.
 struct Window {
-    popup: bool,
     shared: Shared,
     active: Option<i64>,
-    /// A tab that the host asked for and that becomes active when it exists.
+    /// The next tab that opens becomes active: the first tab, a new tab or a page's popup.
     wanted: bool,
+    /// The host closed the window, which goes with its last tab.
+    closing: bool,
 }
 
 struct Tab {
@@ -162,6 +175,7 @@ struct Page {
     browser: Option<Browser>,
     observer: Option<Registration>,
     shared: Shared,
+    closing: bool,
 }
 
 pub(crate) struct Engine {
@@ -172,7 +186,6 @@ pub(crate) struct Engine {
     page_of_browser: HashMap<i64, i64>,
     frames: HashMap<i64, (i64, String)>,
     frame_handles: HashMap<(i64, String), i64>,
-    next_window: i64,
     next_frame: i64,
     next_message: c_int,
     report_waiting: bool,
@@ -190,7 +203,6 @@ impl Engine {
             page_of_browser: HashMap::new(),
             frames: HashMap::new(),
             frame_handles: HashMap::new(),
-            next_window: FIRST_OWN_WINDOW,
             next_frame: 1,
             next_message: 1,
             report_waiting: false,
@@ -232,21 +244,12 @@ impl Engine {
 
     fn report(&mut self) {
         self.report_waiting = false;
-        let windows = self
-            .windows
-            .iter()
-            .map(|(id, window)| EngineWindow {
-                id: *id,
-                popup: window.popup,
-            })
-            .collect();
         let tabs = self
             .tabs
             .iter()
             .map(|(id, tab)| EngineTab {
                 id: *id,
                 window: tab.window,
-                opener: tab.opener,
                 target: tab.target.clone(),
                 title: tab.title.clone(),
                 address: tab.address.clone(),
@@ -257,7 +260,7 @@ impl Engine {
                 loading: tab.loading,
             })
             .collect();
-        self.link.send(&FromEngine::Tabs { windows, tabs });
+        self.link.send(&FromEngine::Tabs { tabs });
     }
 
     fn message_id(&mut self) -> c_int {
@@ -266,61 +269,48 @@ impl Engine {
         id
     }
 
-    /// The window of a page that a tab opens: a new window for a popup or a window, the
-    /// opener's window for a tab.
+    /// The window of a page that a tab opens: the opener's. A popup, a new window or a new tab
+    /// becomes the window's active tab, a tab in the background does not.
     pub(crate) fn place_popup(
         &mut self,
         opener: i64,
         disposition: WindowOpenDisposition,
     ) -> Option<(Origin, Shared)> {
         let window = self.tabs.get(&opener)?.window;
-        let own = disposition == WindowOpenDisposition::NEW_POPUP
-            || disposition == WindowOpenDisposition::NEW_WINDOW;
-        let window = if own {
-            let id = self.next_window;
-            self.next_window += 1;
-            let size = self.windows.get(&window)?.shared.size.get();
-            self.windows.insert(
-                id,
-                Window {
-                    popup: disposition == WindowOpenDisposition::NEW_POPUP,
-                    shared: Shared::new(size),
-                    active: None,
-                    wanted: true,
-                },
-            );
-            id
-        } else {
-            if disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB
-                && let Some(known) = self.windows.get_mut(&window)
-            {
-                known.wanted = true;
-            }
-            window
-        };
+        let known = self
+            .windows
+            .get_mut(&window)
+            .filter(|known| !known.closing)?;
+        if disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB {
+            known.wanted = true;
+        }
         Some((
             Origin::Tab {
                 window,
                 opener: Some(opener),
             },
-            self.shared_of(window)?,
+            known.shared.clone(),
         ))
     }
 
-    pub(crate) fn created(
-        &mut self,
-        browser: &Browser,
-        origin: Origin,
-    ) -> Option<(Browser, c_int)> {
+    /// Takes in a browser that CEF made. Gives the id of the message that asks for its target,
+    /// or `None` when it must close at once: its window or page closed, or the engine quits,
+    /// before it existed.
+    pub(crate) fn created(&mut self, browser: &Browser, origin: Origin) -> Option<c_int> {
         let id = i64::from(browser.identifier());
-        let message = self.message_id();
-        match origin {
+        let quitting = self.quitting;
+        let kept = match origin {
             Origin::Tab { window, opener } => {
-                let known = self.windows.get_mut(&window)?;
-                if known.wanted || known.active.is_none() {
-                    known.active = Some(id);
-                    known.wanted = false;
-                }
+                let kept = match self.windows.get_mut(&window) {
+                    Some(known) if !known.closing && !quitting => {
+                        if known.wanted || known.active.is_none() {
+                            known.active = Some(id);
+                            known.wanted = false;
+                        }
+                        true
+                    }
+                    _ => false,
+                };
                 self.tabs.insert(
                     id,
                     Tab {
@@ -336,15 +326,20 @@ impl Engine {
                     },
                 );
                 self.report_soon();
+                kept
             }
             Origin::Page { page } => {
                 self.page_of_browser.insert(id, page);
-                if let Some(known) = self.pages.get_mut(&page) {
-                    known.browser = Some(browser.clone());
+                match self.pages.get_mut(&page) {
+                    Some(known) if !known.closing && !quitting => {
+                        known.browser = Some(browser.clone());
+                        true
+                    }
+                    _ => false,
                 }
             }
-        }
-        Some((browser.clone(), message))
+        };
+        kept.then(|| self.message_id())
     }
 
     pub(crate) fn observing(&mut self, browser: i64, registration: Option<Registration>) {
@@ -372,39 +367,84 @@ impl Engine {
         }
     }
 
-    /// Forgets a browser that closed, and says whether the engine may now end.
-    pub(crate) fn closed(&mut self, browser: i64) -> bool {
-        if let Some(tab) = self.tabs.remove(&browser) {
-            self.frame_handles.retain(|(tab, _), _| *tab != browser);
-            self.frames.retain(|_, (tab, _)| *tab != browser);
-            let next = self
-                .tabs
+    /// Forgets a browser that closed. The window's next active tab is the closed tab's opener,
+    /// or else its last tab.
+    fn closed(&mut self, browser: i64) -> Closed {
+        let Some(tab) = self.tabs.remove(&browser) else {
+            if let Some(page) = self.page_of_browser.remove(&browser) {
+                self.pages.remove(&page);
+            }
+            return Closed {
+                window: None,
+                end: self.ended(),
+            };
+        };
+        self.frame_handles.retain(|(tab, _), _| *tab != browser);
+        self.frames.retain(|_, (tab, _)| *tab != browser);
+        let in_window = |id: &i64| {
+            self.tabs
+                .get(id)
+                .is_some_and(|other| other.window == tab.window)
+        };
+        let next = tab.opener.filter(in_window).or_else(|| {
+            self.tabs
                 .iter()
                 .rev()
                 .find(|(_, other)| other.window == tab.window)
-                .map(|(id, _)| *id);
-            if let Some(window) = self.windows.get_mut(&tab.window) {
-                if window.active == Some(browser) {
-                    window.active = next;
-                }
-                let capturing = window
-                    .shared
-                    .capture
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(|capture| capture.tab == browser);
-                if capturing {
-                    window.shared.capture.borrow_mut().take();
-                }
+                .map(|(id, _)| *id)
+        });
+        let mut gone = false;
+        let mut shown = None;
+        if let Some(window) = self.windows.get_mut(&tab.window) {
+            if window.active == Some(browser) {
+                window.active = next;
+                shown = Some(tab.window);
             }
-            if tab.window >= FIRST_OWN_WINDOW && next.is_none() {
-                self.windows.remove(&tab.window);
+            let capturing = window
+                .shared
+                .capture
+                .borrow()
+                .as_ref()
+                .is_some_and(|capture| capture.tab == browser);
+            if capturing {
+                window.shared.capture.borrow_mut().take();
             }
-            self.report_soon();
-        } else if let Some(page) = self.page_of_browser.remove(&browser) {
-            self.pages.remove(&page);
+            gone = window.closing && next.is_none();
         }
+        if gone {
+            self.windows.remove(&tab.window);
+        }
+        self.report_soon();
+        Closed {
+            window: shown.filter(|_| !gone),
+            end: self.ended(),
+        }
+    }
+
+    fn ended(&self) -> bool {
         self.quitting && self.tabs.is_empty() && self.page_of_browser.is_empty()
+    }
+
+    /// Closes a window's tabs; the window goes with its last tab.
+    fn close_window(&mut self, window: i64) -> Vec<Browser> {
+        let Some(known) = self.windows.get_mut(&window) else {
+            return Vec::new();
+        };
+        known.closing = true;
+        known.shared.capture.borrow_mut().take();
+        let browsers = self.browsers_of(window);
+        if browsers.is_empty() {
+            self.windows.remove(&window);
+        }
+        self.report_soon();
+        browsers
+    }
+
+    /// Closes a host page. A page that CEF still makes closes once it exists.
+    fn close_page(&mut self, page: i64) -> Option<Browser> {
+        let known = self.pages.get_mut(&page)?;
+        known.closing = true;
+        known.browser.clone()
     }
 
     pub(crate) fn title(&mut self, browser: i64, title: String) {
@@ -494,7 +534,7 @@ impl Engine {
         handle
     }
 
-    /// The tabs of a window with whether each should show, after the window's active tab changed.
+    /// The tabs of a window with whether each shows: only the active one draws.
     fn shown(&self, window: i64) -> Vec<(Browser, bool)> {
         let active = self.windows.get(&window).and_then(|window| window.active);
         self.tabs
@@ -503,6 +543,13 @@ impl Engine {
             .map(|(id, tab)| (tab.browser.clone(), Some(*id) == active))
             .collect()
     }
+}
+
+/// What a closed browser leaves: a window whose active tab changed, and whether the engine
+/// may end now.
+struct Closed {
+    window: Option<i64>,
+    end: bool,
 }
 
 fn run(command: ToEngine) {
@@ -521,7 +568,7 @@ fn run(command: ToEngine) {
         ToEngine::NewTab { window } => new_tab(window),
         ToEngine::CloseTab { tab } => close(with(|engine| engine.browser_of(tab)).flatten()),
         ToEngine::CloseWindow { window } => {
-            for browser in with(|engine| engine.browsers_of(window)).unwrap_or_default() {
+            for browser in with(|engine| engine.close_window(window)).unwrap_or_default() {
                 close(Some(browser));
             }
         }
@@ -541,34 +588,29 @@ fn run(command: ToEngine) {
             width,
             height,
         } => resize_page(page, width, height),
-        ToEngine::ClosePage { page } => close(
-            with(|engine| {
-                engine
-                    .pages
-                    .get(&page)
-                    .and_then(|page| page.browser.clone())
-            })
-            .flatten(),
-        ),
+        ToEngine::ClosePage { page } => close(with(|engine| engine.close_page(page)).flatten()),
         ToEngine::Quit => quit(),
     }
 }
 
 fn open_window(window: i64, address: &str, size: Size) {
     let shared = with(|engine| {
+        if engine.quitting || engine.windows.contains_key(&window) {
+            return None;
+        }
         let shared = Shared::new(size);
         engine.windows.insert(
             window,
             Window {
-                popup: false,
                 shared: shared.clone(),
                 active: None,
                 wanted: true,
+                closing: false,
             },
         );
-        engine.report_soon();
-        shared
-    });
+        Some(shared)
+    })
+    .flatten();
     if let Some(shared) = shared {
         open_tab(window, address, shared);
     }
@@ -644,8 +686,12 @@ fn activate(tab: i64) {
 
 fn new_tab(window: i64) {
     let shared = with(|engine| {
-        engine.windows.get_mut(&window)?.wanted = true;
-        engine.shared_of(window)
+        let known = engine
+            .windows
+            .get_mut(&window)
+            .filter(|known| !known.closing)?;
+        known.wanted = true;
+        Some(known.shared.clone())
     })
     .flatten();
     if let Some(shared) = shared {
@@ -665,7 +711,7 @@ fn pick(tab: i64, frame: i64, menu: u32, choice: Option<u32>) {
     }
 }
 
-/// Closes every browser; the engine ends when the last one closed.
+/// Closes every browser; the engine ends when the last one closed, or after `QUIT_LIMIT_MS`.
 fn quit() {
     let browsers = with(|engine| {
         engine.quitting = true;
@@ -680,19 +726,20 @@ fn quit() {
                     .filter_map(|page| page.browser.clone()),
             )
             .collect::<Vec<_>>()
-    });
-    match browsers {
-        Some(browsers) if !browsers.is_empty() => {
-            for browser in browsers {
-                close(Some(browser));
-            }
-        }
-        _ => quit_message_loop(),
+    })
+    .unwrap_or_default();
+    if browsers.is_empty() {
+        quit_message_loop();
+        return;
+    }
+    let mut end = EndTaskBuilder::new();
+    post_delayed_task(ThreadId::UI, Some(&mut end), QUIT_LIMIT_MS);
+    for browser in browsers {
+        close(Some(browser));
     }
 }
 
 fn open_tab(window: i64, address: &str, shared: Shared) {
-    let info = window_info();
     let mut client = client::new(
         Origin::Tab {
             window,
@@ -701,7 +748,7 @@ fn open_tab(window: i64, address: &str, shared: Shared) {
         shared,
     );
     browser_host_create_browser(
-        Some(&info),
+        Some(&window_info()),
         Some(&mut client),
         Some(&CefString::from(address)),
         Some(&browser_settings()),
@@ -718,15 +765,20 @@ fn page_size(width: u32, height: u32) -> Size {
     }
 }
 
+/// Opens a page of the host's own, in a request context with no stored data.
 fn open_page(page: i64, width: u32, height: u32) {
     let shared = Shared::new(page_size(width, height));
     let context = with(|engine| {
+        if engine.quitting {
+            return None;
+        }
         engine.pages.insert(
             page,
             Page {
                 browser: None,
                 observer: None,
                 shared: shared.clone(),
+                closing: false,
             },
         );
         if engine.page_context.is_none() {
@@ -734,23 +786,26 @@ fn open_page(page: i64, width: u32, height: u32) {
                 request_context_create_context(Some(&RequestContextSettings::default()), None);
         }
         engine.page_context.clone()
-    });
-    let Some(mut context) = context.flatten() else {
-        return;
-    };
+    })
+    .flatten();
     let mut client = client::new(Origin::Page { page }, shared);
     let mut extra = dictionary_value_create();
     if let Some(extra) = extra.as_mut() {
         extra.set_bool(Some(&CefString::from(renderer::HOST_PAGE)), 1);
     }
-    browser_host_create_browser(
-        Some(&window_info()),
-        Some(&mut client),
-        Some(&CefString::from("about:blank")),
-        Some(&browser_settings()),
-        extra.as_mut(),
-        Some(&mut context),
-    );
+    let started = context.is_some_and(|mut context| {
+        browser_host_create_browser(
+            Some(&window_info()),
+            Some(&mut client),
+            Some(&CefString::from("about:blank")),
+            Some(&browser_settings()),
+            extra.as_mut(),
+            Some(&mut context),
+        ) == 1
+    });
+    if !started {
+        with(|engine| engine.pages.remove(&page));
+    }
 }
 
 fn resize_page(page: i64, width: u32, height: u32) {
@@ -795,15 +850,19 @@ fn close(browser: Option<Browser>) {
     }
 }
 
-/// Called by a client when its browser exists: it learns its target on the debug port.
+/// Called by a client when its browser exists: it learns its target on the debug port, or it
+/// closes when nobody wants it any more.
 pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
-    let Some((browser, message)) = with(|engine| engine.created(browser, origin)).flatten() else {
+    let Some(message) = with(|engine| engine.created(browser, origin)) else {
+        return;
+    };
+    let Some(message) = message else {
+        close(Some(browser.clone()));
         return;
     };
     let id = i64::from(browser.identifier());
     if let Origin::Tab { window, .. } = origin {
-        let shown = with(|engine| engine.shown(window)).unwrap_or_default();
-        show(shown);
+        show(with(|engine| engine.shown(window)).unwrap_or_default());
     }
     let Some(host) = browser.host() else {
         return;
@@ -816,7 +875,13 @@ pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
 
 pub(crate) fn before_close(browser: &Browser) {
     let id = i64::from(browser.identifier());
-    if with(|engine| engine.closed(id)).unwrap_or(false) {
+    let Some(closed) = with(|engine| engine.closed(id)) else {
+        return;
+    };
+    if let Some(window) = closed.window {
+        show(with(|engine| engine.shown(window)).unwrap_or_default());
+    }
+    if closed.end {
         quit_message_loop();
     }
 }

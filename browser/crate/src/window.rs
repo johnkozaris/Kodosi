@@ -292,7 +292,6 @@ struct Live {
     size: Size,
     reported: Vec<EngineTab>,
     active: Option<i64>,
-    chosen: Option<i64>,
     capturing: Option<i64>,
     capture_failed_at: Option<Instant>,
     next_frame: u32,
@@ -330,7 +329,6 @@ impl Live {
             size: FIRST_SIZE,
             reported: Vec::new(),
             active: None,
-            chosen: None,
             capturing: None,
             capture_failed_at: None,
             next_frame: 0,
@@ -556,8 +554,12 @@ impl Live {
             })
             .encode();
             for viewer in &delivery.to {
-                if let Some(seat) = self.seats.get(viewer) {
-                    drop(seat.outgoing.try_send(message.clone()));
+                let sent = self
+                    .seats
+                    .get(viewer)
+                    .is_some_and(|seat| seat.outgoing.try_send(message.clone()).is_ok());
+                if !sent {
+                    self.flow.lost(viewer, id);
                 }
             }
         }
@@ -571,10 +573,7 @@ impl Live {
     }
 
     fn tabs(&mut self, tabs: Vec<EngineTab>, active: Option<i64>) {
-        self.chosen = self
-            .chosen
-            .filter(|chosen| tabs.iter().any(|tab| tab.id == *chosen));
-        self.active = self.chosen.or(active);
+        self.active = active;
         self.state.tabs = tabs
             .iter()
             .map(|tab| Tab {
@@ -753,14 +752,10 @@ impl Live {
             Input::Reload => self.page_soon("Page.reload", json!({})),
             Input::Tab { id } => {
                 if let Ok(tab) = id.parse() {
-                    self.chosen = Some(tab);
                     self.engine.command(ToEngine::Activate { tab });
                 }
             }
-            Input::NewTab => {
-                self.chosen = None;
-                self.engine.command(ToEngine::NewTab { window: self.id });
-            }
+            Input::NewTab => self.engine.command(ToEngine::NewTab { window: self.id }),
             Input::CloseTab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.engine.command(ToEngine::CloseTab { tab });
