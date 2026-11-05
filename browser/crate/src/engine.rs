@@ -96,6 +96,35 @@ impl Routes {
     }
 }
 
+/// Forgets a driver's ask for a tab when its wait ends, also when the driver went first.
+struct TabAsk<'a> {
+    engine: &'a Engine,
+    ask: i64,
+}
+
+impl Drop for TabAsk<'_> {
+    fn drop(&mut self) {
+        self.engine.routes().asked.remove(&self.ask);
+    }
+}
+
+/// Closes a host page whose opening was dropped before it ended, so that no page stays open
+/// that nobody holds.
+struct PageOpening<'a> {
+    engine: &'a Engine,
+    page: i64,
+    ended: bool,
+}
+
+impl Drop for PageOpening<'_> {
+    fn drop(&mut self) {
+        if !self.ended {
+            self.engine.routes().opening.remove(&self.page);
+            self.engine.command(ToEngine::ClosePage { page: self.page });
+        }
+    }
+}
+
 /// A page that the host opened for itself, with the events of its session.
 pub(crate) struct OpenedPage {
     pub page: i64,
@@ -232,14 +261,13 @@ impl Engine {
         let ask = self.next_ask.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
         self.routes().asked.insert(ask, named);
+        let _asking = TabAsk { engine: self, ask };
         self.command(ToEngine::NewTab {
             window,
             address: address.to_owned(),
             ask: Some(ask),
         });
-        let target = tokio::time::timeout(ATTACH_LIMIT, target).await;
-        self.routes().asked.remove(&ask);
-        target.ok()?.ok()
+        tokio::time::timeout(ATTACH_LIMIT, target).await.ok()?.ok()
     }
 
     fn routes(&self) -> std::sync::MutexGuard<'_, Routes> {
@@ -268,6 +296,11 @@ impl Engine {
         let page = self.next_page.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
         self.routes().opening.insert(page, named);
+        let mut opening = PageOpening {
+            engine: self,
+            page,
+            ended: false,
+        };
         self.command(ToEngine::OpenPage {
             page,
             width,
@@ -275,14 +308,17 @@ impl Engine {
         });
         let target = tokio::time::timeout(ATTACH_LIMIT, target).await;
         let Ok(Ok(target)) = target else {
+            opening.ended = true;
             self.routes().opening.remove(&page);
             self.close_page(page, None).await;
             return Err(Error::Engine("the page did not open".to_owned()));
         };
         let Some(session) = self.attach(&target).await else {
+            opening.ended = true;
             self.close_page(page, Some(&target)).await;
             return Err(Error::Engine("the page did not attach".to_owned()));
         };
+        opening.ended = true;
         let (sender, events) = mpsc::unbounded_channel();
         self.routes().pages.insert(session.clone(), sender);
         Ok(OpenedPage {

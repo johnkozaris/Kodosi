@@ -115,7 +115,7 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
     let mut view = View::new(window);
     let place = |target: &str| engine.window_of(target);
     loop {
-        let mut out = Vec::new();
+        let mut out: Vec<Message> = Vec::new();
         tokio::select! {
             message = from_driver.next() => {
                 let Some(Ok(message)) = message else { break };
@@ -139,16 +139,16 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
                             break;
                         }
                     }
-                    Ask::Answer(answer) => out.push(answer),
+                    Ask::Answer(answer) => out.push(Message::text(answer)),
                     Ask::Dialog { target, accept, text, answer } => {
                         if let Some(tab) = engine.tab_of(&target) {
                             engine.command(ToEngine::Dialog { tab, accept, text });
                         }
-                        out.push(answer);
+                        out.push(Message::text(answer));
                     }
                     Ask::Open { id, address } => {
                         if opening.len() == MOST_OPENING {
-                            out.push(failure(id, None, "Too many tabs are opening."));
+                            out.push(Message::text(failure(id, None, "Too many tabs are opening.")));
                         } else {
                             let engine = Arc::clone(&engine);
                             opening.spawn(async move { (id, engine.open_tab(window, &address).await) });
@@ -165,14 +165,10 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
                     continue;
                 };
                 let now = Instant::now();
-                out.extend(view.release(place, now));
+                out.extend(view.release(place, now).into_iter().map(Message::text));
                 match view.tell(&text, place, || engine.active_target(window), now) {
-                    Tell::Pass => {
-                        if to_driver.send(Message::Text(text)).await.is_err() {
-                            break;
-                        }
-                    }
-                    Tell::Changed(changed) => out.push(changed),
+                    Tell::Pass => out.push(Message::Text(text)),
+                    Tell::Changed(changed) => out.push(Message::text(changed)),
                     Tell::Drop => {}
                 }
             }
@@ -180,16 +176,16 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
                 if changed.is_err() {
                     break;
                 }
-                out.extend(view.release(place, Instant::now()));
+                out.extend(view.release(place, Instant::now()).into_iter().map(Message::text));
             }
             Some(opened) = opening.join_next(), if !opening.is_empty() => {
                 let Ok((id, target)) = opened else { continue };
-                out.push(view.opened(id, target));
-                out.extend(view.release(place, Instant::now()));
+                out.push(Message::text(view.opened(id, target)));
+                out.extend(view.release(place, Instant::now()).into_iter().map(Message::text));
             }
         }
         for message in out {
-            if to_driver.send(Message::text(message)).await.is_err() {
+            if to_driver.send(message).await.is_err() {
                 return;
             }
         }
@@ -292,8 +288,10 @@ impl View {
         }
     }
 
+    /// A tab of this window, a tab that this driver opened, or a frame or worker of one of its
+    /// sessions is the driver's own.
     fn whose(&self, target: &str, place: impl Fn(&str) -> Option<i64>) -> Whose {
-        if self.opened.contains(target) {
+        if self.opened.contains(target) || self.sessions.values().any(|own| own == target) {
             return Whose::Ours;
         }
         match place(target) {
@@ -308,28 +306,33 @@ impl View {
             return Ask::Answer(failure(0, None, "The message is not a command."));
         };
         let id = command.id.unwrap_or_default();
-        if let Some(session) = &command.session {
-            return match self.sessions.get(session) {
-                Some(target) if command.method == "Page.bringToFront" => Ask::Show(target.clone()),
-                Some(target) if command.method == "Page.handleJavaScriptDialog" => Ask::Dialog {
-                    target: target.clone(),
-                    accept: command.params["accept"].as_bool().unwrap_or_default(),
-                    text: command.params["promptText"].as_str().map(str::to_owned),
-                    answer: answer_in(id, session, &json!({})),
-                },
-                Some(_) => Ask::Pass,
-                None => Ask::Answer(failure(id, Some(session), "No session with given id")),
-            };
-        }
         let method = command.method.as_str();
-        if REFUSED.contains(&method) {
+        let session = command.session.as_deref();
+        if let Some(session) = session {
+            let Some(target) = self.sessions.get(session) else {
+                return Ask::Answer(failure(id, Some(session), "No session with given id"));
+            };
+            match method {
+                "Page.bringToFront" => return Ask::Show(target.clone()),
+                "Page.handleJavaScriptDialog" => {
+                    return Ask::Dialog {
+                        target: target.clone(),
+                        accept: command.params["accept"].as_bool().unwrap_or_default(),
+                        text: command.params["promptText"].as_str().map(str::to_owned),
+                        answer: answer_in(id, session, &json!({})),
+                    };
+                }
+                _ => {}
+            }
+        }
+        if REFUSED.contains(&method) || (session.is_some() && method == "Target.createTarget") {
             return Ask::Answer(failure(
                 id,
-                None,
+                session,
                 "Kodosi keeps this for the browser of every window.",
             ));
         }
-        if ANSWERED.contains(&method) {
+        if session.is_none() && ANSWERED.contains(&method) {
             return Ask::Answer(answer(id, &json!({})));
         }
         if method == "Target.createTarget" {
@@ -344,13 +347,16 @@ impl View {
         }
         let target = command.params["targetId"].as_str();
         if target.is_some_and(|target| self.whose(target, &place) != Whose::Ours) {
-            return Ask::Answer(failure(id, None, "No target with given id found"));
+            return Ask::Answer(failure(id, session, "No target with given id found"));
         }
         if command.params["sessionId"]
             .as_str()
-            .is_some_and(|session| !self.sessions.contains_key(session))
+            .is_some_and(|other| !self.sessions.contains_key(other))
         {
-            return Ask::Answer(failure(id, None, "No session with given id"));
+            return Ask::Answer(failure(id, session, "No session with given id"));
+        }
+        if session.is_some() {
+            return Ask::Pass;
         }
         let asked = match (method, target) {
             ("Target.getTargets", _) => Some(Asked::Targets),
@@ -698,6 +704,20 @@ mod tests {
         let from_child =
             json!({"sessionId": "C", "method": "Runtime.consoleAPICalled", "params": {}});
         assert_eq!(told(&mut view, &from_child), Tell::Pass);
+        let frame = json!({"id": 17, "sessionId": "S", "method": "Target.getTargetInfo", "params": {"targetId": "F"}});
+        assert_eq!(view.ask(&frame.to_string(), place), Ask::Pass);
+        let elsewhere = json!({"id": 18, "sessionId": "S", "method": "Target.attachToTarget", "params": {"targetId": "X"}});
+        assert!(matches!(
+            view.ask(&elsewhere.to_string(), place),
+            Ask::Answer(answer) if answer.contains("No target") && answer.contains("\"sessionId\":\"S\"")
+        ));
+        let created = json!({"id": 19, "sessionId": "S", "method": "Target.createTarget", "params": {"url": "about:blank"}});
+        assert!(matches!(
+            view.ask(&created.to_string(), place),
+            Ask::Answer(answer) if answer.contains("error")
+        ));
+        let auto = json!({"id": 20, "sessionId": "S", "method": "Target.setAutoAttach", "params": {"autoAttach": true, "flatten": true}});
+        assert_eq!(view.ask(&auto.to_string(), place), Ask::Pass);
         let from_other =
             json!({"sessionId": "T", "method": "Runtime.consoleAPICalled", "params": {}});
         assert_eq!(told(&mut view, &from_other), Tell::Drop);

@@ -304,8 +304,9 @@ struct Live {
     last_press: Option<String>,
     open_menu: Option<OpenMenu>,
     context: Option<Context>,
-    /// The tab whose dialog the window shows.
-    dialog_tab: Option<i64>,
+    /// The dialogs of the window's tabs, one for each tab, oldest first. The window shows the
+    /// newest.
+    dialogs: Vec<(i64, Dialog)>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
     /// Steps that came before the window knew its page, such as the address of a new window:
@@ -342,7 +343,7 @@ impl Live {
             last_press: None,
             open_menu: None,
             context: None,
-            dialog_tab: None,
+            dialogs: Vec::new(),
             chooser: None,
             downloads: HashMap::new(),
             waiting: Vec::new(),
@@ -488,16 +489,13 @@ impl Live {
                 self.dirty = true;
             }
             Event::Dialog { tab, dialog } => {
-                self.dialog_tab = Some(tab);
-                self.state.dialog = Some(dialog);
-                self.dirty = true;
+                self.dialogs.retain(|(other, _)| *other != tab);
+                self.dialogs.push((tab, dialog));
+                self.show_dialog();
             }
             Event::DialogClosed { tab } => {
-                if self.dialog_tab == Some(tab) {
-                    self.dialog_tab = None;
-                    self.state.dialog = None;
-                    self.dirty = true;
-                }
+                self.dialogs.retain(|(other, _)| *other != tab);
+                self.show_dialog();
             }
             Event::Chooser {
                 session,
@@ -867,12 +865,20 @@ impl Live {
         }
     }
 
+    /// Answers the dialog that the window shows, and shows the one before it.
     fn answer_dialog(&mut self, accept: bool, text: Option<String>) {
-        if let Some(tab) = self.dialog_tab.take() {
+        if let Some((tab, _)) = self.dialogs.pop() {
             self.engine.command(ToEngine::Dialog { tab, accept, text });
         }
-        self.state.dialog = None;
-        self.dirty = true;
+        self.show_dialog();
+    }
+
+    fn show_dialog(&mut self) {
+        let shown = self.dialogs.last().map(|(_, dialog)| dialog.clone());
+        if shown != self.state.dialog {
+            self.state.dialog = shown;
+            self.dirty = true;
+        }
     }
 
     fn give_files(&mut self, paths: &[String]) {
