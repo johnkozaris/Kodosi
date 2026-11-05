@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/banner.webp" width="800" alt="The Kodosi logo above the words 'terminals, agents and friends. together.' and a terminal cursor.">
+  <a href="https://kodosi.com"><img src="docs/media/banner.webp" width="800" alt="The Kodosi logo above the words 'terminals, agents and friends. together.' and a terminal cursor."></a>
 </p>
 
 <p align="center">
@@ -11,9 +11,9 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Latest release"></a>
 </p>
 
-Kodosi is a terminal app for coding agents on Mac, Linux and Windows. It keeps the
-terminals of all your computers in one window, shows which agent needs you, and lets your
-friends work in the same terminals. Everything is end-to-end encrypted.
+[Kodosi](https://kodosi.com) is a terminal app for coding agents on Mac, Linux and Windows.
+It keeps the terminals of all your computers in one window, shows which agent needs you, and
+lets your friends work in the same terminals. Terminals and rooms are end-to-end encrypted.
 
 <p align="center">
   <picture>
