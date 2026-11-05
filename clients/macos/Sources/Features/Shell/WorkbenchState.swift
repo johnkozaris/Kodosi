@@ -26,8 +26,12 @@ final class WorkbenchState {
     static let dosiWidths: ClosedRange<CGFloat> = 340 ... 640
     var section: Section = .sessions
     var settingsSection: SettingsSection = .terminal
-    var selectedSessionId: String?
+    var selectedSessionId: String? {
+        didSet { selectedSessionId.map { looks.look(at: $0) } }
+    }
+
     var stagedSessionIds: [String] = []
+    @ObservationIgnored var looks = LookOrder()
     /// The room that the terminal tiles share, in points.
     @ObservationIgnored var tileRoom: CGSize?
     /// The terminal whose tile asks now if it should close.
@@ -241,6 +245,7 @@ final class WorkbenchState {
     }
 
     func dismissSession(_ id: String) {
+        looks.forget(id)
         stagedSessionIds.removeAll { $0 == id }
         canvasesLeftOpen.remove(id)
         if canvasSessionId == id {
@@ -258,13 +263,6 @@ final class WorkbenchState {
         if sharingSessionId == id {
             sharingSessionId = nil
         }
-        save()
-    }
-
-    func moveStaged(_ id: String, to target: String) {
-        guard id != target, let from = stagedSessionIds.firstIndex(of: id), let to = stagedSessionIds.firstIndex(of: target) else { return }
-        stagedSessionIds.remove(at: from)
-        stagedSessionIds.insert(id, at: to)
         save()
     }
 
@@ -460,5 +458,14 @@ final class WorkbenchState {
         guard let accountKey else { return }
         let pending = restoredIds.filter { !stagedSessionIds.contains($0) }
         defaults.set(Array((stagedSessionIds + pending).prefix(64)), forKey: accountKey)
+    }
+}
+
+extension WorkbenchState {
+    func moveStaged(_ id: String, to target: String) {
+        guard id != target, let from = stagedSessionIds.firstIndex(of: id), let to = stagedSessionIds.firstIndex(of: target) else { return }
+        stagedSessionIds.remove(at: from)
+        stagedSessionIds.insert(id, at: to)
+        save()
     }
 }

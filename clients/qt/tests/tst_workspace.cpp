@@ -810,6 +810,26 @@ private slots:
         QCOMPARE(f.commands.values.size(), before);
         QVERIFY(!f.workspace.error().isEmpty());
     }
+    void aFullStageInFocusTakesOffTheTerminalLookedAtLongestAgo()
+    {
+        Fixture f;
+        QJsonArray sessions;
+        for (int value = 1; value <= 7; ++value)
+            sessions.append(test::session(value));
+        f.workspace.apply(test::snapshot(sessions), 0);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(!f.workspace.sessionActions().activate(test::id(7)));
+        f.desktop.toggleFocusForSelectedSession();
+        QVERIFY(f.workspace.sessionActions().activate(test::id(7)));
+        QCOMPARE(f.desktop.stagedSessionIds().size(), 6);
+        QVERIFY(!f.desktop.stagedSessionIds().contains(test::id(2)));
+        QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(7));
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        QVERIFY(f.sessions.containsSession(test::id(2)));
+    }
     void aTerminalStartedForARoomJoinsThatRoom()
     {
         Fixture f;

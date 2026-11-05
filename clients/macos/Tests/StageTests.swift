@@ -230,6 +230,25 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.selectedSessionId == ids[6])
 }
 
+@Test @MainActor func `single view makes room by taking the terminal looked at longest ago off the stage`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRoom"))
+    let workbench = WorkbenchState(defaults: defaults)
+    let ids = (0 ..< 7).map { _ in UUIDv7.generate() }
+    for id in ids.prefix(6) {
+        workbench.showSession(id)
+    }
+    workbench.showSession(ids[1])
+    #expect(workbench.makingRoom(for: ids[6]) == nil)
+    workbench.toggleFocus(ids[1])
+    #expect(workbench.makingRoom(for: ids[6]) == ids[0])
+    #expect(workbench.makingRoom(for: ids[2]) == nil)
+    workbench.dismissSession(ids[0])
+    workbench.showSession(ids[6])
+    #expect(workbench.stagedSessionIds.count == 6)
+    #expect(workbench.focusedSessionId == ids[6])
+    #expect(workbench.makingRoom(for: ids[0]) == ids[2])
+}
+
 @Test @MainActor func `a pin stays with its account and follows the terminal when its host starts it again`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StagePins"))
     let local = try runtimeSession(kind: "local", connection: "local")

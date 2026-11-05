@@ -70,6 +70,7 @@ public:
     Q_INVOKABLE bool selectSession(const QString& id);
     bool stageSession(const QString& id, bool revealStage = true);
     bool unstageSession(const QString& id);
+    QString makingRoom(const QString& id) const;
     Q_INVOKABLE void toggleFocusForSelectedSession();
     bool modalOpen() const { return !m_modals.isEmpty(); }
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
@@ -119,6 +120,7 @@ private:
     QPointer<QWindow> m_window;
     QHash<QObject*, QMetaObject::Connection> m_modals;
     QString m_selected;
+    QStringList m_looked;
     QStringList m_staged;
     QStringList m_pins;
     QString m_canvas;
