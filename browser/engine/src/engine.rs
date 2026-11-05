@@ -9,7 +9,7 @@ use std::{
 
 use cef::*;
 use shared_browser::{
-    MenuItem, Size,
+    Dialog, MenuItem, Size,
     link::{EngineTab, FromEngine, ToEngine},
 };
 
@@ -176,6 +176,8 @@ struct Tab {
     ask: Option<i64>,
     /// When the tab's page process last ended.
     ended: Option<Instant>,
+    /// The page's dialog, until the host answers it.
+    dialog: Option<JsdialogCallback>,
     target: Option<String>,
     title: String,
     address: String,
@@ -337,6 +339,7 @@ impl Engine {
                         opener,
                         ask,
                         ended: None,
+                        dialog: None,
                         target: None,
                         title: String::new(),
                         address: String::new(),
@@ -402,6 +405,9 @@ impl Engine {
                 end: self.ended(),
             };
         };
+        if tab.dialog.is_some() {
+            self.link.send(&FromEngine::DialogClosed { tab: browser });
+        }
         self.frame_handles.retain(|(tab, _), _| *tab != browser);
         self.frames.retain(|_, (tab, _)| *tab != browser);
         let in_window = |id: &i64| {
@@ -499,6 +505,35 @@ impl Engine {
             .is_none_or(|ended| now.duration_since(ended) >= RELOAD_WAIT);
         tab.ended = Some(now);
         again
+    }
+
+    /// Takes in a page's dialog, which the host shows and answers. A tab has one dialog at a
+    /// time, and the host's own pages have none.
+    pub(crate) fn dialog_opened(
+        &mut self,
+        browser: i64,
+        dialog: Dialog,
+        callback: JsdialogCallback,
+    ) -> bool {
+        let Some(tab) = self.tabs.get_mut(&browser) else {
+            return false;
+        };
+        if tab.dialog.is_some() {
+            return false;
+        }
+        tab.dialog = Some(callback);
+        self.link.send(&FromEngine::Dialog {
+            tab: browser,
+            dialog,
+        });
+        true
+    }
+
+    /// The dialog of a tab, which closes now.
+    pub(crate) fn take_dialog(&mut self, browser: i64) -> Option<JsdialogCallback> {
+        let callback = self.tabs.get_mut(&browser)?.dialog.take()?;
+        self.link.send(&FromEngine::DialogClosed { tab: browser });
+        Some(callback)
     }
 
     pub(crate) fn loading(&mut self, browser: i64, loading: bool) {
@@ -607,6 +642,7 @@ fn run(command: ToEngine) {
             ask,
         } => new_tab(window, &address, ask),
         ToEngine::CloseTab { tab } => close(with(|engine| engine.browser_of(tab)).flatten()),
+        ToEngine::Dialog { tab, accept, text } => answer_dialog(tab, accept, text.as_deref()),
         ToEngine::CloseWindow { window } => {
             for browser in with(|engine| engine.close_window(window)).unwrap_or_default() {
                 close(Some(browser));
@@ -736,6 +772,16 @@ fn new_tab(window: i64, address: &str, ask: Option<i64>) {
     .flatten();
     if let Some(shared) = shared {
         open_tab(window, address, ask, shared);
+    }
+}
+
+/// Answers a tab's dialog outside the engine's state, because CEF calls back into it.
+fn answer_dialog(tab: i64, accept: bool, text: Option<&str>) {
+    if let Some(callback) = with(|engine| engine.take_dialog(tab)).flatten() {
+        callback.cont(
+            c_int::from(accept),
+            Some(&CefString::from(text.unwrap_or_default())),
+        );
     }
 }
 

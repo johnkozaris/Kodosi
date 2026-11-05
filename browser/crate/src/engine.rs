@@ -20,7 +20,7 @@ use crate::{
     Error,
     devtools::{self, Devtools},
     link::{EncodedFrame, EngineTab, FromEngine, ToEngine},
-    message::{Dialog, DialogKind, Size},
+    message::Size,
     socket::{Report, Socket},
     window::Event,
 };
@@ -464,11 +464,6 @@ impl Engine {
         let (window, sender) = self.routes().sender_of_session(&session)?;
         let params = &event.params;
         let forwarded = match event.method.as_str() {
-            "Page.javascriptDialogOpening" => Event::Dialog {
-                session,
-                dialog: dialog_of(params)?,
-            },
-            "Page.javascriptDialogClosed" => Event::DialogClosed,
             "Page.fileChooserOpened" => Event::Chooser {
                 session,
                 node: params["backendNodeId"].as_i64()?,
@@ -572,6 +567,8 @@ impl Engine {
                 link,
             } => to_tab(tab, Event::Context { selection, link }),
             FromEngine::Copied { tab, text } => to_tab(tab, Event::Copied(text)),
+            FromEngine::Dialog { tab, dialog } => to_tab(tab, Event::Dialog { tab, dialog }),
+            FromEngine::DialogClosed { tab } => to_tab(tab, Event::DialogClosed { tab }),
             FromEngine::Tabs { tabs, .. } => {
                 let deliveries = {
                     let mut routes = self.routes();
@@ -597,24 +594,6 @@ impl Engine {
             }
         }
     }
-}
-
-fn dialog_of(params: &Value) -> Option<Dialog> {
-    let kind = match params["type"].as_str()? {
-        "alert" => DialogKind::Alert,
-        "confirm" => DialogKind::Confirm,
-        "prompt" => DialogKind::Prompt,
-        "beforeunload" => DialogKind::Beforeunload,
-        _ => return None,
-    };
-    Some(Dialog {
-        kind,
-        message: params["message"].as_str()?.to_owned(),
-        text: params["defaultPrompt"]
-            .as_str()
-            .unwrap_or_default()
-            .to_owned(),
-    })
 }
 
 /// Never waits for a window, so the events of the browser always drain.

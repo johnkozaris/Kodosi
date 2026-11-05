@@ -7,7 +7,7 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-use crate::message::{MenuItem, Size};
+use crate::message::{Dialog, MenuItem, Size};
 
 /// The bytes before a picture's data: its window, whether it is a key frame, and its time.
 pub const FRAME_HEADER: usize = 8 + 1 + 8;
@@ -72,6 +72,12 @@ pub enum ToEngine {
     },
     CloseTab {
         tab: i64,
+    },
+    /// Answers the dialog of a tab. The engine shows no dialog itself.
+    Dialog {
+        tab: i64,
+        accept: bool,
+        text: Option<String>,
     },
     CloseWindow {
         window: i64,
@@ -158,6 +164,15 @@ pub enum FromEngine {
     TabOpened {
         ask: i64,
         target: String,
+    },
+    /// A page's dialog, which waits for the host's answer.
+    Dialog {
+        tab: i64,
+        dialog: Dialog,
+    },
+    /// A dialog that went without an answer, such as when its page left.
+    DialogClosed {
+        tab: i64,
     },
 }
 

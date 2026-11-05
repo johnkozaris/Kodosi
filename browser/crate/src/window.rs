@@ -81,10 +81,12 @@ pub(crate) enum Event {
     },
     Copied(String),
     Dialog {
-        session: String,
+        tab: i64,
         dialog: Dialog,
     },
-    DialogClosed,
+    DialogClosed {
+        tab: i64,
+    },
     Chooser {
         session: String,
         node: i64,
@@ -302,7 +304,8 @@ struct Live {
     last_press: Option<String>,
     open_menu: Option<OpenMenu>,
     context: Option<Context>,
-    dialog_session: Option<String>,
+    /// The tab whose dialog the window shows.
+    dialog_tab: Option<i64>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
     /// Steps that came before the window knew its page, such as the address of a new window:
@@ -339,7 +342,7 @@ impl Live {
             last_press: None,
             open_menu: None,
             context: None,
-            dialog_session: None,
+            dialog_tab: None,
             chooser: None,
             downloads: HashMap::new(),
             waiting: Vec::new(),
@@ -484,15 +487,17 @@ impl Live {
                 self.state.copied = Some(cut(&text, MOST_TEXT));
                 self.dirty = true;
             }
-            Event::Dialog { session, dialog } => {
-                self.dialog_session = Some(session);
+            Event::Dialog { tab, dialog } => {
+                self.dialog_tab = Some(tab);
                 self.state.dialog = Some(dialog);
                 self.dirty = true;
             }
-            Event::DialogClosed => {
-                self.dialog_session = None;
-                self.state.dialog = None;
-                self.dirty = true;
+            Event::DialogClosed { tab } => {
+                if self.dialog_tab == Some(tab) {
+                    self.dialog_tab = None;
+                    self.state.dialog = None;
+                    self.dirty = true;
+                }
             }
             Event::Chooser {
                 session,
@@ -863,14 +868,8 @@ impl Live {
     }
 
     fn answer_dialog(&mut self, accept: bool, text: Option<String>) {
-        if let Some(session) = self.dialog_session.take() {
-            let mut answer = json!({ "accept": accept });
-            if let Some(text) = text {
-                answer["promptText"] = json!(text);
-            }
-            self.engine
-                .devtools()
-                .send("Page.handleJavaScriptDialog", &answer, Some(&session));
+        if let Some(tab) = self.dialog_tab.take() {
+            self.engine.command(ToEngine::Dialog { tab, accept, text });
         }
         self.state.dialog = None;
         self.dirty = true;

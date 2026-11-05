@@ -140,6 +140,12 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
                         }
                     }
                     Ask::Answer(answer) => out.push(answer),
+                    Ask::Dialog { target, accept, text, answer } => {
+                        if let Some(tab) = engine.tab_of(&target) {
+                            engine.command(ToEngine::Dialog { tab, accept, text });
+                        }
+                        out.push(answer);
+                    }
                     Ask::Open { id, address } => {
                         if opening.len() == MOST_OPENING {
                             out.push(failure(id, None, "Too many tabs are opening."));
@@ -198,6 +204,13 @@ enum Ask {
     Show(String),
     /// The view answers it.
     Answer(String),
+    /// The engine answers the dialog of this tab, and the view answers the driver.
+    Dialog {
+        target: String,
+        accept: bool,
+        text: Option<String>,
+        answer: String,
+    },
     /// A new tab of this window, whose target answers the command.
     Open {
         id: u64,
@@ -298,6 +311,12 @@ impl View {
         if let Some(session) = &command.session {
             return match self.sessions.get(session) {
                 Some(target) if command.method == "Page.bringToFront" => Ask::Show(target.clone()),
+                Some(target) if command.method == "Page.handleJavaScriptDialog" => Ask::Dialog {
+                    target: target.clone(),
+                    accept: command.params["accept"].as_bool().unwrap_or_default(),
+                    text: command.params["promptText"].as_str().map(str::to_owned),
+                    answer: answer_in(id, session, &json!({})),
+                },
                 Some(_) => Ask::Pass,
                 None => Ask::Answer(failure(id, Some(session), "No session with given id")),
             };
@@ -555,6 +574,10 @@ fn answer(id: u64, result: &Value) -> String {
     json!({ "id": id, "result": result }).to_string()
 }
 
+fn answer_in(id: u64, session: &str, result: &Value) -> String {
+    json!({ "id": id, "sessionId": session, "result": result }).to_string()
+}
+
 fn failure(id: u64, session: Option<&str>, message: &str) -> String {
     let mut failure = json!({ "id": id, "error": { "code": -32000, "message": message } });
     if let Some(session) = session {
@@ -659,6 +682,16 @@ mod tests {
         assert_eq!(
             view.ask(&front.to_string(), place),
             Ask::Show("A".to_owned())
+        );
+        let dialog = json!({"id": 16, "sessionId": "S", "method": "Page.handleJavaScriptDialog", "params": {"accept": true, "promptText": "yes"}});
+        assert_eq!(
+            view.ask(&dialog.to_string(), place),
+            Ask::Dialog {
+                target: "A".to_owned(),
+                accept: true,
+                text: Some("yes".to_owned()),
+                answer: answer_in(16, "S", &json!({})),
+            }
         );
         let child = json!({"sessionId": "S", "method": "Target.attachedToTarget", "params": {"sessionId": "C", "targetInfo": {"targetId": "F", "type": "iframe"}}});
         assert_eq!(told(&mut view, &child), Tell::Pass);

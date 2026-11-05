@@ -1,6 +1,7 @@
 use std::os::raw::c_int;
 
 use cef::*;
+use shared_browser::{Dialog, DialogKind};
 
 use crate::{
     cursor,
@@ -26,6 +27,7 @@ pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
         LoadHandlerBuilder::new(),
         ContextMenuHandlerBuilder::new(),
         RequestHandlerBuilder::new(),
+        DialogHandlerBuilder::new(),
     )
 }
 
@@ -45,6 +47,7 @@ wrap_client! {
         load: LoadHandler,
         context_menu: ContextMenuHandler,
         requests: RequestHandler,
+        dialogs: JsdialogHandler,
     }
 
     impl Client {
@@ -70,6 +73,10 @@ wrap_client! {
 
         fn request_handler(&self) -> Option<RequestHandler> {
             Some(self.requests.clone())
+        }
+
+        fn jsdialog_handler(&self) -> Option<JsdialogHandler> {
+            Some(self.dialogs.clone())
         }
 
         fn on_process_message_received(
@@ -286,6 +293,84 @@ wrap_request_handler! {
         ) {
             if let Some(browser) = browser {
                 engine::page_process_ended(browser);
+            }
+        }
+    }
+}
+
+/// Gives a page's dialog to the host, so that the engine never shows a window of its own.
+fn take_dialog(
+    browser: Option<&mut Browser>,
+    kind: DialogKind,
+    message: Option<&CefString>,
+    text: Option<&CefString>,
+    callback: Option<&mut JsdialogCallback>,
+) -> bool {
+    let (Some(tab), Some(callback)) = (id_of(browser), callback) else {
+        return false;
+    };
+    let words = |text: Option<&CefString>| text.map(CefString::to_string).unwrap_or_default();
+    let dialog = Dialog {
+        kind,
+        message: words(message),
+        text: words(text),
+    };
+    engine::with(|engine| engine.dialog_opened(tab, dialog, callback.clone())).unwrap_or(false)
+}
+
+wrap_jsdialog_handler! {
+    struct DialogHandlerBuilder;
+
+    impl JsdialogHandler {
+        fn on_jsdialog(
+            &self,
+            browser: Option<&mut Browser>,
+            _origin_url: Option<&CefString>,
+            dialog_type: JsdialogType,
+            message_text: Option<&CefString>,
+            default_prompt_text: Option<&CefString>,
+            callback: Option<&mut JsdialogCallback>,
+            suppress_message: Option<&mut c_int>,
+        ) -> c_int {
+            let kind = match dialog_type {
+                JsdialogType::CONFIRM => DialogKind::Confirm,
+                JsdialogType::PROMPT => DialogKind::Prompt,
+                _ => DialogKind::Alert,
+            };
+            if take_dialog(browser, kind, message_text, default_prompt_text, callback) {
+                return 1;
+            }
+            if let Some(suppress) = suppress_message {
+                *suppress = 1;
+            }
+            0
+        }
+
+        fn on_before_unload_dialog(
+            &self,
+            browser: Option<&mut Browser>,
+            message_text: Option<&CefString>,
+            _is_reload: c_int,
+            callback: Option<&mut JsdialogCallback>,
+        ) -> c_int {
+            let mut callback = callback.cloned();
+            if !take_dialog(browser, DialogKind::Beforeunload, message_text, None, callback.as_mut())
+                && let Some(callback) = callback
+            {
+                callback.cont(1, None);
+            }
+            1
+        }
+
+        fn on_reset_dialog_state(&self, browser: Option<&mut Browser>) {
+            if let Some(tab) = id_of(browser) {
+                engine::with(|engine| engine.take_dialog(tab));
+            }
+        }
+
+        fn on_dialog_closed(&self, browser: Option<&mut Browser>) {
+            if let Some(tab) = id_of(browser) {
+                engine::with(|engine| engine.take_dialog(tab));
             }
         }
     }
