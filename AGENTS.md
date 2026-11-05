@@ -17,8 +17,10 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - `clients/qt/`: Qt app for Linux and Windows. QML only presents the runtime's state.
 - `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails. Keep
   Keycloak's form field names and ids.
-- `documents/`: live documents, sheets, presentations and PDFs: the server crates, the views
-  and a Tauri app that is a second host. It imports nothing of Kodosi.
+- `documents/`: live documents, sheets, presentations and PDFs: the server crates and the
+  views, which Kodosi uses as libraries. It imports nothing of Kodosi. `documents/app/` is a
+  separate Tauri app on the same crates, with its own workspace and `Cargo.lock`; nothing
+  depends on it.
 - `browser/`: the shared browser: its crate, capture extension and Kodosi Browser build.
   It imports nothing of Kodosi.
 - `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the

@@ -1,5 +1,6 @@
 [workspace]
-members = ["app", "crates/cli", "crates/document", "crates/documents", "crates/docx", "crates/package", "crates/pdf", "crates/pptx", "crates/text", "crates/xlsx"]
+members = ["crates/cli", "crates/document", "crates/documents", "crates/docx", "crates/package", "crates/pdf", "crates/pptx", "crates/text", "crates/xlsx"]
+exclude = ["app"]
 resolver = "3"
 
 [workspace.package]
