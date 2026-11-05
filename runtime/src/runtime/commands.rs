@@ -1297,7 +1297,10 @@ impl Runtime {
         let current = self.in_scope(&job.scope);
         match job.completion {
             Completion::Input { result } => {
-                if current && let Err(error) = result {
+                if current
+                    && let Err(error) = result
+                    && !matches!(error, Error::Stopped)
+                {
                     self.emit(json!({"type":"system.error", "message":format!("The terminal did not confirm the input, and Kodosi did not send it again: {error}")}));
                 }
             }
