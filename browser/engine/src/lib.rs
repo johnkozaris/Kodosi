@@ -89,19 +89,15 @@ fn start(sandbox: *mut u8) -> i32 {
         }
     };
     let profile = options.profile.to_string_lossy().into_owned();
+    let log = options.profile.join("engine.log");
+    drop(std::fs::rename(&log, log.with_extension("log.1")));
     let settings = Settings {
         windowless_rendering_enabled: 1,
         root_cache_path: CefString::from(profile.as_str()),
         cache_path: CefString::from(profile.as_str()),
         persist_session_cookies: 1,
         remote_debugging_port: c_int::from(options.debug_port),
-        log_file: CefString::from(
-            options
-                .profile
-                .join("engine.log")
-                .to_string_lossy()
-                .as_ref(),
-        ),
+        log_file: CefString::from(log.to_string_lossy().as_ref()),
         log_severity: LogSeverity::WARNING,
         background_color: engine::OPAQUE_WHITE,
         ..Default::default()
