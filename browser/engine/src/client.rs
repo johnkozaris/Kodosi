@@ -13,7 +13,7 @@ use crate::{
 /// size of the page.
 const SCREEN_WIDTH: u32 = 1920;
 const SCREEN_HEIGHT: u32 = 1080;
-const MENU_BAR: u32 = 25;
+const MENU_BAR: c_int = 25;
 
 /// The crate names the cursor handle on Linux and Windows only.
 #[cfg(target_os = "macos")]
@@ -127,9 +127,9 @@ wrap_render_handler! {
             info.rect = Rect { x: 0, y: 0, width, height };
             info.available_rect = Rect {
                 x: 0,
-                y: c_int::try_from(MENU_BAR).unwrap_or(0),
+                y: MENU_BAR,
                 width,
-                height: height - c_int::try_from(MENU_BAR).unwrap_or(0),
+                height: height - MENU_BAR,
             };
             1
         }

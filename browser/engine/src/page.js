@@ -1,10 +1,12 @@
 (function (send, listen) {
   "use strict";
+  const stringify = JSON.stringify;
+  const selection = getSelection.bind(window);
   let waiting = null;
   let nextMenu = 1;
 
   function toHost(message) {
-    send(JSON.stringify(message));
+    send(stringify(message));
   }
 
   function pickFrom(select) {
@@ -22,6 +24,7 @@
   }
 
   function pressed(event) {
+    if (!event.isTrusted) return;
     const select = event.target instanceof Element ? event.target.closest("select") : null;
     if (!select || select.multiple || select.size > 1 || select.disabled) return;
     event.preventDefault();
@@ -29,8 +32,9 @@
     pickFrom(select);
   }
 
-  function copied() {
-    const text = String(getSelection() ?? "");
+  function copied(event) {
+    if (!event.isTrusted) return;
+    const text = String(selection() ?? "");
     if (text) toHost({ type: "copied", text });
   }
 
