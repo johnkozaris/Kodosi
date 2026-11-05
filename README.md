@@ -99,6 +99,8 @@ Then follow [Getting started](docs/GETTING_STARTED.md).
 Report bugs in [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) and
 vulnerabilities [in private](docs/SECURITY.md#report-a-vulnerability).
 
+Kodosi is made by [John Kozaris](https://johnkozaris.com).
+
 ## License
 
 Kodosi is under the [Apache License 2.0](LICENSE). The Kodosi name and logo are not under
