@@ -152,7 +152,8 @@ with one viewer for each window. It is a separate build with its own workspace a
 each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a ready-built CEF:
 Chromium that draws each page off screen, with no window, no icon and no display, and a
 debug port on `127.0.0.1`. It talks with its host on one local WebSocket, which it opens
-with a one-time token, and it ends when that link ends. The first window gets the engine
+with a one-time token, and it ends when that link ends. Its tabs cancel the requests that
+EasyList and EasyPrivacy name; each engine build takes the lists of that day. The first window gets the engine
 from a signed feed. The host looks at the feed each day: a browser
 that starts after an update uses the new engine, a browser that runs keeps its own, and the
 old engine goes when the host starts again.

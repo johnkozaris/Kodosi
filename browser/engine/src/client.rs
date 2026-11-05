@@ -6,7 +6,7 @@ use shared_browser::{Dialog, DialogKind};
 use crate::{
     cursor,
     engine::{self, Origin, Shared},
-    renderer,
+    filters, renderer,
 };
 
 /// The smallest screen that a page sees, like a laptop's, so that the screen is never just the
@@ -19,14 +19,16 @@ const MENU_BAR: c_int = 25;
 #[cfg(target_os = "macos")]
 type CursorHandle = *mut u8;
 
+/// The host's own pages load only their files, so only tabs filter.
 pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
+    let blocker = matches!(origin, Origin::Tab { .. }).then(filters::blocker);
     ClientBuilder::new(
         RenderHandlerBuilder::new(shared),
         LifeSpanHandlerBuilder::new(origin),
         DisplayHandlerBuilder::new(),
         LoadHandlerBuilder::new(),
         ContextMenuHandlerBuilder::new(),
-        RequestHandlerBuilder::new(),
+        RequestHandlerBuilder::new(blocker),
         DialogHandlerBuilder::new(),
     )
 }
@@ -281,9 +283,24 @@ wrap_load_handler! {
 }
 
 wrap_request_handler! {
-    struct RequestHandlerBuilder;
+    struct RequestHandlerBuilder {
+        blocker: Option<ResourceRequestHandler>,
+    }
 
     impl RequestHandler {
+        fn resource_request_handler(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            _request: Option<&mut Request>,
+            _is_navigation: c_int,
+            _is_download: c_int,
+            _request_initiator: Option<&CefString>,
+            _disable_default_handling: Option<&mut c_int>,
+        ) -> Option<ResourceRequestHandler> {
+            self.blocker.clone()
+        }
+
         fn on_render_process_terminated(
             &self,
             browser: Option<&mut Browser>,

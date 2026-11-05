@@ -5,6 +5,7 @@ mod client;
 mod cursor;
 mod encode;
 mod engine;
+mod filters;
 mod link;
 #[cfg(target_os = "macos")]
 mod mac;
@@ -74,6 +75,7 @@ fn start(sandbox: *mut u8) -> i32 {
         eprintln!("Kodosi Browser: Chromium's sandbox does not run as root.");
         return shared_browser::link::AS_ROOT;
     }
+    filters::load();
     let options = match options::Options::parse(std::env::args()) {
         Ok(options) => options,
         Err(problem) => {

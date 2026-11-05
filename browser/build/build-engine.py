@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -64,6 +65,11 @@ CEF_LEFT_OUT = {
 LICENSE_TEXT = re.compile(r"^(?:licen[cs]e|copying|notice)", re.I)
 # The texts of crates whose packages carry none, from their source at the commit of the package.
 CRATE_LICENSES = HERE / "licenses"
+# The lists of the ad blocker, from their makers, as they are on the day of the build.
+FILTER_LISTS = {
+    "easylist.txt": "https://easylist.to/easylist/easylist.txt",
+    "easyprivacy.txt": "https://easylist.to/easylist/easyprivacy.txt",
+}
 
 
 def platform_name() -> str:
@@ -180,6 +186,7 @@ def notices(cef: Path, folder: Path) -> None:
     shutil.copy2(cef / "CREDITS.html", folder / "CREDITS.html")
     (folder / "CEF-LICENSE.txt").write_bytes(cef_license(cef))
     shutil.copy2(ROOT / "LICENSE", folder / "LICENSE.txt")
+    shutil.copy2(HERE / "filter-lists.txt", folder / "filter-lists.txt")
     for package in crates():
         name = f"{package['name']}-{package['version']}"
         source = Path(package["manifest_path"]).parent
@@ -223,6 +230,17 @@ def info(path: Path, executable: str, bundle_id: str, version: str) -> None:
         )
 
 
+def filter_lists(folder: Path) -> None:
+    """Fetches the ad blocker's lists, and refuses anything that is not a filter list."""
+    folder.mkdir(parents=True)
+    for name, url in FILTER_LISTS.items():
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "kodosi-build"}), timeout=60) as answer:
+            text = answer.read()
+        if not text.startswith(b"[Adblock Plus"):
+            raise SystemExit(f"{url} gave no filter list")
+        (folder / name).write_bytes(text)
+
+
 def mac_app(target: Path, cef: Path, stage: Path, version: str) -> Path:
     app = stage / f"{PRODUCT}.app"
     contents = app / "Contents"
@@ -233,6 +251,7 @@ def mac_app(target: Path, cef: Path, stage: Path, version: str) -> Path:
     shutil.copy2(target / "kodosi-browser", contents / "MacOS" / PRODUCT)
     info(contents / "Info.plist", PRODUCT, APP_ID, version)
     notices(cef, contents / "Resources" / "licenses")
+    filter_lists(contents / "Resources" / "filters")
     shutil.copytree(cef / "Chromium Embedded Framework.framework", frameworks / "Chromium Embedded Framework.framework", symlinks=True)
     for kind, suffix in HELPERS.items():
         name = f"{PRODUCT} Helper{kind}"
@@ -295,6 +314,7 @@ def plain_parts(target: Path, cef: Path, stage: Path, program: str) -> Path:
         else:
             shutil.copy2(part, folder / part.name)
     notices(cef, folder / "licenses")
+    filter_lists(folder / "filters")
     if platform.system() == "Windows":
         # CEF's bootstrap program starts the sandbox, then runs the library of its own name.
         shutil.copy2(cef / "bootstrap.exe", folder / program)

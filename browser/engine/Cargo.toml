@@ -15,6 +15,7 @@ name = "kodosi-browser-helper"
 path = "src/bin/helper.rs"
 
 [dependencies]
+adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
 bytes = "1.12.1"
 cef = { version = "=156.3.0", default-features = false }
 futures-util = "0.3.34"
