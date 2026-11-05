@@ -180,7 +180,6 @@ unsafe extern "C" {
     fn IOSurfaceGetHeight(surface: *mut c_void) -> usize;
 }
 
-/// A Core Foundation object that this code owns.
 struct Owned(Ref);
 
 impl Owned {

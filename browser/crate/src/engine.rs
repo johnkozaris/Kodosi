@@ -31,10 +31,8 @@ const ATTACH_LIMIT: Duration = Duration::from_secs(5);
 const COMMANDS: usize = 256;
 const QUIT_LIMIT: Duration = Duration::from_secs(5);
 const LINK_FILE: &str = "link.json";
-/// The program inside a Kodosi Browser app bundle.
 const BUNDLE_PROGRAM: &str = "Contents/MacOS/Kodosi Browser";
 
-/// The tabs of the browser, by the windows that the host opened.
 #[derive(Default)]
 pub(crate) struct Routes {
     windows: HashMap<i64, mpsc::Sender<Event>>,
@@ -247,7 +245,6 @@ impl Engine {
             .map(|tab| tab.id)
     }
 
-    /// The target of a window's active tab.
     pub(crate) fn active_target(&self, window: i64) -> Option<String> {
         self.routes()
             .last_tabs
@@ -274,7 +271,6 @@ impl Engine {
         self.routes.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Opens a window with its first page and returns its id.
     pub(crate) fn open_window(
         &self,
         address: &str,

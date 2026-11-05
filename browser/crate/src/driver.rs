@@ -61,7 +61,6 @@ impl Listener {
         })
     }
 
-    /// Serves the drivers of a window until the window closes, and gives their address.
     pub(crate) fn serve(
         self,
         engine: Arc<Engine>,
@@ -100,7 +99,6 @@ impl Listener {
     }
 }
 
-/// Carries one driver's connection through its view, until either side or the browser ends.
 async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
     let Ok(driver) = tokio_tungstenite::accept_async(stream).await else {
         return;
@@ -192,13 +190,11 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
     }
 }
 
-/// What becomes of a driver's command.
 #[derive(Debug, PartialEq, Eq)]
 enum Ask {
     Pass,
     /// It goes to the browser, and the window shows this tab to its people too.
     Show(String),
-    /// The view answers it.
     Answer(String),
     /// The engine answers the dialog of this tab, and the view answers the driver.
     Dialog {
@@ -214,7 +210,6 @@ enum Ask {
     },
 }
 
-/// What becomes of a message of the browser.
 #[derive(Debug, PartialEq, Eq)]
 enum Tell {
     Pass,
@@ -261,8 +256,6 @@ struct Head<'a> {
     session: Option<Cow<'a, str>>,
 }
 
-/// One driver's view of the browser: the tabs of its window and the sessions that it has with
-/// them.
 struct View {
     window: i64,
     /// Tabs that this driver opened, before the engine places them.
@@ -557,7 +550,6 @@ impl View {
         released
     }
 
-    /// The answer to a driver's new tab.
     fn opened(&mut self, id: u64, target: Option<String>) -> String {
         match target {
             Some(target) => {

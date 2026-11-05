@@ -16,14 +16,12 @@ use crate::{
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
 const HANDSHAKE_LIMIT: Duration = Duration::from_secs(5);
 
-/// What the engine says: a report, or a picture of a window.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Report {
     Said(FromEngine),
     Frame(EncodedFrame),
 }
 
-/// The socket on which the host waits for its engine.
 pub(crate) struct Socket {
     listener: TcpListener,
     pub address: Address,

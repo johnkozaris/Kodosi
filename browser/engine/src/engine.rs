@@ -67,7 +67,6 @@ wrap_app! {
     }
 }
 
-/// Starts the engine on the UI thread. It waits for the host's commands.
 pub(crate) fn start(link: Link) {
     ENGINE.with(|engine| {
         *engine.borrow_mut() = Some(Engine::new(link));
@@ -174,7 +173,6 @@ struct Tab {
     opener: Option<i64>,
     /// The host's ask that opened the tab, until the tab's target is known.
     ask: Option<i64>,
-    /// When the tab's page process last ended.
     ended: Option<Instant>,
     /// The page's dialog, until the host answers it.
     dialog: Option<JsdialogCallback>,
@@ -567,7 +565,6 @@ impl Engine {
         }
     }
 
-    /// A message of the page script of a frame.
     pub(crate) fn page_said(&mut self, browser: i64, frame: String, said: &str) {
         if !self.tabs.contains_key(&browser) {
             return;

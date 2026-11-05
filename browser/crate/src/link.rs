@@ -24,7 +24,6 @@ pub struct Address {
 }
 
 impl Address {
-    /// The path at which the engine knocks.
     pub fn path(&self) -> String {
         format!("/{}", self.token)
     }
@@ -125,7 +124,6 @@ pub struct EngineTab {
     pub loading: bool,
 }
 
-/// A report of the engine.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "type",

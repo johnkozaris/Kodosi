@@ -20,7 +20,6 @@ const ORIGIN: &str = "https://kodosi.invalid/";
 /// The one function that a host page calls to give the host a message.
 const BINDING: &str = "kodosiHost";
 const MESSAGES: usize = 256;
-/// The longest side of a host page's view.
 const MOST_SIDE: u32 = 8192;
 const RESIZE_LIMIT: Duration = Duration::from_secs(5);
 
