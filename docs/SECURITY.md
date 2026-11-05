@@ -25,7 +25,8 @@ When a device opens the browser of a terminal on another computer, that computer
 on a TCP port for a few seconds, so that the two can connect straight. Only that device
 gets through, with the encryption of the terminal. The Linux app shows pages only where
 Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process
-and Kodosi Browser make the user namespaces that the sandbox needs.
+and Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the
+shared browser does not run as root on Linux.
 
 ## What the service sees
 

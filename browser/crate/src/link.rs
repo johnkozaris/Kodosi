@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::message::{Dialog, MenuItem, Size};
 
+/// The exit code of an engine that does not start as root on Linux, where Chromium's sandbox
+/// needs a normal user.
+pub const AS_ROOT: i32 = 73;
+
 /// The bytes before a picture's data: its window, whether it is a key frame, and its time.
 pub const FRAME_HEADER: usize = 8 + 1 + 8;
 

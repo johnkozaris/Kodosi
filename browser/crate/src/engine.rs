@@ -704,13 +704,21 @@ async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Erro
                 return Ok(address);
             }
             if let Ok(Some(status)) = process.try_wait() {
-                return Err(Error::Engine(format!("the program ended: {status}")));
+                return Err(Error::Engine(ended(status)));
             }
             tokio::time::sleep(START_CHECK).await;
         }
     })
     .await
     .map_err(|_| Error::Engine("the debug port did not answer".to_owned()))?
+}
+
+fn ended(status: std::process::ExitStatus) -> String {
+    if status.code() == Some(crate::link::AS_ROOT) {
+        "it does not run as root, because Chromium's sandbox needs a normal user. Run Kodosi as a normal user.".to_owned()
+    } else {
+        format!("the program ended: {status}")
+    }
 }
 
 /// Reaps the engine when it ends, and ends it when the host lets go of it first.

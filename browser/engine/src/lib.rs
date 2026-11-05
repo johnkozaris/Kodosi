@@ -68,6 +68,12 @@ fn start(sandbox: *mut u8) -> i32 {
     if code >= 0 {
         return code;
     }
+    #[cfg(target_os = "linux")]
+    // SAFETY: `geteuid` only reads the user of this process.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("Kodosi Browser: Chromium's sandbox does not run as root.");
+        return shared_browser::link::AS_ROOT;
+    }
     let options = match options::Options::parse(std::env::args()) {
         Ok(options) => options,
         Err(problem) => {
