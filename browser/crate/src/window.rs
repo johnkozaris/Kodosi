@@ -15,9 +15,9 @@ use tokio::sync::{mpsc, watch};
 use crate::{
     Error,
     engine::Engine,
-    extension::{EncodedFrame, ReportedTab, ToExtension},
     flow::{self, Flow},
     input,
+    link::{EncodedFrame, EngineTab, ToEngine},
     message::{
         Chooser, Dialog, Download, Frame, Input, Menu, MenuItem, MouseAction, MouseButton, Pointer,
         Size, State, Tab, ToViewer, ToWindow, Viewer,
@@ -64,7 +64,7 @@ pub(crate) enum Event {
     Frame(EncodedFrame),
     CaptureFailed,
     Tabs {
-        tabs: Vec<ReportedTab>,
+        tabs: Vec<EngineTab>,
         active: Option<i64>,
     },
     Shape(String),
@@ -220,20 +220,9 @@ impl Drop for Pipe {
     }
 }
 
-pub(crate) async fn open(
-    engine: Arc<Engine>,
-    address: &str,
-    folder: PathBuf,
-) -> Result<Window, Error> {
+pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Window {
     let (events_in, events) = mpsc::channel(EVENTS);
-    let id = engine
-        .open_window(
-            address,
-            FIRST_SIZE.width,
-            FIRST_SIZE.height,
-            events_in.clone(),
-        )
-        .await?;
+    let id = engine.open_window(address, FIRST_SIZE, events_in.clone());
     let (state_in, state) = watch::channel(State {
         width: FIRST_SIZE.width,
         height: FIRST_SIZE.height,
@@ -254,7 +243,7 @@ pub(crate) async fn open(
         live.run(events, stopped).await;
         open_in.send_replace(false);
     });
-    Ok(window)
+    window
 }
 
 struct Seat {
@@ -301,7 +290,7 @@ struct Live {
     used: watch::Sender<Option<Instant>>,
     dirty: bool,
     size: Size,
-    reported: Vec<ReportedTab>,
+    reported: Vec<EngineTab>,
     active: Option<i64>,
     chosen: Option<i64>,
     capturing: Option<i64>,
@@ -376,9 +365,9 @@ impl Live {
                 _ = stopped.changed() => break,
             }
         }
-        self.engine.command(ToExtension::Stop { stream: self.id });
+        self.engine.command(ToEngine::Stop { window: self.id });
         self.engine
-            .command(ToExtension::CloseWindow { window: self.id });
+            .command(ToEngine::CloseWindow { window: self.id });
         self.engine.window_closed(self.id).await;
     }
 
@@ -392,8 +381,8 @@ impl Live {
             self.update_capture();
         }
         if let Some(bitrate) = self.flow.steer(now) {
-            self.engine.command(ToExtension::Bitrate {
-                stream: self.id,
+            self.engine.command(ToEngine::Bitrate {
+                window: self.id,
                 bitrate,
             });
         }
@@ -463,7 +452,7 @@ impl Live {
                     },
                 );
             }
-            Event::Message { viewer, message } => self.message(&viewer, message).await,
+            Event::Message { viewer, message } => self.message(&viewer, message),
             Event::Leave { viewer, seat } => {
                 if free(&mut self.seats, &viewer, seat) {
                     self.flow.leave(&viewer);
@@ -528,13 +517,13 @@ impl Live {
         }
     }
 
-    async fn message(&mut self, viewer: &str, message: ToWindow) {
+    fn message(&mut self, viewer: &str, message: ToWindow) {
         let now = Instant::now();
         match message {
             ToWindow::Watch { size } => {
                 self.flow.seat(viewer, now);
                 self.used_at = now;
-                self.resize(size).await;
+                self.resize(size);
                 self.update_capture();
                 self.ask_keyframe();
             }
@@ -544,14 +533,13 @@ impl Live {
                     self.ask_keyframe();
                 }
             }
-            ToWindow::Size { size } => self.resize(size).await,
+            ToWindow::Size { size } => self.resize(size),
             ToWindow::Input { input } => self.input(viewer, input),
         }
     }
 
     fn ask_keyframe(&self) {
-        self.engine
-            .command(ToExtension::Keyframe { stream: self.id });
+        self.engine.command(ToEngine::Keyframe { window: self.id });
     }
 
     fn frame(&mut self, frame: EncodedFrame) {
@@ -582,7 +570,7 @@ impl Live {
         }
     }
 
-    fn tabs(&mut self, tabs: Vec<ReportedTab>, active: Option<i64>) {
+    fn tabs(&mut self, tabs: Vec<EngineTab>, active: Option<i64>) {
         self.chosen = self
             .chosen
             .filter(|chosen| tabs.iter().any(|tab| tab.id == *chosen));
@@ -600,9 +588,6 @@ impl Live {
         self.reported = tabs;
         self.dirty = true;
         self.send_waiting();
-        if !self.flow.is_empty() {
-            self.match_scale();
-        }
         self.update_capture();
     }
 
@@ -618,41 +603,21 @@ impl Live {
         self.capturing = wanted;
         match wanted {
             Some(tab) => self.capture(tab),
-            None => self.engine.command(ToExtension::Stop { stream: self.id }),
+            None => self.engine.command(ToEngine::Stop { window: self.id }),
         }
     }
 
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss,
-        reason = "a size is at most 4096 and a scale is at most 4"
-    )]
-    fn capture(&mut self, tab: i64) {
-        self.match_scale();
-        let pixels = |length: u32| ((length as f32 * self.size.scale) as u32).clamp(2, 7680);
-        self.engine.command(ToExtension::Capture {
-            stream: self.id,
+    fn capture(&self, tab: i64) {
+        self.engine.command(ToEngine::Capture {
+            window: self.id,
             tab,
-            width: pixels(self.size.width),
-            height: pixels(self.size.height),
             bitrate: flow::FIRST_BITRATE,
         });
     }
 
-    /// The page draws at the scale of the viewer, so that it has the pixels that the capture
-    /// asks for. Chrome does not enlarge a page for a capture; it puts bars around it.
-    fn match_scale(&mut self) {
-        let metrics = json!({
-            "width": 0,
-            "height": 0,
-            "deviceScaleFactor": self.size.scale,
-            "mobile": false,
-        });
-        self.page_soon("Emulation.setDeviceMetricsOverride", metrics);
-    }
-
-    async fn resize(&mut self, size: Size) {
+    /// The engine draws the pages of this window at the size and the scale of the viewer, so
+    /// that the picture has the pixels that the viewer shows.
+    fn resize(&mut self, size: Size) {
         let Some(size) = fitted(size) else {
             return;
         };
@@ -663,21 +628,10 @@ impl Live {
         self.state.width = size.width;
         self.state.height = size.height;
         self.dirty = true;
-        let answer = self
-            .engine
-            .devtools()
-            .call(
-                "Browser.setContentsSize",
-                json!({ "windowId": self.id, "width": size.width, "height": size.height }),
-                None,
-            )
-            .await;
-        if let Err(problem) = answer {
-            tracing::debug!(%problem, "the window keeps its size");
-        }
-        if let Some(tab) = self.capturing {
-            self.capture(tab);
-        }
+        self.engine.command(ToEngine::Resize {
+            window: self.id,
+            size,
+        });
     }
 
     fn active_session(&self) -> Option<String> {
@@ -800,16 +754,16 @@ impl Live {
             Input::Tab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.chosen = Some(tab);
-                    self.engine.command(ToExtension::Activate { tab });
+                    self.engine.command(ToEngine::Activate { tab });
                 }
             }
             Input::NewTab => {
                 self.chosen = None;
-                self.engine.command(ToExtension::NewTab { window: self.id });
+                self.engine.command(ToEngine::NewTab { window: self.id });
             }
             Input::CloseTab { id } => {
                 if let Ok(tab) = id.parse() {
-                    self.engine.command(ToExtension::CloseTab { tab });
+                    self.engine.command(ToEngine::CloseTab { tab });
                 }
             }
             Input::Choose { menu, choice } => self.choose(menu, choice),
@@ -897,7 +851,7 @@ impl Live {
             return;
         }
         if let Some(open) = self.open_menu.take().filter(|open| open.menu == menu) {
-            self.engine.command(ToExtension::Pick {
+            self.engine.command(ToEngine::Pick {
                 tab: open.tab,
                 frame: open.frame,
                 menu,

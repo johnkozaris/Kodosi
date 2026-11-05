@@ -2,6 +2,7 @@
 //! through [`Browsers`], and it carries each viewer's [`Pipe`] in any way it likes. A viewer
 //! needs only the messages, so a build without the `host` feature starts nothing.
 
+pub mod link;
 mod message;
 
 pub use message::{
@@ -14,8 +15,6 @@ mod devtools;
 #[cfg(feature = "host")]
 mod engine;
 #[cfg(feature = "host")]
-mod extension;
-#[cfg(feature = "host")]
 mod flow;
 #[cfg(feature = "host")]
 mod input;
@@ -23,6 +22,8 @@ mod input;
 mod page;
 #[cfg(feature = "host")]
 mod sign_ins;
+#[cfg(feature = "host")]
+mod socket;
 #[cfg(feature = "host")]
 mod window;
 
@@ -110,7 +111,7 @@ mod host {
                 return Ok(window.clone());
             }
             let engine = self.engine(&place.profile).await?;
-            let window = crate::window::open(engine, &place.address, place.folder).await?;
+            let window = crate::window::open(engine, &place.address, place.folder);
             windows.insert(key, window.clone());
             drop(windows);
             Ok(window)
