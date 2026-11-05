@@ -11,8 +11,13 @@ use std::{
 use bytes::Bytes;
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::{FRAME_RATE, MOST_WAITING, START_CODE, annex_b_units};
+use super::FRAME_RATE;
 use crate::link::Link;
+
+/// The most pictures that wait in the encoder. A newer picture replaces a waiting one, so the
+/// viewer sees the page as it is now.
+const MOST_WAITING: usize = 2;
+const START_CODE: [u8; 4] = [0, 0, 0, 1];
 
 type OSStatus = i32;
 type Ref = *const c_void;
@@ -655,4 +660,37 @@ unsafe fn annex_b(sample: *mut c_void) -> Option<(bool, Vec<u8>)> {
     }?;
     annex_b_units(&data, usize::try_from(length_size).ok()?, &mut out)?;
     Some((key, out))
+}
+
+/// Rewrites length-prefixed NAL units as Annex B units with start codes.
+fn annex_b_units(data: &[u8], length_size: usize, out: &mut Vec<u8>) -> Option<()> {
+    let mut rest = data;
+    while !rest.is_empty() {
+        let (length, after) = rest.split_at_checked(length_size)?;
+        let length = length
+            .iter()
+            .fold(0_usize, |sum, byte| (sum << 8) | usize::from(*byte));
+        let (unit, after) = after.split_at_checked(length)?;
+        out.extend_from_slice(&START_CODE);
+        out.extend_from_slice(unit);
+        rest = after;
+    }
+    Some(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn length_prefixed_units_get_start_codes() {
+        let mut out = Vec::new();
+        annex_b_units(&[0, 0, 0, 2, 0x65, 0xAA, 0, 0, 0, 1, 0x41], 4, &mut out).unwrap();
+        assert_eq!(out, [0, 0, 0, 1, 0x65, 0xAA, 0, 0, 0, 1, 0x41]);
+    }
+
+    #[test]
+    fn a_cut_unit_is_refused() {
+        assert!(annex_b_units(&[0, 0, 0, 9, 0x65], 4, &mut Vec::new()).is_none());
+    }
 }

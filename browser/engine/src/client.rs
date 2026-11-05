@@ -14,6 +14,10 @@ const SCREEN_WIDTH: u32 = 1920;
 const SCREEN_HEIGHT: u32 = 1080;
 const MENU_BAR: u32 = 25;
 
+/// The crate names the cursor handle on Linux and Windows only.
+#[cfg(target_os = "macos")]
+type CursorHandle = *mut u8;
+
 pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
     ClientBuilder::new(
         RenderHandlerBuilder::new(shared),
@@ -236,7 +240,7 @@ wrap_display_handler! {
         fn on_cursor_change(
             &self,
             browser: Option<&mut Browser>,
-            _cursor: *mut u8,
+            _cursor: CursorHandle,
             type_: CursorType,
             _custom_cursor_info: Option<&CursorInfo>,
         ) -> c_int {

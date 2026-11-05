@@ -15,6 +15,7 @@ use std::os::raw::c_int;
 
 use cef::{args::Args, *};
 
+#[cfg(target_os = "macos")]
 const NO_FRAMEWORK: i32 = 70;
 const NO_START: i32 = 71;
 const NO_HOST: i32 = 72;
@@ -57,7 +58,7 @@ pub fn run() -> i32 {
     let profile = options.profile.to_string_lossy().into_owned();
     let settings = Settings {
         windowless_rendering_enabled: 1,
-        no_sandbox: c_int::from(!cfg!(target_os = "macos")),
+        no_sandbox: c_int::from(cfg!(windows)),
         root_cache_path: CefString::from(profile.as_str()),
         cache_path: CefString::from(profile.as_str()),
         persist_session_cookies: 1,

@@ -50,6 +50,12 @@ wrap_app! {
             };
             command_line.append_switch(Some(&"mute-audio".into()));
             command_line.append_switch(Some(&"hide-crash-restore-bubble".into()));
+            if cfg!(target_os = "linux") {
+                command_line.append_switch_with_value(
+                    Some(&"ozone-platform".into()),
+                    Some(&"headless".into()),
+                );
+            }
         }
 
         fn render_process_handler(&self) -> Option<RenderProcessHandler> {

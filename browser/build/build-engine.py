@@ -46,6 +46,9 @@ ENTITLEMENTS = {
     },
 }
 MINIMUM_MAC = "12.0"
+# The parts of a CEF download that only a build uses. The SUID sandbox helper works only when
+# root owns it, which a download never is.
+CEF_BUILD_PARTS = {"include", "cmake", "libcef_dll", "CMakeLists.txt", "archive.json", "chrome-sandbox"}
 
 
 def platform_name() -> str:
@@ -59,15 +62,20 @@ def run(*command: str, folder: Path = ROOT, env: dict[str, str] | None = None) -
 
 
 def build_tools() -> Path:
-    """A private Python environment with the pinned Ninja and CMake."""
+    """A private Python environment with the pinned Ninja and CMake, made by uv as for the Qt
+    tools."""
     venv = TOOLS / "venv"
-    binaries = venv / ("Scripts" if platform.system() == "Windows" else "bin")
+    windows = platform.system() == "Windows"
+    binaries = venv / ("Scripts" if windows else "bin")
     stamp = venv / "tools.txt"
     wanted = "\n".join(BUILD_TOOLS)
     if not stamp.is_file() or stamp.read_text("utf-8") != wanted:
-        shutil.rmtree(venv, ignore_errors=True)
-        run(sys.executable, "-m", "venv", str(venv))
-        run(str(binaries / "python"), "-m", "pip", "install", "--quiet", *BUILD_TOOLS)
+        uv = shutil.which("uv")
+        if uv is None:
+            raise SystemExit("uv is needed for the build tools of Kodosi Browser")
+        run(uv, "venv", "--clear", "--quiet", str(venv))
+        python = binaries / ("python.exe" if windows else "python")
+        run(uv, "pip", "install", "--quiet", "--python", str(python), *BUILD_TOOLS)
         stamp.write_text(wanted, "utf-8")
     return binaries
 
@@ -190,14 +198,16 @@ def notarize_mac(app: Path, stage: Path) -> None:
 
 
 def plain_parts(target: Path, cef: Path, stage: Path, program: str) -> Path:
-    """The program beside CEF's library and resources, which CEF finds next to it."""
+    """The program beside CEF's libraries and resources, which CEF finds next to it."""
     folder = stage / "kodosi-browser"
     folder.mkdir()
-    for part in ("Release", "Resources"):
-        source = cef / part
-        if source.is_dir():
-            shutil.copytree(source, folder, dirs_exist_ok=True)
-    shutil.copy2(cef / "CREDITS.html", folder / "CREDITS.html")
+    for part in cef.iterdir():
+        if part.name in CEF_BUILD_PARTS or part.suffix in (".lib", ".bz2"):
+            continue
+        if part.is_dir():
+            shutil.copytree(part, folder / part.name)
+        else:
+            shutil.copy2(part, folder / part.name)
     built = target / ("kodosi-browser.exe" if program.endswith(".exe") else "kodosi-browser")
     shutil.copy2(built, folder / program)
     if platform.system() == "Linux":

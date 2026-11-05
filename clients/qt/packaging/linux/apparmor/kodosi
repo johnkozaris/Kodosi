@@ -13,7 +13,7 @@ profile kodosi-webengine /usr/lib/kodosi/libexec/QtWebEngineProcess flags=(uncon
   include if exists <local/kodosi-webengine>
 }
 
-profile kodosi-browser @{HOME}/.config/kodosi/browser/engine/*/kodosi-browser/chrome flags=(unconfined) {
+profile kodosi-browser @{HOME}/.config/kodosi/browser/engine/*/kodosi-browser/kodosi-browser flags=(unconfined) {
   userns,
 
   include if exists <local/kodosi-browser>

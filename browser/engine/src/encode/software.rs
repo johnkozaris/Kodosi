@@ -177,7 +177,7 @@ fn work(window: i64, mut bitrate: u32, link: &Link, shared: &Shared) {
         if key {
             encoder.force_intra_frame();
         }
-        let source = YUVBuffer::from_rgb_source(BgraSliceU8::new(
+        let source = YUVBuffer::from_bgra8_source(BgraSliceU8::new(
             &picture.pixels,
             (picture.width, picture.height),
         ));

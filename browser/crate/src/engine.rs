@@ -10,8 +10,6 @@ use std::{
 };
 
 use serde_json::{Value, json};
-#[cfg(all(unix, not(target_os = "macos")))]
-use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::{
     net::TcpListener,
     process::{Child, Command},
@@ -34,7 +32,6 @@ const COMMANDS: usize = 256;
 const QUIT_LIMIT: Duration = Duration::from_secs(5);
 const LINK_FILE: &str = "link.json";
 /// The program inside a Kodosi Browser app bundle.
-#[cfg(target_os = "macos")]
 const BUNDLE_PROGRAM: &str = "Contents/MacOS/Kodosi Browser";
 
 /// The tabs of the browser, by the windows that hosts opened. A window that a page opened
@@ -128,7 +125,7 @@ pub(crate) struct Engine {
     commands: mpsc::Sender<ToEngine>,
     routes: Arc<Mutex<Routes>>,
     stopped: watch::Sender<bool>,
-    _process: Vec<Child>,
+    _process: Child,
     downloads: PathBuf,
     next_window: AtomicI64,
     next_page: AtomicI64,
@@ -146,7 +143,7 @@ impl Engine {
         let link = folder.join(LINK_FILE);
         socket.write_address(&link).await?;
         let port = free_port().await?;
-        let mut process = launch(program, &arguments(&folder, &link, port)).await?;
+        let mut process = launch(program, &arguments(&folder, &link, port))?;
         let address = wait_for_address(port, &mut process).await?;
         let (devtools, events) = Devtools::connect(&address).await?;
         devtools
@@ -630,13 +627,13 @@ async fn free_port() -> Result<u16, Error> {
     Ok(listener.local_addr()?.port())
 }
 
-async fn wait_for_address(port: u16, process: &mut [Child]) -> Result<String, Error> {
+async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Error> {
     tokio::time::timeout(START_LIMIT, async {
         loop {
             if let Some(address) = devtools::address_on(port).await {
                 return Ok(address);
             }
-            if let Some(Ok(Some(status))) = process.first_mut().map(Child::try_wait) {
+            if let Ok(Some(status)) = process.try_wait() {
                 return Err(Error::Engine(format!("the program ended: {status}")));
             }
             tokio::time::sleep(START_CHECK).await;
@@ -648,90 +645,24 @@ async fn wait_for_address(port: u16, process: &mut [Child]) -> Result<String, Er
 
 /// Starts the program of an app bundle, or the program itself. The engine is a child of the
 /// host and ends with its link.
-#[cfg(target_os = "macos")]
-#[expect(
-    clippy::unused_async,
-    reason = "the same call waits for a display on Linux"
-)]
-async fn launch(engine: &Path, arguments: &[String]) -> Result<Vec<Child>, Error> {
-    let program = if engine
-        .extension()
-        .is_some_and(|extension| extension == "app")
+fn launch(engine: &Path, arguments: &[String]) -> Result<Child, Error> {
+    let program = if cfg!(target_os = "macos")
+        && engine
+            .extension()
+            .is_some_and(|extension| extension == "app")
     {
         engine.join(BUNDLE_PROGRAM)
     } else {
         engine.to_path_buf()
     };
-    let child = Command::new(program)
+    Command::new(program)
         .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|error| Error::Engine(error.to_string()))?;
-    Ok(vec![child])
-}
-
-#[cfg(windows)]
-#[expect(
-    clippy::unused_async,
-    reason = "the same call waits for a display on Linux"
-)]
-async fn launch(engine: &Path, arguments: &[String]) -> Result<Vec<Child>, Error> {
-    let child = Command::new(engine)
-        .args(arguments)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|error| Error::Engine(error.to_string()))?;
-    Ok(vec![child])
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-async fn launch(engine: &Path, arguments: &[String]) -> Result<Vec<Child>, Error> {
-    let (display, number) = private_display().await?;
-    let child = Command::new(engine)
-        .args(arguments)
-        .env("DISPLAY", format!(":{number}"))
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|error| Error::Engine(error.to_string()))?;
-    Ok(vec![child, display])
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-async fn private_display() -> Result<(Child, String), Error> {
-    let mut display = Command::new("Xvfb")
-        .args([
-            "-displayfd",
-            "1",
-            "-screen",
-            "0",
-            "4096x4096x24",
-            "-nolisten",
-            "tcp",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|error| Error::Engine(format!("Xvfb did not start: {error}")))?;
-    let output = display
-        .stdout
-        .take()
-        .ok_or_else(|| Error::Engine("Xvfb gave no display".to_owned()))?;
-    let mut number = String::new();
-    tokio::time::timeout(START_LIMIT, BufReader::new(output).read_line(&mut number))
-        .await
-        .map_err(|_| Error::Engine("Xvfb gave no display".to_owned()))??;
-    Ok((display, number.trim().to_owned()))
+        .map_err(|error| Error::Engine(error.to_string()))
 }
 
 #[cfg(test)]
