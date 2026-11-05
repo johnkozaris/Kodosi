@@ -36,22 +36,29 @@ fn requests_from_other_computers_have_bounds() {
     assert!(read("/a/plan.md".to_owned()).is_valid());
     assert!(!read("a".repeat(2000)).is_valid());
     assert!(!read("/a/\0".to_owned()).is_valid());
-    assert!(
-        !CanvasRequest::Act {
-            action: BrowserAct::Open { url: " ".into() }
-        }
-        .is_valid()
-    );
 }
 
 #[test]
 fn a_request_and_an_answer_have_their_wire_form() {
     let request: CanvasRequest = serde_json::from_value(json!({
         "type": "act",
-        "action": {"do": "open", "url": "http://localhost:3000"},
+        "action": {"do": "wake"},
     }))
     .unwrap();
+    assert!(matches!(
+        request,
+        CanvasRequest::Act {
+            action: BrowserAct::Wake
+        }
+    ));
     assert!(request.is_valid());
+    assert!(
+        serde_json::from_value::<CanvasRequest>(json!({
+            "type": "act",
+            "action": {"do": "open", "url": "http://localhost:3000"},
+        }))
+        .is_err()
+    );
     assert!(
         serde_json::from_value::<CanvasRequest>(json!({"type": "remove", "keys": [], "x": 1}))
             .is_err()

@@ -142,8 +142,23 @@ Item {
             if (id === root.sessionId && root.current && key === root.current.key)
                 root.failure = message;
         }
+        function onLinkQuestionRequested(id, link, target) {
+            if (id === root.sessionId)
+                linkReview.ask(link, target);
+        }
+        function onLinkRefused(id, target, reason) {
+            if (id === root.sessionId)
+                linkReview.refuse(target, reason);
+        }
 
         target: Models.Canvas
+    }
+    LinkDialog {
+        id: linkReview
+        objectName: "canvas.linkReview"
+        trust: qsTr("The link comes from the canvas of a terminal. Open it only if you trust it.")
+
+        onCopyRequested: target => Models.DesktopFiles.copyText(target)
     }
     HoverHandler { id: hover }
     DropArea {

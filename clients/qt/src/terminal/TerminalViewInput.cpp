@@ -1,4 +1,5 @@
 #include "terminal/TerminalView.hpp"
+#include "presentation/Link.hpp"
 #include "terminal/TerminalLink.hpp"
 
 #include <kodosi_runtime.h>
@@ -1047,20 +1048,17 @@ bool TerminalView::opensLinks(Qt::KeyboardModifiers modifiers) const
 
 void TerminalView::activateLink(const QString& link)
 {
-    const auto decision = decideTerminalLink(link, m_otherComputer);
+    const auto decision = decideLink(link, m_otherComputer);
     switch (decision.action) {
-    case TerminalLinkDecision::Action::Open:
+    case LinkDecision::Action::Open:
         if (!QDesktopServices::openUrl(decision.url)) {
             emit operationError(QStringLiteral("Kodosi could not open the terminal link."));
         }
         return;
-    case TerminalLinkDecision::Action::Browser:
-        emit browserLinkRequested(decision.url);
-        return;
-    case TerminalLinkDecision::Action::Ask:
+    case LinkDecision::Action::Ask:
         emit linkQuestionRequested(decision.url, decision.shown);
         return;
-    case TerminalLinkDecision::Action::Refuse:
+    case LinkDecision::Action::Refuse:
         emit linkRefused(decision.shown, decision.reason);
         return;
     }

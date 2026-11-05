@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QString>
-#include <QUrl>
 
 #include <cstdint>
 #include <optional>
@@ -10,29 +9,7 @@ namespace kodosi {
 
 struct TerminalFrame;
 
-// A link that a person clicked opens by Ghostty's rules: web and mail links open, a
-// file or folder opens unless it can run code, a link to another app asks first, and
-// a malformed or disguised link does not open. A file in a terminal of another computer
-// is on that computer, so it does not open here. A local address opens in the shared
-// browser of the terminal, which runs on the computer of the terminal.
-struct TerminalLinkDecision {
-    enum class Action {
-        Open,
-        Browser,
-        Ask,
-        Refuse,
-    };
-
-    Action action;
-    QUrl url;
-    QString shown;
-    QString reason;
-};
-
-// `otherComputer` names the computer that runs the terminal when it is not this one.
-[[nodiscard]] TerminalLinkDecision decideTerminalLink(
-    const QString& value,
-    const QString& otherComputer = {});
+// The web address under a cell of the terminal's text, when Ghostty did not find one.
 [[nodiscard]] std::optional<QString> terminalTextLinkAt(
     const TerminalFrame& frame,
     std::uint16_t column,

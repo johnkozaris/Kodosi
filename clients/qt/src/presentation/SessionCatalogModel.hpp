@@ -93,6 +93,8 @@ public:
     [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
+    // The computer of a terminal that is not on this one, by the name that people see.
+    [[nodiscard]] static QString computerOf(const Session& session);
     [[nodiscard]] QString afterLocalRestart(const QString& id) const;
     [[nodiscard]] std::optional<QString> restartedAs(const QString& id, const QString& owner, const QString& host) const;
     [[nodiscard]] std::optional<PresentationSession> presentationSession(const QString& id) const;

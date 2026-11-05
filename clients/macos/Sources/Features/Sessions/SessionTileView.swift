@@ -166,7 +166,6 @@ struct SessionTileView: View {
                     allowsInput: session.canControl && state == .rendered,
                     asksBeforeClipboardRead: !session.isOwner,
                     otherComputer: session.otherComputer,
-                    opensBrowser: openBrowser,
                     isSurfaceVisible: state == .rendered,
                 ) {
                     select()
@@ -238,11 +237,6 @@ struct SessionTileView: View {
             .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).terminal.retry")
         }
         .background(theme.colors.terminal)
-    }
-
-    private func openBrowser(at address: URL) {
-        deps.workbench.openCanvas(session.id)
-        deps.openBrowser(of: session, at: address)
     }
 
     private func select() {

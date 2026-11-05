@@ -194,7 +194,6 @@ public struct CanvasItemView: View {
     let store: CanvasStore
     let frame: CanvasFrame
     let pages: CanvasDocumentPages
-    let openBrowser: (URL) -> Void
     var typing = false
     var ask: CanvasAsk?
     @State private var content: Content?
@@ -207,7 +206,7 @@ public struct CanvasItemView: View {
     }
 
     public init(session: RuntimeSession, shown: CanvasShown, store: CanvasStore, frame: CanvasFrame, pages: CanvasDocumentPages,
-                typing: Bool = false, ask: CanvasAsk? = nil, openBrowser: @escaping (URL) -> Void)
+                typing: Bool = false, ask: CanvasAsk? = nil)
     {
         self.session = session
         self.shown = shown
@@ -216,7 +215,6 @@ public struct CanvasItemView: View {
         self.pages = pages
         self.typing = typing
         self.ask = ask
-        self.openBrowser = openBrowser
     }
 
     public var body: some View {
@@ -225,7 +223,8 @@ public struct CanvasItemView: View {
             CanvasBrowserView(browser: browser, feed: store.feed(session.id), typing: typing)
         case let .item(item):
             if let view = item.view, !item.missing, viewers.shows(view) {
-                CanvasDocumentView(session: session.id, item: item, view: view, store: store, pages: pages, openBrowser: sharedBrowser)
+                CanvasDocumentView(session: session.id, item: item, view: view, store: store, pages: pages,
+                                   otherComputer: session.otherComputer)
             } else {
                 file(item)
                     .task(id: Revision(key: item.key, revision: item.revision, missing: item.missing)) { await load(item) }
@@ -239,17 +238,11 @@ public struct CanvasItemView: View {
         let missing: Bool
     }
 
-    /// A link to a local address opens in the shared browser only when the terminal runs on another
-    /// computer. On this computer, the browser of the device reaches the address.
-    private var sharedBrowser: ((URL) -> Void)? {
-        session.otherComputer == nil ? nil : openBrowser
-    }
-
     @ViewBuilder
     private func file(_ item: CanvasItem) -> some View {
         if let content, content.key == item.key {
             switch item.kind {
-            case .page: CanvasPageView(frame: frame, content: content.data, openBrowser: sharedBrowser, ask: ask)
+            case .page: CanvasPageView(frame: frame, content: content.data, otherComputer: session.otherComputer, ask: ask)
             case .picture, .pdf, .document, .sheet, .presentation: CanvasFileView(content: content.data, name: item.name).transition(.opacity)
             }
         } else if item.missing {

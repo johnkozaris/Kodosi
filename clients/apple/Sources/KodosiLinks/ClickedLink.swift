@@ -1,29 +1,29 @@
 import Foundation
 import UniformTypeIdentifiers
 
-/// A link that a person clicked in a terminal. Terminal output can come from any
-/// text, so the link opens by Ghostty's rules: web and mail links open, a file or
-/// folder opens unless it can run code, a link to another app asks first, and a
-/// malformed or disguised link does not open. A file in a terminal of another
-/// computer is on that computer, so it does not open here. A local address opens
-/// in the shared browser of the terminal, which runs on the computer of the terminal.
-struct TerminalLink: Equatable {
-    enum Decision: Equatable {
+/// A link that a person clicked in a terminal, or on a page or in a file of a canvas. Its text
+/// can come from anyone, so it opens by Ghostty's rules: web and mail links open in the browser
+/// of this device, a file or folder opens unless it can run code, a link to another app asks
+/// first, and a malformed or disguised link does not open. A file or a local address of a
+/// terminal on another computer is on that computer, so it does not open here. Only the shared
+/// browser opens links in Kodosi, when a person clicks in it or an agent asks.
+public struct ClickedLink: Equatable, Sendable {
+    public enum Decision: Equatable, Sendable {
         case open(URL)
-        case browser(URL)
         case ask(URL)
         case refuse(Refusal)
     }
 
-    enum Refusal: Equatable {
+    public enum Refusal: Equatable, Sendable {
         case malformed
         case hiddenCharacters
         case noWebHost
         case missingFile
         case program
         case fileElsewhere(String)
+        case addressElsewhere(String)
 
-        var message: String {
+        public var message: String {
             switch self {
             case .malformed:
                 String(localized: "The link is not a complete address.")
@@ -37,24 +37,25 @@ struct TerminalLink: Equatable {
                 String(localized: "Opening it could run a program.")
             case let .fileElsewhere(computer):
                 String(localized: "The file is on \(computer).")
+            case let .addressElsewhere(computer):
+                String(localized: "The address is on \(computer).")
             }
         }
     }
 
     /// The target as it opens, on one line, with hidden characters written out.
-    let shown: String
-    let decision: Decision
+    public let shown: String
+    public let decision: Decision
 
-    /// `otherComputer` names the computer that runs the terminal when it is not this
-    /// device.
-    init(_ value: String, otherComputer: String? = nil) {
+    /// `otherComputer` names the computer of the terminal when it is not this device.
+    public init(_ value: String, otherComputer: String? = nil) {
         let target = otherComputer == nil ? Self.target(value) : value
         shown = Self.shown(target, resolvesFiles: otherComputer == nil)
         decision = Self.decision(value, target: target, otherComputer: otherComputer)
     }
 }
 
-private extension TerminalLink {
+private extension ClickedLink {
     /// Ghostty also finds paths in the text. A path opens as a file URL.
     static func target(_ value: String) -> String {
         guard URL(string: value)?.scheme == nil, !hasHiddenCharacters(value) else { return value }
@@ -70,7 +71,10 @@ private extension TerminalLink {
         switch scheme {
         case "http", "https":
             guard let host = url.host(), !host.isEmpty else { return .refuse(.noWebHost) }
-            return isLoopback(host) ? .browser(url) : .open(url)
+            if let otherComputer, isLoopback(host) {
+                return .refuse(.addressElsewhere(otherComputer))
+            }
+            return .open(url)
         case "mailto":
             guard let address = URLComponents(url: url, resolvingAgainstBaseURL: false)?.path,
                   !address.isEmpty

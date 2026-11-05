@@ -749,3 +749,59 @@ fn the_guide_names_each_op_that_an_agent_can_send() {
         assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
     }
 }
+
+#[test]
+fn a_link_of_a_cell_says_where_it_goes_and_moves_with_its_row() {
+    let sheet = SHEET
+        .replace(" x14ac:custom=\"kept\"", " ht=\"20\"")
+        .replace(
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#,
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">"#,
+        )
+        .replace(
+            "</mergeCells>",
+            r#"</mergeCells><hyperlinks><hyperlink ref="A1" r:id="rId1"/><hyperlink ref="B2" location="'Data'!A3" display="Totals"/></hyperlinks>"#,
+        );
+    let file = xlsx_file_with(&sheet, WORKBOOK, STYLES);
+    let mut parts = Package::open(&file).unwrap();
+    let names: Vec<String> = parts.names().map(str::to_owned).collect();
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    for name in names {
+        writer.start_file(name.as_str(), options).unwrap();
+        writer.write_all(&parts.bytes(&name).unwrap()).unwrap();
+    }
+    writer
+        .start_file("xl/worksheets/_rels/sheet1.xml.rels", options)
+        .unwrap();
+    writer
+        .write_all(br#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://kodosi.com/docs" TargetMode="External"/></Relationships>"#)
+        .unwrap();
+    let file = writer.finish().unwrap().into_inner();
+
+    let model = read(&file);
+    assert_eq!(
+        model.snapshot()["sheets"][0]["links"],
+        json!([
+            { "ranges": "A1", "to": { "href": "https://kodosi.com/docs" } },
+            { "ranges": "B2", "to": { "location": "'Data'!A3" } },
+        ])
+    );
+    assert_eq!(saved(&model, &file), file);
+
+    let mut moved = model;
+    ops(
+        &mut moved,
+        vec![Op::InsertRows {
+            sheet: "1".to_owned(),
+            at: 0,
+            count: 1,
+        }],
+    )
+    .unwrap();
+    let links = &moved.snapshot()["sheets"][0]["links"];
+    assert_eq!(
+        (&links[0]["ranges"], &links[1]["ranges"]),
+        (&json!("A2"), &json!("B3"))
+    );
+}

@@ -1,5 +1,5 @@
 #include "presentation/CanvasModel.hpp"
-#include "presentation/LocalAddress.hpp"
+#include "presentation/Link.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
 
@@ -280,23 +280,16 @@ void CanvasModel::showShelf(const QString& sessionId, bool shown)
     touch();
 }
 
-void CanvasModel::openBrowser(const QString& sessionId, const QUrl& address)
+void CanvasModel::openBrowser(const QString& sessionId)
 {
-    const QVariantMap open { { QStringLiteral("do"), QStringLiteral("open") },
-        { QStringLiteral("url"), address.toString(QUrl::FullyEncoded) } };
     if (present(sessionId).contains(browserItem)) {
         show(sessionId, browserItem);
-        if (!address.isEmpty())
-            act(sessionId, open);
         return;
     }
     m_closed[sessionId].remove(browserItem);
     m_opening.insert(sessionId);
     touch();
-    if (address.isEmpty())
-        wake(sessionId);
-    else
-        act(sessionId, open);
+    wake(sessionId);
 }
 
 bool CanvasModel::opensBrowser(const QString& sessionId) const
@@ -361,29 +354,25 @@ QString CanvasModel::about(const QString& place, const QString& words)
     return line.isEmpty() ? QStringLiteral("About %1: ").arg(place) : QStringLiteral("About %1: \"%2\" ").arg(place, line);
 }
 
-bool CanvasModel::followable(const QUrl& link)
-{
-    const auto scheme = link.scheme().toLower();
-    if (scheme == QStringLiteral("mailto"))
-        return link.isValid();
-    return link.isValid() && (scheme == QStringLiteral("http") || scheme == QStringLiteral("https"))
-        && !link.host().isEmpty();
-}
-
-bool CanvasModel::inSharedBrowser(const QUrl& link, bool otherComputer)
-{
-    return otherComputer && link.scheme().toLower() != QStringLiteral("mailto") && isLocalAddress(link.host());
-}
-
+// A link on a page or in a file of the canvas opens by the rules of terminal links.
 void CanvasModel::follow(const QString& sessionId, const QUrl& link)
 {
-    if (!followable(link))
-        return;
     const auto session = m_sessions.session(sessionId);
-    if (inSharedBrowser(link, session && session->kind != QStringLiteral("local")))
-        openBrowser(sessionId, link);
-    else
-        QDesktopServices::openUrl(link);
+    const auto elsewhere = session && session->kind != QStringLiteral("local")
+        ? SessionCatalogModel::computerOf(*session)
+        : QString();
+    const auto decision = decideLink(link.toString(QUrl::FullyEncoded), elsewhere);
+    switch (decision.action) {
+    case LinkDecision::Action::Open:
+        QDesktopServices::openUrl(decision.url);
+        return;
+    case LinkDecision::Action::Ask:
+        emit linkQuestionRequested(sessionId, decision.url, decision.shown);
+        return;
+    case LinkDecision::Action::Refuse:
+        emit linkRefused(sessionId, decision.shown, decision.reason);
+        return;
+    }
 }
 
 bool CanvasModel::load(const QString& sessionId, const QString& key)

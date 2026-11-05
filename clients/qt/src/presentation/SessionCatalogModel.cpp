@@ -304,6 +304,13 @@ QVariant SessionCatalogModel::data(const QModelIndex& index, int role) const
         return {};
     }
 }
+QString SessionCatalogModel::computerOf(const Session& session)
+{
+    if (!session.hostName.isEmpty())
+        return session.hostName;
+    return !session.ownerName.isEmpty() ? session.ownerName : tr("Remote computer");
+}
+
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const QString& id) const
 {
     const auto found
@@ -375,7 +382,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("asks"), waitState(session) == QStringLiteral("blocked") },
         { QStringLiteral("atPrompt"), local && p.canControl && session.prompt },
         { QStringLiteral("folderName"), folderName(s->workingDirectory) },
-        { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
+        { QStringLiteral("hostLabel"), local ? tr("This computer") : computerOf(*s) },
         { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },

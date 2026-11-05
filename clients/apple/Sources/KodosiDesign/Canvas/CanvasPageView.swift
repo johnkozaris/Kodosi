@@ -1,4 +1,10 @@
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import KodosiBridge
+import KodosiLinks
 import SwiftUI
 import Synchronization
 import WebKit
@@ -17,22 +23,21 @@ public struct CanvasAsk {
 }
 
 /// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
-/// no files and no storage that stays. A web or mail link opens in the browser of this device;
-/// only a local address of a terminal on another computer opens in its shared browser. Words that
-/// a person selects get a key that asks the agent about them.
+/// no files and no storage that stays. A link opens on this device by the rules of terminal links.
+/// Words that a person selects get a key that asks the agent about them.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     let frame: CanvasFrame
     let content: Data
-    let openBrowser: ((URL) -> Void)?
+    let otherComputer: String?
     let ask: CanvasAsk?
     @State private var shown = false
 
-    public init(frame: CanvasFrame, content: Data, openBrowser: ((URL) -> Void)?, ask: CanvasAsk? = nil) {
+    public init(frame: CanvasFrame, content: Data, otherComputer: String?, ask: CanvasAsk? = nil) {
         self.frame = frame
         self.content = content
-        self.openBrowser = openBrowser
+        self.otherComputer = otherComputer
         self.ask = ask
     }
 
@@ -44,7 +49,7 @@ public struct CanvasPageView: View {
             .overlay { selectionKey }
             .task(id: content) {
                 frame.links.open = { url in openURL(url) }
-                frame.links.openBrowser = openBrowser
+                frame.links.otherComputer = otherComputer
                 await frame.show(content)
                 withAnimation(theme.motion.fade) { shown = true }
             }
@@ -199,27 +204,28 @@ private final class SelectionWatcher: NSObject, WKScriptMessageHandler {
     }
 }
 
+/// The links that a person clicks on a page or in a file of a canvas.
 @MainActor
 final class CanvasLinks {
     var open: (URL) -> Void = { _ in }
-    /// The shared browser of a terminal on another computer.
-    var openBrowser: ((URL) -> Void)?
+    /// The computer of the terminal, when it is not this device.
+    var otherComputer: String?
+    var review: (ClickedLink) -> Void = { link in
+        #if os(macOS)
+            link.review(in: NSApp.keyWindow, from: .canvas)
+        #else
+            let window = UIApplication.shared.connectedScenes.lazy.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first
+            link.review(from: window?.rootViewController, origin: .canvas)
+        #endif
+    }
 
-    /// Web and mail links open in the browser of this device. A local address of a terminal on
-    /// another computer names that computer, so only the shared browser of the terminal reaches it.
     func follow(_ url: URL) {
-        switch url.scheme?.lowercased() {
-        case "http", "https":
-            guard let host = url.host(), !host.isEmpty else { return }
-            if url.isLocalAddress, let openBrowser {
-                openBrowser(url)
-            } else {
-                open(url)
-            }
-        case "mailto":
-            open(url)
-        default:
-            return
+        let link = ClickedLink(url.absoluteString, otherComputer: otherComputer)
+        switch link.decision {
+        case let .open(target):
+            open(target)
+        case .ask, .refuse:
+            review(link)
         }
     }
 }

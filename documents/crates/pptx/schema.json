@@ -28,6 +28,14 @@
     { "name": "italic" },
     { "name": "underline" },
     {
+      "name": "link",
+      "attrs": {
+        "href": { "default": null },
+        "slide": { "default": null },
+        "jump": { "default": null }
+      }
+    },
+    {
       "name": "textStyle",
       "attrs": {
         "color": { "default": null },

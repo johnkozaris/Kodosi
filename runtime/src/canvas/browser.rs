@@ -7,7 +7,7 @@ use std::{
 };
 
 use serde_json::Value;
-use shared_browser::{Input, Place, State, ToWindow, Viewer, Window};
+use shared_browser::{Place, State, Viewer, Window};
 use tokio::{
     sync::{mpsc, watch},
     time::Instant,
@@ -433,18 +433,12 @@ impl Browser {
         });
     }
 
-    /// A person's step that needs no view of the browser.
-    pub(super) async fn act(self: &Arc<Self>, action: BrowserAct) -> Result<CanvasAnswer, String> {
-        let window = self.window().await?;
-        if let BrowserAct::Open { url } = action {
-            let open = ToWindow::Input {
-                input: Input::Open { address: url },
-            };
-            window
-                .tell(open)
-                .await
-                .map_err(|problem| problem.to_string())?;
-        }
+    /// A person's step that needs no view of the browser: it wakes the browser.
+    pub(super) async fn act(
+        self: &Arc<Self>,
+        BrowserAct::Wake: BrowserAct,
+    ) -> Result<CanvasAnswer, String> {
+        self.window().await?;
         Ok(CanvasAnswer::Done)
     }
 

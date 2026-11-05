@@ -479,6 +479,7 @@ pub(crate) fn to_changes(model: &Model, ops: &[Op]) -> Result<Vec<Change>, Strin
                     fill: None,
                     line: None,
                     asset: None,
+                    link: None,
                     text: Some(plain_tree(text)?),
                     look: Value::Null,
                     order: order as u64,

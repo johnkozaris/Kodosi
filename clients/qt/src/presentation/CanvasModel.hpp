@@ -66,7 +66,7 @@ public:
     Q_INVOKABLE void show(const QString& sessionId, const QString& section);
     Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
-    Q_INVOKABLE void openBrowser(const QString& sessionId, const QUrl& address = {});
+    Q_INVOKABLE void openBrowser(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool hasNews(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
@@ -95,8 +95,6 @@ public:
     [[nodiscard]] static std::optional<QPointF> pointInView(QPointF point, QSizeF view, QSizeF browser);
     [[nodiscard]] static std::optional<BrowserKey> browserKey(int key);
     [[nodiscard]] static QString about(const QString& place, const QString& words);
-    [[nodiscard]] static bool followable(const QUrl& link);
-    [[nodiscard]] static bool inSharedBrowser(const QUrl& link, bool otherComputer);
 
 signals:
     void changed();
@@ -106,6 +104,8 @@ signals:
     void copyReady(const QString& name, const QByteArray& content);
     void filesGiven(const QString& sessionId, const QStringList& paths);
     void problem(const QString& message);
+    void linkQuestionRequested(const QString& sessionId, const QUrl& link, const QString& target);
+    void linkRefused(const QString& sessionId, const QString& target, const QString& reason);
 
 private:
     struct Shown {

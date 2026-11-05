@@ -5,7 +5,9 @@ import {
   type Client,
   colorOf,
   type Editor,
+  followLink,
   Outbox,
+  opensLink,
   type Person,
   type Pictures,
   Status,
@@ -31,12 +33,18 @@ import {
   type CellChange,
   type Change,
   covers,
+  type LinkTarget,
+  linkAt,
+  linksOf,
   type Merge,
   moveChange,
   moveLine,
+  moveLink,
   movePlace,
   movesLines,
   type Place,
+  rangeOf,
+  type SheetLink,
   type Snapshot,
   touches,
 } from "./change";
@@ -285,6 +293,10 @@ class XlsxEditor implements Editor, Pictures {
   private placeWaits = false;
   private editing: EditedCell | null = null;
   private held: Ordered[] = [];
+  private links: SheetLink[] = [];
+  private canEdit = false;
+  /** The keys that the person held at the last press, which Univer's click does not carry. */
+  private pressed: Pick<MouseEvent, "metaKey" | "ctrlKey"> = { metaKey: false, ctrlKey: false };
 
   constructor(
     private readonly root: HTMLElement,
@@ -297,6 +309,13 @@ class XlsxEditor implements Editor, Pictures {
     holder.className = "xlsx-holder";
     this.canvas = holder.appendChild(document.createElement("div"));
     this.canvas.className = "xlsx-canvas";
+    this.canvas.addEventListener(
+      "pointerdown",
+      ({ metaKey, ctrlKey }) => {
+        this.pressed = { metaKey, ctrlKey };
+      },
+      { capture: true },
+    );
     this.marks = holder.appendChild(document.createElement("div"));
     this.marks.className = "xlsx-marks";
     this.scheme = new MutationObserver(() => this.univer?.univerAPI.toggleDarkMode(this.dark()));
@@ -331,6 +350,8 @@ class XlsxEditor implements Editor, Pictures {
     this.held = [];
     this.marked = [];
     this.fileLooks = (raw as Snapshot).looks.length;
+    this.links = (raw as Snapshot).sheets.flatMap(linksOf);
+    this.canEdit = person.canEdit;
     made.univerAPI.createWorkbook(workbookData(raw as Snapshot) as never);
     const injector = made.univer.__getInjector();
     this.commands = injector.get(ICommandService);
@@ -343,6 +364,7 @@ class XlsxEditor implements Editor, Pictures {
       if (change) {
         this.outbox.add(change);
         this.moveMarks(change, Number.POSITIVE_INFINITY);
+        this.moveLinks(change);
         this.client.pull();
       }
     });
@@ -350,6 +372,14 @@ class XlsxEditor implements Editor, Pictures {
       if (info.id === SET_SELECTIONS) this.placed(info.params as Selections);
       else if (info.id === SET_SCROLL || info.id === SET_ACTIVE_SHEET) this.drawMarks();
       this.bar.update();
+    });
+    made.univerAPI.addEvent(made.univerAPI.Event.CellClicked, ({ worksheet, row, column }) => {
+      const link = linkAt(this.links, worksheet.getSheetId(), row, column);
+      if (link && opensLink(this.pressed, this.canEdit)) this.followCell(link.to);
+    });
+    made.univerAPI.addEvent(made.univerAPI.Event.CellHover, ({ worksheet, row, column }) => {
+      const link = linkAt(this.links, worksheet.getSheetId(), row, column);
+      this.canvas.title = link ? ("href" in link.to ? link.to.href : link.to.location) : "";
     });
     made.univerAPI.addEvent(made.univerAPI.Event.SheetEditStarted, ({ worksheet, row, column }) => {
       this.editing = { sheet: worksheet.getSheetId(), row, column };
@@ -752,6 +782,35 @@ class XlsxEditor implements Editor, Pictures {
   private showOrdered({ rev, change }: Ordered): void {
     this.show(change);
     this.moveMarks(change, rev);
+    this.moveLinks(change);
+  }
+
+  private moveLinks(change: Change): void {
+    if (movesLines(change) || change.kind === "removeSheet") {
+      this.links = this.links.flatMap((link) => moveLink(link, change) ?? []);
+    }
+  }
+
+  /** An address goes to the host. A place such as `'Data'!A3` is in this workbook. */
+  private followCell(to: LinkTarget): void {
+    if ("href" in to) {
+      followLink(to.href);
+      return;
+    }
+    const split = to.location.lastIndexOf("!");
+    const name =
+      split < 0
+        ? ""
+        : to.location
+            .slice(0, split)
+            .replace(/^'(.*)'$/, "$1")
+            .replaceAll("''", "'");
+    const range = rangeOf(split < 0 ? to.location : to.location.slice(split + 1));
+    const workbook = this.univer?.univerAPI.getActiveWorkbook();
+    const sheet = name ? workbook?.getSheetByName(name) : workbook?.getActiveSheet();
+    if (!sheet || !range) return;
+    sheet.activate();
+    sheet.getRange(range.row, range.column).activate();
   }
 
   /** Moves the places that came before `rev` across the lines of a change. */

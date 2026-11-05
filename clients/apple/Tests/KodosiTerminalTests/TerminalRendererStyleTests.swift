@@ -24,7 +24,7 @@
         )
         let hosting = NSHostingView(rootView: TerminalRendererView(
             session: session, sessionName: "Style Test", accessibilityIdentifier: "test.terminal.style",
-            shouldFocus: false, allowsFocus: false, allowsInput: false, opensBrowser: { _ in }, isSurfaceVisible: true,
+            shouldFocus: false, allowsFocus: false, allowsInput: false, isSurfaceVisible: true,
             onFocus: {}, onFocusChange: { _ in }, onShareShortcut: {},
         ))
         window.contentView = hosting
