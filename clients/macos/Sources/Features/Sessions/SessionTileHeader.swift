@@ -14,6 +14,8 @@ struct SessionTileHeader: View {
     let showsActions: Bool
     let viewers: [AvatarStack.Person]
     let isClosing: Bool
+    @Binding var renaming: Bool
+    let select: () -> Void
     let close: () -> Void
 
     private var stageId: String {
@@ -34,8 +36,8 @@ struct SessionTileHeader: View {
                 }
             } else {
                 AgentMark(session: session, size: 20, activity: session.mark(rested: .awake))
-                Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                    .contentTransition(.interpolate).layoutPriority(2)
+                TerminalName(session: session, renaming: $renaming, select: select, identifier: "\(stageId).name")
+                    .layoutPriority(2)
                 if session.activity != nil || session.progress != nil {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                         .help(session.activity ?? "")
@@ -105,6 +107,66 @@ struct SessionTileHeader: View {
                 .disabled(!session.canClose || isClosing)
         }
         .opacity(showsActions ? 1 : 0.28)
+    }
+}
+
+/// The name of a terminal. A click on the name of your own terminal renames it in place.
+private struct TerminalName: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    let session: RuntimeSession
+    @Binding var renaming: Bool
+    let select: () -> Void
+    let identifier: String
+    @State private var draft = ""
+    @State private var hovered = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        if renaming {
+            TextField("Name", text: $draft)
+                .textFieldStyle(.plain).appTextStyle(.subhead).foregroundStyle(theme.colors.ink)
+                .padding(.horizontal, 6).frame(minWidth: 120, maxWidth: 260).frame(height: 24)
+                .background(theme.colors.well, in: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
+                .focused($focused)
+                .task { focused = true }
+                .onSubmit { deps.rename(session, to: draft); renaming = false }
+                .onExitCommand { renaming = false }
+                .onChange(of: focused) { _, now in
+                    if !now {
+                        renaming = false
+                    }
+                }
+                .accessibilityIdentifier(identifier)
+        } else if session.isOwner {
+            Button {
+                select()
+                draft = session.name
+                renaming = true
+            } label: {
+                name.padding(.horizontal, 6).frame(height: 24)
+                    .background {
+                        if hovered {
+                            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous).fill(theme.buttonFace(lit: true))
+                        }
+                    }
+                    .padding(.horizontal, -6)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovered = $0 }
+            .animation(theme.motion.hover, value: hovered)
+            .help(String(localized: "Rename"))
+            .accessibilityHint(Text("Renames the terminal"))
+            .accessibilityIdentifier(identifier)
+        } else {
+            name
+        }
+    }
+
+    private var name: some View {
+        Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
+            .contentTransition(.interpolate)
     }
 }
 

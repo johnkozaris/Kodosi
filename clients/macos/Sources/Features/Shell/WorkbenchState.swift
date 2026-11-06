@@ -469,3 +469,15 @@ extension WorkbenchState {
         save()
     }
 }
+
+extension WorkbenchState {
+    /// Shows the selected terminal alone on the stage, or all the open terminals in the grid.
+    func toggleSingleView() {
+        section = .sessions
+        if let focused = focusedSessionId {
+            toggleFocus(focused)
+        } else if let id = selectedSessionId.flatMap({ stagedSessionIds.contains($0) ? $0 : nil }) ?? stagedSessionIds.first {
+            toggleFocus(id)
+        }
+    }
+}

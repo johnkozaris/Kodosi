@@ -22,8 +22,10 @@ visual system. The Linux and Windows app follows this app.
   the friend. The + of a folder on this Mac or on another computer of yours starts a
   terminal there. A small square on a terminal's mark has the color of its room, or is
   grey when the terminal is shared with people. Pinned terminals stay at the top. A
-  repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals,
-  rooms, people and actions. You rename a terminal in place.
+  folder or a computer folds with the triangle after its name. A repository folder offers
+  a terminal on a new branch. Go to (⌘K) finds terminals, rooms, people and actions, and
+  the key beside it switches the stage between the grid and single view. You rename a
+  terminal in place, in the sidebar or with a click on its name in its header.
 - Drag a terminal by its header onto another terminal to take its place in the grid, or
   drag it from the sidebar onto a terminal to open it there.
 - A terminal's mark shows its program's state, and a waiting program shows what it needs

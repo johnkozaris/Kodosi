@@ -163,19 +163,11 @@ struct SidebarFolderHeader: View {
         HStack(spacing: 2) {
             Button(action: toggle) {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
-                        .rotationEffect(.degrees(collapsed ? 0 : 90))
-                        .foregroundStyle(theme.colors.inkFaint).frame(width: 10)
                     Image(systemName: "folder.fill")
                         .font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
                     Text(group.name)
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1).layoutPriority(1)
-                    if collapsed {
-                        Text(group.sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                        if let sign = group.sessions.first(where: \.needsUser)?.sign(unseen: false) {
-                            StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
-                        }
-                    }
+                    FoldTriangle(collapsed: collapsed, sessions: group.sessions)
                     Spacer(minLength: 4)
                 }
                 .padding(.leading, 8).frame(height: 24).contentShape(Rectangle())
@@ -233,7 +225,6 @@ struct SidebarPinnedHeader: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Color.clear.frame(width: 10)
             Image(systemName: "pin.fill").font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(theme.colors.inkFaint).frame(width: 13)
             Text("Pinned").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
@@ -248,24 +239,32 @@ struct SidebarPinnedHeader: View {
 struct SidebarComputerHeader: View {
     @Environment(\.theme) private var theme
     let group: SessionComputerGroup
+    let collapsed: Bool
+    let toggle: () -> Void
 
     var body: some View {
-        HStack(spacing: 5) {
-            if let owner = group.owner {
-                PersonAvatar(name: owner.name, key: owner.userId, size: 13)
-            } else {
-                DeviceGlyph(label: group.title).font(.system(size: 9, weight: .semibold)).frame(width: 13)
+        Button(action: toggle) {
+            HStack(spacing: 5) {
+                if let owner = group.owner {
+                    PersonAvatar(name: owner.name, key: owner.userId, size: 13)
+                } else {
+                    DeviceGlyph(label: group.title).font(.system(size: 9, weight: .semibold)).frame(width: 13)
+                }
+                Text(group.title).appTextStyle(.caption).lineLimit(1).layoutPriority(1)
+                if group.away {
+                    Image(systemName: "wifi.slash").font(.system(size: 8, weight: .bold))
+                }
+                FoldTriangle(collapsed: collapsed, sessions: group.folders.flatMap(\.sessions))
+                Spacer(minLength: 0)
             }
-            Text(group.title).appTextStyle(.caption).lineLimit(1)
-            if group.away {
-                Image(systemName: "wifi.slash").font(.system(size: 8, weight: .bold))
-            }
-            Spacer(minLength: 0)
+            .foregroundStyle(theme.colors.inkFaint)
+            .padding(.leading, 10).frame(height: 20).contentShape(Rectangle())
         }
-        .foregroundStyle(theme.colors.inkFaint)
-        .padding(.leading, 10).frame(height: 20).padding(.top, 10)
+        .buttonStyle(.plain)
+        .padding(.top, 10)
         .help(help)
-        .accessibilityElement(children: .ignore).accessibilityLabel(Text(help)).accessibilityAddTraits(.isHeader)
+        .accessibilityLabel(Text(help)).accessibilityAddTraits(.isHeader)
+        .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
         .accessibilityIdentifier("sidebar.computer.\(AccessibilityIdentifier.token(group.id))")
     }
 
@@ -273,6 +272,27 @@ struct SidebarComputerHeader: View {
         guard let computer = group.computer else { return group.title }
         let place = group.owner.map { String(localized: "\($0.name)'s \(computer)") } ?? computer
         return group.away ? String(localized: "\(place) is offline") : place
+    }
+}
+
+/// The filled triangle after the name of a folder or a computer. A folded one also counts its
+/// terminals and shows what a waiting one needs.
+struct FoldTriangle: View {
+    @Environment(\.theme) private var theme
+    let collapsed: Bool
+    let sessions: [RuntimeSession]
+
+    var body: some View {
+        Image(systemName: "arrowtriangle.right.fill").font(.system(size: 7, weight: .bold))
+            .rotationEffect(.degrees(collapsed ? 0 : 90))
+            .foregroundStyle(theme.colors.inkFaint).frame(width: 9, height: 9)
+            .accessibilityHidden(true)
+        if collapsed {
+            Text(sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+            if let sign = sessions.first(where: \.needsUser)?.sign(unseen: false) {
+                StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
+            }
+        }
     }
 }
 
