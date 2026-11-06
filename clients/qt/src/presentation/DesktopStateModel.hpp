@@ -73,6 +73,7 @@ public:
     QString makingRoom(const QString& id) const;
     Q_INVOKABLE void toggleFocusForSelectedSession();
     bool modalOpen() const { return !m_modals.isEmpty(); }
+    bool watching() const;
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
     Q_INVOKABLE void clearError();
     void switchAccount(const QString& userId);
@@ -85,6 +86,7 @@ public:
     Q_INVOKABLE void setLauncherRemoteFolder(const QString& computer, const QString& path);
     Q_INVOKABLE void clearLauncherDraft();
 signals:
+    void watchingChanged();
     void activeViewChanged();
     void sidebarOpenChanged();
     void dosiOpenChanged();

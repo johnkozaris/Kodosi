@@ -51,7 +51,6 @@ extension AppDependencies {
         case .minimize, .zoom, .details: performOnSelected(action)
         default: move(action, number: number)
         }
-        reportVisible()
     }
 
     private func performOnSelected(_ action: AppShortcut) {

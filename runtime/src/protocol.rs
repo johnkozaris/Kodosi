@@ -23,7 +23,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 78;
+pub const VERSION: u32 = 79;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -318,6 +318,7 @@ pub enum Command {
         request_id: String,
         #[serde(rename = "sessionIds")]
         session_ids: Vec<String>,
+        watching: bool,
     },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
@@ -2601,6 +2602,7 @@ mod tests {
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
             json!({"type":"session.openRemote","requestId":ID,"sessionId":ID}),
             json!({"type":"session.disconnect","requestId":ID,"sessionId":ID}),
+            json!({"type":"session.visible","requestId":ID,"sessionIds":[ID],"watching":true}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"missionId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
@@ -2683,7 +2685,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 64);
+        assert_eq!(kinds.len(), 65);
     }
 
     #[test]

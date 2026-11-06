@@ -488,6 +488,7 @@ private slots:
         const auto visible = [&] { return f.commands.values.last().value(QStringLiteral("sessionIds")).toArray(); };
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.visible"));
         QCOMPARE(visible(), QJsonArray { test::id(2) });
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("watching")), QJsonValue(false));
         f.sessions.setVisible(test::id(1), true);
         f.sessions.setVisible(test::id(1), true);
         QCOMPARE(visible(), (QJsonArray { test::id(1), test::id(2) }));
@@ -498,6 +499,15 @@ private slots:
         QCOMPARE(visible(), QJsonArray { test::id(2) });
         f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
+    }
+    void theHostHearsAtOnceWhenNoTerminalShows()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("system.ready") } }, 0);
+        const auto report = f.commands.values.last();
+        QCOMPARE(report.value(QStringLiteral("type")).toString(), QStringLiteral("session.visible"));
+        QCOMPARE(report.value(QStringLiteral("sessionIds")).toArray(), QJsonArray {});
+        QCOMPARE(report.value(QStringLiteral("watching")), QJsonValue(false));
     }
     void onlyALocalTerminalAtItsPromptOffersToStartAProgram()
     {

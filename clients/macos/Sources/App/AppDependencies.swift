@@ -31,10 +31,11 @@ final class AppDependencies {
     var roomIssues: [String: [RoomIssue]] = [:]
     var roomViews: [String: RoomViewState] = [:]
     var roomSeen: [String: UInt64] = [:]
-    var reportedVisible: [String]?
+    var reportedVisible: VisibleReport?
     var restoreAsked = false
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
+    var windowShown: () -> Bool = { MainWindowLocator.titledWindow()?.occlusionState.contains(.visible) == true }
     var freshTerminals: Set<String> = []
     var dosiTouches: [String: DosiTouch] = [:]
     var dosiTouched: Set<String> = []
@@ -265,10 +266,10 @@ final class AppDependencies {
             }
             makeRoom(for: id)
             workbench.showSession(id, inRoom: roomId)
-            reportVisible()
             if let roomId {
                 roomView(roomId).selectedTerminal = id
             }
+            reportVisible()
             guard current.kind == .remote else { return }
         } else {
             guard account.userId != nil else { return }
