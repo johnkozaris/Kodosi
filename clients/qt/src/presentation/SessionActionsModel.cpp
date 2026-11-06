@@ -100,8 +100,12 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
             session && !session->message.isEmpty() ? session->message : tr("This terminal is no longer available."));
         return false;
     }
-    if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6)
-        return m_desktop.stageSession(id, !inRoom);
+    if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6) {
+        const auto leaving = m_desktop.makingRoom(id);
+        if (leaving.isEmpty())
+            return m_desktop.stageSession(id, !inRoom);
+        minimize(leaving);
+    }
     if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id))
         return false;
     if (!m_desktop.stageSession(id, !inRoom))
@@ -226,7 +230,7 @@ bool SessionActionsModel::createQuick()
 {
     if (m_typeAhead.holding())
         return false;
-    if (m_desktop.stagedSessionIds().size() >= 6) {
+    if (m_desktop.stagedSessionIds().size() >= 6 && m_desktop.stageLayoutMode() != DesktopStateModel::Focus) {
         m_workspace.setError(tr("Six terminals are open. Minimize one to open another."));
         return false;
     }

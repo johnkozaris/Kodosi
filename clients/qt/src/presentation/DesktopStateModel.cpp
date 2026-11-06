@@ -16,6 +16,12 @@ DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObjec
     m_dosiOpen = m_dosiOn && m_settings->value(QStringLiteral("window/dosi"), false).toBool();
     m_listWidth = std::clamp(m_settings->value(QStringLiteral("window/sidebarWidth"), 252.0).toDouble(), 220.0, 380.0);
     m_dosiWidth = std::clamp(m_settings->value(QStringLiteral("window/dosiWidth"), 420.0).toDouble(), 340.0, 640.0);
+    connect(this, &DesktopStateModel::selectedSessionIdChanged, this, [this] {
+        if (m_selected.isEmpty())
+            return;
+        m_looked.removeAll(m_selected);
+        m_looked.append(m_selected);
+    });
 }
 DesktopStateModel::~DesktopStateModel()
 {
@@ -187,10 +193,25 @@ void DesktopStateModel::setCanvasWidth(qreal value)
     m_canvasWidth = value;
     emit canvasChanged();
 }
+QString DesktopStateModel::makingRoom(const QString& id) const
+{
+    if (m_mode != Focus || m_staged.contains(id) || m_staged.size() < 6)
+        return {};
+    for (const auto& staged : m_staged) {
+        if (staged != m_selected && !m_looked.contains(staged))
+            return staged;
+    }
+    for (const auto& looked : m_looked) {
+        if (looked != m_selected && m_staged.contains(looked))
+            return looked;
+    }
+    return {};
+}
 bool DesktopStateModel::unstageSession(const QString& id)
 {
     if (!m_staged.removeOne(id))
         return false;
+    m_looked.removeAll(id);
     m_canvasesLeftOpen.remove(id);
     if (m_canvas == id)
         endCanvas();

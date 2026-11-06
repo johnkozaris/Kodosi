@@ -254,7 +254,7 @@ final class AppDependencies {
     }
 
     func activateSession(_ id: String, inRoom roomId: String? = nil) {
-        guard workbench.stagedSessionIds.contains(id) || workbench.stagedSessionIds.count < WorkbenchState.maximumStagedSessions else {
+        guard stageHasRoom(for: id) else {
             errorMessage = String(localized: "Six terminals are open. Minimize one to open another.")
             return
         }
@@ -263,6 +263,7 @@ final class AppDependencies {
                 errorMessage = String(localized: "This terminal is not available. Check that its computer is on.")
                 return
             }
+            makeRoom(for: id)
             workbench.showSession(id, inRoom: roomId)
             reportVisible()
             if let roomId {
@@ -302,6 +303,7 @@ final class AppDependencies {
                 _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
                 guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
                 if shows, workbench.section == section, workbench.selectedMissionId == selectedRoom {
+                    makeRoom(for: id)
                     workbench.showSession(id, inRoom: roomId)
                 }
                 if let roomId {

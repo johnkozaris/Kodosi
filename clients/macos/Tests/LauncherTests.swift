@@ -200,6 +200,19 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(!app.typeAhead.isHolding)
 }
 
+@Test @MainActor func `a quick terminal starts in single view when the stage is full`() async throws {
+    let (app, sent) = try launcherApp("QuickFullAlone")
+    defer { app.shutdownProcess() }
+    app.workbench.stagedSessionIds = (0 ..< WorkbenchState.maximumStagedSessions).map { _ in UUIDv7.generate() }
+    app.workbench.focusedSessionId = app.workbench.stagedSessionIds[0]
+    app.openQuickTerminal()
+    for _ in 0 ..< 200 where !sent().contains(where: { $0["type"] == .string("session.create") }) {
+        await Task.yield()
+    }
+    #expect(sent().contains { $0["type"] == .string("session.create") })
+    #expect(app.errorMessage == nil)
+}
+
 @Test @MainActor func `a launcher for another computer asks that computer and starts there`() async throws {
     let (app, sent) = try launcherApp("LauncherComputer")
     defer { app.shutdownProcess() }
