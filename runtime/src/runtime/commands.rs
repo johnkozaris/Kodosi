@@ -56,10 +56,16 @@ impl Runtime {
                     return Err(Error::Busy);
                 }
                 consumers.insert(consumer, lifetime);
+                if !self.shown(id) {
+                    self.follow_view(id);
+                    self.result(command);
+                    return Ok(());
+                }
                 if let Err(error) = self.open_remote(id, command.clone()) {
                     self.release_view(id, consumer);
                     return Err(error);
                 }
+                self.follow_view(id);
                 Ok(())
             }
             Command::DocumentOpen { .. } => self.open_document(command, consumer, lifetime),
@@ -68,8 +74,17 @@ impl Runtime {
                 self.result(command);
                 Ok(())
             }
-            Command::Visible { session_ids, .. } => {
-                self.see(consumer, lifetime, session_ids.iter().cloned().collect());
+            Command::Visible {
+                session_ids,
+                watching,
+                ..
+            } => {
+                self.see(
+                    consumer,
+                    lifetime,
+                    session_ids.iter().cloned().collect(),
+                    *watching,
+                );
                 self.result(command);
                 Ok(())
             }
@@ -96,6 +111,7 @@ impl Runtime {
         for id in expired {
             self.disconnect_remote(id);
         }
+        self.follow_views();
     }
 
     #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
@@ -1088,7 +1104,7 @@ impl Runtime {
                 commands: vec![command],
             },
         );
-        let recovering = self.recovering(id);
+        let keeps_screen = self.keeps_screen(id);
         if let Some(entry) = self.remotes.get_mut(&id) {
             if let Ok(incarnation) = Uuid::parse_str(&entry.incarnation_id)
                 && self.views.contains_key(&id)
@@ -1101,7 +1117,7 @@ impl Runtime {
                     failure: crate::diagnostics::Repeats::new(),
                 });
             }
-            if !recovering {
+            if !keeps_screen {
                 entry.connection_state = ConnectionState::Connecting;
             }
             entry.message.take_if(|message| message != INPUT_NOT_SENT);
@@ -1174,6 +1190,7 @@ impl Runtime {
     fn disconnect_remote(&mut self, id: Uuid) {
         self.views.remove(&id);
         self.reconnect.remove(&id);
+        self.paused.remove(&id);
         if let Some(opening) = self.opening.remove(&id) {
             opening.cancellation.cancel();
         }
@@ -1716,6 +1733,10 @@ impl Runtime {
                     self.connections
                         .insert(id, RemoteTerminal::spawn(connection, self.changes.clone()));
                 }
+                self.paused.remove(&id);
+                if let Some(connection) = self.connections.get(&id) {
+                    connection.show(self.shown(id));
+                }
                 self.remotes.insert(id, entry);
                 self.publish_catalog();
                 for command in opening.commands {
@@ -1731,6 +1752,9 @@ impl Runtime {
     }
 
     fn connection_failed(&mut self, id: Uuid, commands: Vec<Command>, error: Error) {
+        if self.shown(id) {
+            self.paused.remove(&id);
+        }
         if self
             .reconnect
             .get_mut(&id)

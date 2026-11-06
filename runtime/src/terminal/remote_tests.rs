@@ -996,3 +996,49 @@ async fn a_picture_pasted_again_while_it_travels_goes_once_and_the_next_picture_
     );
     terminal.disconnect();
 }
+
+#[tokio::test]
+async fn a_hidden_terminal_pauses_keeps_its_view_and_sends_what_was_typed_when_it_resumes() {
+    let (terminal, mut view, _requests, _updates, mut changes) = start().await;
+    terminal.show(false);
+    let change = tokio::time::timeout(Duration::from_secs(1), changes.recv())
+        .await
+        .expect("pause timeout")
+        .expect("pause");
+    assert!(
+        matches!(change, SessionChange::RemotePaused { instance_id, .. } if instance_id == terminal.instance_id)
+    );
+    assert!(terminal.is_interrupted() && !terminal.is_closed());
+    assert!(view.control.try_recv().is_err());
+    terminal.show(true);
+    terminal
+        .input(
+            view.connection_id,
+            Bytes::from_static(b"typed while it resumes"),
+        )
+        .expect("input waits");
+    let (connection, mut requests, updates) = test_remote_connection(RemoteSession {
+        incarnation_id: terminal.incarnation_id,
+        ..session()
+    });
+    assert!(terminal.resume(connection));
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"after the pause"),
+            next_sequence: 9,
+        })
+        .await
+        .expect("new cut");
+    assert!(matches!(
+        view.control.recv().await,
+        Some(ControlFrame::Snapshot {
+            next_sequence: 9,
+            ..
+        })
+    ));
+    assert!(matches!(
+        next_request(&mut requests).await,
+        TestRemoteRequest::Control { .. }
+    ));
+    terminal.disconnect();
+}

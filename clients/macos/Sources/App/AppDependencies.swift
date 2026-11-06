@@ -31,10 +31,11 @@ final class AppDependencies {
     var roomIssues: [String: [RoomIssue]] = [:]
     var roomViews: [String: RoomViewState] = [:]
     var roomSeen: [String: UInt64] = [:]
-    var reportedVisible: [String]?
+    var reportedVisible: VisibleReport?
     var restoreAsked = false
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
+    var windowShown: () -> Bool = { MainWindowLocator.mainWindow()?.occlusionState.contains(.visible) == true }
     var freshTerminals: Set<String> = []
     var dosiTouches: [String: DosiTouch] = [:]
     var dosiTouched: Set<String> = []

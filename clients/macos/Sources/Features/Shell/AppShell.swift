@@ -65,8 +65,7 @@ struct AppShell: View {
         }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
-        .onChange(of: workbench.selectedSessionId) { _, _ in deps.reportVisible() }
-        .onChange(of: workbench.section) { _, _ in deps.reportVisible() }
+        .onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
         .onChange(of: terminalsInteractive, initial: true) { _, open in workbench.stageTakesKeys = open }
     }
 

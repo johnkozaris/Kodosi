@@ -512,11 +512,15 @@ QStringList DesktopStateModel::follow()
 }
 void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overrideSize)
 {
-    if (m_window)
+    if (m_window) {
         m_window->removeEventFilter(this);
+        disconnect(m_window, &QWindow::activeChanged, this, &DesktopStateModel::watchingChanged);
+    }
     m_window = window;
+    emit watchingChanged();
     if (!window)
         return;
+    connect(window, &QWindow::activeChanged, this, &DesktopStateModel::watchingChanged);
     const auto* screen = window->screen() ? window->screen() : QGuiApplication::primaryScreen();
     const QRect available = screen ? screen->availableGeometry() : QRect(0, 0, 1280, 820);
     window->setMinimumSize(QSize(std::min(820, available.width()), std::min(560, available.height())));
@@ -534,6 +538,10 @@ void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overr
     window->installEventFilter(this);
     if (!overrideSize && m_settings->value(QStringLiteral("window/maximized"), false).toBool())
         window->setWindowState(Qt::WindowMaximized);
+}
+bool DesktopStateModel::watching() const
+{
+    return m_window && m_window->isActive();
 }
 void DesktopStateModel::saveWindow()
 {

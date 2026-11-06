@@ -15,7 +15,7 @@ final class TerminalStore {
         didSet {
             guard watchingSessionId != oldValue else { return }
             let visible = watchingSessionId.map { [JSONValue.string($0)] } ?? []
-            commands.perform("session.visible", ["sessionIds": .array(visible)])
+            commands.perform("session.visible", ["sessionIds": .array(visible), "watching": .bool(watchingSessionId != nil)])
         }
     }
 

@@ -50,6 +50,13 @@ bounded buffering; a view on another device gets them over its own end-to-end en
 channel through the backend. The host does not replay input whose delivery is uncertain,
 and a stale view cannot control a replacement terminal.
 
+Each app tells its host which terminals are on its screen and whether the person is in
+the app; the second part decides only alerts. The host keeps the channel of a terminal on
+another computer open while a client shows it, or while a client that sends no such
+report, such as the `kodosi` command, has it open. The channel of a hidden terminal closes
+when nothing is in flight. Its views keep their screen, input and canvas requests wait,
+and the next channel resumes them with a new checkpoint, without the reconnecting state.
+
 A pasted picture travels as a file. The app gives its host the picture, and a view of a
 terminal on another computer sends it on its channel, only when that host does not have it
 yet. Twice the bytes that the link carries in its shortest round trip are in transit, so

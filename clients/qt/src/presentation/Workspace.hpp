@@ -69,7 +69,7 @@ private:
     SessionCatalogModel& m_sessions;
     DesktopStateModel& m_desktop;
     QHash<QString, Pending> m_pending;
-    std::optional<QStringList> m_reportedVisible;
+    std::optional<std::pair<QStringList, bool>> m_reportedVisible;
     bool m_hostReady = false;
     bool m_restoreAsked = false;
     QString m_error;

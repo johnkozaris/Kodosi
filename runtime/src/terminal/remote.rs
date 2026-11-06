@@ -45,6 +45,7 @@ pub(crate) struct RemoteTerminal {
     cancellation: CancellationToken,
     input_budget: Arc<Semaphore>,
     interrupted: Arc<AtomicBool>,
+    hidden: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
 }
@@ -92,16 +93,19 @@ impl RemoteTerminal {
         let cancellation = CancellationToken::new();
         let input_budget = Arc::new(Semaphore::new(INPUT_BUDGET));
         let interrupted = Arc::new(AtomicBool::new(false));
+        let hidden = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
             input_budget,
             interrupted: Arc::clone(&interrupted),
+            hidden: Arc::clone(&hidden),
             incarnation_id,
             instance_id,
         };
         let mut actor = RemoteActor::new(connection, receiver, cancellation, changes, instance_id);
         actor.interrupted = interrupted;
+        actor.hidden = hidden;
         tokio::spawn(actor.run());
         terminal
     }
@@ -112,6 +116,12 @@ impl RemoteTerminal {
 
     pub(crate) fn is_interrupted(&self) -> bool {
         self.interrupted.load(Ordering::Acquire)
+    }
+
+    /// A hidden terminal closes its connection once nothing is in flight and keeps its screen
+    /// until a new connection resumes it.
+    pub(crate) fn show(&self, shown: bool) {
+        self.hidden.store(!shown, Ordering::Release);
     }
 
     pub(crate) fn resume(&self, connection: RemoteConnection) -> bool {
@@ -399,6 +409,13 @@ impl From<Result<()>> for Step {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Link {
+    Open,
+    Lost,
+    Paused,
+}
+
 struct RemoteActor {
     connection: RemoteConnection,
     controls: RemoteControl,
@@ -419,6 +436,9 @@ struct RemoteActor {
     future_checkpoint: Option<CheckpointCut>,
     resyncing: bool,
     interrupted: Arc<AtomicBool>,
+    hidden: Arc<AtomicBool>,
+    link: Link,
+    held: VecDeque<Request>,
     queued: VecDeque<QueuedControl>,
     in_flight: Option<InFlight>,
     focused: HashSet<Uuid>,
@@ -459,6 +479,9 @@ impl RemoteActor {
             future_checkpoint: None,
             resyncing: false,
             interrupted: Arc::new(AtomicBool::new(false)),
+            hidden: Arc::new(AtomicBool::new(false)),
+            link: Link::Open,
+            held: VecDeque::new(),
             queued: VecDeque::new(),
             in_flight: None,
             focused: HashSet::new(),
@@ -486,7 +509,7 @@ impl RemoteActor {
         if self.subscribers.is_empty() {
             return Some(reason);
         }
-        self.interrupted.store(true, Ordering::Release);
+        self.set_link(Link::Lost);
         self.connection.disconnect();
         let refuse = || Error::Other(reason.clone());
         for reply in self
@@ -531,18 +554,90 @@ impl RemoteActor {
 
     fn resume(&mut self, connection: RemoteConnection) {
         if connection.session.incarnation_id != self.connection.session.incarnation_id
-            || !self.interrupted.load(Ordering::Acquire)
+            || self.link == Link::Open
         {
             connection.disconnect();
             return;
         }
         self.controls = connection.control_handle();
         self.connection = connection;
-        self.interrupted.store(false, Ordering::Release);
+        self.set_link(Link::Open);
+    }
+
+    fn hold(&mut self, request: Request) {
+        if self.held.len() < CONTROL_CAPACITY {
+            self.held.push_back(request);
+            return;
+        }
+        match request {
+            Request::Canvas { reply, .. } => drop(reply.send(Err(Error::Busy))),
+            Request::Document { reply, .. } => drop(reply.send(Err(Error::Busy))),
+            _ => {}
+        }
+    }
+
+    fn forward(&self, request: Request) {
+        match request {
+            Request::Canvas { request, reply } => {
+                let controls = self.controls.clone();
+                tokio::spawn(async move {
+                    let answer = controls
+                        .send_control(TerminalControl::Canvas { request })
+                        .await;
+                    drop(reply.send(answer.map_err(Error::from)));
+                });
+            }
+            Request::Document {
+                pipe,
+                key,
+                name,
+                reply,
+            } => drop(
+                reply.send(
+                    self.controls
+                        .open_pipe(pipe, key, name)
+                        .map_err(Error::from),
+                ),
+            ),
+            _ => {}
+        }
+    }
+
+    fn set_link(&mut self, link: Link) {
+        self.link = link;
+        self.interrupted
+            .store(link != Link::Open, Ordering::Release);
+    }
+
+    fn idle(&self) -> bool {
+        self.in_flight.is_none()
+            && self.queued.is_empty()
+            && self.pictures.is_empty()
+            && self.sending.is_none()
+            && self.pending.is_empty()
+            && self.held.is_empty()
+    }
+
+    async fn pause(&mut self) {
+        self.set_link(Link::Paused);
+        self.connection.disconnect();
+        self.reset();
+        self.capture_requested = false;
+        self.confirmed_focus = false;
+        self.resize_owner = None;
+        drop(
+            self.changes
+                .send(SessionChange::RemotePaused {
+                    id: self.connection.session.id,
+                    incarnation: self.connection.session.incarnation_id,
+                    instance_id: self.instance_id,
+                })
+                .await,
+        );
     }
 
     async fn request_capture(&mut self) -> Result<()> {
-        if self.interrupted.load(Ordering::Acquire) {
+        if self.link != Link::Open {
             return Ok(());
         }
         if !self.capture_requested
@@ -1214,8 +1309,15 @@ impl RemoteActor {
     }
 
     async fn step(&mut self, tick: &mut tokio::time::Interval) -> Step {
-        let interrupted = self.interrupted.load(Ordering::Acquire);
+        let interrupted = self.link != Link::Open;
+        if !interrupted && self.hidden.load(Ordering::Acquire) && self.idle() {
+            self.pause().await;
+            return Step::Next;
+        }
         if !interrupted {
+            for request in std::mem::take(&mut self.held) {
+                self.forward(request);
+            }
             self.next_control();
             self.next_picture().await;
         }
@@ -1238,31 +1340,27 @@ impl RemoteActor {
                 Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
                 Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
                 Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
-                Some(Request::Control(queued)) if interrupted => {
+                Some(Request::Control(queued)) if self.link == Link::Lost => {
                     if let Some(reply) = queued.reply {
                         drop(reply.send(Err(Error::Other("The remote terminal is connecting again, so Kodosi did not send the operation.".to_owned()))));
                     }
                     Ok(())
                 }
                 Some(Request::Control(queued)) => self.queue(queued),
-                Some(Request::Canvas { reply, .. }) if interrupted => {
-                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
+                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.link == Link::Paused => {
+                    self.hold(request);
                     Ok(())
                 }
-                Some(Request::Canvas { request, reply }) => {
-                    let controls = self.controls.clone();
-                    tokio::spawn(async move {
-                        let answer = controls.send_control(TerminalControl::Canvas { request }).await;
-                        drop(reply.send(answer.map_err(Error::from)));
-                    });
+                Some(Request::Canvas { reply, .. }) if interrupted => {
+                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
                     Ok(())
                 }
                 Some(Request::Document { reply, .. }) if interrupted => {
                     drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
                     Ok(())
                 }
-                Some(Request::Document { pipe, key, name, reply }) => {
-                    drop(reply.send(self.controls.open_pipe(pipe, key, name).map_err(Error::from)));
+                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) => {
+                    self.forward(request);
                     Ok(())
                 }
                 Some(Request::Picture { picture, reply }) => {
@@ -1297,7 +1395,7 @@ impl RemoteActor {
                     break "The host stopped this terminal.".to_owned();
                 }
             }
-            if self.interrupted.load(Ordering::Acquire) && self.subscribers.is_empty() {
+            if self.link == Link::Lost && self.subscribers.is_empty() {
                 break "Disconnected from the remote terminal.".to_owned();
             }
         };
@@ -1320,6 +1418,17 @@ impl RemoteActor {
         }
         for reply in self.in_flight.into_iter().flat_map(|active| active.replies) {
             drop(reply.send(Err(Error::Other(reason.clone()))));
+        }
+        for request in self.held {
+            match request {
+                Request::Canvas { reply, .. } => {
+                    drop(reply.send(Err(Error::Other(reason.clone()))));
+                }
+                Request::Document { reply, .. } => {
+                    drop(reply.send(Err(Error::Other(reason.clone()))));
+                }
+                _ => {}
+            }
         }
         if ended {
             drop(

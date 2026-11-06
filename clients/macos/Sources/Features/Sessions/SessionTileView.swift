@@ -17,8 +17,6 @@ struct SessionTileView: View {
 
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Environment(\.terminalTileVisible) private var tileVisible
-    @Environment(\.terminalStageVisible) private var stageVisible
     @Environment(\.terminalAlone) private var alone
     @Environment(\.terminalJoined) private var joinsCanvas
     @Environment(\.tileRadius) private var radius
@@ -109,9 +107,6 @@ struct SessionTileView: View {
                 born = true
                 veil = 0
             }
-        }
-        .onChange(of: tileVisible && stageVisible, initial: true) { _, _ in
-            deps.reportVisible()
         }
         .onChange(of: viewers.map(\.id)) { old, new in
             guard let added = new.first(where: { !old.contains($0) }), let person = viewers.first(where: { $0.id == added }) else { return }
@@ -241,7 +236,6 @@ struct SessionTileView: View {
 
     private func select() {
         deps.workbench.selectSession(session.id)
-        deps.reportVisible()
     }
 
     private func askToClose() {
