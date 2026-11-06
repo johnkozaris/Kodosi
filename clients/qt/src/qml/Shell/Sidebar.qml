@@ -61,6 +61,17 @@ Item {
     property string renamingId: ""
     property Item pillTarget: null
     property var collapsedFolders: ({})
+    property var collapsedComputers: ({})
+
+    function computerSessions(computer) {
+        return root.groups.filter(group => !group.pinned && group.computer === computer)
+            .reduce((all, group) => all.concat(group.sessions || []), [])
+    }
+    function toggled(folds, key) {
+        const next = Object.assign({}, folds)
+        next[key] = next[key] !== true
+        return next
+    }
 
     signal newTerminalRequested
     signal detailsRequested(string sessionId)
@@ -167,6 +178,37 @@ Item {
             ToolTip.text: header.addName
             ToolTip.delay: Tip.delay
             onClicked: header.addClicked()
+        }
+    }
+
+    component FoldTriangle: RowLayout {
+        id: fold
+
+        property bool folded: false
+        property var sessions: []
+
+        spacing: 5
+
+        KIcon {
+            Layout.preferredWidth: 8
+            Layout.preferredHeight: 8
+            name: "disclosure"
+            filled: true
+            strokeWidth: 1.4
+            color: KodosiTheme.inkFaint
+            rotation: fold.folded ? 0 : 90
+
+            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+        }
+        RollingText {
+            visible: fold.folded
+            text: String(fold.sessions.length)
+            color: KodosiTheme.inkFaint
+            font.pixelSize: KodosiTheme.fontCaption
+        }
+        StatusSign {
+            size: 11
+            session: fold.folded ? fold.sessions.find(entry => entry.asks) || null : null
         }
     }
 
@@ -477,6 +519,22 @@ Item {
             Item { Layout.fillWidth: true }
             DosiNewChat {
                 visible: root.dosi && !Models.Dosi.empty
+            }
+            KIconButton {
+                readonly property bool single: Models.DesktopState.stageLayoutMode === Models.DesktopState.Focus
+
+                glyph: single ? "grid" : "single"
+                enabled: Models.DesktopState.stagedSessionIds.length > 0
+                objectName: "sidebar.layout"
+                Accessible.id: objectName
+                Accessible.name: single ? qsTr("Grid view") : qsTr("Single view")
+                ToolTip.visible: hovered
+                ToolTip.text: Accessible.name
+                ToolTip.delay: Tip.delay
+                onClicked: {
+                    Models.DesktopState.activeView = Models.DesktopState.Sessions
+                    Models.DesktopState.toggleFocusForSelectedSession()
+                }
             }
             KIconButton {
                 glyph: "search"
@@ -812,21 +870,30 @@ Item {
                         required property int index
                         readonly property var group: root.groups[index] || ({})
                         readonly property bool folded: group.folder === true && root.collapsedFolders[group.key] === true
+                        readonly property bool computerFolded: root.titled && !group.pinned && root.collapsedComputers[group.computer] === true
 
                         width: content.width
                         spacing: 2
                         onYChanged: Qt.callLater(root.syncPill)
 
-                        Item {
+                        AbstractButton {
+                            id: computerHeader
+
+                            readonly property var sessions: folder.computerFolded ? root.computerSessions(folder.group.computer) : []
+
                             width: parent.width
                             height: 30
+                            padding: 0
                             visible: root.titled && folder.group.computerStart === true && !folder.group.pinned
+                            hoverEnabled: true
                             objectName: "sidebar.computer." + (folder.group.computer || "")
                             Accessible.id: objectName
-                            Accessible.role: Accessible.Heading
                             Accessible.name: folder.group.computerOffline === true
                                 ? qsTr("%1 is offline").arg(folder.group.computerTitle || "") : folder.group.computerTitle || ""
+                            Accessible.description: folder.computerFolded ? qsTr("Collapsed") : qsTr("Expanded")
+                            onClicked: root.collapsedComputers = root.toggled(root.collapsedComputers, folder.group.computer)
 
+                            contentItem: Item {}
                             RowLayout {
                                 anchors.left: parent.left
                                 anchors.leftMargin: 10
@@ -850,8 +917,9 @@ Item {
                                 }
                                 PlainLabel {
                                     Layout.fillWidth: true
+                                    Layout.maximumWidth: Math.ceil(implicitWidth)
                                     text: folder.group.computerTitle || ""
-                                    color: KodosiTheme.inkFaint
+                                    color: computerHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
@@ -863,13 +931,18 @@ Item {
                                     name: "offline"
                                     color: KodosiTheme.inkFaint
                                 }
+                                FoldTriangle {
+                                    folded: folder.computerFolded
+                                    sessions: computerHeader.sessions
+                                }
+                                Item { Layout.fillWidth: true }
                             }
                         }
                         AbstractButton {
                             id: folderHeader
                             width: parent.width
                             height: 24
-                            visible: folder.group.folder === true
+                            visible: folder.group.folder === true && !folder.computerFolded
                             hoverEnabled: true
                             objectName: "sidebar.folder." + folder.group.key
                             Accessible.id: objectName
@@ -878,15 +951,6 @@ Item {
                                 spacing: 6
                                 KIcon {
                                     Layout.leftMargin: 10
-                                    Layout.preferredWidth: 9
-                                    Layout.preferredHeight: 9
-                                    name: "chevron-down"
-                                    strokeWidth: 2.6
-                                    color: KodosiTheme.inkFaint
-                                    rotation: folder.folded ? -90 : 0
-                                    Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-                                }
-                                KIcon {
                                     Layout.preferredWidth: 12
                                     Layout.preferredHeight: 12
                                     name: folder.group.pinned ? "pin" : "folder"
@@ -895,25 +959,19 @@ Item {
                                 PlainLabel {
                                     id: folderLabel
                                     Layout.fillWidth: true
-                                    Layout.minimumWidth: Math.min(implicitWidth, 120)
+                                    Layout.maximumWidth: Math.ceil(implicitWidth)
+                                    Layout.minimumWidth: Math.min(implicitWidth, 40)
                                     text: folder.group.name || ""
                                     color: folderHeader.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
                                     font.pixelSize: KodosiTheme.fontCaption
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
                                 }
-                                RollingText {
-                                    visible: folder.folded
-                                    text: String((folder.group.sessions || []).length)
-                                    color: KodosiTheme.inkFaint
-                                    font.pixelSize: KodosiTheme.fontCaption
+                                FoldTriangle {
+                                    folded: folder.folded
+                                    sessions: folder.group.sessions || []
                                 }
-                                StatusSign {
-                                    size: 11
-                                    session: folder.folded
-                                        ? (folder.group.sessions || []).find(entry => entry.asks) || null
-                                        : null
-                                }
+                                Item { Layout.fillWidth: true }
                                 KIconButton {
                                     id: branchButton
                                     size: 20
@@ -952,14 +1010,10 @@ Item {
                                 }
                             }
                             HoverHandler { id: folderHover }
-                            onClicked: {
-                                const next = Object.assign({}, root.collapsedFolders)
-                                next[folder.group.key] = !folder.folded
-                                root.collapsedFolders = next
-                            }
+                            onClicked: root.collapsedFolders = root.toggled(root.collapsedFolders, folder.group.key)
                         }
                         Repeater {
-                            model: folder.folded ? 0 : (folder.group.sessions || []).length
+                            model: folder.folded || folder.computerFolded ? 0 : (folder.group.sessions || []).length
 
                             AbstractButton {
                                 id: row

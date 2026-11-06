@@ -33,6 +33,7 @@ struct SessionTileView: View {
     @State private var veil = 0.0
     @State private var joined: AvatarStack.Person?
     @State private var joinCount = 0
+    @State private var renaming = false
 
     private var isSelected: Bool {
         deps.workbench.selectedSessionId == session.id
@@ -48,7 +49,7 @@ struct SessionTileView: View {
             SessionTileHeader(
                 session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
                 showsActions: hovered || lit && !joinsCanvas, viewers: viewers, isClosing: isClosing,
-                close: askToClose,
+                renaming: $renaming, select: select, close: askToClose,
             )
             .background {
                 if !joinsCanvas {
@@ -157,7 +158,7 @@ struct SessionTileView: View {
             ZStack {
                 TerminalSurfaceWrapper(
                     renderer: managed.renderer, sessionId: session.id, sessionName: session.name, token: managed.token,
-                    isFocused: isSelected && state == .rendered,
+                    isFocused: isSelected && state == .rendered && !renaming,
                     allowsInput: session.canControl && state == .rendered,
                     asksBeforeClipboardRead: !session.isOwner,
                     otherComputer: session.otherComputer,

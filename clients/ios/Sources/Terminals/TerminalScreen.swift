@@ -103,7 +103,11 @@ private struct TerminalScreenContent: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                if let session {
+                if let session, session.isOwner {
+                    TerminalTitle(session: session)
+                        .onTapGesture { prompt = .rename(session) }
+                        .accessibilityAction(named: Text("Rename")) { prompt = .rename(session) }
+                } else if let session {
                     TerminalTitle(session: session)
                 }
             }

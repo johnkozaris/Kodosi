@@ -19,6 +19,7 @@ struct SidebarView: View {
     @State private var frames = FoldFrames()
     @State private var pointer = SidebarPointer()
     @State private var collapsedFolders: Set<String> = []
+    @State private var collapsedComputers: Set<String> = []
 
     private var selection: SidebarSelection {
         let workbench = deps.workbench
@@ -92,6 +93,13 @@ struct SidebarView: View {
                 if deps.workbench.dosiOpen, !deps.dosi.items.isEmpty {
                     DosiNewChatButton().transition(Self.back(theme))
                 }
+                let single = deps.workbench.focusedSessionId != nil
+                IconButton(title: single ? "Grid view" : "Single view", symbol: single ? "square.grid.2x2" : "square",
+                           identifier: "sidebar.layout")
+                {
+                    deps.workbench.toggleSingleView()
+                }
+                .disabled(deps.workbench.stagedSessionIds.isEmpty)
                 IconButton(title: "Go to…", symbol: "magnifyingglass", identifier: "sidebar.palette") {
                     deps.workbench.showsPalette = true
                 }
@@ -189,11 +197,23 @@ struct SidebarView: View {
             let computers = SessionComputerGroup.groups(listed.filter { !deps.workbench.isPinned($0.id) })
             let titled = computers.contains { $0.computer != nil }
             ForEach(computers) { computer in
+                let collapsed = titled && collapsedComputers.contains(computer.id)
                 if titled {
-                    SidebarComputerHeader(group: computer)
+                    SidebarComputerHeader(group: computer, collapsed: collapsed) {
+                        withAnimation(theme.motion.spring) {
+                            collapsedComputers.formSymmetricDifference([computer.id])
+                        }
+                    }
+                    .background(alignment: .leading) {
+                        if collapsed {
+                            foldMarks(computer.folders.flatMap(\.sessions))
+                        }
+                    }
                 }
-                ForEach(computer.folders) { group in
-                    folder(group)
+                if !collapsed {
+                    ForEach(computer.folders) { group in
+                        folder(group)
+                    }
                 }
             }
         }
@@ -214,12 +234,7 @@ struct SidebarView: View {
             }
             .background(alignment: .leading) {
                 if collapsed {
-                    ZStack {
-                        ForEach(group.sessions) { session in
-                            Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
-                        }
-                    }
-                    .padding(.leading, 4)
+                    foldMarks(group.sessions)
                 }
             }
         }
@@ -229,6 +244,15 @@ struct SidebarView: View {
                     .transition(AnyTransition.rise)
             }
         }
+    }
+
+    private func foldMarks(_ sessions: [RuntimeSession]) -> some View {
+        ZStack {
+            ForEach(sessions) { session in
+                Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
+            }
+        }
+        .padding(.leading, 4)
     }
 
     private var footer: some View {

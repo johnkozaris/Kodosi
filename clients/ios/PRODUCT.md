@@ -24,7 +24,7 @@ computer.
   the header hides while you type. A hardware keyboard types into the terminal, without
   the composer.
 - A tap on a link opens it by the shared link rules, except in a program that uses the
-  mouse.
+  mouse. A tap on the name of your own terminal in its bar renames it.
 - The canvas key in a terminal's bar opens the canvas full screen with the keys of its
   parts in the bar. A long press on a key closes its part, and the plus key opens a
   closed part or the browser, or adds a file. The files are tabs over the file, or all as

@@ -249,6 +249,25 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.makingRoom(for: ids[0]) == ids[2])
 }
 
+@Test @MainActor func `the layout key shows the selected terminal alone and then the grid again`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageLayout"))
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.toggleSingleView()
+    #expect(workbench.focusedSessionId == nil)
+    let ids = (0 ..< 3).map { _ in UUIDv7.generate() }
+    for id in ids {
+        workbench.showSession(id)
+    }
+    workbench.selectSession(ids[1])
+    workbench.section = .settings
+    workbench.toggleSingleView()
+    #expect(workbench.section == .sessions)
+    #expect(workbench.focusedSessionId == ids[1])
+    workbench.toggleSingleView()
+    #expect(workbench.focusedSessionId == nil)
+    #expect(workbench.selectedSessionId == ids[1])
+}
+
 @Test @MainActor func `a pin stays with its account and follows the terminal when its host starts it again`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StagePins"))
     let local = try runtimeSession(kind: "local", connection: "local")
