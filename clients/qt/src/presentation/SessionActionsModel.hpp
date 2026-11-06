@@ -78,7 +78,7 @@ private:
     void completeCreation(const QString& sessionId, const QString& roomId);
     bool activateSession(const QString& sessionId, bool inRoom);
     bool opening(const QString& sessionId) const;
-    bool openRemote(const QString& sessionId);
+    bool openRemote(const QString& sessionId, bool quiet = false);
     void dropRemote(const QString& sessionId);
 
     bool createInternal(const QString& name, const QString& directory,

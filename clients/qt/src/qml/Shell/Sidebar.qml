@@ -398,6 +398,7 @@ Item {
         DosiIsland {
             Layout.alignment: Qt.AlignHCenter
             visible: Models.DesktopState.dosiOn
+            onSettingsRequested: root.dosiSettingsRequested()
         }
         Column {
             Layout.alignment: Qt.AlignHCenter
@@ -1247,6 +1248,7 @@ Item {
         }
         DosiRow {
             Layout.fillWidth: true
+            onSettingsRequested: root.dosiSettingsRequested()
             Layout.leftMargin: 8
             Layout.rightMargin: 8
             Layout.topMargin: 6

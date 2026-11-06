@@ -67,6 +67,21 @@ QJsonObject accountEvent(const QString& userId, int epoch)
         event.insert(QStringLiteral("userId"), userId);
     return event;
 }
+QJsonObject lastOpen(const Commands& commands)
+{
+    for (auto command = commands.values.crbegin(); command != commands.values.crend(); ++command) {
+        if (command->value(QStringLiteral("type")).toString() == QStringLiteral("session.openRemote"))
+            return *command;
+    }
+    return {};
+}
+QJsonObject openFailure(const QJsonObject& open)
+{
+    return { { QStringLiteral("type"), QStringLiteral("session.error") },
+        { QStringLiteral("operation"), QStringLiteral("session.openRemote") },
+        { QStringLiteral("requestId"), open.value(QStringLiteral("requestId")) },
+        { QStringLiteral("message"), QStringLiteral("Kodosi could not reach the terminal connection service.") } };
+}
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
@@ -1087,6 +1102,30 @@ private slots:
         const auto command = restarted.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
         QCOMPARE(command.value(QStringLiteral("sessionId")).toString(), test::id(4));
+    }
+    void anOpenOfAListedTerminalFailsWithoutAnErrorAndOnlyALinkToAnUnknownTerminalShowsOne()
+    {
+        QTemporaryDir dir;
+        const auto remote = test::snapshot({ test::session(4, true, false) });
+        {
+            Fixture first(dir.path());
+            first.workspace.apply(accountEvent(test::id(50), 1), 1);
+            first.workspace.apply(remote, 1);
+            QVERIFY(first.workspace.sessionActions().activate(test::id(4)));
+        }
+        Fixture restarted(dir.path());
+        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
+        restarted.workspace.apply(remote, 1);
+        restarted.workspace.apply(openFailure(lastOpen(restarted.commands)), 1);
+        QVERIFY(restarted.workspace.error().isEmpty());
+        QVERIFY(restarted.workspace.sessionActions().activate(test::id(4)));
+        restarted.workspace.apply(openFailure(lastOpen(restarted.commands)), 1);
+        QVERIFY(restarted.workspace.error().isEmpty());
+        QVERIFY(restarted.workspace.sessionActions().activate(test::id(9)));
+        const auto link = lastOpen(restarted.commands);
+        QCOMPARE(link.value(QStringLiteral("sessionId")).toString(), test::id(9));
+        restarted.workspace.apply(openFailure(link), 1);
+        QCOMPARE(restarted.workspace.error(), QStringLiteral("Kodosi could not reach the terminal connection service."));
     }
     void aTerminalThatAnotherComputerStartedAgainTakesThePlaceAndFocusOfTheOneThatEnded()
     {

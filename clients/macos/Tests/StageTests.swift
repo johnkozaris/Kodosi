@@ -268,6 +268,28 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.selectedSessionId == ids[1])
 }
 
+@Test @MainActor func `closing or minimizing the terminal of single view shows the next terminal alone`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSingleClose"))
+    let ids = (0 ..< 3).map { "01992e43-53db-7040-8e02-f6ebf4149bc\($0)" }
+    let sessions = try ids.map { try onMini($0) }
+    let workbench = WorkbenchState(defaults: defaults)
+    workbench.switchAccount("ana")
+    _ = workbench.reconcile(sessions)
+    for session in sessions {
+        workbench.showSession(session.id)
+    }
+    workbench.toggleFocus(ids[1])
+    workbench.noteClosing(ids[1])
+    _ = workbench.reconcile([sessions[0], sessions[2]])
+    #expect(workbench.focusedSessionId == ids[0])
+    #expect(workbench.selectedSessionId == ids[0])
+    workbench.dismissSession(ids[0])
+    #expect(workbench.focusedSessionId == ids[2])
+    workbench.dismissSession(ids[2])
+    #expect(workbench.focusedSessionId == nil)
+    #expect(workbench.selectedSessionId == nil)
+}
+
 @Test @MainActor func `a pin stays with its account and follows the terminal when its host starts it again`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StagePins"))
     let local = try runtimeSession(kind: "local", connection: "local")

@@ -204,7 +204,7 @@ async fn open(
     credentials: &Credentials,
     dto: &SessionDto,
 ) -> Result<(Channel<Pipe>, Vec<u8>)> {
-    let pipe = network.inner.link.open(dto.id, dto.incarnation_id)?;
+    let pipe = network.inner.link.open(dto.id, dto.incarnation_id).await?;
     let host_key = |owner: &crate::identity::pins::VerifiedIdentity| {
         owner
             .devices

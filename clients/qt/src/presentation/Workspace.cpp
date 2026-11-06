@@ -72,7 +72,7 @@ void Workspace::askRestore()
 }
 
 bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject values,
-    QString sessionId, QString missionId)
+    QString sessionId, QString missionId, bool quiet)
 {
     if (m_pending.size() >= 32) {
         setError(tr("Wait for the current operations to finish."));
@@ -87,7 +87,7 @@ bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject valu
         return false;
     }
     m_pending.insert(id,
-        { domain, std::move(type), std::move(sessionId), std::move(missionId), m_missions.presentation() });
+        { domain, std::move(type), std::move(sessionId), std::move(missionId), m_missions.presentation(), quiet });
     notifyBusy();
     clearError();
     return true;
@@ -413,9 +413,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         return;
     }
 
+    auto quiet = false;
     const auto pendingIt = m_pending.constFind(id);
     if (pendingIt != m_pending.cend()) {
         const auto pending = pendingIt.value();
+        quiet = pending.quiet;
         if (pending.operation == QStringLiteral("session.openRemote")
             && m_sessionActions.m_activeLink
             && m_sessionActions.m_activeLink->sessionId == pending.sessionId) {
@@ -436,6 +438,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("auth.deleteAccount"))
             m_account.endDeletion();
     }
+    if (quiet)
+        return;
     setError(event.value(QStringLiteral("message")).toString());
     if (type == QStringLiteral("session.error")
         && event.value(QStringLiteral("operation")).toString()
