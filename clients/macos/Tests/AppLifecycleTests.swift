@@ -152,6 +152,42 @@ import Testing
     app.shutdownProcess()
 }
 
+@Test @MainActor func `a remote terminal that is not on the stage when it opens is disconnected`() async throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "OpenedOffStage"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(command)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
+    app.activateSession(id)
+    for _ in 0 ..< 100 where !sent.contains(where: { $0["type"] == .string("session.openRemote") }) {
+        await Task.yield()
+    }
+    let open = try #require(sent.first { $0["type"] == .string("session.openRemote") })
+    app.workbench.section = .settings
+    try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
+        "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
+        "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
+    ])])]))
+    try app.receive(runtimeEvent("session.result", fields: [
+        "requestId": #require(open["requestId"]), "operation": .string("session.openRemote"), "sessionId": .string(id),
+    ]))
+    for _ in 0 ..< 100 where !sent.contains(where: { $0["type"] == .string("session.disconnect") }) {
+        await Task.yield()
+    }
+    #expect(sent.last?["type"] == .string("session.disconnect"))
+    #expect(sent.last?["sessionId"] == .string(id))
+    #expect(app.workbench.stagedSessionIds.isEmpty)
+}
+
 @Test @MainActor func `changed account drops old catalog and directory state`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "AccountFence"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

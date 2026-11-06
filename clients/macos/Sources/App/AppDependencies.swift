@@ -277,45 +277,6 @@ final class AppDependencies {
         openRemote(id, inRoom: roomId)
     }
 
-    func openStaged(_ id: String) {
-        guard let current = session(id) else { return }
-        if let replaced = current.restoredFrom {
-            for state in roomViews.values where state.selectedTerminal == replaced {
-                state.selectedTerminal = id
-            }
-        }
-        guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
-        openRemote(id, inRoom: nil, shows: false)
-    }
-
-    private func openRemote(_ id: String, inRoom roomId: String?, shows: Bool = true) {
-        let epoch = accountEpoch
-        let section = workbench.section
-        let selectedRoom = workbench.selectedMissionId
-        activationTasks[id] = Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer {
-                if !Task.isCancelled {
-                    activationTasks.removeValue(forKey: id)
-                }
-            }
-            do {
-                _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
-                guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
-                if shows, workbench.section == section, workbench.selectedMissionId == selectedRoom {
-                    makeRoom(for: id)
-                    workbench.showSession(id, inRoom: roomId)
-                }
-                if let roomId {
-                    roomView(roomId).selectedTerminal = id
-                }
-            } catch {
-                guard !Task.isCancelled, accountEpoch == epoch else { return }
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
-
     func dismissSession(_ id: String) {
         activationTasks.removeValue(forKey: id)?.cancel()
         workbench.dismissSession(id)
@@ -436,5 +397,50 @@ final class AppDependencies {
 
     func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
         commandSink.perform(type, fields)
+    }
+}
+
+extension AppDependencies {
+    func openStaged(_ id: String) {
+        guard let current = session(id) else { return }
+        if let replaced = current.restoredFrom {
+            for state in roomViews.values where state.selectedTerminal == replaced {
+                state.selectedTerminal = id
+            }
+        }
+        guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
+        openRemote(id, inRoom: nil, shows: false)
+    }
+
+    private func openRemote(_ id: String, inRoom roomId: String?, shows: Bool = true) {
+        let epoch = accountEpoch
+        let section = workbench.section
+        let selectedRoom = workbench.selectedMissionId
+        activationTasks[id] = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if !Task.isCancelled {
+                    activationTasks.removeValue(forKey: id)
+                }
+            }
+            do {
+                _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
+                guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
+                if shows, workbench.section == section, workbench.selectedMissionId == selectedRoom {
+                    makeRoom(for: id)
+                    workbench.showSession(id, inRoom: roomId)
+                }
+                guard workbench.stagedSessionIds.contains(id) else {
+                    commandSink.perform("session.disconnect", ["sessionId": .string(id)])
+                    return
+                }
+                if let roomId {
+                    roomView(roomId).selectedTerminal = id
+                }
+            } catch {
+                guard !Task.isCancelled, accountEpoch == epoch else { return }
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 }
