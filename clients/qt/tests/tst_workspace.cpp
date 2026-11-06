@@ -830,6 +830,41 @@ private slots:
         QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
         QVERIFY(f.sessions.containsSession(test::id(2)));
     }
+    void aRemoteTerminalThatCannotOpenLeavesAFullStageAsItWas()
+    {
+        Fixture f;
+        QJsonArray sessions;
+        for (int value = 1; value <= 6; ++value)
+            sessions.append(test::session(value));
+        sessions.append(test::session(7, true));
+        f.workspace.apply(test::snapshot(sessions), 0);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        f.desktop.toggleFocusForSelectedSession();
+        const auto staged = f.desktop.stagedSessionIds();
+        f.commands.reject = true;
+        QVERIFY(!f.workspace.sessionActions().activate(test::id(7)));
+        QCOMPARE(f.desktop.stagedSessionIds(), staged);
+    }
+    void aLinkedTerminalThatCannotComeOnAFullStageIsDisconnected()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        QJsonArray sessions;
+        for (int value = 1; value <= 6; ++value)
+            sessions.append(test::session(value));
+        f.workspace.apply(test::snapshot(sessions), 1);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(7)));
+        QVERIFY(opened(f.commands, test::id(7)));
+        sessions.append(test::session(7, true));
+        f.workspace.apply(test::snapshot(sessions), 1);
+        QVERIFY(!f.desktop.stagedSessionIds().contains(test::id(7)));
+        const auto last = f.commands.values.last();
+        QCOMPARE(last.value(QStringLiteral("type")).toString(), QStringLiteral("session.disconnect"));
+        QCOMPARE(last.value(QStringLiteral("sessionId")).toString(), test::id(7));
+    }
     void aTerminalStartedForARoomJoinsThatRoom()
     {
         Fixture f;
