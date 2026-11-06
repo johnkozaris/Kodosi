@@ -59,6 +59,10 @@ conversation follows the person to all their computers.
   programs. Closing the window leaves the app and the host running, with Kodosi's icon in
   the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
   can change what closing the window does.
+- A terminal of another computer comes to a device only while it shows there: on the
+  stage in the grid, alone in single view, with its canvas or in its room, in a window that
+  is on the screen. When it shows again, it keeps its last screen until the current one
+  comes, and what the person types waits for it.
 - Quit stops the computer's host and its terminals, but not a host that runs in a
   terminal with `kodosi host`. When the app opens again, the host starts those terminals
   again with their names, folders, rooms and sharing, and with their earlier screens and

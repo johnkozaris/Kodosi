@@ -118,6 +118,16 @@ pub(crate) enum SessionChange {
         instance_id: Uuid,
         reason: String,
     },
+    RemotePaused {
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+    },
+    RemoteWanted {
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+    },
     RemoteClosed {
         id: Uuid,
         incarnation: Uuid,

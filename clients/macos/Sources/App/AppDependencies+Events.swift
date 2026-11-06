@@ -4,6 +4,11 @@ import KodosiBridge
 import KodosiDesign
 import KodosiTerminalSessions
 
+struct VisibleReport: Equatable {
+    var sessionIds: [String]
+    var watching: Bool
+}
+
 extension AppDependencies {
     func consumeDeepLink() {
         guard let link = pendingDeepLink, session(link.sessionId) != nil || (account.userId != nil && !account.stage.isPending) else { return }
@@ -146,7 +151,7 @@ extension AppDependencies {
         appState = .ready
         restoreAsked = false
         refresh()
-        reportedVisible = []
+        reportedVisible = nil
         reportVisible()
     }
 
@@ -218,10 +223,9 @@ extension AppDependencies {
             dismissSession(value.id)
         }
         reconcileTerminals()
-        for id in workbench.reconcile(received) {
-            openStaged(id)
-        }
+        let restored = workbench.reconcile(received)
         reportVisible()
+        restored.forEach(openStaged)
         consumeDeepLink()
     }
 
@@ -249,20 +253,29 @@ extension AppDependencies {
     }
 
     func reportVisible() {
-        let visible = sessions.map(\.id).filter(isWatching).sorted()
-        guard visible != reportedVisible, commandSink.transport != nil else { return }
-        reportedVisible = visible
-        commandSink.perform("session.visible", ["sessionIds": .array(visible.map(JSONValue.string))])
-        visible.forEach(terminalNotifications.withdrawAlert)
+        let report = VisibleReport(sessionIds: shownSessionIds, watching: isFront())
+        guard report != reportedVisible, commandSink.transport != nil else { return }
+        reportedVisible = report
+        commandSink.perform("session.visible", [
+            "sessionIds": .array(report.sessionIds.map(JSONValue.string)), "watching": .bool(report.watching),
+        ])
+        if report.watching {
+            report.sessionIds.forEach(terminalNotifications.withdrawAlert)
+        }
     }
 
-    func isWatching(_ id: String) -> Bool {
-        guard isFront(), workbench.stagedSessionIds.contains(id) else { return false }
+    var shownSessionIds: [String] {
+        guard windowShown() else { return [] }
+        return sessions.map(\.id).filter(isShown).sorted()
+    }
+
+    private func isShown(_ id: String) -> Bool {
+        guard workbench.stagedSessionIds.contains(id) else { return false }
         switch workbench.section {
         case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
         case .missions:
-            guard let room = workbench.selectedMissionId, session(id)?.missionId == room else { return false }
-            return roomView(room).shownSection == 0 && roomView(room).selectedTerminal == id
+            guard let room = workbench.selectedMissionId, session(id)?.missionId == room, let view = roomViews[room] else { return false }
+            return view.shownSection == 0 && view.selectedTerminal == id
         case .people, .settings: return false
         }
     }

@@ -93,13 +93,13 @@ import Testing
         return 0
     }
     try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
-    #expect(sent == ["session.list"])
+    #expect(sent == ["session.list", "session.visible"])
     try app.receive(runtimeEvent("auth.finalizing", epoch: 0, userId: nil))
     app.refresh()
-    #expect(sent == ["session.list", "session.list"])
+    #expect(sent == ["session.list", "session.visible", "session.list"])
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     app.refresh()
-    #expect(sent.filter { $0 != "session.list" } == ["session.restore"])
+    #expect(sent.filter { $0 != "session.list" } == ["session.visible", "session.restore"])
     #expect(app.errorMessage == nil)
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     sent.removeAll()
@@ -150,6 +150,76 @@ import Testing
     #expect(app.workbench.selectedSessionId == id)
     #expect(app.workbench.stagedSessionIds == [id])
     app.shutdownProcess()
+}
+
+@Test @MainActor func `a remote terminal that is not on the stage when it opens is disconnected`() async throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "OpenedOffStage"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(command)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
+    app.activateSession(id)
+    for _ in 0 ..< 100 where !sent.contains(where: { $0["type"] == .string("session.openRemote") }) {
+        await Task.yield()
+    }
+    let open = try #require(sent.first { $0["type"] == .string("session.openRemote") })
+    app.workbench.section = .settings
+    try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
+        "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
+        "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
+    ])])]))
+    try app.receive(runtimeEvent("session.result", fields: [
+        "requestId": #require(open["requestId"]), "operation": .string("session.openRemote"), "sessionId": .string(id),
+    ]))
+    for _ in 0 ..< 100 where !sent.contains(where: { $0["type"] == .string("session.disconnect") }) {
+        await Task.yield()
+    }
+    #expect(sent.last?["type"] == .string("session.disconnect"))
+    #expect(sent.last?["sessionId"] == .string(id))
+    #expect(app.workbench.stagedSessionIds.isEmpty)
+}
+
+@Test @MainActor func `the host hears which terminals are in the window and whether the person is in the app`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "VisibleReport"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var reports: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data), command["type"] == .string("session.visible") {
+            reports.append(command)
+        }
+        return 0
+    }
+    var onScreen = true
+    app.windowShown = { onScreen }
+    app.isFront = { false }
+    let ids = ["01992e43-53db-7040-8e02-f6ebf4149b21", "01992e43-53db-7040-8e02-f6ebf4149b22"]
+    app.sessions = try ids.map { try runtimeSession($0) }
+    ids.forEach { app.workbench.showSession($0) }
+    app.reportVisible()
+    #expect(reports.last?["sessionIds"] == .array(ids.map(JSONValue.string)))
+    #expect(reports.last?["watching"] == .bool(false))
+    app.workbench.toggleFocus(ids[1])
+    app.isFront = { true }
+    app.reportVisible()
+    #expect(reports.last?["sessionIds"] == .array([.string(ids[1])]))
+    #expect(reports.last?["watching"] == .bool(true))
+    onScreen = false
+    app.reportVisible()
+    #expect(reports.last?["sessionIds"] == .array([]))
+    let sent = reports.count
+    app.reportVisible()
+    #expect(reports.count == sent)
 }
 
 @Test @MainActor func `changed account drops old catalog and directory state`() throws {

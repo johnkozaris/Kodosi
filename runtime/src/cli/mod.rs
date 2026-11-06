@@ -544,7 +544,7 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             request(
                 &mut client,
                 &mut context,
-                json!({"type":"session.visible","sessionIds":[session]}),
+                json!({"type":"session.visible","sessionIds":[session],"watching":true}),
                 false,
             )
             .await?;

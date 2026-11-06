@@ -18,7 +18,7 @@ extension AppDependencies {
         }
         guard !typeAhead.isHolding else { return }
         workbench.launcher = nil
-        guard workbench.stagedSessionIds.count < WorkbenchState.maximumStagedSessions else {
+        guard workbench.stagedSessionIds.count < WorkbenchState.maximumStagedSessions || workbench.focusedSessionId != nil else {
             errorMessage = String(localized: "Six terminals are open. Minimize one to open another.")
             return
         }
@@ -32,6 +32,17 @@ extension AppDependencies {
                 typeAhead.drop()
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    func stageHasRoom(for id: String) -> Bool {
+        workbench.stagedSessionIds.contains(id) || workbench.stagedSessionIds.count < WorkbenchState.maximumStagedSessions
+            || workbench.makingRoom(for: id) != nil
+    }
+
+    func makeRoom(for id: String) {
+        if let leaving = workbench.makingRoom(for: id) {
+            dismissSession(leaving)
         }
     }
 }

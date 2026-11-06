@@ -17,9 +17,11 @@ Item {
     readonly property bool active: Models.DesktopState.selectedSessionId === sessionId
     readonly property bool ringed: active && !roomEmbedded
     property bool componentReady: false
-    readonly property bool watched: componentReady && visible && !accessibilitySuppressed && Window.active
+    property bool renaming: false
+    readonly property bool shown: componentReady && visible && Window.visibility !== Window.Minimized
+        && Window.visibility !== Window.Hidden
     readonly property bool takesKeys: terminal.activeFocus && terminal.terminalReady
-    property string watchedId: ""
+    property string shownId: ""
     property bool zoomed: false
     required property string sessionId
     property var session: ({})
@@ -58,18 +60,22 @@ Item {
             join.restart();
         }
     }
-    function reportWatched() {
-        const id = watched ? sessionId : "";
-        if (id === watchedId)
+    function reportShown() {
+        const id = shown ? sessionId : "";
+        if (id === shownId)
             return;
-        if (watchedId !== "")
-            Models.Sessions.setVisible(watchedId, false);
-        watchedId = id;
+        if (shownId !== "")
+            Models.Sessions.setVisible(shownId, false);
+        shownId = id;
         if (id !== "")
             Models.Sessions.setVisible(id, true);
     }
     function select() {
         Models.DesktopState.selectSession(sessionId);
+    }
+    function endRename() {
+        renaming = false;
+        forceTerminalFocus();
     }
 
     Accessible.id: objectName
@@ -86,8 +92,8 @@ Item {
             birth.start();
     }
     Component.onDestruction: {
-        if (watchedId !== "")
-            Models.Sessions.setVisible(watchedId, false);
+        if (shownId !== "")
+            Models.Sessions.setVisible(shownId, false);
         Models.TerminalSurfaces.detach(terminal);
     }
     onSessionIdChanged: {
@@ -96,9 +102,9 @@ Item {
             refreshSession();
             bindTerminal();
         }
-        reportWatched();
+        reportShown();
     }
-    onWatchedChanged: reportWatched()
+    onShownChanged: reportShown()
     onTakesKeysChanged: if (takesKeys) Models.SessionActions.giveTypedKeys(sessionId)
 
     Connections {
@@ -157,13 +163,76 @@ Item {
                     size: 20
                     session: root.session
                 }
-                PlainLabel {
+                AbstractButton {
+                    id: nameButton
+
                     Layout.maximumWidth: Math.max(80, root.width * 0.4)
-                    visible: !root.roomEmbedded
-                    text: root.sessionName
+                    Layout.leftMargin: -6
+                    Layout.rightMargin: -6
+                    implicitHeight: 24
+                    visible: !root.roomEmbedded && !root.renaming
+                    enabled: root.session.isOwner === true
+                    hoverEnabled: true
+                    leftPadding: 6
+                    rightPadding: 6
+                    objectName: root.objectName + ".name"
+                    Accessible.id: objectName
+                    Accessible.name: root.sessionName
+                    Accessible.description: enabled ? qsTr("Renames the terminal") : ""
+                    ToolTip.visible: hovered && enabled
+                    ToolTip.text: qsTr("Rename")
+                    ToolTip.delay: Tip.delay
+                    onClicked: {
+                        root.select();
+                        root.renaming = true;
+                    }
+
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusXs
+                        color: nameButton.hovered && nameButton.enabled
+                            ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : "transparent"
+                        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+                    }
+                    contentItem: PlainLabel {
+                        text: root.sessionName
+                        color: KodosiTheme.terminalInk
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                KTextField {
+                    Layout.preferredWidth: Math.min(240, Math.max(140, root.width * 0.35))
+                    visible: root.renaming
+                    compact: true
+                    leftPadding: 8
                     color: KodosiTheme.terminalInk
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
+                    objectName: root.objectName + ".nameField"
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Terminal name")
+                    onVisibleChanged: {
+                        if (visible) {
+                            text = root.session.name || "";
+                            forceActiveFocus();
+                            selectAll();
+                        }
+                    }
+                    onAccepted: {
+                        Models.SessionActions.rename(root.sessionId, text);
+                        root.endRename();
+                    }
+                    onActiveFocusChanged: {
+                        if (!activeFocus && root.renaming)
+                            root.renaming = false;
+                    }
+                    Keys.onEscapePressed: root.endRename()
+
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusXs
+                        color: KodosiTheme.terminalWell
+                        border.width: 1
+                        border.color: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.75)
+                    }
                 }
                 RowLayout {
                     id: location

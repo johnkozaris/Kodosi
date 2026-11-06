@@ -488,6 +488,7 @@ private slots:
         const auto visible = [&] { return f.commands.values.last().value(QStringLiteral("sessionIds")).toArray(); };
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.visible"));
         QCOMPARE(visible(), QJsonArray { test::id(2) });
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("watching")), QJsonValue(false));
         f.sessions.setVisible(test::id(1), true);
         f.sessions.setVisible(test::id(1), true);
         QCOMPARE(visible(), (QJsonArray { test::id(1), test::id(2) }));
@@ -498,6 +499,15 @@ private slots:
         QCOMPARE(visible(), QJsonArray { test::id(2) });
         f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
+    }
+    void theHostHearsAtOnceWhenNoTerminalShows()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("system.ready") } }, 0);
+        const auto report = f.commands.values.last();
+        QCOMPARE(report.value(QStringLiteral("type")).toString(), QStringLiteral("session.visible"));
+        QCOMPARE(report.value(QStringLiteral("sessionIds")).toArray(), QJsonArray {});
+        QCOMPARE(report.value(QStringLiteral("watching")), QJsonValue(false));
     }
     void onlyALocalTerminalAtItsPromptOffersToStartAProgram()
     {
@@ -809,6 +819,61 @@ private slots:
         QVERIFY(!f.workspace.sessionActions().createQuick());
         QCOMPARE(f.commands.values.size(), before);
         QVERIFY(!f.workspace.error().isEmpty());
+    }
+    void aFullStageInFocusTakesOffTheTerminalLookedAtLongestAgo()
+    {
+        Fixture f;
+        QJsonArray sessions;
+        for (int value = 1; value <= 7; ++value)
+            sessions.append(test::session(value));
+        f.workspace.apply(test::snapshot(sessions), 0);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(!f.workspace.sessionActions().activate(test::id(7)));
+        f.desktop.toggleFocusForSelectedSession();
+        QVERIFY(f.workspace.sessionActions().activate(test::id(7)));
+        QCOMPARE(f.desktop.stagedSessionIds().size(), 6);
+        QVERIFY(!f.desktop.stagedSessionIds().contains(test::id(2)));
+        QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
+        QCOMPARE(f.desktop.selectedSessionId(), test::id(7));
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        QVERIFY(f.sessions.containsSession(test::id(2)));
+    }
+    void aRemoteTerminalThatCannotOpenLeavesAFullStageAsItWas()
+    {
+        Fixture f;
+        QJsonArray sessions;
+        for (int value = 1; value <= 6; ++value)
+            sessions.append(test::session(value));
+        sessions.append(test::session(7, true));
+        f.workspace.apply(test::snapshot(sessions), 0);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        f.desktop.toggleFocusForSelectedSession();
+        const auto staged = f.desktop.stagedSessionIds();
+        f.commands.reject = true;
+        QVERIFY(!f.workspace.sessionActions().activate(test::id(7)));
+        QCOMPARE(f.desktop.stagedSessionIds(), staged);
+    }
+    void aLinkedTerminalThatCannotComeOnAFullStageIsDisconnected()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        QJsonArray sessions;
+        for (int value = 1; value <= 6; ++value)
+            sessions.append(test::session(value));
+        f.workspace.apply(test::snapshot(sessions), 1);
+        for (int value = 1; value <= 6; ++value)
+            QVERIFY(f.workspace.sessionActions().activate(test::id(value)));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(7)));
+        QVERIFY(opened(f.commands, test::id(7)));
+        sessions.append(test::session(7, true));
+        f.workspace.apply(test::snapshot(sessions), 1);
+        QVERIFY(!f.desktop.stagedSessionIds().contains(test::id(7)));
+        const auto last = f.commands.values.last();
+        QCOMPARE(last.value(QStringLiteral("type")).toString(), QStringLiteral("session.disconnect"));
+        QCOMPARE(last.value(QStringLiteral("sessionId")).toString(), test::id(7));
     }
     void aTerminalStartedForARoomJoinsThatRoom()
     {
