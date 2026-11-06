@@ -76,8 +76,10 @@ conversation follows the person to all their computers.
 - Reconnecting restores the current state without disturbing other viewers or repeating
   input whose delivery is uncertain. A stale connection never controls a replacement
   terminal. A lost connection does not change sharing. After a short drop, such as when
-  the computer wakes, the terminals connect again by themselves; a terminal that cannot
-  connect says so on its tile, not in a message that stays after the connection is back.
+  the computer wakes, the terminals connect again by themselves, and what the person
+  typed or asked during the drop goes out once when the connection is back. A terminal
+  that cannot connect says so on its tile, not in a message that stays after the
+  connection is back.
 - When the computer of a terminal is offline, the terminal says so, keeps its last screen,
   takes no input and opens again when that computer is back. The person can hide it from
   their own lists until then, or close it for everyone when the computer is back. A room
