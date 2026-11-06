@@ -532,6 +532,34 @@ fn quoted_prompts_reach_the_program_as_one_word() {
 }
 
 #[test]
+fn a_prompt_with_lines_reaches_the_program_as_one_word_without_a_typed_line_break() {
+    let prompt = "look at the changes:\n\t- code it's\n\n  cleanups";
+    for (shell, arguments) in [
+        ("/bin/zsh", &["-f", "-c"][..]),
+        ("/bin/bash", &["--norc", "--noprofile", "-c"][..]),
+    ] {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        let word = quote(Path::new(shell), &prompt.replace('\n', "\r\n"));
+        assert!(!word.contains(['\n', '\r', '\t']), "{word}");
+        let output = std::process::Command::new(shell)
+            .args(arguments)
+            .arg(format!("printf %s {word}"))
+            .output()
+            .expect("shell runs");
+        assert_eq!(String::from_utf8_lossy(&output.stdout), prompt, "{shell}");
+    }
+    assert_eq!(quote(Path::new("/usr/bin/fish"), "a\n\tb"), r"'a'\n\t'b'");
+    assert_eq!(quote(Path::new("pwsh.exe"), "a\nb"), "('a'+\"`n\"+'b')");
+    assert_eq!(
+        quote(Path::new("nu"), "a\nb"),
+        r#"(r#'a'# ++ "\n" ++ r#'b'#)"#
+    );
+    assert_eq!(quote(Path::new("cmd.exe"), "a\n\tb"), r#""a  b""#);
+}
+
+#[test]
 fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
     let note = "You run in a Kodosi terminal; it's [Kodosi] & `kodosi skill`.";
     for (shell, arguments) in [

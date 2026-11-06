@@ -364,7 +364,7 @@ struct AgentLauncher: View {
 
     private func start() {
         guard !starting, ready else { return }
-        let words = draft.prompt.trimmingCharacters(in: .whitespaces)
+        let words = draft.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let installed = info?.installed == true
         let agent = installed ? plan.start : nil
         let command: String? = if let info {
