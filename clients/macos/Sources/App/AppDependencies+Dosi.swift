@@ -30,7 +30,7 @@ extension AppDependencies {
 
     var dosiLine: String {
         switch dosi.state {
-        case .unavailable: return String(localized: "Choose Dosi's agent in Settings")
+        case .unavailable: return String(localized: "Set up Dosi")
         case .stopping: return String(localized: "Dosi is stopping")
         case .working:
             if let remote = dosi.snapshot?.remote {
@@ -42,6 +42,22 @@ extension AppDependencies {
                 return String(localized: "Dosi has a question")
             }
             return dosi.unseen ? String(localized: "Dosi answered") : String(localized: "Ask Dosi")
+        }
+    }
+
+    func openDosi() {
+        if dosi.state == .unavailable {
+            workbench.showDosiSettings()
+        } else {
+            workbench.openDosi()
+        }
+    }
+
+    func toggleDosi() {
+        if dosi.state == .unavailable {
+            workbench.showDosiSettings()
+        } else {
+            workbench.toggleDosi()
         }
     }
 

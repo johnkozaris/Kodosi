@@ -130,7 +130,7 @@ QString DosiModel::line() const
 {
     const auto value = state();
     if (value == QStringLiteral("unavailable"))
-        return tr("Choose Dosi's agent in Settings");
+        return tr("Set up Dosi");
     if (value == QStringLiteral("stopping"))
         return tr("Dosi is stopping");
     if (value == QStringLiteral("working")) {

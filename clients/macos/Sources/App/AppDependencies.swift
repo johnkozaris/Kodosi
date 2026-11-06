@@ -410,10 +410,10 @@ extension AppDependencies {
             }
         }
         guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
-        openRemote(id, inRoom: nil, shows: false)
+        openRemote(id, inRoom: nil, asked: false)
     }
 
-    private func openRemote(_ id: String, inRoom roomId: String?, shows: Bool = true) {
+    private func openRemote(_ id: String, inRoom roomId: String?, asked: Bool = true) {
         let epoch = accountEpoch
         let section = workbench.section
         let selectedRoom = workbench.selectedMissionId
@@ -427,7 +427,7 @@ extension AppDependencies {
             do {
                 _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
                 guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
-                if shows, workbench.section == section, workbench.selectedMissionId == selectedRoom {
+                if asked, workbench.section == section, workbench.selectedMissionId == selectedRoom {
                     makeRoom(for: id)
                     workbench.showSession(id, inRoom: roomId)
                 }
@@ -439,7 +439,7 @@ extension AppDependencies {
                     roomView(roomId).selectedTerminal = id
                 }
             } catch {
-                guard !Task.isCancelled, accountEpoch == epoch else { return }
+                guard session(id) == nil, !Task.isCancelled, accountEpoch == epoch else { return }
                 errorMessage = error.localizedDescription
             }
         }

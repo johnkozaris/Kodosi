@@ -63,6 +63,7 @@ private:
         QString sessionId;
         QString missionId;
         QVariantMap draft;
+        bool quiet = false;
     };
 
     CommandDispatcher& m_commands;
@@ -83,7 +84,7 @@ private:
     QString sendRequest(QString type, QJsonObject values = {});
     bool sendUntracked(QString type, QJsonObject values = {});
     bool sendTracked(PendingDomain domain, QString type, QJsonObject values = {},
-        QString sessionId = {}, QString missionId = {});
+        QString sessionId = {}, QString missionId = {}, bool quiet = false);
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();

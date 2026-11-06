@@ -188,6 +188,68 @@ import Testing
     #expect(app.workbench.stagedSessionIds.isEmpty)
 }
 
+@Test @MainActor func `an open of a listed terminal fails without a notice, and only a link to an unknown terminal puts one up`() async throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "QuietOpen"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(command)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
+    let unknown = "01992e43-53db-7040-8e02-f6ebf4149b30"
+    try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
+        "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
+        "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("offline"), "sharedWith": .array([]),
+    ])])]))
+    let failure = "Kodosi could not reach the terminal connection service."
+    let opens = { sent.filter { $0["type"] == .string("session.openRemote") } }
+    func fail(_ open: [String: JSONValue]) throws {
+        try app.receive(runtimeEvent("session.error", fields: [
+            "requestId": #require(open["requestId"]), "operation": .string("session.openRemote"), "message": .string(failure),
+        ]))
+    }
+
+    app.openStaged(id)
+    for _ in 0 ..< 100 where opens().isEmpty {
+        await Task.yield()
+    }
+    try fail(#require(opens().last))
+    for _ in 0 ..< 100 where app.activationTasks[id] != nil {
+        await Task.yield()
+    }
+    #expect(app.activationTasks[id] == nil)
+    #expect(app.errorMessage == nil)
+
+    app.activateSession(id)
+    for _ in 0 ..< 100 where opens().count < 2 {
+        await Task.yield()
+    }
+    try fail(#require(opens().last))
+    for _ in 0 ..< 100 where app.activationTasks[id] != nil {
+        await Task.yield()
+    }
+    #expect(app.activationTasks[id] == nil)
+    #expect(app.errorMessage == nil)
+    #expect(app.workbench.stagedSessionIds == [id])
+
+    app.activateSession(unknown)
+    for _ in 0 ..< 100 where opens().count < 3 {
+        await Task.yield()
+    }
+    try fail(#require(opens().last))
+    for _ in 0 ..< 100 where app.errorMessage == nil {
+        await Task.yield()
+    }
+    #expect(app.errorMessage == failure)
+}
+
 @Test @MainActor func `the host hears which terminals are in the window and whether the person is in the app`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "VisibleReport"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

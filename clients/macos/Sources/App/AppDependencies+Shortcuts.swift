@@ -44,7 +44,7 @@ extension AppDependencies {
         case .close: closeSelected()
         case .goTo: workbench.showsPalette.toggle()
         case .sidebar: workbench.sidebarCollapsed.toggle()
-        case .dosi: workbench.toggleDosi()
+        case .dosi: toggleDosi()
         case .stopDosi: dosi.stop()
         case .settings: workbench.section = .settings
         case .fullScreen: MainWindowLocator.mainWindow()?.toggleFullScreen(nil)

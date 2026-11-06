@@ -77,7 +77,8 @@ each terminal that you share with them, so add only a person that you trust comp
 ## Dosi
 
 Dosi opens from its line at the bottom of the sidebar or with ⌘J, and the sidebar widens
-for it, with the terminals and rooms as chips above the conversation. Esc returns to the
+for it, with the terminals and rooms as chips above the conversation. On a computer with no
+agent, the line reads Set up Dosi, and the line and ⌘J open Settings › Dosi. Esc returns to the
 list, ⌘. stops Dosi, and New chat asks first. A question waits in the conversation with a
 button for each answer and a field for your own words. A question about a terminal also
 shows its short answers on that terminal's header, and an answer there types into the

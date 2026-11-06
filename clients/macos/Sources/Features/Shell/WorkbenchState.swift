@@ -475,7 +475,11 @@ extension WorkbenchState {
 }
 
 extension WorkbenchState {
-    /// Shows the selected terminal alone on the stage, or all the open terminals in the grid.
+    func showDosiSettings() {
+        settingsSection = .dosi
+        section = .settings
+    }
+
     func toggleSingleView() {
         section = .sessions
         if let focused = focusedSessionId {
