@@ -79,6 +79,10 @@ ApplicationWindow {
         settingsLoader.active = true;
         return settingsLoader.item as SettingsView;
     }
+    function showDosiSettings() {
+        Models.DesktopState.activeView = Models.DesktopState.Settings;
+        window.settingsView().section = 4;
+    }
     function openNewRoom() {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
         window.missionsView().openCreate();
@@ -210,10 +214,7 @@ ApplicationWindow {
                 onResumeRequested: provider => window.historyView().openModal(provider)
                 onPaletteRequested: window.commandPalette().open()
                 onNewRoomRequested: window.openNewRoom()
-                onDosiSettingsRequested: {
-                    Models.DesktopState.activeView = Models.DesktopState.Settings
-                    window.settingsView().section = 4
-                }
+                onDosiSettingsRequested: window.showDosiSettings()
                 onAccountSettingsRequested: {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
                     if (Models.Devices.requests.length > 0)
@@ -542,7 +543,7 @@ ApplicationWindow {
         enabled: !window.modalOpen && Models.DesktopState.dosiOn
         sequences: Models.Shortcuts.keys.dosi
 
-        onActivated: Models.DesktopState.toggleDosi()
+        onActivated: Models.Dosi.state === "unavailable" ? window.showDosiSettings() : Models.DesktopState.toggleDosi()
     }
     Shortcut {
         enabled: !window.modalOpen && Models.Dosi.busy && Models.DesktopState.dosiOpen && Models.DesktopState.sidebarOpen

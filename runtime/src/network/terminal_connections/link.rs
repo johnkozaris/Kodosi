@@ -8,6 +8,7 @@ const WAITING_FRAMES: usize = 256;
 const PIPE_WAITING_BYTES: usize = 16 * 1024 * 1024;
 const PIPE_ID: usize = 16;
 const SILENCE: Duration = Duration::from_secs(45);
+const LINK_WAIT: Duration = Duration::from_secs(10);
 
 #[cfg_attr(
     not(feature = "host"),
@@ -77,6 +78,7 @@ pub(crate) struct Caller {
 pub(crate) struct Link {
     shared: std::sync::Mutex<Shared>,
     changed: Notify,
+    reconnected: Notify,
     connects: AtomicU64,
 }
 
@@ -227,14 +229,35 @@ impl Link {
         }
     }
 
-    pub(crate) fn open(self: &Arc<Self>, session: Uuid, incarnation: Uuid) -> Result<Pipe> {
+    pub(crate) async fn open(self: &Arc<Self>, session: Uuid, incarnation: Uuid) -> Result<Pipe> {
+        self.until_connected().await;
         self.request(
             |id| json!({"type":"open","pipe":id,"sessionId":session,"incarnationId":incarnation}),
         )
     }
 
-    pub(crate) fn call(self: &Arc<Self>, device: &str) -> Result<Pipe> {
+    pub(crate) async fn call(self: &Arc<Self>, device: &str) -> Result<Pipe> {
+        self.until_connected().await;
         self.request(|id| json!({"type":"call","pipe":id,"deviceId":device}))
+    }
+
+    async fn until_connected(&self) {
+        let deadline = tokio::time::Instant::now() + LINK_WAIT;
+        loop {
+            let reconnected = self.reconnected.notified();
+            tokio::pin!(reconnected);
+            reconnected.as_mut().enable();
+            if self
+                .shared
+                .lock()
+                .is_ok_and(|shared| shared.outgoing.is_some())
+                || tokio::time::timeout_at(deadline, reconnected)
+                    .await
+                    .is_err()
+            {
+                return;
+            }
+        }
     }
 
     #[cfg(feature = "host")]
@@ -287,6 +310,7 @@ impl Link {
             }
         }
         self.connects.fetch_add(1, Ordering::AcqRel);
+        self.reconnected.notify_waiters();
         self.announce();
     }
 
@@ -607,5 +631,40 @@ mod tests {
         link.disconnected();
         let mut second = connect(&link);
         assert_eq!(messages(&mut second).len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_open_waits_for_the_device_link_to_come_back() {
+        let link = Arc::new(Link::default());
+        let opening = tokio::spawn({
+            let link = Arc::clone(&link);
+            async move {
+                link.open(Uuid::now_v7(), Uuid::now_v7())
+                    .await
+                    .map(|pipe| pipe.id())
+            }
+        });
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let mut controls = connect(&link);
+        let pipe = opening.await.unwrap().unwrap();
+        let sent = messages(&mut controls);
+        assert_eq!(sent[0]["type"], "open");
+        assert_eq!(sent[0]["pipe"], pipe.to_string());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_open_fails_when_the_device_link_stays_away() {
+        let link = Arc::new(Link::default());
+        let started = tokio::time::Instant::now();
+        let failure = link
+            .open(Uuid::now_v7(), Uuid::now_v7())
+            .await
+            .err()
+            .unwrap();
+        assert!(started.elapsed() >= LINK_WAIT);
+        assert_eq!(
+            failure.to_string(),
+            "Kodosi could not reach the terminal connection service."
+        );
     }
 }

@@ -47,8 +47,10 @@ ConPTY draws the screen as if it were empty.
 The computer that starts a terminal hosts it: it owns the process, the terminal state
 and the order of its output. Each view gets a checkpoint and then ordered updates, with
 bounded buffering; a view on another device gets them over its own end-to-end encrypted
-channel through the backend. The host does not replay input whose delivery is uncertain,
-and a stale view cannot control a replacement terminal.
+channel through the backend. When that channel drops, work that it did not send yet, such
+as typing, a resize or a canvas request, waits up to 10 seconds and goes out once on the
+next channel, or fails with a message after that time. The host does not replay input
+whose delivery is uncertain, and a stale view cannot control a replacement terminal.
 
 Each app tells its host which terminals are on its screen and whether the person is in
 the app; the second part decides only alerts. The host keeps the channel of a terminal on

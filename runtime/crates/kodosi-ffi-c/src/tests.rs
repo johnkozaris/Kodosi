@@ -262,3 +262,23 @@ fn a_callback_of_one_gate_does_not_excuse_waiting_for_another() {
     assert!(!CallbackScope::within(&activation));
     assert!(!CallbackScope::within(&runtime));
 }
+#[test]
+fn a_request_that_cannot_be_read_is_answered_with_the_reason() {
+    let command = serde_json::json!({
+        "type":"session.create","requestId":"start","accountUserId":"ana","accountEpoch":3,"name":"T"
+    });
+    assert_eq!(
+        refusal(&command, "prompt must contain 1 to 4096 bytes of text"),
+        Some(serde_json::json!({
+            "type":"session.error","requestId":"start","operation":"session.create",
+            "message":"prompt must contain 1 to 4096 bytes of text",
+            "accountUserId":"ana","accountEpoch":3
+        }))
+    );
+    let unanswered = serde_json::json!({"type":"document.send","requestId":"part"});
+    assert_eq!(refusal(&unanswered, "too large"), None);
+    assert_eq!(
+        refusal(&serde_json::json!({"type":"session.create"}), "x"),
+        None
+    );
+}

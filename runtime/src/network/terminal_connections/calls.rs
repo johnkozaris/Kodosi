@@ -173,7 +173,7 @@ async fn connect(
             .await?)
         .ok_or_else(|| Error::Trust("That computer is not an approved device of yours.".into()))?,
     };
-    let pipe = network.inner.link.call(device)?;
+    let pipe = network.inner.link.call(device).await?;
     Channel::connect(pipe, &*network.channel_keys(credentials)?, device, &key).await
 }
 

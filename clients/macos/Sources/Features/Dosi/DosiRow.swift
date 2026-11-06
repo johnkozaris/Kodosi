@@ -16,7 +16,7 @@ struct SidebarDosiRow: View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.4)).frame(height: 1)
                 .padding(.horizontal, 8).padding(.bottom, 6)
-            Button { deps.workbench.openDosi() } label: {
+            Button { deps.openDosi() } label: {
                 HStack(spacing: 9) {
                     LookingDosiFace(mood: deps.dosi.mood(), follows: !deps.dosi.busy, reacts: reacts)
                         .ring(trigger: rings, color: theme.colors.accent, radius: 6)
@@ -54,7 +54,7 @@ struct RailDosiIsland: View {
     @State private var rings = 0
 
     var body: some View {
-        Button { deps.workbench.openDosi() } label: {
+        Button { deps.openDosi() } label: {
             LookingDosiFace(mood: deps.dosi.mood(), follows: !deps.dosi.busy, reacts: reacts)
                 .ring(trigger: rings, color: theme.colors.accent, radius: 6)
                 .fold(FoldPart.face)
