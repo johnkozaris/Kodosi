@@ -38,9 +38,7 @@ pub(crate) fn branch_name(name: &str) -> Result<()> {
     if plain {
         Ok(())
     } else {
-        Err(Error::Invalid(
-            "Use letters, numbers, dots, dashes and slashes in a branch name.".to_owned(),
-        ))
+        Err(Error::Text(text!("Use letters, numbers, dots, dashes and slashes in a branch name.")))
     }
 }
 
@@ -54,23 +52,24 @@ pub(crate) async fn create(
     let folder = git(directory, &["rev-parse", "--show-toplevel"])
         .await
         .map(PathBuf::from)
-        .map_err(|_| Error::Invalid("This folder is not in a Git repository.".to_owned()))?;
+        .map_err(|_| Error::Text(text!("This folder is not in a Git repository.")))?;
     let base = git(&folder, &["rev-parse", "--verify", "HEAD"])
         .await
-        .map_err(|_| Error::Invalid("Make a first commit before you start a branch.".to_owned()))?;
+        .map_err(|_| Error::Text(text!("Make a first commit before you start a branch.")))?;
     let repository = main_folder(&folder).await.unwrap_or_else(|| folder.clone());
     let name = repository
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| Error::Invalid("The repository folder has no name.".to_owned()))?;
+        .ok_or_else(|| Error::Text(text!("The repository folder has no name.")))?;
     let name = format!("{name}-{}", branch.replace('/', "-"));
     let path = place
         .or_else(|| repository.parent())
-        .ok_or_else(|| Error::Invalid("The repository has no folder beside it.".to_owned()))?
+        .ok_or_else(|| Error::Text(text!("The repository has no folder beside it.")))?
         .join(&name);
     if tokio::fs::try_exists(&path).await? {
-        return Err(Error::Invalid(format!(
-            "The folder {name} is there already. Use another branch name."
+        return Err(Error::Text(text!(
+            "The folder {name} is there already. Use another branch name.",
+            name = &name
         )));
     }
     let reference = format!("refs/heads/{branch}");
@@ -78,8 +77,9 @@ pub(crate) async fn create(
         .await
         .is_ok()
     {
-        return Err(Error::Invalid(format!(
-            "The branch {branch} is there already. Use another name."
+        return Err(Error::Text(text!(
+            "The branch {branch} is there already. Use another name.",
+            branch = branch
         )));
     }
     let target = path
@@ -154,7 +154,7 @@ async fn git(directory: &Path, arguments: &[&str]) -> Result<String> {
         .kill_on_drop(true)
         .output()
         .await
-        .map_err(|_| Error::Invalid("Git is not available on this computer.".to_owned()))?;
+        .map_err(|_| Error::Text(text!("Git is not available on this computer.")))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
     } else {

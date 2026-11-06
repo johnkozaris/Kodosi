@@ -96,18 +96,13 @@ struct RootView: View {
     }
 
     private static func describe(_ failure: RuntimeStartFailure) -> String {
-        let terminals = String(failure.hostTerminals)
+        let terminals = Int(failure.hostTerminals)
         let pid = String(failure.hostPID)
         switch failure.hostKind {
         case .foreground:
             return String(localized: """
             The `kodosi host` command (process \(pid)) runs the earlier version. \
             Stop it in its terminal and start it again.
-            """)
-        case .background where failure.hostTerminals == 1:
-            return String(localized: """
-            The earlier version of Kodosi still runs 1 terminal in the background. \
-            Restart it to use the update. The terminal ends.
             """)
         case .background:
             return String(localized: """

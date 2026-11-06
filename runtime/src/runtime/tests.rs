@@ -342,6 +342,7 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     runtime
         .send(Command::Login {
             browser: None,
+            language: None,
             request_id: Uuid::now_v7().to_string(),
         })
         .await;
@@ -729,6 +730,7 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
         runtime
             .send(Command::Login {
                 browser: None,
+                language: None,
                 request_id: Uuid::now_v7().to_string(),
             })
             .await;
@@ -790,7 +792,8 @@ async fn input_to_a_terminal_that_stopped_shows_no_error_and_other_lost_input_do
     runtime.complete(typed(Err(Error::Stopped)));
     assert!(events.try_recv().is_err());
     runtime.complete(typed(Err(Error::Busy)));
-    let error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    let mut error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    crate::text::render(&mut error, crate::text::Language::English);
     assert_eq!(error["type"], "system.error");
     assert!(
         error["message"]
@@ -1154,7 +1157,7 @@ async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_ne
         id,
         incarnation,
         instance_id: old_instance,
-        reason: "old connection".to_owned(),
+        reason: "old connection".into(),
     });
     assert_eq!(runtime.connections[&id].instance_id, new_instance);
     runtime.connections[&id].disconnect();
@@ -1354,7 +1357,7 @@ fn first_snapshot() -> crate::network::RemoteUpdate {
     }
 }
 
-type RemoteState = (ConnectionState, SessionStatus, Option<String>);
+type RemoteState = (ConnectionState, SessionStatus, Option<crate::text::Text>);
 
 fn remote_state(runtime: &Runtime, id: Uuid) -> RemoteState {
     let entry = &runtime.remotes[&id];
@@ -1415,7 +1418,7 @@ async fn lose_link(
     let id = remote.id;
     updates
         .send(crate::network::RemoteUpdate::Closed {
-            reason: "link lost".to_owned(),
+            reason: "link lost".into(),
         })
         .await
         .unwrap();
@@ -1426,7 +1429,13 @@ async fn lose_link(
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     let instance = runtime.connections[&id].instance_id;
-    runtime.remote_lost(id, remote.incarnation_id, instance, reason.to_owned(), true);
+    runtime.remote_lost(
+        id,
+        remote.incarnation_id,
+        instance,
+        crate::text::Text::plain(reason.to_owned()),
+        true,
+    );
 }
 
 fn reconnect(
@@ -1490,9 +1499,12 @@ async fn a_view_says_that_input_was_not_sent_until_the_next_input() {
     let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
     let id = remote.id;
     let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
-    let notice = Some(INPUT_NOT_SENT.to_owned());
+    let notice = Some(crate::network::input_not_sent());
 
-    let reason = format!("The connection has closed. {INPUT_NOT_SENT}");
+    let reason = format!(
+        "The connection has closed. {}",
+        crate::network::input_not_sent()
+    );
     lose_link(&mut runtime, &remote, &updates, &reason).await;
     assert_eq!(
         remote_state(&runtime, id),
@@ -1976,7 +1988,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
         id,
         incarnation,
         instance_id,
-        reason: "Closed here.".to_owned(),
+        reason: "Closed here.".into(),
     });
     assert_eq!(
         shown(&runtime),

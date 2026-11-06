@@ -101,24 +101,29 @@ impl Task {
         name: String,
         terminal_id: Option<String>,
         live: impl Fn(&str) -> bool,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::text::Text> {
         if self.closed {
-            return Err("This task is done. Open it again before you take it.".to_owned());
+            return Err(text!("This task is done. Open it again before you take it."));
         }
         match &self.assigned_to {
             Some(holder) if holder != user_id => {
-                return Err(format!(
-                    "{} has this task. Take another task, or ask them to release it.",
-                    self.assigned_name.as_deref().unwrap_or("Another member")
-                ));
+                return Err(match self.assigned_name.as_deref() {
+                    Some(name) => text!(
+                        "{name} has this task. Take another task, or ask them to release it.",
+                        name = name
+                    ),
+                    None => text!(
+                        "Another member has this task. Take another task, or ask them to release it."
+                    ),
+                });
             }
             Some(_)
                 if self.terminal_id != terminal_id
                     && self.terminal_id.as_deref().is_some_and(live) =>
             {
-                return Err(
-                    "You have this task in another terminal. Release it there first.".to_owned(),
-                );
+                return Err(text!(
+                    "You have this task in another terminal. Release it there first."
+                ));
             }
             _ => {}
         }
@@ -254,7 +259,7 @@ impl Action {
                     .as_deref()
                     .is_some_and(|p| !matches!(p, "github" | "gitea"))
                 {
-                    return Err(crate::Error::Invalid("Choose GitHub or Gitea.".into()));
+                    return Err(crate::Error::Text(text!("Choose GitHub or Gitea.")));
                 }
             }
             Self::Issues { repository_id } | Self::ImportIssue { repository_id, .. } => {

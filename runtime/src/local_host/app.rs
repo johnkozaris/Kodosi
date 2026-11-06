@@ -154,17 +154,13 @@ pub async fn forward_activation(
         match tokio::time::timeout(HELLO_TIMEOUT, send(&endpoint, activation)).await {
             Ok(Ok(Some(running))) => return Ok(Forwarded::Delivered(running)),
             Ok(Ok(None)) => {
-                return Err(Error::Invalid(
-                    "Another version of Kodosi is running. Quit it, then open Kodosi again.".into(),
-                ));
+                return Err(Error::Text(text!("Another version of Kodosi is running. Quit it, then open Kodosi again.")));
             }
             Ok(Err(Error::Invalid(message))) => return Err(Error::Invalid(message)),
             Ok(Err(_)) | Err(_) => {}
         }
         if tokio::time::Instant::now() >= deadline {
-            return Err(Error::Other(
-                "The running Kodosi app did not respond.".into(),
-            ));
+            return Err(Error::Text(text!("The running Kodosi app did not respond.")));
         }
         tokio::time::sleep(FORWARD_RETRY).await;
     }

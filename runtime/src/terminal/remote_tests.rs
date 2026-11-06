@@ -214,7 +214,7 @@ async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_pos
         .expect("output");
     updates
         .send(RemoteUpdate::Closed {
-            reason: "link lost".to_owned(),
+            reason: "link lost".into(),
         })
         .await
         .expect("close");
@@ -346,7 +346,7 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
     let refused = terminal.send_input(Bytes::from_static(b"y")).await;
     assert_eq!(
         refused.expect_err("typing").to_string(),
-        crate::terminal::SOMEONE_TYPING
+        crate::terminal::someone_typing().to_string()
     );
     terminal.disconnect();
 }

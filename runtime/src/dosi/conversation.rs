@@ -358,9 +358,9 @@ impl Conversation {
         &mut self,
         id: &str,
         choices: Vec<String>,
-    ) -> Result<DosiItem, &'static str> {
-        let closed = "This question is closed.";
-        let item = self.find(id).ok_or(closed)?;
+    ) -> Result<DosiItem, crate::text::Text> {
+        let closed = || text!("This question is closed.");
+        let item = self.find(id).ok_or_else(closed)?;
         let DosiBody::Question {
             answer,
             options,
@@ -368,10 +368,10 @@ impl Conversation {
             ..
         } = &mut item.body
         else {
-            return Err(closed);
+            return Err(closed());
         };
         if answer.is_some() {
-            return Err(closed);
+            return Err(closed());
         }
         let own = choices
             .iter()
@@ -379,7 +379,7 @@ impl Conversation {
             .count();
         let distinct = choices.iter().collect::<HashSet<_>>().len() == choices.len();
         if choices.is_empty() || own > 1 || !distinct || (!*multiple && choices.len() > 1) {
-            return Err("Choose from the answers, and add at most one of your own.");
+            return Err("Choose from the answers, and add at most one of your own.".into());
         }
         *answer = Some(choices);
         Ok(item.clone())

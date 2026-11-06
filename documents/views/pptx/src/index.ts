@@ -34,6 +34,7 @@ import {
   type TextLook,
 } from "./text";
 import "./pptx.css";
+import { say } from "@documents/words";
 
 interface Shape {
   id: string;
@@ -147,7 +148,7 @@ class PptxEditor implements Editor, Pictures {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = new Bar(root, "Slides");
+    this.bar = new Bar(root, say("Slides"));
     root.append(this.bar.element);
     const body = root.appendChild(document.createElement("div"));
     body.className = "slides-body";
@@ -168,7 +169,7 @@ class PptxEditor implements Editor, Pictures {
       return;
     }
     this.undoKey = keyOf({
-      label: "Undo",
+      label: say("Undo"),
       icon: Undo2,
       shortcut: keys("Z"),
       press: () => this.undoLast(),
@@ -178,9 +179,9 @@ class PptxEditor implements Editor, Pictures {
     this.bar.show(
       this.undoKey.element,
       rule(),
-      key("New slide", Plus, () => this.addSlide()),
-      key("Text box", TextCursorInput, () => this.addTextBox()),
-      key("Delete", Trash2, () => this.removeSelected()),
+      key(say("New slide"), Plus, () => this.addSlide()),
+      key(say("Text box"), TextCursorInput, () => this.addTextBox()),
+      key(say("Delete"), Trash2, () => this.removeSelected()),
       gap(),
       this.status.element,
     );

@@ -363,9 +363,7 @@ impl BackendClient {
             tokio::time::timeout(Duration::from_secs(3), deletion)
                 .await
                 .unwrap_or_else(|_| {
-                    Err(invalid(
-                        "Credential deletion is still waiting for the system store.",
-                    ))
+                    Err(Error::Text(text!("Credential deletion is still waiting for the system store.")))
                 })
         } else {
             Ok(())
@@ -464,23 +462,23 @@ impl BackendClient {
             let outcome = loop {
                 tokio::select! {
                     () = this.inner.shutdown.cancelled() => return,
-                    () = credentials.cancel.cancelled() => break Err("The account changed before you confirmed the deletion."),
+                    () = credentials.cancel.cancelled() => break Err(text!("The account changed before you confirmed the deletion.")),
                     () = tokio::time::sleep(DELETION_POLL) => {}
                 }
                 let _operation = this.inner.operations.lock().await;
                 if this.inner.state.lock().await.deletion != Some(started) {
-                    break Err("The account deletion was cancelled.");
+                    break Err(text!("The account deletion was cancelled."));
                 }
                 match this.read_deletion(started).await {
                     Ok(Deletion::Waiting) => {}
                     Ok(Deletion::Done) => break Ok(()),
                     Ok(Deletion::GaveUp) => {
-                        break Err("Kodosi stopped waiting for the confirmation.");
+                        break Err(text!("Kodosi stopped waiting for the confirmation."));
                     }
                     Err(error) if error.user_facing() => {
                         tracing::warn!(%error, "the account deletion was not read; it will be tried again");
                     }
-                    Err(_) => break Err("Kodosi could not confirm the account deletion."),
+                    Err(_) => break Err(text!("Kodosi could not confirm the account deletion.")),
                 }
             };
             let answer = match outcome {

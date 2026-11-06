@@ -33,8 +33,7 @@ KDialog {
 
     PlainLabel {
         color: KodosiTheme.inkMuted
-        text: root.terminals === 1 ? qsTr("1 terminal on this computer stops. It starts again when Kodosi opens.")
-            : qsTr("%1 terminals on this computer stop. They start again when Kodosi opens.").arg(root.terminals)
+        text: qsTr("%n terminals on this computer stop. They start again when Kodosi opens.", "", root.terminals)
         width: 340
         wrapMode: Text.WordWrap
     }

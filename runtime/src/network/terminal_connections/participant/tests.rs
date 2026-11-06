@@ -8,7 +8,7 @@ struct View {
     host: Channel<Pipe>,
     commands: mpsc::Sender<RemoteRequest>,
     updates: mpsc::Receiver<RemoteUpdate>,
-    ended: tokio::task::JoinHandle<(Result<()>, String)>,
+    ended: tokio::task::JoinHandle<(Result<()>, Text)>,
 }
 
 async fn view() -> View {
@@ -354,7 +354,7 @@ async fn a_view_sends_the_parts_of_a_picture_only_when_the_host_asks_and_ends_wh
             received,
             at: 0,
             step,
-            message: String::new(),
+            message: None,
         })
     };
     view.host
@@ -420,7 +420,7 @@ async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_th
             received: 0,
             at: 0,
             step: PictureStep::Refused,
-            message: "Late.".to_owned(),
+            message: Some("Late.".into()),
         }))
         .await
         .unwrap();

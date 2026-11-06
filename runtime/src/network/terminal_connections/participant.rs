@@ -7,14 +7,17 @@ use super::{
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
+use crate::text::Text;
 
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
 const PROGRESS_SPACING: Duration = Duration::from_millis(100);
-const PICTURE_NOT_CONFIRMED: &str =
-    "The other computer did not confirm the picture. Paste it again.";
 const PICTURE_TRANSIT_SECONDS: f64 = 0.5;
+
+fn picture_not_confirmed() -> Text {
+    text!("The other computer did not confirm the picture. Paste it again.")
+}
 
 /// A picture on its way to the host. The host asks for its parts when it does not have the
 /// picture. In transit are twice the bytes that the link carries in the shortest round trip of
@@ -74,7 +77,7 @@ impl Upload {
     }
 
     fn part(&mut self, now: tokio::time::Instant) -> Result<Frame> {
-        let start = usize::try_from(self.sent).map_err(|_| invalid(PICTURE_NOT_CONFIRMED))?;
+        let start = usize::try_from(self.sent).map_err(|_| Error::Text(picture_not_confirmed()))?;
         let end = self.picture.bytes.len().min(start + PICTURE_PART);
         let frame = Frame::PicturePart {
             id: self.id,
@@ -181,8 +184,8 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         }
         if !cancel.is_cancelled() {
             let reason = result.err().map_or_else(
-                || "Remote terminal disconnected.".to_owned(),
-                |error| error.to_string(),
+                || text!("The connection to the terminal ended."),
+                |error| error.text(),
             );
             let _outcome = updates_tx.try_send(RemoteUpdate::Closed {
                 reason: viewer.unconfirmed(reason),
@@ -230,7 +233,7 @@ async fn open(
                 .fetch_identity_with(credentials, &dto.owner_user_id)
                 .await?,
         )
-        .ok_or_else(|| Error::Trust("The hosting device is not approved.".into()))?,
+        .ok_or_else(|| Error::Trust(text!("The hosting device is not approved.")))?,
     };
     let mut channel = Channel::connect(
         pipe,
@@ -268,7 +271,7 @@ async fn open(
                 status: 403,
                 message: refuse.message,
             },
-            _ => invalid(refuse.message),
+            _ => Error::Text(refuse.message),
         }),
         _ => Err(Error::Closed),
     }
@@ -312,9 +315,7 @@ async fn host_trusted(
         .get(&dto.host_device_id)
         .is_none_or(|certificate| certificate.sig_public_key != public)
     {
-        return Err(Error::Trust(
-            "The hosting device is no longer trusted.".into(),
-        ));
+        return Err(Error::Trust(text!("The hosting device is no longer trusted.")));
     }
     Ok(())
 }
@@ -376,10 +377,13 @@ impl<T: Transport> Viewer<T> {
         }
     }
 
-    fn unconfirmed(&self, reason: String) -> String {
+    fn unconfirmed(&self, reason: Text) -> Text {
         match self.input_sent - self.input_confirmed {
             0 => reason,
-            _ => format!("{reason} {INPUT_NOT_SENT}"),
+            _ => text!(
+                "{reason} Kodosi did not send some of your last input.",
+                reason = reason
+            ),
         }
     }
 
@@ -436,16 +440,16 @@ impl<T: Transport> Viewer<T> {
             _ = deadlines.tick() => {
                 let now = tokio::time::Instant::now();
                 if self.heard.elapsed() >= CHANNEL_SILENCE {
-                    return Err(invalid("The host did not answer."));
+                    return Err(Error::Text(text!("The host did not answer.")));
                 }
                 let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
                 for id in expired {
                     if let Some(pending) = self.pending.remove(&id) {
-                        drop(pending.reply.send(Err(invalid("The host did not confirm the operation, and Kodosi did not send it again."))));
+                        drop(pending.reply.send(Err(Error::Text(text!("The host did not confirm the operation, and Kodosi did not send it again.")))));
                     }
                 }
                 if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
-                    drop(upload.reply.send(Err(invalid(PICTURE_NOT_CONFIRMED))));
+                    drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
                 }
             }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
@@ -489,9 +493,7 @@ impl<T: Transport> Viewer<T> {
                 reply,
             } => {
                 if !self.started {
-                    drop(reply.send(Err(invalid(
-                        "Wait for the terminal snapshot before sending input.",
-                    ))));
+                    drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending input.")))));
                     return Ok(());
                 }
                 if bytes.is_empty() {
@@ -518,9 +520,7 @@ impl<T: Transport> Viewer<T> {
             RemoteRequest::Picture { picture, reply } => self.offer(picture, reply).await?,
             RemoteRequest::Control { control, reply } => {
                 if !self.started {
-                    drop(reply.send(Err(invalid(
-                        "Wait for the terminal snapshot before sending input.",
-                    ))));
+                    drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending input.")))));
                     return Ok(());
                 }
                 if self.pending.len() >= 128 {
@@ -710,7 +710,7 @@ impl<T: Transport> Viewer<T> {
                     drop(pending.reply.send(if accepted {
                         Ok(Value::Null)
                     } else {
-                        Err(invalid(message))
+                        Err(message.map_or_else(|| invalid("The terminal refused the control."), Error::Text))
                     }));
                 }
             }
@@ -740,9 +740,7 @@ impl<T: Transport> Viewer<T> {
         reply: oneshot::Sender<Result<()>>,
     ) -> Result<()> {
         if !self.started {
-            drop(reply.send(Err(invalid(
-                "Wait for the terminal snapshot before sending a picture.",
-            ))));
+            drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending a picture.")))));
             return Ok(());
         }
         if self.upload.is_some() {
@@ -799,7 +797,10 @@ impl<T: Transport> Viewer<T> {
             }
             PictureStep::Refused => {
                 if let Some(upload) = self.upload.take() {
-                    drop(upload.reply.send(Err(invalid(state.message))));
+                    drop(upload.reply.send(Err(state.message.map_or_else(
+                        || invalid("The other computer refused the picture."),
+                        Error::Text,
+                    ))));
                 }
             }
         }

@@ -255,13 +255,13 @@ async fn stream_terminal(
                             retry = None;
                             continue;
                         }
-                        ("the terminal snapshot could not be restored".to_owned(), subscriber.next_sequence)
+                        (kodosi_runtime::text::Text::plain("the terminal snapshot could not be restored"), subscriber.next_sequence)
                     }
                     Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Closed { reason, final_sequence }))) => {
                         (reason, final_sequence)
                     }
-                    Ok(None) => ("terminal disconnected".to_owned(), subscriber.next_sequence),
-                    Err(error) => (error.to_string(), subscriber.next_sequence),
+                    Ok(None) => (kodosi_runtime::text::Text::plain("terminal disconnected"), subscriber.next_sequence),
+                    Err(error) => (error.text(), subscriber.next_sequence),
                 };
                 state.control(
                     token,

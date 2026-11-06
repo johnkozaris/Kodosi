@@ -134,7 +134,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         items
             .iter()
             .try_for_each(|item| content.take(cached, room, item))
@@ -152,7 +152,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
         for item in items {
             content.take(cached, room, item)?;
@@ -179,7 +179,7 @@ impl RoomCache {
         Ok(self
             .contents
             .get_mut(&room)
-            .ok_or_else(|| invalid("The room is not loaded."))?
+            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?
             .show(room))
     }
 
@@ -188,7 +188,7 @@ impl RoomCache {
         let content = self
             .contents
             .get(&room)
-            .ok_or_else(|| invalid("The room is not loaded."))?;
+            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?;
         Ok(content.view(room, Vec::new(), content.has_older))
     }
 
@@ -208,7 +208,7 @@ impl RoomCache {
                 let key = cached.keys.get(&state.state.epoch)?.clone();
                 Some((state.state.version, state.state.epoch, key))
             })
-            .ok_or_else(|| invalid("Room keys are still arriving."))
+            .ok_or_else(|| Error::Text(text!("Room keys are still arriving.")))
     }
 }
 
@@ -718,7 +718,7 @@ impl BackendClient {
         let current = cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1;
         let (path, mut heads) = self.room_heads()?;
         let known = heads.entry(credentials.user_id.clone()).or_default();
@@ -793,7 +793,7 @@ impl BackendClient {
         let previous = cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1;
         let prior_key = cached
             .keys
@@ -892,7 +892,7 @@ impl BackendClient {
             let current = &cached
                 .states
                 .last_key_value()
-                .ok_or_else(|| invalid("Room keys are missing."))?
+                .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
                 .1
                 .state;
             if !current.members.contains_key(&credentials.user_id)
@@ -979,7 +979,7 @@ impl BackendClient {
         let state = &cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1
             .state;
         let anchor = state
@@ -1479,7 +1479,7 @@ impl BackendClient {
                             })
                         };
                         task.claim(&credentials.user_id, name, terminal_id, live)
-                            .map_err(invalid)?;
+                            .map_err(Error::Text)?;
                     }
                     rooms::TaskChange::Release => {
                         task.assigned_to = None;

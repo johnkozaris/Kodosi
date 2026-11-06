@@ -11,6 +11,7 @@
     "@documents/xlsx": "workspace:*",
     "@documents/pdf": "workspace:*",
     "@documents/pptx": "workspace:*",
-    "@documents/docx": "workspace:*"
+    "@documents/docx": "workspace:*",
+    "@documents/words": "workspace:*"
   }
 }

@@ -8,6 +8,7 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use super::{Error, Result, crypto, invalid};
+use crate::text::Text;
 use crate::identity::{
     keys::DeviceKeys,
     oidc::{read_bounded, validate_url},
@@ -35,7 +36,7 @@ pub(crate) struct Credentials {
     pub(crate) token: Zeroizing<String>,
     pub(crate) keys: Arc<DeviceKeys>,
     pub(crate) enrolled: bool,
-    pub(crate) notice: Option<String>,
+    pub(crate) notice: Option<Text>,
     pub(crate) generation: u64,
     pub(crate) cancel: tokio_util::sync::CancellationToken,
 }
@@ -346,18 +347,10 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
         return Err(Error::AccountDeleted);
     }
     if !status.is_success() {
-        let message = serde_json::from_slice::<Value>(&bytes)
-            .ok()
-            .and_then(|value| {
-                value
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .map(|s| s.chars().take(512).collect())
-            })
-            .filter(|message: &String| !message.is_empty());
+        let body = serde_json::from_slice::<Value>(&bytes).unwrap_or_default();
         return Err(Error::Backend {
             status: status.as_u16(),
-            message: backend_message(status.as_u16(), message),
+            message: backend_message(status.as_u16(), &body),
         });
     }
     if bytes.is_empty() {
@@ -376,14 +369,124 @@ pub(crate) fn supported(own: u32, oldest: u64, current: u64) -> Result<()> {
     }
 }
 
-fn backend_message(status: u16, body: Option<String>) -> String {
+fn backend_message(status: u16, body: &Value) -> Text {
     match status {
-        401 => "Your sign-in has expired. Sign in again.".into(),
-        404 => "That no longer exists on the Kodosi server.".into(),
-        429 => "Too many requests. Wait a minute and try again.".into(),
-        500..=599 => "The Kodosi server had a problem. Try again in a moment.".into(),
-        _ => body.unwrap_or_else(|| "The Kodosi server could not complete the request.".into()),
+        401 => text!("Your sign-in has expired. Sign in again."),
+        404 => text!("That no longer exists on the Kodosi server."),
+        429 => text!("Too many requests. Wait a minute and try again."),
+        500..=599 => text!("The Kodosi server had a problem. Try again in a moment."),
+        _ => backend_text(body)
+            .unwrap_or_else(|| text!("The Kodosi server could not complete the request.")),
     }
+}
+
+/// The words of a refusal from the backend. The backend writes English: its refusals that people
+/// meet have their translations here, a plan limit comes with its name and number, and the rest
+/// stays English.
+pub(crate) fn backend_text(body: &Value) -> Option<Text> {
+    if let (Some(limit), Some(most)) = (
+        body.get("limit").and_then(Value::as_str),
+        body.get("most").and_then(Value::as_u64),
+    ) && let Some(text) = plan_limit(limit, most)
+    {
+        return Some(text);
+    }
+    let words: String = body.get("error")?.as_str()?.chars().take(512).collect();
+    if words.is_empty() {
+        return None;
+    }
+    Some(
+        backend_refusals()
+            .into_iter()
+            .find(|text| text.words() == words)
+            .unwrap_or_else(|| Text::plain(words)),
+    )
+}
+
+fn plan_limit(limit: &str, most: u64) -> Option<Text> {
+    Some(match limit {
+        "rooms" => text!(
+            "You own the most rooms that you can own ({most}). Delete a room to make a new one.",
+            most = most
+        ),
+        "roomPeople" => text!(
+            "This room has the most people that it can have ({most}), with its open invitations.",
+            most = most
+        ),
+        "sharePeople" => text!(
+            "You chose more people than a terminal can have ({most}).",
+            most = most
+        ),
+        "friends" => text!(
+            "You have the most friends that you can have ({most}). Remove a friend first.",
+            most = most
+        ),
+        "friendRequests" => text!(
+            "You have the most open friend requests that you can have ({most}). Wait for an answer, or cancel a request.",
+            most = most
+        ),
+        "devices" => text!(
+            "This account has the most devices that it can have ({most}). Remove a device in Settings on one of your devices, then try again.",
+            most = most
+        ),
+        "devicesRecovering" => text!(
+            "This account has the most devices that it can have ({most}). Remove a device in Settings on one of your devices, then try again. If you have no other device, start fresh on this device.",
+            most = most
+        ),
+        _ => return None,
+    })
+}
+
+/// The backend's refusals that people meet, word for word as the backend writes them.
+fn backend_refusals() -> Vec<Text> {
+    vec![
+        text!("An existing trusted device must approve this device."),
+        text!("Approve this device before you use shared terminals."),
+        text!("Choose another person."),
+        text!("Delete your account on the account page of the sign-in service."),
+        text!("Dosi already has a conversation."),
+        text!("Invite an accepted friend."),
+        text!("Leave a room before you join or make another."),
+        text!("Leave the room to leave its shared terminals."),
+        text!("Only the computer that hosts a terminal can add it."),
+        text!("Only the computer that hosts this terminal can change it."),
+        text!("Only the owner can change this terminal."),
+        text!("Refresh the room before changing its members."),
+        text!("Remove the current recovery key first."),
+        text!("Room keys changed; refresh before posting."),
+        text!("Room keys changed; refresh before retrying."),
+        text!("Room membership changed; refresh before retrying."),
+        text!("Share a terminal only with accepted friends."),
+        text!("That computer is not online."),
+        text!("The approval has already changed."),
+        text!("The friend list changed on another device."),
+        text!("The host is offline."),
+        text!("The owner cannot leave the room. Delete it instead."),
+        text!("The room has reached its item limit."),
+        text!("The room of this terminal changed; refresh before retrying."),
+        text!("The server could not make the account. Sign in again."),
+        text!("The sharing of this terminal changed; refresh before retrying."),
+        text!("There are too many terminals to list."),
+        text!("This account has no recovery key."),
+        text!("This device was removed."),
+        text!("This invitation is no longer available."),
+        text!("This person has the most friends that they can have."),
+        text!("This person has too many open friend requests. Try again later."),
+        text!("This person has too many open room invitations."),
+        text!(
+            "This room is full, because its tasks and repositories use all of its space. Make a new room to continue."
+        ),
+        text!("This room item changed; refresh before retrying."),
+        text!(
+            "This terminal is shared with its room. Remove it from the room to share it with friends."
+        ),
+        text!("This terminal was replaced."),
+        text!(
+            "Too many of your terminals wait to close on offline computers. Remove the computers that do not come back."
+        ),
+        text!("You cannot leave your own terminal."),
+        text!("You have too many terminals."),
+    ]
 }
 
 #[cfg(test)]

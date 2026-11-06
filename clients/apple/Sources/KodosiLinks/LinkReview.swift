@@ -9,9 +9,9 @@ public extension ClickedLink {
         var trust: String {
             switch self {
             case .terminal:
-                String(localized: "The link comes from terminal output. Open it only if you trust it.")
+                String(localized: "The link comes from terminal output. Open it only if you trust it.", bundle: .module)
             case .canvas:
-                String(localized: "The link comes from the canvas of a terminal. Open it only if you trust it.")
+                String(localized: "The link comes from the canvas of a terminal. Open it only if you trust it.", bundle: .module)
             }
         }
     }
@@ -31,12 +31,12 @@ public extension ClickedLink {
             case let .ask(url):
                 guard let window, window.attachedSheet == nil else { return }
                 guard let app = NSWorkspace.shared.urlForApplication(toOpen: url) else {
-                    return refuse(because: String(localized: "No app on this Mac opens this link."), in: window)
+                    return refuse(because: String(localized: "No app on this Mac opens this link.", bundle: .module), in: window)
                 }
                 let name = app.deletingPathExtension().lastPathComponent
-                let alert = alert(String(localized: "Open this link in \(name)?"), origin.trust)
-                alert.addButton(withTitle: String(localized: "Cancel"))
-                alert.addButton(withTitle: String(localized: "Open"))
+                let alert = alert(String(localized: "Open this link in \(name)?", bundle: .module), origin.trust)
+                alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+                alert.addButton(withTitle: String(localized: "Open", bundle: .module))
                 alert.beginSheetModal(for: window) { response in
                     if response == .alertSecondButtonReturn {
                         NSWorkspace.shared.open(url)
@@ -49,9 +49,9 @@ public extension ClickedLink {
         }
 
         private func refuse(because reason: String, in window: NSWindow) {
-            let alert = alert(String(localized: "Kodosi does not open this link"), reason)
-            alert.addButton(withTitle: String(localized: "OK"))
-            alert.addButton(withTitle: String(localized: "Copy Link"))
+            let alert = alert(String(localized: "Kodosi does not open this link", bundle: .module), reason)
+            alert.addButton(withTitle: String(localized: "OK", bundle: .module))
+            alert.addButton(withTitle: String(localized: "Copy Link", bundle: .module))
             let shown = shown
             alert.beginSheetModal(for: window) { response in
                 if response == .alertSecondButtonReturn {
@@ -110,23 +110,23 @@ public extension ClickedLink {
                 return
             case let .ask(url):
                 alert = UIAlertController(
-                    title: String(localized: "Open this link in another app?"),
+                    title: String(localized: "Open this link in another app?", bundle: .module),
                     message: "\(shown)\n\n\(origin.trust)",
                     preferredStyle: .alert,
                 )
-                alert.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
-                alert.addAction(UIAlertAction(title: String(localized: "Open"), style: .default) { _ in
+                alert.addAction(UIAlertAction(title: String(localized: "Cancel", bundle: .module), style: .cancel))
+                alert.addAction(UIAlertAction(title: String(localized: "Open", bundle: .module), style: .default) { _ in
                     UIApplication.shared.open(url)
                 })
             case let .refuse(refusal):
                 alert = UIAlertController(
-                    title: String(localized: "Kodosi does not open this link"),
+                    title: String(localized: "Kodosi does not open this link", bundle: .module),
                     message: "\(refusal.message)\n\n\(shown)",
                     preferredStyle: .alert,
                 )
-                alert.addAction(UIAlertAction(title: String(localized: "OK"), style: .cancel))
+                alert.addAction(UIAlertAction(title: String(localized: "OK", bundle: .module), style: .cancel))
                 let shown = shown
-                alert.addAction(UIAlertAction(title: String(localized: "Copy Link"), style: .default) { _ in
+                alert.addAction(UIAlertAction(title: String(localized: "Copy Link", bundle: .module), style: .default) { _ in
                     UIPasteboard.general.string = shown
                 })
             }

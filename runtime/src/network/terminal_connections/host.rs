@@ -15,6 +15,7 @@ use crate::{
     canvas::{MOST_PIPE_FRAME, PIPE_QUEUE},
     network::{CheckpointCut, HostPicture, TerminalStatus},
     terminal::{Picture, TERMINAL_PICTURE_MAX_BYTES, TerminalMetadata},
+    text::Text,
 };
 
 const VIEWERS: usize = crate::protocol::TERMINAL_VIEWERS_MOST;
@@ -25,17 +26,14 @@ const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const STATUS_SPACING: Duration = Duration::from_secs(1);
 
-type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
+type Reply = oneshot::Receiver<std::result::Result<Value, Text>>;
 type PictureAnswer = std::pin::Pin<
-    Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, String>)> + Send>,
+    Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, Text>)> + Send>,
 >;
 
 /// The pictures that all views of this host's terminals send at once.
 static PICTURE_MEMORY: tokio::sync::Semaphore =
     tokio::sync::Semaphore::const_new(4 * TERMINAL_PICTURE_MAX_BYTES);
-const PICTURE_DAMAGED: &str = "The picture arrived damaged. Paste it again.";
-const PICTURES_BUSY: &str =
-    "The other computer is receiving other pictures. Paste it again in a moment.";
 
 /// A picture whose parts a view sends.
 struct Receiving {
@@ -227,7 +225,7 @@ async fn current_publication(
                 .device(Method::POST, "api/sessions", credentials, Some(body))
                 .await?;
             *publication.dto.write().await = dto.clone();
-            network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":"The server no longer had this terminal; choose friends again."}));
+            network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":text!("The server no longer had this terminal. Choose friends again.")}));
             Ok(dto)
         }
         Err(error) => Err(error),
@@ -504,10 +502,10 @@ async fn connect(
     ended
 }
 
-fn refuse(code: &str, message: &str) -> Refuse {
+fn refuse(code: &str, message: Text) -> Refuse {
     Refuse {
         code: code.to_owned(),
-        message: message.to_owned(),
+        message,
     }
 }
 
@@ -520,15 +518,15 @@ async fn admit(
     viewers: &Viewers,
 ) -> std::result::Result<(), Refuse> {
     if !allowed(publication, credentials, user).await {
-        return Err(refuse("access", "This terminal is not shared with you."));
+        return Err(refuse("access", text!("This terminal is not shared with you.")));
     }
     if crate::identity::recovery::is_recovery_device(device) {
-        return Err(refuse("access", "This device is not approved."));
+        return Err(refuse("access", text!("This device is not approved.")));
     }
     if viewers.lock().is_ok_and(|viewers| viewers.len() >= VIEWERS) {
         return Err(refuse(
             "busy",
-            "Too many devices are connected to this terminal.",
+            text!("Too many devices are connected to this terminal."),
         ));
     }
     let approved = |identity: &crate::identity::pins::VerifiedIdentity| {
@@ -550,13 +548,13 @@ async fn admit(
         Ok(identity) if approved(&identity) => Ok(()),
         Err(error) if error.unanswered() => Err(refuse(
             "busy",
-            "The host could not check this device; try again.",
+            text!("The host could not check this device. Try again."),
         )),
         Err(Error::Trust(_)) => Err(refuse(
             "access",
-            "The owner of this terminal must trust your identity in Friends first.",
+            text!("The owner of this terminal must trust your identity in Friends first."),
         )),
-        Ok(_) | Err(_) => Err(refuse("access", "This device is not approved.")),
+        Ok(_) | Err(_) => Err(refuse("access", text!("This device is not approved."))),
     }
 }
 
@@ -718,7 +716,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 () = self.controller.authorization.cancelled() => return Ok(()),
                 Some((offset, accepted)) = self.inputs.next(), if !self.inputs.is_empty() => {
                     if !accepted {
-                        return Err(invalid("The terminal did not accept input from this connection."));
+                        return Err(Error::Text(text!("The terminal did not accept input from this connection.")));
                     }
                     self.input_confirmed = offset;
                     self.channel.send(&Frame::InputAck { offset }).await?;
@@ -1111,7 +1109,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             Err(broadcast::error::RecvError::Closed) => {
                 return Some(End {
                     final_sequence: self.next_sequence,
-                    reason: "Terminal closed.".to_owned(),
+                    reason: text!("The terminal closed."),
                 });
             }
         }
@@ -1158,9 +1156,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                     return Err(invalid("Terminal input is out of order."));
                 }
                 if self.heartbeat.wrapping_sub(heartbeat) > LATE_HEARTBEATS {
-                    return Err(invalid(
-                        "Terminal input arrived too late, and the host did not use it.",
-                    ));
+                    return Err(Error::Text(text!("Terminal input arrived too late, and the host did not use it.")));
                 }
                 self.input_offset += bytes.len() as u64;
                 let end = self.input_offset;
@@ -1185,10 +1181,10 @@ impl<'a, T: Transport> Stream<'a, T> {
                 let authorization = self.controller.authorization.clone();
                 self.controls.push(Box::pin(async move {
                     let result = tokio::select! {
-                        () = authorization.cancelled() => Err("This terminal connection is no longer authorized.".to_owned()),
+                        () = authorization.cancelled() => Err(text!("This terminal connection is no longer authorized.")),
                         result = tokio::time::timeout(CONTROL_TIMEOUT, response) => match result {
                             Ok(Ok(result)) => result,
-                            _ => Err("The terminal did not confirm the operation, and Kodosi did not send it again.".to_owned()),
+                            _ => Err(text!("The terminal did not confirm the operation, and Kodosi did not send it again.")),
                         },
                     };
                     match result {
@@ -1198,12 +1194,12 @@ impl<'a, T: Transport> Stream<'a, T> {
                         Ok(_) if answers => Frame::ControlResult(ControlResult {
                             request_id,
                             accepted: false,
-                            message: "The answer does not fit one message.".to_owned(),
+                            message: Some("The answer does not fit one message.".into()),
                         }),
                         result => Frame::ControlResult(ControlResult {
                             request_id,
                             accepted: result.is_ok(),
-                            message: result.err().unwrap_or_default(),
+                            message: result.err(),
                         }),
                     }
                 }));
@@ -1245,7 +1241,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             let known = match tokio::time::timeout(CONTROL_TIMEOUT, reply).await {
                 Ok(Ok(Ok(answer))) => Ok(answer.get("missing") != Some(&Value::Bool(true))),
                 Ok(Ok(Err(message))) => Err(message),
-                _ => Err("The terminal did not take the picture.".to_owned()),
+                _ => Err(text!("The terminal did not take the picture.")),
             };
             (offer, known)
         }));
@@ -1271,7 +1267,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 received,
                 at: u64::try_from(receiving.asked.elapsed().as_micros()).unwrap_or(u64::MAX),
                 step: PictureStep::Receiving,
-                message: String::new(),
+                message: None,
             }))
             .await?;
         if received == receiving.offer.size
@@ -1295,7 +1291,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             .filter(|picture| picture.sha256() == offer.sha256 && picture.format == offer.format);
         let Some(picture) = picture else {
             return self
-                .picture_answered((offer, Err(PICTURE_DAMAGED.to_owned())))
+                .picture_answered((offer, Err(text!("The picture arrived damaged. Paste it again."))))
                 .await;
         };
         let reply = self.submit_picture(HostPicture::Whole(picture)).await?;
@@ -1303,7 +1299,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             let pasted = match tokio::time::timeout(CONTROL_TIMEOUT, reply).await {
                 Ok(Ok(Ok(_))) => Ok(true),
                 Ok(Ok(Err(message))) => Err(message),
-                _ => Err("The terminal did not take the picture.".to_owned()),
+                _ => Err(text!("The terminal did not take the picture.")),
             };
             drop(memory);
             (offer, pasted)
@@ -1314,10 +1310,10 @@ impl<'a, T: Transport> Stream<'a, T> {
     /// Answers a view's picture: pasted, refused, or asked for when this host does not have it.
     async fn picture_answered(
         &mut self,
-        (offer, answer): (PictureOffer, std::result::Result<bool, String>),
+        (offer, answer): (PictureOffer, std::result::Result<bool, Text>),
     ) -> Result<()> {
         let (id, size) = (offer.id, offer.size);
-        let state = move |step, message: String| {
+        let state = move |step, message: Option<Text>| {
             Frame::PictureState(PictureState {
                 id,
                 received: if step == PictureStep::Pasted { size } else { 0 },
@@ -1327,15 +1323,15 @@ impl<'a, T: Transport> Stream<'a, T> {
             })
         };
         let frame = match answer {
-            Ok(true) => state(PictureStep::Pasted, String::new()),
-            Err(message) => state(PictureStep::Refused, message),
+            Ok(true) => state(PictureStep::Pasted, None),
+            Err(message) => state(PictureStep::Refused, Some(message)),
             Ok(false) => {
                 let memory = u32::try_from(offer.size)
                     .ok()
                     .and_then(|size| PICTURE_MEMORY.try_acquire_many(size).ok());
                 match memory {
                     Some(memory) => {
-                        let frame = state(PictureStep::Receiving, String::new());
+                        let frame = state(PictureStep::Receiving, None);
                         self.picture = Some(Receiving {
                             bytes: Vec::with_capacity(
                                 usize::try_from(offer.size).unwrap_or_default(),
@@ -1346,7 +1342,12 @@ impl<'a, T: Transport> Stream<'a, T> {
                         });
                         frame
                     }
-                    None => state(PictureStep::Refused, PICTURES_BUSY.to_owned()),
+                    None => state(
+                        PictureStep::Refused,
+                        Some(text!(
+                            "The other computer is receiving other pictures. Paste it again in a moment."
+                        )),
+                    ),
                 }
             }
         };

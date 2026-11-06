@@ -1,4 +1,5 @@
 import { type Area, Client, type Editor, type Pictures, type Pipe } from "@documents/client";
+import { say, useLanguage } from "@documents/words";
 import "./base.css";
 import "./fonts.css";
 
@@ -26,6 +27,8 @@ export interface Options {
   kind: Kind;
   theme?: Theme;
   preferences?: Preferences;
+  /** The language of the app, such as `de` or `zh-Hans`. The view shows English without it. */
+  language?: string;
   /** Runs when the file shows, and each time that the view joins it again. */
   ready?(): void;
   /** Lays out the whole file for pictures, with no bar and nothing that scrolls. */
@@ -85,7 +88,6 @@ function setTheme(element: HTMLElement, theme: Theme | undefined): void {
 export function mount(element: HTMLElement, options: Options): View & Pictures {
   const away = document.createElement("div");
   away.className = "document-away";
-  away.textContent = "The computer of this file is away. Your edits wait here.";
   const client = new Client(() => {
     away.remove();
     options.ready?.();
@@ -96,11 +98,13 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
   if (options.render) element.dataset.render = "";
   setTheme(element, options.theme);
   setPreferences(element, options, options.preferences);
-  factoryOf(options.kind).then((factory) => {
-    editor = factory(element, client);
-    client.use(editor);
-    if (waitingPipe) client.attach(waitingPipe);
-  }, console.error);
+  useLanguage(options.language)
+    .then(() => factoryOf(options.kind))
+    .then((factory) => {
+      editor = factory(element, client);
+      client.use(editor);
+      if (waitingPipe) client.attach(waitingPipe);
+    }, console.error);
   return {
     attach(pipe) {
       if (editor) client.attach(pipe);
@@ -108,6 +112,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
     },
     detach() {
       client.detach();
+      away.textContent = say("The computer of this file is away. Your edits wait here.");
       element.append(away);
     },
     selection: () => editor?.selection() ?? "",

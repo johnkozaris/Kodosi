@@ -16,11 +16,13 @@ use std::time::Duration;
 use uuid::Uuid;
 
 pub(crate) const TYPING: Duration = Duration::from_secs(3);
-pub(crate) const SOMEONE_TYPING: &str =
-    "Someone is typing in this terminal. Try again in a moment.";
+pub(crate) fn someone_typing() -> crate::text::Text {
+    text!("Someone is typing in this terminal. Try again in a moment.")
+}
 #[cfg(feature = "host")]
-pub(crate) const AGENT_ASKS: &str =
-    "The agent in this terminal waits for a person's answer. Try again later.";
+pub(crate) fn agent_asks() -> crate::text::Text {
+    text!("The agent in this terminal waits for a person's answer. Try again later.")
+}
 #[cfg(feature = "host")]
 pub(crate) const NO_AGENT: &str = "No agent in this terminal reports its state, so it gets no messages. Type into it with kodosi terminal input.";
 
@@ -104,7 +106,7 @@ pub(crate) enum SessionChange {
     #[cfg(feature = "host")]
     Ended {
         id: Uuid,
-        reason: String,
+        reason: crate::text::Text,
     },
     Metadata {
         id: Uuid,
@@ -116,7 +118,7 @@ pub(crate) enum SessionChange {
         id: Uuid,
         incarnation: Uuid,
         instance_id: Uuid,
-        reason: String,
+        reason: crate::text::Text,
     },
     RemotePaused {
         id: Uuid,
@@ -132,7 +134,7 @@ pub(crate) enum SessionChange {
         id: Uuid,
         incarnation: Uuid,
         instance_id: Uuid,
-        reason: String,
+        reason: crate::text::Text,
     },
     Picture {
         id: Uuid,
@@ -141,6 +143,6 @@ pub(crate) enum SessionChange {
         state: crate::protocol::PictureState,
         sent: u64,
         total: u64,
-        message: Option<String>,
+        message: Option<crate::text::Text>,
     },
 }

@@ -105,9 +105,7 @@ impl<T: Transport> Channel<T> {
         let tls = ClientConnection::new(Arc::clone(&keys.client), name).map_err(tls)?;
         let channel = Self::establish(transport, Connection::Client(tls)).await?;
         if channel.peer_key()? != host_key {
-            return Err(Error::Trust(
-                "The hosting device key is not the approved key.".into(),
-            ));
+            return Err(Error::Trust(text!("The hosting device key is not the approved key.")));
         }
         Ok(channel)
     }
@@ -163,7 +161,7 @@ impl<T: Transport> Channel<T> {
             .tls
             .peer_certificates()
             .and_then(<[CertificateDer<'_>]>::first)
-            .ok_or_else(|| Error::Trust("The other device did not prove its key.".into()))?;
+            .ok_or_else(|| Error::Trust(text!("The other device did not prove its key.")))?;
         let info = info.as_ref();
         if info.len() <= DEVICE_KEY_BYTES {
             return Err(Error::Trust("The other device key is not valid.".into()));
@@ -318,9 +316,9 @@ fn certified(provider: &CryptoProvider, signing_pkcs8: &[u8]) -> Result<Arc<Cert
 
 fn tls(error: rustls::Error) -> Error {
     match error {
-        rustls::Error::General(reason) => Error::Trust(reason),
+        rustls::Error::General(reason) => Error::Trust(reason.into()),
         rustls::Error::InvalidCertificate(_) | rustls::Error::NoCertificatesPresented => {
-            Error::Trust("The other device did not prove its key.".into())
+            Error::Trust(text!("The other device did not prove its key."))
         }
         _ => Error::Closed,
     }

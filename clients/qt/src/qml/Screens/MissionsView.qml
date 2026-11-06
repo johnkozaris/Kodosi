@@ -80,8 +80,8 @@ Item {
                     PlainLabel { text: qsTr("Rooms"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
                     RollingText {
                         text: root.rooms.length === 0 ? qsTr("A room keeps people, agents and terminals in one place.")
-                            : Identity.count(root.rooms.length, qsTr("1 room"), qsTr("%1 rooms")) + " · "
-                                + Identity.count(root.shared, qsTr("1 shared terminal"), qsTr("%1 shared terminals"))
+                            : qsTr("%n rooms", "", root.rooms.length) + " · "
+                                + qsTr("%n shared terminals", "", root.shared)
                         color: KodosiTheme.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                     }
@@ -238,7 +238,7 @@ Item {
                                     }
                                     ShimmerText {
                                         visible: card.sessions.length > 0
-                                        text: card.working ? qsTr("Working") : Identity.count(card.sessions.length, qsTr("1 terminal"), qsTr("%1 terminals"))
+                                        text: card.working ? qsTr("Working") : qsTr("%n terminals", "", card.sessions.length)
                                         color: KodosiTheme.inkMuted
                                         font.pixelSize: KodosiTheme.fontFootnote
                                     }

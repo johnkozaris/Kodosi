@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QCoreApplication>
 #include <QString>
 #include <QStringView>
 
@@ -28,6 +29,8 @@ struct DeepLinkParseResult {
 };
 
 class DeepLinkRouter final {
+    Q_DECLARE_TR_FUNCTIONS(DeepLinkRouter)
+
 public:
     static constexpr qsizetype MaximumUrlCharacters = 4096;
     static constexpr qsizetype MaximumIdentityCharacters = 512;

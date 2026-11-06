@@ -204,6 +204,22 @@ pub extern "C" fn kodosi_protocol_version() -> u32 {
     kodosi_runtime::protocol::VERSION
 }
 
+/// Sets the language of the words that the runtime gives to this app, as a tag such as `de` or
+/// `zh-Hans`. The app calls it before it starts the runtime; the `kodosi` command never does.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kodosi_set_language(tag: *const c_char) -> i32 {
+    caught(|| {
+        if tag.is_null() {
+            return KODOSI_FFI_NULL_HANDLE;
+        }
+        let Ok(tag) = unsafe { CStr::from_ptr(tag) }.to_str() else {
+            return KODOSI_FFI_DESER_FAILED;
+        };
+        kodosi_runtime::text::set_language(kodosi_runtime::text::Language::of(tag));
+        KODOSI_FFI_OK
+    })
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_last_start_failure(out: *mut KodosiStartFailure) -> i32 {
     caught(|| {

@@ -1,4 +1,5 @@
 #include "presentation/AccountModel.hpp"
+#include "app/AppLanguage.hpp"
 #include "presentation/Workspace.hpp"
 
 namespace kodosi {
@@ -9,7 +10,8 @@ AccountModel::AccountModel(Workspace& workspace)
 
 void AccountModel::login()
 {
-    m_workspace.sendUntracked(QStringLiteral("auth.login.start"), { { QStringLiteral("browser"), QStringLiteral("system") } });
+    m_workspace.sendUntracked(QStringLiteral("auth.login.start"),
+        { { QStringLiteral("browser"), QStringLiteral("system") }, { QStringLiteral("language"), AppLanguage::current() } });
 }
 
 void AccountModel::cancelLogin()

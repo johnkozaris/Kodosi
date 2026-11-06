@@ -8,6 +8,7 @@ use crate::{
     dosi::DosiContext,
     identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
+    text::Text,
 };
 
 fn validate_participants(users: &[String]) -> Result<()> {
@@ -23,11 +24,13 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 79;
+pub const VERSION: u32 = 80;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
-pub(crate) const OTHER_VERSION: &str = "Update Kodosi on both computers.";
+pub(crate) fn other_version() -> Text {
+    text!("Update Kodosi on both computers.")
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
@@ -52,6 +55,9 @@ pub enum Command {
     Login {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         browser: Option<SignInBrowser>,
+        /// The language of the app, for the sign-in pages.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        language: Option<String>,
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -814,7 +820,7 @@ pub struct SessionEntry {
     #[serde(default)]
     pub hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub message: Option<Text>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mission_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -869,7 +875,7 @@ pub enum EventBody {
         host: Option<crate::HostKind>,
     },
     #[serde(rename = "system.error")]
-    SystemError { message: String },
+    SystemError { message: Text },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
     #[serde(rename = "auth.ready")]
@@ -918,7 +924,7 @@ pub enum EventBody {
     AuthError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "friends.snapshot")]
     FriendsSnapshot {
@@ -937,14 +943,14 @@ pub enum EventBody {
     FriendsError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "devices.list")]
     DevicesList {
         self_device_id: String,
         local_device_enrolled: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        notice: Option<String>,
+        notice: Option<Text>,
         devices: Vec<DeviceEntry>,
     },
     #[serde(rename = "devices.hosts")]
@@ -971,7 +977,7 @@ pub enum EventBody {
     DevicesError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "sessions.snapshot")]
     SessionsSnapshot { sessions: Vec<SessionEntry> },
@@ -995,13 +1001,13 @@ pub enum EventBody {
         sent: u64,
         total: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        message: Option<String>,
+        message: Option<Text>,
     },
     #[serde(rename = "session.error")]
     SessionError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
@@ -1026,7 +1032,7 @@ pub enum EventBody {
     RoomError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "missions.snapshot")]
     MissionsSnapshot {
@@ -1052,7 +1058,7 @@ pub enum EventBody {
     MissionError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mission_id: Option<String>,
     },
@@ -1067,7 +1073,7 @@ pub enum EventBody {
     CanvasError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
@@ -1086,7 +1092,7 @@ pub enum EventBody {
     BrowserError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "document.result")]
     DocumentResult {
@@ -1099,7 +1105,7 @@ pub enum EventBody {
     DocumentError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
@@ -1122,7 +1128,7 @@ pub enum EventBody {
     ProviderError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "folders.result")]
     FoldersResult {
@@ -1134,7 +1140,7 @@ pub enum EventBody {
     FoldersError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "repositories.result")]
     RepositoriesResult {
@@ -1146,7 +1152,7 @@ pub enum EventBody {
     RepositoriesError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "mission.show")]
     MissionShow { mission_id: String },
@@ -1167,7 +1173,7 @@ pub enum EventBody {
     DosiError {
         request_id: String,
         operation: String,
-        message: String,
+        message: Text,
     },
     #[serde(rename = "term.bell")]
     TerminalBell { session_id: String },
@@ -2472,9 +2478,8 @@ pub fn answer(event: &Value, request: &str) -> Option<std::result::Result<Value,
         "result" => Some(Ok(event.clone())),
         "error" => Some(Err(event
             .get("message")
-            .and_then(Value::as_str)
-            .unwrap_or("That did not work.")
-            .to_owned())),
+            .and_then(|message| serde_json::from_value::<Text>(message.clone()).ok())
+            .map_or_else(|| text!("That did not work.").to_string(), |text| text.to_string()))),
         _ => None,
     }
 }

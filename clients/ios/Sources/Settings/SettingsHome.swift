@@ -26,6 +26,7 @@ struct SettingsHome: View {
             } header: {
                 GroupedListHeader(title: "Appearance")
             }
+            LanguageSection()
             DocumentsSection()
             AboutSection()
             AccountActionsSection()

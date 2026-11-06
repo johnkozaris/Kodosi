@@ -160,6 +160,8 @@ extern "C" {
 
  uint32_t kodosi_protocol_version(void) ;
 
+ int32_t kodosi_set_language(const char *tag) ;
+
  int32_t kodosi_last_start_failure(struct kodosi_start_failure_t *out) ;
 
  int32_t kodosi_host_stop(int32_t force) ;

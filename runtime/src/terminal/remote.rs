@@ -29,12 +29,11 @@ use crate::{
         TerminalControl,
     },
     protocol::PictureState,
+    text::Text,
 };
 
 const CONTROL_CAPACITY: usize = 64;
 const PICTURES_WAITING: usize = 8;
-const PICTURE_LOST: &str =
-    "The connection to the other computer was lost, so the picture did not arrive. Paste it again.";
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
@@ -328,9 +327,9 @@ async fn wait_for<T>(
     tokio::time::timeout(timeout, reply)
         .await
         .map_err(|_| {
-            Error::Other(
-                "The remote terminal did not confirm the request, and Kodosi did not send it again.".to_owned(),
-            )
+            Error::Text(text!(
+                "The remote terminal did not confirm the request, and Kodosi did not send it again."
+            ))
         })?
         .map_err(|_| Error::Stopped)?
 }
@@ -401,14 +400,14 @@ struct InFlight {
 
 enum Step {
     Next,
-    Failed(String),
-    Stop(String),
+    Failed(Text),
+    Stop(Text),
     Ended,
 }
 
 impl From<Result<()>> for Step {
     fn from(outcome: Result<()>) -> Self {
-        outcome.map_or_else(|error| Self::Failed(error.to_string()), |()| Self::Next)
+        outcome.map_or_else(|error| Self::Failed(error.text()), |()| Self::Next)
     }
 }
 
@@ -536,14 +535,14 @@ impl RemoteActor {
         self.resyncing = true;
     }
 
-    async fn interrupt(&mut self, reason: String) -> Option<String> {
+    async fn interrupt(&mut self, reason: Text) -> Option<Text> {
         self.subscribers.prune();
         if self.subscribers.is_empty() {
             return Some(reason);
         }
         self.set_link(Link::Lost);
         self.connection.disconnect();
-        let refuse = || Error::Other(reason.clone());
+        let refuse = || Error::Text(reason.clone());
         for reply in self
             .in_flight
             .take()
@@ -563,7 +562,9 @@ impl RemoteActor {
                 sending.total,
                 PictureState::Failed,
                 0,
-                Some(PICTURE_LOST.to_owned()),
+                Some(text!(
+                    "The connection to the other computer was lost, so the picture did not arrive. Paste it again."
+                )),
             )
             .await;
         }
@@ -914,10 +915,9 @@ impl RemoteActor {
                 drop(reply.send(Err(Error::Busy)));
                 return Ok(());
             }
-            return Err(Error::Other(
+            return Err(Error::Text(text!(
                 "Remote input exceeded its connection buffer, and Kodosi did not send it again."
-                    .to_owned(),
-            ));
+            )));
         }
         let resize = match (&queued.connection, &queued.control) {
             (Some(_), TerminalControl::Input { .. }) => {
@@ -938,7 +938,7 @@ impl RemoteActor {
                 if self.typed_at.is_some_and(|at| at.elapsed() < super::TYPING) =>
             {
                 if let Some(reply) = queued.reply {
-                    drop(reply.send(Err(Error::Invalid(super::SOMEONE_TYPING.to_owned()))));
+                    drop(reply.send(Err(Error::Text(super::someone_typing()))));
                 }
                 return Ok(());
             }
@@ -1151,9 +1151,9 @@ impl RemoteActor {
             .is_some_and(|(owner, token)| *owner != id && !token.is_cancelled())
             && !*claim
         {
-            return Err(Error::Invalid(
-                "Another terminal view controls the size. Focus this view to resize it.".to_owned(),
-            ));
+            return Err(Error::Text(text!(
+                "Another terminal view controls the size. Focus this view to resize it."
+            )));
         }
         Ok(id)
     }
@@ -1210,10 +1210,13 @@ impl RemoteActor {
             )
         {
             fatal = result.as_ref().err().map(|error| {
-                format!("The remote terminal did not confirm the control ({error}), and Kodosi did not send it again.")
+                text!(
+                    "The remote terminal did not confirm the control ({error}), and Kodosi did not send it again.",
+                    error = error.text()
+                )
             });
         }
-        let failure = result.as_ref().err().map(ToString::to_string);
+        let failure = result.as_ref().err().map(crate::network::Error::text);
         let mut replies = active.replies.into_iter();
         if let Some(first) = replies.next() {
             drop(first.send(result.map_err(Error::from)));
@@ -1221,11 +1224,11 @@ impl RemoteActor {
         for reply in replies {
             drop(
                 reply.send(failure.as_ref().map_or(Ok(Value::Null), |message| {
-                    Err(Error::Other(message.clone()))
+                    Err(Error::Text(message.clone()))
                 })),
             );
         }
-        fatal.map_or(Ok(()), |reason| Err(Error::Other(reason)))
+        fatal.map_or(Ok(()), |reason| Err(Error::Text(reason)))
     }
 
     async fn maintain(&mut self) -> Result<()> {
@@ -1274,13 +1277,13 @@ impl RemoteActor {
             .and_then(|active| active.result.as_mut().now_or_never())
             && let Err(error) = self.finish_control(result)
         {
-            return Step::Failed(error.to_string());
+            return Step::Failed(error.text());
         }
         match update {
             Some(RemoteUpdate::Ended) => Step::Ended,
             Some(RemoteUpdate::Closed { reason }) => Step::Failed(reason),
             Some(update) => Step::from(self.update(update)),
-            None => Step::Failed("The remote host disconnected.".to_owned()),
+            None => Step::Failed(text!("The remote host disconnected.")),
         }
     }
 
@@ -1315,10 +1318,9 @@ impl RemoteActor {
             return Ok(());
         }
         if self.pictures.len() >= PICTURES_WAITING {
-            return Err(Error::Invalid(
+            return Err(Error::Text(text!(
                 "Kodosi still sends earlier pictures to this terminal. Paste this one in a moment."
-                    .to_owned(),
-            ));
+            )));
         }
         self.pictures.push_back(picture);
         Ok(())
@@ -1350,7 +1352,7 @@ impl RemoteActor {
         total: u64,
         state: PictureState,
         sent: u64,
-        message: Option<String>,
+        message: Option<Text>,
     ) {
         drop(
             self.changes
@@ -1381,13 +1383,13 @@ impl RemoteActor {
             self.next_picture().await;
         }
         let outcome = tokio::select! {
-            () = self.cancellation.cancelled() => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
+            () = self.cancellation.cancelled() => return Step::Stop(text!("Disconnected from the remote terminal.")),
             result = async { match self.in_flight.as_mut() { Some(active) => active.result.as_mut().await, None => std::future::pending().await } } => self.finish_control(result),
             result = async { match self.sending.as_mut() { Some(sending) => sending.result.as_mut().await, None => std::future::pending().await } } => {
                 if let Some(sending) = self.sending.take() {
                     let (state, message) = match result {
                         Ok(()) => (PictureState::Sent, None),
-                        Err(error) => (PictureState::Failed, Some(error.to_string())),
+                        Err(error) => (PictureState::Failed, Some(error.text())),
                     };
                     self.tell_picture(sending.total, state, sending.total, message).await;
                 }
@@ -1405,7 +1407,7 @@ impl RemoteActor {
                 Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
                 Some(Request::Control(queued)) if self.link == Link::Lost => {
                     if let Some(reply) = queued.reply {
-                        drop(reply.send(Err(Error::Other("The remote terminal is connecting again, so Kodosi did not send the operation.".to_owned()))));
+                        drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again, so Kodosi did not send the operation.")))));
                     }
                     Ok(())
                 }
@@ -1415,11 +1417,11 @@ impl RemoteActor {
                     Ok(())
                 }
                 Some(Request::Canvas { reply, .. }) if interrupted => {
-                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
+                    drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again.")))));
                     Ok(())
                 }
                 Some(Request::Document { reply, .. }) if interrupted => {
-                    drop(reply.send(Err(Error::Other("The remote terminal is connecting again.".to_owned()))));
+                    drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again.")))));
                     Ok(())
                 }
                 Some(request @ (Request::Canvas { .. } | Request::Document { .. })) => {
@@ -1430,7 +1432,7 @@ impl RemoteActor {
                     drop(reply.send(self.wait_picture(picture)));
                     Ok(())
                 }
-                None => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
+                None => return Step::Stop(text!("Disconnected from the remote terminal.")),
                 }
             }
             _ = tick.tick() => self.maintain().await,
@@ -1444,7 +1446,7 @@ impl RemoteActor {
         let mut ended = false;
         let reason = loop {
             if self.cancellation.is_cancelled() {
-                break "Disconnected from the remote terminal.".to_owned();
+                break text!("Disconnected from the remote terminal.");
             }
             match self.step(&mut tick).await {
                 Step::Next => {}
@@ -1456,11 +1458,11 @@ impl RemoteActor {
                 Step::Stop(reason) => break reason,
                 Step::Ended => {
                     ended = true;
-                    break "The host stopped this terminal.".to_owned();
+                    break text!("The host stopped this terminal.");
                 }
             }
             if self.link == Link::Lost && self.subscribers.is_empty() {
-                break "Disconnected from the remote terminal.".to_owned();
+                break text!("Disconnected from the remote terminal.");
             }
         };
         self.cancellation.cancel();
@@ -1473,18 +1475,18 @@ impl RemoteActor {
                 .await;
         }
         for waiting in self.pending {
-            waiting.reply.reject(Error::Other(reason.clone()));
+            waiting.reply.reject(Error::Text(reason.clone()));
         }
         for queued in self.queued {
             if let Some(reply) = queued.reply {
-                drop(reply.send(Err(Error::Other(reason.clone()))));
+                drop(reply.send(Err(Error::Text(reason.clone()))));
             }
         }
         for reply in self.in_flight.into_iter().flat_map(|active| active.replies) {
-            drop(reply.send(Err(Error::Other(reason.clone()))));
+            drop(reply.send(Err(Error::Text(reason.clone()))));
         }
         for request in self.held {
-            reject(request, Error::Other(reason.clone()));
+            reject(request, Error::Text(reason.clone()));
         }
         if ended {
             drop(

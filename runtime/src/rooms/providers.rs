@@ -27,21 +27,21 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
             path
         )
     } else if remote.starts_with("ssh://") {
-        let ssh = Url::parse(remote).map_err(|_| invalid("Invalid repository address."))?;
+        let ssh = Url::parse(remote).map_err(|_| crate::network::Error::Text(text!("This repository address is not valid.")))?;
         format!(
             "https://{}{}",
             ssh.host_str()
-                .ok_or_else(|| invalid("Repository host is missing."))?,
+                .ok_or_else(|| crate::network::Error::Text(text!("The repository address has no host.")))?,
             ssh.path()
         )
     } else {
         remote.to_owned()
     };
     let mut url =
-        Url::parse(&normalized).map_err(|_| invalid("Use a repository URL or Git remote."))?;
+        Url::parse(&normalized).map_err(|_| crate::network::Error::Text(text!("Use a repository URL or Git remote.")))?;
     crate::identity::oidc::validate_url(&url)?;
     if !url.username().is_empty() || url.password().is_some() {
-        return Err(invalid("Use a repository address without credentials."));
+        return Err(crate::network::Error::Text(text!("Use a repository address without credentials.")));
     }
     let path = url.path().trim_matches('/').trim_end_matches(".git");
     let parts = path.split('/').collect::<Vec<_>>();
@@ -53,14 +53,12 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
                     .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
         })
     {
-        return Err(invalid(
-            "Use the repository address, including its owner and name.",
-        ));
+        return Err(crate::network::Error::Text(text!("Use the repository address, including its owner and name.")));
     }
     let (owner, name) = (parts[0].to_owned(), parts[1].to_owned());
     let host = url
         .host_str()
-        .ok_or_else(|| invalid("Repository host is missing."))?
+        .ok_or_else(|| crate::network::Error::Text(text!("The repository address has no host.")))?
         .to_owned();
     let kind = provider.unwrap_or(if host == "github.com" {
         "github"
@@ -68,7 +66,7 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
         "gitea"
     });
     if !matches!(kind, "github" | "gitea") {
-        return Err(invalid("Choose GitHub or Gitea."));
+        return Err(crate::network::Error::Text(text!("Choose GitHub or Gitea.")));
     }
     url.set_path(&format!("/{owner}/{name}"));
     url.set_query(None);
@@ -109,7 +107,7 @@ async fn gh_token(gh: &std::path::Path, host: &str) -> Result<Option<Zeroizing<S
     }
     let token = Zeroizing::new(
         String::from_utf8(output.stdout)
-            .map_err(|_| invalid("GitHub credentials are unavailable."))?
+            .map_err(|_| crate::network::Error::Text(text!("Kodosi cannot get your GitHub credentials.")))?
             .trim()
             .to_owned(),
     );
@@ -124,7 +122,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
     {
         return Ok(Some(token));
     }
-    let url = Url::parse(&repo.url).map_err(|_| invalid("Invalid repository address."))?;
+    let url = Url::parse(&repo.url).map_err(|_| crate::network::Error::Text(text!("This repository address is not valid.")))?;
     if repo.provider == "gitea"
         && let (Ok(origin), Ok(value)) = (
             std::env::var("KODOSI_GITEA_URL"),
@@ -163,7 +161,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
     {
         let text = Zeroizing::new(
             String::from_utf8(output.stdout)
-                .map_err(|_| invalid("Repository credentials are unavailable."))?,
+                .map_err(|_| crate::network::Error::Text(text!("Kodosi cannot get the credentials of this repository.")))?,
         );
         return Ok(text.lines().find_map(|line| {
             line.strip_prefix("password=")
@@ -175,7 +173,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
 
 #[cfg(feature = "host")]
 fn api_url(repo: &Repository, path: &str) -> Result<Url> {
-    let mut url = Url::parse(&repo.url).map_err(|_| invalid("Invalid repository address."))?;
+    let mut url = Url::parse(&repo.url).map_err(|_| crate::network::Error::Text(text!("This repository address is not valid.")))?;
     let prefix = if repo.provider == "github" {
         if repo.host == "github.com" {
             url.set_host(Some("api.github.com"))
@@ -220,14 +218,14 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
         .is_some_and(|remaining| remaining.as_bytes() == b"0");
     let bytes = crate::identity::oidc::read_bounded(response, 2 * 1024 * 1024).await?;
     if !status.is_success() {
-        return Err(invalid(match status.as_u16() {
-            403 | 429 if limited => "The issue provider limits your requests now. Try again later, or connect your account for a higher limit.".to_owned(),
-            403 => "Your provider account or token does not have access to these issues. Check its issue permissions.".to_owned(),
-            401 => connect_message(repo).to_owned(),
-            404 => "The repository or issue is unavailable to your account.".to_owned(),
-            409 | 422 => "The issue changed, or the provider could not apply the update. Refresh and try again.".to_owned(),
-            429 => "The issue provider is busy. Try again in a moment.".to_owned(),
-            _ => format!("The issue provider returned HTTP {}.", status.as_u16()),
+        return Err(crate::network::Error::Text(match status.as_u16() {
+            403 | 429 if limited => text!("The issue provider limits your requests now. Try again later, or connect your account for a higher limit."),
+            403 => text!("Your provider account or token does not have access to these issues. Check its issue permissions."),
+            401 => connect_message(repo),
+            404 => text!("The repository or issue is unavailable to your account."),
+            409 | 422 => text!("The issue changed, or the provider could not apply the update. Refresh and try again."),
+            429 => text!("The issue provider is busy. Try again in a moment."),
+            _ => text!("The issue provider returned HTTP {status}.", status = status.as_u16()),
         }));
     }
     if bytes.is_empty() {
@@ -238,11 +236,13 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
 }
 
 #[cfg(feature = "host")]
-fn connect_message(repo: &Repository) -> &'static str {
+fn connect_message(repo: &Repository) -> crate::text::Text {
     if repo.provider == "github" {
-        "Connect your GitHub account with gh auth login, then try again."
+        text!("Connect your GitHub account with gh auth login, then try again.")
     } else {
-        "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again."
+        text!(
+            "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again."
+        )
     }
 }
 
@@ -316,7 +316,7 @@ pub(crate) async fn update_issue(
             let user = api(repo, Method::GET, "user", None).await?;
             let login = user["login"]
                 .as_str()
-                .ok_or_else(|| invalid("Your provider account is unavailable."))?;
+                .ok_or_else(|| crate::network::Error::Text(text!("Your provider account is unavailable.")))?;
             json!({"assignees":[login]})
         }
         TaskChange::Release => json!({"assignees":[]}),
@@ -327,7 +327,7 @@ pub(crate) async fn update_issue(
 #[cfg(feature = "host")]
 pub(crate) async fn create_issue(repo: &Repository, title: &str, body: &str) -> Result<Issue> {
     if token(repo).await?.is_none() {
-        return Err(invalid(connect_message(repo)));
+        return Err(crate::network::Error::Text(connect_message(repo)));
     }
     let path = format!("repos/{}/{}/issues", repo.owner, repo.repository);
     let created = api(
@@ -458,7 +458,7 @@ fn account_choices(items: &[Value]) -> Vec<RepositoryChoice> {
     reason = "issues are created through the provider credentials of a computer"
 )]
 pub(crate) async fn create_issue(_repo: &Repository, _title: &str, _body: &str) -> Result<Issue> {
-    Err(invalid("Create issues from a computer."))
+    Err(crate::network::Error::Text(text!("Create issues from a computer.")))
 }
 
 #[cfg(not(feature = "host"))]
@@ -467,7 +467,7 @@ pub(crate) async fn create_issue(_repo: &Repository, _title: &str, _body: &str) 
     reason = "issues are read through the provider credentials of a computer"
 )]
 pub(crate) async fn issues(_repo: &Repository, _number: Option<u64>) -> Result<Vec<Issue>> {
-    Err(invalid("Import issues from a computer."))
+    Err(crate::network::Error::Text(text!("Import issues from a computer.")))
 }
 
 #[cfg(not(feature = "host"))]
@@ -480,7 +480,7 @@ pub(crate) async fn update_issue(
     _number: u64,
     _change: TaskChange,
 ) -> Result<Issue> {
-    Err(invalid("Change linked issues from a computer."))
+    Err(crate::network::Error::Text(text!("Change linked issues from a computer.")))
 }
 
 #[cfg(test)]

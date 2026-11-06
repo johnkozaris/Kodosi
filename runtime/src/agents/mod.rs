@@ -447,12 +447,12 @@ async fn add_account(
     agent: Agent,
     name: &str,
     taken: Vec<String>,
-) -> Result<AgentAccount, String> {
+) -> Result<AgentAccount, crate::text::Text> {
     let home = home.to_owned();
     let name = name.to_owned();
     tokio::task::spawn_blocking(move || accounts::add(&home, agent, &name, &taken))
         .await
-        .map_err(|error| format!("Kodosi could not make the account: {error}"))?
+        .map_err(|error| crate::text::Text::plain(format!("Kodosi could not make the account: {error}")))?
 }
 
 #[cfg(feature = "host")]

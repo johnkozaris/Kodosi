@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import Observation
 
 @MainActor
@@ -70,6 +71,15 @@ final class DesktopSettings {
         didSet { defaults.set(try? JSONEncoder().encode(shortcuts), forKey: Self.shortcutsKey) }
     }
 
+    /// The language from the next start of Kodosi, or nil for the language of macOS.
+    var language: String? {
+        didSet { AppLanguage.choose(language, in: defaults) }
+    }
+
+    var nextLanguage: String {
+        language ?? AppLanguage.systemLanguage
+    }
+
     private static let keepRunningKey = "app.keepRunning"
     private static let terminalCellKey = "terminal.cell"
     private static let shortcutsKey = "app.shortcuts"
@@ -84,12 +94,17 @@ final class DesktopSettings {
         case block, bar, underline
 
         var label: String {
-            rawValue.capitalized
+            switch self {
+            case .block: String(localized: "Block")
+            case .bar: String(localized: "Bar")
+            case .underline: String(localized: "Underline")
+            }
         }
     }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        language = AppLanguage.chosen(in: defaults)
         load()
     }
 

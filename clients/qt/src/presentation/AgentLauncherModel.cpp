@@ -36,10 +36,13 @@ QVariantMap describedLimit(QVariantMap limit)
             : count % 24 == 0 ? AgentLauncherModel::tr("%1d").arg(count / 24)
                               : AgentLauncherModel::tr("%1h").arg(count);
     }
-    const auto span = monthly ? AgentLauncherModel::tr("This month")
-        : count == 168 ? AgentLauncherModel::tr("This week")
-                       : AgentLauncherModel::tr("Last %1 hours").arg(count);
-    const auto name = scope.isEmpty() ? span : AgentLauncherModel::tr("%1, %2").arg(scope, span.toLower());
+    const auto name = scope.isEmpty()
+        ? (monthly ? AgentLauncherModel::tr("This month")
+                : count == 168 ? AgentLauncherModel::tr("This week")
+                               : AgentLauncherModel::tr("Last %n hours", "", count))
+        : (monthly ? AgentLauncherModel::tr("%1, this month").arg(scope)
+                : count == 168 ? AgentLauncherModel::tr("%1, this week").arg(scope)
+                               : AgentLauncherModel::tr("%1, last %n hours", "", count).arg(scope));
     limit.insert(QStringLiteral("id"), !scope.isEmpty() ? QStringLiteral("scope:") + scope
             : monthly ? QStringLiteral("month") : QStringLiteral("hours:") + QString::number(count));
     limit.insert(QStringLiteral("window"), window);

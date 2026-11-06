@@ -61,9 +61,7 @@ pub(crate) async fn list(
 ) -> Result<FolderList> {
     let folder = path.map_or_else(|| home.clone(), PathBuf::from);
     if !folder.is_absolute() {
-        return Err(Error::Invalid(
-            "Choose a folder by its full path on that computer.".to_owned(),
-        ));
+        return Err(Error::Text(text!("Choose a folder by its full path on that computer.")));
     }
     let listing = move || {
         let home = kodosi_os::fs::canonicalize(&home).unwrap_or(home);
@@ -71,7 +69,7 @@ pub(crate) async fn list(
     };
     let (home, folder, folders) = tokio::time::timeout(WAIT, tokio::task::spawn_blocking(listing))
         .await
-        .map_err(|_| Error::Invalid("The folder did not open in time.".to_owned()))?
+        .map_err(|_| Error::Text(text!("The folder did not open in time.")))?
         .map_err(std::io::Error::from)??;
     Ok(FolderList {
         parent: folder.parent().map(text).transpose()?,
@@ -128,16 +126,18 @@ const fn hidden(_: &std::fs::DirEntry) -> bool {
 }
 
 fn unreadable(error: &std::io::Error) -> Error {
-    Error::Invalid(match error.kind() {
-        std::io::ErrorKind::NotFound => "This folder is not there.".to_owned(),
-        std::io::ErrorKind::PermissionDenied => "Kodosi cannot open this folder.".to_owned(),
-        _ => format!("Kodosi cannot open this folder: {error}"),
-    })
+    match error.kind() {
+        std::io::ErrorKind::NotFound => Error::Text(text!("This folder is not there.")),
+        std::io::ErrorKind::PermissionDenied => {
+            Error::Text(text!("Kodosi cannot open this folder."))
+        }
+        _ => Error::Invalid(format!("Kodosi cannot open this folder: {error}")),
+    }
 }
 
 fn text(path: &Path) -> Result<String> {
     path.to_str().map(str::to_owned).ok_or_else(|| {
-        Error::Invalid("The folder name is not text that Kodosi can show.".to_owned())
+        Error::Text(text!("The folder name is not text that Kodosi can show."))
     })
 }
 

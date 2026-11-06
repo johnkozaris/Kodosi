@@ -20,12 +20,13 @@ use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
-    AGENT_ASKS, CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SOMEONE_TYPING,
+    CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, agent_asks, someone_typing,
     SessionChange, Subscription, TYPING, TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
     canvas::{Canvas, CanvasHandle},
+    text::Text,
     network::{CheckpointCut, HostPicture, HostRequest, PublishedFrame, TerminalControl},
 };
 
@@ -40,9 +41,12 @@ const PROMPT_QUIET: Duration = Duration::from_millis(300);
 const BUSY_UPKEEP: Duration = Duration::from_millis(20);
 const IDLE_UPKEEP: Duration = Duration::from_millis(250);
 const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
-const SIZE_NOT_APPLIED: &str = "The terminal could not apply its new size.";
 
-type Completion = Option<std::result::Result<(), String>>;
+type Completion = Option<std::result::Result<(), Text>>;
+
+fn size_not_applied() -> Text {
+    text!("The terminal could not apply its new size.")
+}
 
 enum Request {
     Subscribe(oneshot::Sender<Result<Subscription>>),
@@ -393,7 +397,7 @@ impl TerminalSession {
                 loop {
                     let result = completion.borrow_and_update().clone();
                     if let Some(result) = result {
-                        return result.map_err(Error::Other);
+                        return result.map_err(Error::Text);
                     }
                     completion.changed().await.map_err(|_| {
                         Error::Other("Terminal shutdown was not confirmed.".to_owned())
@@ -435,7 +439,7 @@ async fn await_reply<T>(
 
 enum InputCompletion {
     Local(oneshot::Sender<Result<()>>),
-    Remote(oneshot::Sender<std::result::Result<serde_json::Value, String>>),
+    Remote(oneshot::Sender<std::result::Result<serde_json::Value, Text>>),
 }
 
 impl InputCompletion {
@@ -446,7 +450,7 @@ impl InputCompletion {
                 reply.send(
                     result
                         .map(|()| serde_json::json!({"accepted": true}))
-                        .map_err(|error| error.to_string()),
+                        .map_err(|error| error.text()),
                 ),
             ),
         }
@@ -654,7 +658,7 @@ struct LocalActor {
     size: TerminalSize,
     cell: CellPixels,
     sequence: u64,
-    host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
+    host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, Text>>>,
     program: Option<String>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
@@ -860,9 +864,7 @@ impl LocalActor {
             !owner.authorization.is_cancelled() && owner.controller != controller
         }) && !claim
         {
-            return Err(ResizeError::Rejected(Error::Invalid(
-                "Another terminal view controls the size. Focus this view to resize it.".to_owned(),
-            )));
+            return Err(ResizeError::Rejected(Error::Text(text!("Another terminal view controls the size. Focus this view to resize it."))));
         }
         self.pty
             .resize(size.rows(), size.cols(), width, height)
@@ -1017,7 +1019,7 @@ impl LocalActor {
         }
     }
 
-    async fn give_size_back(&mut self) -> Option<String> {
+    async fn give_size_back(&mut self) -> Option<Text> {
         self.resize_owner = None;
         let (controller, authorization) = self
             .focused
@@ -1035,14 +1037,14 @@ impl LocalActor {
             .await
             .err()?;
         tracing::warn!(id = %self.id, %error, "the terminal could not give the size back");
-        Some(SIZE_NOT_APPLIED.to_owned())
+        Some(size_not_applied())
     }
 
     fn typing(&self) -> bool {
         self.typed_at.is_some_and(|at| at.elapsed() < TYPING)
     }
 
-    async fn release(&mut self, controller: Controller) -> Option<String> {
+    async fn release(&mut self, controller: Controller) -> Option<Text> {
         self.requested.remove(&controller);
         if self.focused.contains_key(&controller)
             && let Err(error) = self.set_focus(controller, None, false).await
@@ -1093,7 +1095,7 @@ impl LocalActor {
                 .is_some_and(|output| output.elapsed() < BUSY_AFTER_OUTPUT)
     }
 
-    async fn maintain(&mut self) -> Option<String> {
+    async fn maintain(&mut self) -> Option<Text> {
         self.subscribers.prune();
         self.type_start_line();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
@@ -1310,7 +1312,7 @@ impl LocalActor {
             self.takes_message().err()
         } else {
             self.typing()
-                .then(|| Error::Invalid(SOMEONE_TYPING.to_owned()))
+                .then(|| Error::Text(someone_typing()))
         };
         if let Some(error) = refused {
             if let Some(completion) = write.completion.take() {
@@ -1323,14 +1325,14 @@ impl LocalActor {
 
     fn takes_message(&self) -> Result<()> {
         if self.typing() {
-            return Err(Error::Invalid(SOMEONE_TYPING.to_owned()));
+            return Err(Error::Text(someone_typing()));
         }
         let agent = self
             .live_program()
             .is_some_and(|program| crate::agents::is_agent_name(&program));
         match self.status.summary() {
             Some(status) if agent && status.state == ProgramState::Blocked => {
-                Err(Error::Invalid(AGENT_ASKS.to_owned()))
+                Err(Error::Text(agent_asks()))
             }
             Some(_) if agent => Ok(()),
             _ => Err(Error::Invalid(NO_AGENT.to_owned())),
@@ -1338,7 +1340,7 @@ impl LocalActor {
     }
 
     #[expect(clippy::too_many_lines, reason = "one dispatch for every request")]
-    async fn command(&mut self, command: Request) -> Option<String> {
+    async fn command(&mut self, command: Request) -> Option<Text> {
         match command {
             Request::Subscribe(reply) => {
                 if reply.is_closed() {
@@ -1412,7 +1414,7 @@ impl LocalActor {
                 };
                 drop(reply.send(result));
                 if diverged {
-                    return Some(SIZE_NOT_APPLIED.to_owned());
+                    return Some(size_not_applied());
                 }
             }
             Request::Interrupt(reply) => {
@@ -1430,7 +1432,7 @@ impl LocalActor {
                 let result = if self.at_prompt(self.live_program().as_deref()) {
                     self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
                 } else {
-                    Err(Error::Invalid("This terminal runs a program.".to_owned()))
+                    Err(Error::Text(text!("This terminal runs a program.")))
                 };
                 drop(reply.send(result));
             }
@@ -1466,7 +1468,7 @@ impl LocalActor {
         geometry: Option<TerminalPixelGeometry>,
         claim: bool,
         reply: oneshot::Sender<Result<()>>,
-    ) -> Option<String> {
+    ) -> Option<Text> {
         if reply.is_closed() {
             return None;
         }
@@ -1491,10 +1493,10 @@ impl LocalActor {
             }
         };
         drop(reply.send(result));
-        fatal.then(|| SIZE_NOT_APPLIED.to_owned())
+        fatal.then(size_not_applied)
     }
 
-    async fn host_request(&mut self, request: HostRequest) -> Option<String> {
+    async fn host_request(&mut self, request: HostRequest) -> Option<Text> {
         match request {
             HostRequest::Bootstrap {
                 request_id,
@@ -1507,11 +1509,11 @@ impl LocalActor {
                         .emulator
                         .checkpoint_data(history, image_data_bytes)
                         .await
-                        .map_err(|error| error.to_string())
+                        .map_err(|error| error.text())
                         .and_then(|cut| {
                             self.output
                                 .send(PublishedFrame::BootstrapBarrier { request_id })
-                                .map_err(|_| "Terminal publication disconnected.".to_owned())?;
+                                .map_err(|_| Text::plain("Terminal publication disconnected."))?;
                             Ok(CheckpointCut {
                                 checkpoint: self.metadata_checkpoint(cut.checkpoint),
                                 next_sequence: cut.applied_sequence,
@@ -1591,7 +1593,7 @@ impl LocalActor {
         connection_id: Uuid,
         key: String,
         name: String,
-        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
+        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, Text>>,
     ) {
         let canvas = self.canvas.clone();
         let view = connection_id.to_string();
@@ -1664,14 +1666,16 @@ impl LocalActor {
     fn ask_canvas(
         &self,
         request: crate::canvas::CanvasRequest,
-        reply: oneshot::Sender<std::result::Result<serde_json::Value, String>>,
+        reply: oneshot::Sender<std::result::Result<serde_json::Value, Text>>,
     ) {
         let canvas = self.canvas.clone();
         tokio::spawn(async move {
             let answer = canvas
                 .request(request)
                 .await
-                .and_then(|answer| serde_json::to_value(answer).map_err(|error| error.to_string()));
+                .and_then(|answer| {
+                    serde_json::to_value(answer).map_err(|error| Text::plain(error.to_string()))
+                });
             drop(reply.send(answer));
         });
     }
@@ -1682,12 +1686,12 @@ impl LocalActor {
         connection_id: Uuid,
         authorization: CancellationToken,
         control: TerminalControl,
-        reply: oneshot::Sender<std::result::Result<serde_json::Value, String>>,
-    ) -> Option<String> {
+        reply: oneshot::Sender<std::result::Result<serde_json::Value, Text>>,
+    ) -> Option<Text> {
         if authorization.is_cancelled() || reply.is_closed() {
-            drop(reply.send(Err(
-                "This terminal connection is no longer authorized.".to_owned(),
-            )));
+            drop(reply.send(Err(text!(
+                "This terminal connection is no longer authorized."
+            ))));
             return None;
         }
         let mut fatal = false;
@@ -1763,30 +1767,30 @@ impl LocalActor {
                 .map_err(Error::from),
             TerminalControl::Close => {
                 self.host_stop_reply = Some(reply);
-                return Some("The terminal was closed.".to_owned());
+                return Some(text!("The terminal was closed."));
             }
             TerminalControl::Canvas { request } => {
                 self.ask_canvas(request, reply);
                 return None;
             }
         };
-        let reason = result.as_ref().err().map(ToString::to_string);
+        let reason = result.as_ref().err().map(Error::text);
         drop(
             reply.send(
                 result
                     .map(|()| serde_json::json!({"accepted":true}))
-                    .map_err(|error| error.to_string()),
+                    .map_err(|error| error.text()),
             ),
         );
         if fatal {
             return Some(
-                reason.unwrap_or_else(|| "The terminal could not apply the control.".to_owned()),
+                reason.unwrap_or_else(|| text!("The terminal could not apply the control.")),
             );
         }
         None
     }
 
-    async fn terminate(&mut self, buffer: &mut [u8]) -> std::result::Result<(), String> {
+    async fn terminate(&mut self, buffer: &mut [u8]) -> std::result::Result<(), Text> {
         let mut readable = true;
         for (stage, grace) in [
             (ShutdownStage::Hangup, Duration::from_millis(500)),
@@ -1800,7 +1804,7 @@ impl LocalActor {
                     result = self.pty.wait_within(deadline.saturating_duration_since(tokio::time::Instant::now())) => match result {
                         Ok(WaitOutcome::Reaped) => return Ok(()),
                         Ok(WaitOutcome::TimedOut) => break,
-                        Err(error) => return Err(format!("Process termination was not confirmed: {error}")),
+                        Err(error) => return Err(Text::plain(format!("Process termination was not confirmed: {error}"))),
                     },
                     read = self.reader.read(buffer), if readable => match read {
                         Ok(0) | Err(_) => readable = false,
@@ -1813,7 +1817,7 @@ impl LocalActor {
                 }
             }
         }
-        Err("Process termination was not confirmed in time.".to_owned())
+        Err(text!("Process termination was not confirmed in time."))
     }
 
     async fn run(mut self) {
@@ -1822,14 +1826,14 @@ impl LocalActor {
         let mut host_open = true;
         let reason = loop {
             if self.cancellation.is_cancelled() {
-                break "The terminal stopped.".to_owned();
+                break text!("The terminal stopped.");
             }
             let input = self.pending_input();
             let kept_up = tokio::select! {
-                () = self.cancellation.cancelled() => break "The terminal stopped.".to_owned(),
+                () = self.cancellation.cancelled() => break text!("The terminal stopped."),
                 command = self.commands.recv() => match command {
                     Some(command) => { if let Some(reason) = self.command(command).await { break reason; } false }
-                    None => break "Kodosi stopped.".to_owned(),
+                    None => break text!("Kodosi stopped."),
                 },
                 request = self.host.recv(), if host_open => {
                     if let Some(request) = request {
@@ -1841,11 +1845,11 @@ impl LocalActor {
                 },
                 Some(saved) = self.saving.join_next(), if !self.saving.is_empty() => { if let Ok(saved) = saved { self.paste_saved(saved).await; } false }
                 transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
-                    Ok(Transfer::Read(0)) => break "The terminal ended.".to_owned(),
-                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } false }
+                    Ok(Transfer::Read(0)) => break text!("The terminal ended."),
+                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.text(); } false }
                     Ok(Transfer::Wrote(count)) => { self.wrote(count); false }
-                    Err(error) if error.raw_os_error() == Some(5) => break "The terminal ended.".to_owned(),
-                    Err(error) => break error.to_string(),
+                    Err(error) if error.raw_os_error() == Some(5) => break text!("The terminal ended."),
+                    Err(error) => break Text::plain(error.to_string()),
                 },
                 () = tokio::time::sleep_until(upkeep) => { if let Some(reason) = self.maintain().await { break reason; } true }
             };
@@ -1892,7 +1896,10 @@ impl LocalActor {
         let reason = completion
             .as_ref()
             .err()
-            .map_or_else(|| reason.clone(), |error| format!("{reason} {error}"));
+            .map_or_else(
+                || reason.clone(),
+                |error| text!("{reason} {error}", reason = &reason, error = error),
+            );
         self.subscribers.close(&reason, self.sequence);
         drop(self.output.send(PublishedFrame::Closed {
             reason: reason.clone(),

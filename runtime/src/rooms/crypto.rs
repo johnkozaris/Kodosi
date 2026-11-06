@@ -274,7 +274,7 @@ fn member_identities(
             && (state.author_id != owner
                 || previous.is_none_or(|p| state.epoch != p.state.epoch + 1))
         {
-            return Err(invalid("A room member's identity changed."));
+            return Err(crate::network::Error::Text(text!("A room member's identity changed.")));
         }
         let older = prior
             .filter(|_| !replaced)
@@ -370,7 +370,7 @@ fn unwrap_for(state: &State, user: &str, device: &str, room: &RoomKeyPair) -> Re
         .recipients
         .iter()
         .find(|recipient| recipient.user_id == user && recipient.device_id == device)
-        .ok_or_else(|| invalid("Room keys are still arriving on this device."))?;
+        .ok_or_else(|| crate::network::Error::Text(text!("Room keys are still arriving on this device.")))?;
     let ciphertext = decode(
         &recipient.kem_ciphertext,
         KEM_CIPHERTEXT_BYTES + AGREEMENT_BYTES,

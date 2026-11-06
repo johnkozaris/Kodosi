@@ -9,6 +9,7 @@ use serde_json::Value;
 use super::{
     Agent, AgentAccount, AgentCatalog, AgentChoice, AgentInfo, shell::Facts, shell_word, usage,
 };
+use crate::text::Text;
 
 const MAX_ACCOUNT_FILE: u64 = 8 * 1024 * 1024;
 const MAX_HOME_ENTRIES: usize = 8_192;
@@ -311,11 +312,11 @@ pub(super) fn add(
     agent: Agent,
     name: &str,
     taken: &[String],
-) -> Result<AgentAccount, String> {
+) -> Result<AgentAccount, Text> {
     let (folder, variable) = agent
         .home()
         .filter(|_| cfg!(unix))
-        .ok_or_else(|| "Kodosi cannot add accounts for this agent.".to_owned())?;
+        .ok_or_else(|| text!("Kodosi cannot add accounts for this agent."))?;
     let name = name
         .trim()
         .to_lowercase()
@@ -329,21 +330,21 @@ pub(super) fn add(
             .bytes()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
     {
-        return Err("Name the account with letters, digits and hyphens.".to_owned());
+        return Err(text!("Name the account with letters, digits and hyphens."));
     }
     if taken.contains(&name) {
-        return Err(format!("There is already an account named {name}."));
+        return Err(text!("There is already an account named {name}.", name = &name));
     }
     let path = home.join(format!("{folder}-{name}"));
     create_folder(&path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::AlreadyExists {
-            format!("There is already an account named {name}.")
+            text!("There is already an account named {name}.", name = &name)
         } else {
-            format!("Kodosi could not make {}: {error}", path.display())
+            Text::plain(format!("Kodosi could not make {}: {error}", path.display()))
         }
     })?;
     let command = home_command(variable, &path, agent.program())
-        .ok_or_else(|| "Kodosi cannot start an agent from this folder.".to_owned())?;
+        .ok_or_else(|| text!("Kodosi cannot start an agent from this folder."))?;
     Ok(account(agent, home, &name, &command, &path))
 }
 

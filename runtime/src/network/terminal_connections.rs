@@ -52,7 +52,9 @@ pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
 pub(crate) const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
-pub(crate) const INPUT_NOT_SENT: &str = "Kodosi did not send some of your last input.";
+pub(crate) fn input_not_sent() -> crate::text::Text {
+    text!("Kodosi did not send some of your last input.")
+}
 const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
 const CHANNEL_SILENCE: Duration = Duration::from_secs(45);
@@ -240,7 +242,7 @@ async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<So
     let device_session = network.inner.http.device_session(credentials).await?;
     admitted(network, credentials, &device_session)
         .await?
-        .ok_or_else(|| invalid("The connection service did not admit this device."))
+        .ok_or_else(|| Error::Text(text!("The connection service did not admit this device.")))
 }
 
 async fn admitted(
@@ -274,7 +276,7 @@ async fn admitted(
         ),
     )
     .await
-    .map_err(|_| invalid("Terminal connection timed out."))?
+    .map_err(|_| Error::Text(text!("The connection to the terminal timed out.")))?
     .map_err(|error| {
         if CONNECTION_FAILURE
             .lock()
@@ -282,7 +284,7 @@ async fn admitted(
         {
             tracing::warn!(%error, "terminal connection failed");
         }
-        invalid("Kodosi could not reach the terminal connection service.")
+        Error::Text(text!("Kodosi could not reach the terminal connection service."))
     })?;
     if let Ok(mut failure) = CONNECTION_FAILURE.lock() {
         failure.worked();
@@ -298,10 +300,10 @@ async fn admitted(
                 reported("oldest"),
                 reported("current"),
             )?;
-            Err(invalid("The connection service did not admit this device."))
+            Err(Error::Text(text!("The connection service did not admit this device.")))
         }
         "refused" => Ok(None),
-        _ => Err(invalid("The connection service did not admit this device.")),
+        _ => Err(Error::Text(text!("The connection service did not admit this device."))),
     }
 }
 
@@ -318,7 +320,7 @@ async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
     .map_err(|_| Error::Closed)?
     .map_err(|error| {
         tracing::warn!(%error, "terminal connection send failed");
-        invalid("The connection to the host dropped.")
+        Error::Text(text!("The connection to the host dropped."))
     })
 }
 async fn read_json(socket: &mut Socket) -> Result<Value> {
@@ -328,7 +330,7 @@ async fn read_json(socket: &mut Socket) -> Result<Value> {
         .ok_or(Error::Closed)?
         .map_err(|error| {
             tracing::warn!(%error, "terminal connection read failed");
-            invalid("The connection to the host dropped.")
+            Error::Text(text!("The connection to the host dropped."))
         })?;
     match message {
         Message::Text(text) => serde_json::from_str(&text).map_err(Into::into),

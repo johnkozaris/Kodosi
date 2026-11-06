@@ -4,7 +4,10 @@ use std::{
     sync::atomic::AtomicU64,
 };
 
-use kodosi_runtime::local_host::{self, TerminalFrame};
+use kodosi_runtime::{
+    local_host::{self, TerminalFrame},
+    text::Text,
+};
 use serde_json::{Value, json};
 use tokio::sync::mpsc::{self, error::TrySendError};
 
@@ -22,9 +25,15 @@ const TERMINAL_QUEUE: usize = 64;
 const RECONNECT_FIRST: Duration = Duration::from_millis(250);
 const RECONNECT_LAST: Duration = Duration::from_secs(30);
 const SWEEP: Duration = Duration::from_secs(1);
-const LOST: &str =
-    "The Kodosi host stopped before it answered, and Kodosi did not send the request again.";
-const LATE: &str = "No answer arrived in time, and Kodosi did not send the request again.";
+fn lost() -> Text {
+    kodosi_runtime::text!(
+        "The Kodosi host stopped before it answered, and Kodosi did not send the request again."
+    )
+}
+
+fn late() -> Text {
+    kodosi_runtime::text!("No answer arrived in time, and Kodosi did not send the request again.")
+}
 
 pub(super) struct Link {
     queue: mpsc::Sender<Value>,
@@ -100,18 +109,18 @@ impl Pending {
         }
         state.event(event);
     }
-    fn refuse(&self, state: &State, request: &str, operation: &str, message: &str) {
+    fn refuse(&self, state: &State, request: &str, operation: &str, message: &Value) {
         let area = operation.split('.').next().unwrap_or(operation);
         state.event(&self.scoped(json!({"type":format!("{area}.error"),
             "requestId":request,"operation":operation,"message":message})));
     }
-    fn fail(&self, state: &State, request: &str, message: &str) {
+    fn fail(&self, state: &State, request: &str, message: &Value) {
         let entry = lock(&self.requests).remove(request);
         if let Some(entry) = entry {
             self.refuse(state, request, entry.operation, message);
         }
     }
-    fn fail_all(&self, state: &State, message: &str) {
+    fn fail_all(&self, state: &State, message: &Value) {
         let requests: Vec<_> = lock(&self.requests).drain().collect();
         for (request, entry) in requests {
             self.refuse(state, &request, entry.operation, message);
@@ -123,10 +132,10 @@ impl Pending {
             .extract_if(|_, entry| entry.deadline <= now)
             .collect();
         for (request, entry) in due {
-            self.refuse(state, &request, entry.operation, LATE);
+            self.refuse(state, &request, entry.operation, &json!(late()));
         }
     }
-    fn system_error(&self, state: &State, message: &str) {
+    fn system_error(&self, state: &State, message: &Value) {
         state.event(&self.scoped(json!({"type":"system.error","message":message})));
     }
 }
@@ -305,10 +314,12 @@ impl Runner {
             if !serve(current, &mut queue, &pending, state).await {
                 return;
             }
-            pending.fail_all(state, LOST);
+            pending.fail_all(state, &json!(lost()));
             pending.system_error(
                 state,
-                "The Kodosi host stopped, and its terminals ended. Kodosi starts it again.",
+                &json!(kodosi_runtime::text!(
+                    "The Kodosi host stopped, and its terminals ended. Kodosi starts it again."
+                )),
             );
         }
     }
@@ -345,7 +356,7 @@ async fn serve(
                 Ok(()) => {}
                 Err(Error::Invalid(message)) => {
                     if let Some(request) = request {
-                        pending.fail(state, &request, &message);
+                        pending.fail(state, &request, &json!(Text::plain(message)));
                     }
                 }
                 Err(error) => {
@@ -372,7 +383,7 @@ fn receive(frame: &Value, pending: &Pending, state: &State) {
         Some("rejected") => {
             if let (Some(request), Some(message)) = (
                 frame.get("requestId").and_then(Value::as_str),
-                frame.get("message").and_then(Value::as_str),
+                frame.get("message"),
             ) {
                 pending.fail(state, request, message);
             }
@@ -409,8 +420,13 @@ async fn reconnect(
                 tracing::warn!(%error, "could not start the Kodosi host again");
                 if !reported {
                     reported = true;
-                    pending
-                        .system_error(state, &format!("Kodosi could not start its host: {error}"));
+                    pending.system_error(
+                        state,
+                        &json!(kodosi_runtime::text!(
+                            "Kodosi could not start its host ({error}).",
+                            error = error.text()
+                        )),
+                    );
                 }
             }
         }
@@ -428,7 +444,7 @@ async fn reconnect(
 
 fn refuse(command: &Value, pending: &Pending, state: &State) {
     if let Some(request) = command.get("requestId").and_then(Value::as_str) {
-        pending.fail(state, request, LOST);
+        pending.fail(state, request, &json!(lost()));
     }
 }
 
@@ -474,7 +490,7 @@ async fn stream_terminal(
     } = client;
     let (reason, final_sequence) = tokio::select! {
         closed = read_frames(&mut reader, state, pending, token, &next, &unacknowledged) => closed,
-        () = write_frames(&mut writer, session, token, &mut outgoing) => ("the terminal connection closed".to_owned(), next.load(Ordering::Acquire)),
+        () = write_frames(&mut writer, session, token, &mut outgoing) => (Text::plain("the terminal connection closed"), next.load(Ordering::Acquire)),
     };
     state.control(
         token,
@@ -489,11 +505,11 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
     token: &SubscriptionState,
     next: &AtomicU64,
     unacknowledged: &Mutex<Unacknowledged>,
-) -> (String, u64) {
+) -> (Text, u64) {
     loop {
         let frame = match local_host::read_terminal(reader).await {
             Ok(frame) => frame,
-            Err(error) => return (error.to_string(), next.load(Ordering::Acquire)),
+            Err(error) => return (error.text(), next.load(Ordering::Acquire)),
         };
         match frame {
             TerminalFrame::Data { bytes, sequence } => {
@@ -517,7 +533,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
             } => {
                 if !restore(state, token, bytes, console, next_sequence) {
                     return (
-                        "the terminal snapshot could not be restored".to_owned(),
+                        Text::plain("the terminal snapshot could not be restored"),
                         next.load(Ordering::Acquire),
                     );
                 }
@@ -538,10 +554,10 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                 if !accepted {
                     pending.system_error(
                         state,
-                        &format!(
-                            "The terminal did not confirm the input, and Kodosi did not send it again: {}",
-                            message.as_deref().unwrap_or("the host refused it")
-                        ),
+                        &json!(kodosi_runtime::text!(
+                            "The terminal did not confirm the input, and Kodosi did not send it again ({error}).",
+                            error = message.unwrap_or_else(|| Text::plain("the host refused it"))
+                        )),
                     );
                 }
             }
@@ -649,7 +665,7 @@ mod tests {
         assert_eq!(
             heard[2],
             json!({"type":"auth.error","requestId":"waiting","operation":"auth.login.start",
-                "message":LATE,"accountUserId":"me","accountEpoch":7})
+                "message":late().to_string(),"accountUserId":"me","accountEpoch":7})
         );
     }
 }

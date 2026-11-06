@@ -215,7 +215,9 @@ public sealed class PlanTests(PostgresFixture postgres)
         using var response = await owner.Client.SendAsync(second, ct);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
-        Assert.Equal(["error"], body.EnumerateObject().Select(x => x.Name));
+        Assert.Equal(["error", "limit", "most"], body.EnumerateObject().Select(x => x.Name));
         Assert.Equal("You own 1 room, the most that you can own. Delete a room to make a new one.", body.GetProperty("error").GetString());
+        Assert.Equal("rooms", body.GetProperty("limit").GetString());
+        Assert.Equal(1, body.GetProperty("most").GetInt64());
     }
 }

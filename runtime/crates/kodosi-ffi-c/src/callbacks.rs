@@ -156,6 +156,7 @@ impl State {
         Some(action())
     }
     pub(super) fn event(&self, event: &serde_json::Value) {
+        let event = &localized(event);
         let Ok(bytes) = serde_json::to_vec(event) else {
             return;
         };
@@ -184,6 +185,7 @@ impl State {
         }
     }
     pub(super) fn control(&self, subscription: &SubscriptionState, payload: &serde_json::Value) {
+        let payload = &localized(payload);
         let Ok(bytes) = serde_json::to_vec(payload) else {
             return;
         };
@@ -270,4 +272,14 @@ impl State {
             entry.retire();
         }
     }
+}
+
+/// The words of each text in the language of the app.
+fn localized(value: &serde_json::Value) -> std::borrow::Cow<'_, serde_json::Value> {
+    if !kodosi_runtime::text::has_text(value) {
+        return std::borrow::Cow::Borrowed(value);
+    }
+    let mut owned = value.clone();
+    kodosi_runtime::text::render(&mut owned, kodosi_runtime::text::language());
+    std::borrow::Cow::Owned(owned)
 }

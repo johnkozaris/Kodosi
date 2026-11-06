@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QVariantList>
 #include <QVariantMap>
 #include <memory>
 #include <optional>
@@ -24,6 +25,10 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(QVariantMap shownViews READ shownViews NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap viewPreferences READ viewPreferences NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY settingsChanged)
+    Q_PROPERTY(QString currentLanguage READ currentLanguage CONSTANT)
+    Q_PROPERTY(QString nextLanguage READ nextLanguage NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantList languages READ languages CONSTANT)
 public:
     enum CursorStyle { Block, Bar, Underline };
     Q_ENUM(CursorStyle)
@@ -45,6 +50,12 @@ public:
     QVariantMap shownViews() const;
     QVariantMap viewPreferences() const;
     QString settingsError() const { return m_error; }
+    QString language() const { return m_language; }
+    void setLanguage(const QString& language);
+    QString currentLanguage() const;
+    QString nextLanguage() const;
+    QVariantList languages() const;
+    Q_INVOKABLE [[nodiscard]] QString languageName(const QString& tag) const;
     Q_INVOKABLE bool apply(
         const QString& family, int size, int cursor, double lineHeight, int scrollback, bool blink);
     void setWorkingDirectory(const QString& path);
@@ -63,7 +74,7 @@ signals:
 private:
     std::unique_ptr<QSettings> m_settings;
     bool m_keepRunningByDefault;
-    QString m_fontFamily = QStringLiteral("monospace"), m_directory, m_branchFolder, m_computer, m_error;
+    QString m_fontFamily = QStringLiteral("monospace"), m_directory, m_branchFolder, m_computer, m_error, m_language;
     int m_fontSize = 13, m_scrollback = 10000;
     CursorStyle m_cursor = Block;
     double m_lineHeight = 1.0;

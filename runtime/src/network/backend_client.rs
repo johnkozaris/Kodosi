@@ -307,10 +307,10 @@ impl BackendClient {
             }
             Err(Error::Closed) => return,
             Err(error) if error.user_facing() && !cancel.is_cancelled() => {
-                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":error.to_string()})
+                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":error.text()})
             }
             Err(_) => {
-                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":"The sign-in was cancelled."})
+                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":text!("The sign-in was cancelled.")})
             }
         };
         self.emit_for(
@@ -443,7 +443,8 @@ impl BackendClient {
                 Some("system") => {
                     let oidc = self.oidc()?;
                     let loopback = Loopback::bind().await?;
-                    let login = oidc.browser(loopback.redirect_uri()).await?;
+                    let language = sign_in_language(&args);
+                    let login = oidc.browser(loopback.redirect_uri(), language).await?;
                     self.logout().await?;
                     let cancel = self.new_login_interrupt()?;
                     let generation = self.generation();
@@ -458,13 +459,13 @@ impl BackendClient {
                                 () = waiting.cancelled() => return Err(Error::Stale),
                                 () = this.inner.shutdown.cancelled() => return Err(Error::Closed),
                                 () = tokio::time::sleep(SIGN_IN_LIFE) => {
-                                    return Err(invalid("The sign-in took too long. Try again."));
+                                    return Err(Error::Text(text!("The sign-in took too long. Try again.")));
                                 }
                                 answer = loopback.answer(&login) => answer?,
                             };
                             let tokens = oidc.redeem(&login, &answer).await;
-                            let outcome = tokens.as_ref().map(|_| ()).map_err(ToString::to_string);
-                            loopback::finish(stream, outcome).await;
+                            let outcome = tokens.as_ref().map(|_| ()).map_err(Error::text);
+                            loopback::finish(stream, outcome, language).await;
                             tokens
                         };
                         this.complete_login(tokens, cancel, generation, request)
@@ -472,7 +473,10 @@ impl BackendClient {
                     });
                 }
                 Some("app") => {
-                    let login = self.oidc()?.browser(APP_REDIRECT).await?;
+                    let login = self
+                        .oidc()?
+                        .browser(APP_REDIRECT, sign_in_language(&args))
+                        .await?;
                     self.logout().await?;
                     let cancel = self.new_login_interrupt()?;
                     events
@@ -499,7 +503,7 @@ impl BackendClient {
                     pending.take().ok_or(Error::Stale)?
                 };
                 if tokio::time::Instant::now() > pending.until {
-                    return Err(invalid("The sign-in took too long. Try again."));
+                    return Err(Error::Text(text!("The sign-in took too long. Try again.")));
                 }
                 let oidc = self.oidc()?;
                 let this = self.clone();
@@ -602,7 +606,7 @@ impl BackendClient {
                 let users = args
                     .get("userIds")
                     .and_then(Value::as_array)
-                    .ok_or_else(|| invalid("Choose friends to share with."))?
+                    .ok_or_else(|| Error::Text(text!("Choose friends to share with.")))?
                     .iter()
                     .map(|value| {
                         value
@@ -1002,7 +1006,7 @@ impl BackendClient {
                         .find(|item| item["id"].as_str() == Some(invitation))
                 })
                 .and_then(|item| item["missionId"].as_str())
-                .ok_or_else(|| invalid("This invitation is unavailable."))?;
+                .ok_or_else(|| Error::Text(text!("This invitation is unavailable.")))?;
             let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?;
             Some(
                 json!({"keys":self.prepare_room_membership(&credentials, room, None, Some(&credentials.user_id)).await?}),
@@ -1367,6 +1371,13 @@ fn normalize_host_label(value: &str) -> Option<String> {
     }
     Some(value[..value.floor_char_boundary(128)].to_owned())
 }
+fn sign_in_language(args: &Value) -> crate::text::Language {
+    args.get("language")
+        .and_then(Value::as_str)
+        .map(crate::text::Language::of)
+        .unwrap_or_default()
+}
+
 fn session_result(operation: &str, args: &Value) -> Value {
     json!({"type":"session.result","requestId":args["requestId"],"sessionId":args["sessionId"],"operation":operation})
 }

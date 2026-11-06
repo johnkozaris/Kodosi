@@ -19,7 +19,7 @@ WebEngineView {
     readonly property string host: `
         new QWebChannel(qt.webChannelTransport, ({ objects: { page } }) => {
           const host = window.documentHost = window.documentView.hosted(
-            { kind: page.view, theme: page.look, preferences: page.preferences, ready: () => page.ready() },
+            { kind: page.view, theme: page.look, preferences: page.preferences, language: page.language, ready: () => page.ready() },
             (frame) => page.sent(frame),
           );
           page.received.connect(host.deliver);
@@ -107,6 +107,7 @@ WebEngineView {
         id: bridge
 
         readonly property string view: root.view
+        readonly property string language: Models.DesktopSettings.currentLanguage
         readonly property var preferences: Models.DesktopSettings.viewPreferences[root.view] || ({})
         readonly property var look: ({
                 "surface": String(KodosiTheme.surface),

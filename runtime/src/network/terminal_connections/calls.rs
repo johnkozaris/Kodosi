@@ -7,7 +7,7 @@ use futures_util::stream::FuturesUnordered;
 use super::{channel::Channel, link::Pipe, wire::Frame, *};
 #[cfg(feature = "host")]
 use super::{link::Caller, wire::Refuse};
-use crate::identity::pins::VerifiedIdentity;
+use crate::{identity::pins::VerifiedIdentity, text::Text};
 
 const ANSWER_WAIT: Duration = Duration::from_secs(25);
 const CALLER_IDLE: Duration = Duration::from_mins(1);
@@ -44,8 +44,8 @@ pub(crate) async fn ask(network: &BackendClient, device: &str, request: Value) -
             Ok(()) => {
                 return tokio::time::timeout(ANSWER_WAIT, answer)
                     .await
-                    .map_err(|_| invalid("The other computer did not answer in time."))?
-                    .map_err(|_| invalid("The connection to the other computer was lost."))?;
+                    .map_err(|_| Error::Text(text!("The other computer did not answer in time.")))?
+                    .map_err(|_| Error::Text(text!("The connection to the other computer was lost.")))?;
             }
             Err(mpsc::error::TrySendError::Full(_)) => return Err(Error::Busy),
             Err(mpsc::error::TrySendError::Closed(returned)) => ask = returned,
@@ -102,7 +102,7 @@ async fn run_line(
                     };
                     let id = request["requestId"].as_str().unwrap_or_default().to_owned();
                     if id.is_empty() || waiting.contains_key(&id) {
-                        drop(reply.send(Err(invalid("That request is already in progress."))));
+                        drop(reply.send(Err(Error::Text(text!("That request is already in progress.")))));
                         continue;
                     }
                     waiting.insert(id, reply);
@@ -127,18 +127,18 @@ async fn run_line(
     asks.close();
     let error = match result {
         Ok(()) => return,
-        Err(Error::Closed) => "The connection to the other computer was lost.".to_owned(),
-        Err(error) => error.to_string(),
+        Err(Error::Closed) => text!("The connection to the other computer was lost."),
+        Err(error) => error.text(),
     };
     for reply in waiting.into_values() {
-        drop(reply.send(Err(invalid(error.clone()))));
+        drop(reply.send(Err(Error::Text(error.clone()))));
     }
     while let Ok(ask) = asks.try_recv() {
-        drop(ask.reply.send(Err(invalid(error.clone()))));
+        drop(ask.reply.send(Err(Error::Text(error.clone()))));
     }
 }
 
-fn refused(code: &str, message: String) -> Error {
+fn refused(code: &str, message: Text) -> Error {
     match code {
         "busy" => Error::Busy,
         _ => Error::Backend {
@@ -154,7 +154,7 @@ async fn connect(
     device: &str,
 ) -> Result<Channel<Pipe>> {
     if device == credentials.keys.device_id {
-        return Err(invalid("This is the computer that you use now."));
+        return Err(Error::Text(text!("This is the computer that you use now.")));
     }
     let key = |identity: &VerifiedIdentity| {
         identity
@@ -171,7 +171,7 @@ async fn connect(
         None => key(&network
             .fetch_identity_with(credentials, &credentials.user_id)
             .await?)
-        .ok_or_else(|| Error::Trust("That computer is not an approved device of yours.".into()))?,
+        .ok_or_else(|| Error::Trust(text!("That computer is not an approved device of yours.")))?,
     };
     let pipe = network.inner.link.call(device).await?;
     Channel::connect(pipe, &*network.channel_keys(credentials)?, device, &key).await
@@ -233,14 +233,14 @@ async fn admit(
     (user, device): (&str, &str),
     key: &[u8],
 ) -> std::result::Result<(), Refuse> {
-    let refuse = |code: &str, message: &str| Refuse {
+    let refuse = |code: &str, message: Text| Refuse {
         code: code.to_owned(),
-        message: message.to_owned(),
+        message,
     };
     if user != credentials.user_id || crate::identity::recovery::is_recovery_device(device) {
         return Err(refuse(
             "access",
-            "Only your own devices can start terminals on this computer.",
+            text!("Only your own devices can start terminals on this computer."),
         ));
     }
     let approved = |identity: &VerifiedIdentity| {
@@ -257,9 +257,9 @@ async fn admit(
         Ok(identity) if approved(&identity) => Ok(()),
         Err(error) if error.unanswered() => Err(refuse(
             "busy",
-            "The other computer could not check this device; try again.",
+            text!("The other computer could not check this device. Try again."),
         )),
-        Ok(_) | Err(_) => Err(refuse("access", "This device is not approved.")),
+        Ok(_) | Err(_) => Err(refuse("access", text!("This device is not approved."))),
     }
 }
 

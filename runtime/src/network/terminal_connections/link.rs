@@ -273,7 +273,7 @@ impl Link {
         let outgoing = shared
             .outgoing
             .clone()
-            .ok_or_else(|| invalid("Kodosi could not reach the terminal connection service."))?;
+            .ok_or_else(|| Error::Text(text!("Kodosi could not reach the terminal connection service.")))?;
         let pipe = self.route(&mut shared, id, &outgoing);
         drop(shared);
         outgoing
@@ -499,7 +499,8 @@ fn refusal(value: &Value) -> Error {
             .as_u64()
             .and_then(|status| u16::try_from(status).ok())
             .unwrap_or(500),
-        message: value["message"].as_str().unwrap_or_default().to_owned(),
+        message: super::super::http::backend_text(&serde_json::json!({"error": value["message"]}))
+            .unwrap_or_else(|| text!("The Kodosi server could not complete the request.")),
     }
 }
 
