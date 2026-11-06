@@ -9,6 +9,8 @@ import Kodosi.Models 1.0 as Models
 Item {
     id: root
 
+    signal settingsRequested
+
     readonly property bool unseen: Models.Dosi.unseen
     readonly property bool asking: Models.Dosi.asking
     property bool cuedUnseen: false
@@ -52,7 +54,7 @@ Item {
         Accessible.id: objectName
         Accessible.name: "Dosi"
         Accessible.description: Models.Dosi.line
-        onClicked: Models.DesktopState.openDosi()
+        onClicked: Models.Dosi.state === "unavailable" ? root.settingsRequested() : Models.DesktopState.openDosi()
 
         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 

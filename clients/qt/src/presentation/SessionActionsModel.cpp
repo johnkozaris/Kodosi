@@ -33,7 +33,7 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
             if (session && !session->restoredFrom.isEmpty())
                 m_workspace.missions().followTerminal(session->restoredFrom, id);
             if (session && session->kind == QStringLiteral("remote") && !opening(id))
-                openRemote(id);
+                openRemote(id, true);
         }
     });
 }
@@ -45,10 +45,10 @@ bool SessionActionsModel::opening(const QString& id) const
     });
 }
 
-bool SessionActionsModel::openRemote(const QString& id)
+bool SessionActionsModel::openRemote(const QString& id, bool quiet)
 {
     return m_workspace.sendTracked(Workspace::PendingDomain::Session, QStringLiteral("session.openRemote"),
-        { { QStringLiteral("sessionId"), id } }, id);
+        { { QStringLiteral("sessionId"), id } }, id, {}, quiet);
 }
 
 bool SessionActionsModel::busy() const
@@ -106,7 +106,7 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
         if (leaving.isEmpty())
             return m_desktop.stageSession(id, !inRoom);
     }
-    if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id))
+    if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id, true))
         return false;
     if (!leaving.isEmpty())
         minimize(leaving);

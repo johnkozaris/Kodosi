@@ -132,7 +132,7 @@ buttons, and you can also answer in your own words. Your conversation with Dosi 
 same on all your computers.
 
 The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
-question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
+question. On a computer with no agent, it reads Set up Dosi and opens Settings › Dosi. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
 ## 6. Add your other computers
 

@@ -167,11 +167,8 @@ struct DosiNoticeView: View {
                     Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
                 }
                 if notice.tone == .signIn {
-                    Button("Open Settings") {
-                        deps.workbench.settingsSection = .dosi
-                        deps.workbench.section = .settings
-                    }
-                    .buttonStyle(.kodosi(.secondary, size: .small))
+                    Button("Open Settings") { deps.workbench.showDosiSettings() }
+                        .buttonStyle(.kodosi(.secondary, size: .small))
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 11)
