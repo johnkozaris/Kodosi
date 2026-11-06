@@ -160,15 +160,17 @@ with one viewer for each window. It is a separate build with its own workspace a
 ### Shared browser
 
 [browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
-each terminal: plain Chromium with no engine patches, started hidden with a debug port on
-`127.0.0.1` and the capture extension. On Linux it runs on its own Xvfb display. The first
-window gets the engine from a signed feed. The host looks at the feed each day: a browser
+each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a ready-built CEF:
+Chromium that draws each page off screen, with no window, no icon and no display, and a
+debug port on `127.0.0.1`. It talks with its host on one local WebSocket, which it opens
+with a one-time token, and it ends when that link ends. The first window gets the engine
+from a signed feed. The host looks at the feed each day: a browser
 that starts after an update uses the new engine, a browser that runs keeps its own, and the
 old engine goes when the host starts again.
 
-While a device looks, the extension's tab capture feeds `VideoEncoder`, and H.264 frames
-reach the host on a local socket with a one-time token. A viewer's pipe carries these
-frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
+While a device looks, the engine encodes the window's tab as H.264, with VideoToolbox on
+the Mac and OpenH264 on Linux and Windows, and sends the frames on its link. A viewer's
+pipe carries these frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
 window, and the host steers its bitrate from the round trip, so no queue forms. A viewer
 that falls behind gets nothing until the next key frame. The Mac and iPhone apps show frames
 on a display layer. The Linux and Windows app decodes with OpenH264 in the runtime library.
@@ -183,10 +185,15 @@ The host lets only the viewer's device through. When no address answers, the pip
 terminal's channel, where terminal output goes first. The path stays until the pipe ends,
 and the view then joins again.
 
-The host runs each `kodosi browser <command>` in the agent's folder as agent-browser on that
-debug port, with the terminal's own session, Kodosi's settings and none of the person's
-`AGENT_BROWSER_*` variables. agent-browser leaves the port after a minute with no command,
-because a page can notice a client there. While a command runs, the browser's state names
+The host runs each `kodosi browser <command>` in the agent's folder as agent-browser, with
+the terminal's own session, Kodosi's settings and none of the person's `AGENT_BROWSER_*`
+variables. agent-browser connects to its window's driver port, which the host serves on
+`127.0.0.1` in front of the debug port. There it sees only the tabs of its window, the
+active one first; a tab that it opens is a tab of the window, and a tab that it switches to
+becomes the window's active tab. The host answers the commands that would change the
+browser for every window, such as auto-attach and downloads, and refuses the ones that
+would end the browser. agent-browser leaves after a minute with no command, because a page
+can notice a client on the debug port. While a command runs, the browser's state names
 the agent, what it does and the point of its target, which agent-browser's `get box --json`
 gives, and the command waits a moment, so the agent's pointer arrives first.
 

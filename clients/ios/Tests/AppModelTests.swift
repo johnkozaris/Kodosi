@@ -3,6 +3,7 @@ import Foundation
 import KodosiBridge
 import KodosiDesign
 import KodosiKit
+import KodosiTerminalSessions
 import Testing
 
 @MainActor
@@ -108,6 +109,34 @@ struct AppModelTests {
         model.terminals.watchingSessionId = "s2"
         #expect(sent.last("session.visible")?["sessionIds"] as? [String] == ["s2"])
         #expect(model.terminals.needsYou.map(\.id) == ["s1", "s2"])
+    }
+
+    @Test func `the frames of a live document reach its view`() async throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
+        let item = CanvasItem(key: "notes", name: "Notes.docx", kind: .document, view: .docx, revision: 1, bytes: 1, changed: 1)
+        let link = model.terminals.canvas.document(item, in: "s1")
+        var frames: [Data] = []
+        link.onFrame = { frames.append($0) }
+        let opening = Task { try await link.open() }
+        for _ in 0 ..< 100 where sent.last("document.open") == nil {
+            await Task.yield()
+        }
+        let open = try #require(sent.last("document.open"))
+        try deliver("document.result", ["requestId": #require(open["requestId"] as? String), "operation": "document.open"])
+        try await opening.value
+        let pipe = try #require(link.pipe)
+        try deliver("document.frame", ["pipe": pipe, "sequence": 0, "more": true, "data": Data("he".utf8).base64EncodedString()])
+        try deliver("document.frame", ["pipe": pipe, "sequence": 1, "more": false, "data": Data("llo".utf8).base64EncodedString()])
+        #expect(frames == [Data("hello".utf8)])
+    }
+
+    @Test func `a picture sent to another computer shows how much arrived`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
+        _ = model.terminals.live.session(for: "s1")
+        try deliver("session.picture", ["sessionId": "s1", "state": "sending", "sent": 3, "total": 10])
+        #expect(model.terminals.live.picture(for: "s1")?.sent == 3)
     }
 
     private func session(id: String, state: String) -> [String: Any] {

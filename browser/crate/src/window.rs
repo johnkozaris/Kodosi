@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -13,11 +13,11 @@ use serde_json::json;
 use tokio::sync::{mpsc, watch};
 
 use crate::{
-    Error,
+    Error, driver,
     engine::Engine,
-    extension::{EncodedFrame, ReportedTab, ToExtension},
     flow::{self, Flow},
     input,
+    link::{EncodedFrame, EngineTab, ToEngine},
     message::{
         Chooser, Dialog, Download, Frame, Input, Menu, MenuItem, MouseAction, MouseButton, Pointer,
         Size, State, Tab, ToViewer, ToWindow, Viewer,
@@ -34,8 +34,14 @@ const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
 const NARROWEST: u32 = 500;
 const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
+/// What a page says goes to every viewer with each change of the window, so it has bounds.
+const MOST_LINE: usize = 1024;
+const MOST_ADDRESS: usize = 8 * 1024;
+const MOST_MESSAGE: usize = 16 * 1024;
+const MOST_ITEMS: usize = 1000;
 /// The menu that a right-click opens, which the page does not know about.
 const CONTEXT_MENU: u32 = u32::MAX;
+const BLANK: &str = "about:blank";
 /// Numbers each join, so that a pipe that goes frees only the seat that it took.
 static SEATS: AtomicU64 = AtomicU64::new(1);
 
@@ -64,7 +70,7 @@ pub(crate) enum Event {
     Frame(EncodedFrame),
     CaptureFailed,
     Tabs {
-        tabs: Vec<ReportedTab>,
+        tabs: Vec<EngineTab>,
         active: Option<i64>,
     },
     Shape(String),
@@ -80,10 +86,12 @@ pub(crate) enum Event {
     },
     Copied(String),
     Dialog {
-        session: String,
+        tab: i64,
         dialog: Dialog,
     },
-    DialogClosed,
+    DialogClosed {
+        tab: i64,
+    },
     Chooser {
         session: String,
         node: i64,
@@ -102,7 +110,7 @@ pub(crate) enum Event {
 /// One window of the shared browser, for a host.
 #[derive(Clone)]
 pub struct Window {
-    engine: Arc<Engine>,
+    driver: Arc<str>,
     events: mpsc::Sender<Event>,
     state: watch::Receiver<State>,
     open: watch::Receiver<bool>,
@@ -131,9 +139,9 @@ impl Window {
         })
     }
 
-    /// The port of the browser's debug connection, for the agent's driver.
-    pub fn debug_port(&self) -> u16 {
-        self.engine.port
+    /// The debug connection for the agent's driver, which shows the tabs of this window only.
+    pub fn driver(&self) -> &str {
+        &self.driver
     }
 
     pub fn state(&self) -> watch::Receiver<State> {
@@ -220,20 +228,10 @@ impl Drop for Pipe {
     }
 }
 
-pub(crate) async fn open(
-    engine: Arc<Engine>,
-    address: &str,
-    folder: PathBuf,
-) -> Result<Window, Error> {
+pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Result<Window, Error> {
+    let driver = driver::Listener::bind()?;
     let (events_in, events) = mpsc::channel(EVENTS);
-    let id = engine
-        .open_window(
-            address,
-            FIRST_SIZE.width,
-            FIRST_SIZE.height,
-            events_in.clone(),
-        )
-        .await?;
+    let id = engine.open_window(address, FIRST_SIZE, events_in.clone());
     let (state_in, state) = watch::channel(State {
         width: FIRST_SIZE.width,
         height: FIRST_SIZE.height,
@@ -241,8 +239,9 @@ pub(crate) async fn open(
     });
     let (open_in, open) = watch::channel(true);
     let (used_in, used) = watch::channel(None);
+    let driver = Arc::from(driver.serve(Arc::clone(&engine), id, open.clone()));
     let window = Window {
-        engine: Arc::clone(&engine),
+        driver,
         events: events_in,
         state,
         open,
@@ -301,9 +300,8 @@ struct Live {
     used: watch::Sender<Option<Instant>>,
     dirty: bool,
     size: Size,
-    reported: Vec<ReportedTab>,
+    reported: Vec<EngineTab>,
     active: Option<i64>,
-    chosen: Option<i64>,
     capturing: Option<i64>,
     capture_failed_at: Option<Instant>,
     next_frame: u32,
@@ -311,9 +309,16 @@ struct Live {
     last_press: Option<String>,
     open_menu: Option<OpenMenu>,
     context: Option<Context>,
-    dialog_session: Option<String>,
+    /// The dialogs of the window's tabs, one for each tab, oldest first. The window shows the
+    /// newest.
+    dialogs: Vec<(i64, Dialog)>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
+    /// Whether a page may start a download. Each action of a person or an agent allows one, as
+    /// in a browser, so a page cannot fill the folder on its own.
+    may_download: bool,
+    /// Downloads that a page started with no action before them, until they end.
+    refused: HashSet<String>,
     /// Steps that came before the window knew its page, such as the address of a new window:
     /// the latest of each kind.
     waiting: Vec<(&'static str, serde_json::Value)>,
@@ -341,7 +346,6 @@ impl Live {
             size: FIRST_SIZE,
             reported: Vec::new(),
             active: None,
-            chosen: None,
             capturing: None,
             capture_failed_at: None,
             next_frame: 0,
@@ -349,9 +353,11 @@ impl Live {
             last_press: None,
             open_menu: None,
             context: None,
-            dialog_session: None,
+            dialogs: Vec::new(),
             chooser: None,
             downloads: HashMap::new(),
+            may_download: true,
+            refused: HashSet::new(),
             waiting: Vec::new(),
         }
     }
@@ -376,9 +382,9 @@ impl Live {
                 _ = stopped.changed() => break,
             }
         }
-        self.engine.command(ToExtension::Stop { stream: self.id });
+        self.engine.command(ToEngine::Stop { window: self.id });
         self.engine
-            .command(ToExtension::CloseWindow { window: self.id });
+            .command(ToEngine::CloseWindow { window: self.id });
         self.engine.window_closed(self.id).await;
     }
 
@@ -392,8 +398,8 @@ impl Live {
             self.update_capture();
         }
         if let Some(bitrate) = self.flow.steer(now) {
-            self.engine.command(ToExtension::Bitrate {
-                stream: self.id,
+            self.engine.command(ToEngine::Bitrate {
+                window: self.id,
                 bitrate,
             });
         }
@@ -463,7 +469,7 @@ impl Live {
                     },
                 );
             }
-            Event::Message { viewer, message } => self.message(&viewer, message).await,
+            Event::Message { viewer, message } => self.message(&viewer, message),
             Event::Leave { viewer, seat } => {
                 if free(&mut self.seats, &viewer, seat) {
                     self.flow.leave(&viewer);
@@ -471,7 +477,10 @@ impl Live {
                     self.dirty = true;
                 }
             }
-            Event::Touch => self.used_at = Instant::now(),
+            Event::Touch => {
+                self.used_at = Instant::now();
+                self.may_download = true;
+            }
             Event::Close => {}
             Event::Frame(frame) => self.frame(frame),
             Event::CaptureFailed => {
@@ -494,15 +503,16 @@ impl Live {
                 self.state.copied = Some(cut(&text, MOST_TEXT));
                 self.dirty = true;
             }
-            Event::Dialog { session, dialog } => {
-                self.dialog_session = Some(session);
-                self.state.dialog = Some(dialog);
-                self.dirty = true;
+            Event::Dialog { tab, mut dialog } => {
+                dialog.message = cut(&dialog.message, MOST_MESSAGE);
+                dialog.text = cut(&dialog.text, MOST_MESSAGE);
+                self.dialogs.retain(|(other, _)| *other != tab);
+                self.dialogs.push((tab, dialog));
+                self.show_dialog();
             }
-            Event::DialogClosed => {
-                self.dialog_session = None;
-                self.state.dialog = None;
-                self.dirty = true;
+            Event::DialogClosed { tab } => {
+                self.dialogs.retain(|(other, _)| *other != tab);
+                self.show_dialog();
             }
             Event::Chooser {
                 session,
@@ -514,6 +524,15 @@ impl Live {
                 self.dirty = true;
             }
             Event::DownloadBegan { guid, name } => {
+                if !std::mem::take(&mut self.may_download) {
+                    self.engine.devtools().send(
+                        "Browser.cancelDownload",
+                        &json!({ "guid": guid }),
+                        None,
+                    );
+                    self.refused.insert(guid);
+                    return;
+                }
                 self.state.downloads.push(Download {
                     name: name.clone(),
                     path: String::new(),
@@ -528,13 +547,13 @@ impl Live {
         }
     }
 
-    async fn message(&mut self, viewer: &str, message: ToWindow) {
+    fn message(&mut self, viewer: &str, message: ToWindow) {
         let now = Instant::now();
         match message {
             ToWindow::Watch { size } => {
                 self.flow.seat(viewer, now);
                 self.used_at = now;
-                self.resize(size).await;
+                self.resize(size);
                 self.update_capture();
                 self.ask_keyframe();
             }
@@ -544,14 +563,13 @@ impl Live {
                     self.ask_keyframe();
                 }
             }
-            ToWindow::Size { size } => self.resize(size).await,
+            ToWindow::Size { size } => self.resize(size),
             ToWindow::Input { input } => self.input(viewer, input),
         }
     }
 
     fn ask_keyframe(&self) {
-        self.engine
-            .command(ToExtension::Keyframe { stream: self.id });
+        self.engine.command(ToEngine::Keyframe { window: self.id });
     }
 
     fn frame(&mut self, frame: EncodedFrame) {
@@ -568,8 +586,12 @@ impl Live {
             })
             .encode();
             for viewer in &delivery.to {
-                if let Some(seat) = self.seats.get(viewer) {
-                    drop(seat.outgoing.try_send(message.clone()));
+                let sent = self
+                    .seats
+                    .get(viewer)
+                    .is_some_and(|seat| seat.outgoing.try_send(message.clone()).is_ok());
+                if !sent {
+                    self.flow.lost(viewer, id);
                 }
             }
         }
@@ -582,17 +604,14 @@ impl Live {
         }
     }
 
-    fn tabs(&mut self, tabs: Vec<ReportedTab>, active: Option<i64>) {
-        self.chosen = self
-            .chosen
-            .filter(|chosen| tabs.iter().any(|tab| tab.id == *chosen));
-        self.active = self.chosen.or(active);
+    fn tabs(&mut self, tabs: Vec<EngineTab>, active: Option<i64>) {
+        self.active = active;
         self.state.tabs = tabs
             .iter()
             .map(|tab| Tab {
                 id: tab.id.to_string(),
-                title: tab.title.clone(),
-                address: tab.address.clone(),
+                title: cut(&tab.title, MOST_LINE),
+                address: cut(&tab.address, MOST_ADDRESS),
                 active: Some(tab.id) == self.active,
                 loading: tab.loading,
             })
@@ -600,9 +619,6 @@ impl Live {
         self.reported = tabs;
         self.dirty = true;
         self.send_waiting();
-        if !self.flow.is_empty() {
-            self.match_scale();
-        }
         self.update_capture();
     }
 
@@ -618,41 +634,21 @@ impl Live {
         self.capturing = wanted;
         match wanted {
             Some(tab) => self.capture(tab),
-            None => self.engine.command(ToExtension::Stop { stream: self.id }),
+            None => self.engine.command(ToEngine::Stop { window: self.id }),
         }
     }
 
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss,
-        reason = "a size is at most 4096 and a scale is at most 4"
-    )]
-    fn capture(&mut self, tab: i64) {
-        self.match_scale();
-        let pixels = |length: u32| ((length as f32 * self.size.scale) as u32).clamp(2, 7680);
-        self.engine.command(ToExtension::Capture {
-            stream: self.id,
+    fn capture(&self, tab: i64) {
+        self.engine.command(ToEngine::Capture {
+            window: self.id,
             tab,
-            width: pixels(self.size.width),
-            height: pixels(self.size.height),
             bitrate: flow::FIRST_BITRATE,
         });
     }
 
-    /// The page draws at the scale of the viewer, so that it has the pixels that the capture
-    /// asks for. Chrome does not enlarge a page for a capture; it puts bars around it.
-    fn match_scale(&mut self) {
-        let metrics = json!({
-            "width": 0,
-            "height": 0,
-            "deviceScaleFactor": self.size.scale,
-            "mobile": false,
-        });
-        self.page_soon("Emulation.setDeviceMetricsOverride", metrics);
-    }
-
-    async fn resize(&mut self, size: Size) {
+    /// The engine draws the pages of this window at the size and the scale of the viewer, so
+    /// that the picture has the pixels that the viewer shows.
+    fn resize(&mut self, size: Size) {
         let Some(size) = fitted(size) else {
             return;
         };
@@ -663,21 +659,10 @@ impl Live {
         self.state.width = size.width;
         self.state.height = size.height;
         self.dirty = true;
-        let answer = self
-            .engine
-            .devtools()
-            .call(
-                "Browser.setContentsSize",
-                json!({ "windowId": self.id, "width": size.width, "height": size.height }),
-                None,
-            )
-            .await;
-        if let Err(problem) = answer {
-            tracing::debug!(%problem, "the window keeps its size");
-        }
-        if let Some(tab) = self.capturing {
-            self.capture(tab);
-        }
+        self.engine.command(ToEngine::Resize {
+            window: self.id,
+            size,
+        });
     }
 
     fn active_session(&self) -> Option<String> {
@@ -747,6 +732,7 @@ impl Live {
         if !plain_move {
             self.used_at = Instant::now();
             self.used.send_replace(Some(self.used_at));
+            self.may_download = true;
         }
         match event {
             Input::Mouse {
@@ -793,23 +779,25 @@ impl Live {
                 ),
             ),
             Input::Text { text } => self.page("Input.insertText", &json!({ "text": text })),
-            Input::Open { address } => self.page_soon("Page.navigate", json!({ "url": address })),
+            Input::Open { address } => {
+                self.page_soon("Page.navigate", json!({ "url": input::address(&address) }));
+            }
             Input::Back => self.move_in_history(-1),
             Input::Forward => self.move_in_history(1),
             Input::Reload => self.page_soon("Page.reload", json!({})),
             Input::Tab { id } => {
                 if let Ok(tab) = id.parse() {
-                    self.chosen = Some(tab);
-                    self.engine.command(ToExtension::Activate { tab });
+                    self.engine.command(ToEngine::Activate { tab });
                 }
             }
-            Input::NewTab => {
-                self.chosen = None;
-                self.engine.command(ToExtension::NewTab { window: self.id });
-            }
+            Input::NewTab => self.engine.command(ToEngine::NewTab {
+                window: self.id,
+                address: BLANK.to_owned(),
+                ask: None,
+            }),
             Input::CloseTab { id } => {
                 if let Ok(tab) = id.parse() {
-                    self.engine.command(ToExtension::CloseTab { tab });
+                    self.engine.command(ToEngine::CloseTab { tab });
                 }
             }
             Input::Choose { menu, choice } => self.choose(menu, choice),
@@ -850,6 +838,14 @@ impl Live {
             return;
         };
         self.open_menu = Some(OpenMenu { tab, frame, menu });
+        let items = items
+            .into_iter()
+            .take(MOST_ITEMS)
+            .map(|item| MenuItem {
+                label: cut(&item.label, MOST_LINE),
+                ..item
+            })
+            .collect();
         self.state.menu = Some(Menu {
             id: menu,
             viewer,
@@ -897,7 +893,7 @@ impl Live {
             return;
         }
         if let Some(open) = self.open_menu.take().filter(|open| open.menu == menu) {
-            self.engine.command(ToExtension::Pick {
+            self.engine.command(ToEngine::Pick {
                 tab: open.tab,
                 frame: open.frame,
                 menu,
@@ -906,18 +902,20 @@ impl Live {
         }
     }
 
+    /// Answers the dialog that the window shows, and shows the one before it.
     fn answer_dialog(&mut self, accept: bool, text: Option<String>) {
-        if let Some(session) = self.dialog_session.take() {
-            let mut answer = json!({ "accept": accept });
-            if let Some(text) = text {
-                answer["promptText"] = json!(text);
-            }
-            self.engine
-                .devtools()
-                .send("Page.handleJavaScriptDialog", &answer, Some(&session));
+        if let Some((tab, _)) = self.dialogs.pop() {
+            self.engine.command(ToEngine::Dialog { tab, accept, text });
         }
-        self.state.dialog = None;
-        self.dirty = true;
+        self.show_dialog();
+    }
+
+    fn show_dialog(&mut self) {
+        let shown = self.dialogs.last().map(|(_, dialog)| dialog.clone());
+        if shown != self.state.dialog {
+            self.state.dialog = shown;
+            self.dirty = true;
+        }
     }
 
     fn give_files(&mut self, paths: &[String]) {
@@ -935,6 +933,10 @@ impl Live {
     }
 
     async fn download_ended(&mut self, guid: &str, done: bool) {
+        if self.refused.remove(guid) {
+            drop(tokio::fs::remove_file(self.engine.download_path(guid)).await);
+            return;
+        }
         let Some(name) = self.downloads.remove(guid) else {
             return;
         };

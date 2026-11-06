@@ -40,7 +40,7 @@ Item {
         const typed = address.text.trim();
         if (typed.length === 0)
             return;
-        video.step({ kind: "open", address: typed.indexOf("://") >= 0 || typed.startsWith("about:") ? typed : "https://" + typed });
+        video.step({ kind: "open", address: typed });
         surface.forceActiveFocus();
     }
     function cursor(shape) {
