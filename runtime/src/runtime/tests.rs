@@ -693,7 +693,6 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             answers: std::sync::Mutex::new(HashMap::new()),
             host: Some(crate::HostKind::Background),
             visible: HashMap::new(),
-            paused: HashSet::new(),
             attention: BTreeSet::new(),
             activity: HashMap::new(),
             room_latest: HashMap::new(),
@@ -2695,6 +2694,26 @@ fn show(runtime: &mut Runtime, consumer: Uuid, lifetime: &CancellationToken, ids
     );
 }
 
+async fn open_shown(
+    runtime: &mut Runtime,
+    remote: &RemoteSession,
+    consumer: Uuid,
+    lifetime: &CancellationToken,
+) -> (Subscription, mpsc::Sender<crate::network::RemoteUpdate>) {
+    let id = remote.id;
+    show(runtime, consumer, lifetime, &[id]);
+    runtime
+        .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
+        .unwrap();
+    let (connection, mut requests, updates) =
+        crate::network::test_remote_connection(remote.clone());
+    connected(runtime, id, Ok(connection));
+    let view = runtime.connections[&id].subscribe();
+    requests.recv().await.unwrap();
+    updates.send(first_snapshot()).await.unwrap();
+    (view.await.unwrap(), updates)
+}
+
 fn open_remote(id: Uuid) -> Command {
     Command::OpenRemote {
         request_id: Uuid::now_v7().to_string(),
@@ -2709,17 +2728,7 @@ async fn a_remote_terminal_pauses_while_no_client_shows_it_and_resumes_without_r
     let id = remote.id;
     runtime.replace_remotes(vec![remote.clone()]);
     let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
-    show(&mut runtime, consumer, &lifetime, &[id]);
-    runtime
-        .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
-        .unwrap();
-    let (connection, mut requests, updates) =
-        crate::network::test_remote_connection(remote.clone());
-    connected(&mut runtime, id, Ok(connection));
-    let view = runtime.connections[&id].subscribe();
-    requests.recv().await.unwrap();
-    updates.send(first_snapshot()).await.unwrap();
-    let mut view = view.await.unwrap();
+    let (mut view, _updates) = open_shown(&mut runtime, &remote, consumer, &lifetime).await;
 
     show(&mut runtime, consumer, &lifetime, &[]);
     for _ in 0..400 {
@@ -2730,8 +2739,20 @@ async fn a_remote_terminal_pauses_while_no_client_shows_it_and_resumes_without_r
     }
     let instance = runtime.connections[&id].instance_id;
     runtime.remote_paused(id, remote.incarnation_id, instance);
+    assert!(runtime.connections[&id].is_paused());
     let running = (ConnectionState::Connected, SessionStatus::Running, None);
     assert_eq!(remote_state(&runtime, id), running);
+    runtime.terminal_changed(&json!({
+        "sessionId": id, "incarnationId": remote.incarnation_id, "online": true,
+        "status": {"program": "claude", "state": "done"},
+    }));
+    assert_eq!(
+        runtime.remotes[&id]
+            .program_status
+            .as_ref()
+            .map(|status| status.state),
+        Some(crate::terminal::ProgramState::Done)
+    );
     runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
     runtime.reconnect_views();
     assert!(!runtime.opening.contains_key(&id));
@@ -2741,7 +2762,6 @@ async fn a_remote_terminal_pauses_while_no_client_shows_it_and_resumes_without_r
     assert_eq!(remote_state(&runtime, id), running);
     let (again, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
     connected(&mut runtime, id, Ok(again));
-    assert!(!runtime.paused.contains(&id));
     for _ in 0..400 {
         if !runtime.connections[&id].is_interrupted() {
             break;
@@ -2806,4 +2826,66 @@ async fn what_a_client_shows_holds_across_an_account_change() {
         .map(|event| event.event.kind())
         .collect();
     assert_eq!(answers, ["session.result"]);
+}
+
+#[tokio::test]
+async fn a_connection_that_no_view_holds_does_not_pause() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    runtime.open_remote(id, open_remote(id)).unwrap();
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(remote);
+    connected(&mut runtime, id, Ok(connection));
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(!runtime.connections[&id].is_interrupted());
+}
+
+#[tokio::test]
+async fn a_blocked_terminal_is_not_connected_again_when_it_shows() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote]);
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    show(&mut runtime, consumer, &lifetime, &[id]);
+    runtime
+        .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
+        .unwrap();
+    connected(
+        &mut runtime,
+        id,
+        Err(Error::Invalid("You cannot open this terminal.".to_owned())),
+    );
+    assert_eq!(remote_state(&runtime, id).0, ConnectionState::Blocked);
+    show(&mut runtime, consumer, &lifetime, &[]);
+    show(&mut runtime, consumer, &lifetime, &[id]);
+    assert!(!runtime.opening.contains_key(&id));
+}
+
+#[tokio::test]
+async fn a_lost_terminal_says_reconnecting_and_retries_only_while_it_shows() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let (_view, updates) = open_shown(&mut runtime, &remote, consumer, &lifetime).await;
+    lose_link(
+        &mut runtime,
+        &remote,
+        &updates,
+        "The connection has closed.",
+    )
+    .await;
+    assert_eq!(remote_state(&runtime, id).1, SessionStatus::Reconnecting);
+    show(&mut runtime, consumer, &lifetime, &[]);
+    assert_eq!(remote_state(&runtime, id).1, SessionStatus::Running);
+    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    assert!(!runtime.opening.contains_key(&id));
+    show(&mut runtime, consumer, &lifetime, &[id]);
+    assert_eq!(remote_state(&runtime, id).1, SessionStatus::Reconnecting);
+    runtime.reconnect_views();
+    assert!(runtime.opening.contains_key(&id));
 }

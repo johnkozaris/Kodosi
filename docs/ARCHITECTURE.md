@@ -54,8 +54,10 @@ Each app tells its host which terminals are on its screen and whether the person
 the app; the second part decides only alerts. The host keeps the channel of a terminal on
 another computer open while a client shows it, or while a client that sends no such
 report, such as the `kodosi` command, has it open. The channel of a hidden terminal closes
-when nothing is in flight. Its views keep their screen, input and canvas requests wait,
-and the next channel resumes them with a new checkpoint, without the reconnecting state.
+when nothing is in flight. Its views keep their screen, and its status and alerts come from
+the backend. Work for it, such as input, a close or a read, opens the channel again; the
+work waits, and the next channel resumes the views with a new checkpoint, without the
+reconnecting state.
 
 A pasted picture travels as a file. The app gives its host the picture, and a view of a
 terminal on another computer sends it on its channel, only when that host does not have it

@@ -123,6 +123,11 @@ pub(crate) enum SessionChange {
         incarnation: Uuid,
         instance_id: Uuid,
     },
+    RemoteWanted {
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+    },
     RemoteClosed {
         id: Uuid,
         incarnation: Uuid,

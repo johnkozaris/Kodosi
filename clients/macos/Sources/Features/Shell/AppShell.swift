@@ -65,7 +65,7 @@ struct AppShell: View {
         }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
-        .onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
+        .background(VisibleReporter())
         .onChange(of: terminalsInteractive, initial: true) { _, open in workbench.stageTakesKeys = open }
     }
 
@@ -207,5 +207,13 @@ private extension DeviceNotice {
         case .approvalNeeded: "Open Settings"
         case .approvalWaiting: "Show code"
         }
+    }
+}
+
+private struct VisibleReporter: View {
+    @Environment(AppDependencies.self) private var deps
+
+    var body: some View {
+        Color.clear.onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
     }
 }

@@ -4,8 +4,6 @@ import KodosiBridge
 import KodosiDesign
 import KodosiTerminalSessions
 
-/// What this app tells its host about the window: the terminals in it, and whether the person
-/// is in the app.
 struct VisibleReport: Equatable {
     var sessionIds: [String]
     var watching: Bool
@@ -266,7 +264,6 @@ extension AppDependencies {
         }
     }
 
-    /// The terminals whose screen or canvas is in the window while the window is on the screen.
     var shownSessionIds: [String] {
         guard windowShown() else { return [] }
         return sessions.map(\.id).filter(isShown).sorted()

@@ -4,7 +4,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
     },
     time::Duration,
 };
@@ -44,7 +44,7 @@ pub(crate) struct RemoteTerminal {
     requests: mpsc::Sender<Request>,
     cancellation: CancellationToken,
     input_budget: Arc<Semaphore>,
-    interrupted: Arc<AtomicBool>,
+    link: Arc<AtomicU8>,
     hidden: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
@@ -92,19 +92,19 @@ impl RemoteTerminal {
         let (requests, receiver) = mpsc::channel(CONTROL_CAPACITY);
         let cancellation = CancellationToken::new();
         let input_budget = Arc::new(Semaphore::new(INPUT_BUDGET));
-        let interrupted = Arc::new(AtomicBool::new(false));
+        let link = Arc::new(AtomicU8::new(Link::Open as u8));
         let hidden = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
             input_budget,
-            interrupted: Arc::clone(&interrupted),
+            link: Arc::clone(&link),
             hidden: Arc::clone(&hidden),
             incarnation_id,
             instance_id,
         };
         let mut actor = RemoteActor::new(connection, receiver, cancellation, changes, instance_id);
-        actor.interrupted = interrupted;
+        actor.shared_link = link;
         actor.hidden = hidden;
         tokio::spawn(actor.run());
         terminal
@@ -115,11 +115,14 @@ impl RemoteTerminal {
     }
 
     pub(crate) fn is_interrupted(&self) -> bool {
-        self.interrupted.load(Ordering::Acquire)
+        self.link.load(Ordering::Acquire) != Link::Open as u8
     }
 
-    /// A hidden terminal closes its connection once nothing is in flight and keeps its screen
-    /// until a new connection resumes it.
+    pub(crate) fn is_paused(&self) -> bool {
+        let link = self.link.load(Ordering::Acquire);
+        link == Link::Paused as u8 || link == Link::Waking as u8
+    }
+
     pub(crate) fn show(&self, shown: bool) {
         self.hidden.store(!shown, Ordering::Release);
     }
@@ -409,11 +412,35 @@ impl From<Result<()>> for Step {
     }
 }
 
+fn reject(request: Request, error: Error) {
+    match request {
+        Request::Canvas { reply, .. } => drop(reply.send(Err(error))),
+        Request::Document { reply, .. } => drop(reply.send(Err(error))),
+        _ => {}
+    }
+}
+
+fn wakes(request: &Request) -> bool {
+    match request {
+        Request::Control(queued) => !matches!(
+            queued.control,
+            TerminalControl::Resize { .. } | TerminalControl::Focus { .. }
+        ),
+        Request::Canvas { .. }
+        | Request::Document { .. }
+        | Request::Checkpoint { .. }
+        | Request::Picture { .. } => true,
+        Request::Reconnected(_) | Request::Subscribe(_) | Request::Unsubscribe(_) => false,
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 enum Link {
     Open,
     Lost,
     Paused,
+    Waking,
 }
 
 struct RemoteActor {
@@ -435,7 +462,7 @@ struct RemoteActor {
     last_resize: Option<u64>,
     future_checkpoint: Option<CheckpointCut>,
     resyncing: bool,
-    interrupted: Arc<AtomicBool>,
+    shared_link: Arc<AtomicU8>,
     hidden: Arc<AtomicBool>,
     link: Link,
     held: VecDeque<Request>,
@@ -478,7 +505,7 @@ impl RemoteActor {
             last_resize: None,
             future_checkpoint: None,
             resyncing: false,
-            interrupted: Arc::new(AtomicBool::new(false)),
+            shared_link: Arc::new(AtomicU8::new(Link::Open as u8)),
             hidden: Arc::new(AtomicBool::new(false)),
             link: Link::Open,
             held: VecDeque::new(),
@@ -567,17 +594,15 @@ impl RemoteActor {
     fn hold(&mut self, request: Request) {
         if self.held.len() < CONTROL_CAPACITY {
             self.held.push_back(request);
-            return;
-        }
-        match request {
-            Request::Canvas { reply, .. } => drop(reply.send(Err(Error::Busy))),
-            Request::Document { reply, .. } => drop(reply.send(Err(Error::Busy))),
-            _ => {}
+        } else {
+            reject(request, Error::Busy);
         }
     }
 
     fn forward(&self, request: Request) {
         match request {
+            Request::Canvas { reply, .. } if reply.is_closed() => {}
+            Request::Document { reply, .. } if reply.is_closed() => {}
             Request::Canvas { request, reply } => {
                 let controls = self.controls.clone();
                 tokio::spawn(async move {
@@ -605,8 +630,27 @@ impl RemoteActor {
 
     fn set_link(&mut self, link: Link) {
         self.link = link;
-        self.interrupted
-            .store(link != Link::Open, Ordering::Release);
+        self.shared_link.store(link as u8, Ordering::Release);
+    }
+
+    fn dormant(&self) -> bool {
+        matches!(self.link, Link::Paused | Link::Waking)
+    }
+
+    async fn wake(&mut self) {
+        if self.link != Link::Paused {
+            return;
+        }
+        self.set_link(Link::Waking);
+        drop(
+            self.changes
+                .send(SessionChange::RemoteWanted {
+                    id: self.connection.session.id,
+                    incarnation: self.connection.session.incarnation_id,
+                    instance_id: self.instance_id,
+                })
+                .await,
+        );
     }
 
     fn idle(&self) -> bool {
@@ -616,6 +660,7 @@ impl RemoteActor {
             && self.sending.is_none()
             && self.pending.is_empty()
             && self.held.is_empty()
+            && self.requests.is_empty()
     }
 
     async fn pause(&mut self) {
@@ -1335,7 +1380,11 @@ impl RemoteActor {
                 Ok(())
             }
             update = self.connection.updates.recv(), if !interrupted => return self.connection_update(update),
-            request = self.requests.recv() => match request {
+            request = self.requests.recv() => {
+                if request.as_ref().is_some_and(wakes) && self.dormant() {
+                    self.wake().await;
+                }
+                match request {
                 Some(Request::Reconnected(connection)) => { self.resume(*connection); Ok(()) }
                 Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
                 Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
@@ -1347,7 +1396,7 @@ impl RemoteActor {
                     Ok(())
                 }
                 Some(Request::Control(queued)) => self.queue(queued),
-                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.link == Link::Paused => {
+                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.dormant() => {
                     self.hold(request);
                     Ok(())
                 }
@@ -1368,7 +1417,8 @@ impl RemoteActor {
                     Ok(())
                 }
                 None => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
-            },
+                }
+            }
             _ = tick.tick() => self.maintain().await,
         };
         Step::from(outcome)
@@ -1420,15 +1470,7 @@ impl RemoteActor {
             drop(reply.send(Err(Error::Other(reason.clone()))));
         }
         for request in self.held {
-            match request {
-                Request::Canvas { reply, .. } => {
-                    drop(reply.send(Err(Error::Other(reason.clone()))));
-                }
-                Request::Document { reply, .. } => {
-                    drop(reply.send(Err(Error::Other(reason.clone()))));
-                }
-                _ => {}
-            }
+            reject(request, Error::Other(reason.clone()));
         }
         if ended {
             drop(

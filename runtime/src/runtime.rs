@@ -958,7 +958,6 @@ impl Activity {
     }
 }
 
-/// What a client shows: the terminals on its screen, and whether its person watches it.
 struct Shown {
     lifetime: CancellationToken,
     ids: BTreeSet<String>,
@@ -1037,9 +1036,6 @@ struct Runtime {
     opening: HashMap<Uuid, Opening>,
     views: HashMap<Uuid, HashMap<Uuid, CancellationToken>>,
     visible: HashMap<Uuid, Shown>,
-    /// Remote terminals that no client shows, whose connection closed while their views keep
-    /// the last screen.
-    paused: HashSet<Uuid>,
     attention: BTreeSet<String>,
     activity: HashMap<String, Activity>,
     room_latest: HashMap<String, u64>,
@@ -1186,7 +1182,6 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         opening: HashMap::new(),
         views: HashMap::new(),
         visible: HashMap::new(),
-        paused: HashSet::new(),
         attention: BTreeSet::new(),
         activity: HashMap::new(),
         room_latest: HashMap::new(),
@@ -1385,8 +1380,6 @@ impl Runtime {
             .any(|shown| shown.watching && !shown.lifetime.is_cancelled() && shown.ids.contains(id))
     }
 
-    /// A client that reports what it shows keeps only those terminals connected; any other
-    /// client keeps each terminal that it opened.
     fn shown(&self, id: Uuid) -> bool {
         let key = id.to_string();
         self.views.get(&id).is_some_and(|consumers| {
@@ -1400,28 +1393,55 @@ impl Runtime {
         })
     }
 
-    fn follow_views(&mut self) {
-        let ids = self.views.keys().copied().collect::<Vec<_>>();
-        for id in ids {
-            self.follow_view(id);
+    fn follow_views(&self) {
+        for id in self.views.keys() {
+            self.follow_view(*id);
         }
     }
 
-    /// Pauses the connection of an open remote terminal that no client shows, and connects it
-    /// again as soon as a client shows it.
-    fn follow_view(&mut self, id: Uuid) {
-        let shown = self.shown(id);
-        let down = match self.connections.get(&id) {
-            Some(connection) if !connection.is_closed() => {
-                connection.show(shown);
-                connection.is_interrupted()
-            }
-            _ => true,
-        };
-        let due = self.paused.contains(&id) || !self.reconnect.contains_key(&id);
-        if shown && down && due && !self.opening.contains_key(&id) {
+    fn follow_view(&self, id: Uuid) {
+        if let Some(connection) = self
+            .connections
+            .get(&id)
+            .filter(|connection| !connection.is_closed())
+        {
+            connection.show(self.shown(id));
+        }
+    }
+
+    fn connect_shown(&mut self) {
+        let due = self
+            .views
+            .keys()
+            .copied()
+            .filter(|id| self.shown(*id) && self.due(*id))
+            .collect::<Vec<_>>();
+        for id in due {
             self.connect(id);
         }
+    }
+
+    fn due(&self, id: Uuid) -> bool {
+        let blocked = self
+            .remotes
+            .get(&id)
+            .is_some_and(|entry| entry.connection_state == ConnectionState::Blocked);
+        if blocked || self.hosts(&id) || self.opening.contains_key(&id) {
+            return false;
+        }
+        self.connections
+            .get(&id)
+            .filter(|connection| !connection.is_closed())
+            .map_or_else(
+                || !self.reconnect.contains_key(&id),
+                RemoteTerminal::is_paused,
+            )
+    }
+
+    fn current(&self, id: Uuid, incarnation: Uuid, instance_id: Uuid) -> bool {
+        self.connections.get(&id).is_some_and(|connection| {
+            connection.incarnation_id == incarnation && connection.instance_id == instance_id
+        })
     }
 
     fn connect(&mut self, id: Uuid) {
@@ -1464,10 +1484,31 @@ impl Runtime {
                 watching,
             },
         );
-        if seen > 0 {
+        self.follow_views();
+        self.connect_shown();
+        if self.restate_kept() || seen > 0 {
             self.publish_catalog();
         }
-        self.follow_views();
+    }
+
+    fn restate_kept(&mut self) -> bool {
+        let kept = self
+            .views
+            .keys()
+            .copied()
+            .filter(|id| self.keeps_screen(*id))
+            .collect::<Vec<_>>();
+        let mut changed = false;
+        for id in kept {
+            let status = self.remote_status(id, self.host_online(id));
+            if let Some(entry) = self.remotes.get_mut(&id)
+                && entry.status != status
+            {
+                entry.status = status;
+                changed = true;
+            }
+        }
+        changed
     }
 
     fn ready_event(&self) -> Value {
@@ -2245,7 +2286,6 @@ impl Runtime {
             }
         }
         self.views.clear();
-        self.paused.clear();
         self.reconnect.clear();
         self.listed.clear();
         self.remotes.clear();
@@ -2631,11 +2671,7 @@ impl Runtime {
         if !notice.online {
             entry.program_status = None;
         }
-        if self
-            .connections
-            .get(&id)
-            .is_none_or(RemoteTerminal::is_closed)
-        {
+        if !self.streams(id) {
             self.show_shared_status(id);
         }
         if returned {
@@ -2724,7 +2760,18 @@ impl Runtime {
     }
 
     pub(crate) fn recovering(&self, id: Uuid) -> bool {
-        self.views.contains_key(&id) && !self.paused.contains(&id) && self.keeps_screen(id)
+        let resuming = self.opening.contains_key(&id)
+            && self
+                .connections
+                .get(&id)
+                .is_some_and(RemoteTerminal::is_paused);
+        self.shown(id) && self.keeps_screen(id) && !resuming
+    }
+
+    fn streams(&self, id: Uuid) -> bool {
+        self.connections
+            .get(&id)
+            .is_some_and(|connection| !connection.is_closed() && !connection.is_interrupted())
     }
 
     fn keeps_screen(&self, id: Uuid) -> bool {
@@ -2751,15 +2798,16 @@ impl Runtime {
             .get(&remote.id)
             .filter(|entry| entry.incarnation_id == remote.incarnation_id.to_string());
         let live = connection_state == ConnectionState::Connected;
+        let streaming = self.streams(remote.id);
         let shared = remote.status.as_ref().filter(|_| remote.online);
         SessionEntry {
             attention: false,
-            connected_users: if live {
+            connected_users: if streaming {
                 previous.map_or_else(Vec::new, |entry| entry.connected_users.clone())
             } else {
                 vec![]
             },
-            program: if live {
+            program: if streaming {
                 previous.and_then(|entry| entry.program.clone())
             } else {
                 shared.and_then(|status| status.program.clone())
@@ -2767,7 +2815,7 @@ impl Runtime {
             prompt: false,
             repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
-            program_status: if live {
+            program_status: if streaming {
                 previous
                     .filter(|_| remote.online)
                     .and_then(|entry| entry.program_status.clone())
@@ -2975,6 +3023,15 @@ impl Runtime {
                 incarnation,
                 instance_id,
             } => self.remote_paused(id, incarnation, instance_id),
+            SessionChange::RemoteWanted {
+                id,
+                incarnation,
+                instance_id,
+            } => {
+                if self.current(id, incarnation, instance_id) && self.due(id) {
+                    self.connect(id);
+                }
+            }
             SessionChange::RemoteClosed {
                 id,
                 incarnation,
@@ -3009,16 +3066,11 @@ impl Runtime {
         reason: String,
         interrupted: bool,
     ) {
-        if !self.connections.get(&id).is_some_and(|connection| {
-            connection.incarnation_id == incarnation && connection.instance_id == instance_id
-        }) {
+        if !self.current(id, incarnation, instance_id) {
             return;
         }
         tracing::warn!(%id, %reason, interrupted, "remote terminal connection lost");
         if interrupted && self.views.contains_key(&id) {
-            if !self.shown(id) {
-                self.paused.insert(id);
-            }
             let previous = self.reconnect.get(&id);
             let stable = previous
                 .and_then(|retry| retry.connected)
@@ -3041,7 +3093,7 @@ impl Runtime {
         } else if let Some(connection) = self.connections.remove(&id) {
             connection.disconnect();
         }
-        let kept = self.recovering(id) || self.paused.contains(&id);
+        let kept = self.views.contains_key(&id) && self.keeps_screen(id);
         let online = self.host_online(id);
         let status = self.remote_status(id, online);
         if let Some(entry) = self.remotes.get_mut(&id) {
@@ -3063,17 +3115,17 @@ impl Runtime {
     }
 
     fn remote_paused(&mut self, id: Uuid, incarnation: Uuid, instance_id: Uuid) {
-        if !self.connections.get(&id).is_some_and(|connection| {
-            connection.incarnation_id == incarnation && connection.instance_id == instance_id
-        }) {
+        if !self.current(id, incarnation, instance_id) {
             return;
         }
-        self.paused.insert(id);
         if let Some(entry) = self.remotes.get_mut(&id) {
             entry.connected_users.clear();
         }
+        self.show_shared_status(id);
         self.publish_catalog();
-        self.follow_view(id);
+        if self.shown(id) && self.due(id) {
+            self.connect(id);
+        }
     }
 
     fn reconnect_views(&mut self) {

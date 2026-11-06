@@ -1190,7 +1190,6 @@ impl Runtime {
     fn disconnect_remote(&mut self, id: Uuid) {
         self.views.remove(&id);
         self.reconnect.remove(&id);
-        self.paused.remove(&id);
         if let Some(opening) = self.opening.remove(&id) {
             opening.cancellation.cancel();
         }
@@ -1733,9 +1732,8 @@ impl Runtime {
                     self.connections
                         .insert(id, RemoteTerminal::spawn(connection, self.changes.clone()));
                 }
-                self.paused.remove(&id);
                 if let Some(connection) = self.connections.get(&id) {
-                    connection.show(self.shown(id));
+                    connection.show(!self.views.contains_key(&id) || self.shown(id));
                 }
                 self.remotes.insert(id, entry);
                 self.publish_catalog();
@@ -1752,9 +1750,6 @@ impl Runtime {
     }
 
     fn connection_failed(&mut self, id: Uuid, commands: Vec<Command>, error: Error) {
-        if self.shown(id) {
-            self.paused.remove(&id);
-        }
         if self
             .reconnect
             .get_mut(&id)
@@ -1774,11 +1769,13 @@ impl Runtime {
             retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
             retry.connected = None;
         }
-        let recovering = self.reconnect.contains_key(&id) && self.recovering(id);
+        let kept = self.reconnect.contains_key(&id)
+            && self.views.contains_key(&id)
+            && self.keeps_screen(id);
         let online = self.host_online(id);
         let status = self.remote_status(id, online);
         if let Some(entry) = self.remotes.get_mut(&id) {
-            if recovering {
+            if kept {
                 entry.status = status;
             } else {
                 entry.connection_state = if blocked {

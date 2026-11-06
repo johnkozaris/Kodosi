@@ -11,11 +11,12 @@ enum MainWindowLocator {
     }
 
     static func mainWindow() -> NSWindow? {
-        let candidates = NSApp.windows.filter {
-            $0.styleMask.contains(.titled)
-        }
-        return candidates.max {
+        titledWindow() ?? NSApp.windows.first(where: { $0.isVisible })
+    }
+
+    static func titledWindow() -> NSWindow? {
+        NSApp.windows.filter { $0.styleMask.contains(.titled) }.max {
             $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height
-        } ?? NSApp.windows.first(where: { $0.isVisible })
+        }
     }
 }
