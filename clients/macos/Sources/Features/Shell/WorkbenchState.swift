@@ -253,6 +253,10 @@ final class WorkbenchState {
         }
         if selectedSessionId == id {
             selectedSessionId = stagedSessionIds.first
+            if focusedSessionId == id, let next = selectedSessionId {
+                focusedSessionId = next
+                followCanvas(to: next)
+            }
         }
         if focusedSessionId == id {
             focusedSessionId = nil
