@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import io
 import json
@@ -14,6 +15,7 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "generate-update-site.py"
 WINDOWS_CERTIFICATE = Path(__file__).resolve().parents[2] / "clients/qt/packaging/windows/Kodosi.cer"
 VERSION = "1.2.3"
+ENGINE_FEED = '{"version": "156.0.1-0.1.0", "engines": {"linux-x64": {"url": "https://example.org/e.tar.gz", "sha256": "00", "program": "kodosi-browser/kodosi-browser"}}}\n'
 
 
 def ar_member(name: str, data: bytes) -> bytes:
@@ -49,9 +51,16 @@ def windows_bundle(version: str) -> bytes:
     return bundle.getvalue()
 
 
-def generate(root: Path, package_version: str, windows_version: str | None = None) -> subprocess.CompletedProcess[bytes]:
+def generate(
+    root: Path, package_version: str, windows_version: str | None = None, browser: bool = True
+) -> subprocess.CompletedProcess[bytes]:
     release = root / "release"
     release.mkdir()
+    feed = root / "browser"
+    feed.mkdir()
+    if browser:
+        (feed / "engine.json").write_text(ENGINE_FEED, encoding="utf-8")
+        (feed / "engine.json.sig").write_text(base64.b64encode(bytes(64)).decode() + "\n", encoding="utf-8")
     if windows_version:
         (release / f"Kodosi-{VERSION}.msixbundle").write_bytes(windows_bundle(windows_version))
     (release / f"Kodosi-{VERSION}.dmg").write_bytes(b"disk image")
@@ -61,7 +70,7 @@ def generate(root: Path, package_version: str, windows_version: str | None = Non
     (root / "appcast.xml").write_text("<rss/>", encoding="utf-8")
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(release), str(root / "site"), "--version", VERSION,
-         "--appcast", str(root / "appcast.xml")],
+         "--appcast", str(root / "appcast.xml"), "--browser", str(feed)],
         capture_output=True,
     )
 
@@ -86,6 +95,16 @@ class UpdateSiteTest(unittest.TestCase):
             self.assertIn(f"{hashlib.sha256(b'disk image').hexdigest()}  Kodosi-{VERSION}.dmg\n", sums)
             self.assertEqual((site / "macos/appcast.xml").read_text(encoding="utf-8"), "<rss/>")
             self.assertEqual((site / "robots.txt").read_text(encoding="utf-8"), "User-agent: *\nDisallow: /\n")
+            self.assertEqual((site / "browser/engine.json").read_text(encoding="utf-8"), ENGINE_FEED)
+            self.assertTrue((site / "browser/engine.json.sig").is_file())
+
+    def test_a_site_without_the_feed_of_kodosi_browser_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = generate(root, VERSION, browser=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b"engine.json", result.stderr)
+            self.assertFalse((root / "site").exists())
 
     def test_a_package_of_another_version_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
