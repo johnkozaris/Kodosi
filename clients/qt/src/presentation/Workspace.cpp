@@ -38,6 +38,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_dosi(*this, sessions)
 {
     connect(&sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::reportVisible);
+    connect(&desktop, &DesktopStateModel::watchingChanged, this, &Workspace::reportVisible);
 }
 
 bool Workspace::validName(const QString& name)
@@ -106,11 +107,12 @@ void Workspace::notifyBusy()
 
 void Workspace::reportVisible()
 {
-    const auto visible = m_sessions.visible();
+    const auto visible = std::pair { m_sessions.visible(), m_desktop.watching() };
     if (!m_hostReady || m_reportedVisible == visible)
         return;
     if (sendUntracked(QStringLiteral("session.visible"),
-            { { QStringLiteral("sessionIds"), QJsonArray::fromStringList(visible) } }))
+            { { QStringLiteral("sessionIds"), QJsonArray::fromStringList(visible.first) },
+                { QStringLiteral("watching"), visible.second } }))
         m_reportedVisible = visible;
 }
 
@@ -208,7 +210,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("system.ready")) {
         m_hostReady = true;
         m_restoreAsked = false;
-        m_reportedVisible = QStringList {};
+        m_reportedVisible.reset();
         reportVisible();
         emit hostReady();
         return;

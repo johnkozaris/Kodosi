@@ -79,6 +79,7 @@ private:
     bool activateSession(const QString& sessionId, bool inRoom);
     bool opening(const QString& sessionId) const;
     bool openRemote(const QString& sessionId);
+    void dropRemote(const QString& sessionId);
 
     bool createInternal(const QString& name, const QString& directory,
         const QString& provider, const QString& nativeConversationId, const QString& roomId = {},

@@ -100,10 +100,16 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
             session && !session->message.isEmpty() ? session->message : tr("This terminal is no longer available."));
         return false;
     }
-    if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6)
-        return m_desktop.stageSession(id, !inRoom);
+    QString leaving;
+    if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6) {
+        leaving = m_desktop.makingRoom(id);
+        if (leaving.isEmpty())
+            return m_desktop.stageSession(id, !inRoom);
+    }
     if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id))
         return false;
+    if (!leaving.isEmpty())
+        minimize(leaving);
     if (!m_desktop.stageSession(id, !inRoom))
         return false;
     emit activated(id);
@@ -160,12 +166,17 @@ bool SessionActionsModel::minimize(const QString& id)
             ++it;
     }
     m_workspace.notifyBusy();
+    dropRemote(id);
+    return true;
+}
+
+void SessionActionsModel::dropRemote(const QString& id)
+{
     const auto session = m_sessions.session(id);
-    if (session && session->kind == QStringLiteral("remote")) {
+    if (session && session->kind == QStringLiteral("remote") && !m_desktop.stagedSessionIds().contains(id)) {
         m_workspace.sendUntracked(
             QStringLiteral("session.disconnect"), { { QStringLiteral("sessionId"), id } });
     }
-    return true;
 }
 
 bool SessionActionsModel::resume(
@@ -226,7 +237,7 @@ bool SessionActionsModel::createQuick()
 {
     if (m_typeAhead.holding())
         return false;
-    if (m_desktop.stagedSessionIds().size() >= 6) {
+    if (m_desktop.stagedSessionIds().size() >= 6 && m_desktop.stageLayoutMode() != DesktopStateModel::Focus) {
         m_workspace.setError(tr("Six terminals are open. Minimize one to open another."));
         return false;
     }
@@ -388,7 +399,8 @@ void SessionActionsModel::activatePendingLink()
     const auto id = m_activeLink->sessionId;
     if (m_sessions.containsSession(id)) {
         m_activeLink.reset();
-        activate(id);
+        if (!activate(id))
+            dropRemote(id);
         activatePendingLink();
         return;
     }

@@ -49,6 +49,8 @@ Item {
         case "refresh": return "M19 8 A8 8 0 1 0 20 14 M19 4 V8 H15"
         case "focus": return "M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"
         case "grid": return "M4 4 H10 V10 H4 Z M14 4 H20 V10 H14 Z M4 14 H10 V20 H4 Z M14 14 H20 V20 H14 Z"
+        case "single": return "M4 4 H20 V20 H4 Z"
+        case "disclosure": return "M8.5 5.5 L17 12 L8.5 18.5 Z"
         case "check": return "M5 12.5 L10 17 L19 7"
         case "hand": return "M8 13 V6.5 M11 12 V4.5 M14 12 V5 M17 13 V7.5 M8 13 V15 Q8 20 12.5 20 Q17 20 17 15 V13 M8 15.5 L5 12.5"
         case "question": return "M8.5 9 Q8.5 5 12 5 Q15.5 5 15.5 8.5 Q15.5 11 12 12.5 V14.5 M12 18.5 V18.6"

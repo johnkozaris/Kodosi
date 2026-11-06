@@ -2001,6 +2001,9 @@
           },
           "type": {
             "const": "session.visible"
+          },
+          "watching": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2008,7 +2011,8 @@
           "accountEpoch",
           "type",
           "requestId",
-          "sessionIds"
+          "sessionIds",
+          "watching"
         ],
         "type": "object"
       },
@@ -12014,7 +12018,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 78,
+  "protocolVersion": 79,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

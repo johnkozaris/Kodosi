@@ -52,6 +52,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         Logger.app.info("App launched. Runtime running: \(isRunning)")
 
         configureMainWindow()
+        Task { [dependencies] in
+            for await _ in NotificationCenter.default.notifications(named: NSWindow.didChangeOcclusionStateNotification) {
+                dependencies.reportVisible()
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowChromeSettle) {
             self.ensureWindowOnAvailableScreen()
         }
