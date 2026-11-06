@@ -49,12 +49,12 @@ def feed(folder: Path) -> dict:
 
 def sign_update() -> Path:
     project = ROOT / "clients/macos/KodosiDesktop.xcodeproj"
-    if not project.exists():
+    if not (project / "project.pbxproj").exists():
         subprocess.run(["just", "--justfile", str(ROOT / "clients/macos/justfile"), "xcode-gen"], stdin=subprocess.DEVNULL, check=True)
     packages = ROOT / "clients/macos/build/packages"
     subprocess.run(
-        ["xcodebuild", "-resolvePackageDependencies", "-project", str(project), "-scheme", "KodosiDesktop",
-         "-clonedSourcePackagesDirPath", str(packages)],
+        ["xcodebuild", "-resolvePackageDependencies", "-onlyUsePackageVersionsFromResolvedFile", "-project", str(project),
+         "-scheme", "KodosiDesktop", "-clonedSourcePackagesDirPath", str(packages)],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, check=True,
     )
     return packages / "artifacts/sparkle/Sparkle/bin/sign_update"
