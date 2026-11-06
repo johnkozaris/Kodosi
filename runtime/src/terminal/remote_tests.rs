@@ -1088,3 +1088,100 @@ async fn work_for_a_paused_terminal_wakes_it_and_goes_out_on_the_next_connection
     interrupt.abort();
     terminal.disconnect();
 }
+
+async fn paused(
+    terminal: &RemoteTerminal,
+    changes: &mut mpsc::Receiver<SessionChange>,
+) -> SessionChange {
+    terminal.show(false);
+    tokio::time::timeout(Duration::from_secs(1), changes.recv())
+        .await
+        .expect("pause timeout")
+        .expect("pause")
+}
+
+async fn wanted(changes: &mut mpsc::Receiver<SessionChange>) -> bool {
+    matches!(
+        tokio::time::timeout(Duration::from_secs(1), changes.recv()).await,
+        Ok(Some(SessionChange::RemoteWanted { .. }))
+    )
+}
+
+#[tokio::test]
+async fn a_read_of_a_paused_terminal_wakes_it() {
+    let (terminal, _view, _requests, _updates, mut changes) = start().await;
+    assert!(matches!(
+        paused(&terminal, &mut changes).await,
+        SessionChange::RemotePaused { .. }
+    ));
+    let read = tokio::spawn(terminal.read(false));
+    assert!(wanted(&mut changes).await);
+    read.abort();
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn work_asks_for_the_terminal_again_while_a_wake_has_not_connected() {
+    let (terminal, _view, _requests, _updates, mut changes) = start().await;
+    paused(&terminal, &mut changes).await;
+    let first = tokio::spawn(terminal.control(None, TerminalControl::Interrupt));
+    assert!(wanted(&mut changes).await);
+    let second = tokio::spawn(terminal.control(None, TerminalControl::Interrupt));
+    assert!(wanted(&mut changes).await);
+    first.abort();
+    second.abort();
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_hidden_terminal_with_an_open_document_stays_connected_until_the_document_closes() {
+    let (terminal, _view, mut requests, _updates, mut changes) = start().await;
+    let ends = terminal
+        .document(Uuid::now_v7(), "notes.md".to_owned(), "Ana".to_owned())
+        .await
+        .expect("document");
+    assert!(matches!(
+        next_request(&mut requests).await,
+        TestRemoteRequest::PipeOpen { .. }
+    ));
+    terminal.show(false);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(400), changes.recv())
+            .await
+            .is_err()
+    );
+    assert!(!terminal.is_interrupted());
+    drop(ends);
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(1), changes.recv())
+            .await
+            .expect("pause timeout"),
+        Some(SessionChange::RemotePaused { .. })
+    ));
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_hidden_terminal_answers_a_canvas_request_before_it_pauses() {
+    let (terminal, _view, mut requests, _updates, mut changes) = start().await;
+    let asked =
+        tokio::spawn(terminal.canvas(crate::canvas::CanvasRequest::Remove { keys: vec![] }));
+    let TestRemoteRequest::Control { reply, .. } = next_request(&mut requests).await else {
+        panic!("expected the canvas request");
+    };
+    terminal.show(false);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(300), changes.recv())
+            .await
+            .is_err()
+    );
+    reply.send(Ok(Value::Null)).expect("answer");
+    assert!(asked.await.expect("task").is_ok());
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(1), changes.recv())
+            .await
+            .expect("pause timeout"),
+        Some(SessionChange::RemotePaused { .. })
+    ));
+    terminal.disconnect();
+}
