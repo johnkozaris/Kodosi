@@ -426,11 +426,12 @@ fn wakes(request: &Request) -> bool {
             queued.control,
             TerminalControl::Resize { .. } | TerminalControl::Focus { .. }
         ),
-        Request::Canvas { .. }
-        | Request::Document { .. }
+        Request::Subscribe(_)
         | Request::Checkpoint { .. }
+        | Request::Canvas { .. }
+        | Request::Document { .. }
         | Request::Picture { .. } => true,
-        Request::Reconnected(_) | Request::Subscribe(_) | Request::Unsubscribe(_) => false,
+        Request::Reconnected(_) | Request::Unsubscribe(_) => false,
     }
 }
 
@@ -466,6 +467,8 @@ struct RemoteActor {
     hidden: Arc<AtomicBool>,
     link: Link,
     held: VecDeque<Request>,
+    asking: Arc<()>,
+    documents: Vec<mpsc::WeakSender<Vec<u8>>>,
     queued: VecDeque<QueuedControl>,
     in_flight: Option<InFlight>,
     focused: HashSet<Uuid>,
@@ -509,6 +512,8 @@ impl RemoteActor {
             hidden: Arc::new(AtomicBool::new(false)),
             link: Link::Open,
             held: VecDeque::new(),
+            asking: Arc::new(()),
+            documents: Vec::new(),
             queued: VecDeque::new(),
             in_flight: None,
             focused: HashSet::new(),
@@ -599,17 +604,19 @@ impl RemoteActor {
         }
     }
 
-    fn forward(&self, request: Request) {
+    fn forward(&mut self, request: Request) {
         match request {
             Request::Canvas { reply, .. } if reply.is_closed() => {}
             Request::Document { reply, .. } if reply.is_closed() => {}
             Request::Canvas { request, reply } => {
                 let controls = self.controls.clone();
+                let asking = Arc::clone(&self.asking);
                 tokio::spawn(async move {
                     let answer = controls
                         .send_control(TerminalControl::Canvas { request })
                         .await;
                     drop(reply.send(answer.map_err(Error::from)));
+                    drop(asking);
                 });
             }
             Request::Document {
@@ -617,15 +624,22 @@ impl RemoteActor {
                 key,
                 name,
                 reply,
-            } => drop(
-                reply.send(
-                    self.controls
-                        .open_pipe(pipe, key, name)
-                        .map_err(Error::from),
-                ),
-            ),
+            } => {
+                let ends = self
+                    .controls
+                    .open_pipe(pipe, key, name)
+                    .map_err(Error::from);
+                if let Ok(ends) = &ends {
+                    self.documents.push(ends.sender.downgrade());
+                }
+                drop(reply.send(ends));
+            }
             _ => {}
         }
+    }
+
+    fn open_document(pipe: &mpsc::WeakSender<Vec<u8>>) -> bool {
+        pipe.upgrade().is_some_and(|sender| !sender.is_closed())
     }
 
     fn set_link(&mut self, link: Link) {
@@ -638,9 +652,6 @@ impl RemoteActor {
     }
 
     async fn wake(&mut self) {
-        if self.link != Link::Paused {
-            return;
-        }
         self.set_link(Link::Waking);
         drop(
             self.changes
@@ -661,6 +672,8 @@ impl RemoteActor {
             && self.pending.is_empty()
             && self.held.is_empty()
             && self.requests.is_empty()
+            && Arc::strong_count(&self.asking) == 1
+            && !self.documents.iter().any(Self::open_document)
     }
 
     async fn pause(&mut self) {
@@ -1229,6 +1242,7 @@ impl RemoteActor {
             self.metadata = Some(metadata);
         }
         self.subscribers.prune();
+        self.documents.retain(Self::open_document);
         let now = tokio::time::Instant::now();
         let mut pending = Vec::new();
         for waiting in self.pending.drain(..) {
