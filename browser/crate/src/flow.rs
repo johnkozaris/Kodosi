@@ -138,6 +138,20 @@ impl Flow {
         delivery
     }
 
+    /// A frame that never reached a viewer: the frames after it need it, so the viewer waits
+    /// for a key frame again.
+    pub(crate) fn lost(&mut self, viewer: &str, id: u32) {
+        let Some(seat) = self.seats.get_mut(viewer) else {
+            return;
+        };
+        if seat.sent.back().is_some_and(|sent| sent.id == id)
+            && let Some(sent) = seat.sent.pop_back()
+        {
+            seat.waiting -= sent.bytes;
+        }
+        seat.live = false;
+    }
+
     /// Whether a viewer may have a key frame now. Each key frame costs every viewer bandwidth.
     pub(crate) fn keyframe_allowed(&mut self, now: Instant) -> bool {
         let allowed = self
@@ -244,6 +258,25 @@ mod tests {
         let mut to = flow.frame(4, true, 100, now + KEYFRAME_FLOOR).to;
         to.sort();
         assert_eq!(to, ["fast", "slow"]);
+    }
+
+    #[test]
+    fn a_viewer_that_lost_a_frame_waits_for_a_key_frame_and_owes_nothing_for_it() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["a"], now);
+        flow.frame(1, true, 100, now);
+        flow.ack("a", 1, now);
+        assert_eq!(flow.frame(2, false, 500, now).to, ["a"]);
+        flow.lost("a", 2);
+        let waiting = flow.frame(3, false, 100, now);
+        assert_eq!(waiting.to, Vec::<String>::new());
+        assert!(waiting.ask_keyframe);
+        assert_eq!(flow.frame(4, true, 100, now + KEYFRAME_FLOOR).to, ["a"]);
+        flow.ack("a", 4, now + KEYFRAME_FLOOR);
+        assert_eq!(
+            flow.frame(5, false, LARGE - 1, now + KEYFRAME_FLOOR).to,
+            ["a"]
+        );
     }
 
     #[test]

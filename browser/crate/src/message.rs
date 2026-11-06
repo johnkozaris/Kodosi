@@ -74,6 +74,8 @@ pub enum Input {
     Text {
         text: String,
     },
+    /// What a person typed in the address bar. The host gives an address with no scheme its
+    /// scheme.
     Open {
         address: String,
     },

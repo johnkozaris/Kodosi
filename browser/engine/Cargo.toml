@@ -1,0 +1,60 @@
+[package]
+edition = "2024"
+license = "Apache-2.0"
+name = "kodosi-browser"
+publish = false
+rust-version = "1.99.1"
+version = "0.1.0"
+
+[[bin]]
+name = "kodosi-browser"
+path = "src/main.rs"
+
+[[bin]]
+name = "kodosi-browser-helper"
+path = "src/bin/helper.rs"
+
+[dependencies]
+adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+bytes = "1.12.1"
+cef = { version = "=156.3.0", default-features = false }
+futures-util = "0.3.34"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+shared-browser = { path = "../crate", default-features = false }
+tokio = { version = "1.54.1", features = ["macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite = "0.30.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cef = { version = "=156.3.0", default-features = false, features = ["sandbox"] }
+objc2 = "0.6.3"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSApplication", "NSEvent", "NSResponder", "NSRunningApplication"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+openh264 = "0.9.9"
+openh264-sys2 = "0.9.9"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.191"
+
+[lints.rust]
+dead_code = "warn"
+elided_lifetimes_in_paths = "warn"
+unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+dbg_macro = "warn"
+todo = "warn"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+module_name_repetitions = "allow"
+# CEF's handler macros need its names in scope and turn references into its C types.
+wildcard_imports = "allow"
+transmute_ptr_to_ptr = "allow"

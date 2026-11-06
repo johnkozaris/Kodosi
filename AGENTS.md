@@ -21,7 +21,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   views, which Kodosi uses as libraries. It imports nothing of Kodosi. `documents/app/` is a
   separate Tauri app on the same crates, with its own workspace and `Cargo.lock`; nothing
   depends on it.
-- `browser/`: the shared browser: its crate, capture extension and Kodosi Browser build.
+- `browser/`: the shared browser: its crate, and Kodosi Browser on CEF with its build.
   It imports nothing of Kodosi.
 - `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the
   `kodosi-ffi-c` build writes the C header, and people write the rest by hand.

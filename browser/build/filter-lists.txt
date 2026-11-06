@@ -1,0 +1,4 @@
+The filter lists in the folder "filters" are EasyList and EasyPrivacy, by The EasyList
+authors (https://easylist.to/). They are dual licensed under the GNU General Public License
+version 3 or later and the Creative Commons Attribution-ShareAlike 3.0 Unported license
+(https://easylist.to/pages/licence.html). Kodosi Browser ships them unchanged.
