@@ -179,9 +179,8 @@ public struct CanvasBrowserView: View {
     private func open() {
         let typed = address.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return }
-        let url = typed.contains("://") || typed.hasPrefix("about:") ? typed : "https://" + typed
         editing = false
-        feed.send(.open(url))
+        feed.send(.open(typed))
     }
 }
 

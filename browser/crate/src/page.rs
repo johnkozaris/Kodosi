@@ -1,6 +1,7 @@
 use std::{
     path::{Component, Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use base64::Engine as _;
@@ -11,6 +12,7 @@ use crate::{
     Error,
     devtools::{self, Devtools},
     engine::Engine,
+    link::ToEngine,
 };
 
 /// The address of a host page's own files, which never reach the network.
@@ -18,15 +20,19 @@ const ORIGIN: &str = "https://kodosi.invalid/";
 /// The one function that a host page calls to give the host a message.
 const BINDING: &str = "kodosiHost";
 const MESSAGES: usize = 256;
+const MOST_SIDE: u32 = 8192;
+const RESIZE_LIMIT: Duration = Duration::from_secs(5);
 
 /// A page of the host's own. It is apart from the people's tabs, it shows files of one folder,
 /// and it talks with the host through one binding.
 pub struct HostPage {
     engine: Arc<Engine>,
+    page: i64,
     target: String,
-    context: String,
     session: String,
     messages: mpsc::Receiver<String>,
+    width: u32,
+    height: u32,
 }
 
 impl HostPage {
@@ -48,19 +54,13 @@ impl HostPage {
         ));
         let page = Self {
             engine,
+            page: opened.page,
             target: opened.target,
-            context: opened.context,
             session: opened.session,
             messages,
+            width,
+            height,
         };
-        let metrics = json!({
-            "width": width,
-            "height": height,
-            "deviceScaleFactor": 1,
-            "mobile": false,
-        });
-        page.call("Emulation.setDeviceMetricsOverride", metrics)
-            .await?;
         let pattern = json!({ "patterns": [{ "urlPattern": format!("{ORIGIN}*") }] });
         page.call("Fetch.enable", pattern).await?;
         page.call("Runtime.enable", json!({})).await?;
@@ -110,8 +110,46 @@ impl HostPage {
         Ok(answer["result"]["value"].clone())
     }
 
-    /// A PNG picture of a part of the page, in CSS pixels from the top of the document.
+    /// Makes the view at least this large, since a picture reaches no farther than the view.
+    /// Says whether the view grew, which can move what the page shows.
+    pub async fn hold(&mut self, width: f64, height: f64) -> Result<bool, Error> {
+        let wanted = (side(width)?.max(self.width), side(height)?.max(self.height));
+        if wanted == (self.width, self.height) {
+            return Ok(false);
+        }
+        (self.width, self.height) = wanted;
+        self.engine.command(ToEngine::ResizePage {
+            page: self.page,
+            width: self.width,
+            height: self.height,
+        });
+        let script = format!(
+            "new Promise((done) => {{
+               const check = () => innerWidth >= {} && innerHeight >= {} && done(true);
+               addEventListener('resize', check);
+               check();
+             }})",
+            self.width, self.height
+        );
+        let resized = self.call(
+            "Runtime.evaluate",
+            json!({ "expression": script, "awaitPromise": true }),
+        );
+        match tokio::time::timeout(RESIZE_LIMIT, resized).await {
+            Ok(Ok(_)) => Ok(true),
+            Ok(Err(problem)) => Err(problem),
+            Err(_) => Err(Error::Engine("the page kept its size".to_owned())),
+        }
+    }
+
+    /// A PNG picture of a part of the page, in CSS pixels from the top of the document. The part
+    /// must fit in the view.
     pub async fn picture(&self, x: f64, y: f64, width: f64, height: f64) -> Result<Vec<u8>, Error> {
+        if width > f64::from(self.width) || height > f64::from(self.height) {
+            return Err(Error::Engine(
+                "the picture is larger than the page".to_owned(),
+            ));
+        }
         let answer = self
             .call(
                 "Page.captureScreenshot",
@@ -128,8 +166,33 @@ impl HostPage {
             .map_err(|_| Error::Malformed)
     }
 
+    /// Closes the page, and the browser with it when nothing else uses it.
     pub async fn close(self) {
-        self.engine.close_page(&self.target, &self.context).await;
+        let engine = Arc::clone(&self.engine);
+        drop(self);
+        engine.stop_if_idle().await;
+    }
+}
+
+impl Drop for HostPage {
+    fn drop(&mut self) {
+        self.engine.forget_page(self.page, Some(&self.target));
+    }
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the side is a whole number from 0 to MOST_SIDE"
+)]
+fn side(length: f64) -> Result<u32, Error> {
+    let side = length.ceil();
+    if (0.0..=f64::from(MOST_SIDE)).contains(&side) {
+        Ok(side as u32)
+    } else {
+        Err(Error::Engine(
+            "the picture is larger than a page can be".to_owned(),
+        ))
     }
 }
 

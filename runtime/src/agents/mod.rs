@@ -457,9 +457,53 @@ async fn add_account(
         })?
 }
 
+/// Quotes text as one word that the shell gives a program unchanged.
+///
+/// Line breaks and tabs go as escapes, because a typed line break ends the command in some
+/// shells and a typed tab completes. cmd cannot pass them, so there they become spaces.
 #[cfg(feature = "host")]
 pub fn quote(shell: &Path, text: &str) -> String {
-    match shell_name(shell).as_str() {
+    let shell = shell_name(shell);
+    let text = text.replace("\r\n", "\n").replace('\r', "\n");
+    if shell == "cmd" {
+        return quote_part(&shell, &text.replace(['\n', '\t'], " "));
+    }
+    let mut parts = Vec::new();
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find(['\n', '\t']) {
+        if at > 0 {
+            parts.push(quote_part(&shell, &rest[..at]));
+        }
+        parts.push(escape(&shell, rest.as_bytes()[at] == b'\n').to_owned());
+        rest = &rest[at + 1..];
+    }
+    if !rest.is_empty() || parts.is_empty() {
+        parts.push(quote_part(&shell, rest));
+    }
+    match shell.as_str() {
+        "pwsh" | "powershell" if parts.len() > 1 => format!("({})", parts.join("+")),
+        "nu" if parts.len() > 1 => format!("({})", parts.join(" ++ ")),
+        _ => parts.concat(),
+    }
+}
+
+#[cfg(feature = "host")]
+fn escape(shell: &str, line_break: bool) -> &'static str {
+    match (shell, line_break) {
+        ("pwsh" | "powershell", true) => "\"`n\"",
+        ("pwsh" | "powershell", false) => "\"`t\"",
+        ("nu", true) => r#""\n""#,
+        ("nu", false) => r#""\t""#,
+        ("fish", true) => r"\n",
+        ("fish", false) => r"\t",
+        (_, true) => r"$'\n'",
+        (_, false) => r"$'\t'",
+    }
+}
+
+#[cfg(feature = "host")]
+fn quote_part(shell: &str, text: &str) -> String {
+    match shell {
         "fish" => format!("'{}'", text.replace('\\', r"\\").replace('\'', r"\'")),
         "pwsh" | "powershell" => {
             let mut word = String::from("'");

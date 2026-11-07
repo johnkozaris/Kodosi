@@ -158,7 +158,7 @@ final class AppModel {
         case "system": try receiveSystem(event)
         case "auth": try receiveAuth(event)
         case "devices": try account.receiveDevices(event)
-        case "sessions", "term": try terminals.receive(event)
+        case "sessions", "session", "term", "document": try terminals.receive(event)
         case "friends": try people.receive(event)
         case "mission", "missions", "room": try rooms.receive(event)
         default: break

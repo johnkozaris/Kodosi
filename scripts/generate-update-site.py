@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import gzip
 import hashlib
 import io
@@ -113,12 +114,30 @@ def sign_release(apt: Path, fingerprint: str) -> None:
     )
 
 
+def browser_feed(folder: Path) -> list[Path]:
+    """The feed of Kodosi Browser, which each site carries because a deploy replaces the site."""
+    feed, signature = folder / "engine.json", folder / "engine.json.sig"
+    if not feed.is_file() or not signature.is_file():
+        fail(f"{folder} has no engine.json and engine.json.sig")
+    try:
+        engines = json.loads(feed.read_text("utf-8"))["engines"]
+        signed = base64.b64decode(signature.read_text("utf-8").strip(), validate=True)
+    except (ValueError, KeyError) as error:
+        fail(f"the feed of Kodosi Browser cannot be read: {error}")
+    if not engines or len(signed) != 64:
+        fail("the feed of Kodosi Browser has no engine or no signature")
+    return [feed, signature]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release", type=Path, help="the folder with the files of the release")
     parser.add_argument("site", type=Path, help="the folder of the update site to write")
     parser.add_argument("--version", required=True)
     parser.add_argument("--appcast", type=Path, required=True, help="appcast.xml from generate-appcast.sh")
+    parser.add_argument(
+        "--browser", type=Path, required=True, help="the folder with engine.json and engine.json.sig from generate-engine-feed.py"
+    )
     parser.add_argument("--sign", metavar="FINGERPRINT", help="sign the apt index with this OpenPGP key")
     arguments = parser.parse_args()
     version, release, site = arguments.version, arguments.release, arguments.site
@@ -138,6 +157,7 @@ def main() -> None:
         files["windows"] = bundle
     if site.exists():
         fail(f"{site} exists; give a new folder")
+    engine_feed = browser_feed(arguments.browser)
     sums = release / "SHA256SUMS"
     sums.unlink(missing_ok=True)
     sums.write_text(
@@ -147,6 +167,9 @@ def main() -> None:
     download = f"https://github.com/{REPOSITORY}/releases/download/v{version}"
     (site / "macos").mkdir(parents=True)
     shutil.copyfile(arguments.appcast, site / "macos/appcast.xml")
+    (site / "browser").mkdir()
+    for path in engine_feed:
+        shutil.copyfile(path, site / "browser" / path.name)
     apt = site / "apt"
     apt_repository(files["linux"], version, apt)
     shutil.copyfile(APT_KEY, apt / "kodosi-archive-keyring.pgp")

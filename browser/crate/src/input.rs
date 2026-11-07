@@ -6,6 +6,33 @@ const META: u8 = 4;
 const CONTROL: u8 = 2;
 const SHIFT: u8 = 8;
 
+/// The address of what a person typed. An address with no scheme gets `https`, and one on this
+/// computer or the local network, such as an agent's server at `localhost:3000`, gets `http`.
+pub(crate) fn address(typed: &str) -> String {
+    let typed = typed.trim();
+    if typed.contains("://") || typed.starts_with("about:") || typed.starts_with("data:") {
+        return typed.to_owned();
+    }
+    let host = typed.split(['/', '?', '#']).next().unwrap_or_default();
+    let name = if host.starts_with('[') {
+        host.split(']')
+            .next()
+            .map(|name| format!("{name}]"))
+            .unwrap_or_default()
+    } else {
+        host.rsplit_once(':')
+            .map_or(host, |(name, _)| name)
+            .to_owned()
+    };
+    let name = name.to_ascii_lowercase();
+    let last = name.rsplit('.').next().unwrap_or_default();
+    let local = matches!(last, "localhost" | "local")
+        || name.starts_with('[')
+        || name.parse::<std::net::Ipv4Addr>().is_ok()
+        || !name.contains('.');
+    format!("{}://{typed}", if local { "http" } else { "https" })
+}
+
 /// On a computer that is not a Mac, a Mac's Command is Control.
 fn host_modifiers(modifiers: u8, mac: bool) -> u8 {
     if mac || modifiers & META == 0 {
@@ -126,6 +153,22 @@ fn editing_command(key: &str, modifiers: u8) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_typed_address_gets_http_on_this_computer_and_https_elsewhere() {
+        assert_eq!(address("example.com/a?b"), "https://example.com/a?b");
+        assert_eq!(address(" localhost:3000 "), "http://localhost:3000");
+        assert_eq!(
+            address("127.0.0.1:47390/x.html"),
+            "http://127.0.0.1:47390/x.html"
+        );
+        assert_eq!(address("app.localhost"), "http://app.localhost");
+        assert_eq!(address("studio:8080"), "http://studio:8080");
+        assert_eq!(address("[::1]:8000/"), "http://[::1]:8000/");
+        assert_eq!(address("printer.local"), "http://printer.local");
+        assert_eq!(address("http://example.com"), "http://example.com");
+        assert_eq!(address("about:blank"), "about:blank");
+    }
 
     fn command_key(key: &str, shift: bool) -> Key<'_> {
         Key {

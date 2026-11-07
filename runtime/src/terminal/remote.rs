@@ -36,6 +36,7 @@ const CONTROL_CAPACITY: usize = 64;
 const PICTURES_WAITING: usize = 8;
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
+const RECONNECT_WAIT: Duration = Duration::from_secs(10);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
 
 #[derive(Clone)]
@@ -411,6 +412,10 @@ impl From<Result<()>> for Step {
     }
 }
 
+fn reconnecting() -> Text {
+    text!("The connection to the other computer is not back yet, so Kodosi did not send this.")
+}
+
 fn reject(request: Request, error: Error) {
     match request {
         Request::Canvas { reply, .. } => drop(reply.send(Err(error))),
@@ -475,6 +480,7 @@ struct RemoteActor {
     resize_owner: Option<(Uuid, CancellationToken)>,
     requested: HashMap<Uuid, RequestedResize>,
     typed_at: Option<tokio::time::Instant>,
+    lost_at: Option<tokio::time::Instant>,
     pictures: VecDeque<Picture>,
     sending: Option<Sending>,
 }
@@ -520,6 +526,7 @@ impl RemoteActor {
             resize_owner: None,
             requested: HashMap::new(),
             typed_at: None,
+            lost_at: None,
             pictures: VecDeque::new(),
             sending: None,
         }
@@ -541,6 +548,7 @@ impl RemoteActor {
             return Some(reason);
         }
         self.set_link(Link::Lost);
+        self.lost_at.get_or_insert_with(tokio::time::Instant::now);
         self.connection.disconnect();
         let refuse = || Error::Text(reason.clone());
         for reply in self
@@ -549,9 +557,6 @@ impl RemoteActor {
             .into_iter()
             .flat_map(|active| active.replies)
         {
-            drop(reply.send(Err(refuse())));
-        }
-        for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
             drop(reply.send(Err(refuse())));
         }
         for waiting in self.pending.drain(..) {
@@ -595,6 +600,7 @@ impl RemoteActor {
         self.controls = connection.control_handle();
         self.connection = connection;
         self.set_link(Link::Open);
+        self.lost_at = None;
     }
 
     fn hold(&mut self, request: Request) {
@@ -650,6 +656,13 @@ impl RemoteActor {
 
     fn dormant(&self) -> bool {
         matches!(self.link, Link::Paused | Link::Waking)
+    }
+
+    fn lost_too_long(&self) -> bool {
+        self.link == Link::Lost
+            && self
+                .lost_at
+                .is_some_and(|at| at.elapsed() >= RECONNECT_WAIT)
     }
 
     async fn wake(&mut self) {
@@ -1248,6 +1261,14 @@ impl RemoteActor {
         }
         self.subscribers.prune();
         self.documents.retain(Self::open_document);
+        if self.lost_too_long() {
+            for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
+                drop(reply.send(Err(Error::Text(reconnecting()))));
+            }
+            for request in std::mem::take(&mut self.held) {
+                reject(request, Error::Text(reconnecting()));
+            }
+        }
         let now = tokio::time::Instant::now();
         let mut pending = Vec::new();
         for waiting in self.pending.drain(..) {
@@ -1407,23 +1428,19 @@ impl RemoteActor {
                 Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
                 Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
                 Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
-                Some(Request::Control(queued)) if self.link == Link::Lost => {
+                Some(Request::Control(queued)) if self.lost_too_long() => {
                     if let Some(reply) = queued.reply {
-                        drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again, so Kodosi did not send the operation.")))));
+                        drop(reply.send(Err(Error::Text(reconnecting()))));
                     }
                     Ok(())
                 }
                 Some(Request::Control(queued)) => self.queue(queued),
-                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.dormant() => {
+                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.lost_too_long() => {
+                    reject(request, Error::Text(reconnecting()));
+                    Ok(())
+                }
+                Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if interrupted => {
                     self.hold(request);
-                    Ok(())
-                }
-                Some(Request::Canvas { reply, .. }) if interrupted => {
-                    drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again.")))));
-                    Ok(())
-                }
-                Some(Request::Document { reply, .. }) if interrupted => {
-                    drop(reply.send(Err(Error::Text(text!("The remote terminal is connecting again.")))));
                     Ok(())
                 }
                 Some(request @ (Request::Canvas { .. } | Request::Document { .. })) => {

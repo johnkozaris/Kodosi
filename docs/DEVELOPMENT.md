@@ -25,7 +25,8 @@ Run these from the repository root; `just --list` shows the rest.
 | `just documents-check` | Build and test the document views and crates |
 | `just documents-app-check` | Lint the documents app, a separate build |
 | `just documents-app-run <files>` | Run the documents app with a window for each file |
-| `just browser-check` | Lint and test the shared browser crate |
+| `just browser-check` | Lint and test the shared browser crate and Kodosi Browser |
+| `just browser-engine-build` | Build Kodosi Browser for development in `.tools/kodosi-browser/` |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
 | `just check-all` | The Rust and backend checks |
@@ -78,9 +79,12 @@ ships next to the `kodosi` program, by its version and Git commit. Each app buil
 it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
 pin, check the release and its tag first, change both lines and build each app.
 
-[Chromium.lock](../browser/build/Chromium.lock) pins the Chromium of Kodosi Browser.
-`browser/build/build-engine.py --output-dir <folder>` builds it on each computer, with its
-archive and its entry in the signed feed. A development build uses the engine whose program
+Kodosi Browser builds on the ready-built CEF that its `cef` crate pins, which the build
+downloads and checks, so nothing compiles Chromium. `browser/build/build-engine.py
+--output-dir <folder>` builds it on each computer with `uv`, with its archive and its entry
+in the feed. `scripts/generate-engine-feed.py <folder>` writes the feed of the archives of all
+computers and signs it with the updates key from standard input; each update site carries
+that feed. A development build of Kodosi uses the engine whose program
 `KODOSI_BROWSER_ENGINE` names, and no feed.
 
 ## Texts and languages

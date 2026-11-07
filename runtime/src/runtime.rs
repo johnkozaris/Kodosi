@@ -349,12 +349,15 @@ impl RuntimeHandle {
             permit,
             reply: Some(reply),
         })?;
-        tokio::time::timeout(Duration::from_secs(5), response)
-            .await
-            .map_err(|_| {
-                Error::Other("Input delivery was not confirmed; do not retry automatically.".into())
-            })?
-            .map_err(|_| Error::Stopped)?
+        tokio::time::timeout(
+            crate::network::CONTROL_TIMEOUT + Duration::from_secs(1),
+            response,
+        )
+        .await
+        .map_err(|_| {
+            Error::Other("Input delivery was not confirmed; do not retry automatically.".into())
+        })?
+        .map_err(|_| Error::Stopped)?
     }
 
     pub async fn terminal_checkpoint(

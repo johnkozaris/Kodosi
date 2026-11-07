@@ -25,13 +25,21 @@ peuvent agir. Un terminal partagé n'a jamais vos connexions enregistrées. Les 
 canvas sont des fichiers normaux, et toutes les personnes qui peuvent ouvrir le terminal
 peuvent les modifier. Une page sur le canvas et un document en direct s'exécutent dans un cadre
 fermé, sans réseau, sans fichiers et sans stockage qui persiste. Tant qu'un navigateur partagé
-est éveillé, son port de débogage écoute sur `127.0.0.1`, où d'autres comptes de cet
-ordinateur peuvent l'atteindre. Quand un appareil ouvre le navigateur d'un terminal sur un
-autre ordinateur, cet ordinateur écoute sur un port TCP pendant quelques secondes, pour que les
-deux se connectent directement. Seul cet appareil passe, avec le chiffrement du terminal.
-L'app Linux n'affiche des pages que là où Chromium peut les isoler dans un sandbox ; sous
-Ubuntu, son profil AppArmor permet à l'app et à son processus de pages de créer les user
-namespaces dont le sandbox a besoin.
+est éveillé, son port de débogage et le port de pilotage de chaque fenêtre écoutent sur
+`127.0.0.1`, où d'autres comptes de cet ordinateur peuvent les atteindre. Un site dans le
+navigateur partagé enregistre un téléchargement dans le dossier du terminal pour chaque action
+d'une personne ou d'un agent, et il n'accède à votre presse-papiers que lorsque vous copiez.
+Quand un appareil ouvre le navigateur d'un terminal sur un autre ordinateur, cet ordinateur
+écoute sur un port TCP pendant quelques secondes, pour que les deux se connectent directement.
+Seul cet appareil passe, avec le chiffrement du terminal. L'app Linux n'affiche des pages que
+là où Chromium peut les isoler dans un sandbox ; sous Ubuntu, son profil AppArmor permet à
+l'app, à son processus de pages et à Kodosi Browser de créer les user namespaces dont le
+sandbox a besoin. Pour la même raison, le navigateur partagé ne tourne pas en root sous Linux.
+Les apps ne contiennent pas Kodosi Browser. Quand un ordinateur ouvre son premier navigateur
+partagé, son hôte récupère le navigateur dans le flux de `updates.kodosi.com` et y cherche une
+nouvelle version chaque jour. L'hôte n'utilise un téléchargement que si le flux porte la
+signature de la clé des mises à jour de Kodosi et que le téléchargement a le SHA-256 indiqué
+par le flux.
 
 ## Ce que voit le service
 

@@ -147,25 +147,22 @@ async fn draw(
         pipe: documents.open(file, viewer).await?,
     };
     bridge.answer("ready").await?;
-    bridge.ask("kodosiRender.pictures()").await?;
-    let count: usize = bridge
-        .answer("pictures")
-        .await?
-        .parse()
-        .map_err(|_| Text::plain("The view gave no pictures."))?;
+    let mut areas = bridge.areas().await?;
+    let width = areas.iter().map(|area| area.width).fold(0.0, f64::max);
+    let height = areas.iter().map(|area| area.height).fold(0.0, f64::max);
+    let grew = bridge
+        .page
+        .hold(width, height)
+        .await
+        .map_err(|problem| Text::plain(problem.to_string()))?;
+    if grew {
+        areas = bridge.areas().await?;
+    }
     tokio::fs::create_dir_all(out)
         .await
         .map_err(|problem| Text::plain(problem.to_string()))?;
     let mut saved = Vec::new();
-    for (index, name) in picture_names(file, count.min(MOST_PICTURES))
-        .into_iter()
-        .enumerate()
-    {
-        bridge
-            .ask(&format!("kodosiRender.picture({index})"))
-            .await?;
-        let area: Area = serde_json::from_str(&bridge.answer("picture").await?)
-            .map_err(|_| Text::plain("The view gave no place for a picture."))?;
+    for (area, name) in areas.iter().zip(picture_names(file, areas.len())) {
         let picture = bridge
             .page
             .picture(area.x, area.y, area.width, area.height)
@@ -192,6 +189,24 @@ enum Step {
 }
 
 impl Bridge<'_> {
+    /// Where each picture is, as the view lays the file out now.
+    async fn areas(&mut self) -> Result<Vec<Area>, Text> {
+        self.ask("kodosiRender.pictures()").await?;
+        let count: usize = self
+            .answer("pictures")
+            .await?
+            .parse()
+            .map_err(|_| Text::plain("The view gave no pictures."))?;
+        let mut areas = Vec::new();
+        for index in 0..count.min(MOST_PICTURES) {
+            self.ask(&format!("kodosiRender.picture({index})")).await?;
+            let area = serde_json::from_str(&self.answer("picture").await?)
+                .map_err(|_| Text::plain("The view gave no place for a picture."))?;
+            areas.push(area);
+        }
+        Ok(areas)
+    }
+
     async fn ask(&self, script: &str) -> Result<(), Text> {
         self.page
             .run(script)

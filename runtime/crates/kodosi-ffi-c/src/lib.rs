@@ -342,8 +342,17 @@ pub unsafe extern "C" fn kodosi_send_command(
         let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
             return KODOSI_FFI_DESER_FAILED;
         };
-        let Ok(envelope) = serde_json::from_value::<CommandEnvelope>(value.clone()) else {
-            return KODOSI_FFI_DESER_FAILED;
+        let envelope = match serde_json::from_value::<CommandEnvelope>(value.clone()) {
+            Ok(envelope) => envelope,
+            Err(error) => {
+                return refusal(&value, &error.to_string()).map_or(
+                    KODOSI_FFI_DESER_FAILED,
+                    |answer| {
+                        instance.state.event(&answer);
+                        KODOSI_FFI_OK
+                    },
+                );
+            }
         };
         let target = match &envelope.command {
             Command::Resize {
@@ -388,6 +397,23 @@ pub unsafe extern "C" fn kodosi_send_command(
             None => instance.link.command(value, &envelope),
         }
     })
+}
+
+fn refusal(command: &serde_json::Value, message: &str) -> Option<serde_json::Value> {
+    let field = |name| command.get(name).and_then(serde_json::Value::as_str);
+    let (request, operation) = (field("requestId")?, field("type")?);
+    if !kodosi_runtime::protocol::answers(operation) {
+        return None;
+    }
+    let area = operation.split('.').next().unwrap_or(operation);
+    Some(serde_json::json!({
+        "type": format!("{area}.error"),
+        "requestId": request,
+        "operation": operation,
+        "message": message,
+        "accountUserId": command.get("accountUserId"),
+        "accountEpoch": command.get("accountEpoch"),
+    }))
 }
 
 fn control(

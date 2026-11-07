@@ -76,8 +76,10 @@ conversation follows the person to all their computers.
 - Reconnecting restores the current state without disturbing other viewers or repeating
   input whose delivery is uncertain. A stale connection never controls a replacement
   terminal. A lost connection does not change sharing. After a short drop, such as when
-  the computer wakes, the terminals connect again by themselves; a terminal that cannot
-  connect says so on its tile, not in a message that stays after the connection is back.
+  the computer wakes, the terminals connect again by themselves, and what the person
+  typed or asked during the drop goes out once when the connection is back. A terminal
+  that cannot connect says so on its tile, not in a message that stays after the
+  connection is back.
 - When the computer of a terminal is offline, the terminal says so, keeps its last screen,
   takes no input and opens again when that computer is back. The person can hide it from
   their own lists until then, or close it for everyone when the computer is back. A room
@@ -131,8 +133,8 @@ conversation follows the person to all their computers.
   agent-browser's commands, and the people see it on the canvas as live video and click
   and type in it, each with a named pointer. It has one size: the view where a person used
   it last. When a person used it, the agent's next browser command says so. It runs Kodosi
-  Browser, a plain Chromium that Kodosi gets the first time and keeps up to date. It never
-  shows a window or an icon on the computer. It sleeps after 10 minutes with no use and
+  Browser, a Chromium that Kodosi gets the first time and keeps up to date. It never shows
+  a window or an icon on the computer, and it blocks ads and trackers. It sleeps after 10 minutes with no use and
   nobody looking, and opens its last page again when it wakes. While the agent acts in
   it, a pointer with the agent's mark shows where. A download lands in the terminal's
   folder and on the canvas.

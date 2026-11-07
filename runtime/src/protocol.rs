@@ -2275,8 +2275,7 @@ impl Command {
                             "A prompt needs an agent or a command.".to_owned(),
                         ));
                     }
-                    text(prompt, "prompt", 4096)?;
-                    text(prompt.trim(), "prompt", 4096)?;
+                    writing(prompt, "prompt", 4096)?;
                 }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;
@@ -2694,6 +2693,22 @@ mod tests {
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
         assert_eq!(kinds.len(), 65);
+    }
+
+    #[test]
+    fn a_task_may_have_lines_and_tabs_but_no_other_control_characters() {
+        let start = |prompt: &str| {
+            serde_json::from_value::<CommandEnvelope>(envelope(json!({
+                "type":"session.create","requestId":ID,"name":"Terminal",
+                "agent":{"agent":"claude"},"prompt":prompt
+            })))
+        };
+        assert!(start("look at the changes:\n\t- cleanups\r\n").is_ok());
+        assert_eq!(
+            start("look\u{1b}[2J").unwrap_err().to_string(),
+            "prompt must contain 1 to 4096 bytes of text"
+        );
+        assert!(start(" \n\t").is_err());
     }
 
     #[test]

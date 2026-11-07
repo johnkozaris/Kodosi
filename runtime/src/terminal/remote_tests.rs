@@ -220,11 +220,8 @@ async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_pos
         .expect("close");
     interrupted(&mut changes, &terminal).await;
     assert!(view.control.try_recv().is_err());
-    assert!(
-        terminal
-            .write_input(view.connection_id, Bytes::from_static(b"typed in the gap"))
-            .await
-            .is_err()
+    let typed = tokio::spawn(
+        terminal.write_input(view.connection_id, Bytes::from_static(b"typed in the gap")),
     );
     terminal.disconnect();
     assert!(matches!(
@@ -234,6 +231,153 @@ async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_pos
             ..
         })
     ));
+    assert!(typed.await.expect("task").is_err());
+}
+
+async fn reconnect(
+    terminal: &RemoteTerminal,
+) -> (
+    mpsc::Receiver<TestRemoteRequest>,
+    mpsc::Sender<RemoteUpdate>,
+) {
+    let (connection, requests, updates) = test_remote_connection(RemoteSession {
+        incarnation_id: terminal.incarnation_id,
+        ..session()
+    });
+    assert!(terminal.resume(connection));
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"after the gap"),
+            next_sequence: 70,
+        })
+        .await
+        .expect("new cut");
+    (requests, updates)
+}
+
+#[tokio::test]
+async fn work_during_a_short_drop_goes_out_once_the_link_is_back() {
+    let (terminal, view, _requests, updates, mut changes) = start().await;
+    drop(updates);
+    interrupted(&mut changes, &terminal).await;
+    let typed = tokio::spawn(
+        terminal.write_input(view.connection_id, Bytes::from_static(b"typed in the gap")),
+    );
+    let asked =
+        tokio::spawn(terminal.canvas(crate::canvas::CanvasRequest::Remove { keys: vec![] }));
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(!typed.is_finished() && !asked.is_finished());
+    let (mut requests, _updates) = reconnect(&terminal).await;
+    let (mut input, mut canvas) = (false, false);
+    while !(input && canvas) {
+        match next_request(&mut requests).await {
+            TestRemoteRequest::Control { control, reply } => {
+                match control {
+                    TerminalControl::Input { bytes } => {
+                        assert_eq!(bytes, b"typed in the gap");
+                        input = true;
+                    }
+                    TerminalControl::Canvas { .. } => canvas = true,
+                    _ => {}
+                }
+                reply.send(Ok(Value::Null)).expect("answer");
+            }
+            TestRemoteRequest::Checkpoint => {}
+            _ => panic!("unexpected request"),
+        }
+    }
+    assert!(typed.await.expect("task").is_ok());
+    assert!(asked.await.expect("task").is_ok());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn input_behind_a_lost_control_goes_out_once_on_the_next_link() {
+    let (terminal, view, mut requests, updates, mut changes) = start().await;
+    let first =
+        tokio::spawn(terminal.write_input(view.connection_id, Bytes::from_static(b"first")));
+    let TestRemoteRequest::Control {
+        reply: unanswered, ..
+    } = next_request(&mut requests).await
+    else {
+        panic!("first input expected");
+    };
+    let second =
+        tokio::spawn(terminal.write_input(view.connection_id, Bytes::from_static(b"second")));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    drop(updates);
+    interrupted(&mut changes, &terminal).await;
+    assert!(first.await.expect("task").is_err());
+    drop(unanswered);
+    let (mut requests, _updates) = reconnect(&terminal).await;
+    loop {
+        match next_request(&mut requests).await {
+            TestRemoteRequest::Control {
+                control: TerminalControl::Input { bytes },
+                reply,
+            } => {
+                assert_eq!(bytes, b"second");
+                reply.send(Ok(Value::Null)).expect("answer");
+                break;
+            }
+            TestRemoteRequest::Control { reply, .. } => {
+                reply.send(Ok(Value::Null)).expect("answer");
+            }
+            TestRemoteRequest::Checkpoint => {}
+            _ => panic!("unexpected request"),
+        }
+    }
+    assert!(second.await.expect("task").is_ok());
+    terminal.disconnect();
+}
+
+#[tokio::test(start_paused = true)]
+async fn work_that_waits_too_long_for_the_link_is_refused_and_never_sent() {
+    let (terminal, view, _requests, updates, mut changes) = start().await;
+    drop(updates);
+    interrupted(&mut changes, &terminal).await;
+    let typed =
+        tokio::spawn(terminal.write_input(view.connection_id, Bytes::from_static(b"too late")));
+    let asked =
+        tokio::spawn(terminal.canvas(crate::canvas::CanvasRequest::Remove { keys: vec![] }));
+    tokio::time::sleep(RECONNECT_WAIT + Duration::from_millis(200)).await;
+    let refused = |result: Result<()>| result.expect_err("refused").to_string();
+    let reconnecting = reconnecting().to_string();
+    assert_eq!(refused(typed.await.expect("task")), reconnecting);
+    assert_eq!(
+        asked.await.expect("task").expect_err("refused").to_string(),
+        reconnecting
+    );
+    assert_eq!(
+        refused(
+            terminal
+                .write_input(view.connection_id, Bytes::from_static(b"still away"))
+                .await
+        ),
+        reconnecting
+    );
+    let (mut requests, _updates) = reconnect(&terminal).await;
+    let fresh =
+        tokio::spawn(terminal.write_input(view.connection_id, Bytes::from_static(b"fresh")));
+    loop {
+        match next_request(&mut requests).await {
+            TestRemoteRequest::Control {
+                control: TerminalControl::Input { bytes },
+                reply,
+            } => {
+                assert_eq!(bytes, b"fresh");
+                reply.send(Ok(Value::Null)).expect("answer");
+                break;
+            }
+            TestRemoteRequest::Control { reply, .. } => {
+                reply.send(Ok(Value::Null)).expect("answer");
+            }
+            TestRemoteRequest::Checkpoint => {}
+            _ => panic!("unexpected request"),
+        }
+    }
+    assert!(fresh.await.expect("task").is_ok());
+    terminal.disconnect();
 }
 
 #[tokio::test]

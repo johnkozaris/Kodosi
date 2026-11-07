@@ -1933,7 +1933,7 @@ async fn start_line(
     agent: Option<&AgentStart>,
     prompt: Option<&String>,
 ) -> Result<Option<String>> {
-    let quoted = prompt.map(|prompt| crate::agents::quote(&shell(config), prompt));
+    let quoted = prompt.map(|prompt| crate::agents::quote(&shell(config), prompt.trim()));
     let Some(agent) = agent else {
         return Ok(command.map(|line| {
             [Some(line.clone()), quoted]

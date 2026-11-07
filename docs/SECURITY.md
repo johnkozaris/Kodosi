@@ -21,12 +21,20 @@ browser, so sign in there only where all of them may act. A shared terminal neve
 your kept sign-ins. The files on a canvas are normal files, and everyone who can open the
 terminal can edit them. A page on the canvas and a live document run in a closed frame
 with no network, no files and no storage that stays. While a shared browser is awake, its
-debug port listens on `127.0.0.1`, where other accounts of that computer can reach it.
+debug port and the driver port of each window listen on `127.0.0.1`, where other accounts
+of that computer can reach them. A site in the shared browser saves one download into the
+terminal's folder for each action of a person or an agent, and it reaches your clipboard
+only when you copy.
 When a device opens the browser of a terminal on another computer, that computer listens
 on a TCP port for a few seconds, so that the two can connect straight. Only that device
 gets through, with the encryption of the terminal. The Linux app shows pages only where
-Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app and its page
-process make the user namespaces that the sandbox needs.
+Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process
+and Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the
+shared browser does not run as root on Linux.
+The apps do not contain Kodosi Browser. When a computer opens its first shared browser,
+its host gets the browser from the feed on `updates.kodosi.com`, and it looks there for a
+new version each day. The host uses a download only when the feed has the signature of the
+key of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 ## What the service sees
 

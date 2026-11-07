@@ -305,7 +305,7 @@ impl Browser {
     }
 
     /// The middle of the element that a command names, when it is in view.
-    async fn point(&self, folder: &Path, port: u16, target: &str) -> Option<BrowserPoint> {
+    async fn point(&self, folder: &Path, driver: &str, target: &str) -> Option<BrowserPoint> {
         let run = self
             .agent_browser(
                 folder,
@@ -315,7 +315,7 @@ impl Browser {
                     target.to_owned(),
                     "--json".into(),
                 ],
-                Some(port),
+                Some(driver),
                 QUICK_LIMIT,
             )
             .await
@@ -362,7 +362,7 @@ impl Browser {
         let _one = self.commands.lock().await;
         let window = self.window().await?;
         window.touch().await;
-        let port = window.debug_port();
+        let driver = window.driver().to_owned();
         let acting =
             !(LOOKS.contains(&command.as_str()) || (command == "tab" && arguments.len() == 1));
         let (used, introduced) = self.activity(|activity| {
@@ -377,7 +377,7 @@ impl Browser {
         let agent = agent.unwrap_or_else(|| "The agent".to_owned());
         if let Some((kind, target)) = doing(&arguments) {
             let point = match target {
-                Some(target) => self.point(&folder, port, &target).await,
+                Some(target) => self.point(&folder, &driver, &target).await,
                 None => None,
             };
             let doer = agent.clone();
@@ -393,7 +393,7 @@ impl Browser {
             }
         }
         let run = self
-            .agent_browser(&folder, &arguments, Some(port), COMMAND_LIMIT)
+            .agent_browser(&folder, &arguments, Some(&driver), COMMAND_LIMIT)
             .await;
         let action = acting.then(|| BrowserAction {
             agent,
@@ -527,13 +527,13 @@ impl Browser {
         );
     }
 
-    /// Runs agent-browser with this terminal's session and settings, and only them. With a port
-    /// it works on this terminal's browser.
+    /// Runs agent-browser with this terminal's session and settings, and only them. With the
+    /// window's driver connection it works on this terminal's tabs.
     async fn agent_browser(
         &self,
         folder: &Path,
         arguments: &[String],
-        port: Option<u16>,
+        driver: Option<&str>,
         limit: Duration,
     ) -> Result<Run, Text> {
         if !self.places.binary.is_file() {
@@ -546,8 +546,8 @@ impl Browser {
             .arg(self.terminal.id.simple().to_string())
             .arg("--config")
             .arg(&self.places.config);
-        if let Some(port) = port {
-            command.arg("--cdp").arg(port.to_string());
+        if let Some(driver) = driver {
+            command.arg("--cdp").arg(driver);
         }
         command
             .args(arguments)

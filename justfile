@@ -59,6 +59,11 @@ ghostty-notices-check:
 rust-cli-build: conpty-install
     cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
 
+# Build Kodosi Browser for development into .tools/kodosi-browser; KODOSI_BROWSER_ENGINE names it.
+[group('rust')]
+browser-engine-build:
+    python3 browser/build/build-engine.py --debug --output-dir .tools/kodosi-browser
+
 # Build the pinned agent-browser of the shared browser next to the development CLI.
 [group('rust')]
 agent-browser-build:
@@ -175,12 +180,13 @@ documents-app-run *files:
     cd "{{ justfile_directory() }}/documents/views" && bun install --frozen-lockfile && bun run build
     cargo run --manifest-path "{{ justfile_directory() }}/documents/app/Cargo.toml" --locked -- "$@"
 
-# Lint and test the shared browser crate.
+# Lint and test the shared browser crate and Kodosi Browser.
 [group('rust')]
 browser-check:
     cargo fmt --manifest-path browser/crate/Cargo.toml --all -- --check
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path browser/crate/Cargo.toml --locked --all-targets -- {{ test_lints }}
     cargo test --manifest-path browser/crate/Cargo.toml --locked
+    python3 browser/build/build-engine.py --check
 
 # Install the backend packages in locked mode.
 [group('backend')]
@@ -304,7 +310,7 @@ windows-rust-lint:
 sign-in-check: translations-check
     cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build
 
-# Test the script that writes the update site of a release.
+# Test the scripts that write the update site of a release and the feed of Kodosi Browser.
 [group('release')]
 release-test:
-    python3 -m unittest scripts/tests/test_update_site.py
+    python3 -m unittest scripts/tests/test_update_site.py scripts/tests/test_engine_feed.py
