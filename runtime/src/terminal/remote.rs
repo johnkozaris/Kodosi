@@ -1223,9 +1223,11 @@ impl RemoteActor {
         }
         for reply in replies {
             drop(
-                reply.send(failure.as_ref().map_or(Ok(Value::Null), |message| {
-                    Err(Error::Text(message.clone()))
-                })),
+                reply.send(
+                    failure
+                        .as_ref()
+                        .map_or(Ok(Value::Null), |message| Err(Error::Text(message.clone()))),
+                ),
             );
         }
         fatal.map_or(Ok(()), |reason| Err(Error::Text(reason)))

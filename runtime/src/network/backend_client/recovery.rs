@@ -97,7 +97,9 @@ impl BackendClient {
             .get(&key.device_id)
             .is_none_or(|entry| entry.sig_public_key != key.signing_public())
         {
-            return Err(Error::Trust(text!("This is not the recovery key of this account.")));
+            return Err(Error::Trust(text!(
+                "This is not the recovery key of this account."
+            )));
         }
         if !known.devices.contains_key(&credentials.keys.device_id) {
             let saved: SavedRoomKey = self
@@ -106,7 +108,9 @@ impl BackendClient {
                 .bearer(Method::GET, "api/me/recovery-key", &credentials.token, None)
                 .await?;
             if saved.device_id != key.device_id {
-                return Err(Error::Trust(text!("This is not the recovery key of this account.")));
+                return Err(Error::Trust(text!(
+                    "This is not the recovery key of this account."
+                )));
             }
             let room_keys = key.open(&decode(&saved.room_key_box, SAVED_ROOM_KEY_BYTES)?)?;
             credentials.keys = self
@@ -122,11 +126,15 @@ impl BackendClient {
             .await?;
         let verified = self.verify_bundle(&current, Some(identity_root)).await?;
         if !device_identity::device_enrolled(&verified, &credentials) {
-            return Err(Error::Trust(text!("The recovery key did not approve this device.")));
+            return Err(Error::Trust(text!(
+                "The recovery key did not approve this device."
+            )));
         }
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
-            return Err(Error::Text(text!("The recovery key could not approve this device.")));
+            return Err(Error::Text(text!(
+                "The recovery key could not approve this device."
+            )));
         }
         let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);

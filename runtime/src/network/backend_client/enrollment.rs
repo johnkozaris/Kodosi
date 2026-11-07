@@ -118,7 +118,9 @@ impl BackendClient {
             .await
         {
             Err(Error::Invalid { .. } | Error::Trust(_) | Error::Backend { status: 404, .. }) => {
-                return Err(Error::Text(text!("No device of this account can approve this device now. Start fresh on this device.")));
+                return Err(Error::Text(text!(
+                    "No device of this account can approve this device now. Start fresh on this device."
+                )));
             }
             result => result?,
         };
@@ -159,7 +161,9 @@ impl BackendClient {
     pub(super) async fn reset_devices(&self) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
         if credentials.enrolled {
-            return Err(Error::Text(text!("This device is already trusted. Remove other devices from Settings instead.")));
+            return Err(Error::Text(text!(
+                "This device is already trusted. Remove other devices from Settings instead."
+            )));
         }
         let _response: Value = self
             .inner
@@ -182,7 +186,9 @@ impl BackendClient {
         let credentials = self.replace_local_keys(credentials).await?;
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
-            return Err(Error::Text(text!("Kodosi could not trust this device after the reset.")));
+            return Err(Error::Text(text!(
+                "Kodosi could not trust this device after the reset."
+            )));
         }
         let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);
@@ -371,7 +377,9 @@ impl BackendClient {
                 &proof,
             )?
         {
-            return Err(Error::Trust(text!("The approval did not come from a device that has your code. Request approval again.")));
+            return Err(Error::Trust(text!(
+                "The approval did not come from a device that has your code. Request approval again."
+            )));
         }
         let verified = self.verify_bundle(&bundle, Some(root)).await?;
         if !device_identity::device_enrolled(&verified, credentials) {
@@ -394,7 +402,9 @@ impl BackendClient {
 
     pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
         let code = typed_code(typed).ok_or_else(|| {
-            Error::Text(text!("Type the 12 characters of the code that the new device shows."))
+            Error::Text(text!(
+                "Type the 12 characters of the code that the new device shows."
+            ))
         })?;
         let credentials = self.credentials()?;
         let requests = self.link_requests(&credentials).await?;
@@ -467,7 +477,9 @@ impl BackendClient {
     pub(super) async fn revoke_device(&self, id: &str) -> Result<()> {
         let credentials = self.credentials()?;
         if id == credentials.keys.device_id {
-            return Err(Error::Text(text!("Remove this device from another approved device.")));
+            return Err(Error::Text(text!(
+                "Remove this device from another approved device."
+            )));
         }
         if let Err(error) = self.resign_friends(&credentials).await {
             tracing::warn!(%error, "the friend list keeps the signature of the removed device");

@@ -315,7 +315,9 @@ async fn host_trusted(
         .get(&dto.host_device_id)
         .is_none_or(|certificate| certificate.sig_public_key != public)
     {
-        return Err(Error::Trust(text!("The hosting device is no longer trusted.")));
+        return Err(Error::Trust(text!(
+            "The hosting device is no longer trusted."
+        )));
     }
     Ok(())
 }
@@ -493,7 +495,9 @@ impl<T: Transport> Viewer<T> {
                 reply,
             } => {
                 if !self.started {
-                    drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending input.")))));
+                    drop(reply.send(Err(Error::Text(text!(
+                        "Wait for the terminal snapshot before sending input."
+                    )))));
                     return Ok(());
                 }
                 if bytes.is_empty() {
@@ -520,7 +524,9 @@ impl<T: Transport> Viewer<T> {
             RemoteRequest::Picture { picture, reply } => self.offer(picture, reply).await?,
             RemoteRequest::Control { control, reply } => {
                 if !self.started {
-                    drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending input.")))));
+                    drop(reply.send(Err(Error::Text(text!(
+                        "Wait for the terminal snapshot before sending input."
+                    )))));
                     return Ok(());
                 }
                 if self.pending.len() >= 128 {
@@ -710,7 +716,10 @@ impl<T: Transport> Viewer<T> {
                     drop(pending.reply.send(if accepted {
                         Ok(Value::Null)
                     } else {
-                        Err(message.map_or_else(|| invalid("The terminal refused the control."), Error::Text))
+                        Err(message.map_or_else(
+                            || invalid("The terminal refused the control."),
+                            Error::Text,
+                        ))
                     }));
                 }
             }
@@ -740,7 +749,9 @@ impl<T: Transport> Viewer<T> {
         reply: oneshot::Sender<Result<()>>,
     ) -> Result<()> {
         if !self.started {
-            drop(reply.send(Err(Error::Text(text!("Wait for the terminal snapshot before sending a picture.")))));
+            drop(reply.send(Err(Error::Text(text!(
+                "Wait for the terminal snapshot before sending a picture."
+            )))));
             return Ok(());
         }
         if self.upload.is_some() {

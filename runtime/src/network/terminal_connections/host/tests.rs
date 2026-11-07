@@ -576,7 +576,10 @@ async fn a_picture_is_pasted_once_all_its_parts_arrive_and_later_again_from_its_
     assert_eq!(asked.step, PictureStep::Receiving);
     let refused = terminal.send_parts(asked.id, &damaged.bytes).await;
     assert_eq!(
-        (refused.step, refused.message.map(|message| message.to_string())),
+        (
+            refused.step,
+            refused.message.map(|message| message.to_string())
+        ),
         (
             PictureStep::Refused,
             Some(text!("The picture arrived damaged. Paste it again.").to_string())

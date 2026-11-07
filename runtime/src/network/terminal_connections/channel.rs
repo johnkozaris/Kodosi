@@ -105,7 +105,9 @@ impl<T: Transport> Channel<T> {
         let tls = ClientConnection::new(Arc::clone(&keys.client), name).map_err(tls)?;
         let channel = Self::establish(transport, Connection::Client(tls)).await?;
         if channel.peer_key()? != host_key {
-            return Err(Error::Trust(text!("The hosting device key is not the approved key.")));
+            return Err(Error::Trust(text!(
+                "The hosting device key is not the approved key."
+            )));
         }
         Ok(channel)
     }

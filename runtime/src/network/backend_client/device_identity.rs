@@ -19,7 +19,9 @@ impl BackendClient {
         credentials: &Credentials,
     ) -> Result<(IdentityBundle, Root)> {
         if self.pinned(&credentials.user_id).await? {
-            return Err(Error::Trust(text!("The server has no trusted devices for this account, but this device knows some.")));
+            return Err(Error::Trust(text!(
+                "The server has no trusted devices for this account, but this device knows some."
+            )));
         }
         let now = identity::now_ms();
         let cert = build_self_cert(
@@ -193,7 +195,9 @@ impl BackendClient {
                 .expires_at_ms
                 .is_some_and(|expiry| expiry <= now)
         }) {
-            return Err(Error::Trust(text!("The list of trusted devices needs renewal from an approved device.")));
+            return Err(Error::Trust(text!(
+                "The list of trusted devices needs renewal from an approved device."
+            )));
         }
         Ok((verified, replaced))
     }
@@ -459,7 +463,6 @@ async fn own_identity(
     .await
     .map_err(|_| Error::Closed)?
 }
-
 
 pub(super) const DEVICE_LIST_LIFE_MS: u64 = 24 * 60 * 60_000;
 

@@ -333,9 +333,7 @@ async fn download(
         .and_then(reqwest::Response::error_for_status)
         .map_err(|_| no_engine())?;
     let total = response.content_length().unwrap_or(0);
-    let mut file = tokio::fs::File::create(to)
-        .await
-        .map_err(|_| no_engine())?;
+    let mut file = tokio::fs::File::create(to).await.map_err(|_| no_engine())?;
     let mut digest = Sha256::new();
     let mut got: u64 = 0;
     let mut told = 0;
@@ -347,9 +345,7 @@ async fn download(
             return Err(no_engine());
         }
         digest.update(&part);
-        file.write_all(&part)
-            .await
-            .map_err(|_| no_engine())?;
+        file.write_all(&part).await.map_err(|_| no_engine())?;
         let part_done = u8::try_from(got * 100 / total.max(1)).unwrap_or(100);
         if part_done != told {
             told = part_done;

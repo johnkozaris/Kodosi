@@ -333,7 +333,10 @@ pub(super) fn add(
         return Err(text!("Name the account with letters, digits and hyphens."));
     }
     if taken.contains(&name) {
-        return Err(text!("There is already an account named {name}.", name = &name));
+        return Err(text!(
+            "There is already an account named {name}.",
+            name = &name
+        ));
     }
     let path = home.join(format!("{folder}-{name}"));
     create_folder(&path).map_err(|error| {

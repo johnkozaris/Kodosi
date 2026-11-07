@@ -1,6 +1,8 @@
-//! Words that people read. A sentence marked with `text!` goes to each app as data and becomes
-//! words in the language of that app; the `kodosi` command, the host and the logs use English.
-//! Other words, such as the detail of an internal fault, stay English everywhere.
+//! Words that people read.
+//!
+//! A sentence marked with `text!` goes to each app as data and becomes words in the language of
+//! that app; the `kodosi` command, the host and the logs use English. Other words, such as the
+//! detail of an internal fault, stay English everywhere.
 
 use std::{
     borrow::Cow,
@@ -20,7 +22,7 @@ use serde_json::{Map, Value};
 macro_rules! text {
     ($words:literal $(, $name:ident = $value:expr)* $(,)?) => {
         $crate::text::Text::translated(
-            $words,
+            concat!($words),
             vec![$((stringify!($name), $crate::text::Arg::from($value))),*],
         )
     };
@@ -177,7 +179,7 @@ impl Text {
         let words = language
             .table()
             .and_then(|table| table.get(self.words.as_ref()))
-            .map_or(self.words.as_ref(), String::as_str);
+            .map_or_else(|| self.words.as_ref(), String::as_str);
         fill(words, &self.args, language)
     }
 
@@ -278,7 +280,7 @@ impl From<&'static str> for Text {
 
 impl PartialEq<&str> for Text {
     fn eq(&self, other: &&str) -> bool {
-        self.to_string() == *other
+        self.in_language(Language::English) == *other
     }
 }
 
@@ -387,7 +389,12 @@ mod tests {
             let source = language.source().unwrap();
             let table: HashMap<String, String> = serde_json::from_str(source).unwrap();
             for (english, words) in &table {
-                assert_eq!(names(english), names(words), "{}: {english}", language.tag());
+                assert_eq!(
+                    names(english),
+                    names(words),
+                    "{}: {english}",
+                    language.tag()
+                );
             }
         }
     }
@@ -431,7 +438,10 @@ mod tests {
         );
         render(&mut event, Language::German);
         let words = event["message"].as_str().unwrap();
-        assert!(words.ends_with(" (Terminal frame has an invalid body.)"), "{words}");
+        assert!(
+            words.ends_with(" (Terminal frame has an invalid body.)"),
+            "{words}"
+        );
     }
 
     #[test]
@@ -441,7 +451,8 @@ mod tests {
             "{reason} Approve this device from another device, or start fresh here.",
             reason = inner
         );
-        let travelled: Text = serde_json::from_value(serde_json::to_value(&outer).unwrap()).unwrap();
+        let travelled: Text =
+            serde_json::from_value(serde_json::to_value(&outer).unwrap()).unwrap();
         assert_eq!(travelled, outer);
         assert_eq!(
             travelled.to_string(),

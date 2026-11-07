@@ -270,10 +270,11 @@ impl Link {
     fn request(self: &Arc<Self>, message: impl FnOnce(Uuid) -> Value) -> Result<Pipe> {
         let id = Uuid::now_v7();
         let mut shared = self.shared.lock().map_err(|_| Error::Closed)?;
-        let outgoing = shared
-            .outgoing
-            .clone()
-            .ok_or_else(|| Error::Text(text!("Kodosi could not reach the terminal connection service.")))?;
+        let outgoing = shared.outgoing.clone().ok_or_else(|| {
+            Error::Text(text!(
+                "Kodosi could not reach the terminal connection service."
+            ))
+        })?;
         let pipe = self.route(&mut shared, id, &outgoing);
         drop(shared);
         outgoing

@@ -2479,7 +2479,10 @@ pub fn answer(event: &Value, request: &str) -> Option<std::result::Result<Value,
         "error" => Some(Err(event
             .get("message")
             .and_then(|message| serde_json::from_value::<Text>(message.clone()).ok())
-            .map_or_else(|| text!("That did not work.").to_string(), |text| text.to_string()))),
+            .map_or_else(
+                || text!("That did not work.").to_string(),
+                |text| text.to_string(),
+            ))),
         _ => None,
     }
 }

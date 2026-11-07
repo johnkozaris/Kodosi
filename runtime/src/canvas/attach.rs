@@ -113,7 +113,9 @@ impl Uploads {
             ));
         }
         if self.open.len() >= MOST_UPLOADS {
-            return Err(text!("Other files are on their way. Try again in a moment."));
+            return Err(text!(
+                "Other files are on their way. Try again in a moment."
+            ));
         }
         let path = folder.join(format!(".{}.part", part.upload));
         let file = File::create(&path)

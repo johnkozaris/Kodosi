@@ -61,7 +61,9 @@ pub(crate) async fn list(
 ) -> Result<FolderList> {
     let folder = path.map_or_else(|| home.clone(), PathBuf::from);
     if !folder.is_absolute() {
-        return Err(Error::Text(text!("Choose a folder by its full path on that computer.")));
+        return Err(Error::Text(text!(
+            "Choose a folder by its full path on that computer."
+        )));
     }
     let listing = move || {
         let home = kodosi_os::fs::canonicalize(&home).unwrap_or(home);
@@ -136,9 +138,9 @@ fn unreadable(error: &std::io::Error) -> Error {
 }
 
 fn text(path: &Path) -> Result<String> {
-    path.to_str().map(str::to_owned).ok_or_else(|| {
-        Error::Text(text!("The folder name is not text that Kodosi can show."))
-    })
+    path.to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| Error::Text(text!("The folder name is not text that Kodosi can show.")))
 }
 
 #[cfg(test)]

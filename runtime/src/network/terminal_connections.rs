@@ -284,7 +284,9 @@ async fn admitted(
         {
             tracing::warn!(%error, "terminal connection failed");
         }
-        Error::Text(text!("Kodosi could not reach the terminal connection service."))
+        Error::Text(text!(
+            "Kodosi could not reach the terminal connection service."
+        ))
     })?;
     if let Ok(mut failure) = CONNECTION_FAILURE.lock() {
         failure.worked();
@@ -300,10 +302,14 @@ async fn admitted(
                 reported("oldest"),
                 reported("current"),
             )?;
-            Err(Error::Text(text!("The connection service did not admit this device.")))
+            Err(Error::Text(text!(
+                "The connection service did not admit this device."
+            )))
         }
         "refused" => Ok(None),
-        _ => Err(Error::Text(text!("The connection service did not admit this device."))),
+        _ => Err(Error::Text(text!(
+            "The connection service did not admit this device."
+        ))),
     }
 }
 

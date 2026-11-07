@@ -150,7 +150,9 @@ impl Runtime {
             Command::Message { .. } => self.send_message(command)?,
             #[cfg(not(feature = "host"))]
             Command::Message { .. } => {
-                return Err(Error::Text(text!("This device sends no messages to agents.")));
+                return Err(Error::Text(text!(
+                    "This device sends no messages to agents."
+                )));
             }
             Command::Read { .. } => self.read(command)?,
             Command::CanvasAsk { .. } => self.ask_canvas(command)?,
@@ -164,7 +166,9 @@ impl Runtime {
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. } => {
-                return Err(Error::Text(text!("The browsers of a computer are in the app on that computer.")));
+                return Err(Error::Text(text!(
+                    "The browsers of a computer are in the app on that computer."
+                )));
             }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { pipe, .. } => {
@@ -244,7 +248,9 @@ impl Runtime {
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
             | Command::InspectProvider { .. } => {
-                return Err(Error::Text(text!("Open agent conversations on the computer that runs the agent.")));
+                return Err(Error::Text(text!(
+                    "Open agent conversations on the computer that runs the agent."
+                )));
             }
             #[cfg(not(feature = "host"))]
             Command::ListRepositories { .. } => {
@@ -992,7 +998,9 @@ impl Runtime {
         if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) {
             Ok(())
         } else {
-            Err(Error::Text(text!("Only the owner can change this terminal.")))
+            Err(Error::Text(text!(
+                "Only the owner can change this terminal."
+            )))
         }
     }
 
@@ -1106,7 +1114,9 @@ impl Runtime {
             if !keeps_screen {
                 entry.connection_state = ConnectionState::Connecting;
             }
-            entry.message.take_if(|message| *message != input_not_sent());
+            entry
+                .message
+                .take_if(|message| *message != input_not_sent());
         }
         self.publish_catalog();
         let network = self.network.clone();
@@ -1952,7 +1962,9 @@ async fn start_folder(
 ) -> Result<PathBuf> {
     let directory = working_dir.map_or_else(|| config.home.clone(), PathBuf::from);
     if !directory.is_absolute() || worktrees.is_some_and(|place| !Path::new(place).is_absolute()) {
-        return Err(Error::Text(text!("Choose a folder by its full path on that computer.")));
+        return Err(Error::Text(text!(
+            "Choose a folder by its full path on that computer."
+        )));
     }
     let shown = directory.display().to_string();
     let directory = tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&directory))

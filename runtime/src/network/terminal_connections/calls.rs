@@ -45,7 +45,9 @@ pub(crate) async fn ask(network: &BackendClient, device: &str, request: Value) -
                 return tokio::time::timeout(ANSWER_WAIT, answer)
                     .await
                     .map_err(|_| Error::Text(text!("The other computer did not answer in time.")))?
-                    .map_err(|_| Error::Text(text!("The connection to the other computer was lost.")))?;
+                    .map_err(|_| {
+                        Error::Text(text!("The connection to the other computer was lost."))
+                    })?;
             }
             Err(mpsc::error::TrySendError::Full(_)) => return Err(Error::Busy),
             Err(mpsc::error::TrySendError::Closed(returned)) => ask = returned,

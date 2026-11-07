@@ -363,7 +363,9 @@ impl BackendClient {
             tokio::time::timeout(Duration::from_secs(3), deletion)
                 .await
                 .unwrap_or_else(|_| {
-                    Err(Error::Text(text!("Credential deletion is still waiting for the system store.")))
+                    Err(Error::Text(text!(
+                        "Credential deletion is still waiting for the system store."
+                    )))
                 })
         } else {
             Ok(())

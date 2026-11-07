@@ -247,7 +247,9 @@ impl BackendClient {
                 .changed_friends
                 .insert(user_id.to_owned());
             self.inner.friends_changed.notify_one();
-            return Err(Error::Trust(text!("This friend has a new identity. Trust it in Friends before you share or connect.")));
+            return Err(Error::Trust(text!(
+                "This friend has a new identity. Trust it in Friends before you share or connect."
+            )));
         }
         let verified = self.verify_bundle(&bundle, Some(root)).await?;
         self.keep_identity(credentials, user_id, &verified, tag);
@@ -265,7 +267,9 @@ impl BackendClient {
             _ => self.sync_friends(credentials).await?.0,
         };
         let friend = list.friends.get(user_id).ok_or_else(|| {
-            Error::Trust(text!("Trust the identity of this friend in Friends before you share or connect."))
+            Error::Trust(text!(
+                "Trust the identity of this friend in Friends before you share or connect."
+            ))
         })?;
         if let Some(root) = friend.root() {
             return Ok(root);
@@ -325,7 +329,9 @@ impl BackendClient {
         }) {
             Ok(())
         } else {
-            Err(Error::Trust(text!("Trust the new identity of this friend in Friends before you share.")))
+            Err(Error::Trust(text!(
+                "Trust the new identity of this friend in Friends before you share."
+            )))
         }
     }
 
@@ -488,7 +494,9 @@ impl BackendClient {
                 if let (Some(root), Some(known)) = (root, known)
                     && root != known
                 {
-                    return Err(Error::Trust(text!("This invite is for another identity than the one that Kodosi has for this friend.")));
+                    return Err(Error::Trust(text!(
+                        "This invite is for another identity than the one that Kodosi has for this friend."
+                    )));
                 }
                 self.friend_request(&credentials, "send", &handle).await?;
                 let user = self.friend_user(&credentials, &handle).await?;
@@ -566,7 +574,9 @@ impl BackendClient {
                 let user = self.friend_user(&credentials, typed).await?;
                 let bundle = self.friend_bundle(&credentials, &user).await?;
                 if bundle.root()? != root {
-                    return Err(Error::Trust(text!("This invite is not for the identity that this friend has now. Ask them for a new invite.")));
+                    return Err(Error::Trust(text!(
+                        "This invite is not for the identity that this friend has now. Ask them for a new invite."
+                    )));
                 }
                 self.change_friends(&credentials, |list| {
                     let friend = Friend {

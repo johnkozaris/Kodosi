@@ -236,7 +236,9 @@ impl Pins {
                 return Err(Error::Trust(text!("You have not trusted this person yet.")));
             }
             Anchor::Root(approved) if *approved != root => {
-                return Err(Error::Trust(text!("This account's identity is not the identity that was approved.")));
+                return Err(Error::Trust(text!(
+                    "This account's identity is not the identity that was approved."
+                )));
             }
             _ => {}
         }
@@ -245,7 +247,9 @@ impl Pins {
                 || pin.root != root
                 || list.generation < pin.generation
             {
-                return Err(Error::Trust(text!("This account's device identity changed. Approve the replacement before reconnecting.")));
+                return Err(Error::Trust(text!(
+                    "This account's device identity changed. Approve the replacement before reconnecting."
+                )));
             }
             if list.generation > pin.generation {
                 let previous = SignedDeviceList::parse_body(&decode(&pin.list_body, 527_432)?)?;

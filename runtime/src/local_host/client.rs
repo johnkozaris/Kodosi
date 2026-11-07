@@ -152,7 +152,9 @@ async fn connect(
         });
     }
     if welcome.version > VERSION {
-        return Err(Error::Text(text!("The running Kodosi host is newer than this program. Use the updated Kodosi.")));
+        return Err(Error::Text(text!(
+            "The running Kodosi host is newer than this program. Use the updated Kodosi."
+        )));
     }
     if let Some(refusal) = welcome.refusal {
         return Err(refusal.error());

@@ -20,14 +20,14 @@ use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
-    CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, agent_asks, someone_typing,
-    SessionChange, Subscription, TYPING, TerminalPixelGeometry, TerminalSize,
+    CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SessionChange, Subscription,
+    TYPING, TerminalPixelGeometry, TerminalSize, agent_asks, someone_typing,
 };
 use crate::{
     Error, Result,
     canvas::{Canvas, CanvasHandle},
-    text::Text,
     network::{CheckpointCut, HostPicture, HostRequest, PublishedFrame, TerminalControl},
+    text::Text,
 };
 
 const COMMAND_CAPACITY: usize = 64;
@@ -864,7 +864,9 @@ impl LocalActor {
             !owner.authorization.is_cancelled() && owner.controller != controller
         }) && !claim
         {
-            return Err(ResizeError::Rejected(Error::Text(text!("Another terminal view controls the size. Focus this view to resize it."))));
+            return Err(ResizeError::Rejected(Error::Text(text!(
+                "Another terminal view controls the size. Focus this view to resize it."
+            ))));
         }
         self.pty
             .resize(size.rows(), size.cols(), width, height)
@@ -1311,8 +1313,7 @@ impl LocalActor {
         let refused = if message {
             self.takes_message().err()
         } else {
-            self.typing()
-                .then(|| Error::Text(someone_typing()))
+            self.typing().then(|| Error::Text(someone_typing()))
         };
         if let Some(error) = refused {
             if let Some(completion) = write.completion.take() {
@@ -1670,12 +1671,9 @@ impl LocalActor {
     ) {
         let canvas = self.canvas.clone();
         tokio::spawn(async move {
-            let answer = canvas
-                .request(request)
-                .await
-                .and_then(|answer| {
-                    serde_json::to_value(answer).map_err(|error| Text::plain(error.to_string()))
-                });
+            let answer = canvas.request(request).await.and_then(|answer| {
+                serde_json::to_value(answer).map_err(|error| Text::plain(error.to_string()))
+            });
             drop(reply.send(answer));
         });
     }
@@ -1893,13 +1891,10 @@ impl LocalActor {
                 _ => break,
             }
         }
-        let reason = completion
-            .as_ref()
-            .err()
-            .map_or_else(
-                || reason.clone(),
-                |error| text!("{reason} {error}", reason = &reason, error = error),
-            );
+        let reason = completion.as_ref().err().map_or_else(
+            || reason.clone(),
+            |error| text!("{reason} {error}", reason = &reason, error = error),
+        );
         self.subscribers.close(&reason, self.sequence);
         drop(self.output.send(PublishedFrame::Closed {
             reason: reason.clone(),

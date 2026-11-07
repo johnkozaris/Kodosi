@@ -486,11 +486,11 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
     .unwrap();
     assert_eq!(refused[&create]["operation"], "session.create");
     assert_eq!(
-        refused[&create]["message"],
+        refused[&create]["message"]["$text"],
         "This device cannot start terminals."
     );
     assert_eq!(
-        refused[&discover]["message"],
+        refused[&discover]["message"]["$text"],
         "Open agent conversations on the computer that runs the agent."
     );
     runtime.shutdown().await;

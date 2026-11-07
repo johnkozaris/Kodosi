@@ -20,8 +20,8 @@ use uuid::Uuid;
 use crate::{
     Command, CommandEnvelope, Config, Error, Event, Result,
     network::{
-        BackendClient, BackendConfig, BackendEvent, BackendReply, RemoteConnection,
-        RemoteSession, TerminalControl, TerminalStatus,
+        BackendClient, BackendConfig, BackendEvent, BackendReply, RemoteConnection, RemoteSession,
+        TerminalControl, TerminalStatus,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
     terminal::{
@@ -754,7 +754,10 @@ impl TerminalTarget {
         &self,
         request: crate::canvas::CanvasRequest,
     ) -> Pin<
-        Box<dyn Future<Output = std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>> + Send>,
+        Box<
+            dyn Future<Output = std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>>
+                + Send,
+        >,
     > {
         match self {
             #[cfg(feature = "host")]

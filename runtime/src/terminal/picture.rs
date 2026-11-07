@@ -8,7 +8,6 @@ use crate::{Error, Result};
 
 pub const TERMINAL_PICTURE_MAX_BYTES: usize = 32 * 1024 * 1024;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PictureFormat {
@@ -58,10 +57,8 @@ impl Picture {
         if bytes.len() > TERMINAL_PICTURE_MAX_BYTES {
             return Err(Error::Text(text!("Kodosi sends pictures up to 32 MB.")));
         }
-        let format =
-            PictureFormat::of(&bytes).ok_or_else(|| {
-                Error::Text(text!("Kodosi pastes PNG, JPEG, GIF and WebP pictures."))
-            })?;
+        let format = PictureFormat::of(&bytes)
+            .ok_or_else(|| Error::Text(text!("Kodosi pastes PNG, JPEG, GIF and WebP pictures.")))?;
         Ok(Self {
             digest: Sha256::digest(&bytes).into(),
             bytes,

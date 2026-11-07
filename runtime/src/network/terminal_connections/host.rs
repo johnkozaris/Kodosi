@@ -27,9 +27,8 @@ const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const STATUS_SPACING: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, Text>>;
-type PictureAnswer = std::pin::Pin<
-    Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, Text>)> + Send>,
->;
+type PictureAnswer =
+    std::pin::Pin<Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, Text>)> + Send>>;
 
 /// The pictures that all views of this host's terminals send at once.
 static PICTURE_MEMORY: tokio::sync::Semaphore =
@@ -518,7 +517,10 @@ async fn admit(
     viewers: &Viewers,
 ) -> std::result::Result<(), Refuse> {
     if !allowed(publication, credentials, user).await {
-        return Err(refuse("access", text!("This terminal is not shared with you.")));
+        return Err(refuse(
+            "access",
+            text!("This terminal is not shared with you."),
+        ));
     }
     if crate::identity::recovery::is_recovery_device(device) {
         return Err(refuse("access", text!("This device is not approved.")));
@@ -1156,7 +1158,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                     return Err(invalid("Terminal input is out of order."));
                 }
                 if self.heartbeat.wrapping_sub(heartbeat) > LATE_HEARTBEATS {
-                    return Err(Error::Text(text!("Terminal input arrived too late, and the host did not use it.")));
+                    return Err(Error::Text(text!(
+                        "Terminal input arrived too late, and the host did not use it."
+                    )));
                 }
                 self.input_offset += bytes.len() as u64;
                 let end = self.input_offset;
@@ -1291,7 +1295,10 @@ impl<'a, T: Transport> Stream<'a, T> {
             .filter(|picture| picture.sha256() == offer.sha256 && picture.format == offer.format);
         let Some(picture) = picture else {
             return self
-                .picture_answered((offer, Err(text!("The picture arrived damaged. Paste it again."))))
+                .picture_answered((
+                    offer,
+                    Err(text!("The picture arrived damaged. Paste it again.")),
+                ))
                 .await;
         };
         let reply = self.submit_picture(HostPicture::Whole(picture)).await?;

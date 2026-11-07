@@ -103,19 +103,25 @@ impl Task {
         live: impl Fn(&str) -> bool,
     ) -> Result<(), crate::text::Text> {
         if self.closed {
-            return Err(text!("This task is done. Open it again before you take it."));
+            return Err(text!(
+                "This task is done. Open it again before you take it."
+            ));
         }
         match &self.assigned_to {
             Some(holder) if holder != user_id => {
-                return Err(match self.assigned_name.as_deref() {
-                    Some(name) => text!(
-                        "{name} has this task. Take another task, or ask them to release it.",
-                        name = name
-                    ),
-                    None => text!(
-                        "Another member has this task. Take another task, or ask them to release it."
-                    ),
-                });
+                return Err(self.assigned_name.as_deref().map_or_else(
+                    || {
+                        text!(
+                            "Another member has this task. Take another task, or ask them to release it."
+                        )
+                    },
+                    |name| {
+                        text!(
+                            "{name} has this task. Take another task, or ask them to release it.",
+                            name = name
+                        )
+                    },
+                ));
             }
             Some(_)
                 if self.terminal_id != terminal_id

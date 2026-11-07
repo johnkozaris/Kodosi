@@ -38,7 +38,9 @@ pub(crate) fn branch_name(name: &str) -> Result<()> {
     if plain {
         Ok(())
     } else {
-        Err(Error::Text(text!("Use letters, numbers, dots, dashes and slashes in a branch name.")))
+        Err(Error::Text(text!(
+            "Use letters, numbers, dots, dashes and slashes in a branch name."
+        )))
     }
 }
 

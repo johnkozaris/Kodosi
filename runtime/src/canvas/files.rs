@@ -259,7 +259,8 @@ impl Files {
             .ok_or_else(|| text!("The canvas could not read the file."))?;
         snapshot.used = tokio::time::Instant::now();
         let total = snapshot.bytes.len();
-        let start = usize::try_from(offset).map_err(|_| Text::plain("This part is past the end."))?;
+        let start =
+            usize::try_from(offset).map_err(|_| Text::plain("This part is past the end."))?;
         if start > total || (start == total && total > 0) {
             return Err(Text::plain("This part is past the end."));
         }

@@ -96,7 +96,9 @@ impl BrowserLogin {
             None => {}
             Some("access_denied") => return Err(Error::Text(text!("The sign-in was declined."))),
             Some(_) => {
-                return Err(Error::Text(text!("The sign-in server could not complete this request.")));
+                return Err(Error::Text(text!(
+                    "The sign-in server could not complete this request."
+                )));
             }
         }
         value("code")
@@ -260,10 +262,16 @@ impl Oidc {
             match error.get("error").and_then(serde_json::Value::as_str) {
                 Some("authorization_pending") => {}
                 Some("slow_down") => interval = (interval + 5).min(60),
-                Some("access_denied") => return Err(Error::Text(text!("The sign-in was declined."))),
-                Some("expired_token") => return Err(Error::Text(text!("The sign-in code expired."))),
+                Some("access_denied") => {
+                    return Err(Error::Text(text!("The sign-in was declined.")));
+                }
+                Some("expired_token") => {
+                    return Err(Error::Text(text!("The sign-in code expired.")));
+                }
                 _ => {
-                    return Err(Error::Text(text!("The sign-in server could not complete this request.")));
+                    return Err(Error::Text(text!(
+                        "The sign-in server could not complete this request."
+                    )));
                 }
             }
         }
@@ -319,9 +327,13 @@ impl Oidc {
             return tokens(&bytes, None);
         }
         if grant_ended(&bytes) {
-            return Err(Error::Text(text!("The sign-in has expired. Sign in again.")));
+            return Err(Error::Text(text!(
+                "The sign-in has expired. Sign in again."
+            )));
         }
-        Err(Error::Text(text!("The sign-in server could not complete this request.")))
+        Err(Error::Text(text!(
+            "The sign-in server could not complete this request."
+        )))
     }
 
     pub async fn refresh(&self, previous: &Tokens) -> Result<Tokens> {
@@ -521,7 +533,10 @@ mod tests {
         let (address, server) = issuer(vec![token()]).await;
         let oidc = Oidc::new(&address, "kodosi-app".into(), &["openid".to_owned()]).unwrap();
         let login = oidc
-            .browser("http://127.0.0.1:9/callback", crate::text::Language::Chinese)
+            .browser(
+                "http://127.0.0.1:9/callback",
+                crate::text::Language::Chinese,
+            )
             .await
             .unwrap();
         let page = answer(&login.page);

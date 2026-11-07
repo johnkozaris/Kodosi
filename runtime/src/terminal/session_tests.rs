@@ -443,7 +443,10 @@ async fn command_input_waits_while_a_person_types() {
         .await
         .expect("a person types");
     let refused = session.send_input(Bytes::from_static(b"agent")).await;
-    assert_eq!(refused.expect_err("typing").to_string(), someone_typing().to_string());
+    assert_eq!(
+        refused.expect_err("typing").to_string(),
+        someone_typing().to_string()
+    );
     session.close().await.expect("close");
 }
 
@@ -901,7 +904,10 @@ async fn a_message_reaches_an_agent_that_works_but_not_one_that_asks_a_person() 
     .await;
     next_status(&mut changes).await;
     let refused = asking.message(Bytes::from_static(b"hello")).await;
-    assert_eq!(refused.expect_err("asks").to_string(), agent_asks().to_string());
+    assert_eq!(
+        refused.expect_err("asks").to_string(),
+        agent_asks().to_string()
+    );
     asking.close().await.expect("close");
 
     let (working, mut changes, _root) =

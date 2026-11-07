@@ -8,11 +8,11 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use super::{Error, Result, crypto, invalid};
-use crate::text::Text;
 use crate::identity::{
     keys::DeviceKeys,
     oidc::{read_bounded, validate_url},
 };
+use crate::text::Text;
 
 #[derive(Clone)]
 pub(crate) struct Http {

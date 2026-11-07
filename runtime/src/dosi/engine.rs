@@ -479,7 +479,9 @@ impl Engine {
     ) -> Result<()> {
         let text = text.trim();
         if self.agent().is_none() {
-            return Err(Error::Text(text!("Install Claude Code or Codex, then choose it for Dosi in Settings.")));
+            return Err(Error::Text(text!(
+                "Install Claude Code or Codex, then choose it for Dosi in Settings."
+            )));
         }
         if !self.free() {
             if self.queue.len() >= MAX_QUEUED {
@@ -1110,9 +1112,7 @@ impl Engine {
             .conversation
             .as_mut()
             .ok_or_else(|| Error::Text(text!("Dosi has no conversation.")))?;
-        let answered = conversation
-            .answer(item, choices)
-            .map_err(Error::Text)?;
+        let answered = conversation.answer(item, choices).map_err(Error::Text)?;
         out.item(&answered);
         self.write(answered.clone(), out);
         let DosiBody::Question {
