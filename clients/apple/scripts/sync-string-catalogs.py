@@ -18,6 +18,8 @@ APPS = {
 
 
 def intermediates(folder: str, project: str, scheme: str) -> Path | None:
+    if not (CLIENTS / folder / project / "project.pbxproj").exists():
+        return None
     command = ["xcodebuild", "-project", project, "-scheme", scheme, "-showBuildSettings", "-json"]
     output = subprocess.run(command, cwd=CLIENTS / folder, capture_output=True, text=True, check=True)
     root = Path(json.loads(output.stdout)[0]["buildSettings"]["OBJROOT"])

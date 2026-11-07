@@ -850,7 +850,7 @@
     </message>
     <message>
         <source>Start new chat</source>
-        <translation>Empezar chat nuevo</translation>
+        <translation>Iniciar un chat nuevo</translation>
     </message>
 </context>
 <context>
@@ -983,7 +983,7 @@
     </message>
     <message>
         <source>Start new chat</source>
-        <translation>Empezar chat nuevo</translation>
+        <translation>Iniciar un chat nuevo</translation>
     </message>
     <message>
         <source>Full access</source>
@@ -1610,7 +1610,7 @@
     </message>
     <message>
         <source>Not signed in</source>
-        <translation>Sin iniciar sesión</translation>
+        <translation>Sesión no iniciada</translation>
     </message>
     <message>
         <source>Signed in</source>

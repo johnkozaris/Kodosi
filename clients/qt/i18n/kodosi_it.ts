@@ -850,7 +850,7 @@
     </message>
     <message>
         <source>Start new chat</source>
-        <translation>Inizia nuova chat</translation>
+        <translation>Inizia una nuova chat</translation>
     </message>
 </context>
 <context>
@@ -983,7 +983,7 @@
     </message>
     <message>
         <source>Start new chat</source>
-        <translation>Inizia nuova chat</translation>
+        <translation>Inizia una nuova chat</translation>
     </message>
     <message>
         <source>Full access</source>
@@ -1066,7 +1066,7 @@
     </message>
     <message>
         <source>Stopped</source>
-        <translation>Fermato</translation>
+        <translation>Interrotto</translation>
     </message>
     <message>
         <source>Dosi needs you to sign in</source>
@@ -3375,7 +3375,7 @@
     </message>
     <message>
         <source>Underline</source>
-        <translation>Sottolineato</translation>
+        <translation>Sottolineatura</translation>
     </message>
     <message>
         <source>Blink the cursor</source>

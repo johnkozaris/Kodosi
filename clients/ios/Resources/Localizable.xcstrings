@@ -3392,7 +3392,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbindet"
+            "value" : "Verbindung wird hergestellt"
           }
         },
         "el" : {
@@ -3444,7 +3444,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbindet…"
+            "value" : "Verbindung wird hergestellt…"
           }
         },
         "el" : {
@@ -7916,7 +7916,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lädt"
+            "value" : "Wird geladen"
           }
         },
         "el" : {
@@ -8124,7 +8124,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lädt…"
+            "value" : "Wird geladen…"
           }
         },
         "el" : {
@@ -10776,7 +10776,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbindet erneut"
+            "value" : "Verbindung wird wiederhergestellt"
           }
         },
         "el" : {
@@ -17410,7 +17410,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "o"
+            "value" : "oppure"
           }
         },
         "ja" : {

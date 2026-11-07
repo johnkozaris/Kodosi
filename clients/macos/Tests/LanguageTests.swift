@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 @testable import KodosiDesktop
 import Testing
 
@@ -10,4 +11,11 @@ import Testing
     #expect(DesktopSettings(defaults: defaults).language == "ja")
     settings.language = nil
     #expect(DesktopSettings(defaults: defaults).language == nil)
+}
+
+@Test @MainActor func `choosing the language of macOS stays a choice`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "LanguageOfMacOS"))
+    let settings = DesktopSettings(defaults: defaults)
+    settings.language = AppLanguage.systemLanguage
+    #expect(DesktopSettings(defaults: defaults).language == AppLanguage.systemLanguage)
 }

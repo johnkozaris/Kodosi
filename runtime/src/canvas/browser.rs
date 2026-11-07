@@ -479,10 +479,16 @@ impl Browser {
     }
 
     fn problem(&self, problem: Text) -> Text {
+        let english = problem.to_string();
+        let shown = if english.chars().count() > 300 {
+            Text::plain(english.chars().take(300).collect::<String>())
+        } else {
+            problem.clone()
+        };
         self.change(|state| {
             state.state = BrowserState::Asleep;
             state.getting = None;
-            state.problem = Some(problem.clone());
+            state.problem = Some(shown);
         });
         problem
     }

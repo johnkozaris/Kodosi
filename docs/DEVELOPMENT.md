@@ -99,6 +99,8 @@ Spanish, French, Italian, Japanese, Korean and Simplified Chinese.
   the new texts to `clients/qt/i18n/`.
 - Runtime: `text!("… {name} …", name = value)` for a sentence for people, with its words in
   `runtime/texts/`. The detail of an internal fault stays English, as `Text::plain`.
+- Backend: a refusal that people read stays an English sentence in the backend. List it in
+  `backend_refusals()` in `runtime/src/network/http.rs`, with its words in `runtime/texts/`.
 - Document views: `say("…")` from `@documents/words`, with its words in
   `documents/views/words/src/`.
 - Sign-in theme: `sign-in/src/login/i18n.ts`, `sign-in/src/account/words.ts` and
