@@ -611,7 +611,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chiedi su questo"
+            "value" : "Fai una domanda su questo"
           }
         },
         "ja" : {
@@ -2223,7 +2223,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Richiede il tuo accesso"
+            "value" : "Accesso richiesto"
           }
         },
         "ja" : {
@@ -2275,7 +2275,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Richiede la tua risposta"
+            "value" : "Attende la tua risposta"
           }
         },
         "ja" : {
@@ -2327,7 +2327,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Richiede la tua approvazione"
+            "value" : "Approvazione richiesta"
           }
         },
         "ja" : {
@@ -4355,7 +4355,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non si è caricato"
+            "value" : "Caricamento non riuscito"
           }
         },
         "ja" : {
@@ -4615,7 +4615,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Usa il browser"
+            "value" : "Sta usando il browser"
           }
         },
         "ja" : {

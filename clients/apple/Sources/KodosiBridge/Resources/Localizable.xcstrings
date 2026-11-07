@@ -1648,7 +1648,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non ha funzionato (%d)."
+            "value" : "Operazione non riuscita (%d)."
           }
         },
         "ja" : {
@@ -1700,7 +1700,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non ha funzionato."
+            "value" : "Operazione non riuscita."
           }
         },
         "ja" : {
@@ -2376,7 +2376,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il tuo account è cambiato prima che finisse."
+            "value" : "Il tuo account è cambiato prima che l'operazione finisse."
           }
         },
         "ja" : {

@@ -394,7 +394,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questo terminale è rimasto indietro. Riprova."
+            "value" : "Questo terminale non riesce a stare al passo. Riprova."
           }
         },
         "ja" : {
@@ -446,7 +446,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questo terminale aspetta ancora l'input precedente. Kodosi non ha inviato ciò che hai incollato."
+            "value" : "Questo terminale sta ancora inviando l'input precedente. Kodosi non ha inviato ciò che hai incollato."
           }
         },
         "ja" : {

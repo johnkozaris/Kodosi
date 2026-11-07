@@ -5444,7 +5444,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qui ora"
+            "value" : "Qui adesso"
           }
         },
         "ja" : {
@@ -5496,7 +5496,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qui ora: %@"
+            "value" : "Qui adesso: %@"
           }
         },
         "ja" : {
@@ -6588,7 +6588,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ingresso…"
+            "value" : "Ingresso in corso…"
           }
         },
         "ja" : {
@@ -6952,7 +6952,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi è rimasto indietro. Riavvialo."
+            "value" : "Kodosi non riesce a stare al passo. Riavvialo."
           }
         },
         "ja" : {
@@ -7732,7 +7732,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lasciare questo terminale?"
+            "value" : "Uscire da questo terminale?"
           }
         },
         "ja" : {
@@ -9240,7 +9240,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nessuna nota in questa copia"
+            "value" : "Nessuna nota di licenza in questa copia"
           }
         },
         "ja" : {
@@ -10020,7 +10020,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apertura dell'accesso"
+            "value" : "Apertura della pagina di accesso"
           }
         },
         "ja" : {
@@ -14394,7 +14394,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non ha funzionato."
+            "value" : "Operazione non riuscita."
           }
         },
         "ja" : {
@@ -14706,7 +14706,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il terminale si apre quando il suo computer torna disponibile."
+            "value" : "Il terminale si aprirà quando il suo computer tornerà online."
           }
         },
         "ja" : {
@@ -14810,7 +14810,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sua identità è cambiata. Prima fidati di nuovo in Amici."
+            "value" : "La sua identità è cambiata. Prima confermala come attendibile in Amici."
           }
         },
         "ja" : {
@@ -16422,7 +16422,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In attesa di loro"
+            "value" : "In attesa di risposta"
           }
         },
         "ja" : {
@@ -16474,7 +16474,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quando Kodosi è scuro"
+            "value" : "Quando Kodosi è in modalità scura"
           }
         },
         "ja" : {

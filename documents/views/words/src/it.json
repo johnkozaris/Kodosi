@@ -34,7 +34,7 @@
   "First slide": "Prima slide",
   "Fit page": "Adatta alla pagina",
   "Fit width": "Adatta alla larghezza",
-  "Font": "Carattere",
+  "Font": "Font",
   "Format": "Formato",
   "Functions": "Funzioni",
   "General": "Generale",
@@ -102,8 +102,8 @@
   "Sum": "Somma",
   "Text": "Testo",
   "Text box": "Casella di testo",
-  "The computer of this file is away. Your edits wait here.": "Il computer di questo file non è disponibile. Le tue modifiche aspettano qui.",
-  "This document closed.": "Questo documento si è chiuso.",
+  "The computer of this file is away. Your edits wait here.": "Il computer che ospita questo file è offline. Le tue modifiche restano qui in attesa.",
+  "This document closed.": "Questo documento è stato chiuso.",
   "Time": "Ora",
   "Tools": "Strumenti",
   "Top": "In alto",
@@ -121,5 +121,5 @@
   "Zoom in": "Ingrandisci",
   "Zoom out": "Riduci",
   "Zoom {percent}%": "Zoom {percent}%",
-  "{name} and its cells go. Undo brings them back.": "{name} e le sue celle verranno eliminati. Annulla li ripristina."
+  "{name} and its cells go. Undo brings them back.": "{name} e le sue celle verranno eliminati. Puoi ripristinarli con Annulla."
 }

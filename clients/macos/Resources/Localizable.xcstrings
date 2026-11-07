@@ -394,7 +394,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ non elenca alcun modello"
+            "value" : "%@ non ha modelli disponibili"
           }
         },
         "ja" : {
@@ -2426,7 +2426,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un terminale su un nuovo branch ha una sua cartella. Kodosi rimuove una cartella senza modifiche quando il suo terminale termina."
+            "value" : "Un terminale su un nuovo branch ha una sua cartella. Quando il terminale viene chiuso, Kodosi rimuove la cartella se non contiene modifiche."
           }
         },
         "ja" : {
@@ -3050,7 +3050,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aggiungi un tasto"
+            "value" : "Aggiungi una scorciatoia"
           }
         },
         "ja" : {
@@ -5182,7 +5182,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Porta un agente"
+            "value" : "Aggiungi un agente"
           }
         },
         "ja" : {
@@ -5234,7 +5234,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Porta un agente"
+            "value" : "Aggiungi un agente"
           }
         },
         "ja" : {
@@ -6326,7 +6326,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chiudere la finestra chiude Kodosi. I tuoi terminali si fermano e ripartono quando si apre Kodosi."
+            "value" : "Se chiudi la finestra, esci da Kodosi. I tuoi terminali si fermano e ripartono quando riapri Kodosi."
           }
         },
         "ja" : {
@@ -9316,7 +9316,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi usa tutti gli strumenti del suo agente senza chiedere prima."
+            "value" : "Dosi usa tutti gli strumenti del suo agente senza chiedere il permesso."
           }
         },
         "ja" : {
@@ -9368,7 +9368,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi le usa dal tuo prossimo messaggio."
+            "value" : "Dosi le userà a partire dal tuo prossimo messaggio."
           }
         },
         "ja" : {
@@ -9472,7 +9472,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si scarica alla prima apertura del browser condiviso"
+            "value" : "Viene scaricato alla prima apertura del browser condiviso"
           }
         },
         "ja" : {
@@ -10200,7 +10200,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carattere"
+            "value" : "Font"
           }
         },
         "ja" : {
@@ -10252,7 +10252,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dimensione carattere"
+            "value" : "Dimensione del font"
           }
         },
         "ja" : {
@@ -11110,7 +11110,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qui ora"
+            "value" : "Qui adesso"
           }
         },
         "ja" : {
@@ -11162,7 +11162,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qui ora: %@"
+            "value" : "Qui adesso: %@"
           }
         },
         "ja" : {
@@ -12254,7 +12254,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Invita le persone dopo. Tutti nella stanza condividono i suoi terminali."
+            "value" : "Potrai invitare le persone dopo. Tutti nella stanza condividono i suoi terminali."
           }
         },
         "ja" : {
@@ -12618,7 +12618,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continua a funzionare quando chiudi la finestra"
+            "value" : "Resta attivo dopo la chiusura della finestra"
           }
         },
         "ja" : {
@@ -12878,7 +12878,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi non riesce ad aprire il Portachiavi, dove conserva il tuo accesso. Kodosi riprova."
+            "value" : "Kodosi non riesce ad aprire il Portachiavi, dove conserva il tuo accesso. Kodosi riproverà."
           }
         },
         "ja" : {
@@ -13138,7 +13138,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi è rimasto indietro. Riavvialo."
+            "value" : "Kodosi non riesce a stare al passo. Riavvialo."
           }
         },
         "ja" : {
@@ -14126,7 +14126,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lasciare questo terminale?"
+            "value" : "Uscire da questo terminale?"
           }
         },
         "ja" : {
@@ -14178,7 +14178,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lascia questo terminale…"
+            "value" : "Esci da questo terminale…"
           }
         },
         "ja" : {
@@ -15270,7 +15270,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modello e impegno"
+            "value" : "Modello e ragionamento"
           }
         },
         "ja" : {
@@ -18130,7 +18130,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apri dispositivi"
+            "value" : "Vedi i dispositivi"
           }
         },
         "ja" : {
@@ -22082,7 +22082,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Invia il tuo invito o incolla il loro qui sopra."
+            "value" : "Invia il tuo invito o incolla il suo qui sopra."
           }
         },
         "ja" : {
@@ -24454,7 +24454,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accesso…"
+            "value" : "Accesso in corso…"
           }
         },
         "ja" : {
@@ -24870,7 +24870,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qualcosa non ha funzionato"
+            "value" : "Qualcosa è andato storto"
           }
         },
         "ja" : {
@@ -26540,7 +26540,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non ha funzionato."
+            "value" : "Operazione non riuscita."
           }
         },
         "ja" : {
@@ -26592,7 +26592,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il server di Kodosi non risponde. Kodosi riprova."
+            "value" : "Il server di Kodosi non risponde. Kodosi riproverà."
           }
         },
         "ja" : {
@@ -27242,7 +27242,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il terminale si apre quando il suo computer torna disponibile."
+            "value" : "Il terminale si aprirà quando il suo computer tornerà online."
           }
         },
         "ja" : {
@@ -27294,7 +27294,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sua identità è cambiata. Prima fidati di nuovo in Amici."
+            "value" : "La sua identità è cambiata. Prima confermala come attendibile in Amici."
           }
         },
         "ja" : {
@@ -29426,7 +29426,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In attesa di loro"
+            "value" : "In attesa di risposta"
           }
         },
         "ja" : {
@@ -29530,7 +29530,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quando Kodosi è scuro"
+            "value" : "Quando Kodosi è in modalità scura"
           }
         },
         "ja" : {
@@ -30362,7 +30362,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ha chiesto a un aiutante"
+            "value" : "ha chiesto a un assistente"
           }
         },
         "ja" : {
@@ -30414,7 +30414,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ha chiesto a un aiutante su %@"
+            "value" : "ha chiesto a un assistente su %@"
           }
         },
         "ja" : {
@@ -30466,7 +30466,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "sta chiedendo a un aiutante"
+            "value" : "sta chiedendo a un assistente"
           }
         },
         "ja" : {
@@ -30518,7 +30518,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "sta chiedendo a un aiutante su %@"
+            "value" : "sta chiedendo a un assistente su %@"
           }
         },
         "ja" : {
@@ -31714,7 +31714,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "macOS non è riuscito ad aprire questo file. Scegli un'app predefinita."
+            "value" : "macOS non è riuscito ad aprire questo file. Scegli un'app predefinita per aprirlo."
           }
         },
         "ja" : {

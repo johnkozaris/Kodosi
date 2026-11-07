@@ -51,7 +51,7 @@
     </message>
     <message>
         <source>%1 lists no models</source>
-        <translation>%1 non elenca alcun modello</translation>
+        <translation>%1 non ha modelli disponibili</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -115,7 +115,7 @@
     </message>
     <message>
         <source>Model and effort</source>
-        <translation>Modello e impegno</translation>
+        <translation>Modello e ragionamento</translation>
     </message>
     <message>
         <source>First prompt</source>
@@ -170,7 +170,7 @@
     </message>
     <message>
         <source>Downloads when the shared browser first opens</source>
-        <translation>Si scarica alla prima apertura del browser condiviso</translation>
+        <translation>Viene scaricato alla prima apertura del browser condiviso</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -449,11 +449,11 @@
     </message>
     <message>
         <source>The file is missing</source>
-        <translation>Il file manca</translation>
+        <translation>File mancante</translation>
     </message>
     <message>
         <source>This did not load</source>
-        <translation>Non si è caricato</translation>
+        <translation>Caricamento non riuscito</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -667,7 +667,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Richiede la tua approvazione</translation>
+        <translation>Approvazione richiesta</translation>
     </message>
     <message>
         <source>Code</source>
@@ -747,11 +747,11 @@
     </message>
     <message>
         <source>It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.</source>
-        <translation>Perde il tuo account e i terminali condivisi con te. Se è stato perso o rubato, crea anche una nuova chiave di recupero.</translation>
+        <translation>Non potrà più usare il tuo account né i terminali condivisi con te. Se è stato perso o rubato, crea anche una nuova chiave di recupero.</translation>
     </message>
     <message>
         <source>It loses your account and the terminals shared with you.</source>
-        <translation>Perde il tuo account e i terminali condivisi con te.</translation>
+        <translation>Non potrà più usare il tuo account né i terminali condivisi con te.</translation>
     </message>
 </context>
 <context>
@@ -774,7 +774,7 @@
     </message>
     <message>
         <source>When Kodosi is dark</source>
-        <translation>Quando Kodosi è scuro</translation>
+        <translation>Quando Kodosi è in modalità scura</translation>
     </message>
     <message>
         <source>Sheet viewer</source>
@@ -915,7 +915,7 @@
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>
-        <translation>Dosi le usa dal tuo prossimo messaggio.</translation>
+        <translation>Dosi le userà a partire dal tuo prossimo messaggio.</translation>
     </message>
     <message>
         <source>Saved</source>
@@ -999,7 +999,7 @@
     </message>
     <message>
         <source>Dosi uses every tool of its agent and does not ask first.</source>
-        <translation>Dosi usa tutti gli strumenti del suo agente senza chiedere prima.</translation>
+        <translation>Dosi usa tutti gli strumenti del suo agente senza chiedere il permesso.</translation>
     </message>
 </context>
 <context>
@@ -1417,19 +1417,19 @@
     </message>
     <message>
         <source>asked a helper</source>
-        <translation>ha chiesto a un aiutante</translation>
+        <translation>ha chiesto a un assistente</translation>
     </message>
     <message>
         <source>asked a helper about %1</source>
-        <translation>ha chiesto a un aiutante su %1</translation>
+        <translation>ha chiesto a un assistente su %1</translation>
     </message>
     <message>
         <source>asking a helper</source>
-        <translation>sta chiedendo a un aiutante</translation>
+        <translation>sta chiedendo a un assistente</translation>
     </message>
     <message>
         <source>asking a helper about %1</source>
-        <translation>sta chiedendo a un aiutante su %1</translation>
+        <translation>sta chiedendo a un assistente su %1</translation>
     </message>
     <message>
         <source>used</source>
@@ -1598,7 +1598,7 @@
     </message>
     <message>
         <source>Waiting for you</source>
-        <translation>In attesa di te</translation>
+        <translation>Ti sta aspettando</translation>
     </message>
     <message>
         <source>Kodosi keeps your sign-in in the keychain (Secret Service).</source>
@@ -1634,11 +1634,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>Il server di Kodosi non risponde. Kodosi riprova.</translation>
+        <translation>Il server di Kodosi non risponde. Kodosi riproverà.</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>Sblocca il portachiavi. Kodosi riprova.</translation>
+        <translation>Sblocca il portachiavi. Kodosi riproverà.</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1654,7 +1654,7 @@
     </message>
     <message>
         <source>Signing in…</source>
-        <translation>Accesso…</translation>
+        <translation>Accesso in corso…</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -1678,7 +1678,7 @@
     </message>
     <message>
         <source>Removes your account, devices and friends.</source>
-        <translation>Rimuove account, dispositivi e amici.</translation>
+        <translation>Elimina il tuo account, i dispositivi e gli amici.</translation>
     </message>
     <message>
         <source>Delete…</source>
@@ -1706,11 +1706,11 @@
     </message>
     <message>
         <source>Keep running when the window closes</source>
-        <translation>Continua a funzionare quando chiudi la finestra</translation>
+        <translation>Resta attivo dopo la chiusura della finestra</translation>
     </message>
     <message>
         <source>Closing the window quits Kodosi.</source>
-        <translation>Chiudere la finestra chiude Kodosi.</translation>
+        <translation>Se chiudi la finestra, esci da Kodosi.</translation>
     </message>
     <message>
         <source>Your terminals keep running, and Kodosi stays in the system tray.</source>
@@ -1858,7 +1858,7 @@
     <name>KeyboardSettings</name>
     <message>
         <source>Press a key. Delete removes this one.</source>
-        <translation>Premi un tasto. Canc rimuove questo.</translation>
+        <translation>Premi un tasto. Con Canc rimuovi questa scorciatoia.</translation>
     </message>
     <message>
         <source>Press a key.</source>
@@ -1971,7 +1971,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Richiede la tua approvazione</translation>
+        <translation>Approvazione richiesta</translation>
     </message>
     <message>
         <source>Approve…</source>
@@ -2044,7 +2044,7 @@
     </message>
     <message>
         <source>You are invited</source>
-        <translation>Sei stato invitato</translation>
+        <translation>Hai ricevuto un invito</translation>
     </message>
     <message>
         <source>Not now</source>
@@ -2251,7 +2251,7 @@
     </message>
     <message>
         <source>They lose the terminals that you shared with them.</source>
-        <translation>Perde i terminali che hai condiviso con lei.</translation>
+        <translation>Non avrà più accesso ai terminali che hai condiviso.</translation>
     </message>
 </context>
 <context>
@@ -2493,7 +2493,7 @@
     </message>
     <message>
         <source>The room did not load</source>
-        <translation>La stanza non si è caricata</translation>
+        <translation>Impossibile caricare la stanza</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2556,7 +2556,7 @@
     </message>
     <message>
         <source>Bring an agent</source>
-        <translation>Porta un agente</translation>
+        <translation>Aggiungi un agente</translation>
     </message>
     <message>
         <source>Copy agent instructions</source>
@@ -2568,7 +2568,7 @@
     </message>
     <message>
         <source>The conversation did not load</source>
-        <translation>La conversazione non si è caricata</translation>
+        <translation>Impossibile caricare la conversazione</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2584,7 +2584,7 @@
     </message>
     <message>
         <source>Bring an agent. It reads and writes here.</source>
-        <translation>Porta un agente. Legge e scrive qui.</translation>
+        <translation>Aggiungi un agente. Legge e scrive qui.</translation>
     </message>
     <message>
         <source>Type @ to mention a person or a terminal.</source>
@@ -2670,7 +2670,7 @@
     </message>
     <message>
         <source>The issues did not load</source>
-        <translation>Le issue non si sono caricate</translation>
+        <translation>Impossibile caricare le issue</translation>
     </message>
     <message>
         <source>No open issues</source>
@@ -2956,7 +2956,7 @@
     </message>
     <message>
         <source>Here now</source>
-        <translation>Qui ora</translation>
+        <translation>Qui adesso</translation>
     </message>
     <message>
         <source>Approve this device</source>
@@ -2980,7 +2980,7 @@
     </message>
     <message>
         <source>Their identity changed. Trust them in Friends first.</source>
-        <translation>La sua identità è cambiata. Prima fidati di nuovo in Amici.</translation>
+        <translation>La sua identità è cambiata. Prima confermala come attendibile in Amici.</translation>
     </message>
     <message>
         <source>Everyone you share with can type, resize and close this terminal.</source>
@@ -2995,7 +2995,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Richiede la tua approvazione</translation>
+        <translation>Approvazione richiesta</translation>
     </message>
     <message>
         <source>Rooms and terminals</source>
@@ -3139,7 +3139,7 @@
     </message>
     <message>
         <source>Signing in…</source>
-        <translation>Accesso…</translation>
+        <translation>Accesso in corso…</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -3240,7 +3240,7 @@
     <name>StageOverview</name>
     <message>
         <source>The terminals did not load</source>
-        <translation>I terminali non si sono caricati</translation>
+        <translation>Impossibile caricare i terminali</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -3312,14 +3312,14 @@
     </message>
     <message>
         <source>%1 percent</source>
-        <translation>%1 percento</translation>
+        <translation>%1 per cento</translation>
     </message>
 </context>
 <context>
     <name>TerminalSettings</name>
     <message>
         <source>Welcome back. What are we building?</source>
-        <translation>Bentornato. Cosa costruiamo?</translation>
+        <translation>Ciao di nuovo! Cosa costruiamo oggi?</translation>
     </message>
     <message>
         <source>Appearance</source>
@@ -3347,11 +3347,11 @@
     </message>
     <message>
         <source>Font</source>
-        <translation>Carattere</translation>
+        <translation>Font</translation>
     </message>
     <message>
         <source>Terminal font</source>
-        <translation>Carattere del terminale</translation>
+        <translation>Font del terminale</translation>
     </message>
     <message>
         <source>Size</source>
@@ -3359,7 +3359,7 @@
     </message>
     <message>
         <source>Terminal font size</source>
-        <translation>Dimensione del carattere del terminale</translation>
+        <translation>Dimensione del font del terminale</translation>
     </message>
     <message>
         <source>Line height</source>
@@ -3419,7 +3419,7 @@
     </message>
     <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
-        <translation>Un terminale su un nuovo branch ha una sua cartella. Kodosi rimuove una cartella senza modifiche quando il suo terminale termina.</translation>
+        <translation>Un terminale su un nuovo branch ha una sua cartella. Quando il terminale viene chiuso, Kodosi rimuove la cartella se non contiene modifiche.</translation>
     </message>
     <message>
         <source>Branch folders</source>
@@ -3576,7 +3576,7 @@
     </message>
     <message>
         <source>The terminal opens when its computer is back.</source>
-        <translation>Il terminale si apre quando il suo computer torna disponibile.</translation>
+        <translation>Il terminale si aprirà quando il suo computer tornerà online.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
@@ -3862,7 +3862,7 @@
     </message>
     <message>
         <source>This local file or folder is missing, or Kodosi cannot open it.</source>
-        <translation>Questo file o cartella locale manca, oppure Kodosi non riesce ad aprirlo.</translation>
+        <translation>Questo file o cartella locale non esiste, oppure Kodosi non riesce ad aprirlo.</translation>
     </message>
     <message>
         <source>No application could open this file.</source>
@@ -4066,7 +4066,7 @@
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi ha ricevuto troppi aggiornamenti e si è fermato. Riprova.</translation>
+        <translation>Kodosi ha ricevuto troppe modifiche insieme e si è fermato. Riprova.</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>
@@ -4136,15 +4136,15 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Richiede la tua approvazione</translation>
+        <translation>Approvazione richiesta</translation>
     </message>
     <message>
         <source>Needs your answer</source>
-        <translation>Richiede la tua risposta</translation>
+        <translation>Attende la tua risposta</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
-        <translation>Richiede il tuo accesso</translation>
+        <translation>Accesso richiesto</translation>
     </message>
     <message>
         <source>Done</source>
@@ -4292,7 +4292,7 @@
     </message>
     <message>
         <source>Kodosi could not focus the terminal.</source>
-        <translation>Kodosi non è riuscito a mettere a fuoco il terminale.</translation>
+        <translation>Kodosi non è riuscito ad attivare il terminale.</translation>
     </message>
     <message>
         <source>The terminal is too large.</source>
