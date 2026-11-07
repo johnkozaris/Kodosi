@@ -19,14 +19,7 @@ impl Client {
         Ok(Self {
             events: Events(FrameReader::new(reader)),
             commands: Commands(writer),
-            initial_events: welcome
-                .events
-                .into_iter()
-                .map(|mut event| {
-                    crate::text::render(&mut event, crate::text::language());
-                    event
-                })
-                .collect(),
+            initial_events: welcome.events,
             host,
         })
     }

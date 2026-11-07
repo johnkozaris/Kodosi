@@ -23,8 +23,9 @@ QString supported(const QString& asked)
 {
     const auto lower = asked.toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
     if (lower.startsWith(QStringLiteral("zh")))
-        return lower.contains(QStringLiteral("hant")) || lower.endsWith(QStringLiteral("-tw"))
-                || lower.endsWith(QStringLiteral("-hk")) || lower.endsWith(QStringLiteral("-mo"))
+        return !lower.contains(QStringLiteral("hans"))
+                && (lower.contains(QStringLiteral("hant")) || lower.endsWith(QStringLiteral("-tw"))
+                    || lower.endsWith(QStringLiteral("-hk")) || lower.endsWith(QStringLiteral("-mo")))
             ? QString()
             : QStringLiteral("zh-Hans");
     for (const auto& choice : choices()) {
@@ -32,6 +33,15 @@ QString supported(const QString& asked)
             return choice.tag;
     }
     return {};
+}
+
+QString system()
+{
+    for (const auto& asked : QLocale::system().uiLanguages()) {
+        if (const auto tag = supported(asked); !tag.isEmpty())
+            return tag;
+    }
+    return QStringLiteral("en");
 }
 
 }
@@ -50,15 +60,6 @@ const QList<Choice>& choices()
         { QStringLiteral("zh-Hans"), QStringLiteral("简体中文") },
     };
     return all;
-}
-
-QString system()
-{
-    for (const auto& asked : QLocale::system().uiLanguages()) {
-        if (const auto tag = supported(asked); !tag.isEmpty())
-            return tag;
-    }
-    return QStringLiteral("en");
 }
 
 QString resolved(const QString& chosen)

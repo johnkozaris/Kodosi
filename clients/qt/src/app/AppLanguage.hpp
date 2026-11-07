@@ -12,7 +12,6 @@ struct Choice {
 };
 
 const QList<Choice>& choices();
-QString system();
 QString resolved(const QString& chosen);
 QString name(const QString& tag);
 void install(QCoreApplication& app, const QString& tag);
