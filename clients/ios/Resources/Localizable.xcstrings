@@ -3444,7 +3444,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbinden…"
+            "value" : "Verbindet…"
           }
         },
         "el" : {
@@ -6564,7 +6564,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wird beigetreten…"
+            "value" : "Tritt bei…"
           }
         },
         "el" : {
@@ -6928,7 +6928,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi ist zurückgefallen. Starte es neu."
+            "value" : "Kodosi kommt nicht mehr hinterher. Starte es neu."
           }
         },
         "el" : {
@@ -16346,7 +16346,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warte auf die Anmeldeseite"
+            "value" : "Wartet auf die Anmeldeseite"
           }
         },
         "el" : {
@@ -16398,7 +16398,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warte auf sie"
+            "value" : "Wartet auf Antwort"
           }
         },
         "el" : {

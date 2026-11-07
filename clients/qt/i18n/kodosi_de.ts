@@ -115,7 +115,7 @@
     </message>
     <message>
         <source>Model and effort</source>
-        <translation>Modell und Aufwand</translation>
+        <translation>Modell und Denkaufwand</translation>
     </message>
     <message>
         <source>First prompt</source>
@@ -887,7 +887,7 @@
     </message>
     <message>
         <source>Off removes Dosi from this computer.</source>
-        <translation>Aus entfernt Dosi von diesem Computer.</translation>
+        <translation>„Aus“ entfernt Dosi von diesem Computer.</translation>
     </message>
     <message>
         <source>Account</source>
@@ -1654,7 +1654,7 @@
     </message>
     <message>
         <source>Signing in…</source>
-        <translation>Anmeldung…</translation>
+        <translation>Anmeldung läuft…</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2239,7 +2239,7 @@
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
-        <translation>Sende deine Einladung oder füge oben einen Benutzernamen hinzu.</translation>
+        <translation>Schick deine Einladung oder füge oben einen Benutzernamen hinzu.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2333,7 +2333,7 @@
     </message>
     <message>
         <source>Get it</source>
-        <translation>Holen</translation>
+        <translation>Herunterladen</translation>
     </message>
     <message>
         <source>Connect</source>
@@ -3139,7 +3139,7 @@
     </message>
     <message>
         <source>Signing in…</source>
-        <translation>Anmeldung…</translation>
+        <translation>Anmeldung läuft…</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -3155,7 +3155,7 @@
     </message>
     <message>
         <source>Unpin</source>
-        <translation>Lösen</translation>
+        <translation>Loslösen</translation>
     </message>
     <message>
         <source>Pin</source>
@@ -4066,7 +4066,7 @@
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi hat zu viele Updates erhalten und wurde gestoppt. Versuche es erneut.</translation>
+        <translation>Kodosi hat zu viele Änderungen auf einmal erhalten und wurde gestoppt. Versuche es erneut.</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>

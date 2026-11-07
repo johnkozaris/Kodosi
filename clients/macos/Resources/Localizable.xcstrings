@@ -3026,7 +3026,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Taste hinzufügen"
+            "value" : "Tastenkürzel hinzufügen"
           }
         },
         "el" : {
@@ -10722,7 +10722,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Holen"
+            "value" : "Herunterladen"
           }
         },
         "el" : {
@@ -13114,7 +13114,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi ist zurückgefallen. Starte es neu."
+            "value" : "Kodosi kommt nicht mehr hinterher. Starte es neu."
           }
         },
         "el" : {
@@ -15246,7 +15246,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modell und Aufwand"
+            "value" : "Modell und Denkaufwand"
           }
         },
         "el" : {
@@ -17378,7 +17378,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aus entfernt Dosi von diesem Computer."
+            "value" : "„Aus“ entfernt Dosi von diesem Computer."
           }
         },
         "el" : {
@@ -22058,7 +22058,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sende deine Einladung oder füge oben ihre ein."
+            "value" : "Schick deine Einladung oder füge oben ihre ein."
           }
         },
         "el" : {
@@ -23052,7 +23052,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Teilen…"
+            "value" : "Wird geteilt…"
           }
         },
         "el" : {
@@ -24430,7 +24430,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Anmeldung…"
+            "value" : "Anmeldung läuft…"
           }
         },
         "el" : {
@@ -28518,7 +28518,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lösen"
+            "value" : "Loslösen"
           }
         },
         "el" : {
@@ -29402,7 +29402,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warte auf sie"
+            "value" : "Wartet auf Antwort"
           }
         },
         "el" : {
