@@ -203,6 +203,8 @@ pub struct TerminalMetadata {
     pub title: Option<String>,
     pub program: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<super::ProgramStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<super::TerminalContext>,

@@ -90,6 +90,10 @@ enum Request {
         variable: &'static str,
         reply: oneshot::Sender<Result<Foreground>>,
     },
+    Account {
+        group: Option<u32>,
+        account: Option<u8>,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -200,6 +204,7 @@ impl TerminalSession {
             sequence: 0,
             host_stop_reply: None,
             program: None,
+            account: None,
             clear_line,
             start: None,
             output_at: None,
@@ -375,6 +380,12 @@ impl TerminalSession {
 
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
+    }
+
+    /// Sets the account of the program in front while the process group `group` is still in
+    /// front.
+    pub(crate) fn set_account(&self, group: Option<u32>, account: Option<u8>) -> Result<()> {
+        self.send(Request::Account { group, account })
     }
 
     pub(crate) fn foreground(
@@ -656,6 +667,7 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    account: Option<u8>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
     output_at: Option<tokio::time::Instant>,
@@ -728,6 +740,7 @@ impl LocalActor {
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
             program: self.live_program(),
+            account: self.account,
             status: self.status.summary(),
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
@@ -1127,6 +1140,7 @@ impl LocalActor {
                     .is_ok()
             {
                 self.program = program;
+                self.account = None;
                 self.metadata_dirty = true;
             }
             if prompt != self.prompt
@@ -1442,6 +1456,22 @@ impl LocalActor {
                     group: self.pty.foreground_process_group(),
                     variable: self.pty.foreground_variable(variable),
                 })));
+            }
+            Request::Account { group, account } => {
+                if self.program.is_some()
+                    && self.account != account
+                    && self.pty.foreground_process_group() == group
+                    && self
+                        .changes
+                        .try_send(SessionChange::Account {
+                            id: self.id,
+                            account,
+                        })
+                        .is_ok()
+                {
+                    self.account = account;
+                    self.metadata_dirty = true;
+                }
             }
         }
         None

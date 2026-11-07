@@ -168,6 +168,11 @@ conversation follows the person to all their computers.
 - The launcher shows how much of its plan limits each Claude Code, Codex and Copilot CLI
   account has used. The agent's own program reads the numbers when the person looks;
   Kodosi reads no credentials, and the numbers do not go to the backend.
+- Each Claude Code, Codex and Copilot CLI account of a computer has its own shade of the
+  agent's color, in the order of the launcher. A terminal's mark has the shade of the
+  account that its agent runs under, everywhere the terminal shows, and the account in the
+  launcher has the same shade. The host tells only the place of the account, not its name or
+  folder.
 - A person can preview saved Claude Code and Copilot CLI conversations and resume them
   through the provider's own CLI.
 

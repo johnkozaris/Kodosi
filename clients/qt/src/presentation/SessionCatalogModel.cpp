@@ -386,7 +386,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
-        { QStringLiteral("program"), s->program }, { QStringLiteral("connectedUsers"), s->connectedUsers },
+        { QStringLiteral("program"), s->program }, { QStringLiteral("programAccount"), s->programAccount },
+        { QStringLiteral("connectedUsers"), s->connectedUsers },
         { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
@@ -432,6 +433,13 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.workingDirectory = text("workingDir");
     s.title = text("title");
     s.program = text("program");
+    const auto account = o.value(QStringLiteral("programAccount"));
+    if (!account.isUndefined() && !account.isNull()) {
+        const auto place = account.toInt(-1);
+        if (!account.isDouble() || place < 0 || place > 255 || place != account.toDouble())
+            return std::nullopt;
+        s.programAccount = place;
+    }
     const auto prompt = o.value(QStringLiteral("prompt"));
     if (!prompt.isUndefined() && !prompt.isBool())
         return std::nullopt;

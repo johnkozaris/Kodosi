@@ -68,6 +68,11 @@ pub(crate) enum SessionChange {
         program: Option<String>,
     },
     #[cfg(feature = "host")]
+    Account {
+        id: Uuid,
+        account: Option<u8>,
+    },
+    #[cfg(feature = "host")]
     Title {
         id: Uuid,
         title: String,

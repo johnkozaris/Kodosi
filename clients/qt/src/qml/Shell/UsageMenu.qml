@@ -155,6 +155,7 @@ KMenu {
                                     initial: account.modelData.title.charAt(0)
                                     key: account.modelData.key
                                     signedIn: true
+                                    tint: Identity.accountTint(section.modelData.agent, account.modelData.place)
                                     size: 20
                                 }
                                 PlainLabel {
