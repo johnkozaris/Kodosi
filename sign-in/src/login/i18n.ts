@@ -238,8 +238,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       turnstileVerificationError: "The check did not answer. Try again in a moment.",
       turnstileIpBlocked: "This network cannot send this form.",
       oauth2DeviceInvalidUserCodeMessage: "That code is not right. Check the code in Kodosi.",
-      oauth2DeviceExpiredUserCodeMessage:
-        "That code expired. Start the sign-in again in Kodosi.",
+      oauth2DeviceExpiredUserCodeMessage: "That code expired. Start the sign-in again in Kodosi.",
       oauth2DeviceVerificationCompleteHeader: "You are in",
       oauth2DeviceVerificationCompleteMessage: "Go back to Kodosi.",
       oauth2DeviceVerificationFailedHeader: "The sign-in did not work",
@@ -260,8 +259,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       emailVerifiedMessageHeader: "Your email is confirmed",
       emailVerifySendCooldown: "Wait {0} seconds, then send it again.",
       confirmExecutionOfActions: "Do these steps for your account",
-      staleEmailVerificationLink:
-        "That link expired. You may have confirmed your email already.",
+      staleEmailVerificationLink: "That link expired. You may have confirmed your email already.",
       alreadyLoggedIn: "You are signed in already",
       expiredActionMessage: "That link expired. Sign in to go on.",
       expiredActionTokenNoSessionMessage: "That link expired.",
@@ -449,7 +447,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
         "Der Passkey konnte nicht erstellt werden. Versuche es erneut.",
       "webauthn-error-title": "Der Passkey hat nicht funktioniert",
       kdsRecoveryTitle: "Bewahre diese Codes auf",
-      kdsRecoveryLead: "Mit jedem Code kannst du dich einmal anmelden, wenn du dein Smartphone nicht zur Hand hast.",
+      kdsRecoveryLead:
+        "Mit jedem Code kannst du dich einmal anmelden, wenn du dein Smartphone nicht zur Hand hast.",
       kdsCopy: "Kopieren",
       kdsCopied: "Kopiert",
       kdsDownload: "Herunterladen",
@@ -532,8 +531,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       recaptchaNotConfigured: "Die Prüfung wurde nicht geladen. Versuche es gleich noch einmal.",
       turnstileVerificationFailed: "Die Prüfung ist fehlgeschlagen.",
       turnstileMissingToken: "Die Prüfung ist noch nicht fertig. Warte kurz und sende dann erneut.",
-      turnstileVerificationError:
-        "Die Prüfung hat nicht reagiert. Versuche es gleich noch einmal.",
+      turnstileVerificationError: "Die Prüfung hat nicht reagiert. Versuche es gleich noch einmal.",
       turnstileIpBlocked: "Aus diesem Netzwerk kann dieses Formular nicht gesendet werden.",
       oauth2DeviceInvalidUserCodeMessage: "Der Code stimmt nicht. Prüfe den Code in Kodosi.",
       oauth2DeviceExpiredUserCodeMessage:
@@ -742,8 +740,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "webauthn-error-different-user": "Αυτό το passkey ανήκει σε άλλον λογαριασμό.",
       "webauthn-error-user-not-found": "Αυτό το passkey δεν ανήκει σε λογαριασμό εδώ.",
       "webauthn-error-registration": "Η δημιουργία του passkey απέτυχε. Δοκιμάστε ξανά.",
-      "webauthn-error-register-verification":
-        "Η δημιουργία του passkey απέτυχε. Δοκιμάστε ξανά.",
+      "webauthn-error-register-verification": "Η δημιουργία του passkey απέτυχε. Δοκιμάστε ξανά.",
       "webauthn-error-title": "Το passkey δεν λειτούργησε",
       kdsRecoveryTitle: "Κρατήστε αυτούς τους κωδικούς",
       kdsRecoveryLead: "Με κάθε κωδικό συνδέεστε μία φορά, όταν δεν έχετε το κινητό σας μαζί.",
@@ -835,8 +832,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       turnstileIpBlocked: "Δεν είναι δυνατή η αποστολή αυτής της φόρμας από αυτό το δίκτυο.",
       oauth2DeviceInvalidUserCodeMessage:
         "Ο κωδικός δεν είναι σωστός. Ελέγξτε τον κωδικό στο Kodosi.",
-      oauth2DeviceExpiredUserCodeMessage:
-        "Ο κωδικός έληξε. Ξεκινήστε ξανά τη σύνδεση στο Kodosi.",
+      oauth2DeviceExpiredUserCodeMessage: "Ο κωδικός έληξε. Ξεκινήστε ξανά τη σύνδεση στο Kodosi.",
       oauth2DeviceVerificationCompleteHeader: "Μπήκατε",
       oauth2DeviceVerificationCompleteMessage: "Επιστρέψτε στο Kodosi.",
       oauth2DeviceVerificationFailedHeader: "Η σύνδεση απέτυχε",
@@ -861,8 +857,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       alreadyLoggedIn: "Έχετε ήδη συνδεθεί",
       expiredActionMessage: "Αυτός ο σύνδεσμος έληξε. Συνδεθείτε για να συνεχίσετε.",
       expiredActionTokenNoSessionMessage: "Αυτός ο σύνδεσμος έληξε.",
-      expiredActionTokenSessionExistsMessage:
-        "Αυτός ο σύνδεσμος έληξε. Ξεκινήστε ξανά.",
+      expiredActionTokenSessionExistsMessage: "Αυτός ο σύνδεσμος έληξε. Ξεκινήστε ξανά.",
       staleCodeMessage: "Αυτή η σελίδα έληξε. Ξεκινήστε ξανά τη σύνδεση.",
       cookieNotFoundMessage:
         "Ο browser σας δεν κράτησε αυτή τη σύνδεση. Επιτρέψτε τα cookies για αυτή τη σελίδα και ξεκινήστε ξανά.",
@@ -902,7 +897,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       invalidPasswordNotContainsUsernameMessage:
         "Ο κωδικός πρόσβασης δεν πρέπει να περιέχει το όνομα χρήστη σας.",
       invalidPasswordNotEmailMessage: "Ο κωδικός πρόσβασης δεν πρέπει να είναι το email σας.",
-      invalidPasswordHistoryMessage: "Επιλέξτε κωδικό πρόσβασης που δεν έχετε χρησιμοποιήσει παλαιότερα.",
+      invalidPasswordHistoryMessage:
+        "Επιλέξτε κωδικό πρόσβασης που δεν έχετε χρησιμοποιήσει παλαιότερα.",
       invalidPasswordBlacklistedMessage:
         "Αυτός ο κωδικός πρόσβασης μαντεύεται εύκολα. Επιλέξτε άλλον.",
       invalidPasswordGenericMessage: "Ο κωδικός πρόσβασης δεν πληροί τις απαιτήσεις.",
@@ -1048,7 +1044,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
         "No se ha podido crear la llave de acceso. Inténtalo de nuevo.",
       "webauthn-error-title": "La llave de acceso no ha funcionado",
       kdsRecoveryTitle: "Guarda estos códigos",
-      kdsRecoveryLead: "Cada código te permite iniciar sesión una vez, cuando no tengas el móvil a mano.",
+      kdsRecoveryLead:
+        "Cada código te permite iniciar sesión una vez, cuando no tengas el móvil a mano.",
       kdsCopy: "Copiar",
       kdsCopied: "Copiado",
       kdsDownload: "Descargar",
@@ -1338,11 +1335,11 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "webauthn-error-different-user": "Cette clé d'accès appartient à un autre compte.",
       "webauthn-error-user-not-found": "Cette clé d'accès ne correspond à aucun compte ici.",
       "webauthn-error-registration": "La création de la clé d'accès a échoué. Réessayez.",
-      "webauthn-error-register-verification":
-        "La création de la clé d'accès a échoué. Réessayez.",
+      "webauthn-error-register-verification": "La création de la clé d'accès a échoué. Réessayez.",
       "webauthn-error-title": "La clé d'accès n'a pas fonctionné",
       kdsRecoveryTitle: "Conservez ces codes",
-      kdsRecoveryLead: "Chaque code permet une connexion, si vous n'avez pas votre téléphone sous la main.",
+      kdsRecoveryLead:
+        "Chaque code permet une connexion, si vous n'avez pas votre téléphone sous la main.",
       kdsCopy: "Copier",
       kdsCopied: "Copié",
       kdsDownload: "Télécharger",
@@ -1372,7 +1369,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsRemove: "Supprimer",
       kdsDeleteTitle: "Supprimer votre compte Kodosi ?",
       kdsDeleteLead: "Cette action est irréversible.",
-      kdsDeleteGoes: "Kodosi supprime votre connexion, vos appareils et vos amis, et arrête vos partages.",
+      kdsDeleteGoes:
+        "Kodosi supprime votre connexion, vos appareils et vos amis, et arrête vos partages.",
       kdsDeleteRooms: "Les salons dont vous êtes propriétaire se ferment pour tous leurs membres.",
       kdsDeleteWords:
         "Ce que vous avez écrit dans les salons des autres y reste, signé « compte supprimé ».",
@@ -1430,8 +1428,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       turnstileVerificationError: "La vérification ne répond pas. Réessayez dans un instant.",
       turnstileIpBlocked: "Impossible d'envoyer ce formulaire depuis ce réseau.",
       oauth2DeviceInvalidUserCodeMessage: "Le code est incorrect. Vérifiez le code dans Kodosi.",
-      oauth2DeviceExpiredUserCodeMessage:
-        "Ce code a expiré. Relancez la connexion dans Kodosi.",
+      oauth2DeviceExpiredUserCodeMessage: "Ce code a expiré. Relancez la connexion dans Kodosi.",
       oauth2DeviceVerificationCompleteHeader: "Vous êtes connecté",
       oauth2DeviceVerificationCompleteMessage: "Revenez à Kodosi.",
       oauth2DeviceVerificationFailedHeader: "La connexion a échoué",
@@ -1723,8 +1720,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       turnstileIpBlocked: "Questa rete non può inviare questo modulo.",
       oauth2DeviceInvalidUserCodeMessage:
         "Il codice non è corretto. Controlla il codice in Kodosi.",
-      oauth2DeviceExpiredUserCodeMessage:
-        "Il codice è scaduto. Riavvia l'accesso in Kodosi.",
+      oauth2DeviceExpiredUserCodeMessage: "Il codice è scaduto. Riavvia l'accesso in Kodosi.",
       oauth2DeviceVerificationCompleteHeader: "Ci sei",
       oauth2DeviceVerificationCompleteMessage: "Torna a Kodosi.",
       oauth2DeviceVerificationFailedHeader: "L'accesso non è riuscito",
@@ -1744,8 +1740,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       emailVerifiedMessageHeader: "La tua email è stata confermata",
       emailVerifySendCooldown: "Attendi {0} secondi, poi invia di nuovo.",
       confirmExecutionOfActions: "Completa questi passaggi per il tuo account",
-      staleEmailVerificationLink:
-        "Questo link è scaduto. Forse hai già confermato la tua email.",
+      staleEmailVerificationLink: "Questo link è scaduto. Forse hai già confermato la tua email.",
       alreadyLoggedIn: "Hai già effettuato l'accesso",
       expiredActionMessage: "Questo link è scaduto. Accedi per continuare.",
       expiredActionTokenNoSessionMessage: "Questo link è scaduto.",
@@ -1753,7 +1748,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       staleCodeMessage: "Questa pagina è scaduta. Riavvia l'accesso.",
       cookieNotFoundMessage:
         "Il browser non ha mantenuto questo accesso. Consenti i cookie per questa pagina, poi ricomincia.",
-      differentUserAuthenticated: "In questo browser è già attivo l'accesso come {0}. Esci prima di continuare.",
+      differentUserAuthenticated:
+        "In questo browser è già attivo l'accesso come {0}. Esci prima di continuare.",
       identityProviderUnexpectedErrorMessage:
         "L'accesso con questo servizio non è riuscito. Riprova o scegli un altro metodo.",
       identityProviderAuthenticationFailedMessage:
@@ -2045,7 +2041,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       staleEmailVerificationLink:
         "このリンクは有効期限が切れています。メールアドレスはすでに確認済みかもしれません。",
       alreadyLoggedIn: "すでにサインインしています",
-      expiredActionMessage: "このリンクは有効期限が切れています。続けるにはサインインしてください。",
+      expiredActionMessage:
+        "このリンクは有効期限が切れています。続けるにはサインインしてください。",
       expiredActionTokenNoSessionMessage: "このリンクは有効期限が切れています。",
       expiredActionTokenSessionExistsMessage:
         "このリンクは有効期限が切れています。最初からやり直してください。",
@@ -2307,8 +2304,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       turnstileVerificationError: "확인 응답이 없었어요. 잠시 후 다시 시도하세요.",
       turnstileIpBlocked: "이 네트워크에서는 이 양식을 보낼 수 없어요.",
       oauth2DeviceInvalidUserCodeMessage: "코드가 올바르지 않아요. Kodosi의 코드를 확인하세요.",
-      oauth2DeviceExpiredUserCodeMessage:
-        "코드가 만료됐어요. Kodosi에서 로그인을 다시 시작하세요.",
+      oauth2DeviceExpiredUserCodeMessage: "코드가 만료됐어요. Kodosi에서 로그인을 다시 시작하세요.",
       oauth2DeviceVerificationCompleteHeader: "로그인했어요",
       oauth2DeviceVerificationCompleteMessage: "Kodosi로 돌아가세요.",
       oauth2DeviceVerificationFailedHeader: "로그인하지 못했어요",

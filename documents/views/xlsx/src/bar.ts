@@ -442,7 +442,11 @@ export class XlsxBar {
       rows,
       footOf([
         { label: say("Copy formatting"), icon: Paintbrush, press: () => control.copyLook() },
-        { label: say("Clear formatting"), icon: RemoveFormatting, press: () => control.clearLook() },
+        {
+          label: say("Clear formatting"),
+          icon: RemoveFormatting,
+          press: () => control.clearLook(),
+        },
       ]),
     );
   }
