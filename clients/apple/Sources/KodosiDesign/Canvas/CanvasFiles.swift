@@ -114,7 +114,7 @@ public struct CanvasFilesBar<Actions: View>: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help(file.missing ? String(localized: "\(file.key) is not there now", bundle: .module) : file.key)
+        .help(file.missing ? String(localized: "\(file.key) is missing", bundle: .module) : file.key)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityAction(named: Text("Remove from Canvas", bundle: .module)) { remove(file) }
         .accessibilityIdentifier("canvas.file.\(AccessibilityIdentifier.token(file.key))")
@@ -223,7 +223,7 @@ struct CanvasCard: View {
                     Text(file.name).appTextStyle(.footnote).fontWeight(.medium)
                         .foregroundStyle(file.missing ? theme.colors.inkFaint : theme.colors.ink)
                         .lineLimit(2).truncationMode(.middle).multilineTextAlignment(.center)
-                    Text(file.missing ? String(localized: "Not there now", bundle: .module)
+                    Text(file.missing ? String(localized: "Missing", bundle: .module)
                         : "\(file.kind.label) · \(file.bytes.formatted(.byteCount(style: .file)))")
                         .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
                 }

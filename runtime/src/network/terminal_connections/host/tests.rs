@@ -150,7 +150,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     drop(reply.send(Ok(json!({"accepted":true}))));
                 }
                 HostRequest::Control { reply, .. } => {
-                    drop(reply.send(Err("The terminal refused the size.".to_owned())));
+                    drop(reply.send(Err(Text::plain("The terminal refused the size."))));
                 }
                 HostRequest::Document { reply, .. } => drop(reply.send(Ok(echo_pipe()))),
                 HostRequest::Picture { picture, reply, .. } => {
@@ -483,7 +483,7 @@ async fn the_end_reaches_the_view_after_the_output_that_waits() {
     terminal.keyframe().await;
     terminal.write(b"goodbye");
     drop(terminal.frames.send(PublishedFrame::Closed {
-        reason: "Terminal closed.".into(),
+        reason: Text::plain("Terminal closed."),
         final_sequence: 1,
     }));
     assert!(matches!(
@@ -576,8 +576,14 @@ async fn a_picture_is_pasted_once_all_its_parts_arrive_and_later_again_from_its_
     assert_eq!(asked.step, PictureStep::Receiving);
     let refused = terminal.send_parts(asked.id, &damaged.bytes).await;
     assert_eq!(
-        (refused.step, refused.message.as_str()),
-        (PictureStep::Refused, PICTURE_DAMAGED)
+        (
+            refused.step,
+            refused.message.map(|message| message.to_string())
+        ),
+        (
+            PictureStep::Refused,
+            Some(text!("The picture arrived damaged. Paste it again.").to_string())
+        )
     );
     assert!(terminal.pictures.try_recv().is_err());
 }

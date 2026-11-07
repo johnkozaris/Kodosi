@@ -9,6 +9,7 @@ use documents_cli::{Agents, Command, formats};
 use tokio::sync::mpsc;
 
 use crate::canvas::{CanvasAnswer, PIPE_QUEUE, PipeEnds};
+use crate::text::Text;
 
 const STATE_FOLDER: &str = "documents";
 
@@ -36,12 +37,12 @@ impl DocumentHost {
     }
 
     /// Gives a person a pipe to the live document of a file.
-    pub(crate) async fn open(&self, path: &Path, viewer: Viewer) -> Result<PipeEnds, String> {
+    pub(crate) async fn open(&self, path: &Path, viewer: Viewer) -> Result<PipeEnds, Text> {
         let pipe = self
             .documents
             .open(path, viewer)
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| Text::plain(error.to_string()))?;
         Ok(ends_of(pipe))
     }
 

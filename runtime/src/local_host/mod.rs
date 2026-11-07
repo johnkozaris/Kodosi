@@ -131,16 +131,19 @@ fn stop_permission(
     kind: HostKind,
     force: bool,
     local_sessions: usize,
-) -> std::result::Result<(), String> {
+) -> std::result::Result<(), crate::text::Text> {
     if kind == HostKind::Foreground {
-        return Err("You started this host with `kodosi host`. Stop it from its terminal.".into());
+        return Err(text!(
+            "You started this host with `kodosi host`. Stop it from its terminal."
+        ));
     }
     if force {
         return Ok(());
     }
     if local_sessions > 0 {
-        return Err(format!(
-            "This host still runs {local_sessions} terminal(s). Close them first."
+        return Err(text!(
+            "Terminals that still run on this host: {count}. Close them first.",
+            count = local_sessions
         ));
     }
     Ok(())

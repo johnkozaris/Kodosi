@@ -4,7 +4,7 @@ use serde::Deserialize;
 use super::BTreeSet;
 use super::{
     BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value, VerifiedIdentity,
-    invalid, json, path_segment, wire,
+    invalid, json, path_segment, untrusted, wire,
 };
 use crate::identity::{
     friends::{Friend, FriendList, SignedFriendList, invite, parse_invite, root_hex},
@@ -175,8 +175,8 @@ impl BackendClient {
             .as_ref()
             .is_some_and(|(bundle, _)| bundle.user_id != user_id)
         {
-            return Err(Error::Trust(
-                "Returned device identity belongs to another account.".into(),
+            return Err(untrusted(
+                "Returned device identity belongs to another account.",
             ));
         }
         Ok(fresh)
@@ -247,10 +247,9 @@ impl BackendClient {
                 .changed_friends
                 .insert(user_id.to_owned());
             self.inner.friends_changed.notify_one();
-            return Err(Error::Trust(
+            return Err(Error::Trust(text!(
                 "This friend has a new identity. Trust it in Friends before you share or connect."
-                    .into(),
-            ));
+            )));
         }
         let verified = self.verify_bundle(&bundle, Some(root)).await?;
         self.keep_identity(credentials, user_id, &verified, tag);
@@ -268,9 +267,9 @@ impl BackendClient {
             _ => self.sync_friends(credentials).await?.0,
         };
         let friend = list.friends.get(user_id).ok_or_else(|| {
-            Error::Trust(
-                "Trust the identity of this friend in Friends before you share or connect.".into(),
-            )
+            Error::Trust(text!(
+                "Trust the identity of this friend in Friends before you share or connect."
+            ))
         })?;
         if let Some(root) = friend.root() {
             return Ok(root);
@@ -330,9 +329,9 @@ impl BackendClient {
         }) {
             Ok(())
         } else {
-            Err(Error::Trust(
-                "Trust the new identity of this friend in Friends before you share.".into(),
-            ))
+            Err(Error::Trust(text!(
+                "Trust the new identity of this friend in Friends before you share."
+            )))
         }
     }
 
@@ -423,7 +422,7 @@ impl BackendClient {
         listed(Some(&friends))
             .or_else(|| listed(requests["outgoing"].as_array()))
             .or_else(|| listed(requests["incoming"].as_array()))
-            .ok_or_else(|| invalid("This person is not in your friends or requests."))
+            .ok_or_else(|| Error::Text(text!("This person is not in your friends or requests.")))
     }
 
     async fn friend_request(
@@ -495,9 +494,9 @@ impl BackendClient {
                 if let (Some(root), Some(known)) = (root, known)
                     && root != known
                 {
-                    return Err(Error::Trust(
-                        "This invite is for another identity than the one that Kodosi has for this friend.".into(),
-                    ));
+                    return Err(Error::Trust(text!(
+                        "This invite is for another identity than the one that Kodosi has for this friend."
+                    )));
                 }
                 self.friend_request(&credentials, "send", &handle).await?;
                 let user = self.friend_user(&credentials, &handle).await?;
@@ -568,16 +567,16 @@ impl BackendClient {
             }
             "friends.verify" => {
                 let (handle, root) = parse_invite(wire::text(args, "invite")?)
-                    .ok_or_else(|| invalid("This text is not a Kodosi invite."))?;
+                    .ok_or_else(|| Error::Text(text!("This text is not a Kodosi invite.")))?;
                 if !handle.eq_ignore_ascii_case(typed) {
-                    return Err(Error::Trust("This invite is for another person.".into()));
+                    return Err(Error::Trust(text!("This invite is for another person.")));
                 }
                 let user = self.friend_user(&credentials, typed).await?;
                 let bundle = self.friend_bundle(&credentials, &user).await?;
                 if bundle.root()? != root {
-                    return Err(Error::Trust(
-                        "This invite is not for the identity that this friend has now. Ask them for a new invite.".into(),
-                    ));
+                    return Err(Error::Trust(text!(
+                        "This invite is not for the identity that this friend has now. Ask them for a new invite."
+                    )));
                 }
                 self.change_friends(&credentials, |list| {
                     let friend = Friend {

@@ -214,7 +214,7 @@ async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_pos
         .expect("output");
     updates
         .send(RemoteUpdate::Closed {
-            reason: "link lost".to_owned(),
+            reason: Text::plain("link lost"),
         })
         .await
         .expect("close");
@@ -342,10 +342,11 @@ async fn work_that_waits_too_long_for_the_link_is_refused_and_never_sent() {
         tokio::spawn(terminal.canvas(crate::canvas::CanvasRequest::Remove { keys: vec![] }));
     tokio::time::sleep(RECONNECT_WAIT + Duration::from_millis(200)).await;
     let refused = |result: Result<()>| result.expect_err("refused").to_string();
-    assert_eq!(refused(typed.await.expect("task")), RECONNECTING);
+    let reconnecting = reconnecting().to_string();
+    assert_eq!(refused(typed.await.expect("task")), reconnecting);
     assert_eq!(
         asked.await.expect("task").expect_err("refused").to_string(),
-        RECONNECTING
+        reconnecting
     );
     assert_eq!(
         refused(
@@ -353,7 +354,7 @@ async fn work_that_waits_too_long_for_the_link_is_refused_and_never_sent() {
                 .write_input(view.connection_id, Bytes::from_static(b"still away"))
                 .await
         ),
-        RECONNECTING
+        reconnecting
     );
     let (mut requests, _updates) = reconnect(&terminal).await;
     let fresh =
@@ -489,7 +490,7 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
     let refused = terminal.send_input(Bytes::from_static(b"y")).await;
     assert_eq!(
         refused.expect_err("typing").to_string(),
-        crate::terminal::SOMEONE_TYPING
+        crate::terminal::someone_typing().to_string()
     );
     terminal.disconnect();
 }

@@ -13,7 +13,7 @@ use super::{
     signed_device_list::{SignedDeviceList, verify_signed_device_list},
     wire_codec::MAX_DEVICE_CERTIFICATE_BODY_LEN,
 };
-use crate::network::{Error, Result, invalid};
+use crate::network::{Error, Result, invalid, untrusted};
 use kodosi_os::fs::write_private;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -233,12 +233,12 @@ impl Pins {
         });
         match anchor {
             Anchor::Pinned if existing.is_none() => {
-                return Err(Error::Trust("You have not trusted this person yet.".into()));
+                return Err(Error::Trust(text!("You have not trusted this person yet.")));
             }
             Anchor::Root(approved) if *approved != root => {
-                return Err(Error::Trust(
-                    "This account's identity is not the identity that was approved.".into(),
-                ));
+                return Err(Error::Trust(text!(
+                    "This account's identity is not the identity that was approved."
+                )));
             }
             _ => {}
         }
@@ -247,29 +247,29 @@ impl Pins {
                 || pin.root != root
                 || list.generation < pin.generation
             {
-                return Err(Error::Trust("This account's device identity changed. Approve the replacement before reconnecting.".into()));
+                return Err(Error::Trust(text!(
+                    "This account's device identity changed. Approve the replacement before reconnecting."
+                )));
             }
             if list.generation > pin.generation {
                 let previous = SignedDeviceList::parse_body(&decode(&pin.list_body, 527_432)?)?;
                 if list.issued_at_ms <= previous.issued_at_ms {
-                    return Err(Error::Trust("Device list issuance did not advance.".into()));
+                    return Err(untrusted("Device list issuance did not advance."));
                 }
             }
             if list.generation == pin.generation
                 && (bundle.device_list.body != pin.list_body
                     || bundle.device_list.signature != pin.list_signature)
             {
-                return Err(Error::Trust(
-                    "A device list changed without a newer generation.".into(),
+                return Err(untrusted(
+                    "A device list changed without a newer generation.",
                 ));
             }
         }
         if list.issued_at_ms > now_ms.saturating_add(5 * 60_000)
             || (!allow_expired && list.expires_at_ms.is_some_and(|expiry| expiry <= now_ms))
         {
-            return Err(Error::Trust(
-                "The signed device list is no longer current.".into(),
-            ));
+            return Err(untrusted("The signed device list is no longer current."));
         }
 
         let mut incoming = BTreeMap::new();
@@ -287,8 +287,8 @@ impl Pins {
                 ));
             }
             if cert.issued_at_ms > now_ms.saturating_add(5 * 60_000) || !cert.is_valid_at(now_ms) {
-                return Err(Error::Trust(
-                    "A device certificate is expired or not yet valid.".into(),
+                return Err(untrusted(
+                    "A device certificate is expired or not yet valid.",
                 ));
             }
             bodies.insert(cert.device_id.clone(), (cert, body));
@@ -336,18 +336,14 @@ impl Pins {
             if pin.revoked.contains(&list.signer_device_id)
                 || entries.iter().any(|id| pin.revoked.contains(id))
             {
-                return Err(Error::Trust(
-                    "A removed device cannot become trusted again.".into(),
-                ));
+                return Err(untrusted("A removed device cannot become trusted again."));
             }
             if list.generation > pin.generation {
                 let mut signer = list.signer_device_id.as_str();
                 let mut seen = BTreeSet::new();
                 loop {
                     if !seen.insert(signer) || pin.revoked.contains(signer) {
-                        return Err(Error::Trust(
-                            "Device update has no currently trusted signer.".into(),
-                        ));
+                        return Err(untrusted("Device update has no currently trusted signer."));
                     }
                     let candidate = &bodies
                         .get(signer)
@@ -355,15 +351,15 @@ impl Pins {
                         .0;
                     if let Some(trusted) = prior.get(signer) {
                         if trusted != candidate {
-                            return Err(Error::Trust(
-                                "A previously trusted signer changed its certificate.".into(),
+                            return Err(untrusted(
+                                "A previously trusted signer changed its certificate.",
                             ));
                         }
                         break;
                     }
                     if candidate.is_self_signed() {
-                        return Err(Error::Trust(
-                            "Device update is not endorsed by an already trusted device.".into(),
+                        return Err(untrusted(
+                            "Device update is not endorsed by an already trusted device.",
                         ));
                     }
                     signer = &candidate.signer_device_id;
@@ -374,9 +370,7 @@ impl Pins {
                     && (previous.certificate != envelope.certificate
                         || previous.certificate_signature != envelope.certificate_signature)
                 {
-                    return Err(Error::Trust(
-                        "An existing device changed its key material.".into(),
-                    ));
+                    return Err(untrusted("An existing device changed its key material."));
                 }
             }
         }
@@ -393,12 +387,10 @@ impl Pins {
                 .get(&cert.signer_device_id)
                 .map(|x| &x.0)
                 .or_else(|| prior.get(&cert.signer_device_id))
-                .ok_or_else(|| {
-                    Error::Trust("A device certificate has no verifiable signer.".into())
-                })?;
+                .ok_or_else(|| untrusted("A device certificate has no verifiable signer."))?;
             if signer.issued_at_ms > cert.issued_at_ms || !signer.is_valid_at(cert.issued_at_ms) {
-                return Err(Error::Trust(
-                    "Certificate was issued outside its signer's validity.".into(),
+                return Err(untrusted(
+                    "Certificate was issued outside its signer's validity.",
                 ));
             }
             verify_certificate(

@@ -123,6 +123,8 @@ echo
 signin
 
 calm kc create realms -s realm=$realm -s enabled=true -s displayName=Kodosi \
+  -s internationalizationEnabled=true -s defaultLocale=en \
+  -s 'supportedLocales=["en","de","el","es","fr","it","ja","ko","zh-CN"]' \
   -s loginTheme=kodosi -s accountTheme=kodosi -s emailTheme=kodosi \
   -s registrationAllowed=true -s registrationEmailAsUsername=false \
   -s loginWithEmailAllowed=true -s duplicateEmailsAllowed=false -s resetPasswordAllowed=true \
@@ -147,7 +149,7 @@ calm kc update users/profile -r $realm -b '{
     {"name": "username", "displayName": "${username}", "multivalued": false,
      "validations": {"length": {"min": 3, "max": 40},
        "pattern": {"pattern": "^[a-z0-9_-]+$",
-         "error-message": "Use 3 to 40 lowercase letters, digits, hyphens or underscores."},
+         "error-message": "kdsUsernameRule"},
        "up-username-not-idn-homograph": {}},
      "permissions": {"view": ["admin", "user"], "edit": ["admin", "user"]}},
     {"name": "email", "displayName": "${email}", "multivalued": false,
@@ -178,8 +180,20 @@ calm kc update "realms/$realm" -s 'registrationFlow=registration with check'
 calm kc update "authentication/flows/$form/executions" -r $realm \
   -b "{\"id\":\"$(step_of "$form" registration-terms-and-conditions)\",\"requirement\":\"REQUIRED\",\"priority\":70}"
 calm kc update authentication/required-actions/TERMS_AND_CONDITIONS -r $realm -s enabled=true
-calm kc create localization/en -r $realm \
-  -s 'termsText=<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>'
+while IFS='|' read -r locale terms privacy; do
+  calm kc create "localization/$locale" -r $realm \
+    -s "termsText=<a href=\"https://kodosi.com/terms\">$terms</a> · <a href=\"https://kodosi.com/privacy\">$privacy</a>"
+done <<'WORDS'
+en|Terms|Privacy
+de|Bedingungen|Datenschutz
+el|Όροι|Απόρρητο
+es|Términos|Privacidad
+fr|Conditions|Confidentialité
+it|Termini|Privacy
+ja|利用規約|プライバシー
+ko|이용약관|개인정보 보호
+zh-CN|条款|隐私
+WORDS
 
 calm kc update authentication/required-actions/delete_account -r $realm -s enabled=true
 calm kc add-roles -r $realm --rname "default-roles-$realm" --cclientid account --rolename delete-account

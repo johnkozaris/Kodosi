@@ -130,7 +130,7 @@ ColumnLayout {
     }
     function effortLevels() {
         return efforts.map(entry => ({ id: entry.id,
-            label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
+            label: entry.id === "xhigh" ? "Extra high" : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
     }
     function folderRows() {
         if (computer.length > 0)

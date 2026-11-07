@@ -11,12 +11,22 @@ namespace kodosi {
 class DosiWords final {
     Q_DECLARE_TR_FUNCTIONS(DosiWords)
 public:
+    struct Phrase {
+        QString alone;
+        QString about;
+
+        [[nodiscard]] QString operator()(const QString& place) const
+        {
+            return place.isEmpty() ? alone : QString(about).arg(place);
+        }
+    };
+
     struct Deed {
-        QString done;
-        QString doing;
+        Phrase done;
+        Phrase doing;
         QString icon;
-        QString saying;
-        QString said;
+        Phrase said {};
+        Phrase saying {};
     };
 
     [[nodiscard]] static Deed deed(const QString& action);

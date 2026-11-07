@@ -1,0 +1,66 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "The reason that macOS shows when Kodosi asks for the local network.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi verbindet sich direkt mit deinen anderen Computern in diesem Netzwerk, damit ein geteilter Browser sofort reagiert."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi συνδέεται απευθείας με τους άλλους υπολογιστές σας σε αυτό το δίκτυο, ώστε ένας κοινόχρηστος browser να αποκρίνεται αμέσως."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi connects straight to your other computers on this network, so that a shared browser answers at once."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi se conecta directamente a tus otros ordenadores de esta red para que un navegador compartido responda al instante."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi se connecte directement à vos autres ordinateurs sur ce réseau, pour qu'un navigateur partagé réponde immédiatement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi si collega direttamente agli altri tuoi computer su questa rete, così un browser condiviso risponde subito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi はこのネットワーク上のほかのコンピュータに直接接続し、共有ブラウザがすぐに応答できるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi는 이 네트워크의 다른 컴퓨터에 바로 연결해서 공유 브라우저가 즉시 응답하게 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 会直接连接到此网络中你的其他电脑，让共享浏览器即时响应。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

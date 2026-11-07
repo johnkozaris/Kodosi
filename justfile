@@ -236,15 +236,25 @@ backend-sdk-check:
 [group('backend')]
 backend-check: backend-sdk-check backend-test
 
-# Run the Rust and backend checks.
-check-all: rust-check documents-check browser-check backend-check
+# Run the Rust, backend and translation checks.
+check-all: rust-check documents-check browser-check backend-check translations-check
+
+# Check that each text that people read has its words in each language.
+[group('translations')]
+translations-check:
+    python3 scripts/check-translations.py
+
+# Add the texts of the last Mac and iPhone builds to the string catalogs.
+[group('translations')]
+apple-strings-sync:
+    python3 clients/apple/scripts/sync-string-catalogs.py
 
 # Generate the Xcode project, test the shared Swift package and build the Debug Mac app.
 [group('mac')]
 mac-build:
     just --justfile clients/macos/justfile build
 
-# Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
+# Lint and test the Mac app and its scripts, build the Release app, then check its translations. Commit all the changes first.
 [group('mac')]
 mac-check:
     just --justfile clients/macos/justfile check
@@ -254,7 +264,7 @@ mac-check:
 ios-build:
     just --justfile clients/ios/justfile build
 
-# Lint the runtime for iOS, lint and test the iPhone and iPad app, then build it for devices.
+# Lint the runtime for iOS, lint and test the iPhone and iPad app, build it for devices, then check its translations.
 [group('ios')]
 ios-check: ios-rust-lint
     just --justfile clients/ios/justfile check
@@ -279,6 +289,11 @@ linux-build:
 linux-check:
     just --justfile clients/qt/justfile check
 
+# Add the new texts of the Linux and Windows app to its translation files.
+[group('linux')]
+linux-strings-sync:
+    just --justfile clients/qt/justfile strings-sync
+
 # Build and test the Windows app on Windows in Git Bash.
 [group('windows')]
 windows-check:
@@ -297,7 +312,7 @@ windows-rust-lint:
 
 # Build the Keycloak theme after the type, lint and format checks.
 [group('sign-in')]
-sign-in-check:
+sign-in-check: translations-check
     cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build
 
 # Test the scripts that write the update site of a release and the feed of Kodosi Browser.

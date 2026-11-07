@@ -206,6 +206,19 @@ Browser reads the cookies of another browser's store before a browser starts, pu
 into the kept profile on the debug port, and notes which ones, so a button can remove them
 again. Another button deletes the kept profile.
 
+## Languages
+
+Each part takes the words of the language that it shows. The apps keep their own words in
+String Catalogs and Qt translation files, and the document views in
+[documents/views/words](../documents/views/words/). The runtime marks each sentence for
+people with `text!` and gives it to an app as its English template and values; the app's
+runtime fills it in the language that the app set with `kodosi_set_language`, from
+`runtime/texts/<language>.json`. The `kodosi` command, the host and the logs use English,
+and the detail of an internal fault stays English after a general sentence. The backend
+answers in English, and the runtime turns its known answers into such sentences. The
+sign-in pages, the account page and the mails are the Keycloak theme in
+[sign-in/](../sign-in/).
+
 ## Contracts
 
 The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)

@@ -68,8 +68,12 @@ impl Launcher {
         })
     }
 
-    pub async fn add_account(&self, agent: Agent, name: &str) -> Result<AgentAccount, String> {
-        let catalog = self.catalog().await?;
+    pub async fn add_account(
+        &self,
+        agent: Agent,
+        name: &str,
+    ) -> Result<AgentAccount, crate::text::Text> {
+        let catalog = self.catalog().await.map_err(crate::text::Text::plain)?;
         let taken = agent_info(&catalog, agent)
             .map(|info| {
                 info.accounts

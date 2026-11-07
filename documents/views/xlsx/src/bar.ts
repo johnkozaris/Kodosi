@@ -23,6 +23,7 @@ import {
   swatchesOf,
   wellOf,
 } from "@documents/bar";
+import { say } from "@documents/words";
 import {
   ALargeSmall,
   AlignVerticalJustifyCenter,
@@ -65,63 +66,63 @@ const FONTS = [
   "Verdana",
 ];
 const FORMATS: readonly { label: string; pattern: string; hint: string }[] = [
-  { label: "General", pattern: "", hint: "1234.5" },
-  { label: "Number", pattern: "#,##0.00", hint: "1,234.50" },
-  { label: "Whole number", pattern: "#,##0", hint: "1,235" },
-  { label: "Percent", pattern: "0.00%", hint: "12.34%" },
-  { label: "Dollars", pattern: "$#,##0.00", hint: "$1,234.50" },
-  { label: "Euros", pattern: '#,##0.00 "€"', hint: "1,234.50 €" },
-  { label: "Date", pattern: "yyyy-mm-dd", hint: "2026-11-02" },
-  { label: "Time", pattern: "hh:mm", hint: "13:45" },
-  { label: "Scientific", pattern: "0.00E+00", hint: "1.23E+03" },
-  { label: "Text", pattern: "@", hint: "abc" },
+  { label: say("General"), pattern: "", hint: "1234.5" },
+  { label: say("Number"), pattern: "#,##0.00", hint: "1,234.50" },
+  { label: say("Whole number"), pattern: "#,##0", hint: "1,235" },
+  { label: say("Percent"), pattern: "0.00%", hint: "12.34%" },
+  { label: say("Dollars"), pattern: "$#,##0.00", hint: "$1,234.50" },
+  { label: say("Euros"), pattern: '#,##0.00 "€"', hint: "1,234.50 €" },
+  { label: say("Date"), pattern: "yyyy-mm-dd", hint: "2026-11-02" },
+  { label: say("Time"), pattern: "hh:mm", hint: "13:45" },
+  { label: say("Scientific"), pattern: "0.00E+00", hint: "1.23E+03" },
+  { label: say("Text"), pattern: "@", hint: "abc" },
 ];
 const FUNCTIONS: readonly { label: string; name: string }[] = [
-  { label: "Sum", name: "SUM" },
-  { label: "Average", name: "AVERAGE" },
-  { label: "Count", name: "COUNT" },
-  { label: "Largest", name: "MAX" },
-  { label: "Smallest", name: "MIN" },
+  { label: say("Sum"), name: "SUM" },
+  { label: say("Average"), name: "AVERAGE" },
+  { label: say("Count"), name: "COUNT" },
+  { label: say("Largest"), name: "MAX" },
+  { label: say("Smallest"), name: "MIN" },
 ];
 const COLORS: readonly Swatch[] = [
-  { value: null, label: "Automatic", fill: "var(--well)", icon: Baseline },
-  { value: "#7F7F7F", label: "Gray", fill: "#7F7F7F" },
-  { value: "#C00000", label: "Dark red", fill: "#C00000" },
-  { value: "#E97132", label: "Orange", fill: "#E97132" },
-  { value: "#00B050", label: "Green", fill: "#00B050" },
-  { value: "#0070C0", label: "Blue", fill: "#0070C0" },
-  { value: "#002060", label: "Dark blue", fill: "#002060" },
-  { value: "#7030A0", label: "Purple", fill: "#7030A0" },
+  { value: null, label: say("Automatic"), fill: "var(--well)", icon: Baseline },
+  { value: "#7F7F7F", label: say("Gray"), fill: "#7F7F7F" },
+  { value: "#C00000", label: say("Dark red"), fill: "#C00000" },
+  { value: "#E97132", label: say("Orange"), fill: "#E97132" },
+  { value: "#00B050", label: say("Green"), fill: "#00B050" },
+  { value: "#0070C0", label: say("Blue"), fill: "#0070C0" },
+  { value: "#002060", label: say("Dark blue"), fill: "#002060" },
+  { value: "#7030A0", label: say("Purple"), fill: "#7030A0" },
 ];
 const FILLS: readonly Swatch[] = [
-  { value: null, label: "No fill", fill: "var(--well)", icon: Ban },
-  { value: "#FFFF00", label: "Yellow", fill: "#FFFF00" },
-  { value: "#FFF2CC", label: "Light yellow", fill: "#FFF2CC" },
-  { value: "#E2EFDA", label: "Light green", fill: "#E2EFDA" },
-  { value: "#DDEBF7", label: "Light blue", fill: "#DDEBF7" },
-  { value: "#FCE4D6", label: "Light orange", fill: "#FCE4D6" },
-  { value: "#D9D2E9", label: "Light purple", fill: "#D9D2E9" },
-  { value: "#EDEDED", label: "Light gray", fill: "#EDEDED" },
+  { value: null, label: say("No fill"), fill: "var(--well)", icon: Ban },
+  { value: "#FFFF00", label: say("Yellow"), fill: "#FFFF00" },
+  { value: "#FFF2CC", label: say("Light yellow"), fill: "#FFF2CC" },
+  { value: "#E2EFDA", label: say("Light green"), fill: "#E2EFDA" },
+  { value: "#DDEBF7", label: say("Light blue"), fill: "#DDEBF7" },
+  { value: "#FCE4D6", label: say("Light orange"), fill: "#FCE4D6" },
+  { value: "#D9D2E9", label: say("Light purple"), fill: "#D9D2E9" },
+  { value: "#EDEDED", label: say("Light gray"), fill: "#EDEDED" },
 ];
 const ALIGNS: readonly Choice<Align>[] = [
-  { value: "left", label: "Align left", icon: TextAlignStart },
-  { value: "center", label: "Center", icon: TextAlignCenter },
-  { value: "right", label: "Align right", icon: TextAlignEnd },
+  { value: "left", label: say("Align left"), icon: TextAlignStart },
+  { value: "center", label: say("Center"), icon: TextAlignCenter },
+  { value: "right", label: say("Align right"), icon: TextAlignEnd },
 ];
 const VERTICALS: readonly Choice<Vertical>[] = [
-  { value: "top", label: "Top", icon: AlignVerticalJustifyStart },
-  { value: "center", label: "Middle", icon: AlignVerticalJustifyCenter },
-  { value: "bottom", label: "Bottom", icon: AlignVerticalJustifyEnd },
+  { value: "top", label: say("Top"), icon: AlignVerticalJustifyStart },
+  { value: "center", label: say("Middle"), icon: AlignVerticalJustifyCenter },
+  { value: "bottom", label: say("Bottom"), icon: AlignVerticalJustifyEnd },
 ];
 const MARKS: readonly { name: MarkName; label: string; icon: IconNode; key?: string }[] = [
-  { name: "bold", label: "Bold", icon: Bold, key: keys("B") },
-  { name: "italic", label: "Italic", icon: Italic, key: keys("I") },
-  { name: "underline", label: "Underline", icon: Underline, key: keys("U") },
-  { name: "strike", label: "Strikethrough", icon: Strikethrough },
+  { name: "bold", label: say("Bold"), icon: Bold, key: keys("B") },
+  { name: "italic", label: say("Italic"), icon: Italic, key: keys("I") },
+  { name: "underline", label: say("Underline"), icon: Underline, key: keys("U") },
+  { name: "strike", label: say("Strikethrough"), icon: Strikethrough },
 ];
 
 function formatName(pattern: string): string {
-  return FORMATS.find((format) => format.pattern === pattern)?.label ?? "Custom";
+  return FORMATS.find((format) => format.pattern === pattern)?.label ?? say("Custom");
 }
 
 function sizeText(size: number): string {
@@ -138,7 +139,7 @@ export class XlsxBar {
     root: HTMLElement,
     private readonly status: HTMLElement,
   ) {
-    this.bar = new Bar(root, "Format");
+    this.bar = new Bar(root, say("Format"));
   }
 
   get element(): HTMLElement {
@@ -153,13 +154,13 @@ export class XlsxBar {
       return;
     }
     const undo = keyOf({
-      label: "Undo",
+      label: say("Undo"),
       icon: Undo2,
       shortcut: keys("Z"),
       press: () => control.undo(),
     });
     const redo = keyOf({
-      label: "Redo",
+      label: say("Redo"),
       icon: Redo2,
       shortcut: keys("Z", { shift: true }),
       fits: "narrow",
@@ -168,7 +169,7 @@ export class XlsxBar {
     const format = this.formatPicker(control, "mid");
     const size = this.sizeStepper(control, "wide");
     const marks = wellOf(
-      "Marks",
+      say("Font style"),
       MARKS.map((mark) => ({
         label: mark.label,
         icon: mark.icon,
@@ -176,39 +177,39 @@ export class XlsxBar {
         press: () => control.toggle(mark.name),
       })),
     );
-    const align = segmentsOf("Alignment", ALIGNS, (value) => control.setAlign(value), "wide");
+    const align = segmentsOf(say("Alignment"), ALIGNS, (value) => control.setAlign(value), "wide");
     const text = panelKey({
-      label: "Text",
+      label: say("Text"),
       icon: ALargeSmall,
       build: () => this.textPanel(control),
     });
     const copy = keyOf({
-      label: "Copy look",
+      label: say("Copy formatting"),
       icon: Paintbrush,
       fits: "wide",
       press: () => control.copyLook(),
     });
     const merge = menuKey({
-      label: "Merge",
+      label: say("Merge"),
       icon: TableCellsMerge,
       fits: "mid",
       entries: () => {
         const merged = control.look()?.merged ?? false;
         return [
           {
-            label: "Merge and center",
+            label: say("Merge and center"),
             icon: TableCellsMerge,
             run: () => {
               control.merge("all");
               control.setAlign("center");
             },
           },
-          { label: "Merge across", run: () => control.merge("rows") },
-          { label: "Merge down", run: () => control.merge("columns") },
-          { label: "Merge cells", run: () => control.merge("all") },
+          { label: say("Merge across"), run: () => control.merge("rows") },
+          { label: say("Merge down"), run: () => control.merge("columns") },
+          { label: say("Merge cells"), run: () => control.merge("all") },
           "separator",
           {
-            label: "Unmerge",
+            label: say("Unmerge"),
             icon: TableCellsSplit,
             disabled: !merged,
             run: () => control.unmerge(),
@@ -217,7 +218,7 @@ export class XlsxBar {
       },
     });
     const functions = menuKey({
-      label: "Functions",
+      label: say("Functions"),
       icon: Sigma,
       fits: "narrow",
       entries: () => {
@@ -276,7 +277,7 @@ export class XlsxBar {
 
   private formatPicker(control: SheetControl, fits?: "mid") {
     const picker = pickerOf({
-      label: "Number format",
+      label: say("Number format"),
       width: 118,
       ...(fits ? { fits } : {}),
       entries: () => {
@@ -299,7 +300,7 @@ export class XlsxBar {
 
   private sizeStepper(control: SheetControl, fits?: "wide") {
     const stepper = stepperOf(
-      "Size",
+      say("Size"),
       (larger) => {
         const now = control.look()?.size ?? 11;
         const next = larger
@@ -320,7 +321,7 @@ export class XlsxBar {
 
   private sheetPicker(control: SheetControl, canEdit: boolean) {
     const picker = pickerOf({
-      label: "Sheet",
+      label: say("Sheet"),
       width: 132,
       entries: () => {
         const sheets = control.sheets();
@@ -334,14 +335,14 @@ export class XlsxBar {
         return [
           ...entries,
           "separator",
-          { label: "Add sheet", icon: Plus, run: () => control.addSheet() },
+          { label: say("Add sheet"), icon: Plus, run: () => control.addSheet() },
           {
-            label: "Rename sheet…",
+            label: say("Rename sheet…"),
             icon: PencilLine,
             run: () => openPanel(picker.element, this.renamePanel(control, name)),
           },
           {
-            label: "Delete sheet…",
+            label: say("Delete sheet…"),
             icon: Trash2,
             disabled: sheets.length < 2,
             run: () => openPanel(picker.element, this.deletePanel(control, name)),
@@ -350,7 +351,7 @@ export class XlsxBar {
       },
     });
     const refresh = () =>
-      picker.show(control.sheets().find((sheet) => sheet.active)?.name ?? "Sheet");
+      picker.show(control.sheets().find((sheet) => sheet.active)?.name ?? say("Sheet"));
     refresh();
     return { element: picker.element, refresh };
   }
@@ -358,8 +359,8 @@ export class XlsxBar {
   private renamePanel(control: SheetControl, name: string): HTMLElement {
     return panelOf([
       [
-        "Name",
-        fieldOf("Name", name, (text) => {
+        say("Name"),
+        fieldOf(say("Name"), name, (text) => {
           control.renameSheet(text);
           closePopover();
           this.update();
@@ -370,10 +371,10 @@ export class XlsxBar {
 
   private deletePanel(control: SheetControl, name: string): HTMLElement {
     const line = document.createElement("span");
-    line.textContent = `${name} and its cells go. Undo brings them back.`;
+    line.textContent = say("This deletes {name} and its cells. Undo brings them back.", { name });
     return panelOf(
-      [["Delete", line]],
-      footOf([{ label: "Delete sheet", icon: Trash2, press: () => control.removeSheet() }]),
+      [[say("Delete"), line]],
+      footOf([{ label: say("Delete sheet"), icon: Trash2, press: () => control.removeSheet() }]),
     );
   }
 
@@ -382,7 +383,7 @@ export class XlsxBar {
     const anchor = this.bar.element;
     const rows: PanelRow[] = [];
     const font = pickerOf({
-      label: "Font",
+      label: say("Font"),
       width: 200,
       entries: () => {
         const current = control.look()?.font ?? "Arial";
@@ -399,33 +400,33 @@ export class XlsxBar {
       },
     });
     font.show(look?.font ?? "Arial");
-    rows.push(["Font", font.element]);
-    if (!fits(anchor, "wide")) rows.push(["Size", this.sizeStepper(control).element]);
+    rows.push([say("Font"), font.element]);
+    if (!fits(anchor, "wide")) rows.push([say("Size"), this.sizeStepper(control).element]);
     rows.push([
-      "Colour",
-      swatchesOf("Colour", COLORS, look?.color ?? null, (color) => control.setColor(color)),
+      say("Colour"),
+      swatchesOf(say("Colour"), COLORS, look?.color ?? null, (color) => control.setColor(color)),
     ]);
     rows.push([
-      "Fill",
-      swatchesOf("Fill", FILLS, look?.fill ?? null, (fill) => control.setFill(fill)),
+      say("Fill"),
+      swatchesOf(say("Fill"), FILLS, look?.fill ?? null, (fill) => control.setFill(fill)),
     ]);
     if (!fits(anchor, "wide")) {
-      const align = segmentsOf("Alignment", ALIGNS, (value) => {
+      const align = segmentsOf(say("Alignment"), ALIGNS, (value) => {
         control.setAlign(value);
         align.show(value);
       });
       align.show(look?.align ?? null);
-      rows.push(["Across", align.element]);
+      rows.push([say("Across"), align.element]);
     }
-    const vertical = segmentsOf("Vertical", VERTICALS, (value) => {
+    const vertical = segmentsOf(say("Vertical"), VERTICALS, (value) => {
       control.setVertical(value);
       vertical.show(value);
     });
     vertical.show(look?.vertical ?? "bottom");
-    rows.push(["Down", vertical.element]);
-    const wrap = wellOf("Wrap", [
+    rows.push([say("Down"), vertical.element]);
+    const wrap = wellOf(say("Wrap"), [
       {
-        label: "Wrap text",
+        label: say("Wrap text"),
         icon: WrapText,
         press: () => {
           const on = !(control.look()?.wrap ?? false);
@@ -435,13 +436,17 @@ export class XlsxBar {
       },
     ]);
     wrap.show([{ active: look?.wrap ?? false }]);
-    rows.push(["Wrap", wrap.element]);
-    if (!fits(anchor, "mid")) rows.push(["Format", this.formatPicker(control).element]);
+    rows.push([say("Wrap"), wrap.element]);
+    if (!fits(anchor, "mid")) rows.push([say("Format"), this.formatPicker(control).element]);
     return panelOf(
       rows,
       footOf([
-        { label: "Copy look", icon: Paintbrush, press: () => control.copyLook() },
-        { label: "Clear look", icon: RemoveFormatting, press: () => control.clearLook() },
+        { label: say("Copy formatting"), icon: Paintbrush, press: () => control.copyLook() },
+        {
+          label: say("Clear formatting"),
+          icon: RemoveFormatting,
+          press: () => control.clearLook(),
+        },
       ]),
     );
   }

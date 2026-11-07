@@ -109,10 +109,10 @@
             guard allowsInput, !clipboardPromptOpen, let window else { return }
             clipboardPromptOpen = true
             let alert = NSAlert()
-            alert.messageText = String(localized: "Let a program read your clipboard?")
-            alert.informativeText = String(localized: "A program in \(sessionName) asks for the text that you copied.")
-            alert.addButton(withTitle: String(localized: "Don't Allow"))
-            alert.addButton(withTitle: String(localized: "Allow"))
+            alert.messageText = String(localized: "Let a program read your clipboard?", bundle: .module)
+            alert.informativeText = String(localized: "A program in \(sessionName) asks for the text that you copied.", bundle: .module)
+            alert.addButton(withTitle: String(localized: "Don't Allow", bundle: .module))
+            alert.addButton(withTitle: String(localized: "Allow", bundle: .module))
             alert.beginSheetModal(for: window) { [weak self] response in
                 self?.clipboardPromptOpen = false
                 answer(response == .alertSecondButtonReturn)
@@ -442,11 +442,11 @@
             view.setAccessibilityElement(isSurfaceVisible)
             view.setAccessibilityHidden(!isSurfaceVisible)
             view.setAccessibilityRole(.textArea)
-            view.setAccessibilityLabel("Terminal for \(sessionName)")
+            view.setAccessibilityLabel(String(localized: "Terminal for \(sessionName)", bundle: .module))
             view.setAccessibilityHelp(
                 allowsInput
-                    ? "Interactive terminal showing the visible output."
-                    : "Read-only terminal showing the visible output. You can review, select, and copy text.",
+                    ? String(localized: "Interactive terminal showing the visible output.", bundle: .module)
+                    : String(localized: "Read-only terminal showing the visible output. You can review, select, and copy text.", bundle: .module),
             )
             view.setAccessibilityIdentifier(accessibilityIdentifier)
             if !allowsFocus, view.window?.firstResponder === view {

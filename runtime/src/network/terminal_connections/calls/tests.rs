@@ -76,7 +76,7 @@ async fn only_a_signed_device_of_this_person_can_call_this_computer() {
         .await
         .unwrap_err();
     assert_eq!(
-        refused.message,
+        refused.message.to_string(),
         "Only your own devices can start terminals on this computer."
     );
     let recovery = "00000000-0000-8000-8000-000000000000";

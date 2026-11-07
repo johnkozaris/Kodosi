@@ -19,10 +19,9 @@ impl BackendClient {
         credentials: &Credentials,
     ) -> Result<(IdentityBundle, Root)> {
         if self.pinned(&credentials.user_id).await? {
-            return Err(Error::Trust(
+            return Err(Error::Trust(text!(
                 "The server has no trusted devices for this account, but this device knows some."
-                    .into(),
-            ));
+            )));
         }
         let now = identity::now_ms();
         let cert = build_self_cert(
@@ -106,18 +105,32 @@ impl BackendClient {
     pub(super) async fn settle_enrollment(&self) -> Result<bool> {
         let started = self.credentials()?;
         let (verified, notice) = match self.own_standing(started.clone()).await {
-            Ok((verified, true)) => (verified, REPLACED.to_owned()),
-            Ok((verified, false)) => (verified, UNAPPROVED.to_owned()),
+            Ok((verified, true)) => (
+                verified,
+                text!(
+                    "You reset your trusted devices on another device. Approve this device from that device, or start fresh here."
+                ),
+            ),
+            Ok((verified, false)) => (
+                verified,
+                text!("Approve this device from one of your existing devices."),
+            ),
             Err(Error::Invalid { reason }) => {
                 tracing::warn!(%reason, "the trusted devices of this account are not readable");
-                (None, UNREADABLE.to_owned())
+                (
+                    None,
+                    text!(
+                        "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again."
+                    ),
+                )
             }
             Err(Error::Trust(reason)) => {
                 tracing::warn!(%reason, "the trusted devices of this account are not confirmed");
                 (
                     None,
-                    format!(
-                        "{reason} Approve this device from another device, or start fresh here."
+                    text!(
+                        "{reason} Approve this device from another device, or start fresh here.",
+                        reason = reason
                     ),
                 )
             }
@@ -156,8 +169,8 @@ impl BackendClient {
         };
         self.check_credentials(&credentials)?;
         if bundle.user_id != credentials.user_id {
-            return Err(Error::Trust(
-                "The server sent the trusted devices of another account.".into(),
+            return Err(untrusted(
+                "The server sent the trusted devices of another account.",
             ));
         }
         let now = identity::now_ms();
@@ -182,9 +195,9 @@ impl BackendClient {
                 .expires_at_ms
                 .is_some_and(|expiry| expiry <= now)
         }) {
-            return Err(Error::Trust(
-                "The list of trusted devices needs renewal from an approved device.".into(),
-            ));
+            return Err(Error::Trust(text!(
+                "The list of trusted devices needs renewal from an approved device."
+            )));
         }
         Ok((verified, replaced))
     }
@@ -285,8 +298,8 @@ impl BackendClient {
             (None, None) => return Err(invalid("The server sent no device identity.")),
             (Some((bundle, tag)), _) => {
                 if bundle.user_id != user_id {
-                    return Err(Error::Trust(
-                        "Returned device identity belongs to another account.".into(),
+                    return Err(untrusted(
+                        "Returned device identity belongs to another account.",
                     ));
                 }
                 let verified = self.verify_bundle(&bundle, None).await?;
@@ -450,10 +463,6 @@ async fn own_identity(
     .await
     .map_err(|_| Error::Closed)?
 }
-
-const UNAPPROVED: &str = "Approve this device from one of your existing devices.";
-const REPLACED: &str = "You reset your trusted devices on another device. Approve this device from that device, or start fresh here.";
-const UNREADABLE: &str = "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again.";
 
 pub(super) const DEVICE_LIST_LIFE_MS: u64 = 24 * 60 * 60_000;
 

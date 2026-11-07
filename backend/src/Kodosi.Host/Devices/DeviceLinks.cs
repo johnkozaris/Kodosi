@@ -131,7 +131,9 @@ public sealed partial class DeviceService
         var count = await db.Devices.CountAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox == null, ct);
         if (count < most) return;
         var full = $"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.";
-        throw ApiException.Forbidden(recovering ? $"{full} If you have no other device, start fresh on this device." : full);
+        throw recovering
+            ? ApiException.OverLimit("devicesRecovering", most, $"{full} If you have no other device, start fresh on this device.")
+            : ApiException.OverLimit("devices", most, full);
     }
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

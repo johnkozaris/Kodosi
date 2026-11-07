@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+  <b>English</b> · <a href="docs/de/README.md">Deutsch</a> · <a href="docs/el/README.md">Ελληνικά</a> · <a href="docs/es/README.md">Español</a> · <a href="docs/fr/README.md">Français</a> · <a href="docs/it/README.md">Italiano</a> · <a href="docs/ja/README.md">日本語</a> · <a href="docs/ko/README.md">한국어</a> · <a href="docs/zh-Hans/README.md">简体中文</a>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
   <a href="#get-kodosi"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
   <a href="#get-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>

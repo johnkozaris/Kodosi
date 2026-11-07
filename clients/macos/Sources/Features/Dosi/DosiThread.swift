@@ -51,7 +51,8 @@ struct DosiRow: Identifiable, Equatable {
             return String(localized: "yesterday")
         }
         if let days = calendar.dateComponents([.day], from: date, to: now).day, days < 7 {
-            return date.formatted(.dateTime.weekday(.wide)).lowercased()
+            let weekday = date.formatted(.dateTime.weekday(.wide))
+            return Locale.current.language.languageCode == .english ? weekday.lowercased() : weekday
         }
         return date.formatted(.dateTime.day().month(.abbreviated))
     }

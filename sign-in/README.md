@@ -24,7 +24,8 @@ themes to `kodosi`. Then:
 You need [Bun](https://bun.sh) 1.4 and Docker.
 
 - `bun run dev` serves every page with sample data at http://localhost:3184;
-  `?scene=<name>` picks a page and `?sheet=0,12` shows twelve side by side.
+  `?scene=<name>` picks a page, `?sheet=0,12` shows twelve side by side, and `?lang=de`
+  shows a language (Keycloak's tag: `zh-CN` for Chinese).
 - `./keycloak.sh` runs a disposable Keycloak with the theme and a mailbox, and prints
   their addresses. `./keycloak.sh code` starts a device sign-in, as the command line
   does, `./keycloak.sh check pass|block|ask|refuse|off` sets the stand-in captcha, and

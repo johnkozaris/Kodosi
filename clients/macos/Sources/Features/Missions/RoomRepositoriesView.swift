@@ -97,7 +97,7 @@ struct RoomRepositoriesView: View {
             }
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain).help("\(repository.host)/\(repository.owner)/\(repository.repository)")
+        .buttonStyle(.plain).help(Text(verbatim: "\(repository.host)/\(repository.owner)/\(repository.repository)"))
         .accessibilityAddTraits(active ? .isSelected : [])
         .accessibilityIdentifier("room.repository.\(AccessibilityIdentifier.token(repository.id))")
     }

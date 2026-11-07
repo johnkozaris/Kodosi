@@ -72,7 +72,7 @@ ghostty-link-test:
 deployment-targets-check:
     ../apple/scripts/verify-deployment-targets.py
 
-# Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
+# Lint and test the Mac app and its scripts, build the Release app, then check its translations. Commit all the changes first.
 check: lint deployment-targets-check ghostty-link-test xcode-gen apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
@@ -84,6 +84,8 @@ check: lint deployment-targets-check ghostty-link-test xcode-gen apple-test
         -configuration Release \
         -destination 'generic/platform=macOS' \
         build
+    python3 ../apple/scripts/sync-string-catalogs.py --check
+    python3 ../../scripts/check-translations.py
 
 # Archive, export, notarize and package the Mac app in build/export/Kodosi-<version>.dmg. Commit all the changes first.
 release-package: xcode-gen

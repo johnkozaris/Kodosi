@@ -1,7 +1,474 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "Kodosi cannot read this picture." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi kann dieses Bild nicht lesen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi δεν μπορεί να διαβάσει αυτή την εικόνα."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi no puede leer esta imagen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi ne peut pas lire cette image."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi non riesce a leggere questa immagine."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi はこの画像を読み込めません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi가 이 이미지를 읽을 수 없어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 无法读取此图片。"
+          }
+        }
+      }
+    },
+    "Kodosi did not send your typing (error %d)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi hat deine Eingabe nicht gesendet (Fehler %d)."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi δεν έστειλε αυτό που πληκτρολογήσατε (σφάλμα %d)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi no ha enviado lo que has escrito (error %d)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi n'a pas envoyé votre saisie (erreur %d)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi non ha inviato ciò che hai digitato (errore %d)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力内容を送信できませんでした（エラー %d）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "입력 내용을 보내지 못했어요(오류 %d)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 未发送你的输入（错误 %d）。"
+          }
+        }
+      }
+    },
+    "Kodosi stopped before it sent your typing." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi wurde beendet, bevor es deine Eingabe gesendet hat."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi σταμάτησε πριν στείλει αυτό που πληκτρολογήσατε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi se ha detenido antes de enviar lo que has escrito."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi s'est arrêté avant d'envoyer votre saisie."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi si è fermato prima di inviare ciò che hai digitato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力内容を送信する前に Kodosi が停止しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "입력 내용을 보내기 전에 Kodosi가 멈췄어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 在发送你的输入前已停止。"
+          }
+        }
+      }
+    },
+    "That paste is too large, so Kodosi did not send it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Eingefügte ist zu groß, darum hat Kodosi es nicht gesendet."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η επικόλληση είναι πολύ μεγάλη, οπότε το Kodosi δεν την έστειλε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que has pegado es demasiado grande, así que Kodosi no lo ha enviado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le contenu collé est trop volumineux, Kodosi ne l'a donc pas envoyé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quello che hai incollato è troppo grande, quindi Kodosi non l'ha inviato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "貼り付けた内容が大きすぎるため、Kodosi は送信しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "붙여넣은 내용이 너무 커서 Kodosi가 보내지 않았어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴的内容太大，Kodosi 没有发送。"
+          }
+        }
+      }
+    },
+    "The picture did not arrive. Paste it again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Bild ist nicht angekommen. Füge es erneut ein."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η εικόνα δεν έφτασε. Επικολλήστε την ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La imagen no ha llegado. Vuelve a pegarla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'image n'est pas arrivée. Collez-la à nouveau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'immagine non è arrivata. Incollala di nuovo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像が届きませんでした。もう一度貼り付けてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미지가 도착하지 않았어요. 다시 붙여넣으세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片未送达。请重新粘贴。"
+          }
+        }
+      }
+    },
+    "The terminal could not connect." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Terminal konnte keine Verbindung herstellen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το τερματικό δεν μπόρεσε να συνδεθεί."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El terminal no se ha podido conectar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le terminal n'a pas pu se connecter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il terminale non è riuscito a connettersi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ターミナルに接続できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에 연결하지 못했어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端无法连接。"
+          }
+        }
+      }
+    },
+    "The terminal received an invalid control frame. Retry the terminal to reconnect." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Terminal hat einen ungültigen Steuer-Frame erhalten. Versuche es erneut, um wieder zu verbinden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το τερματικό έλαβε μη έγκυρο πλαίσιο ελέγχου. Δοκιμάστε ξανά για επανασύνδεση."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El terminal ha recibido una trama de control no válida. Reinténtalo para reconectar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le terminal a reçu une trame de contrôle non valide. Réessayez pour le reconnecter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il terminale ha ricevuto un frame di controllo non valido. Riprova per riconnetterlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ターミナルが無効な制御フレームを受信しました。再試行して再接続してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널이 잘못된 제어 프레임을 받았어요. 다시 시도해서 다시 연결하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "终端收到了无效的控制帧。请重试以重新连接。"
+          }
+        }
+      }
+    },
+    "This terminal fell behind. Try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Terminal kommt nicht mehr hinterher. Versuche es erneut."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό το τερματικό δεν πρόλαβε τις ενημερώσεις. Δοκιμάστε ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este terminal no ha podido seguir el ritmo. Inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce terminal n'arrive plus à suivre. Réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo terminale non riesce a stare al passo. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このターミナルの処理が追いつきません。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 터미널이 처리 속도를 따라가지 못했어요. 다시 시도하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此终端跟不上更新速度，请重试。"
+          }
+        }
+      }
+    },
+    "This terminal still waits for earlier typing. Kodosi did not send your paste." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Terminal wartet noch auf frühere Eingaben. Kodosi hat dein Eingefügtes nicht gesendet."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό το τερματικό περιμένει ακόμη να σταλούν όσα πληκτρολογήσατε πριν. Το Kodosi δεν έστειλε την επικόλλησή σας."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este terminal aún tiene pendiente lo que has escrito antes. Kodosi no ha enviado lo que has pegado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce terminal n'a pas encore reçu votre saisie précédente. Kodosi n'a pas envoyé le contenu collé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo terminale sta ancora inviando l'input precedente. Kodosi non ha inviato ciò che hai incollato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このターミナルは以前の入力をまだ待っています。Kodosi は貼り付けた内容を送信しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 터미널은 아직 이전 입력을 기다리고 있어요. Kodosi가 붙여넣은 내용을 보내지 않았어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此终端之前的输入仍在发送中。Kodosi 没有发送你粘贴的内容。"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

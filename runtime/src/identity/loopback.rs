@@ -10,6 +10,7 @@ use tokio::{
 
 use super::oidc::BrowserLogin;
 use crate::network::Result;
+use crate::text::{Language, Text};
 
 const MAX_REQUEST: usize = 8 * 1024;
 const MAX_WAITING: usize = 16;
@@ -60,15 +61,24 @@ impl Loopback {
     }
 }
 
-pub(crate) async fn finish(stream: TcpStream, outcome: std::result::Result<(), String>) {
+pub(crate) async fn finish(
+    stream: TcpStream,
+    outcome: std::result::Result<(), Text>,
+    language: Language,
+) {
     let page = match outcome {
         Ok(()) => page(
-            "You are signed in to Kodosi",
-            "Close this tab and go back to Kodosi.",
+            language,
+            &text!("You are signed in to Kodosi").in_language(language),
+            &text!("Close this tab and go back to Kodosi.").in_language(language),
         ),
-        Err(message) => page(
-            "Kodosi could not sign you in",
-            &format!("{} Go back to Kodosi and try again.", escape(&message)),
+        Err(reason) => page(
+            language,
+            &text!("Kodosi could not sign you in").in_language(language),
+            &escape(
+                &text!("{reason} Go back to Kodosi and try again.", reason = reason)
+                    .in_language(language),
+            ),
         ),
     };
     reply(stream, "200 OK", &page).await;
@@ -117,9 +127,10 @@ async fn reply(mut stream: TcpStream, status: &str, body: &str) {
 
 const NOT_HERE: &str = "<!doctype html><title>Kodosi</title>";
 
-fn page(title: &str, text: &str) -> String {
+fn page(language: Language, title: &str, text: &str) -> String {
+    let tag = language.tag();
     format!(
-        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">\
+        "<!doctype html><html lang=\"{tag}\"><meta charset=\"utf-8\">\
          <meta name=\"viewport\" content=\"width=device-width\"><title>Kodosi</title>\
          <style>:root{{color-scheme:light dark}}body{{margin:0;min-height:90vh;display:grid;\
          place-items:center;font:16px/1.5 -apple-system,system-ui,sans-serif}}\

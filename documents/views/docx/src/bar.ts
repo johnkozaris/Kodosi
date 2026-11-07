@@ -20,6 +20,7 @@ import {
   swatchesOf,
   wellOf,
 } from "@documents/bar";
+import { say } from "@documents/words";
 import type { Editor } from "@tiptap/core";
 import { redo, redoDepth, undo, undoDepth } from "@tiptap/pm/history";
 import type { Node as ProseNode } from "@tiptap/pm/model";
@@ -64,44 +65,59 @@ const FONTS = [
   "Verdana",
 ];
 const COLORS: readonly Swatch[] = [
-  { value: null, label: "Automatic", fill: "var(--well)", icon: Baseline },
-  { value: "7F7F7F", label: "Gray", fill: "#7F7F7F" },
-  { value: "C00000", label: "Dark red", fill: "#C00000" },
-  { value: "E97132", label: "Orange", fill: "#E97132" },
-  { value: "00B050", label: "Green", fill: "#00B050" },
-  { value: "0070C0", label: "Blue", fill: "#0070C0" },
-  { value: "002060", label: "Dark blue", fill: "#002060" },
-  { value: "7030A0", label: "Purple", fill: "#7030A0" },
+  { value: null, label: say("Automatic"), fill: "var(--well)", icon: Baseline },
+  { value: "7F7F7F", label: say("Gray"), fill: "#7F7F7F" },
+  { value: "C00000", label: say("Dark red"), fill: "#C00000" },
+  { value: "E97132", label: say("Orange"), fill: "#E97132" },
+  { value: "00B050", label: say("Green"), fill: "#00B050" },
+  { value: "0070C0", label: say("Blue"), fill: "#0070C0" },
+  { value: "002060", label: say("Dark blue"), fill: "#002060" },
+  { value: "7030A0", label: say("Purple"), fill: "#7030A0" },
 ];
 const HIGHLIGHTS: readonly Swatch[] = [
-  { value: null, label: "No highlight", fill: "var(--well)", icon: Ban },
-  { value: "yellow", label: "Yellow", fill: "#FFFF00" },
-  { value: "green", label: "Bright green", fill: "#00FF00" },
-  { value: "cyan", label: "Turquoise", fill: "#00FFFF" },
-  { value: "magenta", label: "Pink", fill: "#FF00FF" },
-  { value: "lightGray", label: "Gray", fill: "#C0C0C0" },
+  { value: null, label: say("No highlight"), fill: "var(--well)", icon: Ban },
+  { value: "yellow", label: say("Yellow"), fill: "#FFFF00" },
+  { value: "green", label: say("Bright green"), fill: "#00FF00" },
+  { value: "cyan", label: say("Turquoise"), fill: "#00FFFF" },
+  { value: "magenta", label: say("Pink"), fill: "#FF00FF" },
+  { value: "lightGray", label: say("Gray"), fill: "#C0C0C0" },
 ];
 const ALIGNS: readonly Choice<Align>[] = [
   {
     value: "left",
-    label: "Align left",
+    label: say("Align left"),
     icon: TextAlignStart,
     shortcut: keys("L", { shift: true }),
   },
-  { value: "center", label: "Center", icon: TextAlignCenter, shortcut: keys("E", { shift: true }) },
+  {
+    value: "center",
+    label: say("Center"),
+    icon: TextAlignCenter,
+    shortcut: keys("E", { shift: true }),
+  },
   {
     value: "right",
-    label: "Align right",
+    label: say("Align right"),
     icon: TextAlignEnd,
     shortcut: keys("R", { shift: true }),
   },
-  { value: "both", label: "Justify", icon: TextAlignJustify, shortcut: keys("J", { shift: true }) },
+  {
+    value: "both",
+    label: say("Justify"),
+    icon: TextAlignJustify,
+    shortcut: keys("J", { shift: true }),
+  },
 ];
 const MARKS: readonly { name: MarkName; label: string; icon: IconNode; key: string }[] = [
-  { name: "bold", label: "Bold", icon: Bold, key: keys("B") },
-  { name: "italic", label: "Italic", icon: Italic, key: keys("I") },
-  { name: "underline", label: "Underline", icon: Underline, key: keys("U") },
-  { name: "strike", label: "Strikethrough", icon: Strikethrough, key: keys("X", { shift: true }) },
+  { name: "bold", label: say("Bold"), icon: Bold, key: keys("B") },
+  { name: "italic", label: say("Italic"), icon: Italic, key: keys("I") },
+  { name: "underline", label: say("Underline"), icon: Underline, key: keys("U") },
+  {
+    name: "strike",
+    label: say("Strikethrough"),
+    icon: Strikethrough,
+    key: keys("X", { shift: true }),
+  },
 ];
 
 /** A file keeps the built-in names of styles in small letters, and apps show them with a capital. */
@@ -128,7 +144,7 @@ export class DocxBar {
     /** The parts at the end of the bar, such as the zoom and the status. */
     private readonly end: readonly HTMLElement[],
   ) {
-    this.bar = new Bar(root, "Format");
+    this.bar = new Bar(root, say("Format"));
   }
 
   get element(): HTMLElement {
@@ -144,13 +160,13 @@ export class DocxBar {
       return;
     }
     const undoKey = keyOf({
-      label: "Undo",
+      label: say("Undo"),
       icon: Undo2,
       shortcut: keys("Z"),
       press: () => this.history(undo),
     });
     const redoKey = keyOf({
-      label: "Redo",
+      label: say("Redo"),
       icon: Redo2,
       shortcut: keys("Z", { shift: true }),
       fits: "narrow",
@@ -158,7 +174,7 @@ export class DocxBar {
     });
     const style = this.stylePicker("mid");
     const marks = wellOf(
-      "Marks",
+      say("Font style"),
       MARKS.map((mark) => ({
         label: mark.label,
         icon: mark.icon,
@@ -167,35 +183,35 @@ export class DocxBar {
       })),
     );
     const align = segmentsOf(
-      "Alignment",
+      say("Alignment"),
       ALIGNS,
       (value) => commands.setAlign(editor, value),
       "wide",
     );
     const lists = this.listWell("wide");
-    const text = panelKey({ label: "Text", icon: ALargeSmall, build: () => this.textPanel() });
+    const text = panelKey({ label: say("Text"), icon: ALargeSmall, build: () => this.textPanel() });
     const changes = menuKey({
-      label: "Tracked changes",
+      label: say("Tracked changes"),
       icon: FileDiff,
       align: "end",
       entries: () => {
         const here = !commands.canDecide(editor.state);
         return [
           {
-            label: "Accept",
+            label: say("Accept"),
             icon: Check,
             disabled: here,
             run: () => commands.decide(editor, true, false),
           },
           {
-            label: "Reject",
+            label: say("Reject"),
             icon: X,
             disabled: here,
             run: () => commands.decide(editor, false, false),
           },
           "separator",
-          { label: "Accept all", run: () => commands.decide(editor, true, true) },
-          { label: "Reject all", run: () => commands.decide(editor, false, true) },
+          { label: say("Accept all"), run: () => commands.decide(editor, true, true) },
+          { label: say("Reject all"), run: () => commands.decide(editor, false, true) },
         ];
       },
     });
@@ -286,7 +302,7 @@ export class DocxBar {
 
   private stylePicker(fits?: "mid") {
     const picker = pickerOf({
-      label: "Style",
+      label: say("Style"),
       width: 148,
       ...(fits ? { fits } : {}),
       entries: () => this.styleEntries(refresh),
@@ -295,7 +311,7 @@ export class DocxBar {
       const editor = this.editor;
       const styles = this.view.styles;
       if (!editor || !styles) {
-        picker.show("Style", false);
+        picker.show(say("Style"), false);
         return;
       }
       const id =
@@ -317,16 +333,16 @@ export class DocxBar {
       refresh();
     };
     const well = wellOf(
-      "Lists",
+      say("Lists"),
       [
         {
-          label: "Bullets",
+          label: say("Bullets"),
           icon: List,
           shortcut: keys("8", { shift: true }),
           press: () => toggle(bullets),
         },
         {
-          label: "Numbers",
+          label: say("Numbers"),
           icon: ListOrdered,
           shortcut: keys("7", { shift: true }),
           press: () => toggle(numbers),
@@ -352,9 +368,9 @@ export class DocxBar {
     const anchor = this.bar.element;
     const look = commands.textLook(editor.state);
     const rows: PanelRow[] = [];
-    if (!fits(anchor, "mid")) rows.push(["Style", this.stylePicker().element]);
+    if (!fits(anchor, "mid")) rows.push([say("Style"), this.stylePicker().element]);
     const font = pickerOf({
-      label: "Font",
+      label: say("Font"),
       width: 200,
       entries: () => {
         const current = commands.fontOf(this.view, editor.state);
@@ -371,8 +387,8 @@ export class DocxBar {
       },
     });
     font.show(commands.fontOf(this.view, editor.state));
-    rows.push(["Font", font.element]);
-    const size = stepperOf("Size", (larger) => {
+    rows.push([say("Font"), font.element]);
+    const size = stepperOf(say("Size"), (larger) => {
       const now = commands.sizeOf(this.view, editor.state);
       const next = larger
         ? (SIZES.find((step) => step > now) ?? now)
@@ -385,32 +401,32 @@ export class DocxBar {
       size.show(sizeText(now), now > (SIZES[0] ?? 0), now < (SIZES.at(-1) ?? 0));
     };
     showSize();
-    rows.push(["Size", size.element]);
+    rows.push([say("Size"), size.element]);
     rows.push([
-      "Colour",
-      swatchesOf("Colour", COLORS, look.color ?? null, (color) =>
+      say("Colour"),
+      swatchesOf(say("Colour"), COLORS, look.color ?? null, (color) =>
         commands.setTextLook(editor, { color }),
       ),
     ]);
     rows.push([
-      "Highlight",
-      swatchesOf("Highlight", HIGHLIGHTS, look.highlight ?? null, (highlight) =>
+      say("Highlight"),
+      swatchesOf(say("Highlight"), HIGHLIGHTS, look.highlight ?? null, (highlight) =>
         commands.setTextLook(editor, { highlight }),
       ),
     ]);
     if (!fits(anchor, "wide")) {
-      const align = segmentsOf("Alignment", ALIGNS, (value) => {
+      const align = segmentsOf(say("Alignment"), ALIGNS, (value) => {
         commands.setAlign(editor, value);
         align.show(value);
       });
       align.show(commands.alignOf(this.view, commands.paragraphAt(editor.state)));
-      rows.push(["Alignment", align.element]);
+      rows.push([say("Alignment"), align.element]);
       const lists = this.listWell();
-      rows.push(["Lists", lists.element]);
+      rows.push([say("Lists"), lists.element]);
     }
-    const level = wellOf("Level", [
+    const level = wellOf(say("Level"), [
       {
-        label: "Out one level",
+        label: say("Decrease indent"),
         icon: ListIndentDecrease,
         press: () => {
           commands.indent(editor, -1);
@@ -418,7 +434,7 @@ export class DocxBar {
         },
       },
       {
-        label: "In one level",
+        label: say("Increase indent"),
         icon: ListIndentIncrease,
         press: () => {
           commands.indent(editor, 1);
@@ -432,11 +448,15 @@ export class DocxBar {
         { enabled: commands.canIndent(editor.state, 1) },
       ]);
     showLevel();
-    rows.push(["Level", level.element]);
+    rows.push([say("Level"), level.element]);
     return panelOf(
       rows,
       footOf([
-        { label: "Clear look", icon: RemoveFormatting, press: () => commands.clearLook(editor) },
+        {
+          label: say("Clear formatting"),
+          icon: RemoveFormatting,
+          press: () => commands.clearLook(editor),
+        },
       ]),
     );
   }

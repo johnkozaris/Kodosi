@@ -45,6 +45,16 @@
               }
             ]
           },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -12029,7 +12039,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 80,
+  "protocolVersion": 81,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

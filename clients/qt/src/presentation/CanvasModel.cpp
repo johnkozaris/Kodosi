@@ -351,7 +351,7 @@ QString CanvasModel::about(const QString& place, const QString& words)
     auto line = oneLine(words);
     if (line.size() > mostWords)
         line.truncate(line.at(mostWords - 1).isHighSurrogate() ? mostWords - 1 : mostWords);
-    return line.isEmpty() ? QStringLiteral("About %1: ").arg(place) : QStringLiteral("About %1: \"%2\" ").arg(place, line);
+    return line.isEmpty() ? tr("About %1: ").arg(place) : tr("About %1: \"%2\" ").arg(place, line);
 }
 
 // A link on a page or in a file of the canvas opens by the rules of terminal links.

@@ -18,6 +18,8 @@ compile_error!(
 #[cfg(all(target_os = "ios", feature = "host"))]
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
+#[macro_use]
+pub mod text;
 pub mod agents;
 pub mod canvas;
 #[cfg(feature = "cli")]
@@ -48,30 +50,67 @@ pub const PRODUCT_VERSION: &str = env!("KODOSI_VERSION");
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("Kodosi is busy. Try again.")]
     Busy,
-    #[error("Kodosi has stopped.")]
     Stopped,
-    #[error("This terminal is not available.")]
     NotFound,
-    #[error("The terminal or the account changed. Try again.")]
     Stale,
-    #[error("{0}")]
     Invalid(String),
-    #[error("{0}")]
-    HostBusy(String),
-    #[error("Kodosi was updated, but its host still runs the earlier version.")]
+    Refused(text::Text),
+    Text(text::Text),
+    HostBusy(text::Text),
     HostOutdated {
         kind: HostKind,
         pid: u32,
         terminals: usize,
     },
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
+    Io(std::io::Error),
     Other(String),
+}
+
+impl Error {
+    pub fn text(&self) -> text::Text {
+        match self {
+            Self::Busy => text!("Kodosi is busy. Try again."),
+            Self::Stopped => text!("Kodosi has stopped."),
+            Self::NotFound => text!("This terminal is not available."),
+            Self::Stale => text!("The terminal or the account changed. Try again."),
+            Self::Invalid(words) | Self::Other(words) => text::Text::plain(words.clone()),
+            Self::Refused(text) | Self::Text(text) | Self::HostBusy(text) => text.clone(),
+            Self::HostOutdated { .. } => {
+                text!("Kodosi was updated, but its host still runs the earlier version.")
+            }
+            Self::Io(error) => text::Text::plain(error.to_string()),
+        }
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.text().fmt(formatter)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+impl From<text::Text> for Error {
+    fn from(text: text::Text) -> Self {
+        Self::Text(text)
+    }
 }
 
 #[cfg(feature = "host")]
@@ -93,13 +132,13 @@ impl From<network::Error> for Error {
         match error {
             network::Error::Busy => Self::Busy,
             network::Error::Stale => Self::Stale,
-            network::Error::Trust(message) => Self::Invalid(message),
-            error @ (network::Error::SignedOut
+            refusal @ (network::Error::Trust(_)
+            | network::Error::SignedOut
             | network::Error::EnrollmentRequired
             | network::Error::Backend {
                 status: 403 | 404, ..
-            }) => Self::Invalid(error.to_string()),
-            other => Self::Other(other.to_string()),
+            }) => Self::Refused(refusal.text()),
+            other => Self::Text(other.text()),
         }
     }
 }

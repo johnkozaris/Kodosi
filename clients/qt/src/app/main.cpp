@@ -1,4 +1,5 @@
 #include "app/AppActivation.hpp"
+#include "app/AppLanguage.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
 #include "app/DeepLinkRouter.hpp"
 #include "app/QmlModelTypes.hpp"
@@ -75,7 +76,7 @@ QString startFailure()
 {
     kodosi_start_failure_t failure {};
     return kodosi_last_start_failure(&failure) == 1 ? QString::fromUtf8(failure.message)
-                                                    : QStringLiteral("Kodosi could not start.");
+                                                    : QCoreApplication::translate("main", "Kodosi could not start.");
 }
 
 bool replacesEarlierApp()
@@ -123,6 +124,9 @@ int main(int argc, char* argv[])
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
     QCoreApplication::setApplicationName(QStringLiteral("Kodosi"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KODOSI_VERSION));
+    kodosi::AppLanguage::install(
+        app, kodosi::AppLanguage::resolved(QSettings().value(QStringLiteral("app/language")).toString()));
+    kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
     const auto executable = QCoreApplication::applicationFilePath();
 #ifdef Q_OS_LINUX
     // Wayland names the window by this entry, so the desktop shows Kodosi's icon and name.
@@ -180,6 +184,9 @@ int main(int argc, char* argv[])
         isolated->setFallbacksEnabled(false);
         return isolated;
     };
+    kodosi::AppLanguage::install(
+        app, kodosi::AppLanguage::resolved(settings()->value(QStringLiteral("app/language")).toString()));
+    kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
     kodosi::TerminalSessionRegistry terminalSessions;
     kodosi::RuntimeBridge runtime(terminalSessions);
     kodosi::ApplicationLifecycleModel lifecycle(runtime);

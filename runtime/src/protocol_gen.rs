@@ -452,7 +452,8 @@ mod tests {
             let value = sample(variant);
             let event: protocol::Event = serde_json::from_value(value.clone())
                 .unwrap_or_else(|error| panic!("{value}: {error}"));
-            let encoded = serde_json::to_value(&event).unwrap();
+            let mut encoded = serde_json::to_value(&event).unwrap();
+            kodosi_runtime::text::render(&mut encoded, kodosi_runtime::text::Language::English);
             assert!(
                 matches(&schema, &encoded),
                 "event {} did not match generated schema",

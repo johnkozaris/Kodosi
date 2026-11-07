@@ -140,7 +140,7 @@ ColumnLayout {
                 subtitle: qsTr("Account")
                 leading: AgentMark { program: root.agent; size: 28 }
 
-                Picker {
+                KPicker {
                     objectName: "settings.dosi.account"
                     values: [{ value: "", label: qsTr("Default") }].concat((root.info ? root.info.accounts : [])
                         .filter(entry => entry.name !== "default")
@@ -154,7 +154,7 @@ ColumnLayout {
                 iconName: "cube"
                 tint: "#8660d9"
 
-                Picker {
+                KPicker {
                     objectName: "settings.dosi.model"
                     values: [{ value: "", label: qsTr("The agent's choice") }].concat((root.modelSet ? root.modelSet.models : [])
                         .map(entry => ({ value: entry.id, label: entry.label })))
@@ -168,10 +168,10 @@ ColumnLayout {
                 iconName: "sparkle"
                 tint: "#4f9bb0"
 
-                Picker {
+                KPicker {
                     objectName: "settings.dosi.effort"
                     values: [{ value: "", label: qsTr("The agent's choice") }].concat(root.efforts
-                        .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
+                        .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? "Extra high" : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
                     current: root.setup.effort || ""
                     onPicked: value => root.choose({ effort: value })
                 }
@@ -413,37 +413,5 @@ ColumnLayout {
         text: root.instructions.message || ""
         color: KodosiTheme.danger
         wrapMode: Text.WordWrap
-    }
-
-    component Picker: KButton {
-        id: picker
-
-        property var values: []
-        property string current: ""
-
-        signal picked(string value)
-
-        compact: true
-        iconName: "chevron-down"
-        iconTrailing: true
-        text: (values.find(entry => entry.value === current) || values[0] || { label: "" }).label
-        Accessible.id: objectName
-        onClicked: menu.popup(picker, 0, picker.height + 4)
-
-        KMenu {
-            id: menu
-
-            Instantiator {
-                model: picker.values
-                delegate: KMenuItem {
-                    required property var modelData
-                    text: modelData.label
-                    iconName: modelData.value === picker.current ? "check" : ""
-                    onTriggered: picker.picked(modelData.value)
-                }
-                onObjectAdded: (index, object) => menu.insertItem(index, object)
-                onObjectRemoved: (index, object) => menu.removeItem(object)
-            }
-        }
     }
 }

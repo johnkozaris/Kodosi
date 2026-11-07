@@ -38,6 +38,8 @@ target_link_libraries(kodosi-runtime
 )
 
 qt_add_library(kodosi-application STATIC
+    app/AppLanguage.cpp
+    app/AppLanguage.hpp
     app/ApplicationLifecycleModel.cpp
     app/ApplicationLifecycleModel.hpp
     app/AppActivation.cpp
@@ -329,6 +331,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/Tip.qml
         qml/Controls/KMenu.qml
         qml/Controls/KMenuItem.qml
+        qml/Controls/KPicker.qml
         qml/Controls/KPopover.qml
         qml/Controls/KReadOnlyText.qml
         qml/Controls/KScrollBar.qml
@@ -431,6 +434,49 @@ target_link_libraries(kodosi-qt
         kodosi-canvas-web
         kodosi-qml-modelsplugin
         kodosi-uiplugin
+)
+
+set(KODOSI_LANGUAGES de el es fr it ja ko zh_CN)
+list(TRANSFORM KODOSI_LANGUAGES REPLACE "^(.+)$" "${CMAKE_CURRENT_SOURCE_DIR}/../i18n/kodosi_\\1.ts"
+    OUTPUT_VARIABLE KODOSI_TS_FILES)
+set(KODOSI_PLURALS_TS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../i18n/kodosi_en.ts")
+qt_add_lupdate(
+    TS_FILES ${KODOSI_TS_FILES}
+    PLURALS_TS_FILE "${KODOSI_PLURALS_TS_FILE}"
+    SOURCE_TARGETS kodosi-qt kodosi-ui kodosi-application kodosi-qml-models kodosi-desktop-integration
+        kodosi-canvas-web kodosi-terminal-kernel kodosi-runtime
+    LUPDATE_TARGET kodosi-translations-update
+    OPTIONS -no-obsolete -locations none
+    NO_GLOBAL_TARGET
+)
+set(KODOSI_TS_CHECK_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations-check")
+list(TRANSFORM KODOSI_LANGUAGES REPLACE "^(.+)$" "${KODOSI_TS_CHECK_DIR}/kodosi_\\1.ts"
+    OUTPUT_VARIABLE KODOSI_TS_CHECK_FILES)
+add_custom_target(kodosi-translations-check-copy
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${KODOSI_TS_CHECK_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${KODOSI_TS_CHECK_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E copy ${KODOSI_TS_FILES} "${KODOSI_PLURALS_TS_FILE}" "${KODOSI_TS_CHECK_DIR}"
+)
+qt_add_lupdate(
+    TS_FILES ${KODOSI_TS_CHECK_FILES}
+    PLURALS_TS_FILE "${KODOSI_TS_CHECK_DIR}/kodosi_en.ts"
+    SOURCE_TARGETS kodosi-qt kodosi-ui kodosi-application kodosi-qml-models kodosi-desktop-integration
+        kodosi-canvas-web kodosi-terminal-kernel kodosi-runtime
+    LUPDATE_TARGET kodosi-translations-check
+    OPTIONS -no-obsolete -locations none
+    NO_GLOBAL_TARGET
+)
+add_dependencies(kodosi-translations-check kodosi-translations-check-copy)
+qt_add_lrelease(
+    TS_FILES ${KODOSI_TS_FILES} "${KODOSI_PLURALS_TS_FILE}"
+    QM_FILES_OUTPUT_VARIABLE KODOSI_QM_FILES
+    LRELEASE_TARGET kodosi-translations-release
+    NO_GLOBAL_TARGET
+)
+qt_add_resources(kodosi-qt kodosi-translations
+    PREFIX /i18n
+    BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${KODOSI_QM_FILES}
 )
 
 target_compile_definitions(kodosi-runtime

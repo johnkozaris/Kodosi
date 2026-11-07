@@ -18,7 +18,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         for item in items {
             match BackendClient::room_payload(cached, room, item) {
                 Ok(Payload::Dosi { record }) if item.kind == "message" => {
@@ -100,7 +100,7 @@ impl BackendClient {
             Err(Error::Backend { status: 409, .. }) => self
                 .listed_dosi(credentials)
                 .await?
-                .ok_or_else(|| invalid("Dosi's conversation is missing.")),
+                .ok_or_else(|| Error::Text(text!("Dosi's conversation is missing."))),
             Err(error) => Err(error),
         }
     }

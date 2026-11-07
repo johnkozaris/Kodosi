@@ -101,24 +101,35 @@ impl Task {
         name: String,
         terminal_id: Option<String>,
         live: impl Fn(&str) -> bool,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::text::Text> {
         if self.closed {
-            return Err("This task is done. Open it again before you take it.".to_owned());
+            return Err(text!(
+                "This task is done. Open it again before you take it."
+            ));
         }
         match &self.assigned_to {
             Some(holder) if holder != user_id => {
-                return Err(format!(
-                    "{} has this task. Take another task, or ask them to release it.",
-                    self.assigned_name.as_deref().unwrap_or("Another member")
+                return Err(self.assigned_name.as_deref().map_or_else(
+                    || {
+                        text!(
+                            "Another member has this task. Take another task, or ask them to release it."
+                        )
+                    },
+                    |name| {
+                        text!(
+                            "{name} has this task. Take another task, or ask them to release it.",
+                            name = name
+                        )
+                    },
                 ));
             }
             Some(_)
                 if self.terminal_id != terminal_id
                     && self.terminal_id.as_deref().is_some_and(live) =>
             {
-                return Err(
-                    "You have this task in another terminal. Release it there first.".to_owned(),
-                );
+                return Err(text!(
+                    "You have this task in another terminal. Release it there first."
+                ));
             }
             _ => {}
         }
@@ -194,9 +205,9 @@ impl Action {
     pub(crate) fn validate(&self) -> crate::Result<()> {
         let text = |value: &str, maximum: usize| {
             if value.trim().is_empty() || value.len() > maximum || value.contains('\0') {
-                Err(crate::Error::Invalid(
-                    "Room text is empty or too long.".into(),
-                ))
+                Err(crate::Error::Refused(text!(
+                    "Room text is empty or too long."
+                )))
             } else {
                 Ok(())
             }
@@ -224,7 +235,7 @@ impl Action {
             } => {
                 text(title, 256)?;
                 if description.len() > 16_384 || repository_ids.len() > 64 {
-                    return Err(crate::Error::Invalid("Task details are too long.".into()));
+                    return Err(crate::Error::Refused(text!("Task details are too long.")));
                 }
                 for id in repository_ids
                     .iter()
@@ -254,7 +265,7 @@ impl Action {
                     .as_deref()
                     .is_some_and(|p| !matches!(p, "github" | "gitea"))
                 {
-                    return Err(crate::Error::Invalid("Choose GitHub or Gitea.".into()));
+                    return Err(crate::Error::Refused(text!("Choose GitHub or Gitea.")));
                 }
             }
             Self::Issues { repository_id } | Self::ImportIssue { repository_id, .. } => {

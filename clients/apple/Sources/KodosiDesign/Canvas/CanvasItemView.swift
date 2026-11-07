@@ -86,9 +86,9 @@ public struct CanvasBrowserView: View {
     private var bar: some View {
         HStack(spacing: 2) {
             HStack(spacing: 2) {
-                IconButton(title: "Back", symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { feed.send(.back) }
-                IconButton(title: "Forward", symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { feed.send(.forward) }
-                IconButton(title: "Reload", symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { feed.send(.reload) }
+                IconButton(title: "Back", bundle: .module, symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { feed.send(.back) }
+                IconButton(title: "Forward", bundle: .module, symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { feed.send(.forward) }
+                IconButton(title: "Reload", bundle: .module, symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { feed.send(.reload) }
                 HStack(spacing: 6) {
                     Image(systemName: secure ? "lock.fill" : "globe").font(.system(size: 9.5, weight: .semibold))
                         .foregroundStyle(theme.colors.inkFaint)
@@ -141,7 +141,7 @@ public struct CanvasBrowserView: View {
             .help(String(localized: "Tabs", bundle: .module))
             .accessibilityIdentifier("canvas.browser.tabs")
         } else {
-            IconButton(title: "New tab", symbol: "plus", identifier: "canvas.browser.newTab", size: control) { feed.send(.newTab) }
+            IconButton(title: "New tab", bundle: .module, symbol: "plus", identifier: "canvas.browser.newTab", size: control) { feed.send(.newTab) }
         }
     }
 
@@ -169,7 +169,7 @@ public struct CanvasBrowserView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(PressScaleStyle())
-            .help(browser.problem ?? String(localized: "The browser sleeps. It opens its last page again.", bundle: .module))
+            .help(browser.problem ?? String(localized: "The browser is asleep. It opens its last page again.", bundle: .module))
             .accessibilityIdentifier("canvas.browser.wake")
         case .awake:
             EmptyView()
@@ -339,7 +339,7 @@ struct CanvasMissing: View {
                 .strokeBorder(theme.colors.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .help(String(localized: "\(item.key) is not there now", bundle: .module))
+        .help(String(localized: "\(item.key) is missing", bundle: .module))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("canvas.missing")
     }

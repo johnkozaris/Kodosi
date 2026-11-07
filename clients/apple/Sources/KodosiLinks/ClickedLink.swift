@@ -26,19 +26,19 @@ public struct ClickedLink: Equatable, Sendable {
         public var message: String {
             switch self {
             case .malformed:
-                String(localized: "The link is not a complete address.")
+                String(localized: "The link is not a complete address.", bundle: .module)
             case .hiddenCharacters:
-                String(localized: "The link has hidden characters that can change how it looks.")
+                String(localized: "The link has hidden characters that can change how it looks.", bundle: .module)
             case .noWebHost:
-                String(localized: "The web link has no host.")
+                String(localized: "The web link has no host.", bundle: .module)
             case .missingFile:
-                String(localized: "The file or folder is not on this device.")
+                String(localized: "The file or folder is not on this device.", bundle: .module)
             case .program:
-                String(localized: "Opening it could run a program.")
+                String(localized: "Opening it could run a program.", bundle: .module)
             case let .fileElsewhere(computer):
-                String(localized: "The file is on \(computer).")
+                String(localized: "The file is on \(computer).", bundle: .module)
             case let .addressElsewhere(computer):
-                String(localized: "The address is on \(computer).")
+                String(localized: "The address is on \(computer).", bundle: .module)
             }
         }
     }

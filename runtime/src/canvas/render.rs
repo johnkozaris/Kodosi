@@ -16,6 +16,7 @@ use shared_browser::HostPage;
 
 use super::{CanvasAnswer, DocumentView, PipeEnds, engine::BrowserHost, view_of};
 use crate::documents::DocumentHost;
+use crate::text::Text;
 
 /// How long the pictures of one file may take, once the browser runs.
 const RENDER_LIMIT: Duration = Duration::from_mins(2);
@@ -111,22 +112,24 @@ pub(super) async fn render(
     viewer: Viewer,
     file: PathBuf,
     out: PathBuf,
-) -> Result<CanvasAnswer, String> {
-    let view =
-        view_of(&file).ok_or("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")?;
-    let views = views().ok_or("This Kodosi has no document views to draw with.")?;
+) -> Result<CanvasAnswer, Text> {
+    let view = view_of(&file).ok_or_else(|| {
+        Text::plain("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")
+    })?;
+    let views =
+        views().ok_or_else(|| Text::plain("This Kodosi has no document views to draw with."))?;
     let browsers = host.browsers(|_| {}).await?;
     let mut page = browsers
         .host_page(&profile, views, page_size(view), &script(view.name()))
         .await
-        .map_err(|problem| problem.to_string())?;
+        .map_err(|problem| Text::plain(problem.to_string()))?;
     let drawn = tokio::time::timeout(
         RENDER_LIMIT,
         draw(&mut page, &documents, viewer, &file, &out),
     )
     .await;
     page.close().await;
-    let saved = drawn.map_err(|_| "The pictures took too long.".to_owned())??;
+    let saved = drawn.map_err(|_| Text::plain("The pictures took too long."))??;
     let mut text = String::new();
     for path in &saved {
         let _ = writeln!(text, "{}", path.display());
@@ -140,7 +143,7 @@ async fn draw(
     viewer: Viewer,
     file: &Path,
     out: &Path,
-) -> Result<Vec<PathBuf>, String> {
+) -> Result<Vec<PathBuf>, Text> {
     let mut bridge = Bridge {
         page,
         pipe: documents.open(file, viewer).await?,
@@ -153,24 +156,24 @@ async fn draw(
         .page
         .hold(width, height)
         .await
-        .map_err(|problem| problem.to_string())?;
+        .map_err(|problem| Text::plain(problem.to_string()))?;
     if grew {
         areas = bridge.areas().await?;
     }
     tokio::fs::create_dir_all(out)
         .await
-        .map_err(|problem| problem.to_string())?;
+        .map_err(|problem| Text::plain(problem.to_string()))?;
     let mut saved = Vec::new();
     for (area, name) in areas.iter().zip(picture_names(file, areas.len())) {
         let picture = bridge
             .page
             .picture(area.x, area.y, area.width, area.height)
             .await
-            .map_err(|problem| problem.to_string())?;
+            .map_err(|problem| Text::plain(problem.to_string()))?;
         let path = out.join(name);
         tokio::fs::write(&path, picture)
             .await
-            .map_err(|problem| problem.to_string())?;
+            .map_err(|problem| Text::plain(problem.to_string()))?;
         saved.push(path);
     }
     Ok(saved)
@@ -189,33 +192,33 @@ enum Step {
 
 impl Bridge<'_> {
     /// Where each picture is, as the view lays the file out now.
-    async fn areas(&mut self) -> Result<Vec<Area>, String> {
+    async fn areas(&mut self) -> Result<Vec<Area>, Text> {
         self.ask("kodosiRender.pictures()").await?;
         let count: usize = self
             .answer("pictures")
             .await?
             .parse()
-            .map_err(|_| "The view gave no pictures.".to_owned())?;
+            .map_err(|_| Text::plain("The view gave no pictures."))?;
         let mut areas = Vec::new();
         for index in 0..count.min(MOST_PICTURES) {
             self.ask(&format!("kodosiRender.picture({index})")).await?;
             let area = serde_json::from_str(&self.answer("picture").await?)
-                .map_err(|_| "The view gave no place for a picture.".to_owned())?;
+                .map_err(|_| Text::plain("The view gave no place for a picture."))?;
             areas.push(area);
         }
         Ok(areas)
     }
 
-    async fn ask(&self, script: &str) -> Result<(), String> {
+    async fn ask(&self, script: &str) -> Result<(), Text> {
         self.page
             .run(script)
             .await
             .map(drop)
-            .map_err(|problem| problem.to_string())
+            .map_err(|problem| Text::plain(problem.to_string()))
     }
 
     /// Carries frames both ways until the page says a message that starts with `word`.
-    async fn answer(&mut self, word: &str) -> Result<String, String> {
+    async fn answer(&mut self, word: &str) -> Result<String, Text> {
         loop {
             let step = tokio::select! {
                 message = self.page.message() => Step::Said(message),
@@ -223,26 +226,26 @@ impl Bridge<'_> {
             };
             match step {
                 Step::Said(message) => {
-                    let message = message.ok_or("The browser stopped.")?;
+                    let message = message.ok_or_else(|| Text::plain("The browser stopped."))?;
                     let (head, rest) = message.split_once(' ').unwrap_or((&message, ""));
                     match head {
                         "frame" => {
                             let frame = base64::engine::general_purpose::STANDARD
                                 .decode(rest)
-                                .map_err(|_| "The view sent a broken frame.".to_owned())?;
+                                .map_err(|_| Text::plain("The view sent a broken frame."))?;
                             self.pipe
                                 .sender
                                 .send(frame)
                                 .await
-                                .map_err(|_| "The document closed.".to_owned())?;
+                                .map_err(|_| Text::plain("The document closed."))?;
                         }
-                        "error" => return Err(rest.to_owned()),
+                        "error" => return Err(Text::plain(rest.to_owned())),
                         _ if head == word => return Ok(rest.to_owned()),
                         _ => {}
                     }
                 }
                 Step::Sent(frame) => {
-                    let frame = frame.ok_or("The document closed.")?;
+                    let frame = frame.ok_or_else(|| Text::plain("The document closed."))?;
                     let data = base64::engine::general_purpose::STANDARD.encode(frame);
                     self.ask(&format!("kodosiRender.deliver({})", json!(data)))
                         .await?;

@@ -261,7 +261,7 @@ public final class AccountStore {
 
     public func restartSignIn() {
         stage = .starting
-        commands.perform("auth.login.start", ["browser": .string(browser)])
+        commands.perform("auth.login.start", ["browser": .string(browser), "language": .string(AppLanguage.current)])
     }
 
     public func finishSignIn(with answer: URL) {

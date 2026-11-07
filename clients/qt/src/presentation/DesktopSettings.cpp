@@ -1,4 +1,5 @@
 #include "presentation/DesktopSettings.hpp"
+#include "app/AppLanguage.hpp"
 #include <QDir>
 #include <QFileInfo>
 #include <QList>
@@ -50,6 +51,7 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepR
     if (const auto keep = m_settings->value(QStringLiteral("app/keepRunning")); keep.isValid())
         m_keepRunning = keep.toBool();
     m_closeHintShown = m_settings->value(QStringLiteral("app/closeHintShown"), false).toBool();
+    m_language = m_settings->value(QStringLiteral("app/language")).toString();
     for (const auto& [name, usual] : viewerDefaults())
         m_viewers.insert(name, m_settings->value(QStringLiteral("viewers/") + name, usual).toBool());
 }
@@ -156,6 +158,33 @@ void DesktopSettings::setKeepRunning(bool keep)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setLanguage(const QString& language)
+{
+    if (language == m_language)
+        return;
+    m_language = language;
+    persist();
+    emit settingsChanged();
+}
+QString DesktopSettings::currentLanguage() const
+{
+    return AppLanguage::current();
+}
+QString DesktopSettings::nextLanguage() const
+{
+    return AppLanguage::resolved(m_language);
+}
+QVariantList DesktopSettings::languages() const
+{
+    QVariantList languages;
+    for (const auto& choice : AppLanguage::choices())
+        languages.append(QVariantMap { { QStringLiteral("tag"), choice.tag }, { QStringLiteral("name"), choice.name } });
+    return languages;
+}
+QString DesktopSettings::languageName(const QString& tag) const
+{
+    return AppLanguage::name(tag);
+}
 void DesktopSettings::setCloseHintShown()
 {
     if (m_closeHintShown)
@@ -197,6 +226,10 @@ bool DesktopSettings::persist()
     if (m_keepRunning)
         m_settings->setValue(QStringLiteral("app/keepRunning"), *m_keepRunning);
     m_settings->setValue(QStringLiteral("app/closeHintShown"), m_closeHintShown);
+    if (m_language.isEmpty())
+        m_settings->remove(QStringLiteral("app/language"));
+    else
+        m_settings->setValue(QStringLiteral("app/language"), m_language);
     for (const auto& [name, on] : m_viewers.asKeyValueRange())
         m_settings->setValue(QStringLiteral("viewers/") + name, on);
     m_settings->sync();

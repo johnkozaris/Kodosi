@@ -37,7 +37,7 @@ public final class RuntimeHandle: @unchecked Sendable {
 
     public static let expectedFFIABIVersion: Int32 = 10
 
-    public static let expectedProtocolVersion: UInt32 = 80
+    public static let expectedProtocolVersion: UInt32 = 81
 
     public enum StartOutcome: Equatable {
         case started
@@ -62,6 +62,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         starting = true
         startGeneration &+= 1
         let generation = startGeneration
+        _ = kodosi_set_language(AppLanguage.current)
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let retained = Unmanaged.passRetained(self)
             var callbacks = kodosi_callbacks_t(

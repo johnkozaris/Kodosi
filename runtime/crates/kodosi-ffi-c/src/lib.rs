@@ -139,6 +139,10 @@ pub struct KodosiStartFailure {
 
 static LAST_START_FAILURE: Mutex<Option<KodosiStartFailure>> = Mutex::new(None);
 
+fn words(error: &Error) -> String {
+    error.text().in_language(kodosi_runtime::text::language())
+}
+
 fn start_failure(code: i32, message: &str) -> Box<KodosiStartFailure> {
     let mut failure = Box::new(KodosiStartFailure {
         code,
@@ -165,7 +169,7 @@ fn start_error(error: &Error) -> Box<KodosiStartFailure> {
             pid,
             terminals,
         } => {
-            let mut failure = start_failure(KODOSI_START_HOST_OUTDATED, &error.to_string());
+            let mut failure = start_failure(KODOSI_START_HOST_OUTDATED, &words(error));
             failure.host_kind = match kind {
                 HostKind::Foreground => KODOSI_HOST_KIND_FOREGROUND,
                 HostKind::Background => KODOSI_HOST_KIND_BACKGROUND,
@@ -174,8 +178,10 @@ fn start_error(error: &Error) -> Box<KodosiStartFailure> {
             failure.host_terminals = u32::try_from(*terminals).unwrap_or(u32::MAX);
             failure
         }
-        Error::Invalid(_) => start_failure(KODOSI_START_REJECTED, &error.to_string()),
-        _ => start_failure(KODOSI_START_FAILED, &error.to_string()),
+        Error::Invalid(_) | Error::Refused(_) => {
+            start_failure(KODOSI_START_REJECTED, &words(error))
+        }
+        _ => start_failure(KODOSI_START_FAILED, &words(error)),
     }
 }
 
@@ -202,6 +208,22 @@ pub extern "C" fn kodosi_abi_version() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_protocol_version() -> u32 {
     kodosi_runtime::protocol::VERSION
+}
+
+/// Sets the language of the words that the runtime gives to this app, as a tag such as `de` or
+/// `zh-Hans`. The app calls it before it starts the runtime; the `kodosi` command never does.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kodosi_set_language(tag: *const c_char) -> i32 {
+    caught(|| {
+        if tag.is_null() {
+            return KODOSI_FFI_NULL_HANDLE;
+        }
+        let Ok(tag) = unsafe { CStr::from_ptr(tag) }.to_str() else {
+            return KODOSI_FFI_DESER_FAILED;
+        };
+        kodosi_runtime::text::set_language(kodosi_runtime::text::Language::of(tag));
+        KODOSI_FFI_OK
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -332,7 +354,7 @@ pub unsafe extern "C" fn kodosi_send_command(
                 return refusal(&value, &error.to_string()).map_or(
                     KODOSI_FFI_DESER_FAILED,
                     |answer| {
-                        instance.state.event(&answer);
+                        instance.state.event(answer);
                         KODOSI_FFI_OK
                     },
                 );

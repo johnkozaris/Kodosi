@@ -1,3 +1,4 @@
+import { say } from "@documents/words";
 import type { Mark, MarkSpec, NodeSpec, Node as ProseNode } from "@tiptap/pm/model";
 import { Schema } from "@tiptap/pm/model";
 import spec from "../../../crates/pptx/schema.json";
@@ -137,13 +138,13 @@ export interface Line {
 /** What a person sees before a link opens. */
 export function linkTitle(link: Link): string {
   if (link.href) return link.href;
-  if (link.slide) return "Another slide";
+  if (link.slide) return say("Another slide");
   return (
     {
-      nextslide: "Next slide",
-      previousslide: "Previous slide",
-      firstslide: "First slide",
-      lastslide: "Last slide",
+      nextslide: say("Next slide"),
+      previousslide: say("Previous slide"),
+      firstslide: say("First slide"),
+      lastslide: say("Last slide"),
     }[link.jump ?? ""] ?? ""
   );
 }

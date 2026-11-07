@@ -70,7 +70,7 @@ struct AgentOption: Decodable, Equatable, Identifiable {
 
     var label: String {
         switch id {
-        case "xhigh": String(localized: "Extra high")
+        case "xhigh": "Extra high"
         default: id.prefix(1).uppercased() + id.dropFirst()
         }
     }
@@ -124,12 +124,14 @@ struct UsageLimit: Decodable, Equatable, Identifiable {
     }
 
     var spoken: String {
-        let window = switch hours {
-        case nil: String(localized: "This month")
-        case 168: String(localized: "This week")
-        case let hours?: String(localized: "Last \(hours) hours")
+        let name = switch (scope, hours) {
+        case (nil, nil): String(localized: "This month")
+        case (nil, 168): String(localized: "This week")
+        case let (nil, hours?): String(localized: "Last \(hours) hours")
+        case let (scope?, nil): String(localized: "\(scope), this month")
+        case let (scope?, 168): String(localized: "\(scope), this week")
+        case let (scope?, hours?): String(localized: "\(scope), last \(hours) hours")
         }
-        let name = scope.map { "\($0), \(window.lowercased())" } ?? window
         return String(localized: "\(name): \(used)% used")
     }
 

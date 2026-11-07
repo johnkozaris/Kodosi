@@ -62,7 +62,7 @@ Item {
                 Layout.topMargin: 50
                 spacing: 4
                 PlainLabel { text: qsTr("Friends"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
-                PlainLabel { text: Identity.count(root.friends.length, qsTr("1 friend"), qsTr("%1 friends")); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote }
+                PlainLabel { text: qsTr("%n friends", "", root.friends.length); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote }
             }
             RowLayout {
                 Layout.fillWidth: true

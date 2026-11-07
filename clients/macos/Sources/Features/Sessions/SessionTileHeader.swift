@@ -293,7 +293,7 @@ private struct TerminalActions: View {
                 }
             }
         }
-        .padding(6).frame(width: 220)
+        .padding(6).panelMenuWidth(220)
     }
 }
 

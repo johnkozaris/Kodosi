@@ -76,15 +76,15 @@
             }
             clipboardPromptOpen = true
             let alert = UIAlertController(
-                title: String(localized: "Let a program read your clipboard?"),
-                message: String(localized: "A program in \(sessionName) asks for the text that you copied."),
+                title: String(localized: "Let a program read your clipboard?", bundle: .module),
+                message: String(localized: "A program in \(sessionName) asks for the text that you copied.", bundle: .module),
                 preferredStyle: .alert,
             )
-            alert.addAction(UIAlertAction(title: String(localized: "Don't Allow"), style: .cancel) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: String(localized: "Don't Allow", bundle: .module), style: .cancel) { [weak self] _ in
                 self?.clipboardPromptOpen = false
                 answer(false)
             })
-            alert.addAction(UIAlertAction(title: String(localized: "Allow"), style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: String(localized: "Allow", bundle: .module), style: .default) { [weak self] _ in
                 self?.clipboardPromptOpen = false
                 answer(true)
             })
@@ -174,10 +174,10 @@
             }
             view.isAccessibilityElement = isSurfaceVisible
             view.accessibilityElementsHidden = !isSurfaceVisible
-            view.accessibilityLabel = "Terminal for \(sessionName)"
+            view.accessibilityLabel = String(localized: "Terminal for \(sessionName)", bundle: .module)
             view.accessibilityHint = allowsInput
-                ? "Interactive terminal showing the visible output."
-                : "Read-only terminal showing the visible output."
+                ? String(localized: "Interactive terminal showing the visible output.", bundle: .module)
+                : String(localized: "Read-only terminal showing the visible output.", bundle: .module)
             view.accessibilityIdentifier = accessibilityIdentifier
             if !allowsFocus, view.isFirstResponder {
                 view.resignFirstResponder()

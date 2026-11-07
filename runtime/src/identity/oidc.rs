@@ -94,11 +94,11 @@ impl BrowserLogin {
         }
         match value("error").as_deref().map(String::as_str) {
             None => {}
-            Some("access_denied") => return Err(invalid("Sign-in was declined.")),
+            Some("access_denied") => return Err(Error::Text(text!("The sign-in was declined."))),
             Some(_) => {
-                return Err(invalid(
-                    "The sign-in server could not complete this request.",
-                ));
+                return Err(Error::Text(text!(
+                    "The sign-in server could not complete this request."
+                )));
             }
         }
         value("code")
@@ -136,6 +136,13 @@ impl Drop for TokenReply {
         if let Some(refresh) = self.refresh_token.as_mut() {
             refresh.zeroize();
         }
+    }
+}
+
+fn sign_in_locale(language: crate::text::Language) -> &'static str {
+    match language {
+        crate::text::Language::Chinese => "zh-CN",
+        language => language.tag(),
     }
 }
 
@@ -233,12 +240,12 @@ impl Oidc {
         let mut interval = login.interval.unwrap_or(5).clamp(1, 60);
         loop {
             tokio::select! {
-                () = cancel.cancelled() => return Err(invalid("Sign-in cancelled.")),
-                () = tokio::time::sleep_until(deadline) => return Err(invalid("Sign-in code expired.")),
+                () = cancel.cancelled() => return Err(Error::Text(text!("The sign-in was cancelled."))),
+                () = tokio::time::sleep_until(deadline) => return Err(Error::Text(text!("The sign-in code expired."))),
                 () = tokio::time::sleep(Duration::from_secs(interval)) => {}
             }
             let response = tokio::select! {
-                () = cancel.cancelled() => return Err(invalid("Sign-in cancelled.")),
+                () = cancel.cancelled() => return Err(Error::Text(text!("The sign-in was cancelled."))),
                 result = self.client.post(&login.token_endpoint).form(&[
                     ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
                     ("device_code", login.device_code.as_str()), ("client_id", self.client_id.as_str()),
@@ -254,18 +261,26 @@ impl Oidc {
             match error.get("error").and_then(serde_json::Value::as_str) {
                 Some("authorization_pending") => {}
                 Some("slow_down") => interval = (interval + 5).min(60),
-                Some("access_denied") => return Err(invalid("Sign-in was declined.")),
-                Some("expired_token") => return Err(invalid("Sign-in code expired.")),
+                Some("access_denied") => {
+                    return Err(Error::Text(text!("The sign-in was declined.")));
+                }
+                Some("expired_token") => {
+                    return Err(Error::Text(text!("The sign-in code expired.")));
+                }
                 _ => {
-                    return Err(invalid(
-                        "The sign-in server could not complete this request.",
-                    ));
+                    return Err(Error::Text(text!(
+                        "The sign-in server could not complete this request."
+                    )));
                 }
             }
         }
     }
 
-    pub async fn browser(&self, redirect_uri: &str) -> Result<BrowserLogin> {
+    pub async fn browser(
+        &self,
+        redirect_uri: &str,
+        language: crate::text::Language,
+    ) -> Result<BrowserLogin> {
         let discovery = self.discover().await?;
         let verifier = random_text()?;
         let state = random_text()?;
@@ -279,7 +294,8 @@ impl Oidc {
             .append_pair("scope", &self.scope)
             .append_pair("state", &state)
             .append_pair("code_challenge", &challenge)
-            .append_pair("code_challenge_method", "S256");
+            .append_pair("code_challenge_method", "S256")
+            .append_pair("ui_locales", sign_in_locale(language));
         Ok(BrowserLogin {
             page: page.into(),
             redirect_uri: redirect_uri.to_owned(),
@@ -310,11 +326,13 @@ impl Oidc {
             return tokens(&bytes, None);
         }
         if grant_ended(&bytes) {
-            return Err(invalid("The sign-in has expired. Sign in again."));
+            return Err(Error::Text(text!(
+                "The sign-in has expired. Sign in again."
+            )));
         }
-        Err(invalid(
-            "The sign-in server could not complete this request.",
-        ))
+        Err(Error::Text(text!(
+            "The sign-in server could not complete this request."
+        )))
     }
 
     pub async fn refresh(&self, previous: &Tokens) -> Result<Tokens> {
@@ -513,10 +531,17 @@ mod tests {
     async fn a_browser_sign_in_proves_its_challenge_when_it_trades_the_code() {
         let (address, server) = issuer(vec![token()]).await;
         let oidc = Oidc::new(&address, "kodosi-app".into(), &["openid".to_owned()]).unwrap();
-        let login = oidc.browser("http://127.0.0.1:9/callback").await.unwrap();
+        let login = oidc
+            .browser(
+                "http://127.0.0.1:9/callback",
+                crate::text::Language::Chinese,
+            )
+            .await
+            .unwrap();
         let page = answer(&login.page);
         assert_eq!(page.path(), "/auth");
         assert_eq!(query(&page, "client_id"), "kodosi-app");
+        assert_eq!(query(&page, "ui_locales"), "zh-CN");
         assert_eq!(query(&page, "response_type"), "code");
         assert_eq!(query(&page, "redirect_uri"), "http://127.0.0.1:9/callback");
         assert_eq!(query(&page, "code_challenge_method"), "S256");
@@ -584,7 +609,7 @@ mod tests {
             code("com.kodosi:/auth?state=state-1&error=access_denied")
                 .unwrap_err()
                 .to_string(),
-            "Sign-in was declined."
+            "The sign-in was declined."
         );
         assert!(
             code("com.kodosi:/auth?state=state-1&code=c&iss=https%3A%2F%2Fevil.example").is_err()
@@ -615,7 +640,7 @@ mod tests {
             .to_owned();
         let waiting = async {
             let (answer, stream) = loopback.answer(&login).await.unwrap();
-            loopback::finish(stream, Ok(())).await;
+            loopback::finish(stream, Ok(()), crate::text::Language::English).await;
             answer
         };
         let browser = async {

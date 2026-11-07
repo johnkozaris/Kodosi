@@ -9,6 +9,7 @@
     "@documents/bar": "workspace:*",
     "@documents/client": "workspace:*",
     "@documents/contract": "workspace:*",
+    "@documents/words": "workspace:*",
     "@tiptap/pm": "3.31.0",
     "konva": "10.9.0",
     "lucide": "1.61.0",

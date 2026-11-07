@@ -20,8 +20,8 @@ use uuid::Uuid;
 use crate::{
     Command, CommandEnvelope, Config, Error, Event, Result,
     network::{
-        BackendClient, BackendConfig, BackendEvent, BackendReply, INPUT_NOT_SENT, RemoteConnection,
-        RemoteSession, TerminalControl, TerminalStatus,
+        BackendClient, BackendConfig, BackendEvent, BackendReply, RemoteConnection, RemoteSession,
+        TerminalControl, TerminalStatus,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
     terminal::{
@@ -49,12 +49,16 @@ type DosiMessage = crate::dosi::Message;
 type DosiMessage = std::convert::Infallible;
 
 #[cfg(feature = "host")]
-pub(crate) const NOT_PUBLISHED: &str =
-    "Remote access is still connecting. Try again when this device is online and approved.";
-pub(crate) const SHARE_ON_HOST: &str = "Change sharing on the computer that hosts this terminal.";
+pub(crate) fn not_published() -> crate::text::Text {
+    text!("Remote access is still connecting. Try again when this device is online and approved.")
+}
+pub(crate) fn share_on_host() -> crate::text::Text {
+    text!("Change sharing on the computer that hosts this terminal.")
+}
 #[cfg(feature = "host")]
-pub(crate) const SHARING_CHANGED: &str =
-    "The sharing of this terminal changed. Open sharing again before you save.";
+pub(crate) fn sharing_changed() -> crate::text::Text {
+    text!("The sharing of this terminal changed. Open sharing again before you save.")
+}
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
 #[cfg(feature = "host")]
@@ -196,7 +200,7 @@ impl RuntimeHandle {
             Ok(answer) => answer,
             Err(error) => {
                 let area = operation.split('.').next().unwrap_or_default();
-                json!({"type":format!("{area}.error"),"operation":operation,"message":error.to_string()})
+                json!({"type":format!("{area}.error"),"operation":operation,"message":error.text()})
             }
         };
         answer["requestId"] = asked;
@@ -206,13 +210,12 @@ impl RuntimeHandle {
     #[cfg(feature = "host")]
     async fn call_command(&self, request: Value, own: &str) -> Result<Value> {
         let command: Command = serde_json::from_value(request)
-            .map_err(|_| Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()))?;
+            .map_err(|_| Error::Text(crate::protocol::other_version()))?;
         command.validate()?;
         if !command.runs_on_other_computers() {
-            return Err(Error::Invalid(
+            return Err(Error::Refused(text!(
                 "This computer takes only the choices and the start of a new terminal from your other devices."
-                    .to_owned(),
-            ));
+            )));
         }
         let (events, mut receiver) = self.observe().await?;
         let scope = events.first().ok_or(Error::Stopped)?;
@@ -238,7 +241,7 @@ impl RuntimeHandle {
             }
         })
         .await
-        .map_err(|_| Error::Invalid("This computer did not finish in time.".to_owned()))?
+        .map_err(|_| Error::Text(text!("This computer did not finish in time.")))?
     }
 
     pub async fn terminal_control(
@@ -562,7 +565,7 @@ fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value 
             json!({"type":format!("{area}.result"), "requestId":command.request_id(), "operation":operation})
         }
         Err(error) => {
-            json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.to_string()})
+            json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.text()})
         }
     };
     if let Some(session) = command.session_id() {
@@ -640,12 +643,12 @@ enum Completion {
     },
     Canvas {
         command: Command,
-        result: std::result::Result<crate::canvas::CanvasAnswer, String>,
+        result: std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>,
     },
     #[cfg(feature = "host")]
     Browser {
         command: Command,
-        result: std::result::Result<Value, String>,
+        result: std::result::Result<Value, crate::text::Text>,
     },
     Document {
         command: Command,
@@ -763,7 +766,10 @@ impl TerminalTarget {
         &self,
         request: crate::canvas::CanvasRequest,
     ) -> Pin<
-        Box<dyn Future<Output = std::result::Result<crate::canvas::CanvasAnswer, String>> + Send>,
+        Box<
+            dyn Future<Output = std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>>
+                + Send,
+        >,
     > {
         match self {
             #[cfg(feature = "host")]
@@ -774,11 +780,11 @@ impl TerminalTarget {
             Self::Remote(terminal) => {
                 let answer = terminal.canvas(request);
                 Box::pin(async move {
-                    let value = answer.await.map_err(|error| error.to_string())?;
+                    let value = answer.await.map_err(|error| error.text())?;
                     serde_json::from_value::<crate::canvas::CanvasAnswer>(value)
                         .ok()
                         .filter(crate::canvas::CanvasAnswer::is_valid)
-                        .ok_or_else(|| crate::protocol::OTHER_VERSION.to_owned())
+                        .ok_or_else(crate::protocol::other_version)
                 })
             }
         }
@@ -812,7 +818,7 @@ impl TerminalTarget {
                     canvas
                         .document(&key, view, person, name)
                         .await
-                        .map_err(Error::Invalid)
+                        .map_err(Error::Text)
                 })
             }
             Self::Remote(terminal) => {
@@ -1670,7 +1676,7 @@ impl Runtime {
                         Some(Ok(job)) => self.complete(job),
                         Some(Err(error)) => {
                             tracing::error!(%error, "runtime operation failed");
-                            self.emit(json!({"type":"system.error", "message":format!("Runtime operation failed: {error}")}));
+                            self.emit(json!({"type":"system.error", "message":crate::text::Text::plain(format!("Runtime operation failed: {error}"))}));
                         }
                         None => {},
                     }
@@ -2086,7 +2092,7 @@ impl Runtime {
 
     fn clear_input_notice(&mut self, session: Uuid) {
         if let Some(entry) = self.remotes.get_mut(&session)
-            && entry.message.as_deref() == Some(INPUT_NOT_SENT)
+            && entry.message == Some(crate::network::input_not_sent())
         {
             entry.message = None;
             self.publish_catalog();
@@ -2130,7 +2136,7 @@ impl Runtime {
             }
             Err(error) => match reply {
                 Some(reply) => drop(reply.send(Err(error))),
-                None => self.emit(json!({"type":"system.error", "message":error.to_string()})),
+                None => self.emit(json!({"type":"system.error", "message":error.text()})),
             },
         }
     }
@@ -2523,7 +2529,7 @@ impl Runtime {
     fn see_room(&mut self, room: &str, sequence: u64) -> Result<()> {
         let seen = self
             .seen_rooms()
-            .ok_or_else(|| Error::Invalid("Sign in to use rooms.".to_owned()))?;
+            .ok_or_else(|| Error::Refused(text!("Sign in to use rooms.")))?;
         if seen.get(room).is_some_and(|seen| *seen >= sequence) {
             return Ok(());
         }
@@ -3113,7 +3119,7 @@ impl Runtime {
         id: Uuid,
         incarnation: Uuid,
         instance_id: Uuid,
-        reason: String,
+        reason: crate::text::Text,
         interrupted: bool,
     ) {
         if !self.current(id, incarnation, instance_id) {
@@ -3150,9 +3156,8 @@ impl Runtime {
             entry.connected_users.clear();
             if kept {
                 entry.status = status;
-                entry.message = reason
-                    .ends_with(INPUT_NOT_SENT)
-                    .then(|| INPUT_NOT_SENT.to_owned());
+                let lost = crate::network::input_not_sent();
+                entry.message = reason.words().ends_with(lost.words()).then_some(lost);
             } else {
                 entry.connection_state = ConnectionState::Offline;
                 entry.message = online.then_some(reason);

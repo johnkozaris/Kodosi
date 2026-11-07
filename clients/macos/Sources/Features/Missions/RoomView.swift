@@ -166,7 +166,7 @@ struct RoomHeader: View {
                     }
                 }
                 .padding(6)
-                .frame(width: 200)
+                .panelMenuWidth(200)
             }
         }
         .padding(.leading, 16).padding(.trailing, 10).frame(height: Metrics.headerHeight)

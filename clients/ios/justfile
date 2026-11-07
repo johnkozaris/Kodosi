@@ -47,5 +47,7 @@ device-build: xcode-gen
         -destination 'generic/platform=iOS' \
         build
 
-# Lint and test the iPhone and iPad app, then build it for devices.
+# Lint and test the iPhone and iPad app, build it for devices, then check its translations.
 check: lint deployment-targets-check test device-build
+    python3 ../apple/scripts/sync-string-catalogs.py --check
+    python3 ../../scripts/check-translations.py

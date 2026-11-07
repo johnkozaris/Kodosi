@@ -27,6 +27,7 @@ import {
 } from "@univerjs/presets";
 import { createElement, Pencil } from "lucide";
 import "@univerjs/preset-sheets-core/lib/index.css";
+import { language } from "@documents/words";
 import { XlsxBar } from "./bar";
 import {
   type Cell,
@@ -94,6 +95,20 @@ interface Marked {
   place: Place | null;
   rev: number;
 }
+
+// Univer has no Greek words.
+const UNIVER_LOCALES: Readonly<Record<string, [LocaleType, () => Promise<{ default: object }>]>> = {
+  de: [LocaleType.DE_DE, () => import("@univerjs/preset-sheets-core/locales/de-DE")],
+  es: [LocaleType.ES_ES, () => import("@univerjs/preset-sheets-core/locales/es-ES")],
+  fr: [LocaleType.FR_FR, () => import("@univerjs/preset-sheets-core/locales/fr-FR")],
+  it: [LocaleType.IT_IT, () => import("@univerjs/preset-sheets-core/locales/it-IT")],
+  ja: [LocaleType.JA_JP, () => import("@univerjs/preset-sheets-core/locales/ja-JP")],
+  ko: [LocaleType.KO_KR, () => import("@univerjs/preset-sheets-core/locales/ko-KR")],
+  "zh-Hans": [LocaleType.ZH_CN, () => import("@univerjs/preset-sheets-core/locales/zh-CN")],
+};
+const UNIVER_CHOICE = UNIVER_LOCALES[language()];
+const UNIVER_LOCALE = UNIVER_CHOICE?.[0] ?? LocaleType.EN_US;
+const UNIVER_WORDS = UNIVER_CHOICE ? (await UNIVER_CHOICE[1]()).default : sheetsCoreEnUS;
 
 const WORKBOOK = "workbook";
 const REMOTE = { fromCollab: true };
@@ -334,8 +349,8 @@ class XlsxEditor implements Editor, Pictures {
     const worker = new Worker(new URL("./formula-worker.ts", import.meta.url), { type: "module" });
     const made = createUniver({
       darkMode: this.dark(),
-      locale: LocaleType.EN_US,
-      locales: { [LocaleType.EN_US]: mergeLocales(sheetsCoreEnUS) },
+      locale: UNIVER_LOCALE,
+      locales: { [UNIVER_LOCALE]: mergeLocales(UNIVER_WORDS) },
       presets: [
         UniverSheetsCorePreset({
           container: this.canvas,

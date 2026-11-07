@@ -68,6 +68,10 @@ export function Account({
   const cursor = useCursor({ busy: state === null || leaving });
 
   useEffect(() => {
+    document.documentElement.lang = kcContext.locale || "en";
+  }, [kcContext.locale]);
+
+  useEffect(() => {
     let here = true;
     ask(open, (found) => {
       if (here) setState(found);
