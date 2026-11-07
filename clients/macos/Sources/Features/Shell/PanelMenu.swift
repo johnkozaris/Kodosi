@@ -89,7 +89,6 @@ extension PanelMenuRow where Trailing == EmptyView {
 }
 
 extension View {
-    /// A menu of `width`, wider when one of its rows needs more room, as in a language with longer words.
     func panelMenuWidth(_ width: CGFloat) -> some View {
         frame(minWidth: width, maxWidth: 320).fixedSize(horizontal: true, vertical: false)
     }

@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The language of the app. iOS sets it when the app opens, so a new choice applies after that.
 struct LanguageSection: View {
     @Environment(\.theme) private var theme
     @State private var language = AppLanguage.chosen(in: .standard)

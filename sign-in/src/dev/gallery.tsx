@@ -452,7 +452,6 @@ const SCENES: Record<string, Scene> = {
 
 let sample: Promise<AccountService> | undefined;
 
-/** The language of the shown pages, from `?lang=`, such as `de` or `zh-Hans`. */
 const language = new URLSearchParams(location.search).get("lang") ?? "en";
 const lang = language === "en" ? "" : `&lang=${language}`;
 

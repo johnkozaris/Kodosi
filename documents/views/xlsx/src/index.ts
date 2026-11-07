@@ -96,7 +96,7 @@ interface Marked {
   rev: number;
 }
 
-/** Univer's own words in the language of the view. Univer has no Greek, so Greek shows English. */
+// Univer has no Greek words.
 const UNIVER_LOCALES: Readonly<Record<string, [LocaleType, () => Promise<{ default: object }>]>> = {
   de: [LocaleType.DE_DE, () => import("@univerjs/preset-sheets-core/locales/de-DE")],
   es: [LocaleType.ES_ES, () => import("@univerjs/preset-sheets-core/locales/es-ES")],

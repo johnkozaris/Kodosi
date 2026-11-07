@@ -71,7 +71,6 @@ final class DesktopSettings {
         didSet { defaults.set(try? JSONEncoder().encode(shortcuts), forKey: Self.shortcutsKey) }
     }
 
-    /// The language from the next start of Kodosi, or nil for the language of macOS.
     var language: String? {
         didSet { AppLanguage.choose(language, in: defaults) }
     }

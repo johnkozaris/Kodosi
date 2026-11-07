@@ -27,7 +27,6 @@ export interface Options {
   kind: Kind;
   theme?: Theme;
   preferences?: Preferences;
-  /** The language of the app, such as `de` or `zh-Hans`. The view shows English without it. */
   language?: string;
   /** Runs when the file shows, and each time that the view joins it again. */
   ready?(): void;
