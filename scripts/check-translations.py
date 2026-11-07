@@ -175,6 +175,17 @@ def check_sign_in() -> None:
             report(folder, f"no messages_{language}.properties")
 
 
+def check_backend_refusals() -> None:
+    http = ROOT / "runtime/src/network/http.rs"
+    code = http.read_text(encoding="utf-8")
+    start = code.index("fn backend_refusals()")
+    refusals = code[start : code.index("\n}\n", start)]
+    backend = "\n".join(path.read_text(encoding="utf-8") for path in ROOT.glob("backend/src/**/*.cs"))
+    for match in re.finditer(r'text!\(\s*"((?:[^"\\]|\\.)*)"', refusals):
+        if f'"{match.group(1)}"' not in backend:
+            report(http, f"the backend does not refuse with {match.group(1)!r}")
+
+
 def main() -> int:
     english = runtime_texts()
     for language in LANGUAGES:
@@ -193,6 +204,7 @@ def main() -> int:
     for path in sorted(ROOT.glob("clients/qt/i18n/kodosi_*.ts")):
         check_qt(path)
     check_sign_in()
+    check_backend_refusals()
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

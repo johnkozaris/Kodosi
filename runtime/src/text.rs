@@ -152,17 +152,9 @@ impl Text {
         }
     }
 
-    pub fn is_translated(&self) -> bool {
-        self.translated
-    }
-
     /// The sentence before its values, as the code writes it.
     pub fn words(&self) -> &str {
         &self.words
-    }
-
-    pub fn localized(&self) -> String {
-        self.in_language(language())
     }
 
     pub fn in_language(&self, language: Language) -> String {
@@ -215,19 +207,17 @@ impl Text {
 fn fill(words: &str, args: &[(Cow<'static, str>, Arg)], language: Language) -> String {
     let mut filled = String::with_capacity(words.len());
     let mut rest = words;
-    while let Some(open) = rest.find('{') {
-        filled.push_str(&rest[..open]);
-        let after = &rest[open + 1..];
-        let Some(close) = after.find('}') else {
-            break;
-        };
-        let name = &after[..close];
+    while let Some((before, after)) = rest.split_once('{')
+        && let Some((name, next)) = after.split_once('}')
+    {
+        filled.push_str(before);
         match args.iter().find(|(own, _)| own == name) {
             Some((_, Arg::Words(value))) => filled.push_str(value),
+            Some((_, Arg::Text(value))) if !value.translated => filled.push_str(&value.words),
             Some((_, Arg::Text(value))) => filled.push_str(&value.in_language(language)),
-            None => filled.push_str(&rest[open..open + close + 2]),
+            None => filled.push_str(&rest[before.len()..rest.len() - next.len()]),
         }
-        rest = &after[close + 1..];
+        rest = next;
     }
     filled.push_str(rest);
     filled
@@ -458,6 +448,29 @@ mod tests {
             travelled.to_string(),
             "Approve this device from one of your existing devices. Approve this device from another device, or start fresh here."
         );
+    }
+
+    #[test]
+    fn a_brace_without_its_end_stays_as_it_is() {
+        let text = Text::translated("Use {name} or a { alone", vec![("name", Arg::from("x"))]);
+        assert_eq!(text.to_string(), "Use x or a { alone");
+    }
+
+    #[test]
+    fn a_fault_inside_a_sentence_keeps_its_words_before_and_after_it_travels() {
+        let text = text!(
+            "{reason} Go back to Kodosi and try again.",
+            reason = Text::plain("The code expired.")
+        );
+        let travelled: Text = serde_json::from_value(serde_json::to_value(&text).unwrap()).unwrap();
+        for text in [text, travelled] {
+            assert!(
+                text.in_language(Language::German)
+                    .starts_with("The code expired. "),
+                "{}",
+                text.in_language(Language::German)
+            );
+        }
     }
 
     #[test]
