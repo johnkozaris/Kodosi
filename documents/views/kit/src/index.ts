@@ -111,7 +111,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
     },
     detach() {
       client.detach();
-      away.textContent = say("The computer of this file is away. Your edits wait here.");
+      away.textContent = say("The computer with this file is offline. Your edits wait here.");
       element.append(away);
     },
     selection: () => editor?.selection() ?? "",

@@ -278,7 +278,7 @@
         <translation>브라우저 시작 중</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>브라우저가 절전 상태예요</translation>
     </message>
     <message>
@@ -427,11 +427,11 @@
         <translation>모든 파일</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1을(를) 찾을 수 없어요</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>찾을 수 없어요</translation>
     </message>
     <message>

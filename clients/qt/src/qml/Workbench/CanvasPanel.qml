@@ -342,7 +342,7 @@ Item {
                                     Accessible.name: modelData.name
                                     Accessible.role: Accessible.PageTab
                                     Accessible.selected: selected
-                                    ToolTip.text: modelData.missing === true ? qsTr("%1 is not there now").arg(modelData.key) : modelData.key
+                                    ToolTip.text: modelData.missing === true ? qsTr("%1 is missing").arg(modelData.key) : modelData.key
                                     ToolTip.visible: hovered
                                     ToolTip.delay: Tip.delay
 
@@ -500,7 +500,7 @@ Item {
                                         }
                                         PlainLabel {
                                             width: card.width
-                                            text: card.modelData.missing === true ? qsTr("Not there now")
+                                            text: card.modelData.missing === true ? qsTr("Missing")
                                                 : root.kindName(card.modelData.kind) + " · " + root.size(card.modelData.bytes || 0)
                                             color: KodosiTheme.inkFaint
                                             font.pixelSize: KodosiTheme.fontCaption

@@ -2,7 +2,7 @@
 "A part of the file got lost. Add the file again.": "Une partie du fichier a été perdue. Ajoutez à nouveau le fichier.",
 "A room member's identity changed.": "L'identité d'un membre du salon a changé.",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "Un nom d'utilisateur comporte de 3 à 64 lettres, chiffres, tirets ou tirets bas.",
-"An answer must have words.": "Une réponse ne peut pas être vide.",
+"An answer cannot be empty.": "Une réponse ne peut pas être vide.",
 "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "Une ancienne version de Kodosi est encore en cours d'exécution. Quittez-la ou arrêtez son processus `internal-host`, puis réessayez.",
 "An existing trusted device must approve this device.": "Un appareil de confiance existant doit approuver cet appareil.",
 "Another member has this task. Take another task, or ask them to release it.": "Un autre membre a cette tâche. Prenez-en une autre, ou demandez-lui de la libérer.",

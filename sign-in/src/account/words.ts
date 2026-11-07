@@ -58,7 +58,7 @@ const en = {
   unreachable: "Your account did not open.",
   tryAgain: "Try again",
   failed: "That did not work.",
-  required: "Fill in this row.",
+  required: "Fill in this field.",
   invalidEmail: "That email is not right.",
   badLength: "That is too long or too short.",
   badName: "A name cannot have that character.",

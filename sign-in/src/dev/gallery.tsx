@@ -389,7 +389,7 @@ const SCENES: Record<string, Scene> = {
     page: "info.ftl",
     with: {
       messageHeader: undefined,
-      message: { type: "success", summary: "Your password is new." },
+      message: { type: "success", summary: "Your password changed." },
       requiredActions: undefined,
       actionUri: "#",
       client: kodosiApp,

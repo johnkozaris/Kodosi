@@ -278,7 +278,7 @@
         <translation>正在启动浏览器</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>浏览器正在休眠</translation>
     </message>
     <message>
@@ -427,11 +427,11 @@
         <translation>所有文件</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1 当前不存在</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>当前不存在</translation>
     </message>
     <message>

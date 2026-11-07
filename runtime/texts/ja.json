@@ -2,7 +2,7 @@
 "A part of the file got lost. Add the file again.": "ファイルの一部が失われました。もう一度ファイルを追加してください。",
 "A room member's identity changed.": "ルームのメンバーの ID が変わりました。",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "ユーザー名は英字、数字、ハイフン、アンダースコアの 3〜64 文字です。",
-"An answer must have words.": "回答が空です。",
+"An answer cannot be empty.": "回答が空です。",
 "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "以前のバージョンの Kodosi がまだ実行中です。終了するか、その `internal-host` プロセスを終了してから、もう一度お試しください。",
 "An existing trusted device must approve this device.": "既存の信頼済みデバイスで、このデバイスを承認する必要があります。",
 "Another member has this task. Take another task, or ask them to release it.": "このタスクは別のメンバーが担当しています。別のタスクを選ぶか、担当を外れるよう頼んでください。",

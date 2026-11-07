@@ -279,7 +279,7 @@
         <translation>Démarrage du navigateur</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>Le navigateur est en veille</translation>
     </message>
     <message>
@@ -428,11 +428,11 @@
         <translation>Tous les fichiers</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1 est indisponible pour le moment</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>Indisponible pour le moment</translation>
     </message>
     <message>

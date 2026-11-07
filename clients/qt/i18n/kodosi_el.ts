@@ -279,7 +279,7 @@
         <translation>Εκκίνηση του browser</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>Ο browser είναι σε αδράνεια</translation>
     </message>
     <message>
@@ -428,11 +428,11 @@
         <translation>Όλα τα αρχεία</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1: δεν υπάρχει τώρα</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>Δεν υπάρχει τώρα</translation>
     </message>
     <message>

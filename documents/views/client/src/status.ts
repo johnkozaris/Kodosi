@@ -55,7 +55,7 @@ export class Status {
   }
 
   saved(waits: boolean): void {
-    this.state.textContent = waits ? say("Save waits") : say("Saved");
+    this.state.textContent = waits ? say("Waiting to save") : say("Saved");
   }
 
   closed(reason: ClosedReason): void {

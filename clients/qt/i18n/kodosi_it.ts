@@ -279,7 +279,7 @@
         <translation>Avvio del browser</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>Il browser è in pausa</translation>
     </message>
     <message>
@@ -428,11 +428,11 @@
         <translation>Tutti i file</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1 non c&apos;è al momento</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>Non c&apos;è al momento</translation>
     </message>
     <message>

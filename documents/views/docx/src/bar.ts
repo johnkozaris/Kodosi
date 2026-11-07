@@ -174,7 +174,7 @@ export class DocxBar {
     });
     const style = this.stylePicker("mid");
     const marks = wellOf(
-      say("Marks"),
+      say("Font style"),
       MARKS.map((mark) => ({
         label: mark.label,
         icon: mark.icon,
@@ -426,7 +426,7 @@ export class DocxBar {
     }
     const level = wellOf(say("Level"), [
       {
-        label: say("Out one level"),
+        label: say("Decrease indent"),
         icon: ListIndentDecrease,
         press: () => {
           commands.indent(editor, -1);
@@ -434,7 +434,7 @@ export class DocxBar {
         },
       },
       {
-        label: say("In one level"),
+        label: say("Increase indent"),
         icon: ListIndentIncrease,
         press: () => {
           commands.indent(editor, 1);
@@ -453,7 +453,7 @@ export class DocxBar {
       rows,
       footOf([
         {
-          label: say("Clear look"),
+          label: say("Clear formatting"),
           icon: RemoveFormatting,
           press: () => commands.clearLook(editor),
         },

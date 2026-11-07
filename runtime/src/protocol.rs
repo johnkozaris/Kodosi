@@ -2067,7 +2067,7 @@ impl Command {
                 for choice in choices {
                     text(choice, "answer", MAX_ANSWER_BYTES)?;
                     if choice.trim().is_empty() {
-                        return Err(Error::Refused(text!("An answer must have words.")));
+                        return Err(Error::Refused(text!("An answer cannot be empty.")));
                     }
                 }
             }

@@ -278,7 +278,7 @@
         <translation>ブラウザを起動中</translation>
     </message>
     <message>
-        <source>The browser sleeps</source>
+        <source>The browser is asleep</source>
         <translation>ブラウザはスリープ中です</translation>
     </message>
     <message>
@@ -427,11 +427,11 @@
         <translation>すべてのファイル</translation>
     </message>
     <message>
-        <source>%1 is not there now</source>
+        <source>%1 is missing</source>
         <translation>%1 が見つかりません</translation>
     </message>
     <message>
-        <source>Not there now</source>
+        <source>Missing</source>
         <translation>見つかりません</translation>
     </message>
     <message>

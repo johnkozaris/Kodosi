@@ -169,7 +169,7 @@ export class XlsxBar {
     const format = this.formatPicker(control, "mid");
     const size = this.sizeStepper(control, "wide");
     const marks = wellOf(
-      say("Marks"),
+      say("Font style"),
       MARKS.map((mark) => ({
         label: mark.label,
         icon: mark.icon,
@@ -184,7 +184,7 @@ export class XlsxBar {
       build: () => this.textPanel(control),
     });
     const copy = keyOf({
-      label: say("Copy look"),
+      label: say("Copy formatting"),
       icon: Paintbrush,
       fits: "wide",
       press: () => control.copyLook(),
@@ -371,7 +371,7 @@ export class XlsxBar {
 
   private deletePanel(control: SheetControl, name: string): HTMLElement {
     const line = document.createElement("span");
-    line.textContent = say("{name} and its cells go. Undo brings them back.", { name });
+    line.textContent = say("This deletes {name} and its cells. Undo brings them back.", { name });
     return panelOf(
       [[say("Delete"), line]],
       footOf([{ label: say("Delete sheet"), icon: Trash2, press: () => control.removeSheet() }]),
@@ -441,8 +441,8 @@ export class XlsxBar {
     return panelOf(
       rows,
       footOf([
-        { label: say("Copy look"), icon: Paintbrush, press: () => control.copyLook() },
-        { label: say("Clear look"), icon: RemoveFormatting, press: () => control.clearLook() },
+        { label: say("Copy formatting"), icon: Paintbrush, press: () => control.copyLook() },
+        { label: say("Clear formatting"), icon: RemoveFormatting, press: () => control.clearLook() },
       ]),
     );
   }

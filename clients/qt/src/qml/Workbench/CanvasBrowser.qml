@@ -441,7 +441,7 @@ Item {
                 width: Math.min(320, parent.width - 32)
                 visible: root.browserState !== "awake"
                 title: root.browser.getting !== undefined ? qsTr("Getting the browser, %1%").arg(root.browser.getting)
-                    : root.browserState === "starting" ? qsTr("Starting the browser") : qsTr("The browser sleeps")
+                    : root.browserState === "starting" ? qsTr("Starting the browser") : qsTr("The browser is asleep")
                 message: root.browserState === "asleep" ? root.browser.problem || "" : ""
                 art: KIcon {
                     width: 28

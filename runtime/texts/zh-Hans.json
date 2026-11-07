@@ -2,7 +2,7 @@
 "A part of the file got lost. Add the file again.": "文件的一部分丢失了。请重新添加该文件。",
 "A room member's identity changed.": "某位房间成员的身份已变更。",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "用户名由 3 到 64 个英文字母、数字、连字符或下划线组成。",
-"An answer must have words.": "回答不能为空。",
+"An answer cannot be empty.": "回答不能为空。",
 "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "旧版 Kodosi 仍在运行。请退出它，或结束其 `internal-host` 进程，然后重试。",
 "An existing trusted device must approve this device.": "需要由现有的受信任设备批准此设备。",
 "Another member has this task. Take another task, or ask them to release it.": "另一位成员已认领此任务。请认领其他任务，或请对方放弃认领。",

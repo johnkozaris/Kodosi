@@ -2,7 +2,7 @@
 "A part of the file got lost. Add the file again.": "Ένα μέρος του αρχείου χάθηκε. Προσθέστε ξανά το αρχείο.",
 "A room member's identity changed.": "Η ταυτότητα ενός μέλους του δωματίου άλλαξε.",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "Ένα όνομα χρήστη έχει 3 έως 64 λατινικά γράμματα, ψηφία, παύλες ή κάτω παύλες.",
-"An answer must have words.": "Μια απάντηση δεν μπορεί να είναι κενή.",
+"An answer cannot be empty.": "Μια απάντηση δεν μπορεί να είναι κενή.",
 "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "Τρέχει ακόμη παλαιότερη έκδοση του Kodosi. Κλείστε την ή τερματίστε τη διεργασία `internal-host` της και δοκιμάστε ξανά.",
 "An existing trusted device must approve this device.": "Μια υπάρχουσα αξιόπιστη συσκευή πρέπει να εγκρίνει αυτή τη συσκευή.",
 "Another member has this task. Take another task, or ask them to release it.": "Αυτή την εργασία την έχει άλλο μέλος. Πάρτε άλλη εργασία ή ζητήστε του να την αποδεσμεύσει.",

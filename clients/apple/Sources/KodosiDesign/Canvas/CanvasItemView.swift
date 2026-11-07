@@ -169,7 +169,7 @@ public struct CanvasBrowserView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(PressScaleStyle())
-            .help(browser.problem ?? String(localized: "The browser sleeps. It opens its last page again.", bundle: .module))
+            .help(browser.problem ?? String(localized: "The browser is asleep. It opens its last page again.", bundle: .module))
             .accessibilityIdentifier("canvas.browser.wake")
         case .awake:
             EmptyView()
@@ -339,7 +339,7 @@ struct CanvasMissing: View {
                 .strokeBorder(theme.colors.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .help(String(localized: "\(item.key) is not there now", bundle: .module))
+        .help(String(localized: "\(item.key) is missing", bundle: .module))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("canvas.missing")
     }

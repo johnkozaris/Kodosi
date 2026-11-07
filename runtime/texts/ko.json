@@ -2,7 +2,7 @@
 "A part of the file got lost. Add the file again.": "파일 일부가 사라졌어요. 파일을 다시 추가하세요.",
 "A room member's identity changed.": "방 멤버의 신원이 바뀌었어요.",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "사용자 이름은 영문, 숫자, 하이픈, 밑줄로 3~64자예요.",
-"An answer must have words.": "답변이 비어 있어요.",
+"An answer cannot be empty.": "답변이 비어 있어요.",
 "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "이전 버전의 Kodosi가 아직 실행 중이에요. 종료하거나 `internal-host` 프로세스를 끝낸 뒤 다시 시도하세요.",
 "An existing trusted device must approve this device.": "기존에 신뢰하는 기기에서 이 기기를 승인해야 해요.",
 "Another member has this task. Take another task, or ask them to release it.": "다른 멤버가 이 작업을 담당하고 있어요. 다른 작업을 맡거나 담당을 해제해 달라고 요청하세요.",
