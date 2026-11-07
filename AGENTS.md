@@ -50,6 +50,8 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   recipes and scripts as `docs/DEVELOPMENT.md` says.
 - Write clear code and focused tests, not comments or architecture prose. Keep required
   directives and license notices.
+- Give each new text that people read its words in each language
+  ([Texts and languages](docs/DEVELOPMENT.md#texts-and-languages)).
 - Validate real workflows with native or boundary tools. Don't add automated smoke
   drivers.
 
@@ -59,7 +61,7 @@ Each document has one job. Say a thing once, as it is now, in the document whose
 is. Don't add release notes, plans, observations or details that the code shows.
 
 - `README.md`, `docs/GETTING_STARTED.md` and `docs/SECURITY.md`: for the people who use
-  Kodosi.
+  Kodosi. `docs/<language>/` has their translations; change them in the same change.
 - `PRODUCT.md`: the intent, and the behavior that every client keeps.
 - A client's `PRODUCT.md`: only what is particular to that app. Its `DESIGN.md`: its
   visual system.

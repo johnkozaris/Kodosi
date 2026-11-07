@@ -189,6 +189,12 @@ language and native interaction. Add controls only when they help someone do the
 Visible text uses one word for one thing: terminal, room, friend, agent, device.
 Session, host, runtime and mission are internal words.
 
+Kodosi speaks English, German, Greek, Spanish, French, Italian, Japanese, Korean and
+Simplified Chinese. Each app follows the language of the system, and its settings can
+choose another; a new choice applies when the app opens again. The sign-in pages open in
+the language of the app. The `kodosi` command, the logs and the details of an internal
+fault stay English.
+
 A terminal opened in a room keeps the conversation beside it. Tasks and repositories
 share that workspace. Drafts and reading position survive moving between them. Show
 progress where work happens and give each failure a clear recovery action.

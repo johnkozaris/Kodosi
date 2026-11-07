@@ -35,6 +35,7 @@ Run these from the repository root; `just --list` shows the rest.
 | `just windows-rust-lint` | Lint the runtime for Windows in Docker, from any host |
 | `just ios-build`, `just ios-check` | Build or check the iPhone and iPad app |
 | `just sign-in-check` | Check and build the sign-in pages |
+| `just translations-check` | Check that each text has its words in each language |
 
 `gitleaks git`, run by hand, looks for secrets in the Git history and skips the reviewed
 findings in [.gitleaksignore](../.gitleaksignore).
@@ -81,6 +82,26 @@ pin, check the release and its tag first, change both lines and build each app.
 `browser/build/build-engine.py --output-dir <folder>` builds it on each computer, with its
 archive and its entry in the signed feed. A development build uses the engine whose program
 `KODOSI_BROWSER_ENGINE` names, and no feed.
+
+## Texts and languages
+
+Write each new text in English in the code, then give it its words in German, Greek,
+Spanish, French, Italian, Japanese, Korean and Simplified Chinese.
+
+- Swift: `Text("…")` and `String(localized: "…")`, with `bundle: .module` in the shared
+  package. After a Mac or iPhone build, `just apple-strings-sync` adds the new texts to the
+  String Catalogs.
+- Qt: `qsTr()` in QML and `tr()` in C++, with `%n` for a count. `just linux-check` adds the
+  new texts to `clients/qt/i18n/`.
+- Runtime: `text!("… {name} …", name = value)` for a sentence for people, with its words in
+  `runtime/texts/`. The detail of an internal fault stays an English `String`.
+- Document views: `say("…")` from `@documents/words`, with its words in
+  `documents/views/words/src/`.
+- Sign-in theme: `sign-in/src/login/i18n.ts`, `sign-in/src/account/words.ts` and
+  `sign-in/src/email/messages/`.
+
+`just translations-check` lists each text without words in a language, and each
+translation that lost or changed a value.
 
 ## Isolated validation
 
