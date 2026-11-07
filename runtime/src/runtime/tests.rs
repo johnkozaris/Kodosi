@@ -2540,7 +2540,7 @@ fn only_messages_after_the_first_look_at_a_room_name_agents() {
     );
 }
 
-#[cfg(feature = "host")]
+#[cfg(all(unix, feature = "host"))]
 fn stand_in_canvas() -> crate::canvas::CanvasHandle {
     let folder = std::env::temp_dir();
     let services = crate::canvas::CanvasServices::new(&folder);
