@@ -4,6 +4,8 @@ import base64
 import hashlib
 import io
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -16,6 +18,36 @@ SCRIPT = Path(__file__).resolve().parents[1] / "generate-update-site.py"
 WINDOWS_CERTIFICATE = Path(__file__).resolve().parents[2] / "clients/qt/packaging/windows/Kodosi.cer"
 VERSION = "1.2.3"
 ENGINE_FEED = '{"version": "156.0.1-0.1.0", "engines": {"linux-x64": {"url": "https://example.org/e.tar.gz", "sha256": "00", "program": "kodosi-browser/kodosi-browser"}}}\n'
+RELEASE_FILES = {
+    f"Kodosi-{VERSION}.dmg",
+    f"kodosi_{VERSION}_amd64.deb",
+    f"kodosi-{VERSION}-linux-x86_64.tar.gz",
+    f"kodosi-bin-{VERSION}-1-x86_64.pkg.tar.zst",
+}
+GNUPG: dict[str, str] = {}
+
+
+def setUpModule() -> None:
+    home = tempfile.mkdtemp(prefix="kg", dir="/tmp")
+    GNUPG.update({**os.environ, "GNUPGHOME": home})
+    subprocess.run(
+        ["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase", "", "--quick-gen-key",
+         "Kodosi Test <test@example.org>", "ed25519", "sign", "never"],
+        env=GNUPG, check=True, capture_output=True,
+    )
+    keys = subprocess.run(
+        ["gpg", "--batch", "--with-colons", "--list-secret-keys"], env=GNUPG, check=True, capture_output=True, text=True
+    ).stdout
+    GNUPG["fingerprint"] = next(line.split(":")[9] for line in keys.splitlines() if line.startswith("fpr:"))
+
+
+def tearDownModule() -> None:
+    subprocess.run(["gpgconf", "--kill", "gpg-agent"], env=GNUPG, capture_output=True)
+    shutil.rmtree(GNUPG["GNUPGHOME"])
+
+
+def verified(signature: Path, data: Path) -> bool:
+    return subprocess.run(["gpg", "--batch", "--verify", str(signature), str(data)], env=GNUPG, capture_output=True).returncode == 0
 
 
 def ar_member(name: str, data: bytes) -> bytes:
@@ -52,12 +84,17 @@ def windows_bundle(version: str) -> bytes:
 
 
 def generate(
-    root: Path, package_version: str, windows_version: str | None = None, browser: bool = True
+    root: Path,
+    package_version: str,
+    windows_version: str | None = None,
+    browser: bool = True,
+    site: str = "site",
+    key: str | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     release = root / "release"
-    release.mkdir()
+    release.mkdir(exist_ok=True)
     feed = root / "browser"
-    feed.mkdir()
+    feed.mkdir(exist_ok=True)
     if browser:
         (feed / "engine.json").write_text(ENGINE_FEED, encoding="utf-8")
         (feed / "engine.json.sig").write_text(base64.b64encode(bytes(64)).decode() + "\n", encoding="utf-8")
@@ -69,9 +106,10 @@ def generate(
     (release / f"kodosi-bin-{VERSION}-1-x86_64.pkg.tar.zst").write_bytes(b"arch package")
     (root / "appcast.xml").write_text("<rss/>", encoding="utf-8")
     return subprocess.run(
-        [sys.executable, str(SCRIPT), str(release), str(root / "site"), "--version", VERSION,
-         "--appcast", str(root / "appcast.xml"), "--browser", str(feed)],
+        [sys.executable, str(SCRIPT), str(release), str(root / site), "--version", VERSION,
+         "--appcast", str(root / "appcast.xml"), "--browser", str(feed), "--sign", key or GNUPG["fingerprint"]],
         capture_output=True,
+        env=GNUPG,
     )
 
 
@@ -93,10 +131,31 @@ class UpdateSiteTest(unittest.TestCase):
             self.assertEqual(listing["files"]["linux"]["url"], f"{download}/kodosi_{VERSION}_amd64.deb")
             sums = (root / "release/SHA256SUMS").read_text(encoding="utf-8")
             self.assertIn(f"{hashlib.sha256(b'disk image').hexdigest()}  Kodosi-{VERSION}.dmg\n", sums)
+            self.assertEqual({line.split("  ")[1] for line in sums.splitlines()}, RELEASE_FILES)
+            self.assertTrue(verified(root / "release/SHA256SUMS.asc", root / "release/SHA256SUMS"))
+            self.assertIn("-----BEGIN PGP SIGNED MESSAGE-----", (site / "apt/dists/stable/InRelease").read_text(encoding="utf-8"))
             self.assertEqual((site / "macos/appcast.xml").read_text(encoding="utf-8"), "<rss/>")
             self.assertEqual((site / "robots.txt").read_text(encoding="utf-8"), "User-agent: *\nDisallow: /\n")
             self.assertEqual((site / "browser/engine.json").read_text(encoding="utf-8"), ENGINE_FEED)
             self.assertTrue((site / "browser/engine.json.sig").is_file())
+
+    def test_a_second_run_signs_only_the_release_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual(generate(root, VERSION).returncode, 0)
+            self.assertEqual(generate(root, VERSION, site="site-again").returncode, 0)
+            sums = (root / "release/SHA256SUMS").read_text(encoding="utf-8")
+            self.assertEqual({line.split("  ")[1] for line in sums.splitlines()}, RELEASE_FILES)
+            self.assertTrue(verified(root / "release/SHA256SUMS.asc", root / "release/SHA256SUMS"))
+
+    def test_a_release_without_its_signing_key_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = generate(root, VERSION, key="0" * 40)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b"could not sign SHA256SUMS", result.stderr)
+            self.assertFalse((root / "site").exists())
+            self.assertFalse((root / "release/SHA256SUMS.asc").exists())
 
     def test_a_site_without_the_feed_of_kodosi_browser_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

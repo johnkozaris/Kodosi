@@ -57,6 +57,22 @@ Kodosi Browser. Όταν ένας υπολογιστής ανοίγει τον �
 λογαριασμό. Για 30 ημέρες η υπηρεσία κρατά τον εκδότη και το υποκείμενο της διαγραμμένης
 σύνδεσης, για να απορρίπτει παλαιότερα tokens.
 
+## Έλεγχος μιας λήψης
+
+Κάθε έκδοση έχει το `SHA256SUMS`, το SHA-256 κάθε αρχείου της, και το `SHA256SUMS.asc`, την
+υπογραφή αυτής της λίστας με το κλειδί του Kodosi που υπογράφει και το αποθετήριο apt. Βάλτε
+τα δύο αρχεία δίπλα στο αρχείο που κατεβάσατε και εκτελέστε:
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+Το `gpgv`, από το GnuPG, πρέπει να αναφέρει έγκυρη υπογραφή του κλειδιού
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, και το `shasum` πρέπει να γράψει OK για το αρχείο
+που κατεβάσατε.
+
 ## Αναφορά ευπάθειας
 
 Χρησιμοποιήστε την [ιδιωτική αναφορά ευπαθειών](https://github.com/johnkozaris/Kodosi/security/advisories/new)

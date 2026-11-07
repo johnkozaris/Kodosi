@@ -53,6 +53,21 @@ condivisioni e le stanze di sua proprietà; i messaggi nelle stanze di altri res
 account. Per 30 giorni il servizio conserva l'emittente e il soggetto dell'accesso eliminato
 per rifiutare i token precedenti.
 
+## Verificare un download
+
+Ogni release ha `SHA256SUMS`, l'hash SHA-256 di ciascuno dei suoi file, e `SHA256SUMS.asc`,
+la firma di questa lista con la chiave di Kodosi che firma anche il repository apt. Metti i
+due file accanto al tuo download, poi esegui:
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+`gpgv`, di GnuPG, deve indicare una firma valida della chiave
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, e `shasum` deve mostrare OK per il tuo download.
+
 ## Segnalare una vulnerabilità
 
 Usa la [segnalazione privata delle vulnerabilità](https://github.com/johnkozaris/Kodosi/security/advisories/new)

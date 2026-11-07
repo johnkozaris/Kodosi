@@ -43,6 +43,21 @@ Linux에서는 공유 브라우저를 root로 실행하지 않아요. 앱에는 
 메시지는 계정 없이 남아요. 서비스는 이전 토큰을 거부하기 위해 삭제된 로그인의 발급자와
 주체를 30일 동안 보관해요.
 
+## 다운로드 확인하기
+
+각 릴리스에는 모든 파일의 SHA-256을 담은 `SHA256SUMS`와 그 목록의 서명인
+`SHA256SUMS.asc`가 있어요. 서명에 쓰는 Kodosi 키는 apt 저장소에도 서명해요. 두 파일을
+다운로드한 파일 옆에 두고 다음을 실행하세요.
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+GnuPG의 `gpgv`가 키 `E8007A36D199B6EE755B1EE9C612C00442E52299`의 올바른 서명이라고
+알려 주고, `shasum`이 다운로드한 파일에 OK를 표시해야 해요.
+
 ## 취약점 신고
 
 [비공개 취약점 신고](https://github.com/johnkozaris/Kodosi/security/advisories/new)를 쓰거나,

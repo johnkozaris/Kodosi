@@ -50,6 +50,21 @@ Deleting an account removes its devices, recovery data, friends, sharing and own
 rooms; messages in other people's rooms stay without an account. For 30 days the service
 keeps the issuer and subject of the deleted sign-in to refuse older tokens.
 
+## Check a download
+
+Each release has `SHA256SUMS`, the SHA-256 of each of its files, and `SHA256SUMS.asc`, the
+signature of that list by the key of Kodosi that also signs the apt repository. Put the two
+files beside your download, then run:
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+`gpgv`, from GnuPG, must report a good signature by the key
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, and `shasum` must say OK for your download.
+
 ## Report a vulnerability
 
 Use [private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new)
