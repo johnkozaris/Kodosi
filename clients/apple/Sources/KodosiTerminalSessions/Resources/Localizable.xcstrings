@@ -412,7 +412,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此终端已落后。请重试。"
+            "value" : "此终端跟不上更新速度，请重试。"
           }
         }
       }
@@ -464,7 +464,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此终端仍在等待之前的输入。Kodosi 没有发送你粘贴的内容。"
+            "value" : "此终端之前的输入仍在发送中。Kodosi 没有发送你粘贴的内容。"
           }
         }
       }

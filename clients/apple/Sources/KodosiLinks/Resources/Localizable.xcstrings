@@ -880,7 +880,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "该网页链接没有主机。"
+            "value" : "该网页链接缺少主机名。"
           }
         }
       }

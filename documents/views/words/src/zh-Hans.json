@@ -102,7 +102,7 @@
   "Sum": "求和",
   "Text": "文本",
   "Text box": "文本框",
-  "The computer of this file is away. Your edits wait here.": "此文件所在的电脑不在线。你的编辑会在这里等待。",
+  "The computer of this file is away. Your edits wait here.": "此文件所在的电脑已离线。你的修改会先保留在这里。",
   "This document closed.": "此文档已关闭。",
   "Time": "时间",
   "Tools": "工具",
@@ -121,5 +121,5 @@
   "Zoom in": "放大",
   "Zoom out": "缩小",
   "Zoom {percent}%": "缩放 {percent}%",
-  "{name} and its cells go. Undo brings them back.": "{name} 及其单元格将被删除。撤销可恢复它们。"
+  "{name} and its cells go. Undo brings them back.": "{name} 及其单元格将被删除，可通过撤销恢复。"
 }

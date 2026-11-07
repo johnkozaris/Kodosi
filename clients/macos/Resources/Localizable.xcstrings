@@ -360,7 +360,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 加入了"
+            "value" : "%@ 已加入"
           }
         }
       }
@@ -412,7 +412,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 没有列出模型"
+            "value" : "%@ 没有可用的模型"
           }
         }
       }
@@ -2236,7 +2236,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "好友可以在你共享给他的每个终端中以你的身份输入，并拥有你在那台电脑上的权限。"
+            "value" : "好友可以在你共享给对方的每个终端中以你的身份输入，并拥有你在那台电脑上的权限。"
           }
         }
       }
@@ -3068,7 +3068,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加按键"
+            "value" : "添加快捷键"
           }
         }
       }
@@ -5200,7 +5200,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "带上一个 Agent"
+            "value" : "拉入 Agent"
           }
         }
       }
@@ -5252,7 +5252,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "带上一个 Agent"
+            "value" : "拉入 Agent"
           }
         }
       }
@@ -8866,7 +8866,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi 会忘记这段聊天，这里和你的其他电脑上都是如此。"
+            "value" : "Dosi 会忘记这段聊天，包括你其他电脑上的。"
           }
         }
       }
@@ -9178,7 +9178,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi 会在每次对话开始时读取这些内容，在你的所有电脑上都一样。"
+            "value" : "在你的所有电脑上，Dosi 都会在每次对话开始时读取这些内容。"
           }
         }
       }
@@ -9230,7 +9230,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi 运行在 Claude Code 或 Codex 上。请安装其中一个，然后回来。"
+            "value" : "Dosi 运行在 Claude Code 或 Codex 上。请先安装其中一个，再回到这里。"
           }
         }
       }
@@ -11544,7 +11544,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "隐藏，直到它恢复"
+            "value" : "隐藏，直到它重新上线"
           }
         }
       }
@@ -12272,7 +12272,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "之后再邀请他人。房间里的每个人共享其终端。"
+            "value" : "可以稍后再邀请他人。房间里的每个人都共享房间的终端。"
           }
         }
       }
@@ -13156,7 +13156,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 已落后。请重新启动它。"
+            "value" : "Kodosi 跟不上更新速度，请重新启动它。"
           }
         }
       }
@@ -15860,7 +15860,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新聊天"
+            "value" : "新建聊天"
           }
         }
       }
@@ -17160,7 +17160,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未读取"
+            "value" : "未读"
           }
         }
       }
@@ -18148,7 +18148,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开设备"
+            "value" : "打开设备列表"
           }
         }
       }
@@ -19396,7 +19396,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "退出并重新打开 Kodosi，即可显示为 %@。"
+            "value" : "退出并重新打开 Kodosi，即可切换为 %@。"
           }
         }
       }
@@ -27260,7 +27260,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "电脑恢复后，终端会打开。"
+            "value" : "电脑重新上线后，终端会打开。"
           }
         }
       }
@@ -27312,7 +27312,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "对方的身份已变化。请先在“好友”中信任对方。"
+            "value" : "对方的身份已变更。请先在“好友”中信任对方。"
           }
         }
       }
@@ -29444,7 +29444,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "等待对方"
+            "value" : "等待对方回复"
           }
         }
       }
@@ -29548,7 +29548,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当 Kodosi 为深色时"
+            "value" : "Kodosi 为深色模式时"
           }
         }
       }

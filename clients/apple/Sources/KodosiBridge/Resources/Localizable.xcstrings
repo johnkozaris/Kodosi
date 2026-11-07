@@ -990,7 +990,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 会删除你的设备、好友和共享。你在其他房间写的内容会保留。"
+            "value" : "Kodosi 会删除你的设备和好友，并停止所有共享。你在其他房间写的内容会保留。"
           }
         }
       }
@@ -2134,7 +2134,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此终端已变化。请重试。"
+            "value" : "此终端状态已变更，请重试。"
           }
         }
       }
@@ -2394,7 +2394,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "操作完成前你的账号已变化。"
+            "value" : "操作完成前，你的账号已发生变更。"
           }
         }
       }
@@ -2446,7 +2446,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的登录已结束。请重新登录。"
+            "value" : "你的登录已过期，请重新登录。"
           }
         }
       }

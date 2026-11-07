@@ -48,7 +48,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 当前不在"
+            "value" : "%@ 当前不存在"
           }
         }
       }
@@ -1773,7 +1773,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在获取浏览器，%lld%%"
+            "value" : "正在下载浏览器，%lld%%"
           }
         }
       }
@@ -2501,7 +2501,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当前不在"
+            "value" : "当前不存在"
           }
         }
       }

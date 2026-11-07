@@ -51,7 +51,7 @@
     </message>
     <message>
         <source>%1 lists no models</source>
-        <translation>%1 没有列出模型</translation>
+        <translation>%1 没有可用的模型</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -275,7 +275,7 @@
     </message>
     <message>
         <source>Getting the browser, %1%</source>
-        <translation>正在获取浏览器，%1%</translation>
+        <translation>正在下载浏览器，%1%</translation>
     </message>
     <message>
         <source>Starting the browser</source>
@@ -432,11 +432,11 @@
     </message>
     <message>
         <source>%1 is not there now</source>
-        <translation>%1 当前不在</translation>
+        <translation>%1 当前不存在</translation>
     </message>
     <message>
         <source>Not there now</source>
-        <translation>当前不在</translation>
+        <translation>当前不存在</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -746,11 +746,11 @@
     </message>
     <message>
         <source>It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.</source>
-        <translation>它会失去你的账号和共享给你的终端。如果设备丢失或被盗，也请生成新的恢复密钥。</translation>
+        <translation>该设备将无法再使用你的账号和共享给你的终端。如果设备丢失或被盗，也请生成新的恢复密钥。</translation>
     </message>
     <message>
         <source>It loses your account and the terminals shared with you.</source>
-        <translation>它会失去你的账号和共享给你的终端。</translation>
+        <translation>该设备将无法再使用你的账号和共享给你的终端。</translation>
     </message>
 </context>
 <context>
@@ -773,7 +773,7 @@
     </message>
     <message>
         <source>When Kodosi is dark</source>
-        <translation>当 Kodosi 为深色时</translation>
+        <translation>Kodosi 为深色模式时</translation>
     </message>
     <message>
         <source>Sheet viewer</source>
@@ -837,7 +837,7 @@
     <name>DosiNewChat</name>
     <message>
         <source>New chat</source>
-        <translation>新聊天</translation>
+        <translation>新建聊天</translation>
     </message>
     <message>
         <source>Start a new chat?</source>
@@ -845,7 +845,7 @@
     </message>
     <message>
         <source>Dosi forgets this chat, here and on your other computers.</source>
-        <translation>Dosi 会忘记这段聊天，这里和你的其他电脑上都是如此。</translation>
+        <translation>Dosi 会忘记这段聊天，包括你其他电脑上的。</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -922,7 +922,7 @@
     </message>
     <message>
         <source>Dosi runs on Claude Code or Codex. Install one, then come back.</source>
-        <translation>Dosi 运行在 Claude Code 或 Codex 上。请安装其中一个，然后回来。</translation>
+        <translation>Dosi 运行在 Claude Code 或 Codex 上。请先安装其中一个，再回到这里。</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -930,7 +930,7 @@
     </message>
     <message>
         <source>Dosi reads these at the start of each conversation, on all your computers.</source>
-        <translation>Dosi 会在每次对话开始时读取这些内容，在你的所有电脑上都一样。</translation>
+        <translation>在你的所有电脑上，Dosi 都会在每次对话开始时读取这些内容。</translation>
     </message>
     <message>
         <source>Instructions</source>
@@ -974,7 +974,7 @@
     </message>
     <message>
         <source>New chat</source>
-        <translation>新聊天</translation>
+        <translation>新建聊天</translation>
     </message>
     <message>
         <source>Start a new chat?</source>
@@ -982,7 +982,7 @@
     </message>
     <message>
         <source>Dosi forgets this chat, here and on your other computers.</source>
-        <translation>Dosi 会忘记这段聊天，这里和你的其他电脑上都是如此。</translation>
+        <translation>Dosi 会忘记这段聊天，包括你其他电脑上的。</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -1572,7 +1572,7 @@
     </message>
     <message>
         <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>好友可以在你共享给他的每个终端中以你的身份输入，并拥有你在那台电脑上的权限。</translation>
+        <translation>好友可以在你共享给对方的每个终端中以你的身份输入，并拥有你在那台电脑上的权限。</translation>
     </message>
     <message>
         <source>Add only a person that you would let use your computer.</source>
@@ -1675,7 +1675,7 @@
     </message>
     <message>
         <source>Removes your account, devices and friends.</source>
-        <translation>移除你的账号、设备和好友。</translation>
+        <translation>删除你的账号、设备和好友。</translation>
     </message>
     <message>
         <source>Delete…</source>
@@ -1691,7 +1691,7 @@
     </message>
     <message>
         <source>Quit Kodosi and open it again to show %1.</source>
-        <translation>退出并重新打开 Kodosi，即可显示为 %1。</translation>
+        <translation>退出并重新打开 Kodosi，即可切换为 %1。</translation>
     </message>
     <message>
         <source>Kodosi shows the language of your system, or the one that you choose here.</source>
@@ -1743,7 +1743,7 @@
     </message>
     <message>
         <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi 会删除你的设备、好友和共享。你在其他房间写的内容会保留。</translation>
+        <translation>Kodosi 会删除你的设备和好友，并停止所有共享。你在其他房间写的内容会保留。</translation>
     </message>
     <message>
         <source>These rooms close for everyone in them: %1.</source>
@@ -1902,7 +1902,7 @@
     </message>
     <message>
         <source>The web link has no host.</source>
-        <translation>该网页链接没有主机。</translation>
+        <translation>该网页链接缺少主机名。</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -2107,7 +2107,7 @@
     </message>
     <message>
         <source>Hide until it&apos;s back</source>
-        <translation>隐藏，直到它恢复</translation>
+        <translation>隐藏，直到它重新上线</translation>
     </message>
     <message>
         <source>Close forever</source>
@@ -2188,7 +2188,7 @@
     </message>
     <message>
         <source>Identity changed</source>
-        <translation>身份已变化</translation>
+        <translation>身份已变更</translation>
     </message>
     <message>
         <source>Options for %1</source>
@@ -2204,7 +2204,7 @@
     </message>
     <message>
         <source>Their devices changed. Trust them again to share.</source>
-        <translation>对方的设备已变化。重新信任对方后才能共享。</translation>
+        <translation>对方的设备已变更。重新信任对方后才能共享。</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2244,7 +2244,7 @@
     </message>
     <message>
         <source>They lose the terminals that you shared with them.</source>
-        <translation>对方将失去你共享给他的终端。</translation>
+        <translation>对方将无法再使用你共享的终端。</translation>
     </message>
 </context>
 <context>
@@ -2545,7 +2545,7 @@
     </message>
     <message>
         <source>Bring an agent</source>
-        <translation>带上一个 Agent</translation>
+        <translation>拉入 Agent</translation>
     </message>
     <message>
         <source>Copy agent instructions</source>
@@ -2573,7 +2573,7 @@
     </message>
     <message>
         <source>Bring an agent. It reads and writes here.</source>
-        <translation>带上一个 Agent，它会在这里读写。</translation>
+        <translation>拉入一个 Agent，它可以在这里读写。</translation>
     </message>
     <message>
         <source>Type @ to mention a person or a terminal.</source>
@@ -2968,7 +2968,7 @@
     </message>
     <message>
         <source>Their identity changed. Trust them in Friends first.</source>
-        <translation>对方的身份已变化。请先在“好友”中信任对方。</translation>
+        <translation>对方的身份已变更。请先在“好友”中信任对方。</translation>
     </message>
     <message>
         <source>Everyone you share with can type, resize and close this terminal.</source>
@@ -3563,7 +3563,7 @@
     </message>
     <message>
         <source>The terminal opens when its computer is back.</source>
-        <translation>电脑恢复后，终端会打开。</translation>
+        <translation>电脑重新上线后，终端会打开。</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
@@ -3579,7 +3579,7 @@
     </message>
     <message>
         <source>%1 joined</source>
-        <translation>%1 加入了</translation>
+        <translation>%1 已加入</translation>
     </message>
     <message>
         <source>Full control</source>
@@ -3602,7 +3602,7 @@
     <name>UsageDial</name>
     <message>
         <source>Not read yet</source>
-        <translation>尚未读取</translation>
+        <translation>未读</translation>
     </message>
 </context>
 <context>
@@ -4049,7 +4049,7 @@
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi 收到的更新过多，已停止。请重试。</translation>
+        <translation>Kodosi 一次收到的变更过多，已停止。请重试。</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>
@@ -4306,7 +4306,7 @@
     </message>
     <message>
         <source>Your sign-in has ended. Sign in again.</source>
-        <translation>你的登录已结束。请重新登录。</translation>
+        <translation>你的登录已过期，请重新登录。</translation>
     </message>
     <message>
         <source>Your Kodosi account is deleted.</source>
