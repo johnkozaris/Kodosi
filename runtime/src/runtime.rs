@@ -2970,7 +2970,7 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.program = program.clone();
+                    local.entry.program.clone_from(&program);
                     local.entry.program_account = None;
                     self.publish_catalog();
                     self.find_account(id, program.as_deref());

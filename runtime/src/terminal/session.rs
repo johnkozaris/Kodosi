@@ -1122,49 +1122,7 @@ impl LocalActor {
         }
         if tokio::time::Instant::now() >= self.next_program_check {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
-            if let Some(path) = self.pty.working_directory()
-                && self.observed_directory.as_ref() != Some(&path)
-                && self.set_working_directory(path.clone())
-            {
-                self.observed_directory = Some(path);
-            }
-            let program = self.live_program();
-            let prompt = self.at_prompt(program.as_deref());
-            if program != self.program
-                && self
-                    .changes
-                    .try_send(SessionChange::Program {
-                        id: self.id,
-                        program: program.clone(),
-                    })
-                    .is_ok()
-            {
-                self.program = program;
-                self.account = None;
-                self.metadata_dirty = true;
-            }
-            if prompt != self.prompt
-                && self
-                    .changes
-                    .try_send(SessionChange::Prompt {
-                        id: self.id,
-                        prompt,
-                    })
-                    .is_ok()
-            {
-                self.prompt = prompt;
-            }
-            if self.status_program.is_some()
-                && self.pty.foreground_process_group() != self.status_program
-            {
-                self.status_program = None;
-                self.status.program_exited();
-            }
-            if self.pty.foreground_is_child()
-                && let Some(shell) = self.pty.foreground_process_group()
-            {
-                self.contexts.shell_in_front(shell);
-            }
+            self.observe_foreground();
         }
         self.publish_status();
         self.publish_context();
@@ -1206,6 +1164,52 @@ impl LocalActor {
         }
         self.drop_cancelled_input();
         None
+    }
+
+    fn observe_foreground(&mut self) {
+        if let Some(path) = self.pty.working_directory()
+            && self.observed_directory.as_ref() != Some(&path)
+            && self.set_working_directory(path.clone())
+        {
+            self.observed_directory = Some(path);
+        }
+        let program = self.live_program();
+        let prompt = self.at_prompt(program.as_deref());
+        if program != self.program
+            && self
+                .changes
+                .try_send(SessionChange::Program {
+                    id: self.id,
+                    program: program.clone(),
+                })
+                .is_ok()
+        {
+            self.program = program;
+            self.account = None;
+            self.metadata_dirty = true;
+        }
+        if prompt != self.prompt
+            && self
+                .changes
+                .try_send(SessionChange::Prompt {
+                    id: self.id,
+                    prompt,
+                })
+                .is_ok()
+        {
+            self.prompt = prompt;
+        }
+        if self.status_program.is_some()
+            && self.pty.foreground_process_group() != self.status_program
+        {
+            self.status_program = None;
+            self.status.program_exited();
+        }
+        if self.pty.foreground_is_child()
+            && let Some(shell) = self.pty.foreground_process_group()
+        {
+            self.contexts.shell_in_front(shell);
+        }
     }
 
     async fn apply_output(&mut self, bytes: Bytes, accepting_input: bool) -> Result<()> {
