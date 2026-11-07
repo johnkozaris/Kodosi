@@ -29,6 +29,10 @@ gets through, with the encryption of the terminal. The Linux app shows pages onl
 Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process
 and Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the
 shared browser does not run as root on Linux.
+The apps do not contain Kodosi Browser. When a computer opens its first shared browser,
+its host gets the browser from the feed on `updates.kodosi.com`, and it looks there for a
+new version each day. The host uses a download only when the feed has the signature of the
+key of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 ## What the service sees
 
