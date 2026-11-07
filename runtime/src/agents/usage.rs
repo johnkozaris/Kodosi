@@ -85,7 +85,7 @@ impl Readings {
                     read_at_ms: crate::identity::now_ms(),
                 }),
                 Err(error) => {
-                    tracing::debug!(%error, agent = agent.name(), "plan usage not read");
+                    tracing::warn!(%error, agent = agent.name(), "plan usage not read; the last reading stays");
                     readings
                         .get(&(agent, account.clone()))
                         .and_then(|reading| reading.usage.clone())

@@ -118,7 +118,7 @@ KMenu {
 
                         required property var modelData
                         readonly property var usage: modelData.usage ?? null
-                        readonly property bool stale: !!usage && Date.now() - usage.readAtMs > 600000
+                        readonly property bool stale: !!usage && Date.now() - usage.readAtMs > 60000
 
                         width: section.width
                         height: 38

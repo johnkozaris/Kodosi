@@ -91,7 +91,7 @@ struct AccountUsage: Decodable, Equatable {
     }
 
     var stale: Bool {
-        Date().timeIntervalSince1970 - Double(readAtMs) / 1000 > 600
+        Date().timeIntervalSince1970 - Double(readAtMs) / 1000 > 60
     }
 
     static func key(_ agent: String, _ account: String) -> String {
