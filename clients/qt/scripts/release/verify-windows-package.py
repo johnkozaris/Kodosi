@@ -48,6 +48,7 @@ REQUIRED_FILES = (
     "resources/qtwebengine_resources.pak",
     "translations/qtwebengine_locales/en-US.pak",
 )
+QML_IMPORT = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)", re.MULTILINE)
 # Windows may hold an older copy of the C runtime.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
 QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
@@ -188,6 +189,17 @@ def verify_payload(files: dict[str, zipfile.ZipInfo], read: Reader, logos: list[
             fail(f"{name} is not an {arch} binary")
 
 
+def verify_qml_modules(files: dict[str, zipfile.ZipInfo]) -> None:
+    modules = {
+        module
+        for source in (ROOT / "src/qml").rglob("*.qml")
+        for module in QML_IMPORT.findall(source.read_text(encoding="utf-8"))
+    }
+    for module in sorted(modules):
+        if f"qml/{module.replace('.', '/')}/qmldir" not in files:
+            fail(f"the app imports the QML module {module}, which the package does not provide")
+
+
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
     for name in ("kodosi-qt.exe", "kodosi.exe", "agent-browser.exe"):
@@ -274,6 +286,7 @@ def main() -> None:
         ).read_bytes():
             fail("Kodosi.appinstaller is missing or differs from the configured file")
         verify_payload(files, read, logos, arch)
+        verify_qml_modules(files)
         verify_home(read)
         verify_imports(files, read, windows_library)
         verify_evidence(files, read, arguments.build_dir, arguments.qt_root)
