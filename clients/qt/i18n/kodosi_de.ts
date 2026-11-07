@@ -429,11 +429,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1 ist gerade nicht da</translation>
+        <translation>%1 fehlt</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>Gerade nicht da</translation>
+        <translation>Fehlt</translation>
     </message>
     <message>
         <source>Save a copy</source>

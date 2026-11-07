@@ -6,31 +6,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ist gerade nicht da"
+            "value" : "%@ fehlt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@: δεν υπάρχει τώρα"
+            "value" : "%@: λείπει"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ no está disponible ahora"
+            "value" : "No se encuentra %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ est indisponible pour le moment"
+            "value" : "%@ est introuvable"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ non c'è al momento"
+            "value" : "%@ mancante"
           }
         },
         "ja" : {
@@ -48,7 +48,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 当前不存在"
+            "value" : "找不到 %@"
           }
         }
       }
@@ -1587,7 +1587,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Falló"
+            "value" : "Error"
           }
         },
         "fr" : {
@@ -2199,31 +2199,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gerade nicht da"
+            "value" : "Fehlt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δεν υπάρχει τώρα"
+            "value" : "Λείπει"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No está disponible ahora"
+            "value" : "No encontrado"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Indisponible pour le moment"
+            "value" : "Introuvable"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non c'è al momento"
+            "value" : "Mancante"
           }
         },
         "ja" : {
@@ -2241,7 +2241,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当前不存在"
+            "value" : "缺失"
           }
         }
       }
@@ -4811,7 +4811,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Despertar"
+            "value" : "Reactivar"
           }
         },
         "fr" : {

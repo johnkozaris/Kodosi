@@ -3866,7 +3866,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σκούρο"
+            "value" : "Σκουρόχρωμο"
           }
         },
         "es" : {
@@ -5612,7 +5612,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "키보드 숨기기"
+            "value" : "키보드 가리기"
           }
         },
         "zh-Hans" : {
@@ -7818,7 +7818,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Φωτεινό"
+            "value" : "Ανοιχτόχρωμο"
           }
         },
         "es" : {
@@ -15642,7 +15642,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fidati"
+            "value" : "Considera attendibile"
           }
         },
         "ja" : {

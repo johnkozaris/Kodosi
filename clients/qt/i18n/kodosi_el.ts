@@ -429,11 +429,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1: δεν υπάρχει τώρα</translation>
+        <translation>%1: λείπει</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>Δεν υπάρχει τώρα</translation>
+        <translation>Λείπει</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -3323,11 +3323,11 @@
     </message>
     <message>
         <source>Light</source>
-        <translation>Φωτεινό</translation>
+        <translation>Ανοιχτόχρωμο</translation>
     </message>
     <message>
         <source>Dark</source>
-        <translation>Σκούρο</translation>
+        <translation>Σκουρόχρωμο</translation>
     </message>
     <message>
         <source>Reduce motion</source>

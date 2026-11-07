@@ -284,7 +284,7 @@
     </message>
     <message>
         <source>Wake it</source>
-        <translation>Despertarlo</translation>
+        <translation>Reactivarlo</translation>
     </message>
 </context>
 <context>
@@ -429,11 +429,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1 no está disponible ahora</translation>
+        <translation>No se encuentra %1</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>No está disponible ahora</translation>
+        <translation>No encontrado</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -4144,7 +4144,7 @@
     </message>
     <message>
         <source>Failed</source>
-        <translation>Falló</translation>
+        <translation>Error</translation>
     </message>
     <message>
         <source>In the container %1</source>
@@ -4227,7 +4227,7 @@
     </message>
     <message>
         <source>Go to</source>
-        <translation>Ir</translation>
+        <translation>Ir a</translation>
     </message>
     <message>
         <source>Show or hide the sidebar</source>

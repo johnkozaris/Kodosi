@@ -429,11 +429,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1 non c&apos;è al momento</translation>
+        <translation>%1 mancante</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>Non c&apos;è al momento</translation>
+        <translation>Mancante</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -2203,11 +2203,11 @@
     </message>
     <message>
         <source>Their devices changed. Trust them again to share.</source>
-        <translation>I suoi dispositivi sono cambiati. Fidati di nuovo per condividere.</translation>
+        <translation>I suoi dispositivi sono cambiati. Considerali di nuovo attendibili per condividere.</translation>
     </message>
     <message>
         <source>Trust</source>
-        <translation>Fidati</translation>
+        <translation>Considera attendibile</translation>
     </message>
     <message>
         <source>Invite of this friend</source>
@@ -4227,7 +4227,7 @@
     </message>
     <message>
         <source>Go to</source>
-        <translation>Vai</translation>
+        <translation>Vai a</translation>
     </message>
     <message>
         <source>Show or hide the sidebar</source>

@@ -429,11 +429,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1 est indisponible pour le moment</translation>
+        <translation>%1 est introuvable</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>Indisponible pour le moment</translation>
+        <translation>Introuvable</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -4227,7 +4227,7 @@
     </message>
     <message>
         <source>Go to</source>
-        <translation>Aller</translation>
+        <translation>Aller à</translation>
     </message>
     <message>
         <source>Show or hide the sidebar</source>

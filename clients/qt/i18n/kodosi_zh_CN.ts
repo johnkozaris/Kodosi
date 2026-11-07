@@ -428,11 +428,11 @@
     </message>
     <message>
         <source>%1 is missing</source>
-        <translation>%1 当前不存在</translation>
+        <translation>找不到 %1</translation>
     </message>
     <message>
         <source>Missing</source>
-        <translation>当前不存在</translation>
+        <translation>缺失</translation>
     </message>
     <message>
         <source>Save a copy</source>

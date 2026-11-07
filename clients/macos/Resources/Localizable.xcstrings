@@ -7790,7 +7790,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σκούρο"
+            "value" : "Σκουρόχρωμο"
           }
         },
         "es" : {
@@ -10786,19 +10786,19 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ir"
+            "value" : "Ir a"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aller"
+            "value" : "Aller à"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vai"
+            "value" : "Vai a"
           }
         },
         "ja" : {
@@ -14160,7 +14160,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Φωτεινό"
+            "value" : "Ανοιχτόχρωμο"
           }
         },
         "es" : {
@@ -27970,7 +27970,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fidati"
+            "value" : "Considera attendibile"
           }
         },
         "ja" : {
