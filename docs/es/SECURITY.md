@@ -53,6 +53,21 @@ comparte y las salas que son suyas; los mensajes en salas de otras personas se q
 cuenta. Durante 30 días, el servicio guarda el emisor y el sujeto del inicio de sesión
 eliminado para rechazar tokens anteriores.
 
+## Comprobar una descarga
+
+Cada versión tiene `SHA256SUMS`, el SHA-256 de cada uno de sus archivos, y `SHA256SUMS.asc`,
+la firma de esa lista con la clave de Kodosi que también firma el repositorio apt. Pon los dos
+archivos junto a tu descarga y ejecuta:
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+`gpgv`, de GnuPG, tiene que indicar una firma válida de la clave
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, y `shasum` tiene que mostrar OK para tu descarga.
+
 ## Informar de una vulnerabilidad
 
 Usa el [aviso privado de vulnerabilidades](https://github.com/johnkozaris/Kodosi/security/advisories/new)

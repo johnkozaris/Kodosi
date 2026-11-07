@@ -56,6 +56,22 @@ et les salons dont il est propriétaire ; les messages dans les salons des autr
 compte. Pendant 30 jours, le service garde l'émetteur et le sujet de la connexion supprimée
 pour refuser les anciens jetons.
 
+## Vérifier un téléchargement
+
+Chaque version contient `SHA256SUMS`, le SHA-256 de chacun de ses fichiers, et
+`SHA256SUMS.asc`, la signature de cette liste par la clé de Kodosi qui signe aussi le dépôt
+apt. Placez les deux fichiers à côté de votre téléchargement, puis lancez :
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+`gpgv`, fourni avec GnuPG, doit indiquer une signature valide de la clé
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, et `shasum` doit afficher OK pour votre
+téléchargement.
+
 ## Signaler une vulnérabilité
 
 Utilisez le [signalement privé de vulnérabilités](https://github.com/johnkozaris/Kodosi/security/advisories/new)

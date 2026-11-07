@@ -16,6 +16,18 @@
 
 アカウントを削除すると、そのデバイス、リカバリーデータ、フレンド、共有、所有するルームが削除されます。ほかの人のルームのメッセージは、アカウントのない状態で残ります。サービスは古いトークンを拒否するため、削除したサインインの発行者とサブジェクトを 30 日間保持します。
 
+## ダウンロードを確認する
+
+各リリースには、すべてのファイルの SHA-256 を記載した `SHA256SUMS` と、そのリストの署名 `SHA256SUMS.asc` があります。署名に使う Kodosi の鍵は、apt リポジトリの署名にも使われています。この 2 つのファイルをダウンロードしたファイルと同じ場所に置いて、次を実行してください。
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+GnuPG の `gpgv` が鍵 `E8007A36D199B6EE755B1EE9C612C00442E52299` による正しい署名と表示し、`shasum` がダウンロードしたファイルに OK と表示することを確認してください。
+
 ## 脆弱性を報告する
 
 [非公開の脆弱性報告](https://github.com/johnkozaris/Kodosi/security/advisories/new)を使うか、[security@kodosi.com](mailto:security@kodosi.com) に、リビジョン、手順、影響、機密情報を伏せたログを添えてご連絡ください。詳細は公開の Issue に書かないでください。

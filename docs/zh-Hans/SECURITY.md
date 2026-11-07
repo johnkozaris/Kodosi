@@ -16,6 +16,18 @@
 
 删除账号会移除其设备、恢复数据、好友、共享和其拥有的房间；在他人房间中发送的消息会保留，但不再关联账号。在 30 天内，服务会保留已删除登录的签发者和主体，以拒绝更早的令牌。
 
+## 校验下载的文件
+
+每个发布版本都附有 `SHA256SUMS`（列出其中每个文件的 SHA-256）和 `SHA256SUMS.asc`（这份列表的签名）。签名所用的 Kodosi 密钥也会为 apt 仓库签名。把这两个文件放在下载的文件旁边，然后运行：
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+GnuPG 的 `gpgv` 必须报告密钥 `E8007A36D199B6EE755B1EE9C612C00442E52299` 的有效签名，`shasum` 必须对你下载的文件显示 OK。
+
 ## 报告漏洞
 
 请使用[私密漏洞报告](https://github.com/johnkozaris/Kodosi/security/advisories/new)，或发送邮件至 [security@kodosi.com](mailto:security@kodosi.com)，附上修订版本、复现步骤、影响以及隐去敏感信息的日志。请勿在公开 Issue 中透露细节。

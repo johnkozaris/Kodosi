@@ -53,6 +53,22 @@ Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde,
 Terminals und eigenen Räume; Nachrichten in Räumen anderer bleiben ohne Konto stehen. 30 Tage lang behält
 der Dienst Aussteller und Subjekt der gelöschten Anmeldung, um ältere Tokens abzuweisen.
 
+## Einen Download prüfen
+
+Jedes Release enthält `SHA256SUMS`, den SHA-256-Wert jeder seiner Dateien, und
+`SHA256SUMS.asc`, die Signatur dieser Liste mit dem Schlüssel von Kodosi, der auch das
+apt-Repository signiert. Leg die beiden Dateien neben deinen Download und führ dann diese
+Befehle aus:
+
+```sh
+curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
+gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
+shasum -a 256 --ignore-missing -c SHA256SUMS
+```
+
+`gpgv` aus GnuPG muss eine gültige Signatur des Schlüssels
+`E8007A36D199B6EE755B1EE9C612C00442E52299` melden, und `shasum` muss für deinen Download OK melden.
+
 ## Eine Schwachstelle melden
 
 Nutze die [vertrauliche Meldung von Schwachstellen](https://github.com/johnkozaris/Kodosi/security/advisories/new)
