@@ -380,9 +380,6 @@ fn backend_message(status: u16, body: &Value) -> Text {
     }
 }
 
-/// The words of a refusal from the backend. The backend writes English: its refusals that people
-/// meet have their translations here, a plan limit comes with its name and number, and the rest
-/// stays English.
 pub(crate) fn backend_text(body: &Value) -> Option<Text> {
     if let (Some(limit), Some(most)) = (
         body.get("limit").and_then(Value::as_str),
@@ -437,7 +434,6 @@ fn plan_limit(limit: &str, most: u64) -> Option<Text> {
     })
 }
 
-/// The backend's refusals that people meet, word for word as the backend writes them.
 fn backend_refusals() -> Vec<Text> {
     vec![
         text!("An existing trusted device must approve this device."),
@@ -457,14 +453,20 @@ fn backend_refusals() -> Vec<Text> {
         text!("Room keys changed; refresh before retrying."),
         text!("Room membership changed; refresh before retrying."),
         text!("Share a terminal only with accepted friends."),
+        text!("That computer is busy. Try again in a moment."),
         text!("That computer is not online."),
         text!("The approval has already changed."),
+        text!("The current state changed; refresh before retrying."),
+        text!("The device connection closed."),
         text!("The friend list changed on another device."),
         text!("The host is offline."),
         text!("The owner cannot leave the room. Delete it instead."),
+        text!("The requested change conflicts with current state."),
         text!("The room has reached its item limit."),
         text!("The room of this terminal changed; refresh before retrying."),
+        text!("The server could not check this terminal; try again."),
         text!("The server could not make the account. Sign in again."),
+        text!("The server has reached its limit of terminal connections."),
         text!("The sharing of this terminal changed; refresh before retrying."),
         text!("There are too many terminals to list."),
         text!("This account has no recovery key."),
@@ -481,9 +483,12 @@ fn backend_refusals() -> Vec<Text> {
             "This terminal is shared with its room. Remove it from the room to share it with friends."
         ),
         text!("This terminal was replaced."),
+        text!("Too many connected participants."),
+        text!("Too many device connections."),
         text!(
             "Too many of your terminals wait to close on offline computers. Remove the computers that do not come back."
         ),
+        text!("Too many open views."),
         text!("You cannot leave your own terminal."),
         text!("You have too many terminals."),
     ]

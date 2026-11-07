@@ -50,7 +50,9 @@ pub async fn serve_activations(
         .await
         .map_err(|error| {
             if error.kind() == io::ErrorKind::AddrInUse {
-                Error::HostBusy("another process owns the Kodosi app endpoint".into())
+                Error::HostBusy(crate::text::Text::plain(
+                    "another process owns the Kodosi app endpoint",
+                ))
             } else {
                 local_error(error)
             }
@@ -154,7 +156,7 @@ pub async fn forward_activation(
         match tokio::time::timeout(HELLO_TIMEOUT, send(&endpoint, activation)).await {
             Ok(Ok(Some(running))) => return Ok(Forwarded::Delivered(running)),
             Ok(Ok(None)) => {
-                return Err(Error::Text(text!(
+                return Err(Error::Refused(text!(
                     "Another version of Kodosi is running. Quit it, then open Kodosi again."
                 )));
             }

@@ -1,9 +1,3 @@
-//! Words that people read.
-//!
-//! A sentence marked with `text!` goes to each app as data and becomes words in the language of
-//! that app; the `kodosi` command, the host and the logs use English. Other words, such as the
-//! detail of an internal fault, stay English everywhere.
-
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -17,7 +11,6 @@ use std::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _, ser::SerializeMap};
 use serde_json::{Map, Value};
 
-/// Marks a sentence for people. Each value fills the `{name}` of the same name.
 #[macro_export]
 macro_rules! text {
     ($words:literal $(, $name:ident = $value:expr)* $(,)?) => {
@@ -70,7 +63,6 @@ impl Language {
         }
     }
 
-    /// The language of a tag such as `de`, `de-AT`, `zh-Hans` or `zh_CN`; English for others.
     pub fn of(tag: &str) -> Self {
         let primary = tag.split(['-', '_']).next().unwrap_or_default();
         Self::ALL
@@ -108,7 +100,6 @@ impl Language {
 
 static LANGUAGE: AtomicU8 = AtomicU8::new(Language::English as u8);
 
-/// Sets the language of the words that this process gives to people. Only an app sets it.
 pub fn set_language(language: Language) {
     LANGUAGE.store(language as u8, Ordering::Relaxed);
 }
@@ -124,7 +115,6 @@ pub struct Text {
     translated: bool,
 }
 
-/// A value in a sentence: words as they are, or a sentence in the same language.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Arg {
     Words(String),
@@ -143,7 +133,6 @@ impl Text {
         }
     }
 
-    /// Words that stay English, such as the detail of an internal fault.
     pub fn plain(words: impl Into<Cow<'static, str>>) -> Self {
         Self {
             words: words.into(),
@@ -152,7 +141,6 @@ impl Text {
         }
     }
 
-    /// The sentence before its values, as the code writes it.
     pub fn words(&self) -> &str {
         &self.words
     }
@@ -223,24 +211,10 @@ fn fill(words: &str, args: &[(Cow<'static, str>, Arg)], language: Language) -> S
     filled
 }
 
-/// Whether `value` holds a text that still needs its words.
-pub fn has_text(value: &Value) -> bool {
-    match value {
-        Value::Object(object) => {
-            object.contains_key("$text")
-                || object.contains_key("$fault")
-                || object.values().any(has_text)
-        }
-        Value::Array(items) => items.iter().any(has_text),
-        _ => false,
-    }
-}
-
-/// Puts each text in `value` into words of `language`.
 pub fn render(value: &mut Value, language: Language) {
     match value {
-        Value::Object(object) if object.contains_key("$text") || object.contains_key("$fault") => {
-            if let Some(text) = Text::from_value(value.take()) {
+        Value::Object(object) if is_text(object) => {
+            if let Some(text) = Text::from_value(value.clone()) {
                 *value = Value::String(text.in_language(language));
             }
         }
@@ -250,27 +224,18 @@ pub fn render(value: &mut Value, language: Language) {
     }
 }
 
+fn is_text(object: &Map<String, Value>) -> bool {
+    let words = |key| object.get(key).is_some_and(Value::is_string);
+    match object.len() {
+        1 => words("$fault") || words("$text"),
+        2 => words("$text") && object.get("args").is_some_and(Value::is_object),
+        _ => false,
+    }
+}
+
 impl fmt::Display for Text {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.in_language(Language::English))
-    }
-}
-
-impl From<String> for Text {
-    fn from(words: String) -> Self {
-        Self::plain(words)
-    }
-}
-
-impl From<&'static str> for Text {
-    fn from(words: &'static str) -> Self {
-        Self::plain(words)
-    }
-}
-
-impl PartialEq<&str> for Text {
-    fn eq(&self, other: &&str) -> bool {
-        self.in_language(Language::English) == *other
     }
 }
 
@@ -328,7 +293,7 @@ macro_rules! numbers {
         }
     )*};
 }
-numbers!(u8, u16, u32, u64, usize, i32, i64);
+numbers!(u16, u64, usize);
 
 impl Serialize for Text {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -432,6 +397,19 @@ mod tests {
             words.ends_with(" (Terminal frame has an invalid body.)"),
             "{words}"
         );
+    }
+
+    #[test]
+    fn data_that_only_looks_like_a_text_stays_as_it_is() {
+        let data = serde_json::json!({"cells":[
+            {"$text":"A1","style":"bold"},
+            {"$fault":{"code":7}},
+            {"$text":"B1","args":"none"},
+            {"$text":"C1","args":{"n":[1]}},
+        ]});
+        let mut rendered = data.clone();
+        render(&mut rendered, Language::German);
+        assert_eq!(rendered, data);
     }
 
     #[test]

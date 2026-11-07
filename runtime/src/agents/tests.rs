@@ -364,7 +364,8 @@ fn a_new_account_gets_a_private_empty_folder() {
             "Work",
             &["default".to_owned(), "work".to_owned()]
         )
-        .unwrap_err(),
+        .unwrap_err()
+        .to_string(),
         "There is already an account named work."
     );
 }

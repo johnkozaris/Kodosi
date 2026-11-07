@@ -9,7 +9,7 @@ use super::{
     pins::{Root, decode},
     wire_codec::ML_DSA_65_SIGNATURE_LEN,
 };
-use crate::network::{Error, Result, crypto, invalid};
+use crate::network::{Result, crypto, invalid, untrusted};
 use kodosi_os::fs::write_private;
 
 const FRIEND_LIST_V1: &[u8] = b"kodosi-friend-list-v1";
@@ -91,16 +91,16 @@ impl FriendList {
     ) -> Result<Self> {
         let body = decode(&signed_list.body, MAX_BODY_LEN)?;
         let list = Self::parse(&body, user_id)?;
-        let signer = devices.get(&list.signer_device_id).ok_or_else(|| {
-            Error::Trust("The friend list is not signed by an approved device.".into())
-        })?;
+        let signer = devices
+            .get(&list.signer_device_id)
+            .ok_or_else(|| untrusted("The friend list is not signed by an approved device."))?;
         ML_DSA_65
             .verify_sig(
                 &signer.sig_public_key,
                 &signed(&body),
                 &decode(&signed_list.signature, ML_DSA_65_SIGNATURE_LEN)?,
             )
-            .map_err(|_| Error::Trust("The friend list signature is not valid.".into()))?;
+            .map_err(|_| untrusted("The friend list signature is not valid."))?;
         Ok(list)
     }
 
@@ -187,6 +187,7 @@ pub(crate) fn parse_invite(text: &str) -> Option<(String, Root)> {
 mod tests {
     use super::*;
     use crate::identity::{device_cert::build_self_cert, keys::DeviceKeys};
+    use crate::network::Error;
 
     const USER: &str = "11111111-1111-1111-1111-111111111111";
 

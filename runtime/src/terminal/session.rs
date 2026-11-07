@@ -864,7 +864,7 @@ impl LocalActor {
             !owner.authorization.is_cancelled() && owner.controller != controller
         }) && !claim
         {
-            return Err(ResizeError::Rejected(Error::Text(text!(
+            return Err(ResizeError::Rejected(Error::Refused(text!(
                 "Another terminal view controls the size. Focus this view to resize it."
             ))));
         }
@@ -1433,7 +1433,7 @@ impl LocalActor {
                 let result = if self.at_prompt(self.live_program().as_deref()) {
                     self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
                 } else {
-                    Err(Error::Text(text!("This terminal runs a program.")))
+                    Err(Error::Refused(text!("This terminal runs a program.")))
                 };
                 drop(reply.send(result));
             }

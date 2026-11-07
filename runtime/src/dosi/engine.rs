@@ -479,7 +479,7 @@ impl Engine {
     ) -> Result<()> {
         let text = text.trim();
         if self.agent().is_none() {
-            return Err(Error::Text(text!(
+            return Err(Error::Refused(text!(
                 "Install Claude Code or Codex, then choose it for Dosi in Settings."
             )));
         }
@@ -1096,7 +1096,7 @@ impl Engine {
         let before = self.queue.len();
         self.queue.retain(|queued| queued.id != id);
         if self.queue.len() == before {
-            return Err(Error::Text(text!("You sent that message already.")));
+            return Err(Error::Refused(text!("You sent that message already.")));
         }
         out.snapshot = true;
         Ok(())
@@ -1111,7 +1111,7 @@ impl Engine {
         let conversation = self
             .conversation
             .as_mut()
-            .ok_or_else(|| Error::Text(text!("Dosi has no conversation.")))?;
+            .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
         let answered = conversation.answer(item, choices).map_err(Error::Text)?;
         out.item(&answered);
         self.write(answered.clone(), out);
@@ -1194,7 +1194,7 @@ impl Engine {
         let conversation = self
             .conversation
             .as_mut()
-            .ok_or_else(|| Error::Text(text!("Dosi has no conversation.")))?;
+            .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
         let item = conversation.push(DosiBody::Question {
             question,
             options,
@@ -1222,7 +1222,7 @@ impl Engine {
             AgentChoiceChange::Pick(pick) => Some(pick.agent),
         };
         if agent.is_some_and(|agent| !AGENTS.contains(&agent)) {
-            return Err(Error::Text(text!("Dosi cannot run on that agent.")));
+            return Err(Error::Refused(text!("Dosi cannot run on that agent.")));
         }
         let used = |engine: &Self| engine.agent().map(|agent| engine.setup.pick(agent));
         let before = used(self);

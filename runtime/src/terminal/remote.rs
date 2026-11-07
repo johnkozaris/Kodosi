@@ -1164,7 +1164,7 @@ impl RemoteActor {
             .is_some_and(|(owner, token)| *owner != id && !token.is_cancelled())
             && !*claim
         {
-            return Err(Error::Text(text!(
+            return Err(Error::Refused(text!(
                 "Another terminal view controls the size. Focus this view to resize it."
             )));
         }
@@ -1341,7 +1341,7 @@ impl RemoteActor {
             return Ok(());
         }
         if self.pictures.len() >= PICTURES_WAITING {
-            return Err(Error::Text(text!(
+            return Err(Error::Refused(text!(
                 "Kodosi still sends earlier pictures to this terminal. Paste this one in a moment."
             )));
         }

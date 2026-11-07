@@ -83,7 +83,9 @@ pub async fn serve(
         .await
         .map_err(|error| {
             if error.kind() == io::ErrorKind::AddrInUse {
-                Error::HostBusy("another Kodosi host owns this endpoint".into())
+                Error::HostBusy(crate::text::Text::plain(
+                    "another Kodosi host owns this endpoint",
+                ))
             } else {
                 local_error(error)
             }

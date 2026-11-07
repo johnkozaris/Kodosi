@@ -150,7 +150,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     drop(reply.send(Ok(json!({"accepted":true}))));
                 }
                 HostRequest::Control { reply, .. } => {
-                    drop(reply.send(Err("The terminal refused the size.".into())));
+                    drop(reply.send(Err(Text::plain("The terminal refused the size."))));
                 }
                 HostRequest::Document { reply, .. } => drop(reply.send(Ok(echo_pipe()))),
                 HostRequest::Picture { picture, reply, .. } => {
@@ -483,7 +483,7 @@ async fn the_end_reaches_the_view_after_the_output_that_waits() {
     terminal.keyframe().await;
     terminal.write(b"goodbye");
     drop(terminal.frames.send(PublishedFrame::Closed {
-        reason: "Terminal closed.".into(),
+        reason: Text::plain("Terminal closed."),
         final_sequence: 1,
     }));
     assert!(matches!(

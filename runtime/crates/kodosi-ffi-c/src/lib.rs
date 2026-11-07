@@ -139,6 +139,10 @@ pub struct KodosiStartFailure {
 
 static LAST_START_FAILURE: Mutex<Option<KodosiStartFailure>> = Mutex::new(None);
 
+fn words(error: &Error) -> String {
+    error.text().in_language(kodosi_runtime::text::language())
+}
+
 fn start_failure(code: i32, message: &str) -> Box<KodosiStartFailure> {
     let mut failure = Box::new(KodosiStartFailure {
         code,
@@ -165,7 +169,7 @@ fn start_error(error: &Error) -> Box<KodosiStartFailure> {
             pid,
             terminals,
         } => {
-            let mut failure = start_failure(KODOSI_START_HOST_OUTDATED, &error.to_string());
+            let mut failure = start_failure(KODOSI_START_HOST_OUTDATED, &words(error));
             failure.host_kind = match kind {
                 HostKind::Foreground => KODOSI_HOST_KIND_FOREGROUND,
                 HostKind::Background => KODOSI_HOST_KIND_BACKGROUND,
@@ -174,8 +178,10 @@ fn start_error(error: &Error) -> Box<KodosiStartFailure> {
             failure.host_terminals = u32::try_from(*terminals).unwrap_or(u32::MAX);
             failure
         }
-        Error::Invalid(_) => start_failure(KODOSI_START_REJECTED, &error.to_string()),
-        _ => start_failure(KODOSI_START_FAILED, &error.to_string()),
+        Error::Invalid(_) | Error::Refused(_) => {
+            start_failure(KODOSI_START_REJECTED, &words(error))
+        }
+        _ => start_failure(KODOSI_START_FAILED, &words(error)),
     }
 }
 
@@ -348,7 +354,7 @@ pub unsafe extern "C" fn kodosi_send_command(
                 return refusal(&value, &error.to_string()).map_or(
                     KODOSI_FFI_DESER_FAILED,
                     |answer| {
-                        instance.state.event(&answer);
+                        instance.state.event(answer);
                         KODOSI_FFI_OK
                     },
                 );

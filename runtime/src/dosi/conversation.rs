@@ -379,7 +379,9 @@ impl Conversation {
             .count();
         let distinct = choices.iter().collect::<HashSet<_>>().len() == choices.len();
         if choices.is_empty() || own > 1 || !distinct || (!*multiple && choices.len() > 1) {
-            return Err("Choose from the answers, and add at most one of your own.".into());
+            return Err(text!(
+                "Choose from the answers, and add at most one of your own."
+            ));
         }
         *answer = Some(choices);
         Ok(item.clone())

@@ -118,7 +118,7 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                     reason: value
                         .get("reason")
                         .and_then(|reason| serde_json::from_value(reason.clone()).ok())
-                        .unwrap_or_else(|| "terminal closed".into()),
+                        .unwrap_or_else(|| text!("The terminal closed.")),
                     final_sequence: number(&value, "finalSequence")?,
                 }),
                 Some(kind) if kind.starts_with("term.") => Ok(TerminalFrame::Answer(value)),

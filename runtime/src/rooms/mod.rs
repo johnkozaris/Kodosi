@@ -205,9 +205,9 @@ impl Action {
     pub(crate) fn validate(&self) -> crate::Result<()> {
         let text = |value: &str, maximum: usize| {
             if value.trim().is_empty() || value.len() > maximum || value.contains('\0') {
-                Err(crate::Error::Invalid(
-                    "Room text is empty or too long.".into(),
-                ))
+                Err(crate::Error::Refused(text!(
+                    "Room text is empty or too long."
+                )))
             } else {
                 Ok(())
             }
@@ -235,7 +235,7 @@ impl Action {
             } => {
                 text(title, 256)?;
                 if description.len() > 16_384 || repository_ids.len() > 64 {
-                    return Err(crate::Error::Invalid("Task details are too long.".into()));
+                    return Err(crate::Error::Refused(text!("Task details are too long.")));
                 }
                 for id in repository_ids
                     .iter()
@@ -265,7 +265,7 @@ impl Action {
                     .as_deref()
                     .is_some_and(|p| !matches!(p, "github" | "gitea"))
                 {
-                    return Err(crate::Error::Text(text!("Choose GitHub or Gitea.")));
+                    return Err(crate::Error::Refused(text!("Choose GitHub or Gitea.")));
                 }
             }
             Self::Issues { repository_id } | Self::ImportIssue { repository_id, .. } => {

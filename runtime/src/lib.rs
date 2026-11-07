@@ -56,9 +56,8 @@ pub enum Error {
     Stopped,
     NotFound,
     Stale,
-    /// An internal fault, in English.
     Invalid(String),
-    /// A refusal or failure that people read in their language.
+    Refused(text::Text),
     Text(text::Text),
     HostBusy(text::Text),
     HostOutdated {
@@ -78,7 +77,7 @@ impl Error {
             Self::NotFound => text!("This terminal is not available."),
             Self::Stale => text!("The terminal or the account changed. Try again."),
             Self::Invalid(words) | Self::Other(words) => text::Text::plain(words.clone()),
-            Self::Text(text) | Self::HostBusy(text) => text.clone(),
+            Self::Refused(text) | Self::Text(text) | Self::HostBusy(text) => text.clone(),
             Self::HostOutdated { .. } => {
                 text!("Kodosi was updated, but its host still runs the earlier version.")
             }
@@ -133,6 +132,12 @@ impl From<network::Error> for Error {
         match error {
             network::Error::Busy => Self::Busy,
             network::Error::Stale => Self::Stale,
+            refusal @ (network::Error::Trust(_)
+            | network::Error::SignedOut
+            | network::Error::EnrollmentRequired
+            | network::Error::Backend {
+                status: 403 | 404, ..
+            }) => Self::Refused(refusal.text()),
             other => Self::Text(other.text()),
         }
     }

@@ -126,6 +126,7 @@ int main(int argc, char* argv[])
     QCoreApplication::setApplicationVersion(QStringLiteral(KODOSI_VERSION));
     kodosi::AppLanguage::install(
         app, kodosi::AppLanguage::resolved(QSettings().value(QStringLiteral("app/language")).toString()));
+    kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
     const auto executable = QCoreApplication::applicationFilePath();
 #ifdef Q_OS_LINUX
     // Wayland names the window by this entry, so the desktop shows Kodosi's icon and name.

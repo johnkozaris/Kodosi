@@ -4,7 +4,7 @@ use serde::Deserialize;
 use super::BTreeSet;
 use super::{
     BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value, VerifiedIdentity,
-    invalid, json, path_segment, wire,
+    invalid, json, path_segment, untrusted, wire,
 };
 use crate::identity::{
     friends::{Friend, FriendList, SignedFriendList, invite, parse_invite, root_hex},
@@ -175,8 +175,8 @@ impl BackendClient {
             .as_ref()
             .is_some_and(|(bundle, _)| bundle.user_id != user_id)
         {
-            return Err(Error::Trust(
-                "Returned device identity belongs to another account.".into(),
+            return Err(untrusted(
+                "Returned device identity belongs to another account.",
             ));
         }
         Ok(fresh)

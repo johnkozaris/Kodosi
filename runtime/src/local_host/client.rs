@@ -34,18 +34,17 @@ impl Client {
         self.commands.command(command).await
     }
     pub async fn next(&mut self) -> Result<Value> {
-        self.events.next().await
+        let mut frame = self.events.next().await?;
+        crate::text::render(&mut frame, crate::text::language());
+        Ok(frame)
     }
     pub fn split(self) -> (Events, Commands) {
         (self.events, self.commands)
     }
 }
 impl Events {
-    /// The next frame of the host, with each text in this process's language.
     pub async fn next(&mut self) -> Result<Value> {
-        let mut frame = read_json(&mut self.0).await?;
-        crate::text::render(&mut frame, crate::text::language());
-        Ok(frame)
+        read_json(&mut self.0).await
     }
 }
 impl Commands {
@@ -94,7 +93,9 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
                     reply
                         .get("message")
                         .and_then(|message| serde_json::from_value(message.clone()).ok())
-                        .unwrap_or_else(|| "The running host refused to stop.".into()),
+                        .unwrap_or_else(|| {
+                            crate::text::Text::plain("The running host refused to stop.")
+                        }),
                 ));
             }
             _ => {}
@@ -143,7 +144,7 @@ async fn connect(
     let (stream, welcome) = handshake(root, session_id).await?;
     if welcome.version < VERSION {
         let host = welcome.host.ok_or_else(|| {
-            Error::Text(text!("An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."))
+            Error::Refused(text!("An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."))
         })?;
         return Err(Error::HostOutdated {
             kind: host.kind,
@@ -152,7 +153,7 @@ async fn connect(
         });
     }
     if welcome.version > VERSION {
-        return Err(Error::Text(text!(
+        return Err(Error::Refused(text!(
             "The running Kodosi host is newer than this program. Use the updated Kodosi."
         )));
     }
@@ -330,7 +331,7 @@ fn host_program() -> Result<PathBuf> {
     if program.is_file() {
         Ok(program)
     } else {
-        Err(Error::Text(text!(
+        Err(Error::Refused(text!(
             "The kodosi program is missing from {folder}. Install Kodosi again.",
             folder = current.parent().unwrap_or(&current).display().to_string()
         )))

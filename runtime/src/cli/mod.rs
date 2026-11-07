@@ -977,7 +977,7 @@ async fn share(
         let command = json!({"type":"session.share","requestId":Uuid::now_v7().to_string(),"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users});
         match request(client, context, command, json_output).await {
             Err(Error::Other(message))
-                if message == crate::runtime::NOT_PUBLISHED
+                if message == crate::runtime::not_published().to_string()
                     && started.elapsed() < Duration::from_secs(10) =>
             {
                 tokio::time::sleep(Duration::from_millis(500)).await;

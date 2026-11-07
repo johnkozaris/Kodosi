@@ -83,7 +83,7 @@ impl Pending {
         event["accountEpoch"] = json!(epoch);
         event
     }
-    fn deliver(&self, state: &State, event: &Value) {
+    fn deliver(&self, state: &State, event: Value) {
         if let Some(request) = event.get("requestId").and_then(Value::as_str) {
             let kind = event
                 .get("type")
@@ -111,7 +111,7 @@ impl Pending {
     }
     fn refuse(&self, state: &State, request: &str, operation: &str, message: &Value) {
         let area = operation.split('.').next().unwrap_or(operation);
-        state.event(&self.scoped(json!({"type":format!("{area}.error"),
+        state.event(self.scoped(json!({"type":format!("{area}.error"),
             "requestId":request,"operation":operation,"message":message})));
     }
     fn fail(&self, state: &State, request: &str, message: &Value) {
@@ -136,7 +136,7 @@ impl Pending {
         }
     }
     fn system_error(&self, state: &State, message: &Value) {
-        state.event(&self.scoped(json!({"type":"system.error","message":message})));
+        state.event(self.scoped(json!({"type":"system.error","message":message})));
     }
 }
 
@@ -332,13 +332,13 @@ async fn serve(
     state: &State,
 ) -> bool {
     for event in std::mem::take(&mut client.initial_events) {
-        pending.deliver(state, &event);
+        pending.deliver(state, event);
     }
     let (mut events, mut commands) = client.split();
     let reading = async {
         loop {
             match events.next().await {
-                Ok(frame) => receive(&frame, pending, state),
+                Ok(frame) => receive(frame, pending, state),
                 Err(error) => {
                     tracing::info!(%error, "the connection to the Kodosi host closed");
                     return;
@@ -373,11 +373,11 @@ async fn serve(
     }
 }
 
-fn receive(frame: &Value, pending: &Pending, state: &State) {
+fn receive(mut frame: Value, pending: &Pending, state: &State) {
     match frame.get("kind").and_then(Value::as_str) {
         Some("event") => {
-            if let Some(event) = frame.get("event") {
-                pending.deliver(state, event);
+            if let Some(event) = frame.get_mut("event") {
+                pending.deliver(state, event.take());
             }
         }
         Some("rejected") => {
@@ -490,11 +490,11 @@ async fn stream_terminal(
     } = client;
     let (reason, final_sequence) = tokio::select! {
         closed = read_frames(&mut reader, state, pending, token, &next, &unacknowledged) => closed,
-        () = write_frames(&mut writer, session, token, &mut outgoing) => (Text::plain("the terminal connection closed"), next.load(Ordering::Acquire)),
+        () = write_frames(&mut writer, session, token, &mut outgoing) => (kodosi_runtime::text!("The connection to the terminal ended."), next.load(Ordering::Acquire)),
     };
     state.control(
         token,
-        &json!({"type":"term.closed","reason":reason,"finalSequence":final_sequence}),
+        json!({"type":"term.closed","reason":reason,"finalSequence":final_sequence}),
     );
 }
 
@@ -523,7 +523,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                 at_sequence,
             } => state.control(
                 token,
-                &json!({"type":"term.resize","rows":rows,"cols":cols,
+                json!({"type":"term.resize","rows":rows,"cols":cols,
                     "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}),
             ),
             TerminalFrame::Checkpoint {
@@ -543,7 +543,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                 reason,
                 final_sequence,
             } => return (reason, final_sequence),
-            TerminalFrame::Answer(answer) => state.control(token, &answer),
+            TerminalFrame::Answer(answer) => state.control(token, answer),
             TerminalFrame::InputAck { accepted, message } => {
                 {
                     let mut waiting = lock(unacknowledged);
@@ -652,13 +652,13 @@ mod tests {
         let answer = json!({"type":"friends.result","requestId":"asked","accountUserId":"me","accountEpoch":7});
         pending.deliver(
             &state,
-            &json!({"type":"auth.ready","accountUserId":"me","accountEpoch":7,"userId":"me"}),
+            json!({"type":"auth.ready","accountUserId":"me","accountEpoch":7,"userId":"me"}),
         );
-        pending.deliver(&state, &answer);
-        pending.deliver(&state, &answer);
-        pending.deliver(&state, &json!({"type":"friends.result","requestId":"foreign","accountUserId":"me","accountEpoch":7}));
+        pending.deliver(&state, answer.clone());
+        pending.deliver(&state, answer.clone());
+        pending.deliver(&state, json!({"type":"friends.result","requestId":"foreign","accountUserId":"me","accountEpoch":7}));
         pending.expire(&state);
-        pending.deliver(&state, &json!({"type":"auth.browser","requestId":"waiting","accountUserId":"me","accountEpoch":7}));
+        pending.deliver(&state, json!({"type":"auth.browser","requestId":"waiting","accountUserId":"me","accountEpoch":7}));
         let heard = lock(&events).clone();
         assert_eq!(heard.len(), 3, "{heard:?}");
         assert_eq!(heard[1], answer);

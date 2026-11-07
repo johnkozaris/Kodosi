@@ -32,10 +32,10 @@ impl Link {
         let failure = |error: &Error| {
             tracing::error!(%error, "could not start the viewer runtime");
             let code = match error {
-                Error::Invalid(_) => KODOSI_START_REJECTED,
+                Error::Invalid(_) | Error::Refused(_) => KODOSI_START_REJECTED,
                 _ => KODOSI_START_FAILED,
             };
-            start_failure(code, &error.to_string())
+            start_failure(code, &super::words(error))
         };
         let link = Self {
             runtime: kodosi_runtime::start(config.clone())
@@ -100,7 +100,7 @@ impl Connected {
         let envelope = envelope.clone();
         let spawned = instance.spawn(async move {
             match runtime.terminal_control(envelope, connection).await {
-                Ok(Some(answer)) => state.control(&subscription, &answer),
+                Ok(Some(answer)) => state.control(&subscription, answer),
                 Ok(None) => {}
                 Err(error) => tracing::warn!(%error, "terminal control was not applied"),
             }
@@ -172,7 +172,7 @@ impl Runner {
 
 fn deliver(state: &State, event: &Event) {
     if let Ok(value) = serde_json::to_value(event) {
-        state.event(&value);
+        state.event(value);
     }
 }
 
@@ -246,7 +246,7 @@ async fn stream_terminal(
                         continue;
                     }
                     Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Resize { rows, cols, cell, at_sequence }))) => {
-                        state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
+                        state.control(token, serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
                             "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}));
                         continue;
                     }
@@ -260,12 +260,12 @@ async fn stream_terminal(
                     Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Closed { reason, final_sequence }))) => {
                         (reason, final_sequence)
                     }
-                    Ok(None) => (kodosi_runtime::text::Text::plain("terminal disconnected"), subscriber.next_sequence),
+                    Ok(None) => (kodosi_runtime::text!("The connection to the terminal ended."), subscriber.next_sequence),
                     Err(error) => (error.text(), subscriber.next_sequence),
                 };
                 state.control(
                     token,
-                    &serde_json::json!({"type":"term.closed","reason":reason,"finalSequence":final_sequence}),
+                    serde_json::json!({"type":"term.closed","reason":reason,"finalSequence":final_sequence}),
                 );
                 break;
             }

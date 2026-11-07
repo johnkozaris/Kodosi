@@ -155,8 +155,9 @@ impl State {
         let _scope = CallbackScope::enter(&self.gate);
         Some(action())
     }
-    pub(super) fn event(&self, event: &serde_json::Value) {
-        let event = &localized(event);
+    pub(super) fn event(&self, mut event: serde_json::Value) {
+        kodosi_runtime::text::render(&mut event, kodosi_runtime::text::language());
+        let event = &event;
         let Ok(bytes) = serde_json::to_vec(event) else {
             return;
         };
@@ -175,7 +176,7 @@ impl State {
         {
             let entry = lock(&self.subscriptions).entries.get(&session).cloned();
             if let Some(entry) = entry {
-                self.control(&entry, event);
+                self.send_control(&entry, event);
             }
         }
         if let Some(callback) = self.callbacks.on_event {
@@ -184,8 +185,11 @@ impl State {
             });
         }
     }
-    pub(super) fn control(&self, subscription: &SubscriptionState, payload: &serde_json::Value) {
-        let payload = &localized(payload);
+    pub(super) fn control(&self, subscription: &SubscriptionState, mut payload: serde_json::Value) {
+        kodosi_runtime::text::render(&mut payload, kodosi_runtime::text::language());
+        self.send_control(subscription, &payload);
+    }
+    fn send_control(&self, subscription: &SubscriptionState, payload: &serde_json::Value) {
         let Ok(bytes) = serde_json::to_vec(payload) else {
             return;
         };
@@ -272,14 +276,4 @@ impl State {
             entry.retire();
         }
     }
-}
-
-/// The words of each text in the language of the app.
-fn localized(value: &serde_json::Value) -> std::borrow::Cow<'_, serde_json::Value> {
-    if !kodosi_runtime::text::has_text(value) {
-        return std::borrow::Cow::Borrowed(value);
-    }
-    let mut owned = value.clone();
-    kodosi_runtime::text::render(&mut owned, kodosi_runtime::text::language());
-    std::borrow::Cow::Owned(owned)
 }

@@ -73,7 +73,7 @@ impl Launcher {
         agent: Agent,
         name: &str,
     ) -> Result<AgentAccount, crate::text::Text> {
-        let catalog = self.catalog().await.map_err(crate::text::Text::from)?;
+        let catalog = self.catalog().await.map_err(crate::text::Text::plain)?;
         let taken = agent_info(&catalog, agent)
             .map(|info| {
                 info.accounts

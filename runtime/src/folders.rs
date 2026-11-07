@@ -61,7 +61,7 @@ pub(crate) async fn list(
 ) -> Result<FolderList> {
     let folder = path.map_or_else(|| home.clone(), PathBuf::from);
     if !folder.is_absolute() {
-        return Err(Error::Text(text!(
+        return Err(Error::Refused(text!(
             "Choose a folder by its full path on that computer."
         )));
     }
@@ -71,7 +71,7 @@ pub(crate) async fn list(
     };
     let (home, folder, folders) = tokio::time::timeout(WAIT, tokio::task::spawn_blocking(listing))
         .await
-        .map_err(|_| Error::Text(text!("The folder did not open in time.")))?
+        .map_err(|_| Error::Refused(text!("The folder did not open in time.")))?
         .map_err(std::io::Error::from)??;
     Ok(FolderList {
         parent: folder.parent().map(text).transpose()?,
@@ -133,14 +133,17 @@ fn unreadable(error: &std::io::Error) -> Error {
         std::io::ErrorKind::PermissionDenied => {
             Error::Text(text!("Kodosi cannot open this folder."))
         }
-        _ => Error::Invalid(format!("Kodosi cannot open this folder: {error}")),
+        _ => Error::Refused(text!(
+            "Kodosi cannot open this folder: {error}",
+            error = crate::text::Text::plain(error.to_string())
+        )),
     }
 }
 
 fn text(path: &Path) -> Result<String> {
     path.to_str()
         .map(str::to_owned)
-        .ok_or_else(|| Error::Text(text!("The folder name is not text that Kodosi can show.")))
+        .ok_or_else(|| Error::Refused(text!("The folder name is not text that Kodosi can show.")))
 }
 
 #[cfg(test)]

@@ -2060,14 +2060,14 @@ impl Command {
             } => {
                 parse_id(item_id)?;
                 if choices.is_empty() || choices.len() > MAX_OPTIONS + 1 {
-                    return Err(Error::Invalid(
-                        "Choose one to eight answers, and add at most one of your own.".to_owned(),
-                    ));
+                    return Err(Error::Refused(text!(
+                        "Choose one to eight answers, and add at most one of your own."
+                    )));
                 }
                 for choice in choices {
                     text(choice, "answer", MAX_ANSWER_BYTES)?;
                     if choice.trim().is_empty() {
-                        return Err(Error::Invalid("An answer must have words.".to_owned()));
+                        return Err(Error::Refused(text!("An answer must have words.")));
                     }
                 }
             }
@@ -2234,7 +2234,9 @@ impl Command {
                         .bytes()
                         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
                 {
-                    return Err(Error::Invalid("username must contain 3 to 64 ASCII letters, digits, underscores, or hyphens".to_owned()));
+                    return Err(Error::Refused(text!(
+                        "A user name has 3 to 64 letters, digits, hyphens or underscores."
+                    )));
                 }
                 if let Self::VerifyFriend { invite, .. } = self
                     && parse_invite(invite).is_none()

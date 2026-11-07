@@ -29,11 +29,7 @@ pub(crate) use terminal_connections::Answering;
 
 #[derive(Debug)]
 pub enum Error {
-    /// An internal fault, in English.
-    Invalid {
-        reason: String,
-    },
-    /// A refusal or failure that people read in their language.
+    Invalid { reason: String },
     Text(Text),
     Trust(Text),
     SignedOut,
@@ -49,15 +45,10 @@ pub enum Error {
     Timeout,
     Dropped,
     Json(serde_json::Error),
-    Backend {
-        status: u16,
-        message: Text,
-    },
+    Backend { status: u16, message: Text },
     UpdateRequired,
     ServerOutdated,
-    ChannelVersion {
-        peer_newer: bool,
-    },
+    ChannelVersion { peer_newer: bool },
 }
 
 impl Error {
@@ -182,6 +173,16 @@ pub(crate) fn invalid(reason: impl Into<String>) -> Error {
     Error::Invalid {
         reason: reason.into(),
     }
+}
+
+fn unconfirmed() -> Error {
+    Error::Text(text!(
+        "The connection closed before the host confirmed the operation, and Kodosi did not send it again."
+    ))
+}
+
+pub(crate) fn untrusted(reason: impl Into<std::borrow::Cow<'static, str>>) -> Error {
+    Error::Trust(Text::plain(reason))
 }
 
 pub(crate) fn stagger(delay: Duration) -> Duration {
@@ -468,9 +469,9 @@ impl RemoteControl {
         tokio::select! {
             biased;
             result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
-                result.map_err(|_|invalid("The host did not confirm the operation, and Kodosi did not send it again."))?
-                    .map_err(|_|invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again."))?,
-            ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again.")),
+                result.map_err(|_|Error::Text(text!("The host did not confirm the operation, and Kodosi did not send it again.")))?
+                    .map_err(|_|unconfirmed())?,
+            ()=self.cancellation.cancelled()=>Err(unconfirmed()),
         }
     }
 

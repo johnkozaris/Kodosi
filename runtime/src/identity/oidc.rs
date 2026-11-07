@@ -139,7 +139,6 @@ impl Drop for TokenReply {
     }
 }
 
-/// The tag of a language as the sign-in service names it.
 fn sign_in_locale(language: crate::text::Language) -> &'static str {
     match language {
         crate::text::Language::Chinese => "zh-CN",

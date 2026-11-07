@@ -85,8 +85,8 @@ impl BackendClient {
             .await?;
         self.check_credentials(&credentials)?;
         if bundle.user_id != credentials.user_id {
-            return Err(Error::Trust(
-                "The server sent the trusted devices of another account.".into(),
+            return Err(untrusted(
+                "The server sent the trusted devices of another account.",
             ));
         }
         let identity_root = bundle.root()?;

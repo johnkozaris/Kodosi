@@ -1198,7 +1198,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                         Ok(_) if answers => Frame::ControlResult(ControlResult {
                             request_id,
                             accepted: false,
-                            message: Some("The answer does not fit one message.".into()),
+                            message: Some(text!("The answer does not fit one message.")),
                         }),
                         result => Frame::ControlResult(ControlResult {
                             request_id,

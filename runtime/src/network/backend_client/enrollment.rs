@@ -383,9 +383,7 @@ impl BackendClient {
         }
         let verified = self.verify_bundle(&bundle, Some(root)).await?;
         if !device_identity::device_enrolled(&verified, credentials) {
-            return Err(Error::Trust(
-                "Approval contained another device's keys.".into(),
-            ));
+            return Err(untrusted("Approval contained another device's keys."));
         }
         let _response: Value = self
             .inner

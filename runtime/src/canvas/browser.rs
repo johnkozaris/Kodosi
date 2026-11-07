@@ -560,11 +560,16 @@ impl Browser {
             .stderr(Stdio::piped());
         let child = command
             .spawn()
-            .map_err(|error| format!("agent-browser did not start: {error}"))?;
+            .map_err(|error| Text::plain(format!("agent-browser did not start: {error}")))?;
         let output = tokio::time::timeout(limit, child.wait_with_output())
             .await
-            .map_err(|_| format!("agent-browser did not answer in {} s.", limit.as_secs()))?
-            .map_err(|error| format!("agent-browser failed: {error}"))?;
+            .map_err(|_| {
+                Text::plain(format!(
+                    "agent-browser did not answer in {} s.",
+                    limit.as_secs()
+                ))
+            })?
+            .map_err(|error| Text::plain(format!("agent-browser failed: {error}")))?;
         let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
         let errors = String::from_utf8_lossy(&output.stderr);
         if !errors.trim().is_empty() {

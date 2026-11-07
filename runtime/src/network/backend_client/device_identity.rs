@@ -169,8 +169,8 @@ impl BackendClient {
         };
         self.check_credentials(&credentials)?;
         if bundle.user_id != credentials.user_id {
-            return Err(Error::Trust(
-                "The server sent the trusted devices of another account.".into(),
+            return Err(untrusted(
+                "The server sent the trusted devices of another account.",
             ));
         }
         let now = identity::now_ms();
@@ -298,8 +298,8 @@ impl BackendClient {
             (None, None) => return Err(invalid("The server sent no device identity.")),
             (Some((bundle, tag)), _) => {
                 if bundle.user_id != user_id {
-                    return Err(Error::Trust(
-                        "Returned device identity belongs to another account.".into(),
+                    return Err(untrusted(
+                        "Returned device identity belongs to another account.",
                     ));
                 }
                 let verified = self.verify_bundle(&bundle, None).await?;

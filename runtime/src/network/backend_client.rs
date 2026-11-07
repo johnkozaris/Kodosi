@@ -20,7 +20,7 @@ use zeroize::Zeroizing;
 use super::{
     BackendConfig, BackendEvent, BackendReply, Error, Identity, RemoteConnection, Result, crypto,
     http::{Credentials, Http},
-    invalid, terminal_connections,
+    invalid, terminal_connections, untrusted,
     wire::{self, SessionDto},
 };
 #[cfg(feature = "host")]
@@ -629,7 +629,7 @@ impl BackendClient {
                         .cloned()
                         .ok_or(Error::Stale)?;
                     if publication.info.read().await.shared_with != expected_users {
-                        return Err(invalid(crate::runtime::SHARING_CHANGED));
+                        return Err(Error::Text(crate::runtime::sharing_changed()));
                     }
                 }
                 self.require_trusted_friends(&self.credentials()?, &users)
@@ -1145,7 +1145,7 @@ impl BackendClient {
             .await
             .get(&id)
             .cloned()
-            .ok_or_else(|| invalid(crate::runtime::SHARE_ON_HOST))?;
+            .ok_or_else(|| Error::Text(crate::runtime::share_on_host()))?;
         if publication.info.read().await.incarnation_id != incarnation {
             return Err(Error::Stale);
         }
@@ -1177,7 +1177,7 @@ impl BackendClient {
             if current.shared_with.iter().cloned().collect::<BTreeSet<_>>() == users { return Ok(current); }
             if !users.is_subset(&previous) && (current.authorization_revision != publication.dto.read().await.authorization_revision
                 || current.shared_with.iter().cloned().collect::<BTreeSet<_>>() != previous) {
-                return Err(Error::Backend { status: 409, message: "The sharing of this terminal changed. Refresh before you add people.".into() });
+                return Err(Error::Backend { status: 409, message: text!("The sharing of this terminal changed. Refresh before you add people.") });
             }
             self.inner.http.device::<SessionDto>(Method::PUT,&format!("api/sessions/{id}/members"),&credentials,Some(json!({"incarnationId":incarnation,"expectedRevision":current.authorization_revision,"userIds":users}))).await
         }.await;

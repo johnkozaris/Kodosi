@@ -214,7 +214,7 @@ async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_pos
         .expect("output");
     updates
         .send(RemoteUpdate::Closed {
-            reason: "link lost".into(),
+            reason: Text::plain("link lost"),
         })
         .await
         .expect("close");

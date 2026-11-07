@@ -1157,7 +1157,7 @@ async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_ne
         id,
         incarnation,
         instance_id: old_instance,
-        reason: "old connection".into(),
+        reason: crate::text::Text::plain("old connection"),
     });
     assert_eq!(runtime.connections[&id].instance_id, new_instance);
     runtime.connections[&id].disconnect();
@@ -1418,7 +1418,7 @@ async fn lose_link(
     let id = remote.id;
     updates
         .send(crate::network::RemoteUpdate::Closed {
-            reason: "link lost".into(),
+            reason: crate::text::Text::plain("link lost"),
         })
         .await
         .unwrap();
@@ -1988,7 +1988,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
         id,
         incarnation,
         instance_id,
-        reason: "Closed here.".into(),
+        reason: crate::text::Text::plain("Closed here."),
     });
     assert_eq!(
         shown(&runtime),
@@ -2855,24 +2855,31 @@ async fn a_connection_that_no_view_holds_does_not_pause() {
 
 #[tokio::test]
 async fn a_blocked_terminal_is_not_connected_again_when_it_shows() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let id = remote.id;
-    runtime.replace_remotes(vec![remote]);
-    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
-    show(&mut runtime, consumer, &lifetime, &[id]);
-    runtime
-        .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
-        .unwrap();
-    connected(
-        &mut runtime,
-        id,
-        Err(Error::Invalid("You cannot open this terminal.".to_owned())),
-    );
-    assert_eq!(remote_state(&runtime, id).0, ConnectionState::Blocked);
-    show(&mut runtime, consumer, &lifetime, &[]);
-    show(&mut runtime, consumer, &lifetime, &[id]);
-    assert!(!runtime.opening.contains_key(&id));
+    let plain = crate::text::Text::plain;
+    for refusal in [
+        Error::Invalid("You cannot open this terminal.".to_owned()),
+        Error::from(crate::network::Error::Trust(plain("Not trusted."))),
+        Error::from(crate::network::Error::Backend {
+            status: 403,
+            message: plain("Refused."),
+        }),
+        Error::from(crate::network::Error::SignedOut),
+    ] {
+        let (mut runtime, _root) = registry_fixture();
+        let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+        let id = remote.id;
+        runtime.replace_remotes(vec![remote]);
+        let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+        show(&mut runtime, consumer, &lifetime, &[id]);
+        runtime
+            .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
+            .unwrap();
+        connected(&mut runtime, id, Err(refusal));
+        assert_eq!(remote_state(&runtime, id).0, ConnectionState::Blocked);
+        show(&mut runtime, consumer, &lifetime, &[]);
+        show(&mut runtime, consumer, &lifetime, &[id]);
+        assert!(!runtime.opening.contains_key(&id));
+    }
 }
 
 #[tokio::test]

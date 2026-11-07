@@ -113,9 +113,11 @@ pub(super) async fn render(
     file: PathBuf,
     out: PathBuf,
 ) -> Result<CanvasAnswer, Text> {
-    let view =
-        view_of(&file).ok_or("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")?;
-    let views = views().ok_or("This Kodosi has no document views to draw with.")?;
+    let view = view_of(&file).ok_or_else(|| {
+        Text::plain("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")
+    })?;
+    let views =
+        views().ok_or_else(|| Text::plain("This Kodosi has no document views to draw with."))?;
     let browsers = host.browsers(|_| {}).await?;
     let mut page = browsers
         .host_page(&profile, views, page_size(view), &script(view.name()))
@@ -224,7 +226,7 @@ impl Bridge<'_> {
             };
             match step {
                 Step::Said(message) => {
-                    let message = message.ok_or("The browser stopped.")?;
+                    let message = message.ok_or_else(|| Text::plain("The browser stopped."))?;
                     let (head, rest) = message.split_once(' ').unwrap_or((&message, ""));
                     match head {
                         "frame" => {
@@ -243,7 +245,7 @@ impl Bridge<'_> {
                     }
                 }
                 Step::Sent(frame) => {
-                    let frame = frame.ok_or("The document closed.")?;
+                    let frame = frame.ok_or_else(|| Text::plain("The document closed."))?;
                     let data = base64::engine::general_purpose::STANDARD.encode(frame);
                     self.ask(&format!("kodosiRender.deliver({})", json!(data)))
                         .await?;

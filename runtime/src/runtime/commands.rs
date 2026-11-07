@@ -141,7 +141,7 @@ impl Runtime {
             Command::RestoreSessions { .. } => self.result(command),
             #[cfg(not(feature = "host"))]
             Command::CreateSession { .. } => {
-                return Err(Error::Text(text!("This device cannot start terminals.")));
+                return Err(Error::Refused(text!("This device cannot start terminals.")));
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
@@ -150,7 +150,7 @@ impl Runtime {
             Command::Message { .. } => self.send_message(command)?,
             #[cfg(not(feature = "host"))]
             Command::Message { .. } => {
-                return Err(Error::Text(text!(
+                return Err(Error::Refused(text!(
                     "This device sends no messages to agents."
                 )));
             }
@@ -166,7 +166,7 @@ impl Runtime {
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. } => {
-                return Err(Error::Text(text!(
+                return Err(Error::Refused(text!(
                     "The browsers of a computer are in the app on that computer."
                 )));
             }
@@ -248,13 +248,13 @@ impl Runtime {
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
             | Command::InspectProvider { .. } => {
-                return Err(Error::Text(text!(
+                return Err(Error::Refused(text!(
                     "Open agent conversations on the computer that runs the agent."
                 )));
             }
             #[cfg(not(feature = "host"))]
             Command::ListRepositories { .. } => {
-                return Err(Error::Text(text!("Link repositories from a computer.")));
+                return Err(Error::Refused(text!("Link repositories from a computer.")));
             }
             #[cfg(feature = "host")]
             Command::ListRepositories { mission_id, .. } => {
@@ -275,7 +275,7 @@ impl Runtime {
             | Command::AddAgentAccount { .. }
             | Command::ChooseAgent { .. }
             | Command::ListFolders { .. } => {
-                return Err(Error::Text(text!("This device cannot start terminals.")));
+                return Err(Error::Refused(text!("This device cannot start terminals.")));
             }
             #[cfg(feature = "host")]
             Command::ListFolders { path, .. } => {
@@ -348,7 +348,7 @@ impl Runtime {
 
     pub(super) fn ask_computer(&mut self, command: &Command, computer: String) -> Result<()> {
         if !command.runs_on_other_computers() {
-            return Err(Error::Text(text!("Do this on the computer itself.")));
+            return Err(Error::Refused(text!("Do this on the computer itself.")));
         }
         self.job_capacity()?;
         let request = serde_json::to_value(command)?;
@@ -683,7 +683,7 @@ impl Runtime {
                 } => Ok(canvas
                     .document_command(agent, terminal, PathBuf::from(folder), arguments.clone())
                     .await),
-                _ => Err("expected a canvas command".into()),
+                _ => Err(crate::text::Text::plain("expected a canvas command")),
             };
             Completion::Canvas { command, result }
         });
@@ -953,16 +953,16 @@ impl Runtime {
                             != local.entry.shared_with.iter().collect::<BTreeSet<_>>()
                     })
                 {
-                    return Err(Error::Invalid(super::SHARING_CHANGED.to_owned()));
+                    return Err(Error::Refused(super::sharing_changed()));
                 }
                 if !self.local.contains_key(&id) {
-                    return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
+                    return Err(Error::Refused(super::share_on_host()));
                 }
                 self.require_publication(id)?;
             }
             #[cfg(not(feature = "host"))]
             Command::ShareSession { .. } => {
-                return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
+                return Err(Error::Refused(super::share_on_host()));
             }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
@@ -972,10 +972,12 @@ impl Runtime {
             Command::LeaveSession { .. }
                 if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
-                return Err(Error::Text(text!("You cannot leave your own terminal.")));
+                return Err(Error::Refused(text!("You cannot leave your own terminal.")));
             }
             Command::HideSession { .. } if self.hosts(&id) => {
-                return Err(Error::Text(text!("This terminal runs on this computer.")));
+                return Err(Error::Refused(text!(
+                    "This terminal runs on this computer."
+                )));
             }
             Command::HideSession { .. } if self.host_online(id) => {
                 return Err(Error::Text(self.computer_is(id, true)));
@@ -989,7 +991,7 @@ impl Runtime {
     fn require_publication(&mut self, id: Uuid) -> Result<()> {
         if self.local.get(&id).is_some_and(|local| !local.published) {
             self.publish_locals();
-            return Err(Error::Invalid(super::NOT_PUBLISHED.to_owned()));
+            return Err(Error::Refused(super::not_published()));
         }
         Ok(())
     }
@@ -998,7 +1000,7 @@ impl Runtime {
         if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) {
             Ok(())
         } else {
-            Err(Error::Text(text!(
+            Err(Error::Refused(text!(
                 "Only the owner can change this terminal."
             )))
         }
@@ -1028,7 +1030,7 @@ impl Runtime {
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
-                return Err(Error::Text(text!("This provider conversation is already running in Kodosi.")));
+                return Err(Error::Refused(text!("This provider conversation is already running in Kodosi.")));
             }
         self.begin_creation(command, None).map(drop)
     }
@@ -1754,7 +1756,7 @@ impl Runtime {
         {
             tracing::warn!(%id, %error, "remote terminal connection failed");
         }
-        let blocked = matches!(error, Error::Invalid(_));
+        let blocked = matches!(error, Error::Invalid(_) | Error::Refused(_));
         if blocked {
             self.reconnect.remove(&id);
             if let Some(connection) = self.connections.remove(&id) {
@@ -1910,7 +1912,7 @@ async fn session_program(
     .map_err(Error::Invalid)?;
     let executable = crate::agents::executable(&shell(config), resume.provider.executable())
         .await
-        .ok_or_else(|| Error::Text(text!("The provider CLI is not installed.")))?;
+        .ok_or_else(|| Error::Refused(text!("The provider CLI is not installed.")))?;
     let arguments = match resume.provider {
         provider::Provider::Claude => vec![
             "--append-system-prompt".to_owned(),
@@ -1962,7 +1964,7 @@ async fn start_folder(
 ) -> Result<PathBuf> {
     let directory = working_dir.map_or_else(|| config.home.clone(), PathBuf::from);
     if !directory.is_absolute() || worktrees.is_some_and(|place| !Path::new(place).is_absolute()) {
-        return Err(Error::Text(text!(
+        return Err(Error::Refused(text!(
             "Choose a folder by its full path on that computer."
         )));
     }
@@ -1972,7 +1974,7 @@ async fn start_folder(
         .map_err(std::io::Error::from)?
         .map_err(|error| match error.kind() {
             std::io::ErrorKind::NotFound => {
-                Error::Text(text!("There is no folder {folder}.", folder = &shown))
+                Error::Refused(text!("There is no folder {folder}.", folder = &shown))
             }
             _ => Error::Io(error),
         })?;

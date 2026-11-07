@@ -7,6 +7,7 @@ use super::{
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
+use crate::network::untrusted;
 use crate::text::Text;
 
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
@@ -259,9 +260,7 @@ async fn open(
                 accept.host_device_id.as_str(),
             ) != (dto.id, dto.incarnation_id, dto.host_device_id.as_str())
             {
-                return Err(Error::Trust(
-                    "The host answered for another terminal.".into(),
-                ));
+                return Err(untrusted("The host answered for another terminal."));
             }
             Ok((channel, public))
         }
@@ -717,7 +716,7 @@ impl<T: Transport> Viewer<T> {
                         Ok(Value::Null)
                     } else {
                         Err(message.map_or_else(
-                            || invalid("The terminal refused the control."),
+                            || Error::Text(text!("The terminal refused the control.")),
                             Error::Text,
                         ))
                     }));
@@ -809,7 +808,7 @@ impl<T: Transport> Viewer<T> {
             PictureStep::Refused => {
                 if let Some(upload) = self.upload.take() {
                     drop(upload.reply.send(Err(state.message.map_or_else(
-                        || invalid("The other computer refused the picture."),
+                        || Error::Text(text!("The other computer refused the picture.")),
                         Error::Text,
                     ))));
                 }

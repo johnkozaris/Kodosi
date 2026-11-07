@@ -49,12 +49,16 @@ type DosiMessage = crate::dosi::Message;
 type DosiMessage = std::convert::Infallible;
 
 #[cfg(feature = "host")]
-pub(crate) const NOT_PUBLISHED: &str =
-    "Remote access is still connecting. Try again when this device is online and approved.";
-pub(crate) const SHARE_ON_HOST: &str = "Change sharing on the computer that hosts this terminal.";
+pub(crate) fn not_published() -> crate::text::Text {
+    text!("Remote access is still connecting. Try again when this device is online and approved.")
+}
+pub(crate) fn share_on_host() -> crate::text::Text {
+    text!("Change sharing on the computer that hosts this terminal.")
+}
 #[cfg(feature = "host")]
-pub(crate) const SHARING_CHANGED: &str =
-    "The sharing of this terminal changed. Open sharing again before you save.";
+pub(crate) fn sharing_changed() -> crate::text::Text {
+    text!("The sharing of this terminal changed. Open sharing again before you save.")
+}
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
 #[cfg(feature = "host")]
@@ -209,10 +213,9 @@ impl RuntimeHandle {
             .map_err(|_| Error::Text(crate::protocol::other_version()))?;
         command.validate()?;
         if !command.runs_on_other_computers() {
-            return Err(Error::Invalid(
+            return Err(Error::Refused(text!(
                 "This computer takes only the choices and the start of a new terminal from your other devices."
-                    .to_owned(),
-            ));
+            )));
         }
         let (events, mut receiver) = self.observe().await?;
         let scope = events.first().ok_or(Error::Stopped)?;
@@ -238,7 +241,7 @@ impl RuntimeHandle {
             }
         })
         .await
-        .map_err(|_| Error::Invalid("This computer did not finish in time.".to_owned()))?
+        .map_err(|_| Error::Text(text!("This computer did not finish in time.")))?
     }
 
     pub async fn terminal_control(
@@ -2495,7 +2498,7 @@ impl Runtime {
     fn see_room(&mut self, room: &str, sequence: u64) -> Result<()> {
         let seen = self
             .seen_rooms()
-            .ok_or_else(|| Error::Invalid("Sign in to use rooms.".to_owned()))?;
+            .ok_or_else(|| Error::Refused(text!("Sign in to use rooms.")))?;
         if seen.get(room).is_some_and(|seen| *seen >= sequence) {
             return Ok(());
         }
