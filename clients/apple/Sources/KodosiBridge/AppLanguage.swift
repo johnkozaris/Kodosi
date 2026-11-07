@@ -1,12 +1,8 @@
 import Foundation
 
-/// The languages of Kodosi. The app shows the language of the system, or the one that Settings
-/// chose. The system sets the language of an app when it opens, so a new choice applies the next
-/// time that Kodosi opens.
 public enum AppLanguage {
     public struct Choice: Identifiable, Hashable, Sendable {
         public let tag: String
-        /// The name of the language in the language itself.
         public let name: String
         public var id: String {
             tag
@@ -27,13 +23,10 @@ public enum AppLanguage {
 
     private static let key = "AppleLanguages"
 
-    /// The language of this run of the app.
     public static var current: String {
         Bundle.main.preferredLocalizations.first ?? "en"
     }
 
-    /// The language that Settings chose, or nil when the app follows the system. The system's
-    /// own setting for the app writes the same value, so both places agree.
     public static func chosen(in defaults: UserDefaults) -> String? {
         guard let own = defaults.stringArray(forKey: key)?.first,
               own != systemLanguages.first
@@ -49,7 +42,6 @@ public enum AppLanguage {
         }
     }
 
-    /// The language that the app shows when it follows the system.
     public static var systemLanguage: String {
         Bundle.preferredLocalizations(from: Bundle.main.localizations, forPreferences: systemLanguages).first ?? "en"
     }
@@ -59,7 +51,8 @@ public enum AppLanguage {
     }
 
     private static var systemLanguages: [String] {
-        UserDefaults(suiteName: UserDefaults.globalDomain)?.stringArray(forKey: key) ?? []
+        CFPreferencesCopyValue(key as CFString, kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+            as? [String] ?? []
     }
 
     private static func choice(for tag: String) -> Choice? {
