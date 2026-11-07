@@ -36,6 +36,15 @@ QtObject {
         return member ? (member.displayName || member.handle) : qsTr("Someone")
     }
 
+    function accountTint(kind: string, account: int): color {
+        const shades = {
+            "claude": ["#d97757", "#c4301c", "#d38a0f", "#6b3420", "#c9456b"],
+            "codex": ["#5f6b7a", "#2e5a8c", "#2f7d74", "#3a3f4a", "#6e5a7e"],
+            "copilot": ["#8660d9", "#4b3bb0", "#b44bc8", "#5a2f6e", "#5b7be0"]
+        }[kind]
+        return shades && account > 0 ? shades[account % shades.length] : kindTint(kind)
+    }
+
     function kindTint(kind: string): color {
         switch (kind) {
         case "claude": return "#d97757"

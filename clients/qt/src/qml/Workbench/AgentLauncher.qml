@@ -105,11 +105,12 @@ ColumnLayout {
     function accountRows() {
         if (!info)
             return []
-        const rows = info.accounts.map(entry => {
+        const rows = info.accounts.map((entry, place) => {
             const title = accountTitle(entry)
             return { id: entry.name, kind: "choice", title: title,
                 subtitle: entry.identity || qsTr("Signs in when it starts"),
                 icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
+                tint: Identity.accountTint(info.agent, place),
                 usage: usageOf(entry), current: account !== null && entry.name === account.name }
         })
         if (info.addsAccounts)
@@ -720,6 +721,9 @@ ColumnLayout {
                             key: root.account ? root.account.folder || root.account.command : ""
                             signedIn: !!root.account && !!root.account.identity
                             usage: root.accountUsage
+                            tint: root.info && root.account
+                                ? Identity.accountTint(root.info.agent, root.info.accounts.findIndex(entry => entry.name === root.account.name))
+                                : Identity.personTint(root.account ? root.account.folder || root.account.command : "")
                             onTerminal: true
                         }
                         onClicked: root.toggleMenu("account")

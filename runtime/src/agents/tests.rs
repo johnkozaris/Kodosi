@@ -804,3 +804,48 @@ fn an_agent_from_a_computer_without_plan_usage_reports_none() {
     .unwrap();
     assert!(!info.reports_usage);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_running_agent_takes_the_place_of_its_account_folder() {
+    let home = Path::new("/home/ana");
+    let account = |name: &str, folder: &str| AgentAccount {
+        name: name.to_owned(),
+        command: "claude".to_owned(),
+        identity: None,
+        folder: Some(folder.to_owned()),
+    };
+    let accounts = [
+        account("default", "~/.claude"),
+        account("alt", "~/.claude-alt"),
+        account("team", "/srv/claude-team"),
+    ];
+    let place = |folder: &str| accounts::place(&accounts, home, Path::new(folder));
+    assert_eq!(place("/home/ana/.claude"), 0);
+    assert_eq!(place("/home/ana/.claude-alt"), 1);
+    assert_eq!(place("/srv/claude-team"), 2);
+    assert_eq!(place("/home/ana/.claude-new"), 3);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_agent_folder_comes_from_its_variable_or_the_usual_folder() {
+    let home = Path::new("/home/ana");
+    let folder = |agent: Agent, variable: Option<&str>| {
+        agent.account_folder(home, variable.map(str::to_owned))
+    };
+    assert_eq!(folder(Agent::Claude, None), Some(home.join(".claude")));
+    assert_eq!(
+        folder(Agent::Claude, Some("/home/ana/.claude-alt/")),
+        Some(home.join(".claude-alt"))
+    );
+    assert_eq!(
+        folder(Agent::Claude, Some(".claude-alt")),
+        Some(home.join(".claude"))
+    );
+    assert_eq!(
+        folder(Agent::Codex, Some("/srv/codex")),
+        Some(Path::new("/srv/codex").to_path_buf())
+    );
+    assert_eq!(folder(Agent::Gemini, None), None);
+}

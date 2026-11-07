@@ -10,6 +10,7 @@ Item {
     property real size: 26
     property var usage: null
     property bool onTerminal: false
+    property color tint: Identity.personTint(key)
     readonly property real ring: Math.max(1.5, size * 0.075)
     readonly property real face: usage ? size - 2 * (ring + Math.max(1.25, size * 0.06)) : size
 
@@ -24,6 +25,7 @@ Item {
         visible: root.signedIn
         name: root.initial
         key: root.key
+        tint: root.tint
         size: root.face
     }
     SlotMark {
@@ -32,7 +34,7 @@ Item {
         height: root.face
         visible: !root.signedIn
         text: root.initial
-        tint: Identity.personTint(root.key)
+        tint: root.tint
         size: root.face
     }
     UsageRing {

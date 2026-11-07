@@ -29,6 +29,7 @@ public:
         QString name;
         QString title;
         QString program;
+        int programAccount = -1;
         QString programState;
         QString programKind;
         QString programTitle;

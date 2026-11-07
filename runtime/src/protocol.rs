@@ -24,7 +24,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 80;
+pub const VERSION: u32 = 81;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -790,6 +790,8 @@ pub struct SessionEntry {
     pub connected_users: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_account: Option<u8>,
     pub prompt: bool,
     pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

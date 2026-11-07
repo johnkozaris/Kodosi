@@ -79,11 +79,11 @@ windows-run *arguments: windows-build
 windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
+        rm -rf build/windows-release && \
         "{{ windows_cmake }}" --preset windows-release \
             ${KODOSI_MSIX_PUBLISHER:+"-DKODOSI_MSIX_PUBLISHER=$KODOSI_MSIX_PUBLISHER"} && \
         "{{ windows_cmake }}" --build --preset windows-release && \
         "{{ windows_ctest }}" --preset windows-release && \
-        rm -rf build/windows-release/layout && \
         "{{ windows_cmake }}" --install build/windows-release --prefix build/windows-release/layout && \
         mkdir -p build/release && \
         package="build/release/kodosi-{{ version }}-windows-$KODOSI_WINDOWS_ARCH.msix" && \
@@ -106,6 +106,7 @@ windows-bundle:
 
 # Package the committed Linux release twice, then compare and verify the packages.
 release-package: tools-install
+    rm -rf build/release build/second-packages
     SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --preset release
     SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release
     "{{ cmake }}" --build build/release --target test_prep/all

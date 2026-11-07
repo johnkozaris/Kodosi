@@ -71,6 +71,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let incarnationId: String
     public let kind: Kind
     public let program: String?
+    public let programAccount: Int?
     public let prompt: Bool?
     public let repository: Bool?
     public let title: ProgramTitle?

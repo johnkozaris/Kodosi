@@ -225,8 +225,9 @@ QVariantList AgentLauncherModel::usageSections() const
         QVariantList rows;
         QVariantList windows;
         QStringList seen;
-        for (const auto& entry : info.value(QStringLiteral("accounts")).toList()) {
-            const auto account = entry.toMap();
+        const auto accounts = info.value(QStringLiteral("accounts")).toList();
+        for (qsizetype place = 0; place < accounts.size(); ++place) {
+            const auto account = accounts.at(place).toMap();
             const auto name = account.value(QStringLiteral("name")).toString();
             const auto identity = account.value(QStringLiteral("identity")).toString();
             const auto usage = m_usage.value(agent + u'/' + name);
@@ -243,7 +244,8 @@ QVariantList AgentLauncherModel::usageSections() const
             const auto folder = account.value(QStringLiteral("folder")).toString();
             rows.append(QVariantMap { { QStringLiteral("name"), name }, { QStringLiteral("title"), title },
                 { QStringLiteral("key"), folder.isEmpty() ? account.value(QStringLiteral("command")) : folder },
-                { QStringLiteral("identity"), identity }, { QStringLiteral("usage"), usage } });
+                { QStringLiteral("identity"), identity }, { QStringLiteral("usage"), usage },
+                { QStringLiteral("place"), place } });
         }
         if (!rows.isEmpty())
             sections.append(QVariantMap { { QStringLiteral("agent"), agent }, { QStringLiteral("rows"), rows },

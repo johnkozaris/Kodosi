@@ -599,6 +599,12 @@ enum Completion {
         id: Uuid,
         result: Result<StartedSession>,
     },
+    #[cfg(feature = "host")]
+    Account {
+        id: Uuid,
+        group: Option<u32>,
+        account: Option<u8>,
+    },
     BackendClient {
         command: Command,
         requested: bool,
@@ -1567,6 +1573,31 @@ impl Runtime {
             );
             Err(Error::Busy)
         }
+    }
+
+    #[cfg(feature = "host")]
+    fn find_account(&mut self, id: Uuid, program: Option<&str>) {
+        let Some(agent) = program.and_then(crate::agents::Agent::named) else {
+            return;
+        };
+        let (Some((_, variable)), Some(local)) = (agent.home(), self.local.get(&id)) else {
+            return;
+        };
+        let terminal = local.terminal.clone();
+        let launcher = Arc::clone(&self.launcher);
+        let home = self.config.home.clone();
+        self.spawn(async move {
+            let foreground = terminal.foreground(variable).await.unwrap_or_default();
+            let account = match agent.account_folder(&home, foreground.variable) {
+                Some(folder) => launcher.account_of(agent, &folder).await,
+                None => None,
+            };
+            Completion::Account {
+                id,
+                group: foreground.group,
+                account,
+            }
+        });
     }
 
     fn spawn(&mut self, future: impl Future<Output = Completion> + Send + 'static) {
@@ -2729,6 +2760,7 @@ impl Runtime {
                 .filter(|(incarnation, _)| *incarnation == entry.incarnation_id)
                 .and_then(|(_, status)| status);
             entry.program = status.as_ref().and_then(|status| status.program.clone());
+            entry.program_account = status.as_ref().and_then(|status| status.account);
             entry.program_status = status.as_ref().and_then(TerminalStatus::program_status);
         }
     }
@@ -2820,6 +2852,11 @@ impl Runtime {
                 previous.and_then(|entry| entry.program.clone())
             } else {
                 shared.and_then(|status| status.program.clone())
+            },
+            program_account: if streaming {
+                previous.and_then(|entry| entry.program_account)
+            } else {
+                shared.and_then(|status| status.account)
             },
             prompt: false,
             repository: false,
@@ -2939,7 +2976,16 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.program = program;
+                    local.entry.program.clone_from(&program);
+                    local.entry.program_account = None;
+                    self.publish_catalog();
+                    self.find_account(id, program.as_deref());
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::Account { id, account } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.program_account = account;
                     self.publish_catalog();
                 }
             }
@@ -3015,6 +3061,7 @@ impl Runtime {
                     entry.working_dir = metadata.directory;
                     entry.title = metadata.title;
                     entry.program = metadata.program;
+                    entry.program_account = metadata.account;
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);

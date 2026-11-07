@@ -172,6 +172,21 @@ impl Launcher {
         Ok(start.agent.with_context(&line, &self.shell))
     }
 
+    /// The place of `folder` among the accounts of `agent`, in the order of the launcher; a
+    /// folder that the accounts do not have comes after them.
+    pub(crate) async fn account_of(&self, agent: Agent, folder: &Path) -> Option<u8> {
+        let mut place = None;
+        for refresh in [false, true] {
+            let catalog = self.known_catalog(refresh).await.ok()?;
+            let accounts = &agent_info(&catalog, agent)?.accounts;
+            place = Some(super::accounts::place(accounts, &self.home, folder));
+            if place.is_some_and(|place| place < accounts.len()) {
+                break;
+            }
+        }
+        place.map(|place| u8::try_from(place).unwrap_or(u8::MAX))
+    }
+
     async fn known_catalog(&self, refresh: bool) -> Result<AgentCatalog, String> {
         if !refresh
             && let Some((at, catalog)) = &self.state().catalog

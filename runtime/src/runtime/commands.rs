@@ -1335,6 +1335,12 @@ impl Runtime {
             }
             #[cfg(feature = "host")]
             Completion::Created { id, result } => self.created(id, result, current),
+            #[cfg(feature = "host")]
+            Completion::Account { id, group, account } => {
+                if let Some(local) = self.local.get(&id) {
+                    drop(local.terminal.set_account(group, account));
+                }
+            }
             Completion::BackendClient {
                 command,
                 requested,
@@ -1549,6 +1555,7 @@ impl Runtime {
                     attention: false,
                     connected_users: vec![],
                     program: None,
+                    program_account: None,
                     prompt: false,
                     repository: started.repository,
                     title: None,

@@ -11,6 +11,7 @@ Item {
     property string program: ""
     property real size: 22
     property var session: null
+    property int account: session && session.programAccount !== undefined ? session.programAccount : -1
     property bool asleep: false
     property bool working: session ? session.working === true : false
     property int progress: session && session.progress !== undefined ? session.progress : -1
@@ -18,7 +19,7 @@ Item {
     readonly property bool measured: working && progress >= 0
     readonly property bool dimmed: asleep && !working
     readonly property string kind: Models.DesktopSettings.agentOf(program)
-    readonly property color tint: Identity.kindTint(kind)
+    readonly property color tint: Identity.accountTint(kind, account)
     readonly property real edge: Math.max(1.5, size * 0.07)
 
     implicitWidth: size

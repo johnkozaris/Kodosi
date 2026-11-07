@@ -143,7 +143,10 @@ private struct UsageAccountRow: View {
         let title = account.title(program: info.program)
         Button(action: start) {
             HStack(spacing: 9) {
-                AccountMark(initial: String(title.prefix(1)), key: account.signIn, signedIn: true, size: 20)
+                AccountMark(
+                    initial: String(title.prefix(1)), key: account.signIn, signedIn: true, size: 20,
+                    tint: info.kind.tint(account: info.accounts.firstIndex { $0.name == account.name }),
+                )
                 Text(verbatim: title)
                     .font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
                     .lineLimit(1).truncationMode(.middle)

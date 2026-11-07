@@ -266,6 +266,8 @@ pub struct TerminalStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::terminal::ProgramState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<crate::terminal::BlockedKind>,
@@ -276,6 +278,7 @@ impl TerminalStatus {
     pub(crate) fn of(metadata: &crate::terminal::TerminalMetadata) -> Self {
         Self {
             program: metadata.program.clone(),
+            account: metadata.account.filter(|_| metadata.program.is_some()),
             state: metadata.status.as_ref().map(|status| status.state),
             kind: metadata.status.as_ref().and_then(|status| status.kind),
         }
@@ -285,6 +288,7 @@ impl TerminalStatus {
         self.program
             .as_deref()
             .is_none_or(crate::agents::is_agent_name)
+            && (self.account.is_none() || self.program.is_some())
             && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
     }
 

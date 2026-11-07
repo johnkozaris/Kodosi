@@ -187,13 +187,9 @@ pub(super) async fn agent_line(
     shell: PathBuf,
 ) -> Option<String> {
     let agent = Agent::named(&program)?;
-    let (usual, variable) = agent.home()?;
+    let (_, variable) = agent.home()?;
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
-    let folder = foreground
-        .variable
-        .map(PathBuf::from)
-        .filter(|folder| folder.is_absolute())
-        .unwrap_or_else(|| home.join(usual));
+    let folder = agent.account_folder(&home, foreground.variable)?;
     let command = agent.with_context(
         &crate::agents::account_command(agent, &home, &folder),
         &shell,
