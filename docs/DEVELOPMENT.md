@@ -81,7 +81,9 @@ pin, check the release and its tag first, change both lines and build each app.
 Kodosi Browser builds on the ready-built CEF that its `cef` crate pins, which the build
 downloads and checks, so nothing compiles Chromium. `browser/build/build-engine.py
 --output-dir <folder>` builds it on each computer with `uv`, with its archive and its entry
-in the signed feed. A development build of Kodosi uses the engine whose program
+in the feed. `scripts/generate-engine-feed.py <folder>` writes the feed of the archives of all
+computers and signs it with the updates key from standard input; each update site carries
+that feed. A development build of Kodosi uses the engine whose program
 `KODOSI_BROWSER_ENGINE` names, and no feed.
 
 ## Isolated validation
