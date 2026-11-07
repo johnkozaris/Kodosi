@@ -36,7 +36,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ は現在ありません"
+            "value" : "%@ が見つかりません"
           }
         },
         "ko" : {
@@ -91,7 +91,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3 ステップ中 %lld 完了"
+            "value" : "3 ステップ中 %lld ステップ完了"
           }
         },
         "ko" : {
@@ -669,7 +669,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "質問中"
+            "value" : "あなたに質問中"
           }
         },
         "ko" : {
@@ -1761,7 +1761,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ブラウザを取得中、%lld%%"
+            "value" : "ブラウザをダウンロード中（%lld%%）"
           }
         },
         "ko" : {
@@ -1813,7 +1813,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ほかのデバイスがない"
+            "value" : "ほかにデバイスがありません"
           }
         },
         "ko" : {
@@ -2333,7 +2333,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "承認が必要です"
+            "value" : "承認が必要"
           }
         },
         "ko" : {
@@ -2489,7 +2489,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "現在ありません"
+            "value" : "見つかりません"
           }
         },
         "ko" : {
@@ -4153,7 +4153,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "行き詰まり中"
+            "value" : "停滞中"
           }
         },
         "ko" : {
@@ -4829,7 +4829,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "起こす"
+            "value" : "スリープ解除"
           }
         },
         "ko" : {
@@ -4933,7 +4933,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "書いています"
+            "value" : "回答中"
           }
         },
         "ko" : {

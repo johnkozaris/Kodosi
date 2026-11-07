@@ -296,7 +296,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ が待機中です。そのコードを入力してください。"
+            "value" : "%@ が承認を待っています。表示されているコードを入力してください。"
           }
         },
         "ko" : {
@@ -348,7 +348,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ さんがフレンドになりたがっています"
+            "value" : "%@ さんからフレンドリクエストが届いています"
           }
         },
         "ko" : {
@@ -666,7 +666,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "あなたと %lld 件を共有中"
+            "value" : "共有されたターミナル %lld 個"
           }
         },
         "ko" : {
@@ -1030,7 +1030,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームには人、エージェント、ターミナルがひとつにまとまります。"
+            "value" : "ルームでは、人、エージェント、ターミナルをひとつにまとめられます。"
           }
         },
         "ko" : {
@@ -5606,7 +5606,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "キーボードを隠す"
+            "value" : "キーボードを非表示"
           }
         },
         "ko" : {
@@ -5658,7 +5658,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "戻るまで隠す"
+            "value" : "オンラインに戻るまで非表示"
           }
         },
         "ko" : {
@@ -5814,7 +5814,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべてのデバイスを失ったとき"
+            "value" : "すべてのデバイスを紛失した場合"
           }
         },
         "ko" : {
@@ -6178,7 +6178,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "人を招待"
+            "value" : "メンバーを招待"
           }
         },
         "ko" : {
@@ -6334,7 +6334,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "終了したか、誰かがあなたを削除しました。"
+            "value" : "終了したか、あなたが削除されました。"
           }
         },
         "ko" : {
@@ -6958,7 +6958,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi の処理が遅れています。もう一度起動してください。"
+            "value" : "Kodosi の処理が追いつきません。再起動してください。"
           }
         },
         "ko" : {
@@ -7478,7 +7478,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ローンチ週間"
+            "value" : "ローンチウィーク"
           }
         },
         "ko" : {
@@ -7894,7 +7894,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使っているすべてのコンピュータのライブなターミナル。"
+            "value" : "使っているすべてのコンピュータのターミナルをリアルタイムで。"
           }
         },
         "ko" : {
@@ -9246,7 +9246,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このコピーには表示する通知がありません"
+            "value" : "ライセンス表記がありません"
           }
         },
         "ko" : {
@@ -10702,7 +10702,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "タスクを出しましょう。人もエージェントも引き受けられます。"
+            "value" : "タスクを登録しましょう。人もエージェントも引き受けられます。"
           }
         },
         "ko" : {
@@ -10754,7 +10754,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "タスクを出す"
+            "value" : "タスクを登録"
           }
         },
         "ko" : {
@@ -10858,7 +10858,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手放す"
+            "value" : "担当を外れる"
           }
         },
         "ko" : {
@@ -12314,7 +12314,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントの作業を見て、答えて、ルームで話せます。ターミナルは各コンピュータで動き続けます。"
+            "value" : "エージェントの作業を確認して返答し、ルームで会話できます。ターミナルは各コンピュータで動き続けます。"
           }
         },
         "ko" : {
@@ -12886,7 +12886,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ が共有"
+            "value" : "%@ さんが共有"
           }
         },
         "ko" : {
@@ -12944,7 +12944,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ が %2$@ で共有"
+            "value" : "%1$@ さんが %2$@ で共有"
           }
         },
         "ko" : {
@@ -13828,7 +13828,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "読んでから進んでください"
+            "value" : "必ずお読みください"
           }
         },
         "ko" : {
@@ -14712,7 +14712,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "コンピュータが戻ると、ターミナルが開きます。"
+            "value" : "コンピュータがオンラインに戻ると、ターミナルが開きます。"
           }
         },
         "ko" : {
@@ -16428,7 +16428,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相手を待っています"
+            "value" : "相手の承認待ち"
           }
         },
         "ko" : {

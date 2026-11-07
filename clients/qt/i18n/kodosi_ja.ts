@@ -51,7 +51,7 @@
     </message>
     <message>
         <source>%1 lists no models</source>
-        <translation>%1 にモデルがありません</translation>
+        <translation>%1 に使用できるモデルがありません</translation>
     </message>
     <message>
         <source>Choose a folder…</source>
@@ -83,7 +83,7 @@
     </message>
     <message>
         <source>Hide agents that are not on this computer</source>
-        <translation>このコンピュータにないエージェントを隠す</translation>
+        <translation>このコンピュータにないエージェントを非表示にする</translation>
     </message>
     <message>
         <source>Show %1 more agents</source>
@@ -151,7 +151,7 @@
     </message>
     <message>
         <source>%1 asks you to sign in the first time.</source>
-        <translation>%1 は初回にサインインを求めます。</translation>
+        <translation>%1 は初回起動時にサインインが必要です。</translation>
     </message>
 </context>
 <context>
@@ -162,7 +162,7 @@
     </message>
     <message>
         <source>Looking on this computer</source>
-        <translation>このコンピュータを確認中</translation>
+        <translation>このコンピュータで検索中</translation>
     </message>
     <message>
         <source>Downloads when the shared browser first opens</source>
@@ -271,7 +271,7 @@
     </message>
     <message>
         <source>Getting the browser, %1%</source>
-        <translation>ブラウザを取得中、%1%</translation>
+        <translation>ブラウザをダウンロード中（%1%）</translation>
     </message>
     <message>
         <source>Starting the browser</source>
@@ -283,7 +283,7 @@
     </message>
     <message>
         <source>Wake it</source>
-        <translation>起こす</translation>
+        <translation>スリープ解除</translation>
     </message>
 </context>
 <context>
@@ -420,7 +420,7 @@
     </message>
     <message>
         <source>Hide canvas</source>
-        <translation>キャンバスを隠す</translation>
+        <translation>キャンバスを非表示</translation>
     </message>
     <message>
         <source>All files</source>
@@ -428,11 +428,11 @@
     </message>
     <message>
         <source>%1 is not there now</source>
-        <translation>%1 は現在ありません</translation>
+        <translation>%1 が見つかりません</translation>
     </message>
     <message>
         <source>Not there now</source>
-        <translation>現在ありません</translation>
+        <translation>見つかりません</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -486,7 +486,7 @@
     </message>
     <message>
         <source>A program in %1 asks for the text that you copied.</source>
-        <translation>%1 のプログラムが、コピーしたテキストを求めています。</translation>
+        <translation>%1 のプログラムがクリップボードの内容を読み取ろうとしています。</translation>
     </message>
 </context>
 <context>
@@ -662,7 +662,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>承認が必要です</translation>
+        <translation>承認が必要</translation>
     </message>
     <message>
         <source>Code</source>
@@ -670,7 +670,7 @@
     </message>
     <message>
         <source>If you lose all your devices</source>
-        <translation>すべてのデバイスを失ったとき</translation>
+        <translation>すべてのデバイスを紛失した場合</translation>
     </message>
     <message>
         <source>A recovery key approves a new device when you have no other device.</source>
@@ -882,7 +882,7 @@
     </message>
     <message>
         <source>Off removes Dosi from this computer.</source>
-        <translation>オフにすると、このコンピュータから Dosi を削除します。</translation>
+        <translation>オフにすると、このコンピュータから Dosi が削除されます。</translation>
     </message>
     <message>
         <source>Account</source>
@@ -906,7 +906,7 @@
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>
-        <translation>次のメッセージから Dosi がこれを使います。</translation>
+        <translation>次のメッセージから Dosi に反映されます。</translation>
     </message>
     <message>
         <source>Saved</source>
@@ -1020,7 +1020,7 @@
     <name>DosiSteps</name>
     <message>
         <source>Hide the steps</source>
-        <translation>ステップを隠す</translation>
+        <translation>ステップを非表示</translation>
     </message>
     <message>
         <source>Show the steps</source>
@@ -1028,7 +1028,7 @@
     </message>
     <message>
         <source>Hide the output</source>
-        <translation>出力を隠す</translation>
+        <translation>出力を非表示</translation>
     </message>
     <message>
         <source>Show the output</source>
@@ -1406,19 +1406,19 @@
     </message>
     <message>
         <source>asked a helper</source>
-        <translation>ヘルパーに依頼済み</translation>
+        <translation>サブエージェントに依頼済み</translation>
     </message>
     <message>
         <source>asked a helper about %1</source>
-        <translation>%1 についてヘルパーに依頼</translation>
+        <translation>%1 についてサブエージェントに依頼</translation>
     </message>
     <message>
         <source>asking a helper</source>
-        <translation>ヘルパーに依頼中</translation>
+        <translation>サブエージェントに依頼中</translation>
     </message>
     <message>
         <source>asking a helper about %1</source>
-        <translation>%1 についてヘルパーに依頼中</translation>
+        <translation>%1 についてサブエージェントに依頼中</translation>
     </message>
     <message>
         <source>used</source>
@@ -1498,15 +1498,15 @@
     </message>
     <message>
         <source>Writing</source>
-        <translation>書いています</translation>
+        <translation>回答中</translation>
     </message>
     <message>
         <source>Asking you</source>
-        <translation>質問中</translation>
+        <translation>あなたに質問中</translation>
     </message>
     <message>
         <source>Stuck</source>
-        <translation>行き詰まり中</translation>
+        <translation>停滞中</translation>
     </message>
     <message>
         <source>Stopping</source>
@@ -1525,7 +1525,7 @@
     <name>EffortMeter</name>
     <message>
         <source>Model&apos;s own level</source>
-        <translation>モデルの既定</translation>
+        <translation>モデルの既定値</translation>
     </message>
     <message>
         <source>Effort</source>
@@ -1552,7 +1552,7 @@
     </message>
     <message>
         <source>Stop and read</source>
-        <translation>読んでから進んでください</translation>
+        <translation>必ずお読みください</translation>
     </message>
     <message>
         <source>Do you trust %1 completely?</source>
@@ -1587,7 +1587,7 @@
     </message>
     <message>
         <source>Waiting for you</source>
-        <translation>あなたを待っています</translation>
+        <translation>あなたの承認待ち</translation>
     </message>
     <message>
         <source>Kodosi keeps your sign-in in the keychain (Secret Service).</source>
@@ -1623,11 +1623,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>Kodosi サーバーが応答しません。Kodosi が再試行します。</translation>
+        <translation>Kodosi サーバーが応答しません。自動的に再試行します。</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>キーチェーンのロックを解除してください。Kodosi が再試行します。</translation>
+        <translation>キーチェーンのロックを解除してください。自動的に再試行します。</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1936,11 +1936,11 @@
     </message>
     <message>
         <source>%1 wants to use your account.</source>
-        <translation>%1 があなたのアカウントを使おうとしています。</translation>
+        <translation>%1 があなたのアカウントへのアクセスを求めています。</translation>
     </message>
     <message>
         <source>%1 devices want to use your account.</source>
-        <translation>%1 台のデバイスがあなたのアカウントを使おうとしています。</translation>
+        <translation>%1 台のデバイスがあなたのアカウントへのアクセスを求めています。</translation>
     </message>
     <message>
         <source>This computer waits for approval from another of your devices.</source>
@@ -1960,7 +1960,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>承認が必要です</translation>
+        <translation>承認が必要</translation>
     </message>
     <message>
         <source>Approve…</source>
@@ -1999,7 +1999,7 @@
     </message>
     <message>
         <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>ルームには人、エージェント、ターミナルがひとつにまとまります。</translation>
+        <translation>ルームでは、人、エージェント、ターミナルをひとつにまとめられます。</translation>
     </message>
     <message numerus="yes">
         <source>%n rooms</source>
@@ -2031,7 +2031,7 @@
     </message>
     <message>
         <source>You are invited</source>
-        <translation>招待されています</translation>
+        <translation>招待が届いています</translation>
     </message>
     <message>
         <source>Not now</source>
@@ -2099,7 +2099,7 @@
     </message>
     <message>
         <source>Hide until it&apos;s back</source>
-        <translation>戻るまで隠す</translation>
+        <translation>オンラインに戻るまで非表示</translation>
     </message>
     <message>
         <source>Close forever</source>
@@ -2156,7 +2156,7 @@
     </message>
     <message>
         <source>Wants to be your friend</source>
-        <translation>フレンドになりたがっています</translation>
+        <translation>フレンドリクエストが届いています</translation>
     </message>
     <message>
         <source>Accept…</source>
@@ -2313,7 +2313,7 @@
     </message>
     <message>
         <source>Connect GitHub to see your repositories</source>
-        <translation>リポジトリを表示するには GitHub を接続してください</translation>
+        <translation>リポジトリを表示するには GitHub と連携してください</translation>
     </message>
     <message>
         <source>Get it</source>
@@ -2400,7 +2400,7 @@
     </message>
     <message>
         <source>Hide conversation</source>
-        <translation>会話を隠す</translation>
+        <translation>会話を非表示</translation>
     </message>
     <message>
         <source>Show conversation</source>
@@ -2731,7 +2731,7 @@
     </message>
     <message>
         <source>Release</source>
-        <translation>手放す</translation>
+        <translation>担当を外れる</translation>
     </message>
     <message>
         <source>Save note</source>
@@ -2783,7 +2783,7 @@
     </message>
     <message>
         <source>Write one above. People and agents can pick it up.</source>
-        <translation>上に書いてください。人もエージェントも引き受けられます。</translation>
+        <translation>上にタスクを書いてください。人もエージェントも引き受けられます。</translation>
     </message>
     <message>
         <source>Up for grabs</source>
@@ -2810,7 +2810,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>%1 が共有</translation>
+        <translation>%1 さんが共有</translation>
     </message>
     <message>
         <source>a friend</source>
@@ -2975,7 +2975,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>承認が必要です</translation>
+        <translation>承認が必要</translation>
     </message>
     <message>
         <source>Rooms and terminals</source>
@@ -3015,7 +3015,7 @@
     </message>
     <message>
         <source>Hide sidebar</source>
-        <translation>サイドバーを隠す</translation>
+        <translation>サイドバーを非表示</translation>
     </message>
     <message>
         <source>Rooms</source>
@@ -3075,15 +3075,15 @@
     </message>
     <message>
         <source>New terminal on a new branch in %1</source>
-        <translation>%1 の新しいブランチで新しいターミナル</translation>
+        <translation>%1 の新しいブランチでターミナルを開く</translation>
     </message>
     <message>
         <source>New terminal on a new branch</source>
-        <translation>新しいブランチで新しいターミナル</translation>
+        <translation>新しいブランチでターミナルを開く</translation>
     </message>
     <message>
         <source>New terminal in %1</source>
-        <translation>%1 に新しいターミナル</translation>
+        <translation>%1 で新しいターミナルを開く</translation>
     </message>
     <message>
         <source>Close terminals</source>
@@ -3103,7 +3103,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>%1 が共有</translation>
+        <translation>%1 さんが共有</translation>
     </message>
     <message>
         <source>Minimize</source>
@@ -3407,7 +3407,7 @@
     </message>
     <message>
         <source>Beside the repository</source>
-        <translation>リポジトリの隣</translation>
+        <translation>リポジトリと同じ階層</translation>
     </message>
     <message>
         <source>Choose…</source>
@@ -3555,7 +3555,7 @@
     </message>
     <message>
         <source>The terminal opens when its computer is back.</source>
-        <translation>コンピュータが戻ると、ターミナルが開きます。</translation>
+        <translation>コンピュータがオンラインに戻ると、ターミナルが開きます。</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
@@ -3802,7 +3802,7 @@
     </message>
     <message>
         <source>A conversation did not match this project.</source>
-        <translation>このプロジェクトに合わない会話がありました。</translation>
+        <translation>この会話はこのプロジェクトのものではありません。</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -4001,7 +4001,7 @@
     </message>
     <message>
         <source>The command must not name the account.</source>
-        <translation>コマンドでアカウントを指定してはいけません。</translation>
+        <translation>コマンドでアカウントを指定することはできません。</translation>
     </message>
     <message>
         <source>Command</source>
@@ -4111,7 +4111,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>承認が必要です</translation>
+        <translation>承認が必要</translation>
     </message>
     <message>
         <source>Needs your answer</source>
@@ -4294,7 +4294,7 @@
     </message>
     <message>
         <source>This version of Kodosi is too old for the server. Update Kodosi.</source>
-        <translation>この Kodosi はサーバーに対して古すぎます。Kodosi をアップデートしてください。</translation>
+        <translation>この Kodosi のバージョンは古いため、サーバーに接続できません。Kodosi をアップデートしてください。</translation>
     </message>
     <message>
         <source>Your sign-in has ended. Sign in again.</source>
