@@ -95,17 +95,19 @@ Spanish, French, Italian, Japanese, Korean and Simplified Chinese.
 - Swift: `Text("…")` and `String(localized: "…")`, with `bundle: .module` in the shared
   package. After a Mac or iPhone build, `just apple-strings-sync` adds the new texts to the
   String Catalogs.
-- Qt: `qsTr()` in QML and `tr()` in C++, with `%n` for a count. `just linux-check` adds the
-  new texts to `clients/qt/i18n/`.
+- Qt: `qsTr()` in QML and `tr()` in C++, with `%n` for a count. `just linux-strings-sync` adds
+  the new texts to `clients/qt/i18n/`.
 - Runtime: `text!("… {name} …", name = value)` for a sentence for people, with its words in
-  `runtime/texts/`. The detail of an internal fault stays an English `String`.
+  `runtime/texts/`. The detail of an internal fault stays English, as `Text::plain`.
 - Document views: `say("…")` from `@documents/words`, with its words in
   `documents/views/words/src/`.
 - Sign-in theme: `sign-in/src/login/i18n.ts`, `sign-in/src/account/words.ts` and
   `sign-in/src/email/messages/`.
 
 `just translations-check` lists each text without words in a language, and each
-translation that lost or changed a value.
+translation that lost or changed a value. `just mac-check`, `just ios-check` and
+`just linux-check` also fail when a String Catalog or a Qt translation file misses a text
+of the code.
 
 ## Isolated validation
 

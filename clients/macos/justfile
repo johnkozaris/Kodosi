@@ -84,7 +84,7 @@ check: lint deployment-targets-check ghostty-link-test xcode-gen apple-test
         -configuration Release \
         -destination 'generic/platform=macOS' \
         build
-    python3 ../apple/scripts/sync-string-catalogs.py
+    python3 ../apple/scripts/sync-string-catalogs.py --check
     python3 ../../scripts/check-translations.py
 
 # Archive, export, notarize and package the Mac app in build/export/Kodosi-<version>.dmg. Commit all the changes first.

@@ -289,6 +289,11 @@ linux-build:
 linux-check:
     just --justfile clients/qt/justfile check
 
+# Add the new texts of the Linux and Windows app to its translation files.
+[group('linux')]
+linux-strings-sync:
+    just --justfile clients/qt/justfile strings-sync
+
 # Build and test the Windows app on Windows in Git Bash.
 [group('windows')]
 windows-check:

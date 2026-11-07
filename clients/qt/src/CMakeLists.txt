@@ -436,7 +436,6 @@ target_link_libraries(kodosi-qt
         kodosi-uiplugin
 )
 
-# The words of the app in each language. English needs only its plural forms.
 set(KODOSI_LANGUAGES de el es fr it ja ko zh_CN)
 list(TRANSFORM KODOSI_LANGUAGES REPLACE "^(.+)$" "${CMAKE_CURRENT_SOURCE_DIR}/../i18n/kodosi_\\1.ts"
     OUTPUT_VARIABLE KODOSI_TS_FILES)
@@ -450,6 +449,24 @@ qt_add_lupdate(
     OPTIONS -no-obsolete -locations none
     NO_GLOBAL_TARGET
 )
+set(KODOSI_TS_CHECK_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations-check")
+list(TRANSFORM KODOSI_LANGUAGES REPLACE "^(.+)$" "${KODOSI_TS_CHECK_DIR}/kodosi_\\1.ts"
+    OUTPUT_VARIABLE KODOSI_TS_CHECK_FILES)
+add_custom_target(kodosi-translations-check-copy
+    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${KODOSI_TS_CHECK_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${KODOSI_TS_CHECK_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E copy ${KODOSI_TS_FILES} "${KODOSI_PLURALS_TS_FILE}" "${KODOSI_TS_CHECK_DIR}"
+)
+qt_add_lupdate(
+    TS_FILES ${KODOSI_TS_CHECK_FILES}
+    PLURALS_TS_FILE "${KODOSI_TS_CHECK_DIR}/kodosi_en.ts"
+    SOURCE_TARGETS kodosi-qt kodosi-ui kodosi-application kodosi-qml-models kodosi-desktop-integration
+        kodosi-canvas-web kodosi-terminal-kernel kodosi-runtime
+    LUPDATE_TARGET kodosi-translations-check
+    OPTIONS -no-obsolete -locations none
+    NO_GLOBAL_TARGET
+)
+add_dependencies(kodosi-translations-check kodosi-translations-check-copy)
 qt_add_lrelease(
     TS_FILES ${KODOSI_TS_FILES} "${KODOSI_PLURALS_TS_FILE}"
     QM_FILES_OUTPUT_VARIABLE KODOSI_QM_FILES

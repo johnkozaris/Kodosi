@@ -26,9 +26,14 @@ build: configure
 lint: configure
     "{{ cmake }}" --build build/dev --target all_qmllint
 
-# Add new texts of the sources to the translation files, then check that each text has its words.
-translations-check: configure
+# Add the new texts of the sources to the translation files.
+strings-sync: configure
     "{{ cmake }}" --build build/dev --target kodosi-translations-update
+
+# Check that the translation files have each text of the sources, with its words.
+strings-check: configure
+    "{{ cmake }}" --build build/dev --target kodosi-translations-check
+    diff -rq i18n build/dev/src/translations-check || { echo "Run just linux-strings-sync." >&2; exit 1; }
     python3 ../../scripts/check-translations.py
 
 # Build the Linux app and run its tests.
@@ -52,7 +57,7 @@ native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
 
 # Lint and test the Linux app and check its dependency pins and license evidence.
-check: dependency-pins-check rust-license-check native-license-check lint translations-check test
+check: dependency-pins-check rust-license-check native-license-check lint strings-check test
 
 # Build the Windows app in Git Bash on Windows 11.
 windows-build: tools-install

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Add the texts of the last Mac and iPhone builds to the string catalogs. A text that a build no
-longer has stays: only a sync from the builds of both apps may remove it, with --remove-gone."""
+longer has stays: only a sync from the builds of both apps may remove it, with --remove-gone.
+With --check, change nothing and fail when a catalog misses texts of the last builds."""
 
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 CLIENTS = Path(__file__).resolve().parent.parent.parent
@@ -35,6 +38,7 @@ def newest_texts(root: Path, project: str, target: str) -> list[Path]:
 
 def main() -> int:
     remove_gone = "--remove-gone" in sys.argv[1:]
+    check = "--check" in sys.argv[1:]
     roots = {folder: intermediates(folder, *app) for folder, app in APPS.items()}
     if remove_gone and None in roots.values():
         print("Build both apps before --remove-gone.", file=sys.stderr)
@@ -51,13 +55,23 @@ def main() -> int:
     if not catalogs:
         print("Build the Mac or the iPhone app first.", file=sys.stderr)
         return 1
+    behind = []
     for catalog, texts in sorted(catalogs.items()):
         if not texts:
             continue
-        command = ["xcrun", "xcstringstool", "sync", str(catalog), "--stringsdata", *map(str, texts)]
-        subprocess.run(command if remove_gone else [*command, "--skip-marking-strings-stale"], check=True)
-        print(f"{catalog.relative_to(CLIENTS.parent)}: {len(texts)} files of texts")
-    return 0
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / catalog.name if check else catalog
+            if check:
+                shutil.copyfile(catalog, target)
+            command = ["xcrun", "xcstringstool", "sync", str(target), "--stringsdata", *map(str, texts)]
+            subprocess.run(command if remove_gone else [*command, "--skip-marking-strings-stale"], check=True)
+            if check and json.loads(target.read_text()) != json.loads(catalog.read_text()):
+                behind.append(catalog)
+        if not check:
+            print(f"{catalog.relative_to(CLIENTS.parent)}: {len(texts)} files of texts")
+    for catalog in behind:
+        print(f"{catalog.relative_to(CLIENTS.parent)} misses texts of the last build: run just apple-strings-sync.", file=sys.stderr)
+    return 1 if behind else 0
 
 
 if __name__ == "__main__":
