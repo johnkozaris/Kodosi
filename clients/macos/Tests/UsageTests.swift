@@ -25,11 +25,11 @@ import Testing
     #expect(copilot.spoken == "This month: 59% used")
 }
 
-@Test func `a number read more than ten minutes ago is stale`() {
+@Test func `a number read more than a minute ago is stale`() {
     let now = UInt64(Date().timeIntervalSince1970 * 1000)
     let read = { (ago: UInt64) in AccountUsage(agent: "codex", account: "default", limits: [], readAtMs: now - ago) }
-    #expect(!read(60000).stale)
-    #expect(read(660_000).stale)
+    #expect(!read(50000).stale)
+    #expect(read(70000).stale)
 }
 
 @Test func `the nearest limit has the worst level, then the most use`() {
