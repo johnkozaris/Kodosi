@@ -172,7 +172,8 @@ conversation follows the person to all their computers.
   agent's color, in the order of the launcher. A terminal's mark has the shade of the
   account that its agent runs under, everywhere the terminal shows, and the account in the
   launcher has the same shade. The host tells only the place of the account, not its name or
-  folder.
+  folder. A Windows computer cannot see the account of a running agent, so its terminals keep
+  the agent's own color.
 - A person can preview saved Claude Code and Copilot CLI conversations and resume them
   through the provider's own CLI.
 
