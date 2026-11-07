@@ -2217,7 +2217,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requiert votre connexion"
+            "value" : "Connexion requise"
           }
         },
         "it" : {
@@ -2321,7 +2321,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requiert votre approbation"
+            "value" : "Approbation requise"
           }
         },
         "it" : {
@@ -4037,7 +4037,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nouveau départ"
+            "value" : "Réinitialisation…"
           }
         },
         "it" : {
@@ -4921,7 +4921,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Écrit"
+            "value" : "Écriture"
           }
         },
         "it" : {

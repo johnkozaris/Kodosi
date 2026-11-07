@@ -180,7 +180,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce collage est trop volumineux, Kodosi ne l'a donc pas envoyé."
+            "value" : "Le contenu collé est trop volumineux, Kodosi ne l'a donc pas envoyé."
           }
         },
         "it" : {
@@ -388,7 +388,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce terminal a pris du retard. Réessayez."
+            "value" : "Ce terminal n'arrive plus à suivre. Réessayez."
           }
         },
         "it" : {
@@ -440,7 +440,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce terminal attend encore une saisie précédente. Kodosi n'a pas envoyé votre collage."
+            "value" : "Ce terminal n'a pas encore reçu votre saisie précédente. Kodosi n'a pas envoyé le contenu collé."
           }
         },
         "it" : {

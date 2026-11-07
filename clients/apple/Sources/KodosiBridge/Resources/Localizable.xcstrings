@@ -914,7 +914,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi ne peut pas savoir si cela a fonctionné. Vérifiez avant de réessayer."
+            "value" : "Kodosi ne sait pas si l'opération a réussi. Vérifiez avant de réessayer."
           }
         },
         "it" : {
@@ -1642,7 +1642,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ça n'a pas marché (%d)."
+            "value" : "L'opération a échoué (%d)."
           }
         },
         "it" : {
@@ -1694,7 +1694,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ça n'a pas marché."
+            "value" : "L'opération a échoué."
           }
         },
         "it" : {
@@ -2318,7 +2318,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre compte Kodosi est supprimé."
+            "value" : "Votre compte Kodosi a été supprimé."
           }
         },
         "it" : {

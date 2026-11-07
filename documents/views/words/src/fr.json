@@ -102,8 +102,8 @@
   "Sum": "Somme",
   "Text": "Texte",
   "Text box": "Zone de texte",
-  "The computer of this file is away. Your edits wait here.": "L'ordinateur de ce fichier est absent. Vos modifications attendent ici.",
-  "This document closed.": "Ce document s'est fermé.",
+  "The computer of this file is away. Your edits wait here.": "L'ordinateur qui héberge ce fichier est hors ligne. Vos modifications sont conservées ici.",
+  "This document closed.": "Ce document a été fermé.",
   "Time": "Heure",
   "Tools": "Outils",
   "Top": "Haut",
@@ -121,5 +121,5 @@
   "Zoom in": "Zoom avant",
   "Zoom out": "Zoom arrière",
   "Zoom {percent}%": "Zoom {percent} %",
-  "{name} and its cells go. Undo brings them back.": "{name} et ses cellules seront supprimées. Annuler les rétablit."
+  "{name} and its cells go. Undo brings them back.": "{name} et ses cellules seront supprimées. Vous pouvez les récupérer avec Annuler."
 }

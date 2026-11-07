@@ -388,7 +388,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ne liste aucun modèle"
+            "value" : "%@ ne propose aucun modèle"
           }
         },
         "it" : {
@@ -2420,7 +2420,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un terminal sur une nouvelle branche obtient son propre dossier. Kodosi supprime un dossier sans modifications quand son terminal se termine."
+            "value" : "Un terminal sur une nouvelle branche a son propre dossier. Kodosi supprime ce dossier à la fermeture du terminal s'il ne contient aucune modification."
           }
         },
         "it" : {
@@ -3044,7 +3044,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajouter une touche"
+            "value" : "Ajouter un raccourci"
           }
         },
         "it" : {
@@ -4552,7 +4552,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En root"
+            "value" : "En tant que root"
           }
         },
         "it" : {
@@ -4968,7 +4968,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Faire clignoter le curseur"
+            "value" : "Curseur clignotant"
           }
         },
         "it" : {
@@ -9310,7 +9310,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dosi utilise tous les outils de son agent sans demander d'abord."
+            "value" : "Dosi utilise tous les outils de son agent sans demander la permission."
           }
         },
         "it" : {
@@ -9674,7 +9674,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effort"
+            "value" : "Raisonnement"
           }
         },
         "it" : {
@@ -10740,7 +10740,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L'obtenir"
+            "value" : "Télécharger"
           }
         },
         "it" : {
@@ -12248,7 +12248,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Invitez des personnes ensuite. Tout le monde dans le salon partage ses terminaux."
+            "value" : "Vous pourrez inviter des personnes ensuite. Tout le monde dans le salon partage ses terminaux."
           }
         },
         "it" : {
@@ -12612,7 +12612,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continuer à fonctionner après la fermeture de la fenêtre"
+            "value" : "Rester actif après la fermeture de la fenêtre"
           }
         },
         "it" : {
@@ -12872,7 +12872,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi ne peut pas ouvrir le trousseau, où il conserve votre connexion. Kodosi réessaie."
+            "value" : "Kodosi ne peut pas ouvrir le trousseau, où il conserve votre connexion. Kodosi va réessayer."
           }
         },
         "it" : {
@@ -13132,7 +13132,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi a pris du retard. Relancez-le."
+            "value" : "Kodosi n'arrive plus à suivre. Relancez-le."
           }
         },
         "it" : {
@@ -15264,7 +15264,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modèle et effort"
+            "value" : "Modèle et raisonnement"
           }
         },
         "it" : {
@@ -18124,7 +18124,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir les appareils"
+            "value" : "Voir les appareils"
           }
         },
         "it" : {
@@ -18800,7 +18800,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prendre"
+            "value" : "Prendre en charge"
           }
         },
         "it" : {
@@ -18852,7 +18852,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prendre %@"
+            "value" : "Prendre en charge %@"
           }
         },
         "it" : {
@@ -19112,7 +19112,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Utilisation chez le fournisseur"
+            "value" : "Utilisation des fournisseurs"
           }
         },
         "it" : {
@@ -21556,7 +21556,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "S'exécute en root"
+            "value" : "S'exécute en tant que root"
           }
         },
         "it" : {
@@ -24864,7 +24864,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quelque chose n'a pas fonctionné"
+            "value" : "Un problème est survenu"
           }
         },
         "it" : {
@@ -26534,7 +26534,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ça n'a pas marché."
+            "value" : "L'opération a échoué."
           }
         },
         "it" : {
@@ -26586,7 +26586,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le serveur Kodosi ne répond pas. Kodosi réessaie."
+            "value" : "Le serveur Kodosi ne répond pas. Kodosi va réessayer."
           }
         },
         "it" : {
@@ -26742,7 +26742,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La branche obtient son propre dossier, et un terminal y démarre."
+            "value" : "La branche a son propre dossier, où un terminal démarre."
           }
         },
         "it" : {
@@ -27236,7 +27236,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le terminal s'ouvrira au retour de son ordinateur."
+            "value" : "Le terminal s'ouvrira quand son ordinateur sera de nouveau en ligne."
           }
         },
         "it" : {
@@ -29420,7 +29420,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En attente de leur réponse"
+            "value" : "En attente de réponse"
           }
         },
         "it" : {
@@ -29472,7 +29472,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qu'est-ce qui a besoin de moi ?"
+            "value" : "Qu'est-ce qui m'attend ?"
           }
         },
         "it" : {
@@ -29784,7 +29784,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Écrivez-en une ci-dessus. Les personnes et les agents peuvent la prendre."
+            "value" : "Écrivez-en une ci-dessus. Les personnes et les agents peuvent la prendre en charge."
           }
         },
         "it" : {
@@ -31708,7 +31708,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "macOS n'a pas pu ouvrir ce fichier. Choisissez une app par défaut pour celui-ci."
+            "value" : "macOS n'a pas pu ouvrir ce fichier. Choisissez une app par défaut pour ce type de fichier."
           }
         },
         "it" : {
@@ -34516,7 +34516,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "a réfléchi %lld s"
+            "value" : "a réfléchi pendant %lld s"
           }
         },
         "it" : {

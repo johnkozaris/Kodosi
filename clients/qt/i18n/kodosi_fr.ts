@@ -51,7 +51,7 @@
     </message>
     <message>
         <source>%1 lists no models</source>
-        <translation>%1 ne liste aucun modèle</translation>
+        <translation>%1 ne propose aucun modèle</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -115,7 +115,7 @@
     </message>
     <message>
         <source>Model and effort</source>
-        <translation>Modèle et effort</translation>
+        <translation>Modèle et raisonnement</translation>
     </message>
     <message>
         <source>First prompt</source>
@@ -667,7 +667,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Requiert votre approbation</translation>
+        <translation>Approbation requise</translation>
     </message>
     <message>
         <source>Code</source>
@@ -747,11 +747,11 @@
     </message>
     <message>
         <source>It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.</source>
-        <translation>Il perd votre compte et les terminaux partagés avec vous. S&apos;il a été perdu ou volé, créez aussi une nouvelle clé de récupération.</translation>
+        <translation>Il n&apos;aura plus accès à votre compte ni aux terminaux partagés avec vous. S&apos;il a été perdu ou volé, créez aussi une nouvelle clé de récupération.</translation>
     </message>
     <message>
         <source>It loses your account and the terminals shared with you.</source>
-        <translation>Il perd votre compte et les terminaux partagés avec vous.</translation>
+        <translation>Il n&apos;aura plus accès à votre compte ni aux terminaux partagés avec vous.</translation>
     </message>
 </context>
 <context>
@@ -907,7 +907,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Effort</translation>
+        <translation>Raisonnement</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -999,7 +999,7 @@
     </message>
     <message>
         <source>Dosi uses every tool of its agent and does not ask first.</source>
-        <translation>Dosi utilise tous les outils de son agent sans demander d&apos;abord.</translation>
+        <translation>Dosi utilise tous les outils de son agent sans demander la permission.</translation>
     </message>
 </context>
 <context>
@@ -1066,7 +1066,7 @@
     </message>
     <message>
         <source>thought for %1s</source>
-        <translation>a réfléchi %1 s</translation>
+        <translation>a réfléchi pendant %1 s</translation>
     </message>
     <message>
         <source>thought</source>
@@ -1509,7 +1509,7 @@
     </message>
     <message>
         <source>Writing</source>
-        <translation>Écrit</translation>
+        <translation>Écriture</translation>
     </message>
     <message>
         <source>Asking you</source>
@@ -1540,7 +1540,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Effort</translation>
+        <translation>Raisonnement</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -1634,11 +1634,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>Le serveur Kodosi ne répond pas. Kodosi réessaie.</translation>
+        <translation>Le serveur Kodosi ne répond pas. Kodosi va réessayer.</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>Déverrouillez le trousseau. Kodosi réessaie.</translation>
+        <translation>Déverrouillez le trousseau. Kodosi va réessayer.</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1706,7 +1706,7 @@
     </message>
     <message>
         <source>Keep running when the window closes</source>
-        <translation>Continuer à fonctionner après la fermeture de la fenêtre</translation>
+        <translation>Rester actif après la fermeture de la fenêtre</translation>
     </message>
     <message>
         <source>Closing the window quits Kodosi.</source>
@@ -1858,7 +1858,7 @@
     <name>KeyboardSettings</name>
     <message>
         <source>Press a key. Delete removes this one.</source>
-        <translation>Appuyez sur une touche. Suppr retire celle-ci.</translation>
+        <translation>Appuyez sur une touche. Suppr retire ce raccourci.</translation>
     </message>
     <message>
         <source>Press a key.</source>
@@ -1971,7 +1971,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Requiert votre approbation</translation>
+        <translation>Approbation requise</translation>
     </message>
     <message>
         <source>Approve…</source>
@@ -2333,7 +2333,7 @@
     </message>
     <message>
         <source>Get it</source>
-        <translation>L&apos;obtenir</translation>
+        <translation>Télécharger</translation>
     </message>
     <message>
         <source>Connect</source>
@@ -2735,11 +2735,11 @@
     </message>
     <message>
         <source>Pick up</source>
-        <translation>Prendre</translation>
+        <translation>Prendre en charge</translation>
     </message>
     <message>
         <source>Pick up %1</source>
-        <translation>Prendre %1</translation>
+        <translation>Prendre en charge %1</translation>
     </message>
     <message>
         <source>Result or pull request link</source>
@@ -2803,7 +2803,7 @@
     </message>
     <message>
         <source>Write one above. People and agents can pick it up.</source>
-        <translation>Écrivez-en une ci-dessus. Les personnes et les agents peuvent la prendre.</translation>
+        <translation>Écrivez-en une ci-dessus. Les personnes et les agents peuvent la prendre en charge.</translation>
     </message>
     <message>
         <source>Up for grabs</source>
@@ -2850,11 +2850,11 @@
     </message>
     <message>
         <source>Runs as root</source>
-        <translation>S&apos;exécute en root</translation>
+        <translation>S&apos;exécute en tant que root</translation>
     </message>
     <message>
         <source>As root</source>
-        <translation>En root</translation>
+        <translation>En tant que root</translation>
     </message>
     <message>
         <source>Open</source>
@@ -2995,7 +2995,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Requiert votre approbation</translation>
+        <translation>Approbation requise</translation>
     </message>
     <message>
         <source>Rooms and terminals</source>
@@ -3187,7 +3187,7 @@
     </message>
     <message>
         <source>The branch gets its own folder, and a terminal starts there.</source>
-        <translation>La branche obtient son propre dossier, et un terminal y démarre.</translation>
+        <translation>La branche a son propre dossier, où un terminal démarre.</translation>
     </message>
     <message>
         <source>Start</source>
@@ -3319,7 +3319,7 @@
     <name>TerminalSettings</name>
     <message>
         <source>Welcome back. What are we building?</source>
-        <translation>Bon retour. Qu&apos;est-ce qu&apos;on construit&#xa0;?</translation>
+        <translation>Content de vous revoir. Qu&apos;est-ce qu&apos;on construit aujourd&apos;hui&#xa0;?</translation>
     </message>
     <message>
         <source>Appearance</source>
@@ -3387,7 +3387,7 @@
     </message>
     <message>
         <source>Blink the cursor</source>
-        <translation>Faire clignoter le curseur</translation>
+        <translation>Curseur clignotant</translation>
     </message>
     <message>
         <source>Scrollback</source>
@@ -3419,7 +3419,7 @@
     </message>
     <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
-        <translation>Un terminal sur une nouvelle branche obtient son propre dossier. Kodosi supprime un dossier sans modifications quand son terminal se termine.</translation>
+        <translation>Un terminal sur une nouvelle branche a son propre dossier. Kodosi supprime ce dossier à la fermeture du terminal s&apos;il ne contient aucune modification.</translation>
     </message>
     <message>
         <source>Branch folders</source>
@@ -3540,7 +3540,7 @@
     </message>
     <message>
         <source>Return to tiles</source>
-        <translation>Retour aux tuiles</translation>
+        <translation>Retour à la mosaïque</translation>
     </message>
     <message>
         <source>Zoom</source>
@@ -3576,7 +3576,7 @@
     </message>
     <message>
         <source>The terminal opens when its computer is back.</source>
-        <translation>Le terminal s&apos;ouvrira au retour de son ordinateur.</translation>
+        <translation>Le terminal s&apos;ouvrira quand son ordinateur sera de nouveau en ligne.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
@@ -3622,7 +3622,7 @@
     <name>UsageMenu</name>
     <message>
         <source>Provider Usage</source>
-        <translation>Utilisation chez le fournisseur</translation>
+        <translation>Utilisation des fournisseurs</translation>
     </message>
     <message>
         <source>No plan limits to show</source>
@@ -4026,7 +4026,7 @@
     </message>
     <message>
         <source>The command must not name the account.</source>
-        <translation>La commande ne doit pas nommer le compte.</translation>
+        <translation>La commande ne doit pas indiquer de compte.</translation>
     </message>
     <message>
         <source>Command</source>
@@ -4066,7 +4066,7 @@
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi a reçu trop de mises à jour et s&apos;est arrêté. Réessayez.</translation>
+        <translation>Kodosi a reçu trop de changements d&apos;un coup et s&apos;est arrêté. Réessayez.</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>
@@ -4136,7 +4136,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>Requiert votre approbation</translation>
+        <translation>Approbation requise</translation>
     </message>
     <message>
         <source>Needs your answer</source>
@@ -4144,7 +4144,7 @@
     </message>
     <message>
         <source>Needs you to sign in</source>
-        <translation>Requiert votre connexion</translation>
+        <translation>Connexion requise</translation>
     </message>
     <message>
         <source>Done</source>
@@ -4300,7 +4300,7 @@
     </message>
     <message>
         <source>The terminal input queue is full, so Kodosi did not take the input.</source>
-        <translation>La file de saisie du terminal est pleine, Kodosi n&apos;a donc pas pris la saisie.</translation>
+        <translation>La file de saisie du terminal est pleine, Kodosi n&apos;a donc pas accepté la saisie.</translation>
     </message>
     <message>
         <source>Kodosi could not keep the picture to paste it.</source>
@@ -4327,7 +4327,7 @@
     </message>
     <message>
         <source>Your Kodosi account is deleted.</source>
-        <translation>Votre compte Kodosi est supprimé.</translation>
+        <translation>Votre compte Kodosi a été supprimé.</translation>
     </message>
 </context>
 <context>

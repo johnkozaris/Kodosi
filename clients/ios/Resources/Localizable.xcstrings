@@ -6946,7 +6946,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi a pris du retard. Relancez-le."
+            "value" : "Kodosi n'arrive plus à suivre. Relancez-le."
           }
         },
         "it" : {
@@ -9234,7 +9234,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune mention dans cette copie"
+            "value" : "Aucune mention de licence dans cette copie"
           }
         },
         "it" : {
@@ -10014,7 +10014,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouverture de la connexion"
+            "value" : "Ouverture de la page de connexion"
           }
         },
         "it" : {
@@ -10430,7 +10430,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prendre"
+            "value" : "Prendre en charge"
           }
         },
         "it" : {
@@ -10482,7 +10482,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prendre %@"
+            "value" : "Prendre en charge %@"
           }
         },
         "it" : {
@@ -10534,7 +10534,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prise par %@"
+            "value" : "Prise en charge par %@"
           }
         },
         "it" : {
@@ -10690,7 +10690,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Publiez-en une. Les personnes et les agents peuvent la prendre."
+            "value" : "Publiez-en une. Les personnes et les agents peuvent la prendre en charge."
           }
         },
         "it" : {
@@ -14388,7 +14388,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ça n'a pas marché."
+            "value" : "L'opération a échoué."
           }
         },
         "it" : {
@@ -14700,7 +14700,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le terminal s'ouvrira au retour de son ordinateur."
+            "value" : "Le terminal s'ouvrira quand son ordinateur sera de nouveau en ligne."
           }
         },
         "it" : {
@@ -14752,7 +14752,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Son identité a changé. Faites-lui confiance pour partager à nouveau avec cette personne."
+            "value" : "Son identité a changé. Faites confiance à sa nouvelle identité pour partager à nouveau avec cette personne."
           }
         },
         "it" : {
@@ -16416,7 +16416,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En attente de leur réponse"
+            "value" : "En attente de réponse"
           }
         },
         "it" : {
@@ -16624,7 +16624,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Travaillez en salons"
+            "value" : "Travaillez dans des salons"
           }
         },
         "it" : {
