@@ -51,7 +51,7 @@
     </message>
     <message>
         <source>%1 lists no models</source>
-        <translation>%1에 모델이 없어요</translation>
+        <translation>%1에 사용할 수 있는 모델이 없어요</translation>
     </message>
     <message>
         <source>Choose a folder…</source>
@@ -170,7 +170,7 @@
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
-        <translation>그러면 이 컴퓨터의 비공개 터미널에서 사이트가 나를 알아봐요. 패스키와 기기에 묶인 로그인은 원래 브라우저에 남아요.</translation>
+        <translation>그러면 이 컴퓨터의 비공개 터미널에서도 사이트에 로그인된 상태가 돼요. 패스키와 기기에 묶인 로그인은 원래 브라우저에 남아요.</translation>
     </message>
     <message>
         <source>Chrome keeps its sign-ins locked on Windows, so sign in on the canvas.</source>
@@ -224,7 +224,7 @@
     </message>
     <message>
         <source>Sites forget you in your private terminals on this computer. Their open pages load again.</source>
-        <translation>이 컴퓨터의 비공개 터미널에서 사이트가 나를 잊어요. 열린 페이지는 다시 불러와요.</translation>
+        <translation>이 컴퓨터의 비공개 터미널에서 사이트 로그인이 풀려요. 열린 페이지는 다시 불러와요.</translation>
     </message>
 </context>
 <context>
@@ -271,7 +271,7 @@
     </message>
     <message>
         <source>Getting the browser, %1%</source>
-        <translation>브라우저 받는 중, %1%</translation>
+        <translation>브라우저 내려받는 중(%1%)</translation>
     </message>
     <message>
         <source>Starting the browser</source>
@@ -279,7 +279,7 @@
     </message>
     <message>
         <source>The browser sleeps</source>
-        <translation>브라우저가 잠들어 있어요</translation>
+        <translation>브라우저가 절전 상태예요</translation>
     </message>
     <message>
         <source>Wake it</source>
@@ -428,11 +428,11 @@
     </message>
     <message>
         <source>%1 is not there now</source>
-        <translation>지금은 %1 항목이 없어요</translation>
+        <translation>%1을(를) 찾을 수 없어요</translation>
     </message>
     <message>
         <source>Not there now</source>
-        <translation>지금은 없어요</translation>
+        <translation>찾을 수 없어요</translation>
     </message>
     <message>
         <source>Save a copy</source>
@@ -444,7 +444,7 @@
     </message>
     <message>
         <source>The file is missing</source>
-        <translation>파일이 없어요</translation>
+        <translation>파일을 찾을 수 없어요</translation>
     </message>
     <message>
         <source>This did not load</source>
@@ -486,7 +486,7 @@
     </message>
     <message>
         <source>A program in %1 asks for the text that you copied.</source>
-        <translation>%1의 프로그램이 복사한 텍스트를 요청해요.</translation>
+        <translation>%1의 프로그램이 클립보드 내용을 읽으려고 해요.</translation>
     </message>
 </context>
 <context>
@@ -662,7 +662,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>승인이 필요해요</translation>
+        <translation>승인 필요</translation>
     </message>
     <message>
         <source>Code</source>
@@ -742,11 +742,11 @@
     </message>
     <message>
         <source>It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.</source>
-        <translation>계정과 나에게 공유된 터미널을 잃어요. 분실이나 도난이라면 새 복구 키도 만드세요.</translation>
+        <translation>이 기기는 내 계정과 공유받은 터미널에 더 이상 접근할 수 없어요. 분실이나 도난이라면 새 복구 키도 만드세요.</translation>
     </message>
     <message>
         <source>It loses your account and the terminals shared with you.</source>
-        <translation>계정과 나에게 공유된 터미널을 잃어요.</translation>
+        <translation>이 기기는 내 계정과 공유받은 터미널에 더 이상 접근할 수 없어요.</translation>
     </message>
 </context>
 <context>
@@ -769,7 +769,7 @@
     </message>
     <message>
         <source>When Kodosi is dark</source>
-        <translation>Kodosi가 어두운 모드일 때</translation>
+        <translation>Kodosi가 다크 모드일 때</translation>
     </message>
     <message>
         <source>Sheet viewer</source>
@@ -898,7 +898,7 @@
     </message>
     <message>
         <source>The agent&apos;s choice</source>
-        <translation>에이전트가 선택</translation>
+        <translation>에이전트에 맡기기</translation>
     </message>
     <message>
         <source>Effort</source>
@@ -906,7 +906,7 @@
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>
-        <translation>다음 메시지부터 Dosi가 이 내용을 사용해요.</translation>
+        <translation>다음 메시지부터 Dosi에 적용돼요.</translation>
     </message>
     <message>
         <source>Saved</source>
@@ -1406,19 +1406,19 @@
     </message>
     <message>
         <source>asked a helper</source>
-        <translation>도우미에게 물어봄</translation>
+        <translation>서브에이전트에게 맡김</translation>
     </message>
     <message>
         <source>asked a helper about %1</source>
-        <translation>%1 관련해 도우미에게 물어봄</translation>
+        <translation>%1 관련해 서브에이전트에게 맡김</translation>
     </message>
     <message>
         <source>asking a helper</source>
-        <translation>도우미에게 묻는 중</translation>
+        <translation>서브에이전트에게 맡기는 중</translation>
     </message>
     <message>
         <source>asking a helper about %1</source>
-        <translation>%1 관련해 도우미에게 묻는 중</translation>
+        <translation>%1 관련해 서브에이전트에게 맡기는 중</translation>
     </message>
     <message>
         <source>used</source>
@@ -1482,7 +1482,7 @@
     </message>
     <message>
         <source>Listening</source>
-        <translation>듣는 중</translation>
+        <translation>대기 중</translation>
     </message>
     <message>
         <source>Thinking</source>
@@ -1498,11 +1498,11 @@
     </message>
     <message>
         <source>Writing</source>
-        <translation>쓰는 중</translation>
+        <translation>답변 작성 중</translation>
     </message>
     <message>
         <source>Asking you</source>
-        <translation>질문하는 중</translation>
+        <translation>나에게 질문하는 중</translation>
     </message>
     <message>
         <source>Stuck</source>
@@ -1540,11 +1540,11 @@
     <name>FriendTrustDialog</name>
     <message>
         <source>I trust %1</source>
-        <translation>%1 님을 믿어요</translation>
+        <translation>%1 님을 신뢰해요</translation>
     </message>
     <message>
         <source>I trust them</source>
-        <translation>믿어요</translation>
+        <translation>신뢰해요</translation>
     </message>
     <message>
         <source>You</source>
@@ -1556,15 +1556,15 @@
     </message>
     <message>
         <source>Do you trust %1 completely?</source>
-        <translation>%1 님을 완전히 믿나요?</translation>
+        <translation>%1 님을 완전히 신뢰하나요?</translation>
     </message>
     <message>
         <source>Do you trust this person completely?</source>
-        <translation>이 사람을 완전히 믿나요?</translation>
+        <translation>이 사람을 완전히 신뢰하나요?</translation>
     </message>
     <message>
         <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>친구는 내가 공유한 터미널마다 나로서 입력할 수 있어요. 그 컴퓨터에서 내 권한도 그대로 써요.</translation>
+        <translation>친구는 내가 공유한 터미널에서 나와 같은 권한으로 입력할 수 있어요. 그 컴퓨터의 내 권한을 그대로 써요.</translation>
     </message>
     <message>
         <source>Add only a person that you would let use your computer.</source>
@@ -1587,7 +1587,7 @@
     </message>
     <message>
         <source>Waiting for you</source>
-        <translation>기다리는 중</translation>
+        <translation>내 수락 대기 중</translation>
     </message>
     <message>
         <source>Kodosi keeps your sign-in in the keychain (Secret Service).</source>
@@ -1623,11 +1623,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>Kodosi 서버가 응답하지 않아요. Kodosi가 다시 시도해요.</translation>
+        <translation>Kodosi 서버가 응답하지 않아요. 자동으로 다시 시도해요.</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>키체인 잠금을 해제하세요. Kodosi가 다시 시도해요.</translation>
+        <translation>키체인 잠금을 해제하세요. 자동으로 다시 시도해요.</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1663,7 +1663,7 @@
     </message>
     <message>
         <source>Kodosi waits for your confirmation on the page.</source>
-        <translation>Kodosi가 페이지에서 확인하기를 기다리고 있어요.</translation>
+        <translation>Kodosi가 페이지에서 확인해 주길 기다리고 있어요.</translation>
     </message>
     <message>
         <source>Removes your account, devices and friends.</source>
@@ -1836,7 +1836,7 @@
     </message>
     <message>
         <source>%1 is a task</source>
-        <translation>%1은(는) 이미 작업이에요</translation>
+        <translation>%1은(는) 이미 작업으로 추가됐어요</translation>
     </message>
     <message>
         <source>Add %1 to tasks</source>
@@ -1936,11 +1936,11 @@
     </message>
     <message>
         <source>%1 wants to use your account.</source>
-        <translation>%1에서 내 계정을 쓰려고 해요.</translation>
+        <translation>%1에서 내 계정에 접근하려고 해요.</translation>
     </message>
     <message>
         <source>%1 devices want to use your account.</source>
-        <translation>기기 %1대가 내 계정을 쓰려고 해요.</translation>
+        <translation>기기 %1대가 내 계정에 접근하려고 해요.</translation>
     </message>
     <message>
         <source>This computer waits for approval from another of your devices.</source>
@@ -1960,7 +1960,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>승인이 필요해요</translation>
+        <translation>승인 필요</translation>
     </message>
     <message>
         <source>Approve…</source>
@@ -2023,7 +2023,7 @@
     </message>
     <message>
         <source>Some rooms are not shown</source>
-        <translation>일부 방이 표시되지 않았어요</translation>
+        <translation>일부 방은 표시되지 않아요</translation>
     </message>
     <message>
         <source>%1 invited you</source>
@@ -2103,7 +2103,7 @@
     </message>
     <message>
         <source>Close forever</source>
-        <translation>영구히 닫기</translation>
+        <translation>완전히 닫기</translation>
     </message>
 </context>
 <context>
@@ -2156,7 +2156,7 @@
     </message>
     <message>
         <source>Wants to be your friend</source>
-        <translation>친구가 되고 싶어 해요</translation>
+        <translation>친구 요청을 보냈어요</translation>
     </message>
     <message>
         <source>Accept…</source>
@@ -2236,7 +2236,7 @@
     </message>
     <message>
         <source>They lose the terminals that you shared with them.</source>
-        <translation>상대는 내가 공유한 터미널을 잃어요.</translation>
+        <translation>상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요.</translation>
     </message>
 </context>
 <context>
@@ -2262,7 +2262,7 @@
     </message>
     <message>
         <source>Not made yet</source>
-        <translation>아직 없음</translation>
+        <translation>아직 만들지 않음</translation>
     </message>
     <message>
         <source>Open</source>
@@ -2313,7 +2313,7 @@
     </message>
     <message>
         <source>Connect GitHub to see your repositories</source>
-        <translation>저장소를 보려면 GitHub를 연결하세요</translation>
+        <translation>저장소를 보려면 GitHub를 연동하세요</translation>
     </message>
     <message>
         <source>Get it</source>
@@ -2333,7 +2333,7 @@
     </message>
     <message>
         <source>No repositories found</source>
-        <translation>저장소가 없어요</translation>
+        <translation>저장소를 찾을 수 없어요</translation>
     </message>
 </context>
 <context>
@@ -2368,7 +2368,7 @@
     </message>
     <message>
         <source>Room action failed</source>
-        <translation>방 작업에 실패했어요</translation>
+        <translation>방 동작을 실행하지 못했어요</translation>
     </message>
     <message>
         <source>Room members</source>
@@ -2388,7 +2388,7 @@
     </message>
     <message>
         <source>Remove %1 from the room</source>
-        <translation>%1 님을 방에서 제거</translation>
+        <translation>%1 님을 방에서 내보내기</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2466,7 +2466,7 @@
     </message>
     <message>
         <source>Add one. Everyone in the room gets full control.</source>
-        <translation>하나 추가하세요. 방에 있는 모두가 전체 권한을 가져요.</translation>
+        <translation>터미널을 추가해 보세요. 방에 있는 모두가 전체 권한을 가져요.</translation>
     </message>
     <message>
         <source>Open a terminal</source>
@@ -2510,7 +2510,7 @@
     </message>
     <message>
         <source>You lose its terminals, conversation and tasks.</source>
-        <translation>방의 터미널, 대화, 작업을 잃어요.</translation>
+        <translation>이 방의 터미널, 대화, 작업에 접근할 수 없게 돼요.</translation>
     </message>
 </context>
 <context>
@@ -2634,7 +2634,7 @@
     </message>
     <message>
         <source>In tasks</source>
-        <translation>작업에 있음</translation>
+        <translation>작업에 추가됨</translation>
     </message>
     <message>
         <source>Make a task</source>
@@ -2715,11 +2715,11 @@
     </message>
     <message>
         <source>Pick up</source>
-        <translation>맡기</translation>
+        <translation>담당하기</translation>
     </message>
     <message>
         <source>Pick up %1</source>
-        <translation>%1 맡기</translation>
+        <translation>%1 담당하기</translation>
     </message>
     <message>
         <source>Result or pull request link</source>
@@ -2731,7 +2731,7 @@
     </message>
     <message>
         <source>Release</source>
-        <translation>맡기 취소</translation>
+        <translation>담당 해제</translation>
     </message>
     <message>
         <source>Save note</source>
@@ -2771,7 +2771,7 @@
     </message>
     <message>
         <source>Open as an issue</source>
-        <translation>이슈로 열기</translation>
+        <translation>이슈로 만들기</translation>
     </message>
     <message>
         <source>No issue</source>
@@ -2787,7 +2787,7 @@
     </message>
     <message>
         <source>Up for grabs</source>
-        <translation>담당자 없음</translation>
+        <translation>담당자 구함</translation>
     </message>
     <message>
         <source>In progress</source>
@@ -2810,7 +2810,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>공유: %1</translation>
+        <translation>%1 님이 공유함</translation>
     </message>
     <message>
         <source>a friend</source>
@@ -2936,7 +2936,7 @@
     </message>
     <message>
         <source>Here now</source>
-        <translation>지금 여기 있음</translation>
+        <translation>접속 중</translation>
     </message>
     <message>
         <source>Approve this device</source>
@@ -2975,7 +2975,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>승인이 필요해요</translation>
+        <translation>승인 필요</translation>
     </message>
     <message>
         <source>Rooms and terminals</source>
@@ -3015,7 +3015,7 @@
     </message>
     <message>
         <source>Hide sidebar</source>
-        <translation>사이드바 숨기기</translation>
+        <translation>사이드바 가리기</translation>
     </message>
     <message>
         <source>Rooms</source>
@@ -3075,15 +3075,15 @@
     </message>
     <message>
         <source>New terminal on a new branch in %1</source>
-        <translation>%1의 새 브랜치에서 새 터미널</translation>
+        <translation>%1의 새 브랜치에서 터미널 열기</translation>
     </message>
     <message>
         <source>New terminal on a new branch</source>
-        <translation>새 브랜치에서 새 터미널</translation>
+        <translation>새 브랜치에서 터미널 열기</translation>
     </message>
     <message>
         <source>New terminal in %1</source>
-        <translation>%1에 새 터미널</translation>
+        <translation>%1에서 새 터미널 열기</translation>
     </message>
     <message>
         <source>Close terminals</source>
@@ -3103,7 +3103,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>공유: %1</translation>
+        <translation>%1 님이 공유함</translation>
     </message>
     <message>
         <source>Minimize</source>
@@ -3299,7 +3299,7 @@
     <name>TerminalSettings</name>
     <message>
         <source>Welcome back. What are we building?</source>
-        <translation>다시 오셨네요. 무엇을 만들까요?</translation>
+        <translation>다시 오셨네요! 오늘은 뭘 만들어 볼까요?</translation>
     </message>
     <message>
         <source>Appearance</source>
@@ -3311,11 +3311,11 @@
     </message>
     <message>
         <source>Light</source>
-        <translation>밝게</translation>
+        <translation>라이트</translation>
     </message>
     <message>
         <source>Dark</source>
-        <translation>어둡게</translation>
+        <translation>다크</translation>
     </message>
     <message>
         <source>Reduce motion</source>
@@ -3407,7 +3407,7 @@
     </message>
     <message>
         <source>Beside the repository</source>
-        <translation>저장소 옆</translation>
+        <translation>저장소와 같은 위치</translation>
     </message>
     <message>
         <source>Choose…</source>
@@ -3511,7 +3511,7 @@
     </message>
     <message>
         <source>Terminal action failed</source>
-        <translation>터미널 작업에 실패했어요</translation>
+        <translation>터미널 동작을 실행하지 못했어요</translation>
     </message>
     <message>
         <source>Minimize</source>
@@ -3555,7 +3555,7 @@
     </message>
     <message>
         <source>The terminal opens when its computer is back.</source>
-        <translation>컴퓨터가 돌아오면 터미널이 열려요.</translation>
+        <translation>컴퓨터가 다시 온라인이 되면 터미널이 열려요.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
@@ -3567,7 +3567,7 @@
     </message>
     <message>
         <source>The terminal could not connect again.</source>
-        <translation>터미널이 다시 연결되지 않았어요.</translation>
+        <translation>터미널에 다시 연결하지 못했어요.</translation>
     </message>
     <message>
         <source>%1 joined</source>
@@ -3594,7 +3594,7 @@
     <name>UsageDial</name>
     <message>
         <source>Not read yet</source>
-        <translation>아직 읽지 않음</translation>
+        <translation>아직 확인 안 됨</translation>
     </message>
 </context>
 <context>
@@ -3802,7 +3802,7 @@
     </message>
     <message>
         <source>A conversation did not match this project.</source>
-        <translation>이 프로젝트와 맞지 않는 대화가 있었어요.</translation>
+        <translation>이 대화는 이 프로젝트의 대화가 아니에요.</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -3967,7 +3967,7 @@
     </message>
     <message>
         <source>Kodosi could not ask for the repositories.</source>
-        <translation>Kodosi가 저장소를 요청하지 못했어요.</translation>
+        <translation>Kodosi가 저장소 목록을 가져오지 못했어요.</translation>
     </message>
 </context>
 <context>
@@ -4001,7 +4001,7 @@
     </message>
     <message>
         <source>The command must not name the account.</source>
-        <translation>명령에 계정을 지정하면 안 돼요.</translation>
+        <translation>명령에서 계정을 지정할 수 없어요.</translation>
     </message>
     <message>
         <source>Command</source>
@@ -4111,7 +4111,7 @@
     </message>
     <message>
         <source>Needs your approval</source>
-        <translation>승인이 필요해요</translation>
+        <translation>승인 필요</translation>
     </message>
     <message>
         <source>Needs your answer</source>
@@ -4294,7 +4294,7 @@
     </message>
     <message>
         <source>This version of Kodosi is too old for the server. Update Kodosi.</source>
-        <translation>이 Kodosi 버전은 서버와 함께 쓰기에 너무 오래됐어요. Kodosi를 업데이트하세요.</translation>
+        <translation>이 Kodosi 버전이 너무 오래돼서 서버에 연결할 수 없어요. Kodosi를 업데이트하세요.</translation>
     </message>
     <message>
         <source>Your sign-in has ended. Sign in again.</source>

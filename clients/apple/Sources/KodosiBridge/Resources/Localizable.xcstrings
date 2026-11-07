@@ -1972,7 +1972,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "터미널이 연결되지 않았어요(%d)."
+            "value" : "터미널에 연결하지 못했어요(%d)."
           }
         },
         "zh-Hans" : {

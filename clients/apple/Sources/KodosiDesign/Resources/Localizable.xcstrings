@@ -42,7 +42,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지금은 %@ 항목이 없어요"
+            "value" : "%@을(를) 찾을 수 없어요"
           }
         },
         "zh-Hans" : {
@@ -675,7 +675,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "질문하는 중"
+            "value" : "나에게 질문하는 중"
           }
         },
         "zh-Hans" : {
@@ -1767,7 +1767,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "브라우저 받는 중, %lld%%"
+            "value" : "브라우저 내려받는 중(%lld%%)"
           }
         },
         "zh-Hans" : {
@@ -2131,7 +2131,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "듣는 중"
+            "value" : "대기 중"
           }
         },
         "zh-Hans" : {
@@ -2339,7 +2339,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "승인이 필요해요"
+            "value" : "승인 필요"
           }
         },
         "zh-Hans" : {
@@ -2495,7 +2495,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지금은 없어요"
+            "value" : "찾을 수 없어요"
           }
         },
         "zh-Hans" : {
@@ -4263,7 +4263,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "브라우저가 잠들어 있어요. 마지막 페이지를 다시 열어요."
+            "value" : "브라우저가 절전 상태예요. 깨우면 마지막 페이지를 다시 열어요."
           }
         },
         "zh-Hans" : {
@@ -4939,7 +4939,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "쓰는 중"
+            "value" : "답변 작성 중"
           }
         },
         "zh-Hans" : {

@@ -94,7 +94,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi가 입력 내용을 보내지 않았어요(오류 %d)."
+            "value" : "입력 내용을 보내지 못했어요(오류 %d)."
           }
         },
         "zh-Hans" : {
@@ -302,7 +302,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "터미널이 연결되지 않았어요."
+            "value" : "터미널에 연결하지 못했어요."
           }
         },
         "zh-Hans" : {
@@ -406,7 +406,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 터미널이 뒤처졌어요. 다시 시도하세요."
+            "value" : "이 터미널이 처리 속도를 따라가지 못했어요. 다시 시도하세요."
           }
         },
         "zh-Hans" : {

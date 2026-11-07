@@ -146,7 +146,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 승인됨."
+            "value" : "%@이(가) 승인됐어요."
           }
         },
         "zh-Hans" : {
@@ -302,7 +302,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 대기 중. 표시된 코드를 입력하세요."
+            "value" : "%@이(가) 승인을 기다리고 있어요. 표시된 코드를 입력하세요."
           }
         },
         "zh-Hans" : {
@@ -354,7 +354,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 님이 친구가 되고 싶어 해요"
+            "value" : "%@ 님이 친구 요청을 보냈어요"
           }
         },
         "zh-Hans" : {
@@ -672,7 +672,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "나와 %lld개 공유 중"
+            "value" : "공유받은 터미널 %lld개"
           }
         },
         "zh-Hans" : {
@@ -932,7 +932,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "친구는 내가 공유한 터미널마다 나로서 입력할 수 있어요. 그 컴퓨터에서 내 권한도 그대로 써요."
+            "value" : "친구는 내가 공유한 터미널에서 나와 같은 권한으로 입력할 수 있어요. 그 컴퓨터의 내 권한을 그대로 써요."
           }
         },
         "zh-Hans" : {
@@ -3064,7 +3064,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "영구히 닫기"
+            "value" : "완전히 닫기"
           }
         },
         "zh-Hans" : {
@@ -3896,7 +3896,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "어둡게"
+            "value" : "다크"
           }
         },
         "zh-Hans" : {
@@ -4468,7 +4468,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 님을 완전히 믿나요?"
+            "value" : "%@ 님을 완전히 신뢰하나요?"
           }
         },
         "zh-Hans" : {
@@ -4520,7 +4520,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 사람을 완전히 믿나요?"
+            "value" : "이 사람을 완전히 신뢰하나요?"
           }
         },
         "zh-Hans" : {
@@ -5456,7 +5456,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지금 여기 있음"
+            "value" : "접속 중"
           }
         },
         "zh-Hans" : {
@@ -5508,7 +5508,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지금 여기: %@"
+            "value" : "접속 중: %@"
           }
         },
         "zh-Hans" : {
@@ -5716,7 +5716,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 님을 믿어요"
+            "value" : "%@ 님을 신뢰해요"
           }
         },
         "zh-Hans" : {
@@ -5768,7 +5768,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "믿어요"
+            "value" : "신뢰해요"
           }
         },
         "zh-Hans" : {
@@ -6184,7 +6184,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사람 초대"
+            "value" : "멤버 초대"
           }
         },
         "zh-Hans" : {
@@ -6340,7 +6340,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "끝났거나 누군가 나를 제거했어요."
+            "value" : "종료됐거나 내가 내보내졌어요."
           }
         },
         "zh-Hans" : {
@@ -6912,7 +6912,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi는 터미널과 방을 종단 간 암호화해요. 이미 신뢰하는 기기가 이 %@에 키를 줘요."
+            "value" : "Kodosi는 터미널과 방을 종단 간 암호화해요. 이미 신뢰하는 기기가 이 %@에 키를 전달해요."
           }
         },
         "zh-Hans" : {
@@ -6964,7 +6964,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi가 뒤처졌어요. 다시 시작하세요."
+            "value" : "Kodosi가 처리 속도를 따라가지 못했어요. 다시 시작하세요."
           }
         },
         "zh-Hans" : {
@@ -7848,7 +7848,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "밝게"
+            "value" : "라이트"
           }
         },
         "zh-Hans" : {
@@ -8056,7 +8056,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사람 불러오는 중"
+            "value" : "멤버 불러오는 중"
           }
         },
         "zh-Hans" : {
@@ -9252,7 +9252,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 사본에는 고지 사항이 없어요"
+            "value" : "라이선스 고지가 없어요"
           }
         },
         "zh-Hans" : {
@@ -10396,7 +10396,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사람"
+            "value" : "멤버"
           }
         },
         "zh-Hans" : {
@@ -10448,7 +10448,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "맡기"
+            "value" : "담당하기"
           }
         },
         "zh-Hans" : {
@@ -10500,7 +10500,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 맡기"
+            "value" : "%@ 담당하기"
           }
         },
         "zh-Hans" : {
@@ -10552,7 +10552,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 님이 맡음"
+            "value" : "%@ 님이 담당"
           }
         },
         "zh-Hans" : {
@@ -10604,7 +10604,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "맡는 중…"
+            "value" : "담당 처리 중…"
           }
         },
         "zh-Hans" : {
@@ -10864,7 +10864,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "맡기 취소"
+            "value" : "담당 해제"
           }
         },
         "zh-Hans" : {
@@ -12112,7 +12112,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 기기와 같게"
+            "value" : "이 기기와 동일"
           }
         },
         "zh-Hans" : {
@@ -12892,7 +12892,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "공유: %@"
+            "value" : "%@ 님이 공유함"
           }
         },
         "zh-Hans" : {
@@ -13314,7 +13314,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 방의 사람과 설정을 보여 줘요"
+            "value" : "이 방의 멤버와 설정을 보여 줘요"
           }
         },
         "zh-Hans" : {
@@ -13626,7 +13626,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일부 방이 표시되지 않았어요."
+            "value" : "일부 방은 표시되지 않아요."
           }
         },
         "zh-Hans" : {
@@ -14146,7 +14146,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "터미널 작업"
+            "value" : "터미널 동작"
           }
         },
         "zh-Hans" : {
@@ -14718,7 +14718,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "컴퓨터가 돌아오면 터미널이 열려요."
+            "value" : "컴퓨터가 다시 온라인이 되면 터미널이 열려요."
           }
         },
         "zh-Hans" : {
@@ -14978,7 +14978,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다시 초대할 때까지 상대는 방의 터미널과 대화를 잃어요."
+            "value" : "다시 초대할 때까지 상대는 이 방의 터미널과 대화에 접근할 수 없어요."
           }
         },
         "zh-Hans" : {
@@ -15030,7 +15030,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "상대는 내가 공유한 터미널을 잃어요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
+            "value" : "상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
           }
         },
         "zh-Hans" : {
@@ -16018,7 +16018,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "담당자 없음"
+            "value" : "담당자 구함"
           }
         },
         "zh-Hans" : {
@@ -16434,7 +16434,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "상대를 기다리는 중"
+            "value" : "상대의 수락 대기 중"
           }
         },
         "zh-Hans" : {
@@ -16486,7 +16486,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi가 어두운 모드일 때"
+            "value" : "Kodosi가 다크 모드일 때"
           }
         },
         "zh-Hans" : {
@@ -16850,7 +16850,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "더 이상 이 방에 있지 않아요"
+            "value" : "더 이상 이 방의 멤버가 아니에요"
           }
         },
         "zh-Hans" : {
@@ -17006,7 +17006,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "누군가 다시 초대할 때까지 방의 터미널과 대화를 잃어요."
+            "value" : "누군가 다시 초대할 때까지 이 방의 터미널과 대화에 접근할 수 없어요."
           }
         },
         "zh-Hans" : {

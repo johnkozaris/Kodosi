@@ -42,7 +42,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@의 프로그램이 복사한 텍스트를 요청해요."
+            "value" : "%@의 프로그램이 클립보드 내용을 읽으려고 해요."
           }
         },
         "zh-Hans" : {
