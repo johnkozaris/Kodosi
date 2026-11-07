@@ -233,11 +233,18 @@ fn platform() -> String {
     format!("{system}-{machine}")
 }
 
+/// Spotlight skips a `.noindex` folder, so macOS does not show the engine as a second app.
+fn folder_of(version: &str) -> String {
+    format!("{version}.noindex")
+}
+
 /// The version and the program of the engine on this computer.
 async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
     let text = tokio::fs::read(engines.join(CURRENT)).await.ok()?;
     let current: Current = serde_json::from_slice(&text).ok()?;
-    let program = engines.join(&current.version).join(&current.program);
+    let program = engines
+        .join(folder_of(&current.version))
+        .join(&current.program);
     program.exists().then_some((current.version, program))
 }
 
@@ -253,7 +260,7 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
         .engines
         .get(&platform())
         .ok_or_else(not_for_this_computer)?;
-    let folder = engines.join(&feed.version);
+    let folder = engines.join(folder_of(&feed.version));
     let program = folder.join(&engine.program);
     if program.exists() {
         return Ok(program);
@@ -367,7 +374,7 @@ async fn download(
 /// Unpacks into a new folder, which takes its place only when it is whole.
 async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
     tokio::task::spawn_blocking(move || -> std::io::Result<()> {
-        let unpacking = folder.with_extension("unpacking");
+        let unpacking = folder.with_extension("unpacking.noindex");
         drop(std::fs::remove_dir_all(&unpacking));
         std::fs::create_dir_all(&unpacking)?;
         let file = std::fs::File::open(&archive)?;
@@ -384,9 +391,10 @@ async fn remove_others(engines: &Path, version: &str) {
     let Ok(mut entries) = tokio::fs::read_dir(engines).await else {
         return;
     };
+    let current = folder_of(version);
     while let Ok(Some(entry)) = entries.next_entry().await {
         let name = entry.file_name();
-        if name == version || name == CURRENT {
+        if name == *current || name == CURRENT {
             continue;
         }
         if entry.path().is_dir() {
@@ -454,16 +462,27 @@ mod tests {
         assert_eq!(installed(folder.path()).await, None);
         std::fs::create_dir_all(folder.path().join("1.2/bin")).unwrap();
         std::fs::write(folder.path().join("1.2/bin/chrome"), "").unwrap();
+        assert_eq!(installed(folder.path()).await, None);
+        std::fs::create_dir_all(folder.path().join("1.2.noindex/bin")).unwrap();
+        std::fs::write(folder.path().join("1.2.noindex/bin/chrome"), "").unwrap();
         assert_eq!(
             installed(folder.path()).await,
-            Some(("1.2".to_owned(), folder.path().join("1.2/bin/chrome")))
+            Some((
+                "1.2".to_owned(),
+                folder.path().join("1.2.noindex/bin/chrome")
+            ))
         );
     }
 
     #[tokio::test]
     async fn a_start_keeps_only_the_current_engine() {
         let folder = tempfile::tempdir().unwrap();
-        for engine in ["1.1/bin", "1.2/bin"] {
+        for engine in [
+            "1.1.noindex/bin",
+            "1.2/bin",
+            "1.2.noindex/bin",
+            "1.3.unpacking.noindex/bin",
+        ] {
             std::fs::create_dir_all(folder.path().join(engine)).unwrap();
         }
         std::fs::write(folder.path().join("1.3.tar.gz"), "half").unwrap();
@@ -474,6 +493,6 @@ mod tests {
             .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
         left.sort();
-        assert_eq!(left, ["1.2", CURRENT]);
+        assert_eq!(left, ["1.2.noindex", CURRENT]);
     }
 }
