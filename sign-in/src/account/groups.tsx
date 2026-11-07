@@ -260,7 +260,7 @@ export function SignIn({
           key={held.id}
           tile={tile}
           title={held.label ?? name}
-          detail={held.label ? [name, added].filter(Boolean).join(". ") : added || undefined}
+          detail={held.label ? [name, added].filter(Boolean).join(" · ") : added || undefined}
           end={
             way.removable && (
               <RowIcon
@@ -444,7 +444,7 @@ export function SignedIn({
               />
             }
             title={name}
-            detail={[...session.programs, when].join(", ")}
+            detail={[...session.programs, when].join(" · ")}
             end={
               session.current ? (
                 <span className="mr-1.5 rounded-full bg-ready-soft px-2 py-[3px] text-caption font-medium text-ready">
