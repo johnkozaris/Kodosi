@@ -214,20 +214,17 @@ fn fill(words: &str, args: &[(Cow<'static, str>, Arg)], language: Language) -> S
             let index = args.iter().position(|(own, _)| own == name)?;
             Some((index, next))
         });
-        match named {
-            Some((index, next)) => {
-                let value = values[index].get_or_insert_with(|| match &args[index].1 {
-                    Arg::Words(value) => value.clone(),
-                    Arg::Text(value) if !value.translated => value.words.to_string(),
-                    Arg::Text(value) => value.in_language(language),
-                });
-                filled.push_str(value);
-                rest = next;
-            }
-            None => {
-                filled.push('{');
-                rest = after;
-            }
+        if let Some((index, next)) = named {
+            let value = values[index].get_or_insert_with(|| match &args[index].1 {
+                Arg::Words(value) => value.clone(),
+                Arg::Text(value) if !value.translated => value.words.to_string(),
+                Arg::Text(value) => value.in_language(language),
+            });
+            filled.push_str(value);
+            rest = next;
+        } else {
+            filled.push('{');
+            rest = after;
         }
         if filled.len() > MOST_FILLED {
             return cut(filled, MOST_FILLED);
