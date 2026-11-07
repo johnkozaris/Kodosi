@@ -610,12 +610,14 @@ mod tests {
         let hosted = link.host(Uuid::now_v7(), Uuid::now_v7());
         let status = TerminalStatus {
             program: Some("claude".to_owned()),
+            account: Some(1),
             state: Some(crate::terminal::ProgramState::Working),
             kind: None,
         };
         hosted.share(Some(status.clone()));
         let mut first = connect(&link);
         let sent = messages(&mut first);
+        assert_eq!(sent[1]["status"]["account"], 1);
         assert_eq!(
             sent.iter()
                 .map(|message| message["type"].as_str().unwrap())

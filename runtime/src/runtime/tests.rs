@@ -1909,6 +1909,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     let remote = RemoteSession {
         status: Some(TerminalStatus {
             program: Some("claude".to_owned()),
+            account: Some(2),
             state: Some(ProgramState::Blocked),
             kind: Some(BlockedKind::Permission),
         }),
@@ -1918,6 +1919,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
         let entry = &runtime.remotes[&id];
         (
             entry.program.clone(),
+            entry.program_account,
             entry.program_status.as_ref().map(|status| status.state),
             entry
                 .program_status
@@ -1928,7 +1930,12 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     runtime.replace_remotes(vec![remote.clone()]);
     assert_eq!(
         shown(&runtime),
-        (Some("claude".to_owned()), Some(ProgramState::Blocked), None)
+        (
+            Some("claude".to_owned()),
+            Some(2),
+            Some(ProgramState::Blocked),
+            None
+        )
     );
 
     let (connection, _requests, _updates) = crate::network::test_remote_connection(remote);
@@ -1946,6 +1953,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             directory: None,
             title: None,
             program: Some("claude".to_owned()),
+            account: Some(1),
             status: Some(crate::terminal::ProgramStatus {
                 state: ProgramState::Working,
                 kind: None,
@@ -1962,11 +1970,12 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
         generation,
         user_id: None,
         event: json!({"type":"network.terminal","sessionId":id,"incarnationId":incarnation,
-            "online":online,"status":{"program":"claude","state":state}}),
+            "online":online,"status":{"program":"claude","account":2,"state":state}}),
     };
     runtime.network_event(notice(true, "done"));
     let open = (
         Some("claude".to_owned()),
+        Some(1),
         Some(ProgramState::Working),
         Some("Building".to_owned()),
     );
@@ -1980,10 +1989,15 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     });
     assert_eq!(
         shown(&runtime),
-        (Some("claude".to_owned()), Some(ProgramState::Done), None)
+        (
+            Some("claude".to_owned()),
+            Some(2),
+            Some(ProgramState::Done),
+            None
+        )
     );
     runtime.network_event(notice(false, "done"));
-    assert_eq!(shown(&runtime), (None, None, None));
+    assert_eq!(shown(&runtime), (None, None, None, None));
     assert_eq!(runtime.remotes[&id].status, SessionStatus::Offline);
 }
 

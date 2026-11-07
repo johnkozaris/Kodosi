@@ -9,7 +9,7 @@ Item {
     property real size: 28
     property bool isSelf: false
     property color ring: "transparent"
-    readonly property color tint: isSelf ? KodosiTheme.accent : Identity.personTint(key.length > 0 ? key : name)
+    property color tint: isSelf ? KodosiTheme.accent : Identity.personTint(key.length > 0 ? key : name)
 
     implicitWidth: size
     implicitHeight: size
