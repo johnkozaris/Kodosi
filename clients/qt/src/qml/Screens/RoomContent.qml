@@ -335,7 +335,7 @@ Item {
                         id: options
                         x: optionsButton.width - width
                         y: optionsButton.height + 4
-                        width: 224
+                        minimumWidth: 224
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
                         transformOrigin: Popup.TopRight
                         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: root.owner; onTriggered: root.renaming = true }

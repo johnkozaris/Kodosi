@@ -74,7 +74,7 @@ AbstractButton {
 
         x: root.opensRight ? 0 : root.width - width
         y: -height - 6
-        width: 224
+        minimumWidth: 224
         cascade: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
         transformOrigin: root.opensRight ? Popup.BottomLeft : Popup.BottomRight

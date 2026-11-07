@@ -7,7 +7,15 @@ Menu {
 
     property Component mark: null
     property bool available: true
+    property real minimumWidth: 200
+    readonly property real widestItem: {
+        let widest = 0
+        for (let index = 0; index < count; ++index)
+            widest = Math.max(widest, itemAt(index)?.implicitWidth ?? 0)
+        return widest
+    }
 
+    width: Math.min(320, Math.max(minimumWidth, widestItem + leftPadding + rightPadding))
     margins: 8
     padding: 6
     overlap: 1

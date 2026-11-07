@@ -174,7 +174,7 @@ public struct MenuPicker<Value: Hashable>: View {
                     }
                 }.padding(6)
             }
-            .frame(minWidth: 200, maxHeight: 320)
+            .frame(minWidth: 200, maxHeight: 352)
             .popoverSheet()
         }
     }
