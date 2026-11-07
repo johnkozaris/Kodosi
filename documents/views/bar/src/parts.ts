@@ -1,3 +1,4 @@
+import { say } from "@documents/words";
 import { ChevronDown, createElement, Eye, type IconNode, Minus, Plus } from "lucide";
 import {
   closeFrom,
@@ -90,7 +91,7 @@ export class Bar {
 export function readOnly(): HTMLElement {
   const label = document.createElement("span");
   label.className = "bar-read-only";
-  label.append(icon(Eye), "Read only");
+  label.append(icon(Eye), say("Read only"));
   return label;
 }
 
@@ -339,7 +340,7 @@ export function stepperOf(label: string, step: (larger: boolean) => void, fits?:
     button.type = "button";
     button.className = "bar-toggle";
     button.append(icon(larger ? Plus : Minus));
-    giveTip(button, larger ? "Larger" : "Smaller");
+    giveTip(button, larger ? say("Larger") : say("Smaller"));
     button.addEventListener("click", () => step(larger));
     return button;
   };
@@ -373,13 +374,13 @@ export function zoomOf(options: {
   const well = document.createElement("div");
   well.className = "bar-well bar-zoom";
   well.role = "group";
-  well.ariaLabel = "Zoom";
+  well.ariaLabel = say("Zoom");
   const key = (larger: boolean) => {
     const button = fit(document.createElement("button"), "narrow");
     button.type = "button";
     button.className = "bar-toggle";
     button.append(icon(larger ? Plus : Minus));
-    giveTip(button, larger ? "Zoom in" : "Zoom out", keys(larger ? "+" : "−"));
+    giveTip(button, larger ? say("Zoom in") : say("Zoom out"), keys(larger ? "+" : "−"));
     button.addEventListener("click", () => options.step(larger));
     return button;
   };
@@ -387,7 +388,7 @@ export function zoomOf(options: {
   const size = well.appendChild(document.createElement("button"));
   size.type = "button";
   size.className = "bar-zoom-size";
-  giveTip(size, "Zoom");
+  giveTip(size, say("Zoom"));
   const open = opener("menu", (done) => menuOf(options.entries(), done), "end");
   size.addEventListener("click", (event) => open(size, event.detail === 0));
   const larger = well.appendChild(key(true));
@@ -395,7 +396,7 @@ export function zoomOf(options: {
     element: well,
     show(percent, canShrink, canGrow) {
       size.textContent = `${percent}%`;
-      size.ariaLabel = `Zoom ${percent}%`;
+      size.ariaLabel = say("Zoom {percent}%", { percent });
       smaller.disabled = !canShrink;
       larger.disabled = !canGrow;
     },

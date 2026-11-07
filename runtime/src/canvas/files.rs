@@ -14,6 +14,7 @@ use super::{
     CanvasAnswer, CanvasItem, CanvasKind, MOST_FILE_BYTES, MOST_ITEMS, MOST_KEY, PART_BYTES,
     kind_of, page,
 };
+use crate::text::Text;
 
 const MOST_PAGE_SOURCE: u64 = 8 * 1024 * 1024;
 const NAME_CHARACTERS: usize = 128;
@@ -83,7 +84,7 @@ impl Files {
         &mut self,
         paths: Vec<PathBuf>,
         stamp: &Stamp,
-    ) -> Result<Showing, String> {
+    ) -> Result<Showing, Text> {
         let mut checked = Vec::with_capacity(paths.len());
         for path in paths {
             checked.push(examine(path).await?);
@@ -216,16 +217,16 @@ impl Files {
         key: &str,
         revision: u64,
         offset: u64,
-    ) -> Result<CanvasAnswer, String> {
+    ) -> Result<CanvasAnswer, Text> {
         let item = self
             .items
             .iter()
             .find(|item| item.listed.key == key)
-            .ok_or_else(|| "This item is no longer on the canvas.".to_owned())?;
+            .ok_or_else(|| text!("This item is no longer on the canvas."))?;
         if item.listed.missing {
-            return Err(format!(
-                "{} is missing. The agent can show it again.",
-                item.listed.name
+            return Err(text!(
+                "{name} is missing. The agent can show it again.",
+                name = &item.listed.name
             ));
         }
         if item.listed.revision != revision {
@@ -255,12 +256,13 @@ impl Files {
         let snapshot = self
             .snapshot
             .as_mut()
-            .ok_or_else(|| "The canvas could not read the file.".to_owned())?;
+            .ok_or_else(|| text!("The canvas could not read the file."))?;
         snapshot.used = tokio::time::Instant::now();
         let total = snapshot.bytes.len();
-        let start = usize::try_from(offset).map_err(|_| "This part is past the end.".to_owned())?;
+        let start =
+            usize::try_from(offset).map_err(|_| Text::plain("This part is past the end."))?;
         if start > total || (start == total && total > 0) {
-            return Err("This part is past the end.".to_owned());
+            return Err(Text::plain("This part is past the end."));
         }
         let end = (start + PART_BYTES).min(total);
         Ok(CanvasAnswer::Part {
@@ -275,18 +277,18 @@ impl Files {
     }
 }
 
-async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<String>), String> {
+async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<String>), Text> {
     let shown = path.display().to_string();
     let kind = kind_of(&path).ok_or_else(|| {
-        format!(
+        Text::plain(format!(
             "{shown}: the canvas shows pages (HTML, Markdown, text), pictures, documents, sheets, presentations and PDFs."
-        )
+        ))
     })?;
     let metadata = tokio::fs::metadata(&path)
         .await
-        .map_err(|_| format!("There is no file {shown}."))?;
+        .map_err(|_| Text::plain(format!("There is no file {shown}.")))?;
     if !metadata.is_file() {
-        return Err(format!("{shown} is not a file."));
+        return Err(Text::plain(format!("{shown} is not a file.")));
     }
     let most = if page_source(&path) {
         MOST_PAGE_SOURCE
@@ -294,15 +296,17 @@ async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<Str
         MOST_FILE_BYTES
     };
     if metadata.len() > most {
-        return Err(format!(
+        return Err(Text::plain(format!(
             "{shown} has {} MB. The canvas takes files up to {} MB.",
             metadata.len().div_ceil(1024 * 1024),
             most / 1024 / 1024
-        ));
+        )));
     }
     let path = kodosi_os::fs::canonicalize(&path).unwrap_or(path);
     if key_of(&path).len() > MOST_KEY {
-        return Err(format!("The path of {shown} is too long for the canvas."));
+        return Err(Text::plain(format!(
+            "The path of {shown} is too long for the canvas."
+        )));
     }
     let loads = if is_html(&path) {
         tokio::fs::read(&path)
@@ -323,19 +327,24 @@ async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<Str
     ))
 }
 
-async fn load(path: PathBuf, name: String) -> Result<Bytes, String> {
+async fn load(path: PathBuf, name: String) -> Result<Bytes, Text> {
     tokio::task::spawn_blocking(move || {
         let most = if page_source(&path) {
             MOST_PAGE_SOURCE
         } else {
             MOST_FILE_BYTES
         };
-        let file = std::fs::File::open(&path).map_err(|_| format!("{name} could not be read."))?;
+        let file = std::fs::File::open(&path)
+            .map_err(|_| text!("{name} could not be read.", name = &name))?;
         let mut source = Vec::new();
         std::io::Read::read_to_end(&mut std::io::Read::take(file, most + 1), &mut source)
-            .map_err(|_| format!("{name} could not be read."))?;
+            .map_err(|_| text!("{name} could not be read.", name = &name))?;
         if source.len() as u64 > most {
-            return Err(format!("{name} grew past {} MB.", most / 1024 / 1024));
+            return Err(text!(
+                "{name} grew past {most} MB.",
+                name = &name,
+                most = most / 1024 / 1024
+            ));
         }
         Ok(Bytes::from(if page_source(&path) {
             page::page(&name, &source)
@@ -344,7 +353,7 @@ async fn load(path: PathBuf, name: String) -> Result<Bytes, String> {
         }))
     })
     .await
-    .map_err(|_| "The canvas could not read the file.".to_owned())?
+    .map_err(|_| text!("The canvas could not read the file."))?
 }
 
 fn page_source(path: &Path) -> bool {

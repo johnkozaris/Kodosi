@@ -51,7 +51,7 @@ bool TerminalSurfaceController::bind(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("The selected terminal is invalid."));
+            tr("The selected terminal is invalid."));
         return false;
     }
     const auto currentIncarnation = m_sessions.incarnationForSession(sessionId);
@@ -61,14 +61,14 @@ bool TerminalSurfaceController::bind(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("This terminal is no longer available."));
+            tr("This terminal is no longer available."));
         return false;
     }
     if (presentation && !presentation->canRetainPresentation) {
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("This terminal can no longer be shown."));
+            tr("This terminal can no longer be shown."));
         return false;
     }
     const auto found = std::ranges::find_if(m_bindings, [&](const Binding& binding) {
@@ -191,7 +191,7 @@ bool TerminalSurfaceController::retry(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("This terminal is no longer available."));
+            tr("This terminal is no longer available."));
         return false;
     }
     const auto found = std::ranges::find_if(m_bindings, [&](const Binding& binding) {

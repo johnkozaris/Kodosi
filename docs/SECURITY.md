@@ -1,5 +1,7 @@
 # Security
 
+**English** · [Deutsch](de/SECURITY.md) · [Ελληνικά](el/SECURITY.md) · [Español](es/SECURITY.md) · [Français](fr/SECURITY.md) · [Italiano](it/SECURITY.md) · [日本語](ja/SECURITY.md) · [한국어](ko/SECURITY.md) · [简体中文](zh-Hans/SECURITY.md)
+
 Your devices encrypt terminal traffic and room content end to end. Private keys stay on
 devices. The backend routes connections and stores encrypted room data; it never runs
 commands or sees their plaintext. The [encryption design](CRYPTOGRAPHY.md) gives the

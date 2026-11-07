@@ -37,6 +37,7 @@ let package = Package(
         ),
         .target(
             name: "KodosiLinks",
+            resources: [.process("Resources")],
             swiftSettings: swiftSettings,
         ),
         .target(
@@ -52,6 +53,7 @@ let package = Package(
                 "KodosiLinks",
                 .product(name: "GhosttyTerminal", package: "ghostty"),
             ],
+            resources: [.process("Resources")],
             swiftSettings: swiftSettings,
             plugins: [
                 .plugin(name: "VerifyGhosttyPlugin"),

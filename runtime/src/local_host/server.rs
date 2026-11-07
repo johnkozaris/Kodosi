@@ -55,9 +55,9 @@ pub(super) fn role_endpoint(root: &Path, role: &str) -> Result<kodosi_os::ipc::E
 pub(super) fn lock_root(root: &Path) -> Result<File> {
     let file = kodosi_os::fs::open_private(&root.join("host.lock")).map_err(local_error)?;
     file.try_lock().map_err(|error| {
-        Error::HostBusy(format!(
+        Error::HostBusy(crate::text::Text::plain(format!(
             "Kodosi is already running for this data root: {error}"
-        ))
+        )))
     })?;
     Ok(file)
 }
@@ -83,7 +83,9 @@ pub async fn serve(
         .await
         .map_err(|error| {
             if error.kind() == io::ErrorKind::AddrInUse {
-                Error::HostBusy("another Kodosi host owns this endpoint".into())
+                Error::HostBusy(crate::text::Text::plain(
+                    "another Kodosi host owns this endpoint",
+                ))
             } else {
                 local_error(error)
             }
@@ -268,7 +270,7 @@ async fn serve_commands(
                         let request_id=command.command.request_id().to_owned();
                         let operation=command.command.operation();
                         if let Err(error)=runtime.try_send(command) {
-                            write_json(&mut writer,&json!({"kind":"rejected","requestId":request_id,"operation":operation,"message":error.to_string()})).await?;
+                            write_json(&mut writer,&json!({"kind":"rejected","requestId":request_id,"operation":operation,"message":error.text()})).await?;
                         }
                     }
                     ClientRequest::Stop{force}=>{
@@ -341,7 +343,7 @@ async fn serve_terminal(
             result=admissions.next(),if !admissions.is_empty()=>{
                 if let Some(result)=result {
                     let mut ack=vec![INPUT_ACK];
-                    ack.extend(serde_json::to_vec(&json!({"accepted":result.is_ok(),"message":result.err().map(|error:Error|error.to_string())}))?);
+                    ack.extend(serde_json::to_vec(&json!({"accepted":result.is_ok(),"message":result.err().map(|error:Error|error.text())}))?);
                     write_frame(&mut writer,&ack).await?;
                 }
             }

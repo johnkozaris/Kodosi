@@ -1,3 +1,4 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -21,6 +22,14 @@ struct GeneralSettingsView: View {
         deps.settings.keepRunning
             ? "Your terminals keep running, and Kodosi stays in the menu bar."
             : "Closing the window quits Kodosi. Your terminals stop, and start again when Kodosi opens."
+    }
+
+    private var languageFooter: LocalizedStringKey {
+        let next = deps.settings.nextLanguage
+        guard next != AppLanguage.current else {
+            return "Kodosi shows the language of macOS, or the one that you choose here."
+        }
+        return "Quit Kodosi and open it again to show \(AppLanguage.name(of: next))."
     }
 
     private var commandFooter: LocalizedStringKey {
@@ -52,6 +61,17 @@ struct GeneralSettingsView: View {
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 .disabled(!updater.configured)
                 .accessibilityIdentifier("settings.updates.automatic")
+            }
+            ListGroup(footer: languageFooter) {
+                ListRow(String(localized: "Language"), symbol: "globe", tint: TileTint.teal) {
+                    MenuPicker(
+                        title: "Language",
+                        selection: $settings.language,
+                        values: [nil] + AppLanguage.choices.map(\.tag),
+                        label: { tag in tag.map(AppLanguage.name(of:)) ?? String(localized: "Same as macOS") },
+                        identifier: "settings.language",
+                    )
+                }
             }
             ListGroup(footer: closeFooter) {
                 Toggle(isOn: $settings.keepRunning) {

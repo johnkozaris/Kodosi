@@ -79,18 +79,18 @@ pub(crate) struct RecoveryKey {
 impl RecoveryKey {
     pub(crate) fn derive(text: &str, user_id: &str, root: &Root) -> Result<Self> {
         let secret = secret_of(text)
-            .ok_or_else(|| invalid("Type the 32 characters of your recovery key."))?;
+            .ok_or_else(|| Error::Text(text!("Type the 32 characters of your recovery key.")))?;
         let context = crypto::signed_fields(DOMAIN, &[user_id.as_bytes(), root])?;
         let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, &context).extract(secret.as_ref());
         let part = |label: &[u8]| {
             let mut bytes = Zeroizing::new([0; 32]);
             prk.expand(&[label], &aead::AES_256_GCM)
                 .and_then(|expanded| expanded.fill(bytes.as_mut()))
-                .map_err(|_| invalid("Cannot read the recovery key."))?;
+                .map_err(|_| Error::Text(text!("Kodosi cannot read this recovery key.")))?;
             Ok::<_, Error>(bytes)
         };
         let signing = PqdsaKeyPair::from_seed(&ML_DSA_65_SIGNING, part(b"signing")?.as_ref())
-            .map_err(|_| invalid("Cannot read the recovery key."))?;
+            .map_err(|_| Error::Text(text!("Kodosi cannot read this recovery key.")))?;
         let mut device = [0; 16];
         device.copy_from_slice(&part(b"device")?[..16]);
         Ok(Self {
@@ -128,7 +128,7 @@ impl RecoveryKey {
             nonce,
             ciphertext.to_vec(),
         )
-        .ok_or_else(|| Error::Trust("This is not the recovery key of this account.".into()))?;
+        .ok_or_else(|| Error::Trust(text!("This is not the recovery key of this account.")))?;
         RoomKeyPair::from_bytes(&bytes)
     }
 }

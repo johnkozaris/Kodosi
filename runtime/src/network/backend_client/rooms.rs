@@ -134,7 +134,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         items
             .iter()
             .try_for_each(|item| content.take(cached, room, item))
@@ -152,7 +152,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
         for item in items {
             content.take(cached, room, item)?;
@@ -179,7 +179,7 @@ impl RoomCache {
         Ok(self
             .contents
             .get_mut(&room)
-            .ok_or_else(|| invalid("The room is not loaded."))?
+            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?
             .show(room))
     }
 
@@ -188,7 +188,7 @@ impl RoomCache {
         let content = self
             .contents
             .get(&room)
-            .ok_or_else(|| invalid("The room is not loaded."))?;
+            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?;
         Ok(content.view(room, Vec::new(), content.has_older))
     }
 
@@ -208,7 +208,7 @@ impl RoomCache {
                 let key = cached.keys.get(&state.state.epoch)?.clone();
                 Some((state.state.version, state.state.epoch, key))
             })
-            .ok_or_else(|| invalid("Room keys are still arriving."))
+            .ok_or_else(|| Error::Text(text!("Room keys are still arriving.")))
     }
 }
 
@@ -642,7 +642,9 @@ impl BackendClient {
             if history.version == 0 {
                 initialization_attempts += 1;
                 if initialization_attempts > 3 {
-                    return Err(invalid("The room changed during setup. Open it again."));
+                    return Err(Error::Text(text!(
+                        "The room changed during setup. Open it again."
+                    )));
                 }
                 self.initialize_room(credentials, room, &history.owner_user_id, &history.members)
                     .await?;
@@ -718,7 +720,7 @@ impl BackendClient {
         let current = cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1;
         let (path, mut heads) = self.room_heads()?;
         let known = heads.entry(credentials.user_id.clone()).or_default();
@@ -793,12 +795,12 @@ impl BackendClient {
         let previous = cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1;
         let prior_key = cached
             .keys
             .get(&previous.state.epoch)
-            .ok_or_else(|| invalid("Room keys are still arriving on this device."))?;
+            .ok_or_else(|| Error::Text(text!("Room keys are still arriving on this device.")))?;
         let created = identity::now_ms().max(previous.state.created_at_ms);
         let mut standing = self
             .room_standing(credentials, previous, created, lookups)
@@ -892,7 +894,7 @@ impl BackendClient {
             let current = &cached
                 .states
                 .last_key_value()
-                .ok_or_else(|| invalid("Room keys are missing."))?
+                .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
                 .1
                 .state;
             if !current.members.contains_key(&credentials.user_id)
@@ -979,13 +981,13 @@ impl BackendClient {
         let state = &cached
             .states
             .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1
             .state;
         let anchor = state
             .members
             .get(user)
-            .ok_or_else(|| invalid("This person is no longer in the room."))?
+            .ok_or_else(|| Error::Text(text!("This person is no longer in the room.")))?
             .root()?;
         if user != credentials.user_id
             && self
@@ -993,10 +995,9 @@ impl BackendClient {
                 .await?
                 .is_some_and(|recorded| recorded != anchor)
         {
-            return Err(Error::Trust(
+            return Err(Error::Trust(text!(
                 "This friend has a new identity. Trust it in Friends before you share or connect."
-                    .into(),
-            ));
+            )));
         }
         let bundle = self.member_bundle(credentials, user).await?;
         self.verify_bundle(&bundle, Some(anchor)).await
@@ -1036,7 +1037,7 @@ impl BackendClient {
         let key = cached
             .keys
             .get(&content.epoch)
-            .ok_or_else(|| invalid("Room history keys are still arriving."))?;
+            .ok_or_else(|| Error::Text(text!("Room history keys are still arriving.")))?;
         Ok(serde_json::from_slice(&content.decrypt(key)?)?)
     }
 
@@ -1422,7 +1423,7 @@ impl BackendClient {
                             .repositories
                             .iter()
                             .find(|repo| &repo.id == repository_id)
-                            .ok_or_else(|| invalid("This repository is unavailable."))?;
+                            .ok_or_else(|| Error::Text(text!("This repository is unavailable.")))?;
                         if !repository_ids.contains(repository_id) {
                             repository_ids.insert(0, repository_id.clone());
                         }
@@ -1467,7 +1468,7 @@ impl BackendClient {
                     .iter()
                     .find(|task| task.id == task_id)
                     .cloned()
-                    .ok_or_else(|| invalid("This task is unavailable."))?;
+                    .ok_or_else(|| Error::Text(text!("This task is unavailable.")))?;
                 match change {
                     rooms::TaskChange::Claim => {
                         let live = |id: &str| {
@@ -1479,7 +1480,7 @@ impl BackendClient {
                             })
                         };
                         task.claim(&credentials.user_id, name, terminal_id, live)
-                            .map_err(invalid)?;
+                            .map_err(Error::Text)?;
                     }
                     rooms::TaskChange::Release => {
                         task.assigned_to = None;
@@ -1540,7 +1541,7 @@ impl BackendClient {
                     .repositories
                     .iter()
                     .find(|repo| repo.id == repository_id)
-                    .ok_or_else(|| invalid("This repository is unavailable."))?;
+                    .ok_or_else(|| Error::Text(text!("This repository is unavailable.")))?;
                 let issues = rooms::providers::issues(repository, None).await?;
                 return Ok(vec![
                     json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":null,"action":args["action"]["type"],"repositoryId":repository_id,"issues":issues}),
@@ -1554,12 +1555,12 @@ impl BackendClient {
                     .repositories
                     .iter()
                     .find(|repo| repo.id == repository_id)
-                    .ok_or_else(|| invalid("This repository is unavailable."))?;
+                    .ok_or_else(|| Error::Text(text!("This repository is unavailable.")))?;
                 let issue = rooms::providers::issues(repository, Some(number))
                     .await?
                     .into_iter()
                     .next()
-                    .ok_or_else(|| invalid("This issue is unavailable."))?;
+                    .ok_or_else(|| Error::Text(text!("This issue is unavailable.")))?;
                 if let Some(existing) = snapshot.tasks.iter().find(|task| {
                     task.issue
                         .as_ref()
@@ -1702,7 +1703,7 @@ impl BackendClient {
             let repository = repositories
                 .iter()
                 .find(|repo| repo.id == issue.repository_id)
-                .ok_or_else(|| invalid("The task's repository is unavailable."))?;
+                .ok_or_else(|| Error::Text(text!("The task's repository is unavailable.")))?;
             let updated = rooms::providers::update_issue(repository, issue.number, change).await?;
             Self::apply_linked_issue(task, repository, updated);
         }

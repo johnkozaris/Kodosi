@@ -1,4 +1,5 @@
 import type { ClosedReason, Peer } from "@documents/contract";
+import { say } from "@documents/words";
 
 /** The colors of people in the apps, which pick one by the same hash of the person's id. */
 const PEOPLE_COLORS = ["#3c8db5", "#8573d1", "#2f92a3", "#c2659a", "#b58428", "#b362b6", "#607fcc"];
@@ -54,13 +55,13 @@ export class Status {
   }
 
   saved(waits: boolean): void {
-    this.state.textContent = waits ? "Save waits" : "Saved";
+    this.state.textContent = waits ? say("Save waits") : say("Saved");
   }
 
   closed(reason: ClosedReason): void {
     const notice = this.root.appendChild(document.createElement("div"));
     notice.className = "document-closed";
     notice.textContent =
-      reason === "removed" ? "Someone removed this file." : "This document closed.";
+      reason === "removed" ? say("Someone removed this file.") : say("This document closed.");
   }
 }

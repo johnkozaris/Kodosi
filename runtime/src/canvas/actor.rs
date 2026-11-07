@@ -18,11 +18,12 @@ use super::{
     render::{self, RenderArguments},
 };
 use crate::documents::{DocumentHost, path_of};
+use crate::text::Text;
 
 const JOBS: usize = 64;
 const CHECK: Duration = Duration::from_secs(1);
 
-type Reply = oneshot::Sender<Result<CanvasAnswer, String>>;
+type Reply = oneshot::Sender<Result<CanvasAnswer, Text>>;
 
 /// What all canvases of this computer share.
 #[derive(Clone)]
@@ -71,7 +72,7 @@ enum Job {
     },
     Watch {
         viewer: shared_browser::Viewer,
-        reply: oneshot::Sender<Result<PipeEnds, String>>,
+        reply: oneshot::Sender<Result<PipeEnds, Text>>,
     },
     Downloaded {
         path: PathBuf,
@@ -164,7 +165,7 @@ impl CanvasHandle {
         &self,
         paths: Vec<PathBuf>,
         terminal: String,
-    ) -> Result<CanvasAnswer, String> {
+    ) -> Result<CanvasAnswer, Text> {
         self.ask(|reply| Job::Show {
             paths,
             terminal,
@@ -179,7 +180,7 @@ impl CanvasHandle {
         arguments: Vec<String>,
         terminal: String,
         agent: Option<String>,
-    ) -> Result<CanvasAnswer, String> {
+    ) -> Result<CanvasAnswer, Text> {
         self.ask(|reply| Job::Browse {
             folder,
             arguments,
@@ -198,7 +199,7 @@ impl CanvasHandle {
         view: String,
         person: String,
         name: String,
-    ) -> Result<PipeEnds, String> {
+    ) -> Result<PipeEnds, Text> {
         if key == BROWSER_PIPE {
             let (reply, answer) = oneshot::channel();
             let viewer = shared_browser::Viewer {
@@ -211,7 +212,7 @@ impl CanvasHandle {
                 .map_err(|_| busy())?;
             return answer
                 .await
-                .unwrap_or_else(|_| Err("The terminal of this canvas closed.".to_owned()));
+                .unwrap_or_else(|_| Err(text!("The terminal of this canvas closed.")));
         }
         let shown = self
             .state
@@ -220,7 +221,7 @@ impl CanvasHandle {
             .iter()
             .any(|item| item.key == key && item.view.is_some());
         if !shown {
-            return Err("This file is not on the canvas.".to_owned());
+            return Err(text!("This file is not on the canvas."));
         }
         let viewer = documents::Viewer {
             id: person,
@@ -288,7 +289,7 @@ impl CanvasHandle {
         })
     }
 
-    pub(crate) async fn request(&self, request: CanvasRequest) -> Result<CanvasAnswer, String> {
+    pub(crate) async fn request(&self, request: CanvasRequest) -> Result<CanvasAnswer, Text> {
         self.ask(|reply| Job::Request { request, reply }).await
     }
 
@@ -323,12 +324,12 @@ impl CanvasHandle {
         }
     }
 
-    async fn ask(&self, job: impl FnOnce(Reply) -> Job) -> Result<CanvasAnswer, String> {
+    async fn ask(&self, job: impl FnOnce(Reply) -> Job) -> Result<CanvasAnswer, Text> {
         let (reply, answer) = oneshot::channel();
         self.jobs.try_send(job(reply)).map_err(|_| busy())?;
         answer
             .await
-            .unwrap_or_else(|_| Err("The terminal of this canvas closed.".to_owned()))
+            .unwrap_or_else(|_| Err(text!("The terminal of this canvas closed.")))
     }
 }
 
@@ -432,7 +433,7 @@ impl Actor {
                 reply,
             } => {
                 if let Some(missing) = browser::missing().filter(|_| self.browser.is_none()) {
-                    drop(reply.send(Err(missing.to_owned())));
+                    drop(reply.send(Err(missing)));
                     return;
                 }
                 let browser = self.browser();
@@ -531,7 +532,7 @@ impl Actor {
                 page,
             } => {
                 let Ok(upload) = Uuid::parse_str(&upload) else {
-                    drop(reply.send(Err("This upload has no number.".to_owned())));
+                    drop(reply.send(Err(Text::plain("This upload has no number."))));
                     return;
                 };
                 let part = Part {
@@ -553,7 +554,7 @@ impl Actor {
         }
     }
 
-    async fn attach(&mut self, part: Part<'_>) -> Result<CanvasAnswer, String> {
+    async fn attach(&mut self, part: Part<'_>) -> Result<CanvasAnswer, Text> {
         let folder = self.folder.borrow().clone();
         let page = part.page;
         let Some(path) = self.uploads.add(&folder, part).await? else {
@@ -669,7 +670,7 @@ pub(crate) async fn close_left(data_root: &Path) {
     browser::close_left(data_root).await;
 }
 
-fn busy() -> String {
+fn busy() -> Text {
     tracing::warn!("the queue of a canvas is full, so it refuses a step");
-    "The canvas is busy. Try again in a moment.".to_owned()
+    text!("The canvas is busy. Try again in a moment.")
 }

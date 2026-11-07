@@ -33,7 +33,7 @@ pub enum ControlFrame {
         next_sequence: u64,
     },
     Closed {
-        reason: String,
+        reason: crate::text::Text,
         final_sequence: u64,
     },
 }
@@ -54,7 +54,7 @@ pub struct Subscription {
     pub control: mpsc::Receiver<ControlFrame>,
     lifetime: CancellationToken,
     resizes: VecDeque<(u16, u16, CellPixels, u64)>,
-    closing: Option<(String, u64)>,
+    closing: Option<(crate::text::Text, u64)>,
     refreshed: Option<Box<CheckpointCut>>,
 }
 
@@ -341,10 +341,10 @@ impl Subscribers {
         });
     }
 
-    pub(crate) fn close(&mut self, reason: &str, final_sequence: u64) {
+    pub(crate) fn close(&mut self, reason: &crate::text::Text, final_sequence: u64) {
         for (_, entry) in self.entries.drain() {
             drop(entry.control.try_send(ControlFrame::Closed {
-                reason: reason.to_owned(),
+                reason: reason.clone(),
                 final_sequence,
             }));
         }

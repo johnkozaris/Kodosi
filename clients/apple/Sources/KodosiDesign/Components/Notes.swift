@@ -34,7 +34,7 @@ public struct PictureNotice: View {
     public var body: some View {
         HStack(spacing: 9) {
             ProgressRing(value: arrived ? 1 : fraction, size: 15, lineWidth: 2.4)
-            Text(arrived ? "Picture sent to \(computer)" : "Sending picture to \(computer)")
+            Text(arrived ? "Picture sent to \(computer)" : "Sending picture to \(computer)", bundle: .module)
                 .appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
             if !arrived {
                 Text(fraction, format: .percent.precision(.fractionLength(0)))
@@ -82,17 +82,17 @@ public struct NoticePill: View {
     public var identifier = "notice"
     public var sign: Sign
     public var action: (() -> Void)?
-    public var actionTitle: LocalizedStringKey
+    public var actionTitle: Text
     public let dismiss: () -> Void
 
     public init(message: String, identifier: String = "notice", sign: Sign = .caution, action: (() -> Void)? = nil,
-                actionTitle: LocalizedStringKey = "Try again", dismiss: @escaping () -> Void)
+                actionTitle: Text? = nil, dismiss: @escaping () -> Void)
     {
         self.message = message
         self.identifier = identifier
         self.sign = sign
         self.action = action
-        self.actionTitle = actionTitle
+        self.actionTitle = actionTitle ?? Text("Try again", bundle: .module)
         self.dismiss = dismiss
     }
 
@@ -113,10 +113,10 @@ public struct NoticePill: View {
                     .fixedSize(horizontal: false, vertical: true).popoverSheet()
             }
             if let action {
-                Button(actionTitle, action: action).buttonStyle(.kodosi(.secondary, size: .small))
+                Button(action: action) { actionTitle }.buttonStyle(.kodosi(.secondary, size: .small))
                     .accessibilityIdentifier("\(identifier).action")
             }
-            IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(identifier).dismiss", size: 22, action: dismiss)
+            IconButton(title: "Dismiss", bundle: .module, symbol: "xmark", identifier: "\(identifier).dismiss", size: 22, action: dismiss)
         }
         .foregroundStyle(theme.colors.ink)
         .padding(.leading, sign == .caution ? 14 : 10).padding(.trailing, 6).frame(height: 36)

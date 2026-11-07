@@ -8,9 +8,6 @@ use crate::{Error, Result};
 
 pub const TERMINAL_PICTURE_MAX_BYTES: usize = 32 * 1024 * 1024;
 
-const TOO_LARGE: &str = "Kodosi sends pictures up to 32 MB.";
-const NOT_A_PICTURE: &str = "Kodosi pastes PNG, JPEG, GIF and WebP pictures.";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PictureFormat {
@@ -58,10 +55,10 @@ pub struct Picture {
 impl Picture {
     pub(crate) fn new(bytes: Bytes) -> Result<Self> {
         if bytes.len() > TERMINAL_PICTURE_MAX_BYTES {
-            return Err(Error::Invalid(TOO_LARGE.to_owned()));
+            return Err(Error::Text(text!("Kodosi sends pictures up to 32 MB.")));
         }
-        let format =
-            PictureFormat::of(&bytes).ok_or_else(|| Error::Invalid(NOT_A_PICTURE.to_owned()))?;
+        let format = PictureFormat::of(&bytes)
+            .ok_or_else(|| Error::Text(text!("Kodosi pastes PNG, JPEG, GIF and WebP pictures.")))?;
         Ok(Self {
             digest: Sha256::digest(&bytes).into(),
             bytes,

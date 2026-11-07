@@ -6,6 +6,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
+    "@documents/words": "workspace:*",
     "lucide": "1.61.0"
   }
 }

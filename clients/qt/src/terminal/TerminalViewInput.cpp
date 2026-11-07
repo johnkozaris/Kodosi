@@ -773,7 +773,7 @@ void TerminalView::pasteClipboard()
     if (text.size() > maximumQueuedInputBytes
         || m_queuedInputBytes > maximumQueuedInputBytes - text.size()
         || m_inputQueue.size() >= maximumQueuedInputFrames) {
-        emit operationError(QStringLiteral("The terminal input queue is full, so Kodosi did not take the input."));
+        emit operationError(tr("The terminal input queue is full, so Kodosi did not take the input."));
         return;
     }
     auto encoded = m_registry->encodePaste(surfaceIdentity(), std::move(text));
@@ -899,7 +899,7 @@ bool TerminalView::enqueueInput(QByteArray bytes)
     if (bytes.size() > maximumQueuedInputBytes
         || m_queuedInputBytes > maximumQueuedInputBytes - bytes.size()
         || m_inputQueue.size() >= maximumQueuedInputFrames) {
-        emit operationError(QStringLiteral("The terminal input queue is full, so Kodosi did not take the input."));
+        emit operationError(tr("The terminal input queue is full, so Kodosi did not take the input."));
         return false;
     }
     auto bottom = m_registry->scrollViewportToBottom(surfaceIdentity());
@@ -1052,7 +1052,7 @@ void TerminalView::activateLink(const QString& link)
     switch (decision.action) {
     case LinkDecision::Action::Open:
         if (!QDesktopServices::openUrl(decision.url)) {
-            emit operationError(QStringLiteral("Kodosi could not open the terminal link."));
+            emit operationError(tr("Kodosi could not open the terminal link."));
         }
         return;
     case LinkDecision::Action::Ask:

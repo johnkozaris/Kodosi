@@ -15,52 +15,63 @@ QString targetOf(const QVariantMap& tool)
     return DosiWords::target(tool.value(QStringLiteral("target")).toMap());
 }
 
-DosiWords::Deed deedOf(QString done, QString doing, QString icon, QString saying = {}, QString said = {})
+DosiWords::Phrase phrase(QString alone, QString about)
 {
-    return { std::move(done), std::move(doing), std::move(icon), std::move(saying), std::move(said) };
+    return { std::move(alone), std::move(about) };
 }
 }
 
 DosiWords::Deed DosiWords::deed(const QString& action)
 {
     if (action == QStringLiteral("look"))
-        return deedOf(tr("Looked at"), tr("looking at"), QStringLiteral("eye"));
+        return { phrase(tr("looked at"), tr("looked at %1")), phrase(tr("looking at"), tr("looking at %1")),
+            QStringLiteral("eye") };
     if (action == QStringLiteral("read"))
-        return deedOf(tr("Read"), tr("reading"), QStringLiteral("document"));
+        return { phrase(tr("read"), tr("read %1")), phrase(tr("reading"), tr("reading %1")), QStringLiteral("document") };
     if (action == QStringLiteral("type"))
-        return deedOf(tr("Typed in"), tr("typing in"), QStringLiteral("prompt"),
-            tr("typing"), tr("typed"));
+        return { phrase(tr("typed in"), tr("typed in %1")), phrase(tr("typing in"), tr("typing in %1")),
+            QStringLiteral("prompt"), phrase(tr("typed"), tr("typed %1")), phrase(tr("typing"), tr("typing %1")) };
     if (action == QStringLiteral("press"))
-        return deedOf(tr("Pressed keys in"), tr("pressing keys in"), QStringLiteral("command"),
-            tr("pressing"), tr("pressed"));
+        return { phrase(tr("pressed keys in"), tr("pressed keys in %1")),
+            phrase(tr("pressing keys in"), tr("pressing keys in %1")), QStringLiteral("command"),
+            phrase(tr("pressed"), tr("pressed %1")), phrase(tr("pressing"), tr("pressing %1")) };
     if (action == QStringLiteral("start"))
-        return deedOf(tr("Started"), tr("starting"), QStringLiteral("play"));
+        return { phrase(tr("started"), tr("started %1")), phrase(tr("starting"), tr("starting %1")),
+            QStringLiteral("play") };
     if (action == QStringLiteral("interrupt"))
-        return deedOf(tr("Interrupted"), tr("interrupting"), QStringLiteral("stop"));
+        return { phrase(tr("interrupted"), tr("interrupted %1")), phrase(tr("interrupting"), tr("interrupting %1")),
+            QStringLiteral("stop") };
     if (action == QStringLiteral("close"))
-        return deedOf(tr("Closed"), tr("closing"), QStringLiteral("close"));
+        return { phrase(tr("closed"), tr("closed %1")), phrase(tr("closing"), tr("closing %1")), QStringLiteral("close") };
     if (action == QStringLiteral("show"))
-        return deedOf(tr("Showed"), tr("showing"), QStringLiteral("window-restore"));
+        return { phrase(tr("showed"), tr("showed %1")), phrase(tr("showing"), tr("showing %1")),
+            QStringLiteral("window-restore") };
     if (action == QStringLiteral("wait"))
-        return deedOf(tr("Waited for"), tr("waiting for"), QStringLiteral("history"));
+        return { phrase(tr("waited for"), tr("waited for %1")), phrase(tr("waiting for"), tr("waiting for %1")),
+            QStringLiteral("history") };
     if (action == QStringLiteral("post"))
-        return deedOf(tr("Posted in"), tr("posting in"), QStringLiteral("chat"),
-            tr("posting"), tr("posted"));
+        return { phrase(tr("posted in"), tr("posted in %1")), phrase(tr("posting in"), tr("posting in %1")),
+            QStringLiteral("chat"), phrase(tr("posted"), tr("posted %1")), phrase(tr("posting"), tr("posting %1")) };
     if (action == QStringLiteral("run"))
-        return deedOf(tr("Ran"), tr("running"), QStringLiteral("terminal"));
+        return { phrase(tr("ran"), tr("ran %1")), phrase(tr("running"), tr("running %1")), QStringLiteral("terminal") };
     if (action == QStringLiteral("write"))
-        return deedOf(tr("Wrote"), tr("writing"), QStringLiteral("pencil"));
+        return { phrase(tr("wrote"), tr("wrote %1")), phrase(tr("writing"), tr("writing %1")), QStringLiteral("pencil") };
     if (action == QStringLiteral("edit"))
-        return deedOf(tr("Changed"), tr("changing"), QStringLiteral("pencil"));
+        return { phrase(tr("changed"), tr("changed %1")), phrase(tr("changing"), tr("changing %1")),
+            QStringLiteral("pencil") };
     if (action == QStringLiteral("search"))
-        return deedOf(tr("Searched for"), tr("searching for"), QStringLiteral("search"));
+        return { phrase(tr("searched for"), tr("searched for %1")), phrase(tr("searching for"), tr("searching for %1")),
+            QStringLiteral("search") };
     if (action == QStringLiteral("fetch"))
-        return deedOf(tr("Fetched"), tr("fetching"), QStringLiteral("link"));
+        return { phrase(tr("fetched"), tr("fetched %1")), phrase(tr("fetching"), tr("fetching %1")),
+            QStringLiteral("link") };
     if (action == QStringLiteral("plan"))
-        return deedOf(tr("Planned"), tr("planning"), QStringLiteral("tasks"));
+        return { phrase(tr("planned"), tr("planned %1")), phrase(tr("planning"), tr("planning %1")),
+            QStringLiteral("tasks") };
     if (action == QStringLiteral("delegate"))
-        return deedOf(tr("Asked a helper"), tr("asking a helper"), QStringLiteral("people"));
-    return deedOf(tr("Used"), tr("using"), QStringLiteral("cube"));
+        return { phrase(tr("asked a helper"), tr("asked a helper about %1")),
+            phrase(tr("asking a helper"), tr("asking a helper about %1")), QStringLiteral("people") };
+    return { phrase(tr("used"), tr("used %1")), phrase(tr("using"), tr("using %1")), QStringLiteral("cube") };
 }
 
 QString DosiWords::target(const QVariantMap& where)
@@ -77,10 +88,8 @@ QString DosiWords::receipt(const QVariantMap& tool)
 {
     const auto action = deed(tool.value(QStringLiteral("action")).toString());
     const auto where = targetOf(tool);
-    if (tool.value(QStringLiteral("text")).toString().trimmed().isEmpty()) {
-        const auto verb = isRunning(tool) ? action.doing : action.done.toLower();
-        return where.isEmpty() ? verb : verb + QLatin1Char(' ') + where;
-    }
+    if (tool.value(QStringLiteral("text")).toString().trimmed().isEmpty())
+        return isRunning(tool) ? action.doing(where) : action.done(where);
     const auto words = said(tool);
     return where.isEmpty() ? words : words + QStringLiteral(" · ") + where;
 }
@@ -88,10 +97,9 @@ QString DosiWords::receipt(const QVariantMap& tool)
 QString DosiWords::said(const QVariantMap& tool)
 {
     const auto action = deed(tool.value(QStringLiteral("action")).toString());
-    const auto verb = isRunning(tool) ? (action.saying.isEmpty() ? action.doing : action.saying)
-                                    : (action.said.isEmpty() ? action.done.toLower() : action.said);
-    const auto text = tool.value(QStringLiteral("text")).toString().trimmed();
-    return text.isEmpty() ? verb : verb + QLatin1Char(' ') + text.section(QLatin1Char('\n'), 0, 0);
+    const auto& phrase = isRunning(tool) ? (action.saying.alone.isEmpty() ? action.doing : action.saying)
+                                         : (action.said.alone.isEmpty() ? action.done : action.said);
+    return phrase(tool.value(QStringLiteral("text")).toString().trimmed().section(QLatin1Char('\n'), 0, 0));
 }
 
 QString DosiWords::summary(const QVariantList& tools)
@@ -109,19 +117,11 @@ QString DosiWords::summary(const QVariantList& tools)
         if (!name.isEmpty() && !names.contains(name))
             names.append(name);
     }
-    QString verb;
-    if (actions.size() == 1) {
-        const auto action = deed(actions.first());
-        verb = active ? action.doing : action.done.toLower();
-    } else {
-        verb = active ? tr("working on") : tr("worked on");
-    }
-    if (names.isEmpty())
-        return verb;
-    const auto shown = names.mid(0, 2).join(QStringLiteral(", "));
-    if (names.size() > 2)
-        return QStringLiteral("%1 %2 +%3").arg(verb, shown).arg(names.size() - 2);
-    return verb + QLatin1Char(' ') + shown;
+    const auto phrase = actions.size() == 1
+        ? (active ? deed(actions.first()).doing : deed(actions.first()).done)
+        : (active ? Phrase { tr("working on"), tr("working on %1") } : Phrase { tr("worked on"), tr("worked on %1") });
+    const auto shown = phrase(names.mid(0, 2).join(QStringLiteral(", ")));
+    return names.size() > 2 ? QStringLiteral("%1 +%2").arg(shown).arg(names.size() - 2) : shown;
 }
 
 QString DosiWords::day(const QDateTime& date, const QDateTime& now)
@@ -133,9 +133,11 @@ QString DosiWords::day(const QDateTime& date, const QDateTime& now)
     }
     if (days == 1)
         return tr("yesterday");
-    if (days > 1 && days < 7)
-        return QLocale().dayName(date.date().dayOfWeek()).toLower();
-    return QLocale().toString(date.date(), QStringLiteral("d MMM"));
+    if (days > 1 && days < 7) {
+        const auto weekday = QLocale().dayName(date.date().dayOfWeek());
+        return QLocale().language() == QLocale::English ? weekday.toLower() : weekday;
+    }
+    return QLocale().toString(date.date(), tr("d MMM"));
 }
 
 QString DosiWords::mood(const QString& name)

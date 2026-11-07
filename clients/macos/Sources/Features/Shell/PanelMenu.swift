@@ -47,7 +47,7 @@ struct PanelMenuRow<Trailing: View>: View {
                     }
                 }
                 .frame(width: 18)
-                title.font(.system(size: 12.5, weight: .medium)).foregroundStyle(titleColor)
+                title.font(.system(size: 12.5, weight: .medium)).foregroundStyle(titleColor).lineLimit(1)
                 Spacer(minLength: 8)
                 trailing()
             }
@@ -85,6 +85,12 @@ struct PanelMenuRow<Trailing: View>: View {
 extension PanelMenuRow where Trailing == EmptyView {
     init(_ title: Text, icon: PanelMenuIcon, identifier: String, destructive: Bool = false, action: @escaping () -> Void) {
         self.init(title, icon: icon, identifier: identifier, destructive: destructive, action: action) { EmptyView() }
+    }
+}
+
+extension View {
+    func panelMenuWidth(_ width: CGFloat) -> some View {
+        frame(minWidth: width, maxWidth: 320).fixedSize(horizontal: true, vertical: false)
     }
 }
 

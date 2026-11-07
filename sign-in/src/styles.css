@@ -787,3 +787,17 @@ form:has(.row-input:autofill) .go {
   font-weight: 600;
   line-height: 24px;
 }
+
+:root:is(:lang(ja), :lang(ko), :lang(zh)),
+:root:is(:lang(ja), :lang(ko), :lang(zh)) * {
+  letter-spacing: 0;
+}
+:root:lang(ko) {
+  word-break: keep-all;
+}
+:root:lang(ja) {
+  word-break: auto-phrase;
+}
+:is(:lang(ja), :lang(ko), :lang(zh)) h1.font-mono {
+  font-family: var(--font-sans);
+}

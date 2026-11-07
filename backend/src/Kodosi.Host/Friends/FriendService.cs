@@ -21,7 +21,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
     private async Task RequireFriendSpaceAsync(Guid userId, Guid otherId, CancellationToken ct)
     {
         if ((await plans.LimitsAsync(db, userId, ct)).Friends is { } most && await FriendCountAsync(userId, ct) is var count && count >= most)
-            throw ApiException.Forbidden($"You have {Limits.Count(count, "friend", "friends")}, the most that you can have. Remove a friend first.");
+            throw ApiException.OverLimit("friends", most, $"You have {Limits.Count(count, "friend", "friends")}, the most that you can have. Remove a friend first.");
         if ((await plans.LimitsAsync(db, otherId, ct)).Friends is { } theirs && await FriendCountAsync(otherId, ct) >= theirs)
             throw ApiException.Forbidden("This person has the most friends that they can have.");
     }
@@ -91,7 +91,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 var mine = await plans.LimitsAsync(db, userId, ct);
                 var sent = await OpenRequests(userId).CountAsync(x => x.RequestedBy == userId, ct);
                 if (sent >= mine.SentFriendRequests)
-                    throw ApiException.Forbidden($"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
+                    throw ApiException.OverLimit("friendRequests", mine.SentFriendRequests, $"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
                 await RequireFriendSpaceAsync(userId, other.Id, ct);
                 if ((await plans.LimitsAsync(db, other.Id, ct)).ReceivedFriendRequests is { } received
                     && await OpenRequests(other.Id).CountAsync(x => x.RequestedBy != other.Id, ct) >= received)

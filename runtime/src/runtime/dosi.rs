@@ -207,7 +207,7 @@ impl Runtime {
                     result: input.await,
                 }
             }),
-            Err(error) => self.emit(json!({"type":"system.error","message":format!("Kodosi did not type the answer in {reference}: {error}")})),
+            Err(error) => self.emit(json!({"type":"system.error","message":text!("Kodosi did not type the answer in {reference} ({error}).", reference = &reference, error = error.text())})),
         }
     }
 

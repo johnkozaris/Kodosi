@@ -122,7 +122,7 @@ pub struct CanvasBrowser {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<BrowserAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub problem: Option<String>,
+    pub problem: Option<crate::text::Text>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -296,8 +296,8 @@ impl CanvasBrowser {
                 .is_none_or(|last| bounded(&last.agent, 64) && bounded(&last.words, 256))
             && self
                 .problem
-                .as_deref()
-                .is_none_or(|problem| bounded(problem, MOST_PROBLEM))
+                .as_ref()
+                .is_none_or(|problem| bounded(problem.words(), MOST_PROBLEM))
     }
 }
 

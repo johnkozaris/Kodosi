@@ -14,6 +14,7 @@ use tokio::{
 use uuid::Uuid;
 
 use super::{MOST_FILE_BYTES, kind_of};
+use crate::text::Text;
 
 const MOST_UPLOADS: usize = 4;
 const MOST_NUMBER: u32 = 999;
@@ -49,40 +50,40 @@ impl Uploads {
         &mut self,
         folder: &Path,
         part: Part<'_>,
-    ) -> Result<Option<PathBuf>, String> {
+    ) -> Result<Option<PathBuf>, Text> {
         self.forget_old().await;
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(part.data)
-            .map_err(|_| "This part of the file is not readable.".to_owned())?;
+            .map_err(|_| text!("This part of the file is not readable."))?;
         if part.offset == 0 {
             self.start(folder, &part).await?;
         }
         let Some(upload) = self.open.get_mut(&part.upload) else {
-            return Err("This upload ended. Add the file again.".to_owned());
+            return Err(text!("This upload ended. Add the file again."));
         };
         let written = upload.written + bytes.len() as u64;
         if upload.written != part.offset {
             self.abandon(part.upload).await;
-            return Err("A part of the file got lost. Add the file again.".to_owned());
+            return Err(text!("A part of the file got lost. Add the file again."));
         }
         if written > MOST_FILE_BYTES {
             self.abandon(part.upload).await;
-            return Err(format!(
-                "The canvas takes files up to {} MB.",
-                MOST_FILE_BYTES / 1024 / 1024
+            return Err(text!(
+                "The canvas takes files up to {most} MB.",
+                most = MOST_FILE_BYTES / 1024 / 1024
             ));
         }
         let saved = upload.file.write_all(&bytes).await;
         upload.written = written;
         if saved.is_err() {
             self.abandon(part.upload).await;
-            return Err(format!("{} could not be saved.", part.name));
+            return Err(text!("{name} could not be saved.", name = part.name));
         }
         if !part.last {
             return Ok(None);
         }
         let Some(mut upload) = self.open.remove(&part.upload) else {
-            return Err("This upload ended. Add the file again.".to_owned());
+            return Err(text!("This upload ended. Add the file again."));
         };
         let flushed = upload.file.flush().await;
         drop(upload.file);
@@ -95,7 +96,7 @@ impl Uploads {
         }
         placed
             .map(Some)
-            .map_err(|_| format!("{} could not be saved.", part.name))
+            .map_err(|_| text!("{name} could not be saved.", name = part.name))
     }
 
     pub(super) async fn clear(&mut self) {
@@ -105,20 +106,21 @@ impl Uploads {
         }
     }
 
-    async fn start(&mut self, folder: &Path, part: &Part<'_>) -> Result<(), String> {
+    async fn start(&mut self, folder: &Path, part: &Part<'_>) -> Result<(), Text> {
         if !part.page && kind_of(Path::new(part.name)).is_none() {
-            return Err(
+            return Err(text!(
                 "The canvas shows pages (HTML, Markdown, text), pictures, documents, sheets, presentations and PDFs."
-                    .to_owned(),
-            );
+            ));
         }
         if self.open.len() >= MOST_UPLOADS {
-            return Err("Other files are on their way. Try again in a moment.".to_owned());
+            return Err(text!(
+                "Other files are on their way. Try again in a moment."
+            ));
         }
         let path = folder.join(format!(".{}.part", part.upload));
         let file = File::create(&path)
             .await
-            .map_err(|_| format!("{} could not be saved.", part.name))?;
+            .map_err(|_| text!("{name} could not be saved.", name = part.name))?;
         self.open.insert(
             part.upload,
             Upload {

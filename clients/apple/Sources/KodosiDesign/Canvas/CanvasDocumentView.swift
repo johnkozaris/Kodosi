@@ -183,11 +183,14 @@ final class CanvasDocumentPage {
                 _ = try await page.callJavaScript(
                     """
                     window.documentHost = window.documentView.hosted(
-                      { kind, theme, preferences, ready: () => webkit.messageHandlers.ready.postMessage(true) },
+                      { kind, theme, preferences, language, ready: () => webkit.messageHandlers.ready.postMessage(true) },
                       (frame) => webkit.messageHandlers.document.postMessage(frame),
                     );
                     """,
-                    arguments: ["kind": view.rawValue, "theme": look, "preferences": preferences],
+                    arguments: [
+                        "kind": view.rawValue, "theme": look, "preferences": preferences,
+                        "language": AppLanguage.current,
+                    ],
                     contentWorld: .page,
                 )
                 await join()

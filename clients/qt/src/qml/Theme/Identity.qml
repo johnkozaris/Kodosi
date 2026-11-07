@@ -47,8 +47,4 @@ QtObject {
         default: return "#54433a"
         }
     }
-
-    function count(value: int, one: string, many: string): string {
-        return value === 1 ? one : many.arg(value)
-    }
 }

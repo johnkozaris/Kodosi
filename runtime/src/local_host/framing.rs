@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, Bytes, Error, MAX_FRAME, Result, Serialize,
+    Value, WRITE_TIMEOUT, io, json, terminal,
+};
 
 pub(super) const CHECKPOINT: u8 = 1;
 pub(super) const DATA: u8 = 2;
@@ -12,7 +15,7 @@ pub(super) const REFRESH: u8 = 7;
 pub enum TerminalFrame {
     InputAck {
         accepted: bool,
-        message: Option<String>,
+        message: Option<crate::text::Text>,
     },
     Checkpoint {
         bytes: Vec<u8>,
@@ -30,7 +33,7 @@ pub enum TerminalFrame {
         at_sequence: u64,
     },
     Closed {
-        reason: String,
+        reason: crate::text::Text,
         final_sequence: u64,
     },
     Answer(Value),
@@ -96,8 +99,7 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                     .ok_or_else(|| Error::Invalid("invalid input acknowledgement".into()))?,
                 message: value
                     .get("message")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned),
+                    .and_then(|message| serde_json::from_value(message.clone()).ok()),
             })
         }
         Some(&CONTROL) => {
@@ -115,9 +117,8 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                 Some("closed") => Ok(TerminalFrame::Closed {
                     reason: value
                         .get("reason")
-                        .and_then(Value::as_str)
-                        .unwrap_or("terminal closed")
-                        .to_owned(),
+                        .and_then(|reason| serde_json::from_value(reason.clone()).ok())
+                        .unwrap_or_else(|| text!("The terminal closed.")),
                     final_sequence: number(&value, "finalSequence")?,
                 }),
                 Some(kind) if kind.starts_with("term.") => Ok(TerminalFrame::Answer(value)),

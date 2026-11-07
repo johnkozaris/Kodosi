@@ -207,7 +207,7 @@ public struct CountBadge: View {
     }
 
     public var body: some View {
-        Text(count > 99 ? "99+" : "\(count)")
+        Text(verbatim: count > 99 ? "99+" : "\(count)")
             .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
             .contentTransition(.numericText())
             .foregroundStyle(quiet ? theme.colors.inkMuted : theme.colors.onAccent)

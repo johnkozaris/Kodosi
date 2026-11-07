@@ -14,6 +14,7 @@ use shared_browser::{Browsers, Settings};
 use tokio::{io::AsyncWriteExt as _, sync::OnceCell};
 
 use super::browser::KEPT_PROFILE;
+use crate::text::Text;
 
 /// Names a browser program on disk, for a build with no feed.
 const ON_DISK: &str = "KODOSI_BROWSER_ENGINE";
@@ -25,8 +26,14 @@ const MOST_ARCHIVE: u64 = 1024 * 1024 * 1024;
 const LOOK_LIMIT: Duration = Duration::from_secs(30);
 /// Chromium has a security release about every two weeks, so a host looks each day.
 const LOOK_EVERY: Duration = Duration::from_hours(24);
-const NO_ENGINE: &str = "Kodosi could not get its browser. Check the network and open it again.";
-const NOT_FOR_THIS_COMPUTER: &str = "Kodosi has no browser for this computer yet.";
+fn no_engine() -> Text {
+    text!("Kodosi could not get its browser. Check the network and open it again.")
+}
+
+fn not_for_this_computer() -> Text {
+    text!("Kodosi has no browser for this computer yet.")
+}
+
 const CURRENT: &str = "current.json";
 /// A private folder for the copies of the stores that a copy of sign-ins reads.
 const READING: &str = "sign-in-copy";
@@ -76,7 +83,7 @@ impl BrowserHost {
     }
 
     /// The browsers. `progress` hears the part of the first download, from 0 to 100.
-    pub(super) async fn browsers(&self, progress: impl Fn(u8) + Send) -> Result<&Browsers, String> {
+    pub(super) async fn browsers(&self, progress: impl Fn(u8) + Send) -> Result<&Browsers, Text> {
         let browsers = self
             .browsers
             .get_or_try_init(|| async {
@@ -90,7 +97,7 @@ impl BrowserHost {
                         None => install(&self.engines(), progress).await?,
                     },
                 };
-                Ok::<_, String>(Browsers::new(Settings {
+                Ok::<_, Text>(Browsers::new(Settings {
                     engine,
                     profiles: self.profiles(),
                 }))
@@ -131,16 +138,16 @@ impl BrowserHost {
     }
 
     /// Closes the browser of a profile and deletes the profile.
-    pub(super) async fn remove_profile(&self, profile: &str) -> Result<(), String> {
+    pub(super) async fn remove_profile(&self, profile: &str) -> Result<(), Text> {
         if let Some(browsers) = self.browsers.get() {
             return browsers
                 .remove_profile(profile)
                 .await
-                .map_err(|problem| problem.to_string());
+                .map_err(|problem| Text::plain(problem.to_string()));
         }
         match tokio::fs::remove_dir_all(self.profiles().join(profile)).await {
             Err(problem) if problem.kind() != std::io::ErrorKind::NotFound => {
-                Err(problem.to_string())
+                Err(Text::plain(problem.to_string()))
             }
             _ => Ok(()),
         }
@@ -168,25 +175,25 @@ impl BrowserHost {
     /// Copies the sign-ins of a browser of this computer into the kept profile, and returns for
     /// how many sites. It reads them first, so a browser that gives no access costs no download.
     /// Only a person starts this.
-    pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<usize, String> {
+    pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<usize, Text> {
         let sources = shared_browser::sign_in_sources();
         let source = sources
             .iter()
             .find(|source| source.name == name)
-            .ok_or_else(|| format!("{name} is not on this computer."))?;
+            .ok_or_else(|| text!("{name} is not on this computer.", name = name))?;
         let sign_ins = source
             .read(&self.folder.join(READING))
             .await
-            .map_err(|problem| problem.to_string())?;
+            .map_err(|problem| Text::plain(problem.to_string()))?;
         self.browsers(|_| {})
             .await?
             .add_sign_ins(KEPT_PROFILE, sign_ins)
             .await
-            .map_err(|problem| problem.to_string())
+            .map_err(|problem| Text::plain(problem.to_string()))
     }
 
     /// Removes what copies gave the kept profile, and returns for how many sites.
-    pub(crate) async fn forget_sign_ins(&self) -> Result<usize, String> {
+    pub(crate) async fn forget_sign_ins(&self) -> Result<usize, Text> {
         if shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE) == 0 {
             return Ok(0);
         }
@@ -194,12 +201,12 @@ impl BrowserHost {
             .await?
             .remove_copied_sign_ins(KEPT_PROFILE)
             .await
-            .map_err(|problem| problem.to_string())
+            .map_err(|problem| Text::plain(problem.to_string()))
     }
 
     /// Removes the kept profile with every sign-in and all site data. The browsers of the
     /// private terminals close, and they wake with a new profile.
-    pub(crate) async fn clear(&self) -> Result<(), String> {
+    pub(crate) async fn clear(&self) -> Result<(), Text> {
         self.remove_profile(KEPT_PROFILE).await
     }
 
@@ -235,17 +242,17 @@ async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
 }
 
 /// Gets the newest engine of the signed feed, unless it is here, and returns its program.
-async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf, String> {
+async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
     let client = reqwest::Client::builder()
         .connect_timeout(LOOK_LIMIT)
         .read_timeout(LOOK_LIMIT)
         .build()
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     let feed = feed(&client).await?;
     let engine = feed
         .engines
         .get(&platform())
-        .ok_or_else(|| NOT_FOR_THIS_COMPUTER.to_owned())?;
+        .ok_or_else(not_for_this_computer)?;
     let folder = engines.join(&feed.version);
     let program = folder.join(&engine.program);
     if program.exists() {
@@ -253,7 +260,7 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
     }
     tokio::fs::create_dir_all(engines)
         .await
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     let archive = engines.join(format!("{}.tar.gz", feed.version));
     let got = download(&client, engine, &archive, progress).await;
     let unpacked = match got {
@@ -266,51 +273,51 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
         version: feed.version.clone(),
         program: engine.program.clone(),
     };
-    let text = serde_json::to_vec(&current).map_err(|_| NO_ENGINE.to_owned())?;
+    let text = serde_json::to_vec(&current).map_err(|_| no_engine())?;
     tokio::fs::write(engines.join(CURRENT), text)
         .await
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     Ok(program)
 }
 
-async fn feed(client: &reqwest::Client) -> Result<Feed, String> {
+async fn feed(client: &reqwest::Client) -> Result<Feed, Text> {
     let bytes = get(client, FEED).await?;
     let signature = get(client, &format!("{FEED}.sig")).await?;
-    let text = std::str::from_utf8(&signature).map_err(|_| NO_ENGINE.to_owned())?;
+    let text = std::str::from_utf8(&signature).map_err(|_| no_engine())?;
     check_signature(&bytes, text.trim())?;
-    serde_json::from_slice(&bytes).map_err(|_| NO_ENGINE.to_owned())
+    serde_json::from_slice(&bytes).map_err(|_| no_engine())
 }
 
 /// A feed that is not there means that no browser is out yet, which no network can change.
-async fn get(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
+async fn get(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, Text> {
     let response = client
         .get(url)
         .timeout(LOOK_LIMIT)
         .send()
         .await
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     if response.status() == reqwest::StatusCode::NOT_FOUND {
-        return Err(NOT_FOR_THIS_COMPUTER.to_owned());
+        return Err(not_for_this_computer());
     }
     let bytes = response
         .error_for_status()
-        .map_err(|_| NO_ENGINE.to_owned())?
+        .map_err(|_| no_engine())?
         .bytes()
         .await
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     if bytes.len() > MOST_FEED {
-        return Err(NO_ENGINE.to_owned());
+        return Err(no_engine());
     }
     Ok(bytes.to_vec())
 }
 
-fn check_signature(feed: &[u8], signature: &str) -> Result<(), String> {
+fn check_signature(feed: &[u8], signature: &str) -> Result<(), Text> {
     let decode = |text: &str| base64::engine::general_purpose::STANDARD.decode(text);
-    let key = decode(FEED_KEY).map_err(|_| NO_ENGINE.to_owned())?;
-    let signature = decode(signature).map_err(|_| NO_ENGINE.to_owned())?;
+    let key = decode(FEED_KEY).map_err(|_| no_engine())?;
+    let signature = decode(signature).map_err(|_| no_engine())?;
     UnparsedPublicKey::new(&ED25519, key)
         .verify(feed, &signature)
-        .map_err(|_| NO_ENGINE.to_owned())
+        .map_err(|_| no_engine())
 }
 
 async fn download(
@@ -318,38 +325,34 @@ async fn download(
     engine: &Engine,
     to: &Path,
     progress: impl Fn(u8) + Send,
-) -> Result<(), String> {
+) -> Result<(), Text> {
     let response = client
         .get(&engine.url)
         .send()
         .await
         .and_then(reqwest::Response::error_for_status)
-        .map_err(|_| NO_ENGINE.to_owned())?;
+        .map_err(|_| no_engine())?;
     let total = response.content_length().unwrap_or(0);
-    let mut file = tokio::fs::File::create(to)
-        .await
-        .map_err(|_| NO_ENGINE.to_owned())?;
+    let mut file = tokio::fs::File::create(to).await.map_err(|_| no_engine())?;
     let mut digest = Sha256::new();
     let mut got: u64 = 0;
     let mut told = 0;
     let mut stream = response.bytes_stream();
     while let Some(part) = stream.next().await {
-        let part = part.map_err(|_| NO_ENGINE.to_owned())?;
+        let part = part.map_err(|_| no_engine())?;
         got += part.len() as u64;
         if got > MOST_ARCHIVE {
-            return Err(NO_ENGINE.to_owned());
+            return Err(no_engine());
         }
         digest.update(&part);
-        file.write_all(&part)
-            .await
-            .map_err(|_| NO_ENGINE.to_owned())?;
+        file.write_all(&part).await.map_err(|_| no_engine())?;
         let part_done = u8::try_from(got * 100 / total.max(1)).unwrap_or(100);
         if part_done != told {
             told = part_done;
             progress(told);
         }
     }
-    file.flush().await.map_err(|_| NO_ENGINE.to_owned())?;
+    file.flush().await.map_err(|_| no_engine())?;
     let found = digest
         .finalize()
         .iter()
@@ -357,12 +360,12 @@ async fn download(
     if found == engine.sha256 {
         Ok(())
     } else {
-        Err(NO_ENGINE.to_owned())
+        Err(no_engine())
     }
 }
 
 /// Unpacks into a new folder, which takes its place only when it is whole.
-async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), String> {
+async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
     tokio::task::spawn_blocking(move || -> std::io::Result<()> {
         let unpacking = folder.with_extension("unpacking");
         drop(std::fs::remove_dir_all(&unpacking));
@@ -372,8 +375,8 @@ async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), String> {
         std::fs::rename(&unpacking, &folder)
     })
     .await
-    .map_err(|_| NO_ENGINE.to_owned())?
-    .map_err(|_| NO_ENGINE.to_owned())
+    .map_err(|_| no_engine())?
+    .map_err(|_| no_engine())
 }
 
 /// Removes each engine but this version, with the archives of downloads that stopped.
@@ -425,7 +428,7 @@ mod tests {
             &format!("http://{address}/engine.json"),
         )
         .await;
-        assert_eq!(feed, Err(NOT_FOR_THIS_COMPUTER.to_owned()));
+        assert_eq!(feed, Err(not_for_this_computer()));
     }
 
     #[test]

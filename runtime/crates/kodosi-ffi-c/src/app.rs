@@ -16,7 +16,7 @@ use super::{
     AssertUnwindSafe, Config, KODOSI_APP_FAILED, KODOSI_FFI_DESER_FAILED, KODOSI_FFI_OK,
     KODOSI_LOG_ERROR, KODOSI_LOG_INFO, KODOSI_LOG_WARNING, KODOSI_START_FAILED,
     KODOSI_START_REJECTED, KodosiStartFailure, c_char, c_void, caught, record_start_failure,
-    start_failure,
+    start_failure, words,
 };
 
 #[cfg(feature = "host")]
@@ -104,8 +104,7 @@ unsafe fn claim_app(
         callback,
         userdata: UserData(userdata),
     };
-    let config =
-        Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))?;
+    let config = Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &words(&error)))?;
     unsafe { prepare(config, activation, preferences) }
 }
 
@@ -137,7 +136,7 @@ unsafe fn prepare(
         })
         .transpose()?;
     let owner = local_host::claim_app(&config.data_root)
-        .map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))?
+        .map_err(|error| failed(KODOSI_START_REJECTED, &words(&error)))?
         .map(|claim| own(&config, claim, activation))
         .transpose()?;
     let claim = if owner.is_some() {
@@ -198,7 +197,7 @@ unsafe fn forward(json: *const u8, length: usize) -> Outcome {
             &activation,
             FORWARD_WAIT,
         ))
-        .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?;
+        .map_err(|error| failed(KODOSI_START_FAILED, &words(&error)))?;
     let claim = match forwarded {
         Forwarded::Delivered(running) => {
             return Ok(match running {
@@ -257,7 +256,7 @@ fn replace_earlier() -> Outcome {
     let deadline = std::time::Instant::now() + REPLACE_WAIT;
     loop {
         if let Some(claim) = local_host::claim_app(&root)
-            .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?
+            .map_err(|error| failed(KODOSI_START_FAILED, &words(&error)))?
         {
             let mut prepared = lock(&APP);
             let Some(app) = prepared.as_mut() else {
@@ -335,7 +334,7 @@ fn close_app() {
 #[cfg(feature = "host")]
 pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailure>> {
     match lock(&APP).as_ref() {
-        None => Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string())),
+        None => Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &words(&error))),
         Some(app) if app.owner.is_some() => Ok(app.config.clone()),
         Some(_) => Err(failed(
             KODOSI_START_REJECTED,
@@ -456,7 +455,7 @@ fn no_app_claim() -> Box<KodosiStartFailure> {
 
 #[cfg(not(feature = "host"))]
 pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailure>> {
-    Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))
+    Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &words(&error)))
 }
 
 #[cfg(all(test, feature = "host"))]

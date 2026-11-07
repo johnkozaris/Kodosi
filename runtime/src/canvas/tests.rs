@@ -182,12 +182,12 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
     let upload = uuid::Uuid::now_v7();
     canvas.request(attach("a.md", upload, 0)).await.unwrap();
     let lost = canvas.request(attach("a.md", upload, 9)).await.unwrap_err();
-    assert!(lost.contains("got lost"), "{lost}");
+    assert!(lost.to_string().contains("got lost"), "{lost}");
     let kind = canvas
         .request(attach("a.zip", uuid::Uuid::now_v7(), 0))
         .await
         .unwrap_err();
-    assert!(kind.contains("The canvas shows"), "{kind}");
+    assert!(kind.to_string().contains("The canvas shows"), "{kind}");
     assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
 }
 

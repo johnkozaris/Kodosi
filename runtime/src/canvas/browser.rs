@@ -20,6 +20,7 @@ use super::{
     BrowserTab, CanvasAnswer, CanvasBrowser, PIPE_QUEUE, PipeEnds, engine::BrowserHost,
     files::Stamp,
 };
+use crate::text::Text;
 
 const COMMAND_LIMIT: Duration = Duration::from_mins(2);
 const QUICK_LIMIT: Duration = Duration::from_secs(30);
@@ -31,7 +32,6 @@ const FIRST_SIZE: (u32, u32) = (1280, 720);
 /// on its debug port.
 const DAEMON_IDLE_MS: &str = "60000";
 const FIRST_PAGE: &str = "about:blank";
-const NO_AGENT_BROWSER: &str = "This Kodosi has no agent-browser for the shared browser.";
 /// The profile that keeps a person's sign-ins. A shared terminal has a profile of its own.
 pub(super) const KEPT_PROFILE: &str = "person";
 /// Options and commands that would give the browser of this terminal another session, profile,
@@ -125,8 +125,12 @@ pub(super) fn own_profile(data_root: &Path, id: Uuid) -> PathBuf {
 }
 
 /// Why this computer cannot run the agent's side of the shared browser, if it cannot.
-pub(super) fn missing() -> Option<&'static str> {
-    (!agent_browser().is_file()).then_some(NO_AGENT_BROWSER)
+pub(super) fn missing() -> Option<Text> {
+    (!agent_browser().is_file()).then(no_agent_browser)
+}
+
+fn no_agent_browser() -> Text {
+    text!("This Kodosi has no agent-browser for the shared browser.")
 }
 
 #[derive(Default)]
@@ -226,7 +230,7 @@ impl Browser {
 
     /// The window of this terminal, opened if it is not open. Kodosi Browser comes the first
     /// time here, and the canvas shows how far that is.
-    async fn window(self: &Arc<Self>) -> Result<Window, String> {
+    async fn window(self: &Arc<Self>) -> Result<Window, Text> {
         let mut open = self.window.lock().await;
         if let Some(window) = open.as_ref().filter(|window| window.is_open()) {
             return Ok(window.clone());
@@ -252,7 +256,7 @@ impl Browser {
         let window = browsers
             .open(place)
             .await
-            .map_err(|problem| self.problem(problem.to_string()))?;
+            .map_err(|problem| self.problem(Text::plain(problem.to_string())))?;
         tokio::spawn(follow(
             Arc::downgrade(self),
             window.clone(),
@@ -331,11 +335,11 @@ impl Browser {
         arguments: Vec<String>,
         terminal: &str,
         agent: Option<String>,
-    ) -> Result<CanvasAnswer, String> {
+    ) -> Result<CanvasAnswer, Text> {
         if let Some(refused) = refused(&arguments) {
-            return Err(format!(
+            return Err(Text::plain(format!(
                 "Kodosi runs the browser of this terminal, so {refused} is not available here. Use the other commands."
-            ));
+            )));
         }
         let command = arguments
             .iter()
@@ -437,19 +441,19 @@ impl Browser {
     pub(super) async fn act(
         self: &Arc<Self>,
         BrowserAct::Wake: BrowserAct,
-    ) -> Result<CanvasAnswer, String> {
+    ) -> Result<CanvasAnswer, Text> {
         self.window().await?;
         Ok(CanvasAnswer::Done)
     }
 
     /// Gives a person the live picture of this browser. The two ends carry the browser's own
     /// messages, so one who only looks needs nothing more.
-    pub(super) async fn watch(self: &Arc<Self>, viewer: Viewer) -> Result<PipeEnds, String> {
+    pub(super) async fn watch(self: &Arc<Self>, viewer: Viewer) -> Result<PipeEnds, Text> {
         let window = self.window().await?;
         let mut pipe = window
             .watch(viewer)
             .await
-            .map_err(|problem| problem.to_string())?;
+            .map_err(|problem| Text::plain(problem.to_string()))?;
         let (sender, mut from_view) = mpsc::channel::<Vec<u8>>(PIPE_QUEUE);
         let (to_view, receiver) = mpsc::channel(PIPE_QUEUE);
         tokio::spawn(async move {
@@ -474,11 +478,11 @@ impl Browser {
         Ok(PipeEnds { sender, receiver })
     }
 
-    fn problem(&self, problem: String) -> String {
+    fn problem(&self, problem: Text) -> Text {
         self.change(|state| {
             state.state = BrowserState::Asleep;
             state.getting = None;
-            state.problem = Some(problem.chars().take(300).collect());
+            state.problem = Some(problem.clone());
         });
         problem
     }
@@ -531,9 +535,9 @@ impl Browser {
         arguments: &[String],
         driver: Option<&str>,
         limit: Duration,
-    ) -> Result<Run, String> {
+    ) -> Result<Run, Text> {
         if !self.places.binary.is_file() {
-            return Err(NO_AGENT_BROWSER.to_owned());
+            return Err(no_agent_browser());
         }
         prepare(&self.places).await?;
         let mut command = agent_browser_command(&self.places.binary, &self.places.sockets);
@@ -556,11 +560,16 @@ impl Browser {
             .stderr(Stdio::piped());
         let child = command
             .spawn()
-            .map_err(|error| format!("agent-browser did not start: {error}"))?;
+            .map_err(|error| Text::plain(format!("agent-browser did not start: {error}")))?;
         let output = tokio::time::timeout(limit, child.wait_with_output())
             .await
-            .map_err(|_| format!("agent-browser did not answer in {} s.", limit.as_secs()))?
-            .map_err(|error| format!("agent-browser failed: {error}"))?;
+            .map_err(|_| {
+                Text::plain(format!(
+                    "agent-browser did not answer in {} s.",
+                    limit.as_secs()
+                ))
+            })?
+            .map_err(|error| Text::plain(format!("agent-browser failed: {error}")))?;
         let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
         let errors = String::from_utf8_lossy(&output.stderr);
         if !errors.trim().is_empty() {
@@ -652,7 +661,7 @@ fn agent_browser_command(binary: &Path, sockets: &Path) -> tokio::process::Comma
     command
 }
 
-async fn prepare(places: &Places) -> Result<(), String> {
+async fn prepare(places: &Places) -> Result<(), Text> {
     let config = places.config.clone();
     let sockets = places.sockets.clone();
     tokio::task::spawn_blocking(move || -> std::io::Result<()> {
@@ -666,8 +675,8 @@ async fn prepare(places: &Places) -> Result<(), String> {
         Ok(())
     })
     .await
-    .map_err(|_| "The browser folder could not be made.".to_owned())?
-    .map_err(|error| format!("The browser folder could not be made: {error}"))
+    .map_err(|_| Text::plain("The browser folder could not be made."))?
+    .map_err(|error| Text::plain(format!("The browser folder could not be made: {error}")))
 }
 
 /// The command and its target, without what the agent types, which can be secret.

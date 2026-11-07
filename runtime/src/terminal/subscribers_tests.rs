@@ -159,7 +159,7 @@ async fn stopped_session_drains_accepted_output_before_final_cut() {
         sequence: 12,
         bytes: Bytes::from_static(b"final"),
     });
-    subscribers.close("ended", 13);
+    subscribers.close(&crate::text::Text::plain("ended"), 13);
     assert!(matches!(
         subscriber.control.recv().await,
         Some(ControlFrame::Closed {
@@ -217,7 +217,7 @@ async fn a_view_gets_each_resize_and_its_close_at_their_place_in_the_output() {
     resize(&mut subscribers, 1);
     output(&mut subscribers, 0);
     output(&mut subscribers, 1);
-    subscribers.close("ended", 2);
+    subscribers.close(&crate::text::Text::plain("ended"), 2);
     for expected in ["data 0", "resize 1", "data 1", "closed 2 ended"] {
         assert_eq!(next(&mut view).await, expected);
     }
@@ -287,7 +287,7 @@ async fn a_view_fails_on_lost_output_and_reports_a_close_before_its_last_output(
         .subscribe(Uuid::now_v7(), checkpoint(), 0)
         .expect("view");
     output(&mut subscribers, 0);
-    subscribers.close("ended", 3);
+    subscribers.close(&crate::text::Text::plain("ended"), 3);
     assert_eq!(next(&mut view).await, "data 0");
     assert_eq!(next(&mut view).await, "closed 3 ended");
 

@@ -51,12 +51,14 @@ fn a_claim_takes_only_a_task_that_nobody_else_has() {
     task.claim("ana", "Ana".into(), Some("one".into()), live)
         .unwrap();
     assert_eq!(
-        task.claim("ben", "Ben".into(), None, live),
-        Err("Ana has this task. Take another task, or ask them to release it.".into())
+        task.claim("ben", "Ben".into(), None, live)
+            .map_err(|refusal| refusal.to_string()),
+        Err("Ana has this task. Take another task, or ask them to release it.".to_owned())
     );
     assert_eq!(
-        task.claim("ana", "Ana".into(), Some("two".into()), live),
-        Err("You have this task in another terminal. Release it there first.".into())
+        task.claim("ana", "Ana".into(), Some("two".into()), live)
+            .map_err(|refusal| refusal.to_string()),
+        Err("You have this task in another terminal. Release it there first.".to_owned())
     );
     task.claim("ana", "Ana".into(), Some("one".into()), live)
         .unwrap();

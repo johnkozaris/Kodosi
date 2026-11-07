@@ -1,5 +1,7 @@
 # Getting started
 
+**English** · [Deutsch](de/GETTING_STARTED.md) · [Ελληνικά](el/GETTING_STARTED.md) · [Español](es/GETTING_STARTED.md) · [Français](fr/GETTING_STARTED.md) · [Italiano](it/GETTING_STARTED.md) · [日本語](ja/GETTING_STARTED.md) · [한국어](ko/GETTING_STARTED.md) · [简体中文](zh-Hans/GETTING_STARTED.md)
+
 [Get Kodosi](../README.md#get-kodosi) for your computer. This guide uses the Mac keys; on
 Linux and Windows, use Ctrl+Shift with the same letter.
 

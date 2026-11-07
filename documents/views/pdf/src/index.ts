@@ -30,6 +30,7 @@ import { ArrowDown, ArrowUp, Eraser, RotateCw, StickyNote, Trash2 } from "lucide
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import "./pdf.css";
+import { say } from "@documents/words";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -182,7 +183,7 @@ class PdfEditor implements Editor, Pictures {
     private readonly client: Client,
   ) {
     this.status = new Status(root);
-    this.bar = new Bar(root, "Pages");
+    this.bar = new Bar(root, say("Pages"));
     root.append(this.bar.element);
     this.pagesRoot = root.appendChild(document.createElement("div"));
     this.pagesRoot.className = "document-page pdf-pages";
@@ -258,19 +259,23 @@ class PdfEditor implements Editor, Pictures {
       return;
     }
     const toggle = (tool: Tool) => () => this.pick(this.tool === tool ? "read" : tool);
-    this.tools = wellOf("Tools", [
-      { label: "Note", icon: StickyNote, press: toggle("note") },
-      { label: "Redact", icon: Eraser, press: toggle("redact") },
+    this.tools = wellOf(say("Tools"), [
+      { label: say("Note"), icon: StickyNote, press: toggle("note") },
+      { label: say("Redact"), icon: Eraser, press: toggle("redact") },
     ]);
     this.pageKeys = [
       keyOf({
-        label: "Rotate",
+        label: say("Rotate"),
         icon: RotateCw,
         press: () => this.work({ kind: "rotate", degrees: RIGHT_ANGLE }),
       }),
-      keyOf({ label: "Move up", icon: ArrowUp, press: () => this.movePage(-1) }),
-      keyOf({ label: "Move down", icon: ArrowDown, press: () => this.movePage(1) }),
-      keyOf({ label: "Remove page", icon: Trash2, press: () => this.work({ kind: "remove" }) }),
+      keyOf({ label: say("Move up"), icon: ArrowUp, press: () => this.movePage(-1) }),
+      keyOf({ label: say("Move down"), icon: ArrowDown, press: () => this.movePage(1) }),
+      keyOf({
+        label: say("Remove page"),
+        icon: Trash2,
+        press: () => this.work({ kind: "remove" }),
+      }),
     ];
     this.bar.show(
       this.tools.element,
@@ -542,7 +547,7 @@ class PdfEditor implements Editor, Pictures {
       event.stopPropagation();
       this.placeAt(note.page, id);
       if (!this.canEdit) return;
-      const text = window.prompt("Note", note.text);
+      const text = window.prompt(say("Note"), note.text);
       if (text !== null) this.change({ kind: "note", id, note: text ? { ...note, text } : null });
     });
   }
@@ -647,7 +652,7 @@ class PdfEditor implements Editor, Pictures {
 
   private addNote(page: string, holder: Holder, at: [number, number]): void {
     const viewport = holder.viewport;
-    const text = window.prompt("Note");
+    const text = window.prompt(say("Note"));
     if (!text || !viewport) return;
     const [x, y] = viewport.convertToPdfPoint(at[0], at[1]) as [number, number];
     this.change({

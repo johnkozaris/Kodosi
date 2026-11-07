@@ -9,7 +9,10 @@ use super::{
     METADATA_LIMIT, RAW_BATCH_LIMIT, RAW_CHUNK_LIMIT, Result, TerminalControl, decode_control,
     decode_metadata, encode_control, encode_metadata, invalid, packing,
 };
-use crate::terminal::{CellPixels, TerminalMetadata};
+use crate::{
+    terminal::{CellPixels, TerminalMetadata},
+    text::Text,
+};
 
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
@@ -40,14 +43,14 @@ pub(crate) struct Accept {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Refuse {
     pub code: String,
-    pub message: String,
+    pub message: Text,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct End {
     pub final_sequence: u64,
-    pub reason: String,
+    pub reason: Text,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,7 +58,7 @@ pub(crate) struct End {
 pub(crate) struct ControlResult {
     pub request_id: Uuid,
     pub accepted: bool,
-    pub message: String,
+    pub message: Option<Text>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,8 +86,8 @@ pub(crate) struct PictureState {
     /// When the host had them: microseconds since it asked for the parts.
     pub at: u64,
     pub step: PictureStep,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<Text>,
 }
 
 #[derive(Debug, Clone)]

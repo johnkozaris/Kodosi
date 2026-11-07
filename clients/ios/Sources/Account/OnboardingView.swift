@@ -242,7 +242,10 @@ private struct FeatureRow<Mark: View>: View {
         HStack(spacing: 14) {
             mark()
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
+                Text(title)
+                    .appTextStyle(.headline)
+                    .foregroundStyle(theme.colors.ink)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)

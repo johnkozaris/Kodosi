@@ -7,6 +7,8 @@ use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use uuid::Uuid;
 
+use crate::text::Text;
+
 mod backend_client;
 pub mod crypto;
 mod http;
@@ -25,50 +27,109 @@ pub(crate) use backend_client::{DELETION_LIFE, SIGN_IN_LIFE};
 #[cfg(feature = "host")]
 pub(crate) use terminal_connections::Answering;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("{reason}")]
     Invalid { reason: String },
-    #[error("{0}")]
-    Trust(String),
-    #[error("Sign in to continue.")]
+    Text(Text),
+    Trust(Text),
     SignedOut,
-    #[error("This Kodosi account was deleted.")]
     AccountDeleted,
-    #[error("This device is not approved for your account. Approve it first.")]
     EnrollmentRequired,
-    #[error("This request belongs to an earlier account connection.")]
     Stale,
-    #[error("The connection is busy; try again.")]
     Busy,
-    #[error("The connection has closed.")]
     Closed,
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
+    Io(std::io::Error),
     Http(reqwest::Error),
-    #[error("Kodosi could not find the server address. Check your connection and try again.")]
     Dns,
-    #[error("Kodosi cannot reach the server. Check your connection and try again.")]
     Unreachable,
-    #[error("The server did not respond in time, so Kodosi cannot tell if the operation worked.")]
     Timeout,
-    #[error("The connection to the server dropped, so Kodosi cannot tell if the operation worked.")]
     Dropped,
-    #[error("{0}")]
-    Json(#[from] serde_json::Error),
-    #[error("{message}")]
-    Backend { status: u16, message: String },
-    #[error("This version of Kodosi is too old for the server. Update Kodosi.")]
+    Json(serde_json::Error),
+    Backend { status: u16, message: Text },
     UpdateRequired,
-    #[error("The server uses an older version of Kodosi. Its operator must update it.")]
     ServerOutdated,
-    #[error("{}", if *.peer_newer {
-        "The other computer has a newer version of Kodosi. Update Kodosi to open this terminal."
-    } else {
-        "The other computer has an older version of Kodosi. Update Kodosi there."
-    })]
     ChannelVersion { peer_newer: bool },
+}
+
+impl Error {
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Invalid { reason } => Text::plain(reason.clone()),
+            Self::Text(text) | Self::Trust(text) | Self::Backend { message: text, .. } => {
+                text.clone()
+            }
+            Self::SignedOut => text!("Sign in to continue."),
+            Self::AccountDeleted => text!("This Kodosi account was deleted."),
+            Self::EnrollmentRequired => {
+                text!("This device is not approved for your account. Approve it first.")
+            }
+            Self::Stale => Text::plain("This request belongs to an earlier account connection."),
+            Self::Busy => text!("The connection is busy. Try again."),
+            Self::Closed => Text::plain("The connection has closed."),
+            Self::Io(error) => Text::plain(error.to_string()),
+            Self::Http(error) => Text::plain(error.to_string()),
+            Self::Json(error) => Text::plain(error.to_string()),
+            Self::Dns => text!(
+                "Kodosi could not find the server address. Check your connection and try again."
+            ),
+            Self::Unreachable => {
+                text!("Kodosi cannot reach the server. Check your connection and try again.")
+            }
+            Self::Timeout => text!(
+                "The server did not respond in time, so Kodosi cannot tell if the operation worked."
+            ),
+            Self::Dropped => text!(
+                "The connection to the server dropped, so Kodosi cannot tell if the operation worked."
+            ),
+            Self::UpdateRequired => {
+                text!("This version of Kodosi is too old for the server. Update Kodosi.")
+            }
+            Self::ServerOutdated => {
+                text!("The server uses an older version of Kodosi. Its operator must update it.")
+            }
+            Self::ChannelVersion { peer_newer: true } => text!(
+                "The other computer has a newer version of Kodosi. Update Kodosi to open this terminal."
+            ),
+            Self::ChannelVersion { peer_newer: false } => {
+                text!("The other computer has an older version of Kodosi. Update Kodosi there.")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.text().fmt(formatter)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::Http(error) => Some(error),
+            Self::Json(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Json(error)
+    }
+}
+
+impl From<Text> for Error {
+    fn from(text: Text) -> Self {
+        Self::Text(text)
+    }
 }
 
 impl From<reqwest::Error> for Error {
@@ -112,6 +173,16 @@ pub(crate) fn invalid(reason: impl Into<String>) -> Error {
     Error::Invalid {
         reason: reason.into(),
     }
+}
+
+fn unconfirmed() -> Error {
+    Error::Text(text!(
+        "The connection closed before the host confirmed the operation, and Kodosi did not send it again."
+    ))
+}
+
+pub(crate) fn untrusted(reason: impl Into<std::borrow::Cow<'static, str>>) -> Error {
+    Error::Trust(Text::plain(reason))
 }
 
 pub(crate) fn stagger(delay: Duration) -> Duration {
@@ -273,13 +344,13 @@ pub enum HostRequest {
         request_id: Uuid,
         history: bool,
         image_data_bytes: u64,
-        reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
+        reply: oneshot::Sender<std::result::Result<CheckpointCut, Text>>,
     },
     Control {
         connection_id: Uuid,
         control: TerminalControl,
         authorization: tokio_util::sync::CancellationToken,
-        reply: oneshot::Sender<std::result::Result<Value, String>>,
+        reply: oneshot::Sender<std::result::Result<Value, Text>>,
     },
     Disconnected {
         connection_id: Uuid,
@@ -288,13 +359,13 @@ pub enum HostRequest {
         connection_id: Uuid,
         key: String,
         name: String,
-        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, String>>,
+        reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, Text>>,
     },
     Picture {
         connection_id: Uuid,
         authorization: tokio_util::sync::CancellationToken,
         picture: HostPicture,
-        reply: oneshot::Sender<std::result::Result<Value, String>>,
+        reply: oneshot::Sender<std::result::Result<Value, Text>>,
     },
 }
 
@@ -325,7 +396,7 @@ pub enum PublishedFrame {
         at_sequence: u64,
     },
     Closed {
-        reason: String,
+        reason: Text,
         final_sequence: u64,
     },
 }
@@ -349,7 +420,7 @@ pub enum RemoteUpdate {
     },
     Resync,
     Closed {
-        reason: String,
+        reason: Text,
     },
     Picture {
         sent: u64,
@@ -398,9 +469,9 @@ impl RemoteControl {
         tokio::select! {
             biased;
             result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
-                result.map_err(|_|invalid("The host did not confirm the operation, and Kodosi did not send it again."))?
-                    .map_err(|_|invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again."))?,
-            ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before the host confirmed the operation, and Kodosi did not send it again.")),
+                result.map_err(|_|Error::Text(text!("The host did not confirm the operation, and Kodosi did not send it again.")))?
+                    .map_err(|_|unconfirmed())?,
+            ()=self.cancellation.cancelled()=>Err(unconfirmed()),
         }
     }
 
@@ -478,7 +549,7 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-pub(crate) use terminal_connections::{CONTROL_TIMEOUT, INPUT_NOT_SENT, STABLE_CONNECTION};
+pub(crate) use terminal_connections::{CONTROL_TIMEOUT, STABLE_CONNECTION, input_not_sent};
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(

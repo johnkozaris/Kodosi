@@ -102,7 +102,8 @@ public enum CanvasQuestion {
         case let .browser(browser): browser.activeTab?.url ?? String(localized: "the shared browser", bundle: .module)
         }
         let words = words.map(oneLine).flatMap { $0.isEmpty ? nil : String($0.prefix(600)) }
-        return words.map { "About \(place): \"\($0)\" " } ?? "About \(place): "
+        return words.map { String(localized: "About \(place): \"\($0)\" ", bundle: .module) }
+            ?? String(localized: "About \(place): ", bundle: .module)
     }
 
     private static func oneLine(_ text: String) -> String {

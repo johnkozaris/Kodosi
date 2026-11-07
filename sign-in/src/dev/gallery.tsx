@@ -452,12 +452,15 @@ const SCENES: Record<string, Scene> = {
 
 let sample: Promise<AccountService> | undefined;
 
+const language = new URLSearchParams(location.search).get("lang") ?? "en";
+const lang = language === "en" ? "" : `&lang=${language}`;
+
 function openSample(): Promise<AccountService> {
   const query = new URLSearchParams(location.search);
   const scene = SCENES[query.get("scene") ?? ""];
   const bare = query.has("bare") ? "&bare=1" : "";
   sample ??= Promise.resolve(
-    sampleAccount(scene?.account ?? "", (target) => `?scene=${target}${bare}`),
+    sampleAccount(scene?.account ?? "", (target) => `?scene=${target}${bare}${lang}`),
   );
   return sample;
 }
@@ -474,7 +477,7 @@ function Sheet({ names }: { names: string[] }) {
           {/* oxlint-disable-next-line react/iframe-missing-sandbox -- each frame shows a page of this dev server itself */}
           <iframe
             title={name}
-            src={`?scene=${name}&bare=1${SCENES[name]?.tail ?? ""}`}
+            src={`?scene=${name}&bare=1${lang}${SCENES[name]?.tail ?? ""}`}
             className="h-[640px] w-[390px] rounded-xl border"
           />
         </figure>
@@ -490,14 +493,14 @@ export function Gallery() {
   const sheet = query.get("sheet");
   const scene = SCENES[name] ?? (SCENES["sign-in"] as Scene);
   const to = (target: string) =>
-    `?scene=${target}${bare ? "&bare=1" : ""}${SCENES[target]?.tail ?? ""}`;
+    `?scene=${target}${bare ? "&bare=1" : ""}${lang}${SCENES[target]?.tail ?? ""}`;
   if (scene.code) keepCode(CODE);
   else dropCode();
   const kcContext = getKcContextMock({
     pageId: scene.page,
     overrides: {
       realm: { displayName: "Kodosi" },
-      locale: query.has("languages") ? undefined : { supported: [], currentLanguageTag: "en" },
+      locale: query.has("languages") ? undefined : { supported: [], currentLanguageTag: language },
       ...scene.with,
     } as never,
   });
@@ -523,7 +526,7 @@ export function Gallery() {
   return (
     <>
       {scene.account ? (
-        <Account kcContext={sampleContext()} open={openSample} />
+        <Account kcContext={{ ...sampleContext(), locale: language }} open={openSample} />
       ) : (
         <KcPage kcContext={kcContext} />
       )}

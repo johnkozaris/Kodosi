@@ -114,7 +114,7 @@ private struct SidebarMenuList: View {
             }
         }
         .padding(6)
-        .frame(width: 224)
+        .panelMenuWidth(224)
         .animation(theme.motion.fade, value: deps.launcher.usageAccounts.isEmpty)
     }
 

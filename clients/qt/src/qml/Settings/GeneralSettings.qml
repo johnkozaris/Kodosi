@@ -163,6 +163,22 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "globe"
+            tint: "#3f7fbf"
+            title: qsTr("Language")
+            subtitle: Models.DesktopSettings.nextLanguage !== Models.DesktopSettings.currentLanguage
+                ? qsTr("Quit Kodosi and open it again to show %1.").arg(Models.DesktopSettings.languageName(Models.DesktopSettings.nextLanguage))
+                : qsTr("Kodosi shows the language of your system, or the one that you choose here.")
+
+            KPicker {
+                objectName: "settings.language"
+                values: [{ value: "", label: qsTr("Same as the system") }].concat(Models.DesktopSettings.languages
+                    .map(entry => ({ value: entry.tag, label: entry.name })))
+                current: Models.DesktopSettings.language
+                onPicked: value => Models.DesktopSettings.language = value
+            }
+        }
+        ListRow {
             iconName: "window-restore"
             tint: "#4f9bb0"
             title: qsTr("Keep running when the window closes")

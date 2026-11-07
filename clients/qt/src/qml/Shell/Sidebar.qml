@@ -589,11 +589,18 @@ Item {
                 hoverEnabled: true
                 scale: pressed ? 0.98 : 1
                 contentItem: RowLayout {
+                    id: newTerminalRow
                     spacing: 8
                     opacity: newSpot.hidden ? 0 : 1
                     KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
-                    PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
-                    PlainLabel { Layout.rightMargin: 12; text: Models.Shortcuts.hints.newTerminal; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
+                    PlainLabel { id: newTerminalTitle; Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                    PlainLabel {
+                        Layout.rightMargin: 12
+                        visible: 14 + 13 + 2 * newTerminalRow.spacing + newTerminalTitle.implicitWidth + implicitWidth + 12 <= newTerminalRow.width
+                        text: Models.Shortcuts.hints.newTerminal
+                        color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6)
+                        font.pixelSize: KodosiTheme.fontCaption
+                    }
                 }
                 onClicked: root.newTerminalRequested()
             }
@@ -659,7 +666,7 @@ Item {
                 AbstractButton {
                     id: signInHint
                     width: parent.width
-                    height: 32
+                    height: Math.max(32, hint.implicitHeight + 12)
                     visible: !root.accountReady
                     hoverEnabled: true
                     objectName: "sidebar.signIn.hint"
@@ -679,6 +686,8 @@ Item {
                             text: Models.Account.signedIn ? qsTr("Approve this device to work together") : qsTr("Sign in to work together")
                             color: KodosiTheme.inkMuted
                             font.pixelSize: KodosiTheme.fontFootnote
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
                             elide: Text.ElideRight
                         }
                     }

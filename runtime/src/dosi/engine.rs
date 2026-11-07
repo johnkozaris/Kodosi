@@ -479,9 +479,9 @@ impl Engine {
     ) -> Result<()> {
         let text = text.trim();
         if self.agent().is_none() {
-            return Err(Error::Invalid(
-                "Install Claude Code or Codex, then choose it for Dosi in Settings.".to_owned(),
-            ));
+            return Err(Error::Refused(text!(
+                "Install Claude Code or Codex, then choose it for Dosi in Settings."
+            )));
         }
         if !self.free() {
             if self.queue.len() >= MAX_QUEUED {
@@ -1096,7 +1096,7 @@ impl Engine {
         let before = self.queue.len();
         self.queue.retain(|queued| queued.id != id);
         if self.queue.len() == before {
-            return Err(Error::Invalid("You sent that message already.".to_owned()));
+            return Err(Error::Refused(text!("You sent that message already.")));
         }
         out.snapshot = true;
         Ok(())
@@ -1111,10 +1111,8 @@ impl Engine {
         let conversation = self
             .conversation
             .as_mut()
-            .ok_or_else(|| Error::Invalid("Dosi has no conversation.".to_owned()))?;
-        let answered = conversation
-            .answer(item, choices)
-            .map_err(|reason| Error::Invalid(reason.to_owned()))?;
+            .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
+        let answered = conversation.answer(item, choices).map_err(Error::Text)?;
         out.item(&answered);
         self.write(answered.clone(), out);
         let DosiBody::Question {
@@ -1196,7 +1194,7 @@ impl Engine {
         let conversation = self
             .conversation
             .as_mut()
-            .ok_or_else(|| Error::Invalid("Dosi has no conversation.".to_owned()))?;
+            .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
         let item = conversation.push(DosiBody::Question {
             question,
             options,
@@ -1224,7 +1222,7 @@ impl Engine {
             AgentChoiceChange::Pick(pick) => Some(pick.agent),
         };
         if agent.is_some_and(|agent| !AGENTS.contains(&agent)) {
-            return Err(Error::Invalid("Dosi cannot run on that agent.".to_owned()));
+            return Err(Error::Refused(text!("Dosi cannot run on that agent.")));
         }
         let used = |engine: &Self| engine.agent().map(|agent| engine.setup.pick(agent));
         let before = used(self);

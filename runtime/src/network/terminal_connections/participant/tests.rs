@@ -8,7 +8,7 @@ struct View {
     host: Channel<Pipe>,
     commands: mpsc::Sender<RemoteRequest>,
     updates: mpsc::Receiver<RemoteUpdate>,
-    ended: tokio::task::JoinHandle<(Result<()>, String)>,
+    ended: tokio::task::JoinHandle<(Result<()>, Text)>,
 }
 
 async fn view() -> View {
@@ -31,7 +31,7 @@ async fn view() -> View {
         loop {
             if let Err(error) = viewer.step(&mut deadlines, &mut trust).await {
                 viewer.settle(&error);
-                let reason = viewer.unconfirmed("Lost.".into());
+                let reason = viewer.unconfirmed(Text::plain("Lost."));
                 return (Err(error), reason);
             }
         }
@@ -261,7 +261,10 @@ async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_co
     view.host.close().await;
     let (result, reason) = view.ended.await.unwrap();
     assert!(result.is_err());
-    assert_eq!(reason, "Lost. Kodosi did not send some of your last input.");
+    assert_eq!(
+        reason.to_string(),
+        "Lost. Kodosi did not send some of your last input."
+    );
 }
 
 #[tokio::test]
@@ -273,7 +276,7 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
     view.host
         .send(&Frame::End(wire::End {
             final_sequence: 3,
-            reason: "Terminal closed.".into(),
+            reason: Text::plain("Terminal closed."),
         }))
         .await
         .unwrap();
@@ -282,7 +285,7 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
         Some(RemoteUpdate::Ended)
     ));
     let (_, reason) = view.ended.await.unwrap();
-    assert_eq!(reason, "Lost.");
+    assert_eq!(reason.to_string(), "Lost.");
 }
 
 #[tokio::test]
@@ -308,7 +311,7 @@ async fn a_close_is_done_when_its_terminal_ends_before_the_answer() {
     view.host
         .send(&Frame::End(wire::End {
             final_sequence: 0,
-            reason: "The terminal was closed.".into(),
+            reason: Text::plain("The terminal was closed."),
         }))
         .await
         .unwrap();
@@ -354,7 +357,7 @@ async fn a_view_sends_the_parts_of_a_picture_only_when_the_host_asks_and_ends_wh
             received,
             at: 0,
             step,
-            message: String::new(),
+            message: None,
         })
     };
     view.host
@@ -420,7 +423,7 @@ async fn a_late_answer_for_a_picture_that_the_view_stopped_waiting_for_leaves_th
             received: 0,
             at: 0,
             step: PictureStep::Refused,
-            message: "Late.".to_owned(),
+            message: Some(Text::plain("Late.")),
         }))
         .await
         .unwrap();

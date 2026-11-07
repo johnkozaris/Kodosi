@@ -1,3 +1,4 @@
+import { say } from "@documents/words";
 import { commandKey, keys, type ZoomPart, zoomOf } from "./parts";
 
 export type Fitting = "width" | "page";
@@ -63,13 +64,13 @@ export class Zoom {
       step: (larger) => this.step(larger),
       entries: () => [
         {
-          label: "Fit width",
+          label: say("Fit width"),
           hint: keys("0"),
           checked: this.sizing === "width",
           run: () => this.set("width"),
         },
-        { label: "Fit page", checked: this.sizing === "page", run: () => this.set("page") },
-        { label: "Actual size", checked: this.sizing === 1, run: () => this.set(1) },
+        { label: say("Fit page"), checked: this.sizing === "page", run: () => this.set("page") },
+        { label: say("Actual size"), checked: this.sizing === 1, run: () => this.set(1) },
       ],
     });
     const signal = this.listening.signal;

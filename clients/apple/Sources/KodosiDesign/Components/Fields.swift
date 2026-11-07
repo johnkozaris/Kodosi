@@ -55,7 +55,7 @@ public struct KodosiSwitchStyle: ToggleStyle {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
-        .accessibilityValue(Text(configuration.isOn ? "On" : "Off"))
+        .accessibilityValue(Text(configuration.isOn ? "On" : "Off", bundle: .module))
         .accessibilityAddTraits(configuration.isOn ? [.isSelected] : [])
     }
 }
@@ -76,14 +76,14 @@ public struct KodosiStepper: View {
 
     public var body: some View {
         HStack(spacing: 2) {
-            IconButton(title: "Decrease", symbol: "minus", identifier: "stepper.decrease", size: 26) {
+            IconButton(title: "Decrease", bundle: .module, symbol: "minus", identifier: "stepper.decrease", size: 26) {
                 value = max(range.lowerBound, value - step)
             }.disabled(value <= range.lowerBound)
             Text(value.formatted()).appTextStyle(.subhead).monospacedDigit()
                 .contentTransition(.numericText(value: Double(value)))
                 .foregroundStyle(theme.colors.ink)
                 .frame(minWidth: 52)
-            IconButton(title: "Increase", symbol: "plus", identifier: "stepper.increase", size: 26) {
+            IconButton(title: "Increase", bundle: .module, symbol: "plus", identifier: "stepper.increase", size: 26) {
                 value = min(range.upperBound, value + step)
             }.disabled(value >= range.upperBound)
         }
@@ -174,7 +174,7 @@ public struct MenuPicker<Value: Hashable>: View {
                     }
                 }.padding(6)
             }
-            .frame(minWidth: 200, maxHeight: 320)
+            .frame(minWidth: 200, maxHeight: 352)
             .popoverSheet()
         }
     }

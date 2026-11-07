@@ -122,18 +122,18 @@ QString DeepLinkRouter::userMessage(const DeepLinkParseError error)
 {
     switch (error) {
     case DeepLinkParseError::Oversized:
-        return QStringLiteral("The link is too long to open safely.");
+        return tr("The link is too long to open safely.");
     case DeepLinkParseError::MalformedEncoding:
-        return QStringLiteral("The link contains malformed text encoding.");
+        return tr("The link contains malformed text encoding.");
     case DeepLinkParseError::UnsafeText:
-        return QStringLiteral("The link contains unsafe text.");
+        return tr("The link contains unsafe text.");
     case DeepLinkParseError::InvalidQuery:
-        return QStringLiteral("The link contains unsupported parameters.");
+        return tr("The link contains unsupported parameters.");
     case DeepLinkParseError::UnsupportedRoute:
     case DeepLinkParseError::None:
-        return QStringLiteral("This Kodosi link is invalid or unsupported.");
+        return tr("This Kodosi link is invalid or unsupported.");
     }
-    return QStringLiteral("Kodosi could not open this link.");
+    return tr("Kodosi could not open this link.");
 }
 
 std::optional<QString> DeepLinkRouter::decodeComponent(

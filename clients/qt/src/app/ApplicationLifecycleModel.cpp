@@ -234,7 +234,7 @@ void ApplicationLifecycleModel::handleRuntimeRunningChanged(
     }
     ++m_attemptToken;
     m_attemptInFlight = false;
-    fail(QStringLiteral("Kodosi stopped unexpectedly. Try again."));
+    fail(tr("Kodosi stopped unexpectedly. Try again."));
 }
 
 void ApplicationLifecycleModel::setOutdatedHost(std::optional<OutdatedHost> host)
@@ -252,10 +252,6 @@ QString ApplicationLifecycleModel::describe(const OutdatedHost& host)
                   "Stop it in its terminal and start it again.")
             .arg(host.pid);
     }
-    if (host.terminals == 1) {
-        return tr("The earlier version of Kodosi still runs 1 terminal in the background. "
-                  "Restart it to use the update. The terminal ends.");
-    }
     return tr("The earlier version of Kodosi still runs %n terminals in the background. "
               "Restart it to use the update. Its terminals end.",
         nullptr, static_cast<int>(host.terminals));
@@ -265,7 +261,7 @@ void ApplicationLifecycleModel::fail(QString message)
 {
     const auto safe = boundedText(
         std::move(message),
-        QStringLiteral("Kodosi could not start."));
+        tr("Kodosi could not start."));
     if (m_state == State::Failed && m_errorText == safe) {
         return;
     }

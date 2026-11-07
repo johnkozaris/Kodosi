@@ -44,7 +44,7 @@ Item {
         const today = new Date();
         const start = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
         const days = Math.round((start(today) - start(date)) / 86400000);
-        return days === 0 ? qsTr("Today") : days === 1 ? qsTr("Yesterday") : date.toLocaleDateString(Qt.locale(), "d MMMM");
+        return days === 0 ? qsTr("Today") : days === 1 ? qsTr("Yesterday") : date.toLocaleDateString(Qt.locale(), qsTr("d MMMM"));
     }
 
     objectName: "room.conversation"

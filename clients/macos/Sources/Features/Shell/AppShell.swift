@@ -166,7 +166,7 @@ struct AppShell: View {
             if deps.updateRequired {
                 NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
                            identifier: "shell.update", action: deps.updater.configured ? { deps.updater.check() } : nil,
-                           actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
+                           actionTitle: Text("Check for Updates"), dismiss: { deps.updateRequired = false })
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
             } else if let error = deps.errorMessage {
@@ -175,7 +175,7 @@ struct AppShell: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             } else if let device = deps.deviceNotice {
                 NoticePill(message: device.message, identifier: "shell.devices", sign: .status(.hand), action: deps.openDeviceNotice,
-                           actionTitle: device.actionTitle, dismiss: deps.dismissDeviceNotice)
+                           actionTitle: Text(device.actionTitle), dismiss: deps.dismissDeviceNotice)
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }

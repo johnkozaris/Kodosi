@@ -19,7 +19,14 @@ impl Client {
         Ok(Self {
             events: Events(FrameReader::new(reader)),
             commands: Commands(writer),
-            initial_events: welcome.events,
+            initial_events: welcome
+                .events
+                .into_iter()
+                .map(|mut event| {
+                    crate::text::render(&mut event, crate::text::language());
+                    event
+                })
+                .collect(),
             host,
         })
     }
@@ -27,7 +34,9 @@ impl Client {
         self.commands.command(command).await
     }
     pub async fn next(&mut self) -> Result<Value> {
-        self.events.next().await
+        let mut frame = self.events.next().await?;
+        crate::text::render(&mut frame, crate::text::language());
+        Ok(frame)
     }
     pub fn split(self) -> (Events, Commands) {
         (self.events, self.commands)
@@ -83,9 +92,10 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
                 return Err(Error::HostBusy(
                     reply
                         .get("message")
-                        .and_then(Value::as_str)
-                        .unwrap_or("The running host refused to stop.")
-                        .to_owned(),
+                        .and_then(|message| serde_json::from_value(message.clone()).ok())
+                        .unwrap_or_else(|| {
+                            crate::text::Text::plain("The running host refused to stop.")
+                        }),
                 ));
             }
             _ => {}
@@ -134,10 +144,7 @@ async fn connect(
     let (stream, welcome) = handshake(root, session_id).await?;
     if welcome.version < VERSION {
         let host = welcome.host.ok_or_else(|| {
-            Error::Invalid(
-                "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."
-                    .into(),
-            )
+            Error::Refused(text!("An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."))
         })?;
         return Err(Error::HostOutdated {
             kind: host.kind,
@@ -146,9 +153,9 @@ async fn connect(
         });
     }
     if welcome.version > VERSION {
-        return Err(Error::Invalid(
-            "The running Kodosi host is newer than this program. Use the updated Kodosi.".into(),
-        ));
+        return Err(Error::Refused(text!(
+            "The running Kodosi host is newer than this program. Use the updated Kodosi."
+        )));
     }
     if let Some(refusal) = welcome.refusal {
         return Err(refusal.error());
@@ -293,15 +300,14 @@ async fn connect_or_spawn(root: &Path) -> Result<Client> {
         }
     }
     if let Some(status) = exited {
-        return Err(Error::Other(format!(
-            "The Kodosi host stopped while it started ({status})."
+        return Err(Error::Text(text!(
+            "The Kodosi host stopped while it started ({status}).",
+            status = status.to_string()
         )));
     }
     drop(child.kill());
     drop(child.wait());
-    Err(Error::Other(
-        "The Kodosi host did not start in time.".into(),
-    ))
+    Err(Error::Text(text!("The Kodosi host did not start in time.")))
 }
 
 fn collect_exit(mut child: std::process::Child) {
@@ -325,9 +331,9 @@ fn host_program() -> Result<PathBuf> {
     if program.is_file() {
         Ok(program)
     } else {
-        Err(Error::Invalid(format!(
-            "The kodosi program is missing from {}. Install Kodosi again.",
-            current.parent().unwrap_or(&current).display()
+        Err(Error::Refused(text!(
+            "The kodosi program is missing from {folder}. Install Kodosi again.",
+            folder = current.parent().unwrap_or(&current).display().to_string()
         )))
     }
 }

@@ -143,6 +143,7 @@ public struct IconButton: View {
     @Environment(\.isEnabled) private var isEnabled
     @State private var hovered = false
     public let title: LocalizedStringKey
+    public let bundle: Bundle?
     public let symbol: String
     public let identifier: String
     public var size: CGFloat = 28
@@ -153,6 +154,7 @@ public struct IconButton: View {
 
     public init(
         title: LocalizedStringKey,
+        bundle: Bundle? = nil,
         symbol: String,
         identifier: String,
         size: CGFloat = 28,
@@ -162,6 +164,7 @@ public struct IconButton: View {
         action: @escaping () -> Void,
     ) {
         self.title = title
+        self.bundle = bundle
         self.symbol = symbol
         self.identifier = identifier
         self.size = size
@@ -192,7 +195,7 @@ public struct IconButton: View {
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.snappy, value: active || open)
-        .tip(title).accessibilityLabel(Text(title)).accessibilityIdentifier(identifier)
+        .tip(Text(title, bundle: bundle)).accessibilityLabel(Text(title, bundle: bundle)).accessibilityIdentifier(identifier)
         .accessibilityAddTraits(active ? .isSelected : [])
     }
 

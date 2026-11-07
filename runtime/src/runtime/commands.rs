@@ -15,7 +15,7 @@ use super::{Completion, Job, MAX_SESSIONS, Opening, Runtime, Scope};
 use super::{Local, StartedSession};
 use crate::{
     Command, Error, Result,
-    network::{BackendReply, INPUT_NOT_SENT, RemoteConnection},
+    network::{BackendReply, RemoteConnection, input_not_sent},
     protocol::{ConnectionState, SessionStatus, parse_id},
     terminal::RemoteTerminal,
 };
@@ -33,9 +33,13 @@ use std::sync::Arc;
 use base64::Engine as _;
 
 const MOST_PIPES: usize = 32;
-const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
+fn run_on_host() -> crate::text::Text {
+    text!("Start a program on the computer that hosts this terminal.")
+}
 #[cfg(not(feature = "host"))]
-const NO_DOSI: &str = "Dosi runs on the computer that hosts your terminals.";
+fn no_dosi() -> crate::text::Text {
+    text!("Dosi runs on the computer that hosts your terminals.")
+}
 
 impl Runtime {
     pub(super) fn apply_for_consumer(
@@ -137,9 +141,7 @@ impl Runtime {
             Command::RestoreSessions { .. } => self.result(command),
             #[cfg(not(feature = "host"))]
             Command::CreateSession { .. } => {
-                return Err(Error::Invalid(
-                    "This device cannot start terminals.".to_owned(),
-                ));
+                return Err(Error::Refused(text!("This device cannot start terminals.")));
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
@@ -148,9 +150,9 @@ impl Runtime {
             Command::Message { .. } => self.send_message(command)?,
             #[cfg(not(feature = "host"))]
             Command::Message { .. } => {
-                return Err(Error::Invalid(
-                    "This device sends no messages to agents.".to_owned(),
-                ));
+                return Err(Error::Refused(text!(
+                    "This device sends no messages to agents."
+                )));
             }
             Command::Read { .. } => self.read(command)?,
             Command::CanvasAsk { .. } => self.ask_canvas(command)?,
@@ -164,9 +166,9 @@ impl Runtime {
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. } => {
-                return Err(Error::Invalid(
-                    "The browsers of a computer are in the app on that computer.".to_owned(),
-                ));
+                return Err(Error::Refused(text!(
+                    "The browsers of a computer are in the app on that computer."
+                )));
             }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { pipe, .. } => {
@@ -203,7 +205,7 @@ impl Runtime {
             #[cfg(feature = "host")]
             command if command.is_dosi() => self.dosi_command(command)?,
             #[cfg(not(feature = "host"))]
-            command if command.is_dosi() => return Err(Error::Invalid(NO_DOSI.to_owned())),
+            command if command.is_dosi() => return Err(Error::Text(no_dosi())),
             Command::SeeMission {
                 mission_id,
                 sequence,
@@ -220,7 +222,7 @@ impl Runtime {
             #[cfg(not(feature = "host"))]
             Command::RunInSession { .. } => {
                 self.command_session(command)?;
-                return Err(Error::Invalid(RUN_ON_HOST.to_owned()));
+                return Err(Error::Text(run_on_host()));
             }
             Command::OpenRemote { .. }
             | Command::DisconnectRemote { .. }
@@ -246,15 +248,13 @@ impl Runtime {
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
             | Command::InspectProvider { .. } => {
-                return Err(Error::Invalid(
-                    "Open agent conversations on the computer that runs the agent.".to_owned(),
-                ));
+                return Err(Error::Refused(text!(
+                    "Open agent conversations on the computer that runs the agent."
+                )));
             }
             #[cfg(not(feature = "host"))]
             Command::ListRepositories { .. } => {
-                return Err(Error::Invalid(
-                    "Link repositories from a computer.".to_owned(),
-                ));
+                return Err(Error::Refused(text!("Link repositories from a computer.")));
             }
             #[cfg(feature = "host")]
             Command::ListRepositories { mission_id, .. } => {
@@ -275,9 +275,7 @@ impl Runtime {
             | Command::AddAgentAccount { .. }
             | Command::ChooseAgent { .. }
             | Command::ListFolders { .. } => {
-                return Err(Error::Invalid(
-                    "This device cannot start terminals.".to_owned(),
-                ));
+                return Err(Error::Refused(text!("This device cannot start terminals.")));
             }
             #[cfg(feature = "host")]
             Command::ListFolders { path, .. } => {
@@ -350,7 +348,7 @@ impl Runtime {
 
     pub(super) fn ask_computer(&mut self, command: &Command, computer: String) -> Result<()> {
         if !command.runs_on_other_computers() {
-            return Err(Error::Invalid("Do this on the computer itself.".to_owned()));
+            return Err(Error::Refused(text!("Do this on the computer itself.")));
         }
         self.job_capacity()?;
         let request = serde_json::to_value(command)?;
@@ -369,9 +367,9 @@ impl Runtime {
     pub(super) fn asked(&mut self, command: &Command, answer: Value) -> Result<()> {
         let event = self
             .event(answer.clone())
-            .map_err(|_| Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()))?;
+            .map_err(|_| Error::Text(crate::protocol::other_version()))?;
         if event.event.request_id() != Some(command.request_id()) || !event.event.is_answer() {
-            return Err(Error::Invalid(crate::protocol::OTHER_VERSION.to_owned()));
+            return Err(Error::Text(crate::protocol::other_version()));
         }
         let started = match (command, &event.event) {
             (
@@ -685,7 +683,7 @@ impl Runtime {
                 } => Ok(canvas
                     .document_command(agent, terminal, PathBuf::from(folder), arguments.clone())
                     .await),
-                _ => Err("expected a canvas command".to_owned()),
+                _ => Err(crate::text::Text::plain("expected a canvas command")),
             };
             Completion::Canvas { command, result }
         });
@@ -873,7 +871,7 @@ impl Runtime {
         let terminal = self
             .local
             .get(&id)
-            .ok_or_else(|| Error::Invalid(RUN_ON_HOST.to_owned()))?
+            .ok_or_else(|| Error::Text(run_on_host()))?
             .terminal
             .clone();
         let launcher = Arc::clone(&self.launcher);
@@ -955,16 +953,16 @@ impl Runtime {
                             != local.entry.shared_with.iter().collect::<BTreeSet<_>>()
                     })
                 {
-                    return Err(Error::Invalid(super::SHARING_CHANGED.to_owned()));
+                    return Err(Error::Refused(super::sharing_changed()));
                 }
                 if !self.local.contains_key(&id) {
-                    return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
+                    return Err(Error::Refused(super::share_on_host()));
                 }
                 self.require_publication(id)?;
             }
             #[cfg(not(feature = "host"))]
             Command::ShareSession { .. } => {
-                return Err(Error::Invalid(super::SHARE_ON_HOST.to_owned()));
+                return Err(Error::Refused(super::share_on_host()));
             }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
@@ -974,17 +972,15 @@ impl Runtime {
             Command::LeaveSession { .. }
                 if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
-                return Err(Error::Invalid(
-                    "You cannot leave your own terminal.".to_owned(),
-                ));
+                return Err(Error::Refused(text!("You cannot leave your own terminal.")));
             }
             Command::HideSession { .. } if self.hosts(&id) => {
-                return Err(Error::Invalid(
-                    "This terminal runs on this computer.".to_owned(),
-                ));
+                return Err(Error::Refused(text!(
+                    "This terminal runs on this computer."
+                )));
             }
             Command::HideSession { .. } if self.host_online(id) => {
-                return Err(Error::Invalid(self.computer_is(id, "online")));
+                return Err(Error::Text(self.computer_is(id, true)));
             }
             _ => {}
         }
@@ -995,7 +991,7 @@ impl Runtime {
     fn require_publication(&mut self, id: Uuid) -> Result<()> {
         if self.local.get(&id).is_some_and(|local| !local.published) {
             self.publish_locals();
-            return Err(Error::Invalid(super::NOT_PUBLISHED.to_owned()));
+            return Err(Error::Refused(super::not_published()));
         }
         Ok(())
     }
@@ -1004,9 +1000,9 @@ impl Runtime {
         if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) {
             Ok(())
         } else {
-            Err(Error::Invalid(
-                "Only the owner can change this terminal.".to_owned(),
-            ))
+            Err(Error::Refused(text!(
+                "Only the owner can change this terminal."
+            )))
         }
     }
 
@@ -1034,7 +1030,7 @@ impl Runtime {
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
-                return Err(Error::Invalid("This provider conversation is already running in Kodosi.".to_owned()));
+                return Err(Error::Refused(text!("This provider conversation is already running in Kodosi.")));
             }
         self.begin_creation(command, None).map(drop)
     }
@@ -1120,7 +1116,9 @@ impl Runtime {
             if !keeps_screen {
                 entry.connection_state = ConnectionState::Connecting;
             }
-            entry.message.take_if(|message| message != INPUT_NOT_SENT);
+            entry
+                .message
+                .take_if(|message| *message != input_not_sent());
         }
         self.publish_catalog();
         let network = self.network.clone();
@@ -1174,17 +1172,20 @@ impl Runtime {
     }
 
     fn offline(&self, id: Uuid) -> Error {
-        Error::Other(self.computer_is(id, "offline"))
+        Error::Text(self.computer_is(id, false))
     }
 
-    fn computer_is(&self, id: Uuid, state: &str) -> String {
-        self.remotes
+    fn computer_is(&self, id: Uuid, online: bool) -> crate::text::Text {
+        let host = self
+            .remotes
             .get(&id)
-            .and_then(|entry| entry.host_name.as_deref())
-            .map_or_else(
-                || format!("Its computer is {state}."),
-                |host| format!("{host} is {state}."),
-            )
+            .and_then(|entry| entry.host_name.as_deref());
+        match (host, online) {
+            (Some(host), true) => text!("{computer} is online.", computer = host),
+            (Some(host), false) => text!("{computer} is offline.", computer = host),
+            (None, true) => text!("Its computer is online."),
+            (None, false) => text!("Its computer is offline."),
+        }
     }
 
     fn disconnect_remote(&mut self, id: Uuid) {
@@ -1317,7 +1318,7 @@ impl Runtime {
                     && let Err(error) = result
                     && !matches!(error, Error::Stopped)
                 {
-                    self.emit(json!({"type":"system.error", "message":format!("The terminal did not confirm the input, and Kodosi did not send it again: {error}")}));
+                    self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
                 }
             }
             Completion::Initialized(result) => {
@@ -1327,7 +1328,7 @@ impl Runtime {
                     && let Err(error) = result
                     && !matches!(error, Error::Stale)
                 {
-                    self.emit(json!({"type":"system.error", "message":error.to_string()}));
+                    self.emit(json!({"type":"system.error", "message":error.text()}));
                 }
                 #[cfg(feature = "host")]
                 self.publish_locals();
@@ -1454,7 +1455,7 @@ impl Runtime {
                     value["answer"] = json!(answer);
                     self.emit(value);
                 }
-                Err(message) => self.error(&command, &Error::Invalid(message)),
+                Err(message) => self.error(&command, &Error::Text(message)),
             },
             Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
@@ -1466,7 +1467,7 @@ impl Runtime {
                     }
                     self.emit(value);
                 }
-                Err(message) => self.error(&command, &Error::Invalid(message)),
+                Err(message) => self.error(&command, &Error::Text(message)),
             },
             Completion::Document {
                 command,
@@ -1540,9 +1541,7 @@ impl Runtime {
                 if terminal.is_closed() {
                     self.error(
                         &command,
-                        &Error::Other(
-                            "The process exited before its terminal was ready.".to_owned(),
-                        ),
+                        &Error::Text(text!("The process exited before its terminal was ready.")),
                     );
                     return;
                 }
@@ -1715,7 +1714,7 @@ impl Runtime {
                     .remotes
                     .get(&id)
                     .and_then(|entry| entry.message.clone())
-                    .filter(|message| message == INPUT_NOT_SENT);
+                    .filter(|message| *message == input_not_sent());
                 let mut entry = self.remote_entry(self.listed_remote(&connection.session));
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
@@ -1757,7 +1756,7 @@ impl Runtime {
         {
             tracing::warn!(%id, %error, "remote terminal connection failed");
         }
-        let blocked = matches!(error, Error::Invalid(_));
+        let blocked = matches!(error, Error::Invalid(_) | Error::Refused(_));
         if blocked {
             self.reconnect.remove(&id);
             if let Some(connection) = self.connections.remove(&id) {
@@ -1783,7 +1782,7 @@ impl Runtime {
                 } else {
                     ConnectionState::Offline
                 };
-                entry.message = (blocked || online).then(|| error.to_string());
+                entry.message = (blocked || online).then(|| error.text());
             }
         }
         self.publish_catalog();
@@ -1913,7 +1912,7 @@ async fn session_program(
     .map_err(Error::Invalid)?;
     let executable = crate::agents::executable(&shell(config), resume.provider.executable())
         .await
-        .ok_or_else(|| Error::Invalid("The provider CLI is not installed.".to_owned()))?;
+        .ok_or_else(|| Error::Refused(text!("The provider CLI is not installed.")))?;
     let arguments = match resume.provider {
         provider::Provider::Claude => vec![
             "--append-system-prompt".to_owned(),
@@ -1965,16 +1964,18 @@ async fn start_folder(
 ) -> Result<PathBuf> {
     let directory = working_dir.map_or_else(|| config.home.clone(), PathBuf::from);
     if !directory.is_absolute() || worktrees.is_some_and(|place| !Path::new(place).is_absolute()) {
-        return Err(Error::Invalid(
-            "Choose a folder by its full path on that computer.".to_owned(),
-        ));
+        return Err(Error::Refused(text!(
+            "Choose a folder by its full path on that computer."
+        )));
     }
     let shown = directory.display().to_string();
     let directory = tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&directory))
         .await
         .map_err(std::io::Error::from)?
         .map_err(|error| match error.kind() {
-            std::io::ErrorKind::NotFound => Error::Invalid(format!("There is no folder {shown}.")),
+            std::io::ErrorKind::NotFound => {
+                Error::Refused(text!("There is no folder {folder}.", folder = &shown))
+            }
             _ => Error::Io(error),
         })?;
     if !tokio::fs::metadata(&directory).await?.is_dir() {
@@ -2115,7 +2116,7 @@ async fn provider_reply(
                 launcher
                     .add_account(*agent, name)
                     .await
-                    .map_err(Error::Invalid)?,
+                    .map_err(Error::Text)?,
             )?);
         }
         _ => {}

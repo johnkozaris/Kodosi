@@ -1,11 +1,15 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Kodosi;
 
-internal sealed record ErrorBody(string Error);
+internal sealed record ErrorBody(
+    string Error,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Limit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? Most = null);
 
 internal sealed partial class ApiErrors(RequestDelegate next, ServerMetrics metrics, ILogger<ApiErrors> logger)
 {
@@ -20,39 +24,39 @@ internal sealed partial class ApiErrors(RequestDelegate next, ServerMetrics metr
         }
         catch (Exception error) when (!context.Response.HasStarted)
         {
-            var (status, message) = Answer(error);
+            var (status, body) = Answer(error);
             context.Response.Clear();
             context.Response.StatusCode = status;
-            await context.Response.WriteAsJsonAsync(new ErrorBody(message), context.RequestAborted);
+            await context.Response.WriteAsJsonAsync(body, context.RequestAborted);
         }
     }
 
-    private (int Status, string Message) Answer(Exception error)
+    private (int Status, ErrorBody Body) Answer(Exception error)
     {
         switch (error)
         {
             case ApiException refusal:
-                return (refusal.Status, refusal.Message);
+                return (refusal.Status, new ErrorBody(refusal.Message, refusal.Limit, refusal.Most));
             case BadHttpRequestException bad:
-                return (bad.StatusCode, "The request is not valid.");
+                return (bad.StatusCode, new ErrorBody("The request is not valid."));
             case IdentityFormatException or JsonException:
-                return (StatusCodes.Status400BadRequest, "Invalid request encoding.");
+                return (StatusCodes.Status400BadRequest, new ErrorBody("Invalid request encoding."));
         }
         if (Failures.IsConflict(error))
         {
             Conflicted(logger, Failures.Describe(error));
-            return (StatusCodes.Status409Conflict, error is DbUpdateConcurrencyException
+            return (StatusCodes.Status409Conflict, new ErrorBody(error is DbUpdateConcurrencyException
                 ? "The current state changed; refresh before retrying."
-                : "The requested change conflicts with current state.");
+                : "The requested change conflicts with current state."));
         }
         metrics.Failed();
         if (Failures.IsDatabaseUnavailable(error))
         {
             DatabaseUnavailable(logger, Failures.Describe(error));
-            return (StatusCodes.Status503ServiceUnavailable, "The Kodosi server could not reach its database. Try again in a moment.");
+            return (StatusCodes.Status503ServiceUnavailable, new ErrorBody("The Kodosi server could not reach its database. Try again in a moment."));
         }
         Unexpected(logger, error);
-        return (StatusCodes.Status500InternalServerError, "The Kodosi server could not complete the request.");
+        return (StatusCodes.Status500InternalServerError, new ErrorBody("The Kodosi server could not complete the request."));
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "A request conflicted with the current state: {Failure}")]
