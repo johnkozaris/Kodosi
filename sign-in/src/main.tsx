@@ -16,8 +16,11 @@ if (kcContext?.themeType === "login") {
   );
 } else if (kcContext) {
   const AGAIN = "kodosi.again";
-  void import("./account/KcPage").then(
-    ({ default: AccountPage }) => {
+  void Promise.all([
+    import("./account/KcPage"),
+    import("./account/words").then(({ loadWords }) => loadWords(kcContext.locale)),
+  ]).then(
+    ([{ default: AccountPage }]) => {
       try {
         sessionStorage.removeItem(AGAIN);
       } catch {}
@@ -36,5 +39,10 @@ if (kcContext?.themeType === "login") {
     },
   );
 } else if (import.meta.env.DEV) {
-  void import("./dev/gallery").then(({ Gallery }) => root.render(<Gallery />));
+  void Promise.all([
+    import("./dev/gallery"),
+    import("./account/words").then(({ loadWords }) =>
+      loadWords(new URLSearchParams(location.search).get("lang") ?? "en"),
+    ),
+  ]).then(([{ Gallery }]) => root.render(<Gallery />));
 }
