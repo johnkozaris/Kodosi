@@ -22,23 +22,23 @@ public enum AppLanguage {
     ]
 
     private static let key = "AppleLanguages"
+    private static let choiceKey = "app.language"
 
     public static var current: String {
         Bundle.main.preferredLocalizations.first ?? "en"
     }
 
     public static func chosen(in defaults: UserDefaults) -> String? {
-        guard let own = defaults.stringArray(forKey: key)?.first,
-              own != systemLanguages.first
-        else { return nil }
-        return choice(for: own)?.tag
+        defaults.string(forKey: choiceKey).flatMap { choice(for: $0)?.tag }
     }
 
     public static func choose(_ tag: String?, in defaults: UserDefaults) {
         if let tag {
             defaults.set([tag], forKey: key)
+            defaults.set(tag, forKey: choiceKey)
         } else {
             defaults.removeObject(forKey: key)
+            defaults.removeObject(forKey: choiceKey)
         }
     }
 

@@ -98,6 +98,7 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
   setTheme(element, options.theme);
   setPreferences(element, options, options.preferences);
   useLanguage(options.language)
+    .catch(console.error)
     .then(() => factoryOf(options.kind))
     .then((factory) => {
       editor = factory(element, client);

@@ -297,7 +297,7 @@ impl CanvasBrowser {
             && self
                 .problem
                 .as_ref()
-                .is_none_or(|problem| bounded(problem.words(), MOST_PROBLEM))
+                .is_none_or(|problem| bounded(&problem.to_string(), MOST_PROBLEM))
     }
 }
 

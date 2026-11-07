@@ -441,6 +441,7 @@ fn backend_refusals() -> Vec<Text> {
         text!("Choose another person."),
         text!("Delete your account on the account page of the sign-in service."),
         text!("Dosi already has a conversation."),
+        text!("Invalid device code."),
         text!("Invite an accepted friend."),
         text!("Leave a room before you join or make another."),
         text!("Leave the room to leave its shared terminals."),
@@ -453,10 +454,15 @@ fn backend_refusals() -> Vec<Text> {
         text!("Room keys changed; refresh before retrying."),
         text!("Room membership changed; refresh before retrying."),
         text!("Share a terminal only with accepted friends."),
+        text!("Sign in again to delete your account."),
+        text!("Sign in again to start fresh on this device."),
         text!("That computer is busy. Try again in a moment."),
         text!("That computer is not online."),
+        text!("The Kodosi server is busy. Open the terminal again in a moment."),
         text!("The approval has already changed."),
+        text!("The connection is too slow."),
         text!("The current state changed; refresh before retrying."),
+        text!("The device challenge expired or was already used."),
         text!("The device connection closed."),
         text!("The friend list changed on another device."),
         text!("The host is offline."),
@@ -469,9 +475,11 @@ fn backend_refusals() -> Vec<Text> {
         text!("The server has reached its limit of terminal connections."),
         text!("The sharing of this terminal changed; refresh before retrying."),
         text!("There are too many terminals to list."),
+        text!("This Kodosi account was deleted."),
         text!("This account has no recovery key."),
         text!("This device was removed."),
         text!("This invitation is no longer available."),
+        text!("This operation is not authorized."),
         text!("This person has the most friends that they can have."),
         text!("This person has too many open friend requests. Try again later."),
         text!("This person has too many open room invitations."),
@@ -479,6 +487,8 @@ fn backend_refusals() -> Vec<Text> {
             "This room is full, because its tasks and repositories use all of its space. Make a new room to continue."
         ),
         text!("This room item changed; refresh before retrying."),
+        text!("This terminal is no longer available."),
+        text!("This terminal is not shared with you."),
         text!(
             "This terminal is shared with its room. Remove it from the room to share it with friends."
         ),
@@ -489,6 +499,7 @@ fn backend_refusals() -> Vec<Text> {
             "Too many of your terminals wait to close on offline computers. Remove the computers that do not come back."
         ),
         text!("Too many open views."),
+        text!("Too many pending device approvals."),
         text!("You cannot leave your own terminal."),
         text!("You have too many terminals."),
     ]
@@ -503,4 +514,28 @@ pub(crate) fn current_versions() -> Value {
         "terminalConnectionProtocolVersion": crate::protocol::TERMINAL_CONNECTION_VERSION,
         "oldestTerminalConnectionProtocolVersion": crate::protocol::TERMINAL_CONNECTION_VERSION,
     })
+}
+
+#[cfg(test)]
+mod refusal_tests {
+    use super::*;
+    use crate::text::Language;
+
+    #[test]
+    fn a_refusal_of_the_server_reads_in_the_language_of_the_app() {
+        let known =
+            backend_text(&serde_json::json!({"error": "This terminal is no longer available."}))
+                .unwrap();
+        assert_eq!(
+            known.in_language(Language::German),
+            "Dieses Terminal ist nicht mehr verfügbar."
+        );
+        let unknown =
+            backend_text(&serde_json::json!({"error": "Invalid room signature."})).unwrap();
+        assert!(
+            unknown
+                .in_language(Language::German)
+                .ends_with(" (Invalid room signature.)")
+        );
+    }
 }

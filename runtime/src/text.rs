@@ -64,7 +64,17 @@ impl Language {
     }
 
     pub fn of(tag: &str) -> Self {
-        let primary = tag.split(['-', '_']).next().unwrap_or_default();
+        let mut parts = tag.split(['-', '_']);
+        let primary = parts.next().unwrap_or_default();
+        let subtags: Vec<&str> = parts.collect();
+        let is = |wanted: &[&str]| {
+            subtags
+                .iter()
+                .any(|part| wanted.iter().any(|one| part.eq_ignore_ascii_case(one)))
+        };
+        if primary.eq_ignore_ascii_case("zh") && !is(&["Hans"]) && is(&["Hant", "TW", "HK", "MO"]) {
+            return Self::English;
+        }
         Self::ALL
             .into_iter()
             .find(|language| {
@@ -192,23 +202,50 @@ impl Text {
     }
 }
 
+const MOST_FILLED: usize = 8 * 1024;
+
 fn fill(words: &str, args: &[(Cow<'static, str>, Arg)], language: Language) -> String {
+    let mut values: Vec<Option<String>> = vec![None; args.len()];
     let mut filled = String::with_capacity(words.len());
     let mut rest = words;
-    while let Some((before, after)) = rest.split_once('{')
-        && let Some((name, next)) = after.split_once('}')
-    {
+    while let Some((before, after)) = rest.split_once('{') {
         filled.push_str(before);
-        match args.iter().find(|(own, _)| own == name) {
-            Some((_, Arg::Words(value))) => filled.push_str(value),
-            Some((_, Arg::Text(value))) if !value.translated => filled.push_str(&value.words),
-            Some((_, Arg::Text(value))) => filled.push_str(&value.in_language(language)),
-            None => filled.push_str(&rest[before.len()..rest.len() - next.len()]),
+        let named = after.split_once('}').and_then(|(name, next)| {
+            let index = args.iter().position(|(own, _)| own == name)?;
+            Some((index, next))
+        });
+        match named {
+            Some((index, next)) => {
+                let value = values[index].get_or_insert_with(|| match &args[index].1 {
+                    Arg::Words(value) => value.clone(),
+                    Arg::Text(value) if !value.translated => value.words.to_string(),
+                    Arg::Text(value) => value.in_language(language),
+                });
+                filled.push_str(value);
+                rest = next;
+            }
+            None => {
+                filled.push('{');
+                rest = after;
+            }
         }
-        rest = next;
+        if filled.len() > MOST_FILLED {
+            return cut(filled, MOST_FILLED);
+        }
     }
     filled.push_str(rest);
-    filled
+    cut(filled, MOST_FILLED)
+}
+
+fn cut(mut words: String, most: usize) -> String {
+    if words.len() > most {
+        let mut end = most;
+        while !words.is_char_boundary(end) {
+            end -= 1;
+        }
+        words.truncate(end);
+    }
+    words
 }
 
 pub fn render(value: &mut Value, language: Language) {
@@ -452,10 +489,34 @@ mod tests {
     }
 
     #[test]
+    fn a_brace_before_a_name_keeps_the_name() {
+        let text = Text::translated("Use { or {name}", vec![("name", Arg::from("x"))]);
+        assert_eq!(text.to_string(), "Use { or x");
+    }
+
+    #[test]
+    fn a_text_from_another_computer_cannot_grow_without_end() {
+        let template = "{a}".repeat(1000);
+        let mut text = serde_json::json!({"$text": template, "args": {"a": "word"}});
+        for _ in 0..10 {
+            text = serde_json::json!({"$text": template, "args": {"a": text}});
+        }
+        let mut event = serde_json::json!({"message": text});
+        let started = std::time::Instant::now();
+        render(&mut event, Language::English);
+        assert!(event["message"].as_str().unwrap().len() <= MOST_FILLED);
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    }
+
+    #[test]
     fn tags_name_their_language() {
         assert_eq!(Language::of("de-AT"), Language::German);
         assert_eq!(Language::of("zh-Hans"), Language::Chinese);
         assert_eq!(Language::of("zh_CN"), Language::Chinese);
+        assert_eq!(Language::of("zh-Hans-TW"), Language::Chinese);
+        assert_eq!(Language::of("zh-Hant-TW"), Language::English);
+        assert_eq!(Language::of("zh_TW"), Language::English);
+        assert_eq!(Language::of("zh-HK"), Language::English);
         assert_eq!(Language::of("el"), Language::Greek);
         assert_eq!(Language::of("pt-BR"), Language::English);
     }
