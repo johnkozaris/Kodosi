@@ -6975,6 +6975,17 @@
                     }
                   ]
                 },
+                "programAccount": {
+                  "anyOf": [
+                    {
+                      "format": "u8",
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "programStatus": {
                   "anyOf": [
                     {
@@ -12018,7 +12029,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 79,
+  "protocolVersion": 80,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

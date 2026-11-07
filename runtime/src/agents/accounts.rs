@@ -102,6 +102,14 @@ fn account(agent: Agent, home: &Path, name: &str, command: &str, folder: &Path) 
     }
 }
 
+pub(super) fn place(accounts: &[AgentAccount], home: &Path, folder: &Path) -> usize {
+    let folder = tilde(folder, home);
+    accounts
+        .iter()
+        .position(|account| account.folder.as_deref() == Some(folder.as_str()))
+        .unwrap_or(accounts.len())
+}
+
 fn tilde(path: &Path, home: &Path) -> String {
     match path.strip_prefix(home) {
         Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),

@@ -46,12 +46,15 @@ enum LauncherMenu: String, Equatable {
     static func accounts(
         _ info: AgentInfo, current: String, usage: (AgentAccount) -> UsageLimit? = { _ in nil },
     ) -> [PickerRow] {
-        var rows = info.accounts.map { account in
+        var rows = info.accounts.enumerated().map { place, account in
             let title = account.title(program: info.program)
             return PickerRow(
                 id: account.name, title: title,
                 subtitle: account.identity ?? String(localized: "Signs in when it starts"),
-                icon: .account(initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil),
+                icon: .account(
+                    initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil,
+                    tint: info.kind.tint(account: place),
+                ),
                 usage: usage(account),
                 current: account.name == current,
             )

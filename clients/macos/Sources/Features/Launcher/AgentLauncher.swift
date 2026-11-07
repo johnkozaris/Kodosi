@@ -406,6 +406,7 @@ private extension AgentLauncher {
             AccountMark(
                 initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil,
                 size: usage == nil ? 16 : 20, usage: usage,
+                tint: info.kind.tint(account: info.accounts.firstIndex { $0.name == account?.name }),
             )
         } action: {
             toggle(.account)

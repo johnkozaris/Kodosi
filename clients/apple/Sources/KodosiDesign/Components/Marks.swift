@@ -9,14 +9,19 @@ public struct PersonAvatar: View {
     public var isSelf = false
     public var ring: Color?
     public var online = false
+    public var color: Color?
 
-    public init(name: String, key: String? = nil, size: CGFloat = 28, isSelf: Bool = false, ring: Color? = nil, online: Bool = false) {
+    public init(
+        name: String, key: String? = nil, size: CGFloat = 28, isSelf: Bool = false, ring: Color? = nil, online: Bool = false,
+        color: Color? = nil,
+    ) {
         self.name = name
         self.key = key
         self.size = size
         self.isSelf = isSelf
         self.ring = ring
         self.online = online
+        self.color = color
     }
 
     private var initials: String {
@@ -25,7 +30,7 @@ public struct PersonAvatar: View {
     }
 
     private var tint: Color {
-        isSelf ? theme.colors.accent : PersonTint.color(for: key ?? name)
+        color ?? (isSelf ? theme.colors.accent : PersonTint.color(for: key ?? name))
     }
 
     public var body: some View {
@@ -106,12 +111,14 @@ public struct AgentMark: View {
 
     @Environment(\.theme) private var theme
     public let kind: AgentKind
+    public var account: Int?
     public var size: CGFloat = 22
     public var activity: Activity = .awake
     public var root = false
 
-    public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake, root: Bool = false) {
+    public init(kind: AgentKind, account: Int? = nil, size: CGFloat = 22, activity: Activity = .awake, root: Bool = false) {
         self.kind = kind
+        self.account = account
         self.size = size
         self.activity = activity
         self.root = root
@@ -125,12 +132,16 @@ public struct AgentMark: View {
         activity == .asleep
     }
 
+    private var tint: Color {
+        kind.tint(account: account)
+    }
+
     public var body: some View {
         ZStack {
             shape.fill(LinearGradient(
                 colors: asleep
-                    ? [theme.colors.raised.mix(with: kind.tint, by: 0.14), theme.colors.raised.mix(with: kind.tint, by: 0.3)]
-                    : [kind.tint.mix(with: .white, by: 0.2), kind.tint, kind.tint.mix(with: .black, by: 0.2)],
+                    ? [theme.colors.raised.mix(with: tint, by: 0.14), theme.colors.raised.mix(with: tint, by: 0.3)]
+                    : [tint.mix(with: .white, by: 0.2), tint, tint.mix(with: .black, by: 0.2)],
                 startPoint: .topLeading, endPoint: .bottomTrailing,
             ))
             shape.strokeBorder(
@@ -139,7 +150,7 @@ public struct AgentMark: View {
                 lineWidth: max(0.5, size * 0.03),
             )
             light
-            glyph.foregroundStyle(asleep ? kind.tint.mix(with: theme.colors.ink, by: 0.35) : .white)
+            glyph.foregroundStyle(asleep ? tint.mix(with: theme.colors.ink, by: 0.35) : .white)
         }
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(asleep ? 0 : (theme.isDark ? 0.45 : 0.2)), radius: size * 0.1, x: size * 0.03, y: size * 0.07)

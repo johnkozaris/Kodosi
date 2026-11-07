@@ -44,6 +44,6 @@ public extension RuntimeSession {
 
 public extension AgentMark {
     init(session: RuntimeSession, size: CGFloat = 22, activity: Activity = .awake) {
-        self.init(kind: session.agent, size: size, activity: activity, root: session.runsAsRoot)
+        self.init(kind: session.agent, account: session.programAccount, size: size, activity: activity, root: session.runsAsRoot)
     }
 }

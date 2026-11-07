@@ -90,6 +90,10 @@ enum Request {
         variable: &'static str,
         reply: oneshot::Sender<Result<Foreground>>,
     },
+    Account {
+        group: Option<u32>,
+        account: Option<u8>,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -200,6 +204,7 @@ impl TerminalSession {
             sequence: 0,
             host_stop_reply: None,
             program: None,
+            account: None,
             clear_line,
             start: None,
             output_at: None,
@@ -375,6 +380,12 @@ impl TerminalSession {
 
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
+    }
+
+    /// Sets the account of the program in front while the process group `group` is still in
+    /// front.
+    pub(crate) fn set_account(&self, group: Option<u32>, account: Option<u8>) -> Result<()> {
+        self.send(Request::Account { group, account })
     }
 
     pub(crate) fn foreground(
@@ -656,6 +667,7 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    account: Option<u8>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
     output_at: Option<tokio::time::Instant>,
@@ -728,6 +740,7 @@ impl LocalActor {
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
             program: self.live_program(),
+            account: self.account,
             status: self.status.summary(),
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
@@ -1109,48 +1122,7 @@ impl LocalActor {
         }
         if tokio::time::Instant::now() >= self.next_program_check {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
-            if let Some(path) = self.pty.working_directory()
-                && self.observed_directory.as_ref() != Some(&path)
-                && self.set_working_directory(path.clone())
-            {
-                self.observed_directory = Some(path);
-            }
-            let program = self.live_program();
-            let prompt = self.at_prompt(program.as_deref());
-            if program != self.program
-                && self
-                    .changes
-                    .try_send(SessionChange::Program {
-                        id: self.id,
-                        program: program.clone(),
-                    })
-                    .is_ok()
-            {
-                self.program = program;
-                self.metadata_dirty = true;
-            }
-            if prompt != self.prompt
-                && self
-                    .changes
-                    .try_send(SessionChange::Prompt {
-                        id: self.id,
-                        prompt,
-                    })
-                    .is_ok()
-            {
-                self.prompt = prompt;
-            }
-            if self.status_program.is_some()
-                && self.pty.foreground_process_group() != self.status_program
-            {
-                self.status_program = None;
-                self.status.program_exited();
-            }
-            if self.pty.foreground_is_child()
-                && let Some(shell) = self.pty.foreground_process_group()
-            {
-                self.contexts.shell_in_front(shell);
-            }
+            self.observe_foreground();
         }
         self.publish_status();
         self.publish_context();
@@ -1192,6 +1164,52 @@ impl LocalActor {
         }
         self.drop_cancelled_input();
         None
+    }
+
+    fn observe_foreground(&mut self) {
+        if let Some(path) = self.pty.working_directory()
+            && self.observed_directory.as_ref() != Some(&path)
+            && self.set_working_directory(path.clone())
+        {
+            self.observed_directory = Some(path);
+        }
+        let program = self.live_program();
+        let prompt = self.at_prompt(program.as_deref());
+        if program != self.program
+            && self
+                .changes
+                .try_send(SessionChange::Program {
+                    id: self.id,
+                    program: program.clone(),
+                })
+                .is_ok()
+        {
+            self.program = program;
+            self.account = None;
+            self.metadata_dirty = true;
+        }
+        if prompt != self.prompt
+            && self
+                .changes
+                .try_send(SessionChange::Prompt {
+                    id: self.id,
+                    prompt,
+                })
+                .is_ok()
+        {
+            self.prompt = prompt;
+        }
+        if self.status_program.is_some()
+            && self.pty.foreground_process_group() != self.status_program
+        {
+            self.status_program = None;
+            self.status.program_exited();
+        }
+        if self.pty.foreground_is_child()
+            && let Some(shell) = self.pty.foreground_process_group()
+        {
+            self.contexts.shell_in_front(shell);
+        }
     }
 
     async fn apply_output(&mut self, bytes: Bytes, accepting_input: bool) -> Result<()> {
@@ -1442,6 +1460,22 @@ impl LocalActor {
                     group: self.pty.foreground_process_group(),
                     variable: self.pty.foreground_variable(variable),
                 })));
+            }
+            Request::Account { group, account } => {
+                if self.program.is_some()
+                    && self.account != account
+                    && self.pty.foreground_process_group() == group
+                    && self
+                        .changes
+                        .try_send(SessionChange::Account {
+                            id: self.id,
+                            account,
+                        })
+                        .is_ok()
+                {
+                    self.account = account;
+                    self.metadata_dirty = true;
+                }
             }
         }
         None

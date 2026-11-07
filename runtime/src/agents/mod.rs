@@ -118,6 +118,23 @@ impl Agent {
             Self::Cursor | Self::Gemini | Self::Opencode => None,
         }
     }
+
+    /// The account folder of a running agent: its folder variable when that is an absolute
+    /// path, else the usual folder in `home`.
+    #[cfg(feature = "host")]
+    pub(crate) fn account_folder(
+        self,
+        home: &Path,
+        variable: Option<String>,
+    ) -> Option<std::path::PathBuf> {
+        let (usual, _) = self.home()?;
+        Some(
+            variable
+                .map(std::path::PathBuf::from)
+                .filter(|folder| folder.is_absolute())
+                .map_or_else(|| home.join(usual), |folder| folder.components().collect()),
+        )
+    }
 }
 
 pub(crate) fn is_agent_name(name: &str) -> bool {

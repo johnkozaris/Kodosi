@@ -542,6 +542,25 @@ private slots:
         QVERIFY(!atPrompt(3));
         QVERIFY(!atPrompt(4));
     }
+    void aTerminalShowsTheAccountPlaceOfItsAgent()
+    {
+        Fixture f;
+        auto third = test::session(1);
+        third.insert(QStringLiteral("program"), QStringLiteral("claude"));
+        third.insert(QStringLiteral("programAccount"), 2);
+        auto unknown = test::session(2);
+        unknown.insert(QStringLiteral("program"), QStringLiteral("claude"));
+        f.workspace.apply(test::snapshot({ third, unknown }), 0);
+        const auto place = [&](const int number) {
+            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("programAccount")).toInt();
+        };
+        QCOMPARE(place(1), 2);
+        QCOMPARE(place(2), -1);
+        auto invalid = test::session(3);
+        invalid.insert(QStringLiteral("programAccount"), 256);
+        f.workspace.apply(test::snapshot({ invalid }), 0);
+        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
     void aStartMarkAsksTheHostToStartTheAgent()
     {
         Fixture f;
