@@ -18,7 +18,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un programa en %@ pide el texto que copiaste."
+            "value" : "Un programa en %@ pide el texto que has copiado."
           }
         },
         "fr" : {

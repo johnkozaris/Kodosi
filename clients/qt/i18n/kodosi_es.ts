@@ -115,7 +115,7 @@
     </message>
     <message>
         <source>Model and effort</source>
-        <translation>Modelo y esfuerzo</translation>
+        <translation>Modelo y razonamiento</translation>
     </message>
     <message>
         <source>First prompt</source>
@@ -453,7 +453,7 @@
     </message>
     <message>
         <source>This did not load</source>
-        <translation>No se cargó</translation>
+        <translation>No se ha cargado</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -491,7 +491,7 @@
     </message>
     <message>
         <source>A program in %1 asks for the text that you copied.</source>
-        <translation>Un programa en %1 pide el texto que copiaste.</translation>
+        <translation>Un programa en %1 pide el texto que has copiado.</translation>
     </message>
 </context>
 <context>
@@ -580,7 +580,7 @@
     </message>
     <message>
         <source>Kodosi could not open this link.</source>
-        <translation>Kodosi no pudo abrir este enlace.</translation>
+        <translation>Kodosi no ha podido abrir este enlace.</translation>
     </message>
 </context>
 <context>
@@ -707,7 +707,7 @@
     </message>
     <message>
         <source>I saved it</source>
-        <translation>Ya la guardé</translation>
+        <translation>Ya la he guardado</translation>
     </message>
     <message>
         <source>Keep it in a safe place, such as a password manager. It approves a new device when you have no other device. Kodosi does not show it again.</source>
@@ -747,7 +747,7 @@
     </message>
     <message>
         <source>It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.</source>
-        <translation>Pierde tu cuenta y los terminales compartidos contigo. Si se perdió o te lo robaron, crea también una clave de recuperación nueva.</translation>
+        <translation>Pierde tu cuenta y los terminales compartidos contigo. Si lo has perdido o te lo han robado, crea también una clave de recuperación nueva.</translation>
     </message>
     <message>
         <source>It loses your account and the terminals shared with you.</source>
@@ -907,7 +907,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Esfuerzo</translation>
+        <translation>Razonamiento</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -1082,7 +1082,7 @@
     </message>
     <message>
         <source>Dosi stopped</source>
-        <translation>Dosi se detuvo</translation>
+        <translation>Dosi se ha detenido</translation>
     </message>
     <message>
         <source>Open Settings</source>
@@ -1540,7 +1540,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Esfuerzo</translation>
+        <translation>Razonamiento</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -1634,11 +1634,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>El servidor de Kodosi no responde. Kodosi lo vuelve a intentar.</translation>
+        <translation>El servidor de Kodosi no responde. Kodosi lo volverá a intentar.</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>Desbloquea el llavero. Kodosi lo vuelve a intentar.</translation>
+        <translation>Desbloquea el llavero. Kodosi lo volverá a intentar.</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1746,7 +1746,7 @@
     </message>
     <message>
         <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi elimina tus dispositivos, amigos y lo que compartes. Lo que escribiste en otras salas se queda allí.</translation>
+        <translation>Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otras salas se queda allí.</translation>
     </message>
     <message>
         <source>These rooms close for everyone in them: %1.</source>
@@ -1858,7 +1858,7 @@
     <name>KeyboardSettings</name>
     <message>
         <source>Press a key. Delete removes this one.</source>
-        <translation>Pulsa una tecla. Supr quita esta.</translation>
+        <translation>Pulsa una tecla. Con Supr quitas este atajo.</translation>
     </message>
     <message>
         <source>Press a key.</source>
@@ -1939,11 +1939,11 @@
     <name>Main</name>
     <message>
         <source>Kodosi was updated. Stop the kodosi host command, then restart Kodosi.</source>
-        <translation>Kodosi se actualizó. Detén el comando kodosi host y después reinicia Kodosi.</translation>
+        <translation>Kodosi se ha actualizado. Detén el comando kodosi host y después reinicia Kodosi.</translation>
     </message>
     <message>
         <source>Kodosi was updated. Restart it to use the new version.</source>
-        <translation>Kodosi se actualizó. Reinícialo para usar la nueva versión.</translation>
+        <translation>Kodosi se ha actualizado. Reinícialo para usar la nueva versión.</translation>
     </message>
     <message>
         <source>%1 wants to use your account.</source>
@@ -2040,7 +2040,7 @@
     </message>
     <message>
         <source>%1 invited you</source>
-        <translation>%1 te invitó</translation>
+        <translation>%1 te ha invitado</translation>
     </message>
     <message>
         <source>You are invited</source>
@@ -2195,7 +2195,7 @@
     </message>
     <message>
         <source>Identity changed</source>
-        <translation>Identidad cambiada</translation>
+        <translation>La identidad ha cambiado</translation>
     </message>
     <message>
         <source>Options for %1</source>
@@ -2211,7 +2211,7 @@
     </message>
     <message>
         <source>Their devices changed. Trust them again to share.</source>
-        <translation>Sus dispositivos cambiaron. Vuelve a confiar en esta persona para compartir.</translation>
+        <translation>Sus dispositivos han cambiado. Vuelve a confiar en esta persona para compartir.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2223,7 +2223,7 @@
     </message>
     <message>
         <source>Paste the invite they sent you</source>
-        <translation>Pega la invitación que te enviaron</translation>
+        <translation>Pega la invitación que te ha enviado</translation>
     </message>
     <message>
         <source>Verify</source>
@@ -2251,7 +2251,7 @@
     </message>
     <message>
         <source>They lose the terminals that you shared with them.</source>
-        <translation>Pierde los terminales que compartiste con esta persona.</translation>
+        <translation>Pierde los terminales que has compartido con esta persona.</translation>
     </message>
 </context>
 <context>
@@ -2386,7 +2386,7 @@
     </message>
     <message>
         <source>Room action failed</source>
-        <translation>La acción en la sala falló</translation>
+        <translation>Ha fallado la acción en la sala</translation>
     </message>
     <message>
         <source>Room members</source>
@@ -2493,7 +2493,7 @@
     </message>
     <message>
         <source>The room did not load</source>
-        <translation>La sala no se cargó</translation>
+        <translation>La sala no se ha cargado</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2568,7 +2568,7 @@
     </message>
     <message>
         <source>The conversation did not load</source>
-        <translation>La conversación no se cargó</translation>
+        <translation>La conversación no se ha cargado</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2600,7 +2600,7 @@
     </message>
     <message>
         <source>Kodosi removed the oldest messages to make space for new ones.</source>
-        <translation>Kodosi quitó los mensajes más antiguos para dejar espacio a los nuevos.</translation>
+        <translation>Kodosi ha quitado los mensajes más antiguos para dejar espacio a los nuevos.</translation>
     </message>
     <message>
         <source>for %1</source>
@@ -2670,7 +2670,7 @@
     </message>
     <message>
         <source>The issues did not load</source>
-        <translation>Las issues no se cargaron</translation>
+        <translation>Las issues no se han cargado</translation>
     </message>
     <message>
         <source>No open issues</source>
@@ -2751,7 +2751,7 @@
     </message>
     <message>
         <source>Release</source>
-        <translation>Soltar</translation>
+        <translation>Liberar</translation>
     </message>
     <message>
         <source>Save note</source>
@@ -2980,7 +2980,7 @@
     </message>
     <message>
         <source>Their identity changed. Trust them in Friends first.</source>
-        <translation>Su identidad cambió. Confía primero en esta persona en Amigos.</translation>
+        <translation>Su identidad ha cambiado. Confía primero en esta persona en Amigos.</translation>
     </message>
     <message>
         <source>Everyone you share with can type, resize and close this terminal.</source>
@@ -3055,7 +3055,7 @@
     </message>
     <message>
         <source>%1 invited you</source>
-        <translation>%1 te invitó</translation>
+        <translation>%1 te ha invitado</translation>
     </message>
     <message>
         <source>Join</source>
@@ -3240,7 +3240,7 @@
     <name>StageOverview</name>
     <message>
         <source>The terminals did not load</source>
-        <translation>Los terminales no se cargaron</translation>
+        <translation>Los terminales no se han cargado</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -3259,11 +3259,11 @@
     </message>
     <message>
         <source>Kodosi was updated</source>
-        <translation>Kodosi se actualizó</translation>
+        <translation>Kodosi se ha actualizado</translation>
     </message>
     <message>
         <source>Kodosi could not start</source>
-        <translation>Kodosi no pudo iniciarse</translation>
+        <translation>Kodosi no ha podido iniciarse</translation>
     </message>
     <message>
         <source>Starting Kodosi</source>
@@ -3319,11 +3319,11 @@
     <name>TerminalSettings</name>
     <message>
         <source>Welcome back. What are we building?</source>
-        <translation>Bienvenido de nuevo. ¿Qué vamos a construir?</translation>
+        <translation>¡Hola de nuevo! ¿Qué construimos hoy?</translation>
     </message>
     <message>
         <source>Appearance</source>
-        <translation>Apariencia</translation>
+        <translation>Aspecto</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -3438,7 +3438,7 @@
     <name>TerminalStage</name>
     <message>
         <source>Terminal stage, %1</source>
-        <translation>Escenario de terminales, %1</translation>
+        <translation>Área de terminales, %1</translation>
     </message>
     <message numerus="yes">
         <source>%n terminals</source>
@@ -3532,7 +3532,7 @@
     </message>
     <message>
         <source>Terminal action failed</source>
-        <translation>La acción del terminal falló</translation>
+        <translation>Ha fallado la acción del terminal</translation>
     </message>
     <message>
         <source>Minimize</source>
@@ -3552,7 +3552,7 @@
     </message>
     <message>
         <source>The terminal closed.</source>
-        <translation>El terminal se cerró.</translation>
+        <translation>El terminal se ha cerrado.</translation>
     </message>
     <message>
         <source>Picture sent to %1</source>
@@ -3588,11 +3588,11 @@
     </message>
     <message>
         <source>The terminal could not connect again.</source>
-        <translation>El terminal no pudo volver a conectarse.</translation>
+        <translation>El terminal no ha podido volver a conectarse.</translation>
     </message>
     <message>
         <source>%1 joined</source>
-        <translation>%1 se unió</translation>
+        <translation>%1 se ha unido</translation>
     </message>
     <message>
         <source>Full control</source>
@@ -3721,37 +3721,37 @@
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>
-        <translation>Kodosi no pudo pedir una cuenta nueva.</translation>
+        <translation>Kodosi no ha podido pedir una cuenta nueva.</translation>
     </message>
 </context>
 <context>
     <name>kodosi::AppearanceModel</name>
     <message>
         <source>Appearance was not saved because the selected preference is invalid.</source>
-        <translation>La apariencia no se guardó porque la preferencia elegida no es válida.</translation>
+        <translation>El aspecto no se ha guardado porque la preferencia elegida no es válida.</translation>
     </message>
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
-        <translation>No se pudieron guardar los ajustes de movimiento. La opción anterior sigue activa.</translation>
+        <translation>No se han podido guardar los ajustes de movimiento. La opción anterior sigue activa.</translation>
     </message>
     <message>
         <source>Appearance settings could not be written. The previous preference remains active.</source>
-        <translation>No se pudieron guardar los ajustes de apariencia. La preferencia anterior sigue activa.</translation>
+        <translation>No se han podido guardar los ajustes de aspecto. La preferencia anterior sigue activa.</translation>
     </message>
 </context>
 <context>
     <name>kodosi::ApplicationLifecycleModel</name>
     <message>
         <source>The earlier Kodosi did not stop.</source>
-        <translation>La versión anterior de Kodosi no se detuvo.</translation>
+        <translation>La versión anterior de Kodosi no se ha detenido.</translation>
     </message>
     <message>
         <source>Kodosi could not reach the earlier Kodosi.</source>
-        <translation>Kodosi no pudo contactar con la versión anterior de Kodosi.</translation>
+        <translation>Kodosi no ha podido contactar con la versión anterior de Kodosi.</translation>
     </message>
     <message>
         <source>Kodosi stopped unexpectedly. Try again.</source>
-        <translation>Kodosi se detuvo de forma inesperada. Inténtalo de nuevo.</translation>
+        <translation>Kodosi se ha detenido de forma inesperada. Inténtalo de nuevo.</translation>
     </message>
     <message>
         <source>The `kodosi host` command (process %1) runs the earlier version. Stop it in its terminal and start it again.</source>
@@ -3766,7 +3766,7 @@
     </message>
     <message>
         <source>Kodosi could not start.</source>
-        <translation>Kodosi no pudo iniciarse.</translation>
+        <translation>Kodosi no ha podido iniciarse.</translation>
     </message>
 </context>
 <context>
@@ -3785,15 +3785,15 @@
     </message>
     <message>
         <source>This item kept changing while Kodosi read it.</source>
-        <translation>Este elemento siguió cambiando mientras Kodosi lo leía.</translation>
+        <translation>Este elemento no ha dejado de cambiar mientras Kodosi lo leía.</translation>
     </message>
     <message>
         <source>Kodosi got a canvas answer it cannot read.</source>
-        <translation>Kodosi recibió una respuesta del lienzo que no puede leer.</translation>
+        <translation>Kodosi ha recibido una respuesta del lienzo que no puede leer.</translation>
     </message>
     <message>
         <source>Kodosi could not read this file.</source>
-        <translation>Kodosi no pudo leer este archivo.</translation>
+        <translation>Kodosi no ha podido leer este archivo.</translation>
     </message>
     <message>
         <source>The canvas takes files up to 32 MB.</source>
@@ -3819,11 +3819,11 @@
     </message>
     <message>
         <source>The provider returned an unexpected response.</source>
-        <translation>El proveedor devolvió una respuesta inesperada.</translation>
+        <translation>El proveedor ha devuelto una respuesta inesperada.</translation>
     </message>
     <message>
         <source>The conversation list reached its display limit.</source>
-        <translation>La lista de conversaciones llegó a su límite de visualización.</translation>
+        <translation>La lista de conversaciones ha llegado a su límite de visualización.</translation>
     </message>
     <message>
         <source>A conversation did not match this project.</source>
@@ -3831,7 +3831,7 @@
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
-        <translation>La vista previa de la conversación superó su límite de páginas.</translation>
+        <translation>La vista previa de la conversación ha superado su límite de páginas.</translation>
     </message>
 </context>
 <context>
@@ -3846,7 +3846,7 @@
     </message>
     <message>
         <source>Choose a readable local folder.</source>
-        <translation>Elige una carpeta local que se pueda leer.</translation>
+        <translation>Elige una carpeta local con permiso de lectura.</translation>
     </message>
     <message>
         <source>Add files to the canvas</source>
@@ -3874,7 +3874,7 @@
     </message>
     <message>
         <source>Kodosi could not save the copy.</source>
-        <translation>Kodosi no pudo guardar la copia.</translation>
+        <translation>Kodosi no ha podido guardar la copia.</translation>
     </message>
     <message>
         <source>The sign-in address is invalid.</source>
@@ -3882,7 +3882,7 @@
     </message>
     <message>
         <source>The browser could not open the sign-in address.</source>
-        <translation>El navegador no pudo abrir la dirección de inicio de sesión.</translation>
+        <translation>El navegador no ha podido abrir la dirección de inicio de sesión.</translation>
     </message>
 </context>
 <context>
@@ -3897,7 +3897,7 @@
     </message>
     <message>
         <source>Kodosi could not save its settings.</source>
-        <translation>Kodosi no pudo guardar sus ajustes.</translation>
+        <translation>Kodosi no ha podido guardar sus ajustes.</translation>
     </message>
 </context>
 <context>
@@ -3908,7 +3908,7 @@
     </message>
     <message>
         <source>Kodosi could not save the window preferences.</source>
-        <translation>Kodosi no pudo guardar las preferencias de la ventana.</translation>
+        <translation>Kodosi no ha podido guardar las preferencias de la ventana.</translation>
     </message>
 </context>
 <context>
@@ -3954,7 +3954,7 @@
     </message>
     <message>
         <source>Dosi answered</source>
-        <translation>Dosi respondió</translation>
+        <translation>Dosi ha respondido</translation>
     </message>
     <message>
         <source>Ask Dosi</source>
@@ -3992,14 +3992,14 @@
     </message>
     <message>
         <source>Kodosi could not ask for the repositories.</source>
-        <translation>Kodosi no pudo pedir los repositorios.</translation>
+        <translation>Kodosi no ha podido pedir los repositorios.</translation>
     </message>
 </context>
 <context>
     <name>kodosi::ProviderFilesModel</name>
     <message>
         <source>The provider returned an unexpected response.</source>
-        <translation>El proveedor devolvió una respuesta inesperada.</translation>
+        <translation>El proveedor ha devuelto una respuesta inesperada.</translation>
     </message>
 </context>
 <context>
@@ -4014,7 +4014,7 @@
     </message>
     <message>
         <source>Terminals could not start.</source>
-        <translation>No se pudieron iniciar los terminales.</translation>
+        <translation>No se han podido iniciar los terminales.</translation>
     </message>
     <message>
         <source>The command is too large.</source>
@@ -4062,15 +4062,15 @@
     </message>
     <message>
         <source>%1 failed (%2).</source>
-        <translation>%1: falló (%2).</translation>
+        <translation>%1: ha fallado (%2).</translation>
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi recibió demasiadas actualizaciones y se detuvo. Inténtalo de nuevo.</translation>
+        <translation>Kodosi ha recibido demasiados cambios a la vez y se ha detenido. Inténtalo de nuevo.</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>
-        <translation>Kodosi recibió una respuesta incompleta.</translation>
+        <translation>Kodosi ha recibido una respuesta incompleta.</translation>
     </message>
 </context>
 <context>
@@ -4288,11 +4288,11 @@
     </message>
     <message>
         <source>Terminal updates exceeded their limit. Reconnect this view.</source>
-        <translation>Las actualizaciones del terminal superaron su límite. Vuelve a conectar esta vista.</translation>
+        <translation>Las actualizaciones del terminal han superado su límite. Vuelve a conectar esta vista.</translation>
     </message>
     <message>
         <source>Kodosi could not focus the terminal.</source>
-        <translation>Kodosi no pudo enfocar el terminal.</translation>
+        <translation>Kodosi no ha podido enfocar el terminal.</translation>
     </message>
     <message>
         <source>The terminal is too large.</source>
@@ -4300,15 +4300,15 @@
     </message>
     <message>
         <source>The terminal input queue is full, so Kodosi did not take the input.</source>
-        <translation>La cola de entrada del terminal está llena, así que Kodosi no aceptó la entrada.</translation>
+        <translation>La cola de entrada del terminal está llena, así que Kodosi no ha aceptado la entrada.</translation>
     </message>
     <message>
         <source>Kodosi could not keep the picture to paste it.</source>
-        <translation>Kodosi no pudo conservar la imagen para pegarla.</translation>
+        <translation>Kodosi no ha podido conservar la imagen para pegarla.</translation>
     </message>
     <message>
         <source>Kodosi could not open the terminal link.</source>
-        <translation>Kodosi no pudo abrir el enlace del terminal.</translation>
+        <translation>Kodosi no ha podido abrir el enlace del terminal.</translation>
     </message>
 </context>
 <context>
@@ -4334,7 +4334,7 @@
     <name>main</name>
     <message>
         <source>Kodosi could not start.</source>
-        <translation>Kodosi no pudo iniciarse.</translation>
+        <translation>Kodosi no ha podido iniciarse.</translation>
     </message>
     <message>
         <source>An earlier version of Kodosi is still open.</source>

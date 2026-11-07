@@ -1847,7 +1847,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ya la guardé"
+            "value" : "Ya la he guardado"
           }
         },
         "fr" : {
@@ -4343,7 +4343,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se cargó"
+            "value" : "No se ha cargado"
           }
         },
         "fr" : {

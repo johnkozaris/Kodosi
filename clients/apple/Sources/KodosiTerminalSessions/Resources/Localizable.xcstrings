@@ -70,7 +70,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi no envió lo que escribiste (error %d)."
+            "value" : "Kodosi no ha enviado lo que has escrito (error %d)."
           }
         },
         "fr" : {
@@ -122,7 +122,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi se detuvo antes de enviar lo que escribiste."
+            "value" : "Kodosi se ha detenido antes de enviar lo que has escrito."
           }
         },
         "fr" : {
@@ -174,7 +174,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lo que pegaste es demasiado grande, así que Kodosi no lo envió."
+            "value" : "Lo que has pegado es demasiado grande, así que Kodosi no lo ha enviado."
           }
         },
         "fr" : {
@@ -226,7 +226,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La imagen no llegó. Vuelve a pegarla."
+            "value" : "La imagen no ha llegado. Vuelve a pegarla."
           }
         },
         "fr" : {
@@ -278,7 +278,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El terminal no pudo conectarse."
+            "value" : "El terminal no se ha podido conectar."
           }
         },
         "fr" : {
@@ -330,7 +330,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El terminal recibió una trama de control no válida. Reinténtalo para reconectar."
+            "value" : "El terminal ha recibido una trama de control no válida. Reinténtalo para reconectar."
           }
         },
         "fr" : {
@@ -382,7 +382,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este terminal se quedó atrás. Inténtalo de nuevo."
+            "value" : "Este terminal no ha podido seguir el ritmo. Inténtalo de nuevo."
           }
         },
         "fr" : {
@@ -434,7 +434,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este terminal aún espera lo que escribiste antes. Kodosi no envió lo que pegaste."
+            "value" : "Este terminal aún tiene pendiente lo que has escrito antes. Kodosi no ha enviado lo que has pegado."
           }
         },
         "fr" : {

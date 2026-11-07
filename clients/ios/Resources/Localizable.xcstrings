@@ -70,7 +70,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ te invitó"
+            "value" : "%@ te ha invitado"
           }
         },
         "fr" : {
@@ -2156,7 +2156,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apariencia"
+            "value" : "Aspecto"
           }
         },
         "fr" : {
@@ -6316,7 +6316,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terminó o alguien te quitó."
+            "value" : "Ha terminado o alguien te ha quitado."
           }
         },
         "fr" : {
@@ -6732,7 +6732,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi no pudo abrir la página de inicio de sesión."
+            "value" : "Kodosi no ha podido abrir la página de inicio de sesión."
           }
         },
         "fr" : {
@@ -6784,7 +6784,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi no pudo preparar su almacenamiento."
+            "value" : "Kodosi no ha podido preparar su almacenamiento."
           }
         },
         "fr" : {
@@ -6836,7 +6836,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi no pudo iniciarse."
+            "value" : "Kodosi no ha podido iniciarse."
           }
         },
         "fr" : {
@@ -6940,7 +6940,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi se quedó atrás. Vuelve a iniciarlo."
+            "value" : "Kodosi no ha podido seguir el ritmo. Vuelve a iniciarlo."
           }
         },
         "fr" : {
@@ -6992,7 +6992,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi recibió una lista de terminales que no puede leer."
+            "value" : "Kodosi ha recibido una lista de terminales que no puede leer."
           }
         },
         "fr" : {
@@ -7044,7 +7044,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi recibió una actualización que no puede leer: %@"
+            "value" : "Kodosi ha recibido una actualización que no puede leer: %@"
           }
         },
         "fr" : {
@@ -7148,7 +7148,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi quitó los mensajes más antiguos para dejar espacio a los nuevos."
+            "value" : "Kodosi ha quitado los mensajes más antiguos para dejar espacio a los nuevos."
           }
         },
         "fr" : {
@@ -7252,7 +7252,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi se detuvo"
+            "value" : "Kodosi se ha detenido"
           }
         },
         "fr" : {
@@ -10320,7 +10320,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pega la invitación que te envió %@"
+            "value" : "Pega la invitación que te ha enviado %@"
           }
         },
         "fr" : {
@@ -10580,7 +10580,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Encargándote…"
+            "value" : "Encargándome…"
           }
         },
         "fr" : {
@@ -10840,7 +10840,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Soltar"
+            "value" : "Liberar"
           }
         },
         "fr" : {
@@ -13550,7 +13550,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Algunas invitaciones no se enviaron. Vuelve a invitarlos desde la sala."
+            "value" : "Algunas invitaciones no se han enviado. Vuelve a invitarlos desde la sala."
           }
         },
         "fr" : {
@@ -13966,7 +13966,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Habla, comparte terminales y lleva las tareas con tu equipo."
+            "value" : "Habla, comparte terminales y organiza las tareas con tu equipo."
           }
         },
         "fr" : {
@@ -14382,7 +14382,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eso no funcionó."
+            "value" : "No ha funcionado."
           }
         },
         "fr" : {
@@ -14538,7 +14538,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La invitación que te envió %@ coincide con esta identidad."
+            "value" : "La invitación que te ha enviado %@ coincide con esta identidad."
           }
         },
         "fr" : {
@@ -14642,7 +14642,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El terminal se cerró."
+            "value" : "El terminal se ha cerrado."
           }
         },
         "fr" : {
@@ -14746,7 +14746,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Su identidad cambió. Confía en ella para volver a compartir con esta persona."
+            "value" : "Su identidad ha cambiado. Confía en ella para volver a compartir con esta persona."
           }
         },
         "fr" : {
@@ -14798,7 +14798,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Su identidad cambió. Confía primero en esta persona en Amigos."
+            "value" : "Su identidad ha cambiado. Confía primero en esta persona en Amigos."
           }
         },
         "fr" : {
@@ -15006,7 +15006,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pierde los terminales que compartiste. Kodosi no deshace los comandos que ya ejecutó."
+            "value" : "Pierde los terminales que has compartido. Kodosi no deshace los comandos que ya ha ejecutado."
           }
         },
         "fr" : {
@@ -15370,7 +15370,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este terminal cambió. Inténtalo de nuevo."
+            "value" : "Este terminal ha cambiado. Inténtalo de nuevo."
           }
         },
         "fr" : {
@@ -16410,7 +16410,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esperándolos"
+            "value" : "Esperando respuesta"
           }
         },
         "fr" : {

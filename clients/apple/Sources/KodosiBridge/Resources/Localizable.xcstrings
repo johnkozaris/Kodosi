@@ -694,7 +694,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo aplicar el ajuste de backend de depuración %@."
+            "value" : "No se ha podido aplicar el ajuste de backend de depuración %@."
           }
         },
         "fr" : {
@@ -804,7 +804,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si se perdió o te lo robaron, crea también una clave de recuperación nueva."
+            "value" : "Si lo has perdido o te lo han robado, crea también una clave de recuperación nueva."
           }
         },
         "fr" : {
@@ -856,7 +856,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se desconecta. Vuelve a aprobarlo para usarlo. Kodosi no deshace los comandos que ya ejecutó."
+            "value" : "Se desconecta. Vuelve a aprobarlo para usarlo. Kodosi no deshace los comandos que ya ha ejecutado."
           }
         },
         "fr" : {
@@ -908,7 +908,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi no sabe si funcionó. Compruébalo antes de volver a intentarlo."
+            "value" : "Kodosi no sabe si ha funcionado. Compruébalo antes de volver a intentarlo."
           }
         },
         "fr" : {
@@ -960,7 +960,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi elimina tus dispositivos, amigos y lo que compartes. Lo que escribiste en otras salas se queda allí."
+            "value" : "Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otras salas se queda allí."
           }
         },
         "fr" : {
@@ -1012,7 +1012,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi recibió una respuesta del lienzo que no puede leer."
+            "value" : "Kodosi ha recibido una respuesta del lienzo que no puede leer."
           }
         },
         "fr" : {
@@ -1064,7 +1064,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi recibió una respuesta para otra cuenta."
+            "value" : "Kodosi ha recibido una respuesta para otra cuenta."
           }
         },
         "fr" : {
@@ -1116,7 +1116,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi recibió una respuesta incompleta."
+            "value" : "Kodosi ha recibido una respuesta incompleta."
           }
         },
         "fr" : {
@@ -1272,7 +1272,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi se detuvo antes de que el terminal se conectara."
+            "value" : "Kodosi se ha detenido antes de que el terminal se conectara."
           }
         },
         "fr" : {
@@ -1636,7 +1636,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eso no funcionó (%d)."
+            "value" : "No ha funcionado (%d)."
           }
         },
         "fr" : {
@@ -1688,7 +1688,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eso no funcionó."
+            "value" : "No ha funcionado."
           }
         },
         "fr" : {
@@ -1896,7 +1896,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se canceló la conexión del terminal."
+            "value" : "Se ha cancelado la conexión del terminal."
           }
         },
         "fr" : {
@@ -1948,7 +1948,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El terminal no pudo conectarse (%d)."
+            "value" : "El terminal no se ha podido conectar (%d)."
           }
         },
         "fr" : {
@@ -2104,7 +2104,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este terminal cambió. Inténtalo de nuevo."
+            "value" : "Este terminal ha cambiado. Inténtalo de nuevo."
           }
         },
         "fr" : {
@@ -2364,7 +2364,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tu cuenta cambió antes de que terminara."
+            "value" : "Tu cuenta ha cambiado antes de que terminara."
           }
         },
         "fr" : {
