@@ -54,10 +54,6 @@
         <translation>%1에 모델이 없어요</translation>
     </message>
     <message>
-        <source>Extra high</source>
-        <translation>매우 높음</translation>
-    </message>
-    <message>
         <source>Choose a folder…</source>
         <translation>폴더 선택…</translation>
     </message>
@@ -907,10 +903,6 @@
     <message>
         <source>Effort</source>
         <translation>추론 수준</translation>
-    </message>
-    <message>
-        <source>Extra high</source>
-        <translation>매우 높음</translation>
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>

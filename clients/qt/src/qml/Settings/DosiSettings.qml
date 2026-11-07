@@ -171,7 +171,7 @@ ColumnLayout {
                 KPicker {
                     objectName: "settings.dosi.effort"
                     values: [{ value: "", label: qsTr("The agent's choice") }].concat(root.efforts
-                        .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
+                        .map(entry => ({ value: entry.id, label: entry.id === "xhigh" ? "Extra high" : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) })))
                     current: root.setup.effort || ""
                     onPicked: value => root.choose({ effort: value })
                 }

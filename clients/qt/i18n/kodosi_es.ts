@@ -54,10 +54,6 @@
         <translation>%1 no muestra ningún modelo</translation>
     </message>
     <message>
-        <source>Extra high</source>
-        <translation>Muy alto</translation>
-    </message>
-    <message>
         <source>Choose a folder…</source>
         <translation>Elegir una carpeta…</translation>
     </message>
@@ -908,10 +904,6 @@
     <message>
         <source>Effort</source>
         <translation>Razonamiento</translation>
-    </message>
-    <message>
-        <source>Extra high</source>
-        <translation>Muy alto</translation>
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>

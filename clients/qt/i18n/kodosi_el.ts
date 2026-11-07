@@ -54,10 +54,6 @@
         <translation>%1: δεν υπάρχουν μοντέλα</translation>
     </message>
     <message>
-        <source>Extra high</source>
-        <translation>Πολύ υψηλή</translation>
-    </message>
-    <message>
         <source>Choose a folder…</source>
         <translation>Επιλογή φακέλου…</translation>
     </message>
@@ -908,10 +904,6 @@
     <message>
         <source>Effort</source>
         <translation>Ένταση σκέψης</translation>
-    </message>
-    <message>
-        <source>Extra high</source>
-        <translation>Πολύ υψηλή</translation>
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>

@@ -54,10 +54,6 @@
         <translation>%1 にモデルがありません</translation>
     </message>
     <message>
-        <source>Extra high</source>
-        <translation>超高</translation>
-    </message>
-    <message>
         <source>Choose a folder…</source>
         <translation>フォルダを選択…</translation>
     </message>
@@ -907,10 +903,6 @@
     <message>
         <source>Effort</source>
         <translation>推論レベル</translation>
-    </message>
-    <message>
-        <source>Extra high</source>
-        <translation>超高</translation>
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>

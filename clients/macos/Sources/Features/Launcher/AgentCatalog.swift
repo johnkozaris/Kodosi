@@ -70,7 +70,7 @@ struct AgentOption: Decodable, Equatable, Identifiable {
 
     var label: String {
         switch id {
-        case "xhigh": String(localized: "Extra high")
+        case "xhigh": "Extra high"
         default: id.prefix(1).uppercased() + id.dropFirst()
         }
     }

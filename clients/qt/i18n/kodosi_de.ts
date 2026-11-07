@@ -54,10 +54,6 @@
         <translation>%1 listet keine Modelle</translation>
     </message>
     <message>
-        <source>Extra high</source>
-        <translation>Sehr hoch</translation>
-    </message>
-    <message>
         <source>Choose a folder…</source>
         <translation>Ordner auswählen…</translation>
     </message>
@@ -908,10 +904,6 @@
     <message>
         <source>Effort</source>
         <translation>Denkaufwand</translation>
-    </message>
-    <message>
-        <source>Extra high</source>
-        <translation>Sehr hoch</translation>
     </message>
     <message>
         <source>Dosi uses these from your next message.</source>
