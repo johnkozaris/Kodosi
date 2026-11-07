@@ -11,7 +11,7 @@
 "Approve this device before you use shared terminals.": "使用共享终端前，请先批准此设备。",
 "Approve this device from one of your existing devices.": "请在你现有的某台设备上批准此设备。",
 "Change linked issues from a computer.": "请在电脑上更改关联的 Issue。",
-"Change sharing on the computer that hosts this terminal.": "请在运行此终端的电脑上更改共享。",
+"Change sharing on the computer that hosts this terminal.": "请在托管此终端的电脑上更改共享设置。",
 "Choose GitHub or Gitea.": "请选择 GitHub 或 Gitea。",
 "Choose a folder by its full path on that computer.": "请使用那台电脑上的完整路径选择文件夹。",
 "Choose another person.": "请选择其他人。",

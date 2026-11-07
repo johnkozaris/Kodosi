@@ -11,7 +11,7 @@
 "Approve this device before you use shared terminals.": "共有ターミナルを使う前に、このデバイスを承認してください。",
 "Approve this device from one of your existing devices.": "既存のデバイスのいずれかで、このデバイスを承認してください。",
 "Change linked issues from a computer.": "リンクされた Issue はコンピュータから変更してください。",
-"Change sharing on the computer that hosts this terminal.": "共有の変更は、このターミナルが動いているコンピュータで行ってください。",
+"Change sharing on the computer that hosts this terminal.": "共有設定は、このターミナルをホストしているコンピュータで変更してください。",
 "Choose GitHub or Gitea.": "GitHub か Gitea を選んでください。",
 "Choose a folder by its full path on that computer.": "そのコンピュータ上のフルパスでフォルダを指定してください。",
 "Choose another person.": "別の人を選んでください。",

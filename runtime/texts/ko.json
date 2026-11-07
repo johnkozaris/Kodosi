@@ -11,7 +11,7 @@
 "Approve this device before you use shared terminals.": "공유 터미널을 쓰기 전에 이 기기를 승인하세요.",
 "Approve this device from one of your existing devices.": "기존 기기 중 하나에서 이 기기를 승인하세요.",
 "Change linked issues from a computer.": "연결된 이슈는 컴퓨터에서 바꾸세요.",
-"Change sharing on the computer that hosts this terminal.": "공유 설정은 이 터미널이 실행 중인 컴퓨터에서 바꾸세요.",
+"Change sharing on the computer that hosts this terminal.": "공유 설정은 이 터미널을 호스팅하는 컴퓨터에서 바꾸세요.",
 "Choose GitHub or Gitea.": "GitHub나 Gitea를 고르세요.",
 "Choose a folder by its full path on that computer.": "그 컴퓨터의 전체 경로로 폴더를 고르세요.",
 "Choose another person.": "다른 사람을 고르세요.",
