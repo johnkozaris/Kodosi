@@ -102,7 +102,7 @@ trascinare un file sul canvas. Su iPhone, il pulsante del canvas è nella barra 
   tuo browser con le stesse regole dei link del terminale. Dove puoi modificare, fai ⌘-clic su
   un link (Ctrl-clic su Linux e Windows); altrove basta un clic, e su iPhone un tocco. Un link
   a una slide o a una cella dello stesso file porta lì.
-- Seleziona delle parole in una pagina o in un documento, poi Chiedi su questo. Kodosi scrive
+- Seleziona delle parole in una pagina o in un documento, poi scegli «Fai una domanda su questo». Kodosi scrive
   il file e le parole nel terminale, e tu scrivi la domanda.
 - Clicca e scrivi nel browser condiviso come nel tuo. L'agente vede le stesse pagine e gli
   stessi accessi, e il suo prossimo comando gli dice che hai usato il browser. Dopo 10 minuti
