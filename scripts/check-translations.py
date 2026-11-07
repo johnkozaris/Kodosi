@@ -153,9 +153,15 @@ def check_sign_in() -> None:
     compare_words(login, {tag: object_entries(object_after(custom, start)) for tag, start in starts.items()})
 
     account = ROOT / "sign-in/src/account/words.ts"
-    code = account.read_text(encoding="utf-8")
-    tables = {m.group(1): object_entries(object_after(code, m.start())) for m in re.finditer(r"^const (\w+)(?:: Table)? = \{", code, re.M)}
+    tables = {}
+    for path in [account, *sorted((account.parent / "words").glob("*.ts"))]:
+        code = path.read_text(encoding="utf-8")
+        for m in re.finditer(r"^const (\w+)(?:: Table)? = \{", code, re.M):
+            tables[m.group(1)] = object_entries(object_after(code, m.start()))
     compare_words(account, {tag: table for tag, table in tables.items() if tag in ("en", "zh") or tag in LANGUAGES})
+    for language in ("de", "el", "es", "fr", "it", "ja", "ko", "zh"):
+        if language not in tables:
+            report(account.parent / "words", f"no {language}.ts")
 
     folder = ROOT / "sign-in/src/email/messages"
     mails = {}
