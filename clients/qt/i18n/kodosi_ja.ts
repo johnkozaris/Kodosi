@@ -1063,7 +1063,7 @@
     </message>
     <message>
         <source>Stopped</source>
-        <translation>停止</translation>
+        <translation>停止済み</translation>
     </message>
     <message>
         <source>Dosi needs you to sign in</source>
@@ -1482,7 +1482,7 @@
     </message>
     <message>
         <source>Listening</source>
-        <translation>待機中</translation>
+        <translation>傾聴中</translation>
     </message>
     <message>
         <source>Thinking</source>

@@ -2191,7 +2191,7 @@
     </message>
     <message>
         <source>Options for %1</source>
-        <translation>Options pour %1</translation>
+        <translation>Options de %1</translation>
     </message>
     <message>
         <source>Verify…</source>
@@ -3375,7 +3375,7 @@
     </message>
     <message>
         <source>Underline</source>
-        <translation>Souligné</translation>
+        <translation>Soulignement</translation>
     </message>
     <message>
         <source>Blink the cursor</source>

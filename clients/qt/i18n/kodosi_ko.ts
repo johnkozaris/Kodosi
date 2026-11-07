@@ -1482,7 +1482,7 @@
     </message>
     <message>
         <source>Listening</source>
-        <translation>대기 중</translation>
+        <translation>듣는 중</translation>
     </message>
     <message>
         <source>Thinking</source>

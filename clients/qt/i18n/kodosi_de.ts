@@ -2704,7 +2704,7 @@
     <name>RoomSkeleton</name>
     <message>
         <source>Loading</source>
-        <translation>Lädt</translation>
+        <translation>Wird geladen</translation>
     </message>
 </context>
 <context>
@@ -3240,7 +3240,7 @@
     </message>
     <message>
         <source>Loading</source>
-        <translation>Lädt</translation>
+        <translation>Wird geladen</translation>
     </message>
 </context>
 <context>
@@ -3375,7 +3375,7 @@
     </message>
     <message>
         <source>Underline</source>
-        <translation>Unterstrichen</translation>
+        <translation>Unterstrich</translation>
     </message>
     <message>
         <source>Blink the cursor</source>
@@ -3468,7 +3468,7 @@
     </message>
     <message>
         <source>Reconnecting</source>
-        <translation>Verbindet erneut</translation>
+        <translation>Verbindung wird wiederhergestellt</translation>
     </message>
     <message>
         <source>This terminal is not available now.</source>
@@ -3560,7 +3560,7 @@
     </message>
     <message>
         <source>Connecting</source>
-        <translation>Verbindet</translation>
+        <translation>Verbindung wird hergestellt</translation>
     </message>
     <message>
         <source>Connecting terminal</source>

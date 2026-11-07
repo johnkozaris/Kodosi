@@ -5488,7 +5488,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher des mises à jour"
+            "value" : "Rechercher les mises à jour"
           }
         },
         "it" : {
@@ -5540,7 +5540,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher des mises à jour…"
+            "value" : "Rechercher les mises à jour…"
           }
         },
         "it" : {
@@ -6874,7 +6874,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbindet"
+            "value" : "Verbindung wird hergestellt"
           }
         },
         "el" : {
@@ -14362,7 +14362,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lädt"
+            "value" : "Wird geladen"
           }
         },
         "el" : {
@@ -18332,7 +18332,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Options pour %@"
+            "value" : "Options de %@"
           }
         },
         "it" : {
@@ -19458,7 +19458,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbindet erneut"
+            "value" : "Verbindung wird wiederhergestellt"
           }
         },
         "el" : {
@@ -20758,7 +20758,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Neu starten und aktualisieren"
+            "value" : "Zum Aktualisieren neu starten"
           }
         },
         "el" : {
@@ -25222,7 +25222,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Empezar chat nuevo"
+            "value" : "Iniciar un chat nuevo"
           }
         },
         "fr" : {
@@ -25234,7 +25234,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Inizia nuova chat"
+            "value" : "Inizia una nuova chat"
           }
         },
         "ja" : {
@@ -25320,7 +25320,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Startet"
+            "value" : "Wird gestartet"
           }
         },
         "el" : {
@@ -25424,7 +25424,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Startet…"
+            "value" : "Wird gestartet…"
           }
         },
         "el" : {
@@ -25760,13 +25760,13 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fermato"
+            "value" : "Interrotto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "停止"
+            "value" : "停止済み"
           }
         },
         "ko" : {
@@ -28414,7 +28414,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unterstrichen"
+            "value" : "Unterstrich"
           }
         },
         "el" : {
@@ -28432,13 +28432,13 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Souligné"
+            "value" : "Soulignement"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sottolineato"
+            "value" : "Sottolineatura"
           }
         },
         "ja" : {
