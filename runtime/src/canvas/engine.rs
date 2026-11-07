@@ -467,7 +467,10 @@ mod tests {
         std::fs::write(folder.path().join("1.2.noindex/bin/chrome"), "").unwrap();
         assert_eq!(
             installed(folder.path()).await,
-            Some(("1.2".to_owned(), folder.path().join("1.2.noindex/bin/chrome")))
+            Some((
+                "1.2".to_owned(),
+                folder.path().join("1.2.noindex/bin/chrome")
+            ))
         );
     }
 
