@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the static update site of one release, and SHA256SUMS of its files."""
+"""Writes the static update site of one release, and the signed SHA256SUMS of its files."""
 
 from __future__ import annotations
 
@@ -104,14 +104,13 @@ def windows_appinstaller(bundle: Path, version: str) -> bytes:
     return data
 
 
-def sign_release(apt: Path, fingerprint: str) -> None:
-    release = apt / "dists/stable/Release"
-    subprocess.run(
+def sign(fingerprint: str, source: Path, output: Path, *mode: str) -> None:
+    result = subprocess.run(
         ["gpg", "--batch", "--no-tty", "--yes", "--pinentry-mode", "error", "--digest-algo", "SHA512",
-         "--local-user", f"{fingerprint}!", "--clearsign", "--output", str(release.with_name("InRelease")),
-         str(release)],
-        check=True,
+         "--local-user", f"{fingerprint}!", *mode, "--output", str(output), str(source)],
     )
+    if result.returncode != 0:
+        fail(f"gpg could not sign {source.name} with the key {fingerprint}")
 
 
 def browser_feed(folder: Path) -> list[Path]:
@@ -138,7 +137,9 @@ def main() -> None:
     parser.add_argument(
         "--browser", type=Path, required=True, help="the folder with engine.json and engine.json.sig from generate-engine-feed.py"
     )
-    parser.add_argument("--sign", metavar="FINGERPRINT", help="sign the apt index with this OpenPGP key")
+    parser.add_argument(
+        "--sign", metavar="FINGERPRINT", required=True, help="the OpenPGP key that signs SHA256SUMS and the apt index"
+    )
     arguments = parser.parse_args()
     version, release, site = arguments.version, arguments.release, arguments.site
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
@@ -158,12 +159,14 @@ def main() -> None:
     if site.exists():
         fail(f"{site} exists; give a new folder")
     engine_feed = browser_feed(arguments.browser)
-    sums = release / "SHA256SUMS"
+    sums, signature = release / "SHA256SUMS", release / "SHA256SUMS.asc"
     sums.unlink(missing_ok=True)
+    signature.unlink(missing_ok=True)
     sums.write_text(
         "".join(f"{file_sha256(path)}  {path.name}\n" for path in sorted(release.iterdir()) if path.is_file()),
         encoding="utf-8",
     )
+    sign(arguments.sign, sums, signature, "--detach-sign", "--armor")
     download = f"https://github.com/{REPOSITORY}/releases/download/v{version}"
     (site / "macos").mkdir(parents=True)
     shutil.copyfile(arguments.appcast, site / "macos/appcast.xml")
@@ -173,8 +176,7 @@ def main() -> None:
     apt = site / "apt"
     apt_repository(files["linux"], version, apt)
     shutil.copyfile(APT_KEY, apt / "kodosi-archive-keyring.pgp")
-    if arguments.sign:
-        sign_release(apt, arguments.sign)
+    sign(arguments.sign, apt / "dists/stable/Release", apt / "dists/stable/InRelease", "--clearsign")
     downloads = ["macos", "linux"]
     if "windows" in files:
         (site / "windows").mkdir()
