@@ -25,8 +25,8 @@ public:
         Phrase done;
         Phrase doing;
         QString icon;
-        Phrase said;
-        Phrase saying;
+        Phrase said {};
+        Phrase saying {};
     };
 
     [[nodiscard]] static Deed deed(const QString& action);
