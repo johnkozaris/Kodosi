@@ -8,7 +8,7 @@ struct PickerRow: Identifiable, Equatable {
 
     enum Icon: Equatable {
         case none, folder
-        case account(initial: String, key: String, signedIn: Bool)
+        case account(initial: String, key: String, signedIn: Bool, tint: Color)
         case device(String)
         case slot(String)
     }
@@ -277,8 +277,8 @@ struct PickerIcon: View {
             EmptyView()
         case .folder:
             IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 26)
-        case let .account(initial, key, signedIn):
-            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage)
+        case let .account(initial, key, signedIn, tint):
+            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage, tint: tint)
         case let .device(label):
             IconTile(symbol: DeviceGlyph.symbol(for: label), tint: TileTint.graphite, size: 26)
         case let .slot(symbol):
@@ -293,15 +293,16 @@ struct AccountMark: View {
     let signedIn: Bool
     var size: CGFloat = 26
     var usage: UsageLimit?
+    var tint: Color?
 
     var body: some View {
         let ring = max(1.5, size * 0.075)
         let face = usage == nil ? size : size - 2 * (ring + max(1.25, size * 0.06))
         ZStack {
             if signedIn {
-                PersonAvatar(name: initial, key: key, size: face)
+                PersonAvatar(name: initial, key: key, size: face, color: tint)
             } else {
-                let tint = PersonTint.color(for: key)
+                let tint = tint ?? PersonTint.color(for: key)
                 Text(verbatim: initial.uppercased())
                     .font(.system(size: face * 0.4, weight: .semibold, design: .rounded))
                     .foregroundStyle(tint)

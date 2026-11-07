@@ -54,6 +54,7 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
         directory: Some("/Users/someone/private".into()),
         title: Some("A private title".into()),
         program: Some("claude".into()),
+        account: Some(2),
         status: Some(ProgramStatus {
             state: ProgramState::Blocked,
             kind: Some(BlockedKind::Permission),
@@ -73,7 +74,7 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
     let bytes = serde_json::to_vec(&status).unwrap();
     assert_eq!(
         bytes,
-        br#"{"program":"claude","state":"blocked","kind":"permission"}"#
+        br#"{"program":"claude","account":2,"state":"blocked","kind":"permission"}"#
     );
     let notice = |status: Value| {
         wire::TerminalNotice::read(&serde_json::json!({"sessionId": Uuid::nil(),
@@ -88,6 +89,7 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
     for ignored in [
         serde_json::json!({"program":"other"}),
         serde_json::json!({"state":"working","kind":"permission"}),
+        serde_json::json!({"account":1,"state":"working"}),
     ] {
         assert_eq!(notice(ignored).unwrap().status, None);
     }

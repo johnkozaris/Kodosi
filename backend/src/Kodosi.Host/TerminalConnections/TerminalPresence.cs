@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Kodosi.TerminalConnections;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record TerminalStatus(string? Program = null, string? State = null, string? Kind = null)
+public sealed record TerminalStatus(string? Program = null, string? State = null, string? Kind = null, int? Account = null)
 {
     private static readonly SearchValues<char> ProgramCharacters = SearchValues.Create("abcdefghijklmnopqrstuvwxyz0123456789-");
 
@@ -18,6 +18,7 @@ public sealed record TerminalStatus(string? Program = null, string? State = null
 
     private bool IsValid =>
         (Program is null || (Program.Length is > 0 and <= 32 && !Program.AsSpan().ContainsAnyExcept(ProgramCharacters)))
+        && (Account is null || (Program is not null && Account is >= 0 and <= 255))
         && State is null or "idle" or "working" or "blocked" or "done" or "error"
         && (Kind is null || (State == "blocked" && Kind is "permission" or "question" or "auth"));
 }

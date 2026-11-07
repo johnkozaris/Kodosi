@@ -74,6 +74,21 @@ public enum AgentKind: String, CaseIterable, Sendable {
         }
     }
 
+    /// The tint of the account at `place` in the launcher's account list of its computer.
+    public func tint(account place: Int?) -> Color {
+        guard let place, place > 0 else { return tint }
+        return shades[place % shades.count]
+    }
+
+    private var shades: [Color] {
+        switch self {
+        case .claude: [hex(0xD97757), hex(0xC4301C), hex(0xD38A0F), hex(0x6B3420), hex(0xC9456B)]
+        case .codex: [hex(0x5F6B7A), hex(0x2E5A8C), hex(0x2F7D74), hex(0x3A3F4A), hex(0x6E5A7E)]
+        case .copilot: [hex(0x8660D9), hex(0x4B3BB0), hex(0xB44BC8), hex(0x5A2F6E), hex(0x5B7BE0)]
+        case .cursor, .gemini, .opencode, .shell: [tint]
+        }
+    }
+
     public var label: String {
         switch self {
         case .claude: "Claude Code"

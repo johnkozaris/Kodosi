@@ -223,11 +223,13 @@ public sealed class TerminalConnectionTests
         static TerminalStatus? Read(string status) => TerminalStatus.Checked(((StatusMessage)Wire.Decode(Encoding.UTF8.GetBytes(
             $$"""{"incarnationId":"{{Guid.Empty}}","sessionId":"{{Guid.Empty}}","status":{{status}},"type":"status"}"""))).Status);
         Assert.Equal(new TerminalStatus("claude", "blocked", "question"), Read("""{"kind":"question","program":"claude","state":"blocked"}"""));
+        Assert.Equal(new TerminalStatus("claude", "working", Account: 2), Read("""{"account":2,"program":"claude","state":"working"}"""));
         Assert.Null(Read("null"));
         foreach (var invalid in new[]
                  {
                      """{"state":"blocked","message":"Allow the command?"}""", """{"state":"thinking"}""",
                      """{"state":"working","kind":"permission"}""", """{"program":"Claude Code"}""",
+                     """{"account":1,"state":"working"}""", """{"account":256,"program":"claude"}""", """{"account":-1,"program":"claude"}""",
                  })
             Assert.ThrowsAny<Exception>(() => Read(invalid));
     }
