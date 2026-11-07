@@ -16,7 +16,7 @@ computer, gli amici e le stanze.
 ## 2. Avvia un agente
 
 Seleziona Nuovo terminale (⌘N). Scegli un agente e una cartella e, se vuoi, un account, un
-modello e un livello di impegno. Scrivi un primo prompt e premi Invio. Kodosi scrive il
+modello e un livello di ragionamento. Scrivi un primo prompt e premi Invio. Kodosi scrive il
 comando nella shell del nuovo terminale.
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="Claude Code scelto nel launcher, con una cartella e un primo prompt."></p>
@@ -64,11 +64,11 @@ Nelle Impostazioni scegli cosa fa la chiusura della finestra.
 
 ## 3. Scopri quale agente ha bisogno di te
 
-Il segno di ogni terminale mostra cosa fa il suo programma.
+L'icona di ogni terminale mostra cosa fa il suo programma.
 
 | Vedi | Significa |
 | --- | --- |
-| Una luce calda che gira attorno al segno | Al lavoro. Il bordo si riempie per mostrare una percentuale. |
+| Una luce calda che gira attorno all'icona | Al lavoro. Il bordo si riempie per mostrare una percentuale. |
 | Una mano, un punto di domanda o una chiave | In attesa della tua approvazione, risposta o accesso. |
 | Una spunta verde | Finito. |
 | Un segnale di avviso giallo | Non riuscito. |
@@ -122,7 +122,7 @@ trascinare un file sul canvas. Su iPhone, il pulsante del canvas è nella barra 
 
 Dosi è il tuo agente per gli altri tuoi agenti. Seleziona la faccia di Dosi in fondo alla
 barra laterale (⌘J). Dosi funziona con Claude Code o Codex; Impostazioni › Dosi sceglie quale,
-con il suo account, il modello e il livello di impegno.
+con il suo account, il modello e il livello di ragionamento.
 
 <p align="center">
   <picture>

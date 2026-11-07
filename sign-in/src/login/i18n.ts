@@ -479,7 +479,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsRemove: "Entfernen",
       kdsDeleteTitle: "Dein Kodosi-Konto löschen?",
       kdsDeleteLead: "Du kannst das nicht rückgängig machen.",
-      kdsDeleteGoes: "Kodosi löscht deine Anmeldung, Geräte, Freunde und Freigaben.",
+      kdsDeleteGoes: "Kodosi löscht deine Anmeldung, Geräte und Freunde und beendet das Teilen.",
       kdsDeleteRooms: "Räume, die dir gehören, werden für alle darin geschlossen.",
       kdsDeleteWords:
         "Was du in Räumen anderer geschrieben hast, bleibt dort, von „gelöschtes Konto“.",

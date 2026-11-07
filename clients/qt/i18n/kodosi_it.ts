@@ -907,7 +907,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Impegno</translation>
+        <translation>Ragionamento</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -1540,7 +1540,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Impegno</translation>
+        <translation>Ragionamento</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -2102,7 +2102,7 @@
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
-        <translation>Ignora</translation>
+        <translation>Chiudi</translation>
     </message>
 </context>
 <context>
@@ -3476,7 +3476,7 @@
     </message>
     <message>
         <source>Reconnecting</source>
-        <translation>Riconnessione</translation>
+        <translation>Riconnessione in corso</translation>
     </message>
     <message>
         <source>This terminal is not available now.</source>
@@ -3568,7 +3568,7 @@
     </message>
     <message>
         <source>Connecting</source>
-        <translation>Connessione</translation>
+        <translation>Connessione in corso</translation>
     </message>
     <message>
         <source>Connecting terminal</source>
@@ -3600,7 +3600,7 @@
     </message>
     <message>
         <source>Dismiss</source>
-        <translation>Ignora</translation>
+        <translation>Chiudi</translation>
     </message>
     <message>
         <source>Copy</source>

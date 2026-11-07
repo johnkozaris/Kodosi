@@ -1746,7 +1746,7 @@
     </message>
     <message>
         <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Το Kodosi διαγράφει τις συσκευές, τους φίλους και τις κοινοποιήσεις σας. Ό,τι γράψατε σε άλλα δωμάτια μένει εκεί.</translation>
+        <translation>Το Kodosi διαγράφει τις συσκευές και τους φίλους σας και σταματά ό,τι μοιράζεστε. Ό,τι γράψατε σε άλλα δωμάτια μένει εκεί.</translation>
     </message>
     <message>
         <source>These rooms close for everyone in them: %1.</source>
@@ -2102,7 +2102,7 @@
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
-        <translation>Παράβλεψη</translation>
+        <translation>Κλείσιμο</translation>
     </message>
 </context>
 <context>
@@ -2984,7 +2984,7 @@
     </message>
     <message>
         <source>Everyone you share with can type, resize and close this terminal.</source>
-        <translation>Όλοι όσοι το μοιράζεστε μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθος και να κλείνουν αυτό το τερματικό.</translation>
+        <translation>Όλοι με όσους το μοιράζεστε μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθος και να κλείνουν αυτό το τερματικό.</translation>
     </message>
 </context>
 <context>
@@ -3476,7 +3476,7 @@
     </message>
     <message>
         <source>Reconnecting</source>
-        <translation>Επανασύνδεση</translation>
+        <translation>Γίνεται επανασύνδεση</translation>
     </message>
     <message>
         <source>This terminal is not available now.</source>
@@ -3568,7 +3568,7 @@
     </message>
     <message>
         <source>Connecting</source>
-        <translation>Σύνδεση</translation>
+        <translation>Γίνεται σύνδεση</translation>
     </message>
     <message>
         <source>Connecting terminal</source>
@@ -3600,7 +3600,7 @@
     </message>
     <message>
         <source>Dismiss</source>
-        <translation>Παράβλεψη</translation>
+        <translation>Κλείσιμο</translation>
     </message>
     <message>
         <source>Copy</source>

@@ -67,11 +67,11 @@ fait la fermeture de la fenêtre.
 
 ## 3. Voir quel agent a besoin de vous
 
-La marque de chaque terminal montre ce que fait son programme.
+L'icône de chaque terminal montre ce que fait son programme.
 
 | Vous voyez | Cela signifie |
 | --- | --- |
-| Une lumière chaude qui tourne autour de la marque | En cours. Le bord se remplit pour montrer un pourcentage. |
+| Une lumière chaude qui tourne autour de l'icône | En cours. Le bord se remplit pour montrer un pourcentage. |
 | Une main, un point d'interrogation ou une clé | En attente de votre approbation, de votre réponse ou de votre connexion. |
 | Une coche verte | Terminé. |
 | Un panneau d'avertissement jaune | Échec. |

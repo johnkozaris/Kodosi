@@ -64,11 +64,11 @@ Ajustes eliges qué hace cerrar la ventana.
 
 ## 3. Mira qué agente te necesita
 
-La marca de cada terminal muestra lo que hace su programa.
+El icono de cada terminal muestra lo que hace su programa.
 
 | Ves | Significa |
 | --- | --- |
-| Una luz cálida que gira alrededor de la marca | Trabajando. El borde se llena para mostrar un porcentaje. |
+| Una luz cálida que gira alrededor del icono | Trabajando. El borde se llena para mostrar un porcentaje. |
 | Una mano, un signo de interrogación o una llave | Espera tu aprobación, tu respuesta o tu inicio de sesión. |
 | Una marca de verificación verde | Terminado. |
 | Una señal de advertencia amarilla | Ha fallado. |

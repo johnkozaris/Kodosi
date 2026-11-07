@@ -907,7 +907,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Aufwand</translation>
+        <translation>Denkaufwand</translation>
     </message>
     <message>
         <source>Extra high</source>
@@ -1094,7 +1094,7 @@
     </message>
     <message>
         <source>What needs me?</source>
-        <translation>Was braucht mich gerade?</translation>
+        <translation>Wo werde ich gerade gebraucht?</translation>
     </message>
     <message>
         <source>Sum up my rooms</source>
@@ -1540,7 +1540,7 @@
     </message>
     <message>
         <source>Effort</source>
-        <translation>Aufwand</translation>
+        <translation>Denkaufwand</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -1746,7 +1746,7 @@
     </message>
     <message>
         <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi löscht deine Geräte, Freunde und Freigaben. Was du in anderen Räumen geschrieben hast, bleibt dort.</translation>
+        <translation>Kodosi löscht deine Geräte und Freunde und beendet das Teilen. Was du in anderen Räumen geschrieben hast, bleibt dort.</translation>
     </message>
     <message>
         <source>These rooms close for everyone in them: %1.</source>
@@ -4101,7 +4101,7 @@
     </message>
     <message>
         <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>Ändere die Freigabe auf dem Computer, auf dem dieses Terminal läuft.</translation>
+        <translation>Ändere auf dem Computer, auf dem dieses Terminal läuft, mit wem du es teilst.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

@@ -1425,7 +1425,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Παράβλεψη"
+            "value" : "Κλείσιμο"
           }
         },
         "es" : {
@@ -1443,7 +1443,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ignora"
+            "value" : "Chiudi"
           }
         },
         "ja" : {

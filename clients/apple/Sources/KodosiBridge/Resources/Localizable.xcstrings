@@ -636,7 +636,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σύνδεση"
+            "value" : "Γίνεται σύνδεση"
           }
         },
         "es" : {
@@ -654,7 +654,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connessione"
+            "value" : "Connessione in corso"
           }
         },
         "ja" : {
@@ -948,13 +948,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi löscht deine Geräte, Freunde und Freigaben. Was du in anderen Räumen geschrieben hast, bleibt dort."
+            "value" : "Kodosi löscht deine Geräte und Freunde und beendet das Teilen. Was du in anderen Räumen geschrieben hast, bleibt dort."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi διαγράφει τις συσκευές, τους φίλους και τις κοινοποιήσεις σας. Ό,τι γράψατε σε άλλα δωμάτια μένει εκεί."
+            "value" : "Το Kodosi διαγράφει τις συσκευές και τους φίλους σας και σταματά ό,τι μοιράζεστε. Ό,τι γράψατε σε άλλα δωμάτια μένει εκεί."
           }
         },
         "es" : {
@@ -1422,7 +1422,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Επανασύνδεση"
+            "value" : "Γίνεται επανασύνδεση"
           }
         },
         "es" : {
@@ -1440,7 +1440,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Riconnessione"
+            "value" : "Riconnessione in corso"
           }
         },
         "ja" : {

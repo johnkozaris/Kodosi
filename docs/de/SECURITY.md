@@ -49,8 +49,8 @@ du entfernst, verliert ab dann den Zugriff. Nachdem du ein verlorenes oder gesto
 entfernt hast, erstelle einen neuen Wiederherstellungsschlüssel, um dieses Gerät draußen zu
 halten. Zugangsdaten für GitHub und Gitea bleiben auf deinem Computer.
 
-Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde, Freigaben und
-eigenen Räume; Nachrichten in Räumen anderer bleiben ohne Konto stehen. 30 Tage lang behält
+Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde, geteilten
+Terminals und eigenen Räume; Nachrichten in Räumen anderer bleiben ohne Konto stehen. 30 Tage lang behält
 der Dienst Aussteller und Subjekt der gelöschten Anmeldung, um ältere Tokens abzuweisen.
 
 ## Eine Schwachstelle melden

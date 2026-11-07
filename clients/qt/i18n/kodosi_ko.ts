@@ -1699,7 +1699,7 @@
     </message>
     <message>
         <source>Same as the system</source>
-        <translation>시스템과 같게</translation>
+        <translation>시스템과 동일</translation>
     </message>
     <message>
         <source>Keep running when the window closes</source>

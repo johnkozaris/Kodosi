@@ -18,7 +18,7 @@ Computer, Freunde und Räume zu nutzen.
 ## 2. Einen Agent starten
 
 Wähle Neues Terminal (⌘N). Wähle einen Agent und einen Ordner und, wenn du willst, ein Konto,
-ein Modell und einen Aufwand. Tippe einen ersten Prompt und drücke Return. Kodosi tippt den
+ein Modell und einen Denkaufwand. Tippe einen ersten Prompt und drücke Return. Kodosi tippt den
 Befehl in die Shell des neuen Terminals.
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="Claude Code im Launcher ausgewählt, mit einem Ordner und einem ersten Prompt."></p>
@@ -130,12 +130,12 @@ Canvas-Button in der Leiste des Terminals.
 
 Dosi ist dein Agent für deine anderen Agents. Wähle Dosis Gesicht unten in der Seitenleiste
 (⌘J). Dosi läuft mit Claude Code oder Codex; Einstellungen › Dosi legt fest, womit, samt Konto,
-Modell und Aufwand.
+Modell und Denkaufwand.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="Auf die Frage, was dich braucht, liest Dosi die Terminals, sagt, dass checkout auf eine Freigabe wartet, und fragt, ob es sie erlauben soll.">
+    <img src="../media/dosi.webp" width="900" alt="Auf die Frage, wo du gebraucht wirst, liest Dosi die Terminals, sagt, dass checkout auf eine Freigabe wartet, und fragt, ob es sie erlauben soll.">
   </picture>
 </p>
 

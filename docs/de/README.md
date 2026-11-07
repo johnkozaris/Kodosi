@@ -47,7 +47,7 @@ Computer.
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="Auf die Frage, was dich braucht, liest Dosi die Terminals, sagt, dass checkout auf eine Freigabe wartet, und fragt, ob es sie erlauben soll.">
+    <img src="../media/dosi.webp" width="900" alt="Auf die Frage, wo du gebraucht wirst, liest Dosi die Terminals, sagt, dass checkout auf eine Freigabe wartet, und fragt, ob es sie erlauben soll.">
   </picture>
 </p>
 

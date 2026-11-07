@@ -6880,7 +6880,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σύνδεση"
+            "value" : "Γίνεται σύνδεση"
           }
         },
         "es" : {
@@ -6898,7 +6898,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connessione"
+            "value" : "Connessione in corso"
           }
         },
         "ja" : {
@@ -8362,7 +8362,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Παράβλεψη"
+            "value" : "Κλείσιμο"
           }
         },
         "es" : {
@@ -8380,7 +8380,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ignora"
+            "value" : "Chiudi"
           }
         },
         "ja" : {
@@ -9656,7 +9656,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aufwand"
+            "value" : "Denkaufwand"
           }
         },
         "el" : {
@@ -9680,7 +9680,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impegno"
+            "value" : "Ragionamento"
           }
         },
         "ja" : {
@@ -9818,7 +9818,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Όλοι όσοι το μοιράζεστε μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθος και να κλείνουν αυτό το τερματικό."
+            "value" : "Όλοι με όσους το μοιράζεστε μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθος και να κλείνουν αυτό το τερματικό."
           }
         },
         "es" : {
@@ -12438,7 +12438,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seine Unterhaltung und Freigaben enden. Terminals laufen weiter."
+            "value" : "Die Unterhaltung endet, und die Terminals sind nicht mehr geteilt. Sie laufen weiter."
           }
         },
         "el" : {
@@ -17332,7 +17332,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Τίποτα δεν έχει κοινοποιηθεί ακόμη σε εσάς"
+            "value" : "Κανείς δεν έχει μοιραστεί κάτι μαζί σας ακόμη"
           }
         },
         "es" : {
@@ -19516,7 +19516,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Επανασύνδεση"
+            "value" : "Γίνεται επανασύνδεση"
           }
         },
         "es" : {
@@ -19534,7 +19534,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Riconnessione"
+            "value" : "Riconnessione in corso"
           }
         },
         "ja" : {
@@ -21626,7 +21626,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "macOS와 같게"
+            "value" : "macOS와 동일"
           }
         },
         "zh-Hans" : {
@@ -29454,7 +29454,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Was braucht mich gerade?"
+            "value" : "Wo werde ich gerade gebraucht?"
           }
         },
         "el" : {
