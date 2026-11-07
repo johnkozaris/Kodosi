@@ -1634,11 +1634,11 @@
     </message>
     <message>
         <source>The Kodosi server does not answer. Kodosi tries again.</source>
-        <translation>Ο διακομιστής του Kodosi δεν απαντά. Το Kodosi δοκιμάζει ξανά.</translation>
+        <translation>Ο διακομιστής του Kodosi δεν απαντά. Το Kodosi θα δοκιμάσει ξανά.</translation>
     </message>
     <message>
         <source>Unlock the keychain. Kodosi tries again.</source>
-        <translation>Ξεκλειδώστε την κλειδοθήκη. Το Kodosi δοκιμάζει ξανά.</translation>
+        <translation>Ξεκλειδώστε την κλειδοθήκη. Το Kodosi θα δοκιμάσει ξανά.</translation>
     </message>
     <message>
         <source>Kodosi cannot read your sign-in in %1.</source>
@@ -1858,7 +1858,7 @@
     <name>KeyboardSettings</name>
     <message>
         <source>Press a key. Delete removes this one.</source>
-        <translation>Πατήστε ένα πλήκτρο. Το Delete αφαιρεί αυτό.</translation>
+        <translation>Πατήστε ένα πλήκτρο. Με το Delete αφαιρείται αυτή η συντόμευση.</translation>
     </message>
     <message>
         <source>Press a key.</source>
@@ -1870,7 +1870,7 @@
     </message>
     <message>
         <source>%1 was %2.</source>
-        <translation>Το %1 ήταν για: %2.</translation>
+        <translation>Το %1 χρησιμοποιούνταν για: %2.</translation>
     </message>
     <message>
         <source>Reset all</source>
@@ -2010,7 +2010,7 @@
     </message>
     <message>
         <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>Ένα δωμάτιο κρατά άτομα, agents και τερματικά σε ένα σημείο.</translation>
+        <translation>Ένα δωμάτιο συγκεντρώνει άτομα, agents και τερματικά σε ένα σημείο.</translation>
     </message>
     <message numerus="yes">
         <source>%n rooms</source>
@@ -2211,7 +2211,7 @@
     </message>
     <message>
         <source>Their devices changed. Trust them again to share.</source>
-        <translation>Οι συσκευές του άλλαξαν. Δείξτε ξανά εμπιστοσύνη για να μοιραστείτε.</translation>
+        <translation>Οι συσκευές του ατόμου άλλαξαν. Ορίστε το ξανά ως αξιόπιστο για να μοιραστείτε.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2223,7 +2223,7 @@
     </message>
     <message>
         <source>Paste the invite they sent you</source>
-        <translation>Επικολλήστε την πρόσκληση που σας έστειλαν</translation>
+        <translation>Επικολλήστε την πρόσκληση που σας έστειλε</translation>
     </message>
     <message>
         <source>Verify</source>
@@ -2689,7 +2689,7 @@
     </message>
     <message>
         <source>Share %1 with %2?</source>
-        <translation>Να μοιραστείτε %1 με %2;</translation>
+        <translation>Κοινή χρήση του %1 με %2;</translation>
     </message>
     <message>
         <source>this terminal</source>
@@ -2830,7 +2830,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>Κοινοποιήθηκε από %1</translation>
+        <translation>Μοιράστηκε από %1</translation>
     </message>
     <message>
         <source>a friend</source>
@@ -2980,7 +2980,7 @@
     </message>
     <message>
         <source>Their identity changed. Trust them in Friends first.</source>
-        <translation>Η ταυτότητα του ατόμου άλλαξε. Δείξτε του πρώτα εμπιστοσύνη στους Φίλους.</translation>
+        <translation>Η ταυτότητα του ατόμου άλλαξε. Ορίστε το πρώτα ως αξιόπιστο στους Φίλους.</translation>
     </message>
     <message>
         <source>Everyone you share with can type, resize and close this terminal.</source>
@@ -3123,7 +3123,7 @@
     </message>
     <message>
         <source>Shared by %1</source>
-        <translation>Κοινοποιήθηκε από %1</translation>
+        <translation>Μοιράστηκε από %1</translation>
     </message>
     <message>
         <source>Minimize</source>
@@ -3279,7 +3279,7 @@
     </message>
     <message>
         <source>Restart it and end its terminals</source>
-        <translation>Επανεκκίνηση και τερματισμός των τερματικών του</translation>
+        <translation>Επανεκκίνηση και κλείσιμο των τερματικών του</translation>
     </message>
 </context>
 <context>
@@ -3395,7 +3395,7 @@
     </message>
     <message>
         <source>Lines kept for each terminal</source>
-        <translation>Γραμμές που κρατιούνται για κάθε τερματικό</translation>
+        <translation>Γραμμές ιστορικού ανά τερματικό</translation>
     </message>
     <message>
         <source>Scrollback lines</source>
@@ -3698,11 +3698,11 @@
     </message>
     <message>
         <source>%1, this month</source>
-        <translation>%1, αυτός ο μήνας</translation>
+        <translation>%1, αυτόν τον μήνα</translation>
     </message>
     <message>
         <source>%1, this week</source>
-        <translation>%1, αυτή η εβδομάδα</translation>
+        <translation>%1, αυτή την εβδομάδα</translation>
     </message>
     <message numerus="yes">
         <source>%1, last %n hours</source>
@@ -3846,7 +3846,7 @@
     </message>
     <message>
         <source>Choose a readable local folder.</source>
-        <translation>Επιλέξτε έναν τοπικό φάκελο που διαβάζεται.</translation>
+        <translation>Επιλέξτε έναν τοπικό φάκελο με δικαίωμα ανάγνωσης.</translation>
     </message>
     <message>
         <source>Add files to the canvas</source>
@@ -4010,7 +4010,7 @@
     </message>
     <message>
         <source>Kodosi is still starting.</source>
-        <translation>Το Kodosi ακόμη ξεκινά.</translation>
+        <translation>Το Kodosi ξεκινά ακόμη.</translation>
     </message>
     <message>
         <source>Terminals could not start.</source>
@@ -4066,7 +4066,7 @@
     </message>
     <message>
         <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Το Kodosi έλαβε πάρα πολλές ενημερώσεις και σταμάτησε. Δοκιμάστε ξανά.</translation>
+        <translation>Το Kodosi έλαβε πάρα πολλές αλλαγές ταυτόχρονα και σταμάτησε. Δοκιμάστε ξανά.</translation>
     </message>
     <message>
         <source>Kodosi got an incomplete answer.</source>
