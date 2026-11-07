@@ -30,7 +30,7 @@
 
 **どのエージェントがあなたを必要としているかがわかる。** Claude Code、Codex、Copilot CLI など、ターミナルで動くエージェントなら何でも使えます。各ターミナルには、エージェントが作業中か、承認待ちか、完了したか、失敗したかが表示され、Kodosi がバックグラウンドにあるときは通知でお知らせします。
 
-**Dosi、エージェントのためのエージェント。** 何に対応が必要か Dosi に聞いてみましょう。 Dosi はすべてのターミナルとルームを読んで答え、代わりに動きます。ターミナルに答えを入力し、エージェントを起動し、終わったものを閉じます。Dosi との会話はどのコンピュータにも引き継がれます。
+**Dosi、エージェントのためのエージェント。** 何に対応が必要か Dosi に聞いてみましょう。Dosi はすべてのターミナルとルームを読んで答え、代わりに動きます。ターミナルに答えを入力し、エージェントを起動し、終わったものを閉じます。Dosi との会話はどのコンピュータにも引き継がれます。
 
 <p align="center">
   <picture>
@@ -72,13 +72,13 @@
 
 - [はじめに](GETTING_STARTED.md)
 - [セキュリティ](SECURITY.md)と[暗号化の設計](../CRYPTOGRAPHY.md)（英語）
-- [アーキテクチャ](../ARCHITECTURE.md)、[開発](../DEVELOPMENT.md)、 [コントリビュート](../../CONTRIBUTING.md)（英語）
+- [アーキテクチャ](../ARCHITECTURE.md)、[開発](../DEVELOPMENT.md)、[コントリビュート](../../CONTRIBUTING.md)（英語）
 - [セルフホスティング](../SELF-HOSTING.md)（英語）
 
-バグは [GitHub の Issue](https://github.com/johnkozaris/Kodosi/issues) に、脆弱性は [非公開で](SECURITY.md#脆弱性を報告する)報告してください。
+バグは [GitHub の Issue](https://github.com/johnkozaris/Kodosi/issues) に、脆弱性は[非公開で](SECURITY.md#脆弱性を報告する)報告してください。
 
 Kodosi は [John Kozaris](https://johnkozaris.com) が開発しています。
 
 ## ライセンス
 
-Kodosi は [Apache License 2.0](../../LICENSE) で提供されています。Kodosi の名前とロゴはこのライセンスの対象外です。使い方は[商標](../../TRADEMARKS.md)（英語）をご覧ください。 Kodosi は [Ghostty](https://ghostty.org)、Rust、Swift、Qt、ASP.NET Core を使っています。含まれるものは[サードパーティの表示](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)と [画像のクレジット](../media/README.md)に記載しています。
+Kodosi は [Apache License 2.0](../../LICENSE) で提供されています。Kodosi の名前とロゴはこのライセンスの対象外です。使い方は[商標](../../TRADEMARKS.md)（英語）をご覧ください。Kodosi は [Ghostty](https://ghostty.org)、Rust、Swift、Qt、ASP.NET Core を使っています。含まれるものは[サードパーティの表示](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)と[画像のクレジット](../media/README.md)に記載しています。
