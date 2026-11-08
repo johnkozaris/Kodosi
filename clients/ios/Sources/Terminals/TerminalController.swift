@@ -168,6 +168,11 @@ final class TerminalController {
         refresh()
     }
 
+    func resizeHere() {
+        focusTerminal()
+        store.live.takeSize(for: sessionId)
+    }
+
     func open() {
         guard openTask == nil, presence.visible, let session, session.canOpen else { return }
         opening = true

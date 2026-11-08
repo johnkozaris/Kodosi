@@ -187,7 +187,7 @@ private struct TerminalScreenContent: View {
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(0.7), lineWidth: 0.5).allowsHitTesting(false) }
             .overlay(alignment: .top) {
                 if let note = controller.sizeNote, session?.isConnected == true {
-                    TerminalSizeNote(note: note, resize: controller.focusTerminal)
+                    TerminalSizeNote(note: note, resize: controller.resizeHere)
                         .padding(8)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }

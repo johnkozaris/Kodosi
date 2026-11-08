@@ -105,8 +105,13 @@ private extension TerminalSessionManager {
             {
                 guard let renderer else { return }
                 let viewport = TerminalControlFrames.hostViewport(from: fields)
-                let applied = viewport.map { renderer.applyHostResize($0) } ?? false
-                guard !applied, link.token.deactivate() else { return }
+                if let viewport, renderer.applyHostResize(viewport) {
+                    Task { @MainActor [weak self] in
+                        self?.noteHostSize(viewport, sessionId: link.sessionId, token: link.token)
+                    }
+                    return
+                }
+                guard link.token.deactivate() else { return }
                 Task { @MainActor [weak self] in
                     self?.fail(link, message: viewport == nil
                         ? String(localized: "The terminal received an invalid control frame. Retry the terminal to reconnect.",

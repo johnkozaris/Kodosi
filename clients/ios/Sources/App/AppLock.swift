@@ -30,14 +30,31 @@ final class AppLock {
         }
     }
 
+    /// How the person answered the device's question.
+    enum Answer {
+        case proved
+        case refused
+        /// The system took the question away, as when Kodosi left the front.
+        case interrupted
+    }
+
     private(set) var locked: Bool
     private(set) var enabled: Bool
     @ObservationIgnored private var left: Date?
     @ObservationIgnored private var asking = false
+    @ObservationIgnored private var asked = false
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let canProve: () -> Bool
+    @ObservationIgnored private let ask: @MainActor () async -> Answer
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        canProve: @escaping () -> Bool = { Proof.current != nil },
+        ask: @escaping @MainActor () async -> Answer = AppLock.askOwner,
+    ) {
         self.defaults = defaults
+        self.canProve = canProve
+        self.ask = ask
         let enabled = defaults.bool(forKey: Self.storageKey)
         self.enabled = enabled
         locked = enabled
@@ -53,16 +70,19 @@ final class AppLock {
         locked || (enabled && phase != .active)
     }
 
+    /// Kodosi asks once each time it comes to the front. The question of the system makes
+    /// Kodosi inactive, so after the person cancels it, Unlock asks again, not the return.
     func sceneChanged(to phase: ScenePhase, now: Date = .now) {
         switch phase {
         case .background:
             left = left ?? now
+            asked = false
         case .active:
             if Self.locks(enabled: enabled, left: left, now: now) {
                 locked = true
             }
             left = nil
-            if locked {
+            if locked, !asked {
                 unlock()
             }
         default:
@@ -72,32 +92,45 @@ final class AppLock {
 
     func unlock() {
         guard locked, !asking else { return }
-        guard Proof.current != nil else {
+        guard canProve() else {
             locked = false
             return
         }
         asking = true
+        asked = true
         Task {
-            let proved = await prove()
+            let answer = await ask()
             asking = false
-            if proved {
-                locked = false
+            switch answer {
+            case .proved: locked = false
+            case .refused: break
+            case .interrupted: asked = false
             }
         }
     }
 
     /// Turns the lock on after the person proves it is them, so the lock works when it is on.
     func turn(on: Bool) async {
-        if on, await !prove() {
+        if on, !canProve() {
+            return
+        }
+        if on, await ask() != .proved {
             return
         }
         enabled = on
         defaults.set(on, forKey: Self.storageKey)
     }
 
-    private func prove() async -> Bool {
+    static func askOwner() async -> Answer {
         let reason = String(localized: "Unlock Kodosi to see your terminals.")
-        return await (try? LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+        do {
+            return try await LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
+                ? .proved : .refused
+        } catch let error as LAError where [.systemCancel, .appCancel, .notInteractive].contains(error.code) {
+            return .interrupted
+        } catch {
+            return .refused
+        }
     }
 }
 
@@ -123,6 +156,7 @@ struct LockCover: View {
             .padding(32)
         }
         .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("lock.cover")
         .onAppear { model.lock.unlock() }
     }

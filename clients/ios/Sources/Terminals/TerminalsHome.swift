@@ -38,10 +38,10 @@ struct TerminalsHome: View {
             TerminalScreen(sessionId: route.sessionId)
         }
         .terminalPrompts($prompt)
-        .sensoryFeedback(.impact(weight: .medium), trigger: store.loaded ? store.needsYou.map(\.id) : nil) { old, new in
+        .sensoryFeedback(.impact(weight: .medium), trigger: store.listed ? store.needsYou.map(\.id) : nil) { old, new in
             arrived(old, new)
         }
-        .sensoryFeedback(.success, trigger: store.loaded ? finished : nil) { old, new in
+        .sensoryFeedback(.success, trigger: store.listed ? finished : nil) { old, new in
             arrived(old, new)
         }
         .accessibilityIdentifier("terminals.home")
@@ -101,7 +101,7 @@ struct TerminalsHome: View {
 
     @ViewBuilder
     private func emptyContent(isEmpty: Bool) -> some View {
-        if !store.loaded {
+        if isEmpty, !store.loaded || !store.listed {
             TerminalsLoading()
         } else if isEmpty, !query.isEmpty {
             ContentUnavailableView.search(text: query)

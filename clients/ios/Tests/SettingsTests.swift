@@ -1,6 +1,7 @@
 import Foundation
 @testable import Kodosi
 import KodosiBridge
+import SwiftUI
 import Testing
 
 struct SettingsTests {
@@ -31,6 +32,35 @@ struct SettingsTests {
         #expect(!AppLock(defaults: defaults).locked)
         defaults.set(true, forKey: AppLock.storageKey)
         #expect(AppLock(defaults: defaults).locked)
+    }
+
+    @Test func `a cancelled unlock asks again only when Kodosi comes back`() async throws {
+        let suite = "SettingsTests.cancel"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: AppLock.storageKey)
+        var questions = 0
+        let lock = AppLock(defaults: defaults, canProve: { true }, ask: {
+            questions += 1
+            return .refused
+        })
+        func settle() async {
+            for _ in 0 ..< 20 {
+                await Task.yield()
+            }
+        }
+        lock.sceneChanged(to: .active)
+        await settle()
+        lock.sceneChanged(to: .inactive)
+        lock.sceneChanged(to: .active)
+        await settle()
+        #expect(questions == 1)
+        #expect(lock.locked)
+        let left = Date()
+        lock.sceneChanged(to: .background, now: left)
+        lock.sceneChanged(to: .active, now: left.addingTimeInterval(1))
+        await settle()
+        #expect(questions == 2)
     }
 
     @Test func `device code is complete with twelve symbols`() {

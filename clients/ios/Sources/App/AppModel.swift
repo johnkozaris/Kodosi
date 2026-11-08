@@ -94,7 +94,7 @@ final class AppModel {
     }
 
     func refresh() {
-        commands.perform("session.list")
+        terminals.list()
         guard account.userId != nil else { return }
         commands.perform("auth.refresh")
         commands.perform("friends.refresh")
@@ -181,18 +181,19 @@ final class AppModel {
         try account.receiveAuth(event)
         switch event.type {
         case "auth.ready":
-            commands.perform("session.list")
+            terminals.list()
             commands.perform("friends.refresh")
             commands.perform("devices.refresh")
             commands.perform("mission.list")
         case "auth.required":
-            commands.perform("session.list")
+            terminals.list()
         default:
             break
         }
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
+        terminals.absorb(error: event)
         guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)

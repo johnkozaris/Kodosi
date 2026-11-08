@@ -16,6 +16,7 @@ struct LanguageSection: View {
                     }
                 }
                 .labelsHidden()
+                .layoutPriority(1)
                 .accessibilityIdentifier("settings.language")
             }
             .raisedRows()

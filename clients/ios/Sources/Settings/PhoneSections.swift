@@ -92,7 +92,7 @@ private struct TerminalSwatch: View {
         .lineLimit(1)
         .fixedSize()
         .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 62, alignment: .leading)
         .clipped()
         .background(Color(red: 0.05, green: 0.04, blue: 0.035), in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         .accessibilityHidden(true)

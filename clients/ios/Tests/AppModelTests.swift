@@ -35,6 +35,16 @@ struct AppModelTests {
         #expect(sent.types == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"])
     }
 
+    @Test func `an empty terminal list counts once the server answered`() throws {
+        try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion])
+        try deliver("sessions.snapshot", ["sessions": [Any]()])
+        #expect(model.terminals.loaded)
+        #expect(!model.terminals.listed)
+        let request = try #require(sent.last("session.list")?["requestId"] as? String)
+        try deliver("session.result", ["requestId": request, "operation": "session.list"])
+        #expect(model.terminals.listed)
+    }
+
     @Test func `sign in opens only secure pages and gives the answer back`() throws {
         try deliver("auth.required", userId: nil)
         model.account.signIn()
