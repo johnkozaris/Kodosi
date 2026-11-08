@@ -913,6 +913,7 @@ dependencies = [
  "getrandom",
  "pbkdf2",
  "rusqlite",
+ "rustix",
  "secret-service",
  "security-framework",
  "serde",

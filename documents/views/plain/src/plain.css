@@ -1,0 +1,60 @@
+.plain-page {
+  --zoom: 1;
+  --digits: 1;
+  background: var(--surface);
+}
+
+/* Each line wraps at the edge of the view, and its number stands in the room before it. */
+.plain-text {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 12px 16px 12px 0;
+  color: var(--ink);
+  font: calc(13px * var(--zoom)) / 1.5 var(--mono-font);
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+  caret-color: var(--accent);
+  outline: none;
+  counter-reset: line;
+}
+
+.plain-line {
+  position: relative;
+  padding-left: calc((var(--digits) + 3) * 1ch);
+  counter-increment: line;
+}
+
+.plain-line::before {
+  position: absolute;
+  left: 0;
+  width: calc((var(--digits) + 1) * 1ch);
+  color: var(--ink-faint);
+  content: counter(line);
+  text-align: right;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+.plain-text img.ProseMirror-separator {
+  display: inline !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.plain-text.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.plain-text.ProseMirror-hideselection {
+  caret-color: transparent;
+}
+
+.document-view[data-render] .plain-text {
+  min-height: 0;
+}

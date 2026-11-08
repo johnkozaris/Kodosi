@@ -849,3 +849,69 @@ fn an_agent_folder_comes_from_its_variable_or_the_usual_folder() {
     );
     assert_eq!(folder(Agent::Gemini, None), None);
 }
+
+#[test]
+fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
+    let chosen = |agent: Agent, arguments: &[&str]| {
+        agent.chosen(
+            &arguments
+                .iter()
+                .map(|argument| (*argument).to_owned())
+                .collect::<Vec<_>>(),
+        )
+    };
+    assert_eq!(
+        chosen(
+            Agent::Copilot,
+            &[
+                "node",
+                "/lib/node_modules/@github/copilot/index.js",
+                "--yolo",
+                "--model",
+                "claude-opus-5.5",
+                "--reasoning-effort",
+                "max",
+                "-i",
+                "--model x"
+            ]
+        ),
+        ["--model claude-opus-5.5", "--reasoning-effort max"]
+    );
+    assert_eq!(
+        chosen(
+            Agent::Claude,
+            &[
+                "claude",
+                "--model=sonnet",
+                "--model",
+                "opus",
+                "--append-system-prompt",
+                "--effort low",
+                "--effort",
+                "high"
+            ]
+        ),
+        ["--model opus", "--effort high"]
+    );
+    assert_eq!(
+        chosen(
+            Agent::Codex,
+            &[
+                "codex",
+                "-m",
+                "gpt-5.6-sol",
+                "-c",
+                "model_reasoning_effort=xhigh",
+                "-c",
+                "developer_instructions=-m",
+                "resume",
+                "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+            ]
+        ),
+        ["-m gpt-5.6-sol", "-c model_reasoning_effort=xhigh"]
+    );
+    assert_eq!(
+        chosen(Agent::Copilot, &["copilot", "--model", "it's", "--effort"]),
+        Vec::<String>::new()
+    );
+}

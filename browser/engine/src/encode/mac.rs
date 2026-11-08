@@ -11,11 +11,11 @@ use std::{
 use bytes::Bytes;
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::FRAME_RATE;
-use crate::link::Link;
+use super::{FRAME_RATE, REDRAW_AFTER_MS};
+use crate::{engine, link::Link};
 
-/// The most pictures that wait in the encoder. A newer picture replaces a waiting one, so the
-/// viewer sees the page as it is now.
+/// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
+/// page draws again as soon as there is room, so the viewer still sees the page as it is now.
 const MOST_WAITING: usize = 2;
 const START_CODE: [u8; 4] = [0, 0, 0, 1];
 
@@ -47,6 +47,8 @@ const MICROSECONDS: i32 = 1_000_000;
 const KEY_INTERVAL: i64 = 3600;
 /// A second of bursts may go half again above the average.
 const BURST: f64 = 1.5;
+/// The flag of the encoder's callback for a picture that it dropped.
+const FRAME_DROPPED: u32 = 1 << 1;
 
 type OutputCallback = unsafe extern "C" fn(*mut c_void, *mut c_void, OSStatus, u32, *mut c_void);
 
@@ -234,6 +236,8 @@ struct Output {
     failed: AtomicBool,
     /// The link lost a picture, so the next one is a key frame.
     want_key: AtomicBool,
+    /// A picture found the encoder full, so the page draws again when there is room.
+    missed: AtomicBool,
 }
 
 struct Session {
@@ -371,6 +375,12 @@ impl Encoder {
         let output = &session.output;
         let want_key = self.want_key || output.want_key.load(Ordering::Acquire);
         if output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !want_key {
+            output.missed.store(true, Ordering::Release);
+            if output.waiting.load(Ordering::Acquire) < MOST_WAITING
+                && output.missed.swap(false, Ordering::AcqRel)
+            {
+                engine::redraw(self.window, 0);
+            }
             return;
         }
         let mut target = ptr::null_mut();
@@ -458,6 +468,7 @@ impl Encoder {
             waiting: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
             want_key: AtomicBool::new(false),
+            missed: AtomicBool::new(false),
         });
         let refcon = Arc::into_raw(Arc::clone(&output))
             .cast_mut()
@@ -563,24 +574,30 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
     }
 }
 
-/// The encoder's callback, on a thread of `VideoToolbox`.
+/// The encoder's callback, on a thread of `VideoToolbox`. When the newest picture did not go
+/// out, the page draws again, as a still page would never send it.
 unsafe extern "C" fn encoded(
     refcon: *mut c_void,
     _frame: *mut c_void,
     status: OSStatus,
-    _flags: u32,
+    flags: u32,
     sample: *mut c_void,
 ) {
     // SAFETY: `refcon` is the session's `Output`, which lives until the session completed its
     // frames.
     let output = unsafe { &*refcon.cast::<Output>() };
     output.waiting.fetch_sub(1, Ordering::AcqRel);
+    if output.missed.swap(false, Ordering::AcqRel) {
+        engine::redraw(output.window, 0);
+    }
     if status != 0 || sample.is_null() {
         if status != 0 && !output.failed.swap(true, Ordering::AcqRel) {
             output.link.send(&FromEngine::Failed {
                 window: output.window,
                 problem: format!("the encoder failed: {status}"),
             });
+        } else if flags & FRAME_DROPPED != 0 {
+            engine::redraw(output.window, REDRAW_AFTER_MS);
         }
         return;
     }
@@ -598,6 +615,7 @@ unsafe extern "C" fn encoded(
     });
     if lost {
         output.want_key.store(true, Ordering::Release);
+        engine::redraw(output.window, REDRAW_AFTER_MS);
     }
 }
 

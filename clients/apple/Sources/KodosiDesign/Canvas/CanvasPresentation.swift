@@ -48,6 +48,13 @@ public extension CanvasItem.Kind {
     }
 }
 
+public extension CanvasItem {
+    /// What a person calls the file: its kind, or text for a text file that people edit live.
+    var label: String {
+        view == .text ? String(localized: "Text", bundle: .module) : kind.label
+    }
+}
+
 public extension CanvasSection {
     var title: String {
         switch self {

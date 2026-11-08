@@ -16,8 +16,8 @@ use openh264::{
 use openh264_sys2::{ENCODER_OPTION_BITRATE, SBitrateInfo, SPATIAL_LAYER_ALL};
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::FRAME_RATE;
-use crate::link::Link;
+use super::{FRAME_RATE, REDRAW_AFTER_MS};
+use crate::{engine, link::Link};
 
 struct Picture {
     pixels: Vec<u8>,
@@ -208,11 +208,13 @@ fn work(window: i64, mut bitrate: u32, link: &Link, shared: &Shared) {
         }
         let Ok(stream) = running.encoder.encode(&running.picture) else {
             lost = key;
+            engine::redraw(window, REDRAW_AFTER_MS);
             continue;
         };
         let data = stream.to_vec();
         if data.is_empty() {
             lost = key;
+            engine::redraw(window, REDRAW_AFTER_MS);
             continue;
         }
         lost = link.send_frame(&EncodedFrame {
@@ -221,5 +223,8 @@ fn work(window: i64, mut bitrate: u32, link: &Link, shared: &Shared) {
             timestamp: picture.time,
             data: Bytes::from(data),
         });
+        if lost {
+            engine::redraw(window, REDRAW_AFTER_MS);
+        }
     }
 }

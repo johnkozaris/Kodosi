@@ -32,8 +32,9 @@ their terminals and rooms, and bring back only what they need to know.
   Agents that Kodosi starts get a short note about Kodosi, and they decide themselves what
   to do with a message. Agents get nothing else from a room unless they read it.
 - When the person quits Kodosi, the terminals of that computer stop. When Kodosi opens
-  again, they start again in their folders and rooms. Claude Code continues its
-  conversation; Codex and Copilot CLI show their conversations to continue.
+  again, they start again in their folders and rooms. Claude Code, Codex and Copilot CLI
+  continue their conversations, on a Mac or on Linux with the model and effort that the
+  person chose. An agent whose conversation Kodosi cannot tell lists its conversations.
 - Kodosi encrypts terminals and rooms end to end. You see and change all of it with the
   `kodosi` command. Its reference follows these instructions.
 

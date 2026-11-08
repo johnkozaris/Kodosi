@@ -85,6 +85,39 @@ impl Agent {
     }
 
     #[cfg(feature = "host")]
+    pub(crate) const fn model_flag(self) -> &'static str {
+        match self {
+            Self::Codex | Self::Gemini => "-m",
+            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode => "--model",
+        }
+    }
+
+    /// The flag that chooses the reasoning effort, and the start of its value.
+    #[cfg(feature = "host")]
+    pub(crate) const fn effort_flag(self) -> Option<(&'static str, &'static str)> {
+        match self {
+            Self::Claude => Some(("--effort", "")),
+            Self::Codex => Some(("-c", "model_reasoning_effort=")),
+            Self::Copilot => Some(("--reasoning-effort", "")),
+            Self::Cursor | Self::Gemini | Self::Opencode => None,
+        }
+    }
+
+    /// The model and effort of the agent that runs with `arguments`, in the words of the
+    /// launcher.
+    #[cfg(feature = "host")]
+    pub(crate) fn chosen(self, arguments: &[String]) -> Vec<String> {
+        [Some((self.model_flag(), "")), self.effort_flag()]
+            .into_iter()
+            .flatten()
+            .filter_map(|(flag, start)| {
+                let value = last_value(arguments, flag, start)?;
+                Some(format!("{flag} {}", shell_word(value)?))
+            })
+            .collect()
+    }
+
+    #[cfg(feature = "host")]
     pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
         match self {
             Self::Claude => Some(format!(
@@ -582,6 +615,26 @@ fn shell_word(value: &str) -> Option<String> {
     } else {
         Some(format!("'{value}'"))
     }
+}
+
+/// The last value of `flag` in `arguments` that starts with `start`.
+#[cfg(feature = "host")]
+fn last_value<'a>(arguments: &'a [String], flag: &str, start: &str) -> Option<&'a str> {
+    let mut found = None;
+    let mut rest = arguments.iter().skip(1);
+    while let Some(argument) = rest.next() {
+        let value = if argument == flag {
+            rest.next().map(String::as_str)
+        } else {
+            argument
+                .strip_prefix(flag)
+                .and_then(|value| value.strip_prefix('='))
+        };
+        if let Some(value) = value.filter(|value| value.starts_with(start)) {
+            found = Some(value);
+        }
+    }
+    found
 }
 
 #[cfg(all(test, feature = "host"))]

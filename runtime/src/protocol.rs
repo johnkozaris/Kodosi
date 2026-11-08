@@ -454,6 +454,12 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    /// A person's own step: gets Kodosi Browser now, or its newest version.
+    #[serde(rename = "browser.get")]
+    BrowserGet {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "document.open")]
     DocumentOpen {
         #[serde(rename = "requestId")]
@@ -759,6 +765,15 @@ pub struct StartSize {
     pub rows: u16,
     pub cell_width_pixels: u32,
     pub cell_height_pixels: u32,
+}
+
+/// A browser of this computer whose sign-ins Settings › Browser can copy.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserSource {
+    pub name: String,
+    pub browser: String,
+    pub protected: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -1084,11 +1099,13 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        sources: Option<Vec<String>>,
+        sources: Option<Vec<BrowserSource>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sites: Option<u64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         engine: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        getting: Option<u8>,
     },
     #[serde(rename = "browser.error")]
     BrowserError {
@@ -1641,6 +1658,7 @@ impl Command {
             Self::BrowserCopy { .. } => "browser.copy",
             Self::BrowserForget { .. } => "browser.forget",
             Self::BrowserClear { .. } => "browser.clear",
+            Self::BrowserGet { .. } => "browser.get",
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
@@ -1765,6 +1783,7 @@ impl Command {
             | Self::BrowserCopy { request_id, .. }
             | Self::BrowserForget { request_id }
             | Self::BrowserClear { request_id }
+            | Self::BrowserGet { request_id }
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }
@@ -2916,5 +2935,16 @@ mod tests {
         assert!(Event::new(None,0,json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
         assert!(Event::new(None, 0, json!({"type":"unknown.event"})).is_err());
         assert!(Event::new(None, 0, json!({"type":"auth.finalizing","extra":true})).is_err());
+    }
+
+    #[test]
+    fn the_browser_status_answer_names_each_source_and_the_download() {
+        let status = json!({"type":"browser.result","requestId":ID,"operation":"browser.status",
+            "sources":[{"name":"Chrome","browser":"chrome","protected":true}],
+            "sites":3,"engine":null,"getting":42});
+        let encoded = serde_json::to_value(Event::new(None, 0, status).unwrap()).unwrap();
+        assert_eq!(encoded["sources"][0]["browser"], "chrome");
+        assert_eq!(encoded["sources"][0]["protected"], true);
+        assert_eq!(encoded["getting"], 42);
     }
 }

@@ -25,7 +25,7 @@ const MOST_PICTURES: usize = 300;
 #[derive(Parser)]
 #[command(name = "kodosi doc render")]
 pub(super) struct RenderArguments {
-    /// A document, sheet, presentation or PDF.
+    /// A document, sheet, presentation, PDF or text file.
     pub file: PathBuf,
     /// The folder of the pictures. Without it, they go to a private folder of the terminal.
     #[arg(long)]
@@ -44,7 +44,7 @@ struct Area {
 /// The size of the page that a view draws in.
 const fn page_size(view: DocumentView) -> (u32, u32) {
     match view {
-        DocumentView::Docx | DocumentView::Pdf => (1100, 900),
+        DocumentView::Docx | DocumentView::Pdf | DocumentView::Text => (1100, 900),
         DocumentView::Xlsx => (1400, 900),
         DocumentView::Pptx => (1440, 900),
     }
@@ -114,7 +114,9 @@ pub(super) async fn render(
     out: PathBuf,
 ) -> Result<CanvasAnswer, Text> {
     let view = view_of(&file).ok_or_else(|| {
-        Text::plain("kodosi doc render draws .docx, .xlsx, .pptx and .pdf files.")
+        Text::plain(
+            "kodosi doc render draws .docx, .xlsx, .pptx, .pdf, .txt, .json, .yaml, .toml and .xml files.",
+        )
     })?;
     let views =
         views().ok_or_else(|| Text::plain("This Kodosi has no document views to draw with."))?;
@@ -269,7 +271,11 @@ mod tests {
             view_of(Path::new("a/b.pdf")).map(DocumentView::name),
             Some("pdf")
         );
-        assert_eq!(view_of(Path::new("notes.txt")), None);
+        assert_eq!(
+            view_of(Path::new("config.YML")).map(DocumentView::name),
+            Some("text")
+        );
+        assert_eq!(view_of(Path::new("notes.md")), None);
     }
 
     #[test]

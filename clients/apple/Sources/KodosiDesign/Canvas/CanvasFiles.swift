@@ -6,13 +6,16 @@ import SwiftUI
 
 #if os(iOS)
     private let row: CGFloat = 40
+    private let closeKey: CGFloat = 22
 #else
     private let row: CGFloat = 26
+    private let closeKey: CGFloat = 16
 #endif
 
 /// The files of a canvas over the file that it shows: the key of the cards with the count, and a
-/// tab for each file. The chosen tab is a raised pill. On a pointer, a tab's glyph becomes the
-/// key that takes the file off the canvas; `actions` is its menu.
+/// tab for each file. Tabs are rounded rectangles, unlike the capsules of the canvas's keys, and
+/// the chosen one is raised. Each tab ends with the key that takes the file off the canvas;
+/// `actions` is its menu.
 public struct CanvasFilesBar<Actions: View>: View {
     @Environment(\.theme) private var theme
     @Namespace private var thumb
@@ -22,7 +25,10 @@ public struct CanvasFilesBar<Actions: View>: View {
     let pick: (String) -> Void
     let remove: (CanvasItem) -> Void
     let actions: (CanvasItem) -> Actions
-    @State private var hovered: String?
+
+    private var tabShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
+    }
 
     public init(session: RuntimeSession, store: CanvasStore, chosen: String?, pick: @escaping (String) -> Void,
                 remove: @escaping (CanvasItem) -> Void, @ViewBuilder actions: @escaping (CanvasItem) -> Actions)
@@ -43,7 +49,7 @@ public struct CanvasFilesBar<Actions: View>: View {
                 withAnimation(theme.motion.snappy) { store.showShelf(!shelf, in: session.id) }
             } label: {
                 HStack(spacing: 5) {
-                    Image(systemName: "square.grid.2x2").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "rectangle.stack").font(.system(size: 11, weight: .semibold))
                     Text(files.count, format: .number).monospacedDigit().contentTransition(.numericText())
                 }
                 .appTextStyle(.footnote).fontWeight(.medium)
@@ -51,11 +57,11 @@ public struct CanvasFilesBar<Actions: View>: View {
                 .padding(.horizontal, 9).frame(height: row - 2)
                 .background {
                     if shelf {
-                        RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                        RaisedBackground(shape: tabShape, fill: theme.colors.raised, elevation: .resting)
                             .matchedGeometryEffect(id: "thumb", in: thumb)
                     }
                 }
-                .contentShape(Capsule())
+                .contentShape(tabShape)
             }
             .buttonStyle(.plain)
             .help(String(localized: "All files", bundle: .module))
@@ -87,52 +93,36 @@ public struct CanvasFilesBar<Actions: View>: View {
 
     private func tab(_ file: CanvasItem, selected: Bool) -> some View {
         let news = !selected && store.isNew(.item(file), in: session.id)
-        let closing = hovered == file.key
         return Button { pick(file.key) } label: {
-            HStack(spacing: 5) {
-                Image(systemName: file.kind.symbol).font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkFaint)
-                    .frame(width: 14)
-                    .opacity(closing ? 0 : 1)
+            HStack(spacing: 6) {
+                FileIcon(name: file.name, kind: file.kind, size: 14, missing: file.missing)
                 Text(file.name).lineLimit(1).truncationMode(.middle)
             }
             .appTextStyle(.footnote).fontWeight(.medium)
             .foregroundStyle(file.missing ? theme.colors.inkFaint : selected ? theme.colors.ink : theme.colors.inkMuted)
-            .padding(.leading, 7).padding(.trailing, 10).frame(height: row - 2).frame(maxWidth: 200)
+            .padding(.leading, 7).padding(.trailing, closeKey + 10).frame(height: row - 2).frame(maxWidth: 220)
             .background {
                 if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                    RaisedBackground(shape: tabShape, fill: theme.colors.raised, elevation: .resting)
                         .matchedGeometryEffect(id: "thumb", in: thumb)
                 }
             }
-            .overlay(alignment: .topTrailing) {
+            .overlay(alignment: .topLeading) {
                 if news {
-                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -2, y: 2)
+                    BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: 2, y: 2)
                         .allowsHitTesting(false).transition(AnyTransition.pop)
                 }
             }
-            .contentShape(Capsule())
+            .contentShape(tabShape)
         }
         .buttonStyle(.plain)
         .help(file.missing ? String(localized: "\(file.key) is missing", bundle: .module) : file.key)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityAction(named: Text("Remove from Canvas", bundle: .module)) { remove(file) }
         .accessibilityIdentifier("canvas.file.\(AccessibilityIdentifier.token(file.key))")
-        .overlay(alignment: .leading) {
-            if closing {
-                RemoveKey(size: 16, identifier: "canvas.remove.\(AccessibilityIdentifier.token(file.key))") { remove(file) }
-                    .padding(.leading, 6)
-                    .transition(.opacity)
-            }
-        }
-        .onHover { inside in
-            withAnimation(theme.motion.hover) {
-                if inside {
-                    hovered = file.key
-                } else if hovered == file.key {
-                    hovered = nil
-                }
-            }
+        .overlay(alignment: .trailing) {
+            RemoveKey(size: closeKey, identifier: "canvas.remove.\(AccessibilityIdentifier.token(file.key))") { remove(file) }
+                .padding(.trailing, 5)
         }
         .contextMenu { actions(file) }
     }
@@ -224,7 +214,7 @@ struct CanvasCard: View {
                         .foregroundStyle(file.missing ? theme.colors.inkFaint : theme.colors.ink)
                         .lineLimit(2).truncationMode(.middle).multilineTextAlignment(.center)
                     Text(file.missing ? String(localized: "Missing", bundle: .module)
-                        : "\(file.kind.label) · \(file.bytes.formatted(.byteCount(style: .file)))")
+                        : "\(file.label) · \(file.bytes.formatted(.byteCount(style: .file)))")
                         .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
                 }
             }
@@ -278,7 +268,7 @@ struct CanvasCard: View {
                 }
                 .padding(9).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             case nil:
-                IconTile(symbol: file.kind.symbol, tint: file.missing ? theme.colors.inkFaint : TileTint.amber, size: 28)
+                FileIcon(name: file.name, kind: file.kind, size: 36, missing: file.missing)
             }
         }
         .clipShape(shape)

@@ -111,6 +111,12 @@ pub trait Format: 'static {
     type Change: Serialize + DeserializeOwned + Clone + Send + 'static;
     type Query: DeserializeOwned;
 
+    /// Whether a file opens live. A file that grows past this while it is open stays live, so
+    /// the writes of other programs still merge.
+    fn opens(_file: &[u8]) -> Result<(), Unreadable> {
+        Ok(())
+    }
+
     /// Reads a file. Parts that views load by hash go in `assets`.
     fn read(file: &[u8], assets: &mut Assets) -> Result<Self::Model, Unreadable>;
 
@@ -128,6 +134,12 @@ pub trait Format: 'static {
 
     /// What turns one state into another, in a form that holds on any later state.
     fn compare(from: &Self::Model, to: &Self::Model) -> Vec<Self::Change>;
+
+    /// How far apart the two states lie that `compare` found these changes between. An outside
+    /// write merges from the nearest saved state, which is the one that its writer read.
+    fn distance(changes: &[Self::Change]) -> usize {
+        changes.len()
+    }
 
     /// Gives the bytes of the file. `file` is the file as it is on disk, and only what someone
     /// edited differs from it.

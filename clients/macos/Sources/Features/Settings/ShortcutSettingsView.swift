@@ -1,7 +1,7 @@
 import KodosiDesign
 import SwiftUI
 
-struct KeyboardSettingsView: View {
+struct ShortcutSettingsView: View {
     private struct Recording: Equatable {
         let action: AppShortcut
         let old: KeyChord?
@@ -31,7 +31,7 @@ struct KeyboardSettingsView: View {
                 }
                 .buttonStyle(.kodosi(.secondary, size: .small))
                 .disabled(!deps.settings.shortcuts.isChanged)
-                .accessibilityIdentifier("settings.keyboard.reset")
+                .accessibilityIdentifier("settings.shortcuts.reset")
             }
             ForEach(Self.groups, id: \.self) { group in
                 ListGroup {
@@ -51,7 +51,7 @@ struct KeyboardSettingsView: View {
             ForEach(deps.settings.shortcuts.keys(for: action), id: \.self) { chord in
                 KeyCap(
                     label: action.label(of: chord), recording: recording == Recording(action: action, old: chord),
-                    identifier: "settings.keyboard.\(action.rawValue).\(chord.label)",
+                    identifier: "settings.shortcuts.\(action.rawValue).\(chord.label)",
                 ) {
                     startRecording(Recording(action: action, old: chord))
                 } remove: {
@@ -59,7 +59,7 @@ struct KeyboardSettingsView: View {
                 }
             }
             if recording == Recording(action: action, old: nil) {
-                KeyCap(label: "", recording: true, identifier: "settings.keyboard.\(action.rawValue).new") {
+                KeyCap(label: "", recording: true, identifier: "settings.shortcuts.\(action.rawValue).new") {
                     stopRecording()
                 } remove: {}
             } else {
@@ -69,7 +69,7 @@ struct KeyboardSettingsView: View {
                 .buttonStyle(.kodosi(.ghost, size: .small))
                 .tip("Add a key")
                 .accessibilityLabel(Text("Add a key for \(action.title)"))
-                .accessibilityIdentifier("settings.keyboard.\(action.rawValue).add")
+                .accessibilityIdentifier("settings.shortcuts.\(action.rawValue).add")
             }
         }
         .padding(.horizontal, 14).frame(minHeight: 44)

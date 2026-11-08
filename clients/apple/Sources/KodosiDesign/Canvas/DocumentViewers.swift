@@ -14,6 +14,7 @@ public struct DocumentViewers: Equatable, Sendable {
     public var presentations = true
     public var pdfs = true
     public var darkPdfs = false
+    public var texts = true
 
     public init() {}
 
@@ -23,6 +24,7 @@ public struct DocumentViewers: Equatable, Sendable {
         case .xlsx: sheets
         case .pptx: presentations
         case .pdf: pdfs
+        case .text: texts
         }
     }
 
@@ -33,13 +35,14 @@ public struct DocumentViewers: Equatable, Sendable {
         case .xlsx: ["dark": darkSheets]
         case .pptx: [:]
         case .pdf: ["dark": darkPdfs]
+        case .text: [:]
         }
     }
 }
 
 extension DocumentViewers: Codable {
     private enum CodingKeys: String, CodingKey {
-        case documents, documentPages, darkDocuments, sheets, darkSheets, presentations, pdfs, darkPdfs
+        case documents, documentPages, darkDocuments, sheets, darkSheets, presentations, pdfs, darkPdfs, texts
     }
 
     public init(from decoder: any Decoder) throws {
@@ -54,6 +57,7 @@ extension DocumentViewers: Codable {
         presentations = try chosen(.presentations, usual.presentations)
         pdfs = try chosen(.pdfs, usual.pdfs)
         darkPdfs = try chosen(.darkPdfs, usual.darkPdfs)
+        texts = try chosen(.texts, usual.texts)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -66,6 +70,7 @@ extension DocumentViewers: Codable {
         try values.encode(presentations, forKey: .presentations)
         try values.encode(pdfs, forKey: .pdfs)
         try values.encode(darkPdfs, forKey: .darkPdfs)
+        try values.encode(texts, forKey: .texts)
     }
 }
 

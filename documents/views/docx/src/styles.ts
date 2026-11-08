@@ -99,11 +99,17 @@ function markerOf(list: string, levels: readonly Level[], index: number): string
   return parts.length > 0 ? parts.join(" ") : '""';
 }
 
-function alignOf(align: string | undefined): string | undefined {
-  if (align === "both") return "justify";
-  if (align === "start") return "left";
-  if (align === "end") return "right";
-  return align;
+const CSS_ALIGNS: Readonly<Record<string, string>> = {
+  left: "left",
+  start: "left",
+  center: "center",
+  right: "right",
+  end: "right",
+};
+
+/** How CSS aligns the lines of a paragraph that a file aligns so: the rest fill the line. */
+export function cssAlign(align: string): string {
+  return CSS_ALIGNS[align] ?? "justify";
 }
 
 function rules(look: StyleLook): string {
@@ -113,7 +119,7 @@ function rules(look: StyleLook): string {
     look.size ? `font-size:${look.size}pt` : "",
     look.color ? `color:#${look.color}` : "",
     look.font ? `font-family:"${look.font}",sans-serif` : "",
-    look.align ? `text-align:${alignOf(look.align)}` : "",
+    look.align ? `text-align:${cssAlign(look.align)}` : "",
     look.before === undefined ? "" : `margin-top:${look.before}pt`,
     look.after === undefined ? "" : `margin-bottom:${look.after}pt`,
     look.indent === undefined ? "" : `margin-left:${look.indent}pt`,

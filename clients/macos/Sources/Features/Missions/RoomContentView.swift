@@ -124,7 +124,7 @@ private struct RoomTerminals: View {
 
     /// The terminal, with its canvas beside it when it is open, flowing out of its tab.
     private func pair(_ current: RuntimeSession) -> some View {
-        CanvasStage(canvas: state.showsCanvas && current.canvas != nil ? current : nil, wide: $state.canvasWide,
+        CanvasStage(canvas: state.showsCanvas && current.canvas != nil ? current : nil, front: current.id, wide: $state.canvasWide,
                     width: $state.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
         {
             state.showsCanvas = false

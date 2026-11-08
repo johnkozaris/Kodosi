@@ -9,6 +9,7 @@
     "@documents/bar": "workspace:*",
     "@documents/client": "workspace:*",
     "@documents/contract": "workspace:*",
+    "@documents/peers": "workspace:*",
     "@documents/words": "workspace:*",
     "@tiptap/core": "3.31.0",
     "@tiptap/pm": "3.31.0",

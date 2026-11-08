@@ -1,6 +1,10 @@
 import { type Extensions, Mark, Node } from "@tiptap/core";
+import { cssAlign } from "./styles";
 
 const attribute = () => ({ default: null, rendered: false });
+
+/** A line of single spacing, as a multiple of the size of the letters, near what `normal` gives. */
+const SINGLE_LINE = 1.2;
 
 /** The colors of the highlight names of .docx, which differ from the CSS colors of the same names. */
 const HIGHLIGHTS: Record<string, string> = {
@@ -37,9 +41,27 @@ export const nodes = [
     addAttributes: () => ({
       id: attribute(),
       style: dataAttribute("style", "data-style"),
-      align: dataAttribute("align", "data-align"),
+      align: {
+        default: null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.align
+            ? { "data-align": attrs.align, style: `text-align:${cssAlign(String(attrs.align))}` }
+            : {},
+      },
       numId: dataAttribute("numId", "data-list"),
       ilvl: dataAttribute("ilvl", "data-level"),
+      line: {
+        default: null,
+        renderHTML: (attrs: Record<string, unknown>) => {
+          const lines = Number(attrs.line) / 240;
+          return lines > 0 ? { style: `line-height:${lines * SINGLE_LINE}` } : {};
+        },
+      },
+      indent: {
+        default: null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.indent == null ? {} : { style: `margin-left:${Number(attrs.indent) / 20}pt` },
+      },
       props: attribute(),
       pageBreak: { default: false, rendered: false },
     }),
@@ -93,6 +115,14 @@ export const nodes = [
     inline: true,
     parseHTML: () => [{ tag: "br" }],
     renderHTML: () => ["br"],
+  }),
+  Node.create({
+    name: "pageBreak",
+    group: "inline",
+    inline: true,
+    selectable: false,
+    parseHTML: () => [{ tag: "span[data-page-break]:not([data-opaque])" }],
+    renderHTML: () => ["span", { "data-page-break": "" }],
   }),
   Node.create({
     name: "tab",
@@ -163,6 +193,18 @@ export const marks = [
     name: "strike",
     parseHTML: () => [{ tag: "s" }],
     renderHTML: () => ["s", 0],
+  }),
+  Mark.create({
+    name: "superscript",
+    excludes: "subscript",
+    parseHTML: () => [{ tag: "sup" }],
+    renderHTML: () => ["sup", 0],
+  }),
+  Mark.create({
+    name: "subscript",
+    excludes: "superscript",
+    parseHTML: () => [{ tag: "sub" }],
+    renderHTML: () => ["sub", 0],
   }),
   Mark.create({
     name: "textStyle",

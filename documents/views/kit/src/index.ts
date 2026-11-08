@@ -3,7 +3,7 @@ import { say, useLanguage } from "@documents/words";
 import "./base.css";
 import "./fonts.css";
 
-export type Kind = "docx" | "xlsx" | "pptx" | "pdf";
+export type Kind = "docx" | "xlsx" | "pptx" | "pdf" | "text";
 
 /** What a person chose for one kind of file. A view uses only what applies to it. */
 export interface Preferences {
@@ -18,6 +18,7 @@ const DEFAULTS: Record<Kind, Required<Preferences>> = {
   xlsx: { pages: true, dark: true },
   pptx: { pages: true, dark: false },
   pdf: { pages: true, dark: false },
+  text: { pages: false, dark: true },
 };
 
 /** The host's look: CSS variables without their leading dashes, and `scheme`, light or dark. */
@@ -62,6 +63,8 @@ async function factoryOf(kind: Kind): Promise<EditorFactory> {
       return (await import("@documents/pptx")).createEditor;
     case "pdf":
       return (await import("@documents/pdf")).createEditor;
+    case "text":
+      return (await import("@documents/plain")).createEditor;
   }
 }
 

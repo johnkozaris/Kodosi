@@ -38,6 +38,7 @@
         "@documents/bar": "workspace:*",
         "@documents/client": "workspace:*",
         "@documents/contract": "workspace:*",
+        "@documents/peers": "workspace:*",
         "@documents/words": "workspace:*",
         "@tiptap/core": "3.31.0",
         "@tiptap/pm": "3.31.0",
@@ -53,6 +54,7 @@
         "@documents/contract": "workspace:*",
         "@documents/docx": "workspace:*",
         "@documents/pdf": "workspace:*",
+        "@documents/plain": "workspace:*",
         "@documents/pptx": "workspace:*",
         "@documents/words": "workspace:*",
         "@documents/xlsx": "workspace:*",
@@ -68,6 +70,30 @@
         "@documents/words": "workspace:*",
         "lucide": "1.61.0",
         "pdfjs-dist": "6.4.299",
+      },
+    },
+    "peers": {
+      "name": "@documents/peers",
+      "version": "0.1.0",
+      "dependencies": {
+        "@documents/client": "workspace:*",
+        "@documents/contract": "workspace:*",
+        "@tiptap/pm": "3.31.0",
+        "prosemirror-collab": "1.3.1",
+      },
+    },
+    "plain": {
+      "name": "@documents/plain",
+      "version": "0.1.0",
+      "dependencies": {
+        "@documents/bar": "workspace:*",
+        "@documents/client": "workspace:*",
+        "@documents/contract": "workspace:*",
+        "@documents/peers": "workspace:*",
+        "@documents/words": "workspace:*",
+        "@tiptap/pm": "3.31.0",
+        "lucide": "1.61.0",
+        "prosemirror-collab": "1.3.1",
       },
     },
     "pptx": {
@@ -145,6 +171,10 @@
     "@documents/kit": ["@documents/kit@workspace:kit"],
 
     "@documents/pdf": ["@documents/pdf@workspace:pdf"],
+
+    "@documents/peers": ["@documents/peers@workspace:peers"],
+
+    "@documents/plain": ["@documents/plain@workspace:plain"],
 
     "@documents/pptx": ["@documents/pptx@workspace:pptx"],
 

@@ -38,7 +38,9 @@ struct CanvasPair {
 /// A terminal with its canvas open: two lobes of one body with a soft waist between them, or
 /// the canvas over all the stage with the terminal live and zoomed out in its corner. The
 /// terminal keeps its size in both. With `always`, the body is there without a canvas too, and
-/// `tab` is the tab that it flows out of.
+/// `tab` is the tab that it flows out of. A canvas that opens beside `front`, the terminal in
+/// front, unfolds from it. One that hides, or comes and goes with another terminal in front,
+/// does so at once, as the terminal does.
 struct CanvasStage<Terminal: View>: View {
     static var corner: CGFloat {
         16
@@ -47,17 +49,21 @@ struct CanvasStage<Terminal: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.tileRadius) private var radius
     let canvas: RuntimeSession?
+    let front: String?
     @Binding var wide: Bool
     @Binding var width: CGFloat?
     var tab: CGRect?
     var always = false
     let hide: () -> Void
     let terminal: Terminal
+    @State private var shown: String?
+    @State private var shownFront: String?
 
-    init(canvas: RuntimeSession?, wide: Binding<Bool>, width: Binding<CGFloat?>, tab: CGRect? = nil, always: Bool = false,
-         hide: @escaping () -> Void, @ViewBuilder terminal: () -> Terminal)
+    init(canvas: RuntimeSession?, front: String?, wide: Binding<Bool>, width: Binding<CGFloat?>, tab: CGRect? = nil,
+         always: Bool = false, hide: @escaping () -> Void, @ViewBuilder terminal: () -> Terminal)
     {
         self.canvas = canvas
+        self.front = front
         _wide = wide
         _width = width
         self.tab = tab
@@ -93,6 +99,7 @@ struct CanvasStage<Terminal: View>: View {
                 if let canvas {
                     CanvasPanel(session: canvas, wide: zoomed, widen: { wide = $0 }, hide: hide)
                         .frame(width: zoomed ? nil : pair.panel)
+                        .id(canvas.id)
                         .transition(.asymmetric(insertion: theme.motion.reduced ? .opacity : .unfold, removal: .identity))
                         .zIndex(1)
                 }
@@ -105,13 +112,20 @@ struct CanvasStage<Terminal: View>: View {
                 }
             }
         }
-        .animation(theme.motion.soft, value: canvas?.id)
+        .animation(opens ? theme.motion.soft : nil, value: canvas?.id)
         .animation(theme.motion.soft, value: wide)
+        .onChange(of: canvas?.id, initial: true) { _, id in shown = id }
+        .onChange(of: front, initial: true) { _, id in shownFront = id }
         .onChange(of: wide) { _, wide in
             if wide {
                 NSApp.keyWindow?.makeFirstResponder(nil)
             }
         }
+    }
+
+    /// Whether a canvas opens now beside the terminal that was in front without one.
+    private var opens: Bool {
+        canvas != nil && shown == nil && (shownFront == nil || shownFront == front)
     }
 }
 
@@ -125,7 +139,7 @@ struct CanvasPanel: View {
     let wide: Bool
     let widen: (Bool) -> Void
     let hide: () -> Void
-    @State private var frame: CanvasFrame?
+    @State private var frames = CanvasFrames()
     @State private var hovered = false
 
     var body: some View {
@@ -153,14 +167,14 @@ struct CanvasPanel: View {
                         } actions: { item in
                             actions(item)
                         }
-                        .transition(.opacity)
-                    } else if let current, let frame {
-                        CanvasItemView(session: session, shown: current, store: deps.canvas, frame: frame, pages: deps.documentPages,
+                    } else if let current {
+                        CanvasItemView(session: session, shown: current, store: deps.canvas, frames: frames, pages: deps.documentPages,
                                        ask: ask(current))
                             .id(current.key)
-                            .transition(.opacity)
                     }
                 }
+                .transaction(value: current?.key) { $0.animation = nil }
+                .transaction(value: shelf) { $0.animation = nil }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .top) { progress(current) }
                 .dropDestination(for: URL.self) { files, _ in
@@ -172,17 +186,10 @@ struct CanvasPanel: View {
             .clipShape(RoundedRectangle(cornerRadius: max(Radius.sm, radius - 5), style: .continuous))
             .chromeScope()
             .padding(.top, 3).padding([.horizontal, .bottom], 5)
-            .animation(theme.motion.fade, value: current?.key)
-            .animation(theme.motion.fade, value: shelf)
         }
         .terminalScope()
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .onAppear {
-            if frame == nil {
-                frame = CanvasFrame()
-            }
-        }
         .onChange(of: current, initial: true) { _, current in
             if let current {
                 deps.canvas.saw(current, in: session.id)
@@ -264,12 +271,8 @@ struct CanvasPanel: View {
         Task { @MainActor in
             let words: String? = if let words {
                 words
-            } else if case let .item(item) = shown, item.kind == .page,
-                      shown.key == deps.canvas.current(session)?.key
-            {
-                await frame?.selectedWords()
-            } else if case let .item(item) = shown, item.view != nil {
-                await deps.documentPages.selectedWords(of: item.key, in: session.id)
+            } else if case let .item(item) = shown {
+                await selectedWords(of: item)
             } else {
                 nil
             }
@@ -280,6 +283,14 @@ struct CanvasPanel: View {
                 deps.workbench.selectSession(session.id)
             } catch { deps.errorMessage = error.localizedDescription }
         }
+    }
+
+    /// The words that the person selected in what shows of an item: its page or its live document.
+    private func selectedWords(of item: CanvasItem) async -> String? {
+        if let words = await frames.selectedWords(of: item.key) {
+            return words
+        }
+        return await deps.documentPages.selectedWords(of: item.key, in: session.id)
     }
 
     private func remove(_ keys: [String]) {

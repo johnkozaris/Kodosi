@@ -3,7 +3,6 @@ import {
   type Area,
   areaOf,
   type Client,
-  colorOf,
   followLink,
   opensLink,
   type Person,
@@ -13,18 +12,17 @@ import {
   type Editor as ViewEditor,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
+import { peersPlugin, showPeers } from "@documents/peers";
 import { Editor, Extension } from "@tiptap/core";
 import { history, redo, undo } from "@tiptap/pm/history";
 import { keymap } from "@tiptap/pm/keymap";
 import type { Node as ProseNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin } from "@tiptap/pm/state";
 import { Step } from "@tiptap/pm/transform";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
 import { DocxBar } from "./bar";
 import * as commands from "./commands";
 import { PAGE_GAP, pages } from "./pages";
-import { type Place, placeOf, shownPlace } from "./places";
 import { extensions } from "./schema";
 import { type DocxView, pageSize, styleSheet } from "./styles";
 import "./docx.css";
@@ -34,39 +32,10 @@ interface Snapshot {
   view: DocxView;
 }
 
-/** Another person's place in this copy. */
-interface Shown extends Place {
-  peer: Peer;
-}
-
-interface Peers {
-  shown: readonly Shown[];
-  marks: DecorationSet;
-}
-
-const peerKey = new PluginKey<Peers>("peers");
 const PAGE_INSET = 16;
 /** How long the pages of a rendering may take to stop moving, in pauses. */
 const MOST_PAUSES = 30;
 const PAUSE_MS = 100;
-
-function peerMarks(doc: ProseNode, shown: readonly Shown[]): DecorationSet {
-  const decorations: Decoration[] = [];
-  for (const { peer, from, to } of shown) {
-    const color = colorOf(peer.person);
-    if (to > from) {
-      decorations.push(Decoration.inline(from, to, { style: `background:${color}33` }));
-    }
-    const caret = document.createElement("span");
-    caret.className = "peer-caret";
-    caret.style.borderColor = color;
-    const name = caret.appendChild(document.createElement("span"));
-    name.textContent = peer.name;
-    name.style.background = color;
-    decorations.push(Decoration.widget(to, caret, { side: 1, key: `${peer.id} ${peer.name}` }));
-  }
-  return DecorationSet.create(doc, decorations);
-}
 
 /** Each top-level block keeps one id, so agents and saves can name it. */
 function blockIds(): Plugin {
@@ -88,44 +57,6 @@ function blockIds(): Plugin {
       });
       if (!transaction.docChanged) return null;
       return transaction;
-    },
-  });
-}
-
-/**
- * Where the other people are. Each place moves with every change of this copy, and a peer
- * whose place is new comes in from the document's order.
- */
-function peersPlugin(): Plugin<Peers> {
-  return new Plugin<Peers>({
-    key: peerKey,
-    state: {
-      init: () => ({ shown: [], marks: DecorationSet.empty }),
-      apply(transaction, current, _old, state) {
-        const peers = transaction.getMeta(peerKey) as readonly Peer[] | undefined;
-        if (!peers && !transaction.docChanged) return current;
-        const moved = transaction.docChanged
-          ? current.shown.map((place) => ({
-              ...place,
-              from: transaction.mapping.map(place.from, 1),
-              to: transaction.mapping.map(place.to, 1),
-            }))
-          : current.shown;
-        const shown = peers
-          ? peers.flatMap((peer) => {
-              const known = moved.find((place) => place.peer === peer);
-              if (known) return [known];
-              const place = placeOf(peer.place);
-              return place ? [{ peer, ...shownPlace(state, place) }] : [];
-            })
-          : moved;
-        return { shown, marks: peerMarks(state.doc, shown) };
-      },
-    },
-    props: {
-      decorations(state) {
-        return peerKey.getState(state)?.marks;
-      },
     },
   });
 }
@@ -214,12 +145,10 @@ class DocxEditor implements ViewEditor, Pictures {
       "Shift-Mod-8": list(lists.bullets),
       "Shift-Mod-7": list(lists.numbers),
       Tab: this.keyed((editor) => {
-        if (commands.canIndent(editor.state, 1)) commands.indent(editor, 1);
-        else if (!commands.paragraphAt(editor.state)?.attrs.numId) {
-          editor.chain().focus().insertContent({ type: "tab" }).run();
-        }
+        if (commands.inListAt(editor.state)) commands.shiftLevel(editor, 1);
+        else editor.chain().focus().insertContent({ type: "tab" }).run();
       }),
-      "Shift-Tab": this.keyed((editor) => commands.indent(editor, -1)),
+      "Shift-Tab": this.keyed((editor) => commands.shiftLevel(editor, -1)),
     };
   }
 
@@ -390,7 +319,7 @@ class DocxEditor implements ViewEditor, Pictures {
   peers(peers: readonly Peer[]): void {
     this.status.peers(peers);
     const view = this.editor?.view;
-    if (view) view.dispatch(view.state.tr.setMeta(peerKey, peers));
+    if (view) showPeers(view, peers);
   }
 
   saved(_rev: number, waits: boolean): void {

@@ -28,6 +28,9 @@ struct DocumentsSection: View {
             choice("Presentation viewer", ".pptx", symbol: "play.rectangle", tint: TileTint.amber,
                    isOn: $viewers.presentations)
                 .accessibilityIdentifier("settings.documents.presentation")
+            choice("Text viewer", ".txt, .json, .yaml, .toml, .xml", symbol: "text.alignleft", tint: TileTint.graphite,
+                   isOn: $viewers.texts)
+                .accessibilityIdentifier("settings.documents.text")
             choice("PDF viewer", ".pdf", symbol: "doc.richtext", tint: TileTint.red, isOn: $viewers.pdfs)
                 .accessibilityIdentifier("settings.documents.pdf")
             if viewers.pdfs {

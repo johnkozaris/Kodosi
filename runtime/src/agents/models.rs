@@ -21,12 +21,9 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
                     ("sonnet", "Sonnet"),
                     ("haiku", "Haiku"),
                 ],
-                "--model",
+                agent,
             ),
-            efforts(
-                run(facts, program, &["--help"]).await.as_deref(),
-                "--effort",
-            ),
+            efforts(run(facts, program, &["--help"]).await.as_deref(), agent),
         ),
         Agent::Codex => codex(run(facts, program, &["debug", "models"]).await.as_deref()),
         Agent::Copilot => {
@@ -34,10 +31,7 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
                 run(facts, program, &["help", "config"]),
                 run(facts, program, &["--help"])
             );
-            (
-                copilot(config.as_deref()),
-                efforts(help.as_deref(), "--reasoning-effort"),
-            )
+            (copilot(config.as_deref()), efforts(help.as_deref(), agent))
         }
         Agent::Cursor => (
             cursor(run(facts, program, &["models"]).await.as_deref()),
@@ -50,7 +44,7 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
                     ("flash", "Flash"),
                     ("flash-lite", "Flash Lite"),
                 ],
-                "-m",
+                agent,
             ),
             Vec::new(),
         ),
@@ -100,7 +94,7 @@ pub(super) async fn run(
     success.then(|| without_escapes(&String::from_utf8_lossy(&output)))
 }
 
-fn model(id: &str, label: &str, flag: &str, efforts: Vec<String>) -> Option<AgentModel> {
+fn model(id: &str, label: &str, agent: Agent, efforts: Vec<String>) -> Option<AgentModel> {
     let label = label.trim();
     if id.len() > 128 || label.len() > 128 || label.chars().any(char::is_control) {
         return None;
@@ -108,19 +102,20 @@ fn model(id: &str, label: &str, flag: &str, efforts: Vec<String>) -> Option<Agen
     Some(AgentModel {
         id: id.to_owned(),
         label: if label.is_empty() { id } else { label }.to_owned(),
-        argument: format!("{flag} {}", shell_word(id)?),
+        argument: format!("{} {}", agent.model_flag(), shell_word(id)?),
         efforts,
     })
 }
 
-fn fixed(models: &[(&str, &str)], flag: &str) -> Vec<AgentModel> {
+fn fixed(models: &[(&str, &str)], agent: Agent) -> Vec<AgentModel> {
     models
         .iter()
-        .filter_map(|(id, label)| model(id, label, flag, Vec::new()))
+        .filter_map(|(id, label)| model(id, label, agent, Vec::new()))
         .collect()
 }
 
-fn option(id: &str, argument: String) -> Option<AgentOption> {
+fn effort(agent: Agent, id: &str) -> Option<AgentOption> {
+    let (flag, start) = agent.effort_flag()?;
     (!id.is_empty()
         && id.len() <= 32
         && id
@@ -128,7 +123,7 @@ fn option(id: &str, argument: String) -> Option<AgentOption> {
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'))
     .then(|| AgentOption {
         id: id.to_owned(),
-        argument,
+        argument: format!("{flag} {start}{id}"),
     })
 }
 
@@ -168,11 +163,14 @@ pub(super) fn listed_values(help: &str, flag: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn efforts(help: Option<&str>, flag: &str) -> Vec<AgentOption> {
+fn efforts(help: Option<&str>, agent: Agent) -> Vec<AgentOption> {
+    let Some((flag, _)) = agent.effort_flag() else {
+        return Vec::new();
+    };
     help.map(|help| listed_values(help, flag))
         .unwrap_or_default()
         .iter()
-        .filter_map(|id| option(id, format!("{flag} {id}")))
+        .filter_map(|id| effort(agent, id))
         .collect()
 }
 
@@ -226,12 +224,12 @@ pub(super) fn codex(catalog: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>
                     levels.push(level.clone());
                 }
             }
-            model(id, label, "-m", efforts)
+            model(id, label, Agent::Codex, efforts)
         })
         .collect();
     let efforts = levels
         .iter()
-        .filter_map(|level| option(level, format!("-c model_reasoning_effort={level}")))
+        .filter_map(|level| effort(Agent::Codex, level))
         .collect();
     (models, efforts)
 }
@@ -248,7 +246,7 @@ pub(super) fn copilot(config: Option<&str>) -> Vec<AgentModel> {
         .take_while(|line| line.starts_with("- \""))
         .filter_map(|line| line.strip_prefix("- \"")?.strip_suffix('"'))
         .take(MAX_MODELS)
-        .filter_map(|id| model(id, id, "--model", Vec::new()))
+        .filter_map(|id| model(id, id, Agent::Copilot, Vec::new()))
         .collect()
 }
 
@@ -265,7 +263,7 @@ pub(super) fn cursor(list: Option<&str>) -> Vec<AgentModel> {
             if id.contains(char::is_whitespace) {
                 return None;
             }
-            model(id, label, "--model", Vec::new())
+            model(id, label, Agent::Cursor, Vec::new())
         })
         .take(MAX_MODELS)
         .collect()
@@ -276,7 +274,7 @@ pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
         .flat_map(str::lines)
         .map(str::trim)
         .filter(|line| line.contains('/') && !line.contains(char::is_whitespace))
-        .filter_map(|id| model(id, id, "--model", Vec::new()))
+        .filter_map(|id| model(id, id, Agent::Opencode, Vec::new()))
         .take(MAX_MODELS)
         .collect()
 }

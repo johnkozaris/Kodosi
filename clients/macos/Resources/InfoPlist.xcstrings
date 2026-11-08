@@ -1,6 +1,366 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "NSAppleEventsUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte eine andere App steuern."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να ελέγξει μια άλλη εφαρμογή."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to control another app."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere controlar otra app."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut contrôler une autre app."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole controllare un'altra app."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがほかの App を操作しようとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 다른 앱을 제어하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要控制另一个 App。"
+          }
+        }
+      }
+    },
+    "NSAudioCaptureUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte den Ton dieses Macs aufnehmen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να ηχογραφήσει τον ήχο αυτού του Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to record the sound of this Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere grabar el sonido de este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut enregistrer le son de ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole registrare l'audio di questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがこの Mac の音声を録音しようとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 이 Mac의 소리를 녹음하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要录制这台 Mac 的声音。"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte Bluetooth verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει το Bluetooth."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use Bluetooth."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar Bluetooth."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser le Bluetooth."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare il Bluetooth."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムが Bluetooth を使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 블루투스를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用蓝牙。"
+          }
+        }
+      }
+    },
+    "NSCalendarsUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte deine Kalender verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει τα ημερολόγιά σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use your calendars."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar tus calendarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser vos calendriers."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare i tuoi calendari."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがカレンダーを使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 캘린더를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用你的日历。"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte die Kamera verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει την κάμερα."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use the camera."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar la cámara."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser la caméra."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare la fotocamera."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがカメラを使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 카메라를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用摄像头。"
+          }
+        }
+      }
+    },
+    "NSContactsUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte deine Kontakte verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει τις επαφές σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use your contacts."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar tus contactos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser vos contacts."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare i tuoi contatti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムが連絡先を使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 연락처를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用你的通讯录。"
+          }
+        }
+      }
+    },
     "NSLocalNetworkUsageDescription" : {
       "comment" : "The reason that macOS shows when Kodosi asks for the local network.",
       "extractionState" : "manual",
@@ -57,6 +417,426 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kodosi 会直接连接到此网络中你的其他电脑，让共享浏览器即时响应。"
+          }
+        }
+      }
+    },
+    "NSLocationUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte wissen, wo dieser Mac ist."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να μάθει πού βρίσκεται αυτό το Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to know where this Mac is."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere saber dónde está este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut savoir où se trouve ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole sapere dove si trova questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがこの Mac の位置を知ろうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 이 Mac의 위치를 알려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要知道这台 Mac 的位置。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte das Mikrofon verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει το μικρόφωνο."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use the microphone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar el micrófono."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser le micro."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare il microfono."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがマイクを使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 마이크를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用麦克风。"
+          }
+        }
+      }
+    },
+    "NSMotionUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte Bewegungsdaten verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει δεδομένα κίνησης."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use motion data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar datos de movimiento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser les données de mouvement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare i dati di movimento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがモーションデータを使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 동작 데이터를 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用运动数据。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte deine Fotos verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει τις φωτογραφίες σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use your photos."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar tus fotos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser vos photos."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare le tue foto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムが写真を使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 사진을 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用你的照片。"
+          }
+        }
+      }
+    },
+    "NSRemindersUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte deine Erinnerungen verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει τις υπενθυμίσεις σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use your reminders."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar tus recordatorios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser vos rappels."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare i tuoi promemoria."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがリマインダーを使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 미리 알림을 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用你的提醒事项。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte die Spracherkennung verwenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει την αναγνώριση ομιλίας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to use speech recognition."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere usar el reconocimiento de voz."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut utiliser la reconnaissance vocale."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole usare il riconoscimento vocale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムが音声認識を使おうとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 음성 인식을 사용하려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要使用语音识别。"
+          }
+        }
+      }
+    },
+    "NSSystemAdministrationUsageDescription" : {
+      "comment" : "The reason that macOS shows when a program in a terminal asks for this.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Programm in einem Kodosi-Terminal möchte Einstellungen dieses Macs ändern."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να αλλάξει ρυθμίσεις αυτού του Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program in a Kodosi terminal wants to change settings of this Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programa de un terminal de Kodosi quiere cambiar ajustes de este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programme d'un terminal Kodosi veut modifier des réglages de ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un programma in un terminale di Kodosi vuole cambiare impostazioni di questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi のターミナルのプログラムがこの Mac の設定を変更しようとしています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 터미널의 프로그램이 이 Mac의 설정을 바꾸려고 해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 终端中的程序想要更改这台 Mac 的设置。"
           }
         }
       }

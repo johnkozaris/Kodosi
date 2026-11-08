@@ -30,7 +30,9 @@ struct TilingStage: View {
                 }
         } else {
             let alone = workbench.focusedSessionId != nil || presentedSessionIds.count == 1
-            CanvasStage(canvas: canvasSession, wide: $workbench.canvasWide, width: $workbench.canvasWidth) {
+            CanvasStage(canvas: canvasSession, front: workbench.focusedSessionId, wide: $workbench.canvasWide,
+                        width: $workbench.canvasWidth)
+            {
                 workbench.hideCanvas()
             } terminal: {
                 tiles(alone: alone).onGeometryChange(for: CGSize.self, of: \.size) { workbench.tileRoom = $0 }

@@ -84,6 +84,8 @@ pub(crate) struct Flow {
     steered_at: Option<Instant>,
     cut_at: Option<Instant>,
     keyframe_at: Option<Instant>,
+    /// A viewer asked for a key frame within the floor, so one comes when the floor passes.
+    keyframe_owed: bool,
 }
 
 impl Flow {
@@ -94,6 +96,7 @@ impl Flow {
             steered_at: None,
             cut_at: None,
             keyframe_at: None,
+            keyframe_owed: false,
         }
     }
 
@@ -112,6 +115,9 @@ impl Flow {
     pub(crate) fn frame(&mut self, id: u32, key: bool, bytes: usize, now: Instant) -> Delivery {
         let mut delivery = Delivery::default();
         let mut wants_key = false;
+        if key {
+            self.keyframe_owed = false;
+        }
         for (viewer, seat) in &mut self.seats {
             if seat.waiting > WAITING_MOST {
                 let since = *seat.over_since.get_or_insert(now);
@@ -161,6 +167,34 @@ impl Flow {
             self.keyframe_at = Some(now);
         }
         allowed
+    }
+
+    /// A viewer's own ask for a key frame: now, or when the floor passes.
+    pub(crate) fn ask_keyframe(&mut self, now: Instant) -> bool {
+        let allowed = self.keyframe_allowed(now);
+        self.keyframe_owed |= !allowed;
+        allowed
+    }
+
+    /// A key frame that goes out at once, for a viewer that joins.
+    pub(crate) fn keyframe_sent(&mut self, now: Instant) {
+        self.keyframe_at = Some(now);
+        self.keyframe_owed = false;
+    }
+
+    /// Whether a viewer waits for a key frame that no frame asks for, as on a still page that
+    /// draws nothing more: an ask within the floor, or a viewer that lost a frame or caught up.
+    pub(crate) fn keyframe_due(&mut self, now: Instant) -> bool {
+        let waits = self.keyframe_owed
+            || self
+                .seats
+                .values()
+                .any(|seat| !seat.live && seat.waiting <= WAITING_DRAINED);
+        if waits && self.keyframe_allowed(now) {
+            self.keyframe_owed = false;
+            return true;
+        }
+        false
     }
 
     /// Frame ids wrap, so a frame is older than the ack when it lies less than half the range
@@ -286,6 +320,34 @@ mod tests {
         assert!(flow.frame(1, false, 100, now).ask_keyframe);
         assert!(!flow.frame(2, false, 100, now).ask_keyframe);
         assert!(flow.frame(3, false, 100, now + KEYFRAME_FLOOR).ask_keyframe);
+    }
+
+    #[test]
+    fn a_viewer_that_lost_a_frame_of_a_still_page_gets_a_key_frame_after_the_floor() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["a"], now);
+        flow.keyframe_sent(now);
+        flow.frame(1, true, 100, now);
+        flow.ack("a", 1, now);
+        flow.frame(2, false, 100, now);
+        flow.lost("a", 2);
+        assert!(!flow.keyframe_due(now));
+        assert!(flow.keyframe_due(now + KEYFRAME_FLOOR));
+        assert!(!flow.keyframe_due(now + KEYFRAME_FLOOR));
+    }
+
+    #[test]
+    fn an_ask_within_the_floor_comes_later_unless_a_key_frame_came_first() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["a"], now);
+        flow.frame(1, true, 100, now);
+        assert!(flow.ask_keyframe(now));
+        assert!(!flow.ask_keyframe(now));
+        assert!(!flow.keyframe_due(now));
+        assert!(flow.keyframe_due(now + KEYFRAME_FLOOR));
+        assert!(!flow.ask_keyframe(now + KEYFRAME_FLOOR));
+        flow.frame(2, true, 100, now + KEYFRAME_FLOOR);
+        assert!(!flow.keyframe_due(now + KEYFRAME_FLOOR * 2));
     }
 
     #[test]

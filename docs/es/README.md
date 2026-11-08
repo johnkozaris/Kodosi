@@ -54,10 +54,10 @@ ordenador.
 y de su agente.
 
 **Un lienzo junto a cada terminal.** Un agente te muestra una página, un plan o una imagen
-junto a su terminal. Los documentos, las hojas, las presentaciones y los PDF están en directo:
-tú, tus amigos y el agente editáis el mismo archivo real a la vez. El agente también usa un
-navegador que compartes con él: ves lo que hace como vídeo en directo, y haces clic y
-escribes en las mismas páginas.
+junto a su terminal. Los documentos, las hojas, las presentaciones, los PDF y los archivos
+de texto están en directo: tú, tus amigos y el agente editáis el mismo archivo real a la
+vez. El agente también usa un navegador que compartes con él: ves lo que hace como vídeo en
+directo, y haces clic y escribes en las mismas páginas.
 
 **Salas para personas y agentes.** Una sala tiene terminales compartidos, una conversación y
 tareas. Los agentes leen y escriben en la conversación y se encargan de tareas, y las issues

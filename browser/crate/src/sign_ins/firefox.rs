@@ -5,6 +5,7 @@ use rusqlite::{Connection, OpenFlags};
 use super::{Cookie, CopyError, Kind, SignInSource, store_copy};
 
 const STORE: &str = "cookies.sqlite";
+const BROWSER: &str = "firefox";
 const MILLISECONDS: f64 = 1000.0;
 /// A date that is larger than this counts in milliseconds, as newer stores do.
 const LARGEST_DATE_IN_SECONDS: i64 = 100_000_000_000;
@@ -68,13 +69,28 @@ fn profile_folders(root: &Path) -> Vec<PathBuf> {
     first
 }
 
+/// The default profile of Firefox. Its data is one source while macOS keeps it from Kodosi.
 pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
-    roots(home)
+    let roots = roots(home);
+    if let Some(root) = roots.iter().find(|root| {
+        let list = root.join("profiles.ini");
+        list.exists() && !super::readable(&list)
+    }) {
+        return vec![SignInSource::protected(
+            "Firefox",
+            BROWSER,
+            Kind::Firefox,
+            root.clone(),
+        )];
+    }
+    roots
         .iter()
         .flat_map(|root| profile_folders(root))
         .find(|folder| folder.join(STORE).is_file())
         .map(|folder| SignInSource {
             name: "Firefox".to_owned(),
+            browser: BROWSER,
+            protected: false,
             kind: Kind::Firefox,
             folder,
         })

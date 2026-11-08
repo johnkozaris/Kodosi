@@ -5,32 +5,67 @@ use crate::message::{KeyAction, MouseAction, MouseButton};
 const META: u8 = 4;
 const CONTROL: u8 = 2;
 const SHIFT: u8 = 8;
+/// Where words that are no address go.
+const SEARCH: &str = "https://www.google.com/search?q=";
 
 /// The address of what a person typed. An address with no scheme gets `https`, and one on this
 /// computer or the local network, such as an agent's server at `localhost:3000`, gets `http`.
+/// Words that are no address, such as a question, go to the search engine.
 pub(crate) fn address(typed: &str) -> String {
     let typed = typed.trim();
     if typed.contains("://") || typed.starts_with("about:") || typed.starts_with("data:") {
         return typed.to_owned();
     }
     let host = typed.split(['/', '?', '#']).next().unwrap_or_default();
-    let name = if host.starts_with('[') {
-        host.split(']')
+    if typed.contains(char::is_whitespace) || host.is_empty() || host.contains('@') {
+        return search(typed);
+    }
+    let (name, port) = if host.starts_with('[') {
+        let name = host
+            .split(']')
             .next()
             .map(|name| format!("{name}]"))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        (name, false)
+    } else if let Some((name, port)) = host.rsplit_once(':') {
+        if !port.bytes().all(|byte| byte.is_ascii_digit()) {
+            return search(typed);
+        }
+        (name.to_owned(), !port.is_empty())
     } else {
-        host.rsplit_once(':')
-            .map_or(host, |(name, _)| name)
-            .to_owned()
+        (host.to_owned(), false)
     };
     let name = name.to_ascii_lowercase();
     let last = name.rsplit('.').next().unwrap_or_default();
     let local = matches!(last, "localhost" | "local")
         || name.starts_with('[')
         || name.parse::<std::net::Ipv4Addr>().is_ok()
-        || !name.contains('.');
-    format!("{}://{typed}", if local { "http" } else { "https" })
+        || (!name.contains('.') && port);
+    if local {
+        return format!("http://{typed}");
+    }
+    let domain = name.contains('.') && last.len() >= 2 && last.chars().all(char::is_alphabetic);
+    if domain {
+        format!("https://{typed}")
+    } else {
+        search(typed)
+    }
+}
+
+fn search(words: &str) -> String {
+    use std::fmt::Write as _;
+
+    let mut address = SEARCH.to_owned();
+    for byte in words.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                address.push(char::from(byte));
+            }
+            b' ' => address.push('+'),
+            _ => drop(write!(address, "%{byte:02X}")),
+        }
+    }
+    address
 }
 
 /// On a computer that is not a Mac, a Mac's Command is Control.
@@ -168,6 +203,26 @@ mod tests {
         assert_eq!(address("printer.local"), "http://printer.local");
         assert_eq!(address("http://example.com"), "http://example.com");
         assert_eq!(address("about:blank"), "about:blank");
+    }
+
+    #[test]
+    fn words_that_are_no_address_are_a_search() {
+        assert_eq!(
+            address("how to cook pasta?"),
+            "https://www.google.com/search?q=how+to+cook+pasta%3F"
+        );
+        assert_eq!(address("pasta"), "https://www.google.com/search?q=pasta");
+        assert_eq!(address("1+1"), "https://www.google.com/search?q=1%2B1");
+        assert_eq!(
+            address("καλημέρα"),
+            "https://www.google.com/search?q=%CE%BA%CE%B1%CE%BB%CE%B7%CE%BC%CE%AD%CF%81%CE%B1"
+        );
+        assert_eq!(
+            address("me@example.com"),
+            "https://www.google.com/search?q=me%40example.com"
+        );
+        assert_eq!(address("news.example.org"), "https://news.example.org");
+        assert_eq!(address("localhost"), "http://localhost");
     }
 
     fn command_key(key: &str, shift: bool) -> Key<'_> {

@@ -12,8 +12,11 @@ export interface Zoomable {
   area: HTMLElement;
   /** The space inside the area that keeps its size at each scale. */
   inset: number;
-  /** The scales at which the pages fill the width of the area, and at which a whole page fits. */
-  fits(): Record<Fitting, number>;
+  /**
+   * The scales at which the pages fill the width of the area, and at which a whole page fits.
+   * A view without them has no fitting: it starts at its actual size.
+   */
+  fits?(): Record<Fitting, number>;
   /** Shows the pages at a scale. */
   scale(scale: number): void;
 }
@@ -55,23 +58,34 @@ export class Zoom {
   private readonly part: ZoomPart;
   private readonly watching: ResizeObserver;
   private readonly listening = new AbortController();
-  private sizing: Sizing = "width";
+  private readonly start: Sizing;
+  private sizing: Sizing;
   private current = 1;
   private pinched = 1;
 
   constructor(private readonly view: Zoomable) {
+    this.start = view.fits ? "width" : 1;
+    this.sizing = this.start;
     this.part = zoomOf({
       step: (larger) => this.step(larger),
-      entries: () => [
-        {
-          label: say("Fit width"),
-          hint: keys("0"),
-          checked: this.sizing === "width",
-          run: () => this.set("width"),
-        },
-        { label: say("Fit page"), checked: this.sizing === "page", run: () => this.set("page") },
-        { label: say("Actual size"), checked: this.sizing === 1, run: () => this.set(1) },
-      ],
+      entries: () => {
+        const actual = {
+          label: say("Actual size"),
+          checked: this.sizing === 1,
+          run: () => this.set(1),
+        };
+        if (!view.fits) return [{ ...actual, hint: keys("0") }];
+        return [
+          {
+            label: say("Fit width"),
+            hint: keys("0"),
+            checked: this.sizing === "width",
+            run: () => this.set("width"),
+          },
+          { label: say("Fit page"), checked: this.sizing === "page", run: () => this.set("page") },
+          actual,
+        ];
+      },
     });
     const signal = this.listening.signal;
     const area = view.area;
@@ -118,7 +132,8 @@ export class Zoom {
   }
 
   private scaleOf(sizing: Sizing): number {
-    const scale = typeof sizing === "number" ? sizing : Math.min(1, this.view.fits()[sizing]);
+    const scale =
+      typeof sizing === "number" ? sizing : Math.min(1, this.view.fits?.()[sizing] ?? 1);
     return Math.min(MOST, Math.max(LEAST, scale)) || 1;
   }
 
@@ -163,7 +178,7 @@ export class Zoom {
     if (event.defaultPrevented || !commandKey(event)) return;
     if (event.key === "=" || event.key === "+") this.step(true);
     else if (event.key === "-" || event.key === "_") this.step(false);
-    else if (event.key === "0") this.set("width");
+    else if (event.key === "0") this.set(this.start);
     else return;
     event.preventDefault();
   }

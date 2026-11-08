@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     sync::{
-        Arc,
+        Arc, LazyLock,
         atomic::{AtomicU64, Ordering},
     },
     time::SystemTime,
@@ -11,14 +11,17 @@ use base64::Engine as _;
 use bytes::Bytes;
 
 use super::{
-    CanvasAnswer, CanvasItem, CanvasKind, MOST_FILE_BYTES, MOST_ITEMS, MOST_KEY, PART_BYTES,
-    kind_of, page,
+    CanvasAnswer, CanvasItem, CanvasKind, DocumentView, MOST_FILE_BYTES, MOST_ITEMS, MOST_KEY,
+    PART_BYTES, kind_of, page,
 };
 use crate::text::Text;
 
 const MOST_PAGE_SOURCE: u64 = 8 * 1024 * 1024;
 const NAME_CHARACTERS: usize = 128;
 const SNAPSHOT_KEPT: std::time::Duration = std::time::Duration::from_mins(1);
+
+/// The formats of live documents, which say whether a text file opens live.
+static FORMATS: LazyLock<documents::Formats> = LazyLock::new(documents_cli::formats);
 
 /// Counts the changes of a canvas, so devices know the newest item and what changed since they
 /// looked.
@@ -45,6 +48,15 @@ struct Item {
     path: PathBuf,
     listed: CanvasItem,
     seen: Option<Seen>,
+}
+
+/// A file that the canvas can show.
+struct Examined {
+    path: PathBuf,
+    kind: CanvasKind,
+    view: Option<DocumentView>,
+    seen: Seen,
+    loads: Option<String>,
 }
 
 struct Snapshot {
@@ -90,7 +102,14 @@ impl Files {
             checked.push(examine(path).await?);
         }
         let mut shown = Vec::new();
-        for (path, kind, seen, loads) in checked {
+        for Examined {
+            path,
+            kind,
+            view,
+            seen,
+            loads,
+        } in checked
+        {
             let key = key_of(&path);
             let name = name_of(&path);
             let changed = stamp.next();
@@ -100,6 +119,7 @@ impl Files {
                     if item.seen.as_ref() != Some(&seen) {
                         item.listed.revision += 1;
                     }
+                    item.listed.view = view;
                     item.listed.bytes = seen.bytes;
                     item.listed.missing = false;
                     item.listed.changed = changed;
@@ -111,7 +131,7 @@ impl Files {
                         key,
                         name: name.clone(),
                         kind,
-                        view: super::view_of(&path),
+                        view,
                         revision: 1,
                         bytes: seen.bytes,
                         changed,
@@ -180,6 +200,7 @@ impl Files {
                         item.listed.revision += 1;
                         item.listed.changed = stamp.next();
                     }
+                    item.listed.view = view_of(&item.path, seen.bytes).await;
                     item.listed.bytes = seen.bytes;
                     item.listed.missing = false;
                     item.seen = Some(seen);
@@ -277,7 +298,7 @@ impl Files {
     }
 }
 
-async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<String>), Text> {
+async fn examine(path: PathBuf) -> Result<Examined, Text> {
     let shown = path.display().to_string();
     let kind = kind_of(&path).ok_or_else(|| {
         Text::plain(format!(
@@ -316,15 +337,30 @@ async fn examine(path: PathBuf) -> Result<(PathBuf, CanvasKind, Seen, Option<Str
     } else {
         None
     };
-    Ok((
+    Ok(Examined {
+        view: view_of(&path, metadata.len()).await,
         path,
         kind,
-        Seen {
+        seen: Seen {
             bytes: metadata.len(),
             modified: metadata.modified().ok(),
         },
         loads,
-    ))
+    })
+}
+
+/// How a file of `bytes` opens on the canvas: live, or else as its kind. A text file opens live
+/// only when its format takes it, and one that is too long or not UTF-8 stays a page.
+async fn view_of(path: &Path, bytes: u64) -> Option<DocumentView> {
+    let view = super::view_of(path)?;
+    if view != DocumentView::Text {
+        return Some(view);
+    }
+    if bytes > MOST_PAGE_SOURCE {
+        return None;
+    }
+    let file = tokio::fs::read(path).await.ok()?;
+    FORMATS.opens(path, &file).then_some(view)
 }
 
 async fn load(path: PathBuf, name: String) -> Result<Bytes, Text> {

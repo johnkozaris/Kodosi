@@ -12,6 +12,7 @@
     "@documents/pdf": "workspace:*",
     "@documents/pptx": "workspace:*",
     "@documents/docx": "workspace:*",
+    "@documents/plain": "workspace:*",
     "@documents/words": "workspace:*"
   }
 }

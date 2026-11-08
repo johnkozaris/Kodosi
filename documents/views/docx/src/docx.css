@@ -102,24 +102,3 @@
   :is(img, .page-space, .peer-caret) {
   filter: invert(1) hue-rotate(180deg);
 }
-
-.peer-caret {
-  position: relative;
-  margin: 0 -1px;
-  border-left: 2px solid;
-}
-
-.peer-caret > span {
-  position: absolute;
-  top: -1.4em;
-  left: -2px;
-  padding: 0 4px;
-  border-radius: 3px 3px 3px 0;
-  color: #ffffff;
-  font:
-    600 10px / 1.4 system-ui,
-    sans-serif;
-  text-indent: 0;
-  white-space: nowrap;
-  pointer-events: none;
-}

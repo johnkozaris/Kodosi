@@ -91,6 +91,17 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
+
+        Choice {
+            name: "texts"
+            iconName: "pencil"
+            tint: "#6b6560"
+            title: qsTr("Text viewer")
+            subtitle: ".txt, .json, .yaml, .toml, .xml"
+        }
+    }
+    ListGroup {
+        Layout.fillWidth: true
         footer: qsTr("When a viewer is off, you save a copy of its files or open them in their own app.")
 
         Choice {

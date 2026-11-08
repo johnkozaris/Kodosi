@@ -224,3 +224,54 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     #expect(CanvasQuestion.about(shown, words: " round\neach\u{1B}[2J line\r") == "About /tmp/work/plan.md: \"round each [2J line\" ")
     #expect(CanvasQuestion.about(shown, words: "  ") == "About /tmp/work/plan.md: ")
 }
+
+@Test func `the address offers the pages that fit each word, those that start with them first`() {
+    var history = BrowserHistory()
+    let start = Date(timeIntervalSince1970: 1_000_000)
+    history.visit("https://news.example.com/git", title: "Git news", at: start)
+    history.visit("https://github.com/johnkozaris/Kodosi", title: "Kodosi", at: start.addingTimeInterval(1))
+    history.visit("https://docs.example.org/guide", title: "Git guide", at: start.addingTimeInterval(2))
+    history.visit("https://docs.example.org/guide", title: "Git guide", at: start.addingTimeInterval(3))
+    #expect(history.matches("git").map(\.address) == [
+        "https://github.com/johnkozaris/Kodosi", "https://docs.example.org/guide", "https://news.example.com/git",
+    ])
+    #expect(history.matches("git guide").map(\.address) == ["https://docs.example.org/guide"])
+    #expect(history.matches("https://www.github").map(\.address) == ["https://github.com/johnkozaris/Kodosi"])
+    #expect(history.matches("  ").isEmpty)
+}
+
+@Test func `a page is kept once with its newest title, and only web pages are kept`() throws {
+    var history = BrowserHistory()
+    let start = Date(timeIntervalSince1970: 1_000_000)
+    history.visit("about:blank", title: "", at: start)
+    history.visit("https://example.com/", title: "", at: start)
+    history.name("https://example.com/", title: "Example")
+    history.visit("https://example.com/", title: "", at: start.addingTimeInterval(1))
+    let page = try #require(history.pages.first)
+    #expect(history.pages.count == 1)
+    #expect((page.title, page.visits) == ("Example", 2))
+    let kept = try #require(BrowserHistory(rawValue: history.rawValue))
+    #expect(kept == history)
+}
+
+@Test @MainActor func `settings of the browser read its status while no download runs`() async throws {
+    let commands = CommandSink()
+    var request: String?
+    commands.transport = { data in
+        request = (try? JSONDecoder().decode([String: JSONValue].self, from: data))?["requestId"]?.stringValue
+        return 0
+    }
+    let store = CanvasStore(commands: commands)
+    let reading = Task { try await store.browserStatus() }
+    while request == nil {
+        await Task.yield()
+    }
+    try commands.receive(runtimeEvent("browser.result", fields: [
+        "requestId": .string(#require(request)), "operation": .string("browser.status"),
+        "sources": .array([.object(["name": .string("Chrome"), "browser": .string("chrome"), "protected": .bool(false)])]),
+        "sites": .uint(0),
+    ]))
+    let status = try await reading.value
+    #expect(status == BrowserStatus(sources: [.init(name: "Chrome", browser: "chrome", protected: false)], sites: 0, engine: nil,
+                                    getting: nil))
+}

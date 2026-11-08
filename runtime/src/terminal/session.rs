@@ -104,6 +104,7 @@ enum Request {
 pub(crate) struct Foreground {
     pub group: Option<u32>,
     pub variable: Option<String>,
+    pub arguments: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -1462,6 +1463,7 @@ impl LocalActor {
                 drop(reply.send(Ok(Foreground {
                     group: self.pty.foreground_process_group(),
                     variable: self.pty.foreground_variable(variable),
+                    arguments: self.pty.foreground_arguments(),
                 })));
             }
             Request::Account { group, account } => {

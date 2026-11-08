@@ -160,12 +160,14 @@ impl Runtime {
             Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
-            | Command::BrowserClear { .. } => self.use_browser_settings(command)?,
+            | Command::BrowserClear { .. }
+            | Command::BrowserGet { .. } => self.use_browser_settings(command)?,
             #[cfg(not(feature = "host"))]
             Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
-            | Command::BrowserClear { .. } => {
+            | Command::BrowserClear { .. }
+            | Command::BrowserGet { .. } => {
                 return Err(Error::Refused(text!(
                     "The browsers of a computer are in the app on that computer."
                 )));
@@ -625,12 +627,25 @@ impl Runtime {
                     .await
                     .map(|sites| json!({ "sites": sites })),
                 Command::BrowserClear { .. } => browsers.clear().await.map(|()| json!({})),
+                Command::BrowserGet { .. } => browsers.get().await.map(|()| json!({})),
                 _ => {
                     let status = browsers.status().await;
+                    let sources: Vec<Value> = status
+                        .sources
+                        .iter()
+                        .map(|source| {
+                            json!({
+                                "name": source.name,
+                                "browser": source.browser,
+                                "protected": source.protected,
+                            })
+                        })
+                        .collect();
                     Ok(json!({
-                        "sources": status.sources,
+                        "sources": sources,
                         "sites": status.sites,
                         "engine": status.engine,
+                        "getting": status.getting,
                     }))
                 }
             };

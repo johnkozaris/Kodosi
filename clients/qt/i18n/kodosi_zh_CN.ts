@@ -165,8 +165,20 @@
         <translation>正在这台电脑上查找</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>正在下载，%1%</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>首次打开共享浏览器时下载</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>检查更新</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -358,6 +370,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>图片</translation>
@@ -782,6 +798,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>演示文稿查看器</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>文本查看器</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2876,10 +2896,6 @@
         <translation>终端</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>键盘</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>Agent</translation>
     </message>
@@ -2898,6 +2914,10 @@
     <message>
         <source>Devices</source>
         <translation>设备</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>快捷键</translation>
     </message>
 </context>
 <context>
@@ -3394,10 +3414,6 @@
         <translation>应用</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>已应用</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>新分支上的终端会有自己的文件夹。终端结束时，Kodosi 会移除没有改动的文件夹。</translation>
     </message>
@@ -3774,6 +3790,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>画布只接受 32 MB 以内的文件。</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>已是最新</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

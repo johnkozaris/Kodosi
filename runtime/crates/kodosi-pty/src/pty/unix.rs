@@ -245,6 +245,12 @@ impl KodosiPty {
         variable(&process_environment(pid)?, name)
     }
 
+    pub fn foreground_arguments(&self) -> Vec<String> {
+        foreground_process_group(self.master_fd)
+            .and_then(process_arguments)
+            .unwrap_or_default()
+    }
+
     pub fn resize(
         &self,
         rows: u16,
@@ -538,7 +544,6 @@ fn process_directory(pid: u32) -> Option<PathBuf> {
 
 #[cfg(target_os = "macos")]
 fn process_directory(pid: u32) -> Option<PathBuf> {
-    use std::os::unix::ffi::OsStringExt as _;
     let mut info = std::mem::MaybeUninit::<libc::proc_vnodepathinfo>::zeroed();
     let size = i32::try_from(std::mem::size_of_val(&info)).ok()?;
     let result = unsafe {
@@ -553,19 +558,129 @@ fn process_directory(pid: u32) -> Option<PathBuf> {
     if result != size {
         return None;
     }
-    let info = unsafe { info.assume_init() };
-    let bytes = info
-        .pvi_cdir
+    vnode_path(&unsafe { info.assume_init() }.pvi_cdir)
+}
+
+#[cfg(target_os = "macos")]
+fn vnode_path(vnode: &libc::vnode_info_path) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStringExt as _;
+    let bytes = vnode
         .vip_path
         .iter()
         .flatten()
         .take_while(|byte| **byte != 0)
         .map(|byte| byte.to_ne_bytes()[0])
         .collect::<Vec<_>>();
-    if bytes.is_empty() {
-        return None;
-    }
-    Some(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
+    (!bytes.is_empty()).then(|| PathBuf::from(std::ffi::OsString::from_vec(bytes)))
+}
+
+const MAX_OPEN_FILES: usize = 16_384;
+
+#[cfg(target_os = "macos")]
+const MAX_GROUP_PROCESSES: usize = 1024;
+
+#[cfg(target_os = "macos")]
+const PROC_PIDFDVNODEPATHINFO: i32 = 2;
+
+/// `struct vnode_fdinfowithpath` of `sys/proc_info.h`, after a file part that Kodosi does not
+/// read.
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct VnodeFileInfo {
+    _file: [u64; 3],
+    vnode: libc::vnode_info_path,
+}
+
+/// The files that the processes of the process group `group` hold open.
+#[cfg(target_os = "macos")]
+pub fn open_files(group: u32) -> Option<Vec<PathBuf>> {
+    let mut pids = vec![0_i32; MAX_GROUP_PROCESSES];
+    let bytes = i32::try_from(std::mem::size_of_val(pids.as_slice())).ok()?;
+    let count = unsafe {
+        libc::proc_listpgrppids(i32::try_from(group).ok()?, pids.as_mut_ptr().cast(), bytes)
+    };
+    pids.truncate(usize::try_from(count).ok()?);
+    Some(
+        pids.into_iter()
+            .flat_map(process_files)
+            .take(MAX_OPEN_FILES)
+            .collect(),
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn process_files(pid: i32) -> Vec<PathBuf> {
+    let entry = std::mem::size_of::<libc::proc_fdinfo>();
+    let needed =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
+    let entries = usize::try_from(needed).unwrap_or(0) / entry;
+    let mut descriptors = vec![
+        libc::proc_fdinfo {
+            proc_fd: 0,
+            proc_fdtype: 0,
+        };
+        entries.min(MAX_OPEN_FILES)
+    ];
+    let Ok(bytes) = i32::try_from(std::mem::size_of_val(descriptors.as_slice())) else {
+        return Vec::new();
+    };
+    let filled = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDLISTFDS,
+            0,
+            descriptors.as_mut_ptr().cast(),
+            bytes,
+        )
+    };
+    descriptors.truncate(usize::try_from(filled).unwrap_or(0) / entry);
+    descriptors
+        .iter()
+        .filter(|descriptor| i32::try_from(descriptor.proc_fdtype) == Ok(libc::PROX_FDTYPE_VNODE))
+        .filter_map(|descriptor| {
+            let mut info = std::mem::MaybeUninit::<VnodeFileInfo>::zeroed();
+            let size = i32::try_from(std::mem::size_of_val(&info)).ok()?;
+            let read = unsafe {
+                libc::proc_pidfdinfo(
+                    pid,
+                    descriptor.proc_fd,
+                    PROC_PIDFDVNODEPATHINFO,
+                    info.as_mut_ptr().cast(),
+                    size,
+                )
+            };
+            (read == size)
+                .then(|| vnode_path(&unsafe { info.assume_init() }.vnode))
+                .flatten()
+        })
+        .collect()
+}
+
+/// The files that the processes of the process group `group` hold open.
+#[cfg(target_os = "linux")]
+pub fn open_files(group: u32) -> Option<Vec<PathBuf>> {
+    let processes = std::fs::read_dir("/proc").ok()?;
+    Some(
+        processes
+            .flatten()
+            .filter(|process| {
+                process
+                    .file_name()
+                    .to_str()
+                    .and_then(|name| name.parse().ok())
+                    .and_then(process_group)
+                    == Some(group)
+            })
+            .filter_map(|process| std::fs::read_dir(process.path().join("fd")).ok())
+            .flat_map(|descriptors| {
+                descriptors
+                    .flatten()
+                    .filter_map(|descriptor| std::fs::read_link(descriptor.path()).ok())
+            })
+            .filter(|path| path.is_absolute())
+            .take(MAX_OPEN_FILES)
+            .collect(),
+    )
 }
 
 #[cfg(target_os = "linux")]
@@ -840,9 +955,8 @@ mod tests {
     }
 
     #[test]
-    fn the_program_in_front_shows_its_variables_and_process_group() {
-        const NAME: &str =
-            "pty::unix::tests::the_program_in_front_shows_its_variables_and_process_group";
+    fn the_program_in_front_shows_its_arguments_variables_and_process_group() {
+        const NAME: &str = "pty::unix::tests::the_program_in_front_shows_its_arguments_variables_and_process_group";
         if env::var_os("KODOSI_TEST_HOME").is_some() {
             std::thread::sleep(Duration::from_secs(30));
             return;
@@ -884,12 +998,29 @@ mod tests {
                 .unwrap();
                 assert_eq!(home, "/agent/home");
                 assert_eq!(pty.foreground_variable("KODOSI_TEST_MISSING"), None);
+                assert_eq!(
+                    pty.foreground_arguments()[1..],
+                    ["--exact", NAME, "--test-threads=1"]
+                );
                 let group = pty.foreground_process_group().unwrap();
                 assert_ne!(group, pty.child_pid);
                 assert_eq!(super::process_group(group), Some(group));
                 pty.request_shutdown(ShutdownStage::Force).unwrap();
                 pty.wait().await.unwrap();
             });
+    }
+
+    #[test]
+    fn the_open_files_of_a_process_group_include_the_files_that_it_holds() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = kodosi_os::fs::canonicalize(folder.path())
+            .unwrap()
+            .join("held");
+        let held = std::fs::File::create(&path).unwrap();
+        let group = super::process_group(std::process::id()).unwrap();
+        assert!(super::open_files(group).unwrap().contains(&path));
+        drop(held);
+        assert!(!super::open_files(group).unwrap().contains(&path));
     }
 
     #[test]

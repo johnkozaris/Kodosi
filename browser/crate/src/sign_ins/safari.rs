@@ -20,6 +20,8 @@ pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     let folder: PathBuf = home.join(STORE);
     vec![SignInSource {
         name: "Safari".to_owned(),
+        browser: "safari",
+        protected: folder.exists() && !super::readable(&folder),
         kind: Kind::Safari,
         folder,
     }]

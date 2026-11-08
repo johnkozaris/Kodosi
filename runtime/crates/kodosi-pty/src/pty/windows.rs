@@ -308,6 +308,11 @@ impl KodosiPty {
         None
     }
 
+    /// Kodosi does not read the arguments of another process on Windows.
+    pub const fn foreground_arguments(&self) -> Vec<String> {
+        Vec::new()
+    }
+
     pub fn resize(
         &self,
         rows: u16,

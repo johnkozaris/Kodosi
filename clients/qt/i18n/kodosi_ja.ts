@@ -165,8 +165,20 @@
         <translation>このコンピュータで検索中</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>ダウンロード中、%1%</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>共有ブラウザを初めて開いたときにダウンロードされます</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>アップデートを確認</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>ダウンロード</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -358,6 +370,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>画像</translation>
@@ -782,6 +798,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>プレゼンテーションビューア</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>テキストビューア</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2876,10 +2896,6 @@
         <translation>ターミナル</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>キーボード</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>エージェント</translation>
     </message>
@@ -2898,6 +2914,10 @@
     <message>
         <source>Devices</source>
         <translation>デバイス</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>ショートカット</translation>
     </message>
 </context>
 <context>
@@ -3394,10 +3414,6 @@
         <translation>適用</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>適用済み</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>新しいブランチのターミナルには専用のフォルダが作られます。ターミナルが終了したとき、変更のないフォルダは Kodosi が削除します。</translation>
     </message>
@@ -3774,6 +3790,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>キャンバスに置けるファイルは 32 MB までです。</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>最新</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

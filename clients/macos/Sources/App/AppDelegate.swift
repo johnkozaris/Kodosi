@@ -107,8 +107,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         let stopsHost = !dependencies.hostForeground
         let local = dependencies.sessions.count(where: { $0.kind == .local })
-        if !storageBootstrap.isIsolated, stopsHost, local > 0 {
-            let restarting = dependencies.updater.restarting
+        let restarting = dependencies.updater.restarting
+        let guiding = PrivacyGuide.shared.isShowing && !restarting
+        if !storageBootstrap.isIsolated, stopsHost, local > 0,
+           !Self.systemQuits(NSAppleEventManager.shared().currentAppleEvent, guiding: guiding)
+        {
             let alert = NSAlert()
             alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
             alert.informativeText = String(localized: "\(local) terminals on this Mac stop. They start again when Kodosi opens.")
@@ -135,6 +138,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             finishTermination(application)
         }
         return .terminateLater
+    }
+
+    /// Whether macOS asks Kodosi to quit, not the person: to shut down, restart or log out, or
+    /// to open Kodosi again with a permission that the person turns on while Kodosi's guide shows
+    /// its list in System Settings.
+    static func systemQuits(_ event: NSAppleEventDescriptor?, guiding: Bool) -> Bool {
+        if guiding {
+            return true
+        }
+        guard let reason = event?.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason)) else { return false }
+        return [kAEShutDown, kAERestart, kAEReallyLogOut].contains(reason.typeCodeValue)
     }
 
     private func finishTermination(_ application: NSApplication) {

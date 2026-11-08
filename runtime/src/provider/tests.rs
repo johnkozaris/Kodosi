@@ -511,7 +511,8 @@ async fn active_claude_native_identity_is_not_resumed() {
 async fn the_claude_conversation_of_a_process_group_comes_from_its_activity_record() {
     let home = tempfile::tempdir().unwrap();
     let root = home.path().join(".claude");
-    assert_eq!(claude_conversation(root.clone(), 1).await, None);
+    let shown = |group| shown_conversation(Agent::Claude, root.clone(), group, None);
+    assert_eq!(shown(1).await, None);
     let sessions = root.join("sessions");
     fs::create_dir_all(&sessions).unwrap();
     let group = kodosi_pty::process_group(std::process::id()).unwrap();
@@ -531,13 +532,134 @@ async fn the_claude_conversation_of_a_process_group_comes_from_its_activity_reco
     ] {
         fs::write(sessions.join(name), record.to_string()).unwrap();
     }
-    assert_eq!(claude_conversation(root.clone(), group).await, None);
+    assert_eq!(shown(group).await, None);
     fs::write(
         sessions.join("shown.json"),
         serde_json::json!({"sessionId":id(2),"pid":std::process::id()}).to_string(),
     )
     .unwrap();
-    assert_eq!(claude_conversation(root, group).await, Some(id(2)));
+    assert_eq!(shown(group).await, Some(id(2)));
+}
+
+fn touch(path: &Path, seconds: u64) {
+    if let Some(folder) = path.parent() {
+        fs::create_dir_all(folder).unwrap();
+    }
+    File::options()
+        .create(true)
+        .append(true)
+        .open(path)
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds))
+        .unwrap();
+}
+
+#[test]
+fn the_copilot_conversation_of_a_process_group_is_the_locked_session_that_it_used_last() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join(".copilot-work");
+    let pid = std::process::id();
+    let group = kodosi_pty::process_group(pid).unwrap_or(pid);
+    let session = |name: &str, file: &str, seconds| {
+        touch(&root.join("session-state").join(name).join(file), seconds);
+    };
+    let lock = format!("inuse.{pid}.lock");
+    assert_eq!(resume::copilot_conversation(&root, group), None);
+    session(&id(1), &format!("inuse.{}.lock", u32::MAX - 1), 30);
+    session(&id(2), "inuse.0.lock", 30);
+    session("not-a-session", &lock, 30);
+    assert_eq!(resume::copilot_conversation(&root, group), None);
+    session(&id(2), &lock, 10);
+    session(&id(3), &lock, 20);
+    assert_eq!(resume::copilot_conversation(&root, group), Some(id(3)));
+    session(&id(2), "events.jsonl", 25);
+    assert_eq!(resume::copilot_conversation(&root, group), Some(id(2)));
+}
+
+fn codex_rollout(
+    root: &Path,
+    day: &str,
+    index: u128,
+    cwd: &Path,
+    more: &serde_json::Value,
+) -> PathBuf {
+    let path = root
+        .join("sessions")
+        .join(day)
+        .join(format!("rollout-2026-11-08T20-14-39-{}.jsonl", id(index)));
+    let mut payload = serde_json::json!({"id":id(index),"cwd":cwd,"source":"cli"});
+    payload
+        .as_object_mut()
+        .unwrap()
+        .extend(more.as_object().unwrap().clone());
+    let meta = serde_json::json!({"timestamp":"2026-11-08T18:14:39Z","type":"session_meta","payload":payload});
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, format!("{meta}\n{{\"type\":\"turn_context\"}}\n")).unwrap();
+    path
+}
+
+fn sub_agent(parent: u128) -> serde_json::Value {
+    serde_json::json!({"parent_thread_id":id(parent),"source":{"subagent":{"thread_spawn":{}}}})
+}
+
+#[cfg(unix)]
+#[test]
+fn the_codex_conversation_of_a_process_group_is_the_rollout_that_it_wrote_last() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join(".codex-work");
+    let directory = workspace(home.path());
+    let group = kodosi_pty::process_group(std::process::id()).unwrap();
+    let day = "2026/11/08";
+    let shown = codex_rollout(&root, day, 1, &directory, &serde_json::json!({}));
+    let helper = codex_rollout(&root, day, 2, &directory, &sub_agent(1));
+    let other = codex_rollout(&root, day, 3, &directory, &serde_json::json!({}));
+    for (rollout, seconds) in [(&shown, 10), (&helper, 30), (&other, 40)] {
+        touch(rollout, seconds);
+    }
+    assert_eq!(codex::conversation(&root, group, Some(&directory)), None);
+    let held = [&shown, &helper].map(|rollout| File::open(rollout).unwrap());
+    assert_eq!(
+        codex::conversation(&root, group, Some(&directory)),
+        Some(id(1))
+    );
+    drop(held);
+}
+
+#[test]
+fn without_the_files_of_its_process_a_codex_conversation_is_the_one_live_in_its_folder() {
+    let home = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(home.path())
+        .unwrap()
+        .join(".codex");
+    let directory = workspace(home.path());
+    let elsewhere = home.path().join("elsewhere");
+    fs::create_dir_all(&elsewhere).unwrap();
+    let locks = root.join("thread-writer-locks");
+    let lock = |index| locks.join(format!("{}.lock", id(index)));
+    let resumed = codex_rollout(&root, "2026/10/01", 1, &directory, &serde_json::json!({}));
+    fs::rename(
+        &resumed,
+        resumed.with_file_name(format!(
+            "rollout-2026-10-01T09-00-00-{}_{}.jsonl",
+            id(1),
+            id(9)
+        )),
+    )
+    .unwrap();
+    codex_rollout(&root, "2026/11/08", 2, &elsewhere, &serde_json::json!({}));
+    codex_rollout(&root, "2026/11/08", 3, &directory, &sub_agent(1));
+    codex_rollout(&root, "2026/11/08", 4, &directory, &serde_json::json!({}));
+    for index in [1, 2, 3] {
+        touch(&lock(index), 0);
+    }
+    touch(&locks.join(".coordination.lock"), 0);
+    let shown = |held: Vec<PathBuf>| codex::shown(&root, held, Some(&directory));
+    assert_eq!(shown(Vec::new()), Some(id(1)));
+    assert_eq!(shown(vec![lock(5)]), None);
+    assert_eq!(codex::shown(&root, Vec::new(), None), None);
+    codex_rollout(&root, "2026/11/08", 5, &directory, &serde_json::json!({}));
+    touch(&lock(5), 0);
+    assert_eq!(shown(Vec::new()), None);
 }
 
 #[test]

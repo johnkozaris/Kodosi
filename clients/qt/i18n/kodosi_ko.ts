@@ -165,8 +165,20 @@
         <translation>이 컴퓨터에서 찾는 중</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>다운로드 중, %1%</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>공유 브라우저를 처음 열 때 내려받아요</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>업데이트 확인</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>다운로드</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -358,6 +370,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>이미지</translation>
@@ -782,6 +798,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>프레젠테이션 뷰어</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>텍스트 뷰어</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2876,10 +2896,6 @@
         <translation>터미널</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>키보드</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>에이전트</translation>
     </message>
@@ -2898,6 +2914,10 @@
     <message>
         <source>Devices</source>
         <translation>기기</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>단축키</translation>
     </message>
 </context>
 <context>
@@ -3394,10 +3414,6 @@
         <translation>적용</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>적용됨</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>새 브랜치의 터미널에는 전용 폴더가 생겨요. 터미널이 끝날 때 변경 사항이 없는 폴더는 Kodosi가 지워요.</translation>
     </message>
@@ -3774,6 +3790,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>캔버스에는 32MB까지 파일을 올릴 수 있어요.</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>최신 상태</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

@@ -24,38 +24,56 @@ public struct CanvasAsk {
 
 /// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
 /// no files and no storage that stays. A link opens on this device by the rules of terminal links.
-/// Words that a person selects get a key that asks the agent about them.
+/// Words that a person selects get a key that asks the agent about them. Each page view has a
+/// frame of its own, so no web page ever shows in two places at once.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
-    let frame: CanvasFrame
+    let key: String
+    let frames: CanvasFrames
     let content: Data
     let otherComputer: String?
     let ask: CanvasAsk?
+    @State private var frame: CanvasFrame?
     @State private var shown = false
 
-    public init(frame: CanvasFrame, content: Data, otherComputer: String?, ask: CanvasAsk? = nil) {
-        self.frame = frame
+    public init(key: String, frames: CanvasFrames, content: Data, otherComputer: String?, ask: CanvasAsk? = nil) {
+        self.key = key
+        self.frames = frames
         self.content = content
         self.otherComputer = otherComputer
         self.ask = ask
     }
 
     public var body: some View {
-        WebView(frame.page)
-            .webViewLinkPreviews(.disabled)
-            .webViewBackForwardNavigationGestures(.disabled)
-            .opacity(shown ? 1 : 0)
-            .overlay { selectionKey }
-            .task(id: content) {
-                frame.links.open = { url in openURL(url) }
-                frame.links.otherComputer = otherComputer
-                await frame.show(content)
-                withAnimation(theme.motion.fade) { shown = true }
+        ZStack {
+            if let frame {
+                WebView(frame.page)
+                    .webViewLinkPreviews(.disabled)
+                    .webViewBackForwardNavigationGestures(.disabled)
+                    .opacity(shown ? 1 : 0)
+                    .overlay { selectionKey(frame) }
+                    .task(id: content) {
+                        frame.links.open = { url in openURL(url) }
+                        frame.links.otherComputer = otherComputer
+                        await frame.show(content)
+                        withAnimation(theme.motion.fade) { shown = true }
+                    }
             }
+        }
+        .onAppear {
+            let frame = frame ?? CanvasFrame()
+            self.frame = frame
+            frames.hold(frame, for: key)
+        }
+        .onDisappear {
+            if let frame {
+                frames.release(frame, for: key)
+            }
+        }
     }
 
-    private var selectionKey: some View {
+    private func selectionKey(_ frame: CanvasFrame) -> some View {
         GeometryReader { geometry in
             if let ask, let selection = frame.selection {
                 AskKey(ask: ask) {
@@ -107,9 +125,32 @@ public struct CanvasSelection: Equatable, Sendable {
     public let rect: CGRect
 }
 
+/// The frames of the pages that a canvas shows on this device, by item, while their views show.
+@MainActor
+public final class CanvasFrames {
+    private var frames: [String: CanvasFrame] = [:]
+
+    public init() {}
+
+    fileprivate func hold(_ frame: CanvasFrame, for key: String) {
+        frames[key] = frame
+    }
+
+    fileprivate func release(_ frame: CanvasFrame, for key: String) {
+        if frames[key] === frame {
+            frames.removeValue(forKey: key)
+        }
+    }
+
+    /// The words that the person selected on the page of an item, while it shows.
+    public func selectedWords(of key: String) async -> String? {
+        await frames[key]?.selectedWords()
+    }
+}
+
 @MainActor
 @Observable
-public final class CanvasFrame {
+final class CanvasFrame {
     nonisolated static let scheme = "kodosi-canvas"
     nonisolated static let policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; "
         + "font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'"
@@ -140,12 +181,12 @@ public final class CanvasFrame {
 
     @ObservationIgnored let page: WebPage
     @ObservationIgnored let links = CanvasLinks()
-    public private(set) var selection: CanvasSelection?
+    private(set) var selection: CanvasSelection?
     @ObservationIgnored private let document = CanvasDocument()
     @ObservationIgnored private let watcher = SelectionWatcher()
     @ObservationIgnored private var shown = 0
 
-    public init() {
+    init() {
         var configuration = WebPage.Configuration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.urlSchemeHandlers[URLScheme(Self.scheme)!] = CanvasSchemeHandler(document: document)
@@ -176,7 +217,7 @@ public final class CanvasFrame {
     }
 
     /// The words that the person selected on the page.
-    public func selectedWords() async -> String? {
+    func selectedWords() async -> String? {
         try? await page.callJavaScript("return getSelection().toString()", contentWorld: .defaultClient) as? String
     }
 

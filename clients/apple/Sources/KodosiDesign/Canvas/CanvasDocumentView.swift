@@ -32,16 +32,23 @@ struct CanvasDocumentView: View {
             }
         }
         .onAppear {
-            page = pages.enter(item.key, in: session) {
-                CanvasDocumentPage(link: store.document(item, in: session), view: view, look: look,
-                                   preferences: viewers.preferences(for: view))
+            if page == nil {
+                page = pages.enter(item.key, in: session) {
+                    CanvasDocumentPage(link: store.document(item, in: session), view: view, look: look,
+                                       preferences: viewers.preferences(for: view))
+                }
             }
             page?.links.open = { url in openURL(url) }
             page?.links.otherComputer = otherComputer
             page?.restyle(look)
             page?.prefer(viewers.preferences(for: view))
         }
-        .onDisappear { pages.leave(item.key, in: session) }
+        .onDisappear {
+            if let page {
+                pages.leave(page, key: item.key, in: session)
+            }
+            page = nil
+        }
         .onChange(of: look) { _, look in page?.restyle(look) }
         .onChange(of: viewers.preferences(for: view)) { _, preferences in page?.prefer(preferences) }
     }
@@ -65,18 +72,22 @@ struct CanvasDocumentView: View {
 }
 
 /// The pages of live documents on this device. A page that a person leaves stays open a while,
-/// with its place and its undo. After that it closes, and the file has one view fewer.
+/// with its place and its undo. After that it closes, and the file has one view fewer. A web page
+/// shows in one view at a time, so a second view of a file at the same moment gets a page of its
+/// own, which closes with that view.
 @MainActor
 public final class CanvasDocumentPages {
     private static let kept = Duration.seconds(300)
 
     private var pages: [String: CanvasDocumentPage] = [:]
+    private var held: Set<String> = []
     private var closing: [String: Task<Void, Never>] = [:]
 
     public init() {}
 
     fileprivate func enter(_ key: String, in session: String, open: () -> CanvasDocumentPage) -> CanvasDocumentPage {
         let place = "\(session)/\(key)"
+        guard held.insert(place).inserted else { return open() }
         closing.removeValue(forKey: place)?.cancel()
         if let page = pages[place] {
             return page
@@ -91,8 +102,13 @@ public final class CanvasDocumentPages {
         await pages["\(session)/\(key)"]?.selectedWords()
     }
 
-    fileprivate func leave(_ key: String, in session: String) {
+    fileprivate func leave(_ page: CanvasDocumentPage, key: String, in session: String) {
         let place = "\(session)/\(key)"
+        guard pages[place] === page else {
+            page.close()
+            return
+        }
+        held.remove(place)
         closing[place] = Task { [weak self] in
             guard await (try? Task.sleep(for: Self.kept)) != nil else { return }
             self?.closing[place] = nil

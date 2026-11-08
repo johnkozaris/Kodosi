@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/cli", "crates/document", "crates/documents", "crates/docx", "crates/package", "crates/pdf", "crates/pptx", "crates/text", "crates/xlsx"]
+members = ["crates/cli", "crates/document", "crates/documents", "crates/docx", "crates/package", "crates/pdf", "crates/plain", "crates/pptx", "crates/text", "crates/xlsx"]
 exclude = ["app"]
 resolver = "3"
 
@@ -44,6 +44,7 @@ docx = { path = "crates/docx" }
 flate2 = "1.1.10"
 package = { path = "crates/package" }
 pdf = { path = "crates/pdf" }
+plain = { path = "crates/plain" }
 pptx = { path = "crates/pptx" }
 roxmltree = "0.21.2"
 serde = { version = "1.0.229", features = ["derive"] }

@@ -15,10 +15,12 @@ const LINK_POLL: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
 pub(crate) struct PendingLink {
-    device_code: String,
-    request_id: String,
-    key: Arc<LinkKey>,
-    started: Instant,
+    pub(super) device_code: String,
+    pub(super) request_id: String,
+    pub(super) key: Arc<LinkKey>,
+    pub(super) started: Instant,
+    /// The approval came and holds; this device still settles its enrollment.
+    pub(super) accepted: bool,
 }
 
 #[derive(Deserialize)]
@@ -229,6 +231,7 @@ impl BackendClient {
             request_id: wire::text(&link, "requestId")?.to_owned(),
             key: Arc::new(key),
             started: Instant::now(),
+            accepted: false,
         });
         Ok(code)
     }
@@ -287,7 +290,7 @@ impl BackendClient {
         });
     }
 
-    async fn poll_link(&self) -> Result<()> {
+    pub(super) async fn poll_link(&self) -> Result<()> {
         let credentials = self.credentials()?;
         let link = self.inner.state.lock().await.link.clone();
         let Some(link) = link else {
@@ -300,59 +303,83 @@ impl BackendClient {
                 json!({"type":"devices.link.selfResolved","outcome":outcome}),
             );
         };
-        if link.started.elapsed() >= LINK_LIFE {
-            self.inner.state.lock().await.link = None;
-            resolved("expired");
-            return Ok(());
-        }
-        let result: Value = self
-            .inner
-            .http
-            .bearer(
-                Method::POST,
-                "api/devices/link/poll",
-                &credentials.token,
-                Some(json!({"deviceCode":link.device_code})),
-            )
-            .await?;
-        match wire::text(&result, "state")? {
-            "pending" => Ok(()),
-            "approved" => {
-                let accepted = self.accept_approval(&credentials, &link, &result).await;
-                if matches!(accepted, Err(ref error) if error.unanswered()) {
-                    return accepted;
-                }
+        if !link.accepted {
+            if link.started.elapsed() >= LINK_LIFE {
                 self.inner.state.lock().await.link = None;
-                if let Err(error) = accepted {
+                resolved("expired");
+                return Ok(());
+            }
+            let result: Value = self
+                .inner
+                .http
+                .bearer(
+                    Method::POST,
+                    "api/devices/link/poll",
+                    &credentials.token,
+                    Some(json!({"deviceCode":link.device_code})),
+                )
+                .await?;
+            match wire::text(&result, "state")? {
+                "pending" => return Ok(()),
+                "approved" => {
+                    let accepted = self.accept_approval(&credentials, &link, &result).await;
+                    if matches!(accepted, Err(ref error) if error.unanswered()) {
+                        return accepted;
+                    }
+                    let mut state = self.inner.state.lock().await;
+                    if let Err(error) = accepted {
+                        state.link = None;
+                        drop(state);
+                        resolved("cancelled");
+                        return Err(error);
+                    }
+                    if let Some(current) = state
+                        .link
+                        .as_mut()
+                        .filter(|current| current.request_id == link.request_id)
+                    {
+                        current.accepted = true;
+                    }
+                }
+                state @ ("expired" | "cancelled") => {
+                    self.inner.state.lock().await.link = None;
+                    resolved(state);
+                    return Ok(());
+                }
+                _ => return Err(invalid("Unsupported device approval result.")),
+            }
+        }
+        match self.ensure_enrolled().await {
+            Err(error) if error.unanswered() => return Err(error),
+            settled => {
+                self.inner.state.lock().await.link = None;
+                let current = settled.and_then(|()| {
+                    if self.identity().is_some_and(|identity| identity.enrolled) {
+                        Ok(())
+                    } else {
+                        Err(invalid("Device approval has not become current."))
+                    }
+                });
+                if let Err(error) = current {
                     resolved("cancelled");
                     return Err(error);
                 }
-                self.ensure_enrolled().await?;
-                if !self.identity().is_some_and(|identity| identity.enrolled) {
-                    return Err(invalid("Device approval has not become current."));
-                }
-                resolved("approved");
-                self.emit_for(
-                    credentials.generation,
-                    Some(credentials.user_id.clone()),
-                    self.ready_event(&credentials.user_id, true),
-                );
-                for event in self.device_events().await? {
-                    self.emit_for(
-                        credentials.generation,
-                        Some(credentials.user_id.clone()),
-                        event,
-                    );
-                }
-                Ok(())
             }
-            state @ ("expired" | "cancelled") => {
-                self.inner.state.lock().await.link = None;
-                resolved(state);
-                Ok(())
-            }
-            _ => Err(invalid("Unsupported device approval result.")),
         }
+        resolved("approved");
+        self.emit_for(
+            credentials.generation,
+            Some(credentials.user_id.clone()),
+            self.ready_event(&credentials.user_id, true),
+        );
+        for event in self.device_events().await? {
+            self.emit_for(
+                credentials.generation,
+                Some(credentials.user_id.clone()),
+                event,
+            );
+        }
+        Ok(())
     }
 
     async fn accept_approval(

@@ -44,9 +44,10 @@ Item {
     function documentKind(kind) {
         return kind === "document" || kind === "sheet" || kind === "presentation";
     }
-    function kindName(kind) {
-        return kind === "picture" ? qsTr("Picture") : kind === "pdf" ? qsTr("PDF") : kind === "document" ? qsTr("Document")
-            : kind === "sheet" ? qsTr("Sheet") : kind === "presentation" ? qsTr("Presentation") : qsTr("Page");
+    function kindName(kind, view) {
+        return view === "text" ? qsTr("Text") : kind === "picture" ? qsTr("Picture") : kind === "pdf" ? qsTr("PDF")
+            : kind === "document" ? qsTr("Document") : kind === "sheet" ? qsTr("Sheet")
+            : kind === "presentation" ? qsTr("Presentation") : qsTr("Page");
     }
     function glyph(kind) {
         return kind === "picture" || root.documentKind(kind) ? kind : "page";
@@ -501,7 +502,7 @@ Item {
                                         PlainLabel {
                                             width: card.width
                                             text: card.modelData.missing === true ? qsTr("Missing")
-                                                : root.kindName(card.modelData.kind) + " · " + root.size(card.modelData.bytes || 0)
+                                                : root.kindName(card.modelData.kind, card.modelData.view) + " · " + root.size(card.modelData.bytes || 0)
                                             color: KodosiTheme.inkFaint
                                             font.pixelSize: KodosiTheme.fontCaption
                                             horizontalAlignment: Text.AlignHCenter

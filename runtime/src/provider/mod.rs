@@ -1,6 +1,8 @@
 #[cfg(feature = "host")]
 mod catalog;
 #[cfg(feature = "host")]
+mod codex;
+#[cfg(feature = "host")]
 mod config;
 #[cfg(feature = "host")]
 mod decode;
@@ -212,12 +214,24 @@ pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
     storage::provider_root(home, provider)
 }
 
+/// The conversation that `agent` shows in the process group `group`, from the agent's own
+/// records in its account folder `root`. `folder` is the folder of its terminal.
 #[cfg(feature = "host")]
-pub(crate) async fn claude_conversation(root: PathBuf, group: u32) -> Option<String> {
-    tokio::task::spawn_blocking(move || resume::claude_conversation(&root, group))
-        .await
-        .ok()
-        .flatten()
+pub(crate) async fn shown_conversation(
+    agent: Agent,
+    root: PathBuf,
+    group: u32,
+    folder: Option<PathBuf>,
+) -> Option<String> {
+    tokio::task::spawn_blocking(move || match agent {
+        Agent::Claude => resume::claude_conversation(&root, group),
+        Agent::Codex => codex::conversation(&root, group, folder.as_deref()),
+        Agent::Copilot => resume::copilot_conversation(&root, group),
+        Agent::Cursor | Agent::Gemini | Agent::Opencode => None,
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 #[cfg(all(test, feature = "host"))]

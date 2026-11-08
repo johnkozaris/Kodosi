@@ -237,7 +237,8 @@ export function wellOf(legend: string, toggles: readonly Toggle[], fits?: Fit): 
 export interface Choice<V extends string> {
   value: V;
   label: string;
-  icon: IconNode;
+  /** The symbol of the choice. A choice without one shows its label. */
+  icon?: IconNode;
   shortcut?: string;
 }
 
@@ -265,8 +266,13 @@ export function segmentsOf<V extends string>(
     button.type = "button";
     button.role = "radio";
     button.className = "bar-segment";
-    button.append(icon(choice.icon));
-    giveTip(button, choice.label, choice.shortcut);
+    if (choice.icon) {
+      button.append(icon(choice.icon));
+      giveTip(button, choice.label, choice.shortcut);
+    } else {
+      button.classList.add("bar-segment-words");
+      button.textContent = choice.label;
+    }
     button.addEventListener("click", () => pick(choice.value));
     return button;
   });
@@ -439,6 +445,64 @@ export function swatchesOf(
     });
   }
   return row;
+}
+
+/** Columns and rows to pick by pointing or with the arrows, as for a new table. */
+export function sizeGridOf(options: {
+  label: string;
+  columns: number;
+  rows: number;
+  pick(columns: number, rows: number): void;
+}): HTMLElement {
+  const panel = document.createElement("div");
+  panel.className = "bar-size";
+  const grid = panel.appendChild(document.createElement("div"));
+  grid.className = "bar-size-grid";
+  grid.role = "group";
+  grid.ariaLabel = options.label;
+  grid.style.gridTemplateColumns = `repeat(${options.columns}, auto)`;
+  const size = panel.appendChild(document.createElement("div"));
+  size.className = "bar-size-text";
+  const cells: HTMLButtonElement[] = [];
+  const light = (columns: number, rows: number) => {
+    for (const [index, cell] of cells.entries()) {
+      const lit = index % options.columns < columns && Math.floor(index / options.columns) < rows;
+      cell.toggleAttribute("data-lit", lit);
+    }
+    size.textContent = columns > 0 ? `${columns} × ${rows}` : options.label;
+  };
+  for (let row = 1; row <= options.rows; row++) {
+    for (let column = 1; column <= options.columns; column++) {
+      const cell = grid.appendChild(document.createElement("button"));
+      cell.type = "button";
+      cell.className = "bar-size-cell";
+      cell.ariaLabel = `${column} × ${row}`;
+      cell.addEventListener("pointerenter", () => light(column, row));
+      cell.addEventListener("focus", () => light(column, row));
+      cell.addEventListener("click", () => {
+        closePopover();
+        options.pick(column, row);
+      });
+      cells.push(cell);
+    }
+  }
+  grid.addEventListener("pointerleave", () => light(0, 0));
+  grid.addEventListener("keydown", (event) => {
+    const at = cells.indexOf(document.activeElement as HTMLButtonElement);
+    const column = at % options.columns;
+    const steps: Record<string, number> = {
+      ArrowRight: column < options.columns - 1 ? 1 : 0,
+      ArrowLeft: column > 0 ? -1 : 0,
+      ArrowDown: options.columns,
+      ArrowUp: -options.columns,
+    };
+    const step = steps[event.key];
+    if (at < 0 || step === undefined) return;
+    event.preventDefault();
+    cells[at + step]?.focus();
+  });
+  light(0, 0);
+  return panel;
 }
 
 /** A text well that takes its words with Enter. */
