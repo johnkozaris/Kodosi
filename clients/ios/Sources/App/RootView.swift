@@ -5,6 +5,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     private var screen: Screen {
         switch model.phase {
@@ -37,6 +38,11 @@ struct RootView: View {
         }
         .animation(theme.motion.soft, value: screen)
         .overlay(alignment: .top) { NoticeBanner() }
+        .overlay {
+            if screen == .main, model.lock.covers(scenePhase) {
+                LockCover()
+            }
+        }
     }
 
     private enum Screen: Equatable {

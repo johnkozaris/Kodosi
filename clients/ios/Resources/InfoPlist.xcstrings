@@ -1,6 +1,66 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "NSFaceIDUsageDescription" : {
+      "comment" : "The reason that iOS shows when Kodosi asks to use Face ID for its lock.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi fragt nach Face ID, bevor es deine Terminals zeigt, wenn du es in den Einstellungen sperrst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi ζητά Face ID πριν δείξει τα τερματικά σας, όταν το κλειδώνετε στις Ρυθμίσεις."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi asks for Face ID before it shows your terminals, when you lock it in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi pide Face ID antes de mostrar tus terminales, cuando lo bloqueas en Ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi demande Face ID avant d'afficher vos terminaux, quand vous le verrouillez dans Réglages."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi chiede Face ID prima di mostrare i tuoi terminali, quando lo blocchi nelle Impostazioni."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定で Kodosi をロックすると、ターミナルを表示する前に Face ID を求めます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 Kodosi를 잠그면 터미널을 보여 주기 전에 Face ID를 요청합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在设置中锁定 Kodosi 后，它会在显示你的终端之前要求 Face ID。"
+          }
+        }
+      }
+    },
     "NSLocalNetworkUsageDescription" : {
       "comment" : "The reason that iOS shows when Kodosi asks for the local network.",
       "extractionState" : "manual",

@@ -132,8 +132,14 @@ private struct TerminalScreenContent: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
-        .onAppear { controller.appear(active: scenePhase == .active) }
-        .onDisappear { controller.disappear() }
+        .onAppear {
+            controller.appear(active: scenePhase == .active)
+            ScreenAwake.terminalShown()
+        }
+        .onDisappear {
+            controller.disappear()
+            ScreenAwake.terminalGone()
+        }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }

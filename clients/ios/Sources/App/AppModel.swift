@@ -13,6 +13,7 @@ final class AppModel {
 
     private(set) var phase: Phase = .launching
     let notices = NoticeCenter()
+    let lock = AppLock()
     let commands: CommandSink
     let account: AccountStore
     let terminals: TerminalStore
@@ -87,6 +88,7 @@ final class AppModel {
     }
 
     func sceneChanged(to scenePhase: ScenePhase) {
+        lock.sceneChanged(to: scenePhase)
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
     }

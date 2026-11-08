@@ -37,4 +37,9 @@ computer.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,
-  appearance, licenses and account deletion.
+  appearance, the size of terminal text on this device, whether the screen stays on while
+  a terminal is open, the document viewers, the lock, the language, licenses and account
+  deletion.
+- With the lock on, Kodosi asks for Face ID, Touch ID or the passcode when it opens and
+  after a minute away, and covers what it shows while it is not in front, also in the app
+  switcher.

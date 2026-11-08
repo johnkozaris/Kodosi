@@ -26,8 +26,10 @@ struct SettingsHome: View {
             } header: {
                 GroupedListHeader(title: "Appearance")
             }
-            LanguageSection()
+            TerminalSection()
             DocumentsSection()
+            PrivacySection()
+            LanguageSection()
             AboutSection()
             AccountActionsSection()
             Section {
