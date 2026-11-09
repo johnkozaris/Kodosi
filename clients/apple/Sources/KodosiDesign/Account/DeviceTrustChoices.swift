@@ -7,17 +7,20 @@ public struct DeviceTrustChoices: View {
         let cancelRequest: () -> Void
         let recover: (String) -> Void
         let startFresh: () -> Void
+        let stopStartingFresh: () -> Void
         let signInAgain: () -> Void
         let retry: () -> Void
 
         public init(
             request: @escaping () -> Void, cancelRequest: @escaping () -> Void, recover: @escaping (String) -> Void,
-            startFresh: @escaping () -> Void, signInAgain: @escaping () -> Void, retry: @escaping () -> Void,
+            startFresh: @escaping () -> Void, stopStartingFresh: @escaping () -> Void,
+            signInAgain: @escaping () -> Void, retry: @escaping () -> Void,
         ) {
             self.request = request
             self.cancelRequest = cancelRequest
             self.recover = recover
             self.startFresh = startFresh
+            self.stopStartingFresh = stopStartingFresh
             self.signInAgain = signInAgain
             self.retry = retry
         }
@@ -50,6 +53,7 @@ public struct DeviceTrustChoices: View {
                 Text("""
                 Your other devices lose access until you approve them again from this \(device). \
                 Friends confirm your identity again, and you make your rooms again. \
+                When your account has devices, this \(device) waits a day, unless one of them allows it. \
                 If you have a recovery key, cancel and use it: you keep your friends and rooms.
                 """, bundle: .module)
             }
@@ -102,6 +106,26 @@ public struct DeviceTrustChoices: View {
             ProgressCaption(text: String(localized: "Checking your recovery key", bundle: .module))
         case .resetting:
             ProgressCaption(text: String(localized: "Starting fresh", bundle: .module))
+        case let .waiting(readyAt):
+            VStack(spacing: 14) {
+                Text("""
+                This \(device) can start fresh after \(readyAt, format: .dateTime.weekday(.wide).hour().minute()). \
+                Until then, your other devices can stop it, or allow it now.
+                """, bundle: .module)
+                    .appTextStyle(.callout)
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("deviceTrust.waiting")
+                Button(action: actions.startFresh) {
+                    Text("Start fresh", bundle: .module).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.kodosi(.primary, size: .large))
+                .accessibilityIdentifier("deviceTrust.startFresh")
+                Button(action: actions.stopStartingFresh) { Text("Do not start fresh", bundle: .module) }
+                    .buttonStyle(.kodosi(.ghost))
+                    .accessibilityIdentifier("deviceTrust.stopReset")
+            }
         case let .failed(message):
             VStack(spacing: 14) {
                 ErrorNote(message: message)

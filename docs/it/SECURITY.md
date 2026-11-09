@@ -49,8 +49,10 @@ e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in at
 un'approvazione, mai il suo testo), i campi di instradamento, i tempi e le dimensioni del
 testo cifrato. La crittografia non nasconde questi metadati e non evita un'interruzione del
 servizio. Un dispositivo che rimuovi perde l'accesso da quel momento. Dopo aver rimosso un
-dispositivo perso o rubato, crea una nuova chiave di recupero per tenerlo fuori. Le
-credenziali di GitHub e Gitea restano sul tuo computer.
+dispositivo perso o rubato, crea una nuova chiave di recupero per tenerlo fuori. Quando
+qualcuno ricomincia da zero sul tuo account mentre hai dei dispositivi, si attende un giorno
+e i tuoi dispositivi lo mostrano, così puoi fermarlo. Le credenziali di GitHub e Gitea
+restano sul tuo computer.
 
 Eliminare un account rimuove i suoi dispositivi, i dati di recupero, gli amici, le
 condivisioni e le stanze di sua proprietà; i messaggi nelle stanze di altri restano, senza

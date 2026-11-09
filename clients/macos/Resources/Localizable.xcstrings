@@ -53,6 +53,58 @@
         }
       }
     },
+    "%@ asked to start fresh. Stop it unless you asked for it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ möchte neu beginnen. Stoppe es, außer du hast selbst darum gebeten."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η συσκευή %@ ζήτησε νέα αρχή. Σταματήστε την, εκτός αν τη ζητήσατε εσείς."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pidió empezar de cero. Detenlo, salvo que lo hayas pedido tú."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a demandé à repartir de zéro. Arrêtez-le, sauf si vous l'avez demandé vous-même."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha chiesto di ricominciare da zero. Fermalo, a meno che non l'abbia chiesto tu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ が新しく始めることを求めています。自分で求めたのでなければ、止めてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 새로 시작하려고 해요. 직접 요청한 게 아니라면 중지하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 请求重新开始。除非是你自己请求的，否则请阻止它。"
+          }
+        }
+      }
+    },
     "%@ asks you to sign in the first time." : {
       "localizations" : {
         "de" : {
@@ -21165,6 +21217,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还原"
+          }
+        }
+      }
+    },
+    "Review…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prüfen…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Έλεγχος…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisar…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Examiner…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看…"
           }
         }
       }

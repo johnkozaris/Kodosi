@@ -34,6 +34,12 @@ struct DeviceSettingsView: View {
                             .accessibilityIdentifier("settings.account.kept")
                     }
                 }
+                if deps.account.localDeviceEnrolled, let reset = deps.account.otherDeviceReset {
+                    StartFreshRequest(reset: reset, allow: deps.account.allowReset, stop: deps.account.stopReset)
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .raised(Radius.lg)
+                        .transition(AnyTransition.rise)
+                }
                 if !deps.account.localDeviceEnrolled {
                     VStack(spacing: 14) {
                         Text("Trust this Mac").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
@@ -138,6 +144,7 @@ struct DeviceSettingsView: View {
         .animation(theme.motion.spring, value: deps.account.devices)
         .animation(theme.motion.spring, value: deps.account.deletion)
         .animation(theme.motion.spring, value: deps.account.deviceRequests)
+        .animation(theme.motion.spring, value: deps.account.pendingReset)
         .confirmationDialog("Remove \(revoke?.title ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
             if !$0 {
                 revoke = nil

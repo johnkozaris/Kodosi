@@ -62,11 +62,18 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         var me = await client.GetFromJsonAsync<JsonElement>("/api/me", TestContext.Current.CancellationToken);
         var user = me.GetProperty("id").GetGuid();
         var device = new DeviceFixture(user, $"{subject}-device");
+        using var enrolled = await EnrollFirstAsync(client, device);
+        await SuccessAsync(enrolled);
+        return new ApiDevice(client, token, device, await OpenSessionAsync(client, device));
+    }
+
+    public static async Task<HttpResponseMessage> EnrollFirstAsync(HttpClient client, DeviceFixture device)
+    {
         var challenge = await ChallengeAsync(client, "/api/me/devices/challenge");
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var cert = device.CertificateBody(device.DeviceId, now);
-        var list = DeviceFixture.ListBody(user, 1, [(device.DeviceId, device.DeviceId)], device.DeviceId, now);
-        using var enrolled = await client.PostAsJsonAsync("/api/me/devices", new
+        var list = DeviceFixture.ListBody(device.UserId, 1, [(device.DeviceId, device.DeviceId)], device.DeviceId, now);
+        return await client.PostAsJsonAsync("/api/me/devices", new
         {
             deviceId = device.DeviceId,
             signingPublicKey = Convert.ToBase64String(device.SigningKey),
@@ -77,8 +84,6 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
             signedDeviceList = Convert.ToBase64String(list),
             signedDeviceListSignature = device.SignedList(list),
         }, TestContext.Current.CancellationToken);
-        await SuccessAsync(enrolled);
-        return new ApiDevice(client, token, device, await OpenSessionAsync(client, device));
     }
 
     public static async Task<string> OpenSessionAsync(HttpClient client, DeviceFixture device)

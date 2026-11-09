@@ -51,7 +51,10 @@ impl BackendClient {
         }
     }
 
-    async fn sync_friends(&self, credentials: &Credentials) -> Result<(FriendList, Head)> {
+    pub(super) async fn sync_friends(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<(FriendList, Head)> {
         for _ in 0..3 {
             match self.follow_friends(credentials).await {
                 Err(Error::Backend { status: 409, .. }) => {}

@@ -62,7 +62,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         if (body.Length == 0 || signature.Length != IdentityWireFormat.MlDsa65SignatureLength || request.Revision <= request.ExpectedRevision)
             throw ApiException.Invalid("The friend list is not valid.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE \"Id\" = {user} FOR UPDATE").SingleAsync(ct);
+        await db.LockUserAsync(user, ct);
         var latest = await db.FriendLists.Where(x => x.UserId == user).MaxAsync(x => (long?)x.Revision, ct) ?? 0;
         if (latest != request.ExpectedRevision) throw ApiException.Conflict("The friend list changed on another device.");
         db.FriendLists.Add(new FriendList { UserId = user, Revision = request.Revision, Body = body, Signature = signature });

@@ -565,6 +565,14 @@ impl BackendClient {
             "devices.reset" => {
                 events.extend(self.reset_devices().await?);
             }
+            "devices.reset.approve" => {
+                self.approve_reset(wire::text(&args, "resetId")?).await?;
+                events.extend(self.device_events().await?);
+            }
+            "devices.reset.cancel" => {
+                self.cancel_reset(wire::text(&args, "resetId")?).await?;
+                events.extend(self.device_events().await?);
+            }
             "devices.link.startSelf" => {
                 let code = self.start_link().await?;
                 events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"code":code}));

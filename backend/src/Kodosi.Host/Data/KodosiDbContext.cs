@@ -9,6 +9,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceList> DeviceLists => Set<DeviceList>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
+    public DbSet<IdentityReset> IdentityResets => Set<IdentityReset>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
@@ -21,6 +22,9 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<RoomRecipientKey> RoomRecipientKeys => Set<RoomRecipientKey>();
     public DbSet<MissionKeyState> MissionKeyStates => Set<MissionKeyState>();
     public DbSet<MissionItem> MissionItems => Set<MissionItem>();
+
+    public Task<User> LockUserAsync(Guid id, CancellationToken ct) =>
+        Users.FromSqlInterpolated($"SELECT * FROM users WHERE \"Id\" = {id} FOR UPDATE").SingleAsync(ct);
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -67,6 +71,13 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.HasIndex(x => x.DeviceCodeHash).IsUnique();
             e.HasIndex(x => x.ExpiresAt);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<IdentityReset>(e =>
+        {
+            e.ToTable("identity_resets"); e.HasKey(x => x.UserId);
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.Property(x => x.DeviceLabel).HasMaxLength(128);
+            e.HasOne<User>().WithOne().HasForeignKey<IdentityReset>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<Friendship>(e =>
         {

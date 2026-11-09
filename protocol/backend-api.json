@@ -98,10 +98,17 @@
     "roomKey": "the entry has a room recipient key; the request that adds the entry carries the public part, signed with the recovery key, and the secret part sealed with the AES-256-GCM key, and the server stores both in one write",
     "recover": "a signed-in device that has the text proves possession of its own key and sends its certificate and the next device list, both signed with the recovery key; the device keeps the room key pair of the entry until it has its own room keys in each room, then deletes it"
   },
+  "startFresh": {
+    "request": "POST /api/me/identity/reset with the device id, label and signing key of a device that is not registered; 204 when the account has no device list and no device, and then the device registers as the first device; else one pending reset for each account, ready one day after the request; a request from another device or key replaces it and its time",
+    "read": "GET /api/me/identity/reset gives requestId, deviceId, deviceLabel, requestedAtMs, readyAtMs and ready, or 404",
+    "allow": "an approved device makes the pending reset ready at once with POST /api/me/identity/reset/{requestId}/approve",
+    "stop": "DELETE /api/me/identity/reset/{requestId} removes it; a link or recovery approval of its device also removes it",
+    "complete": "POST /api/me/devices with the device id and signing key of a ready reset revokes every device of the account, removes the device list and friend lists, cancels pending links and registers the device as the first device of a new identity, in one transaction"
+  },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
     "list": "JSON of the records with the account id, a revision, previous (the hexadecimal SHA-256 of the list before it; absent in the first list) and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
-    "storage": "the server keeps the newest 1024 lists of each account and adds a list only on top of the newest revision that the device read; it cannot make or change a list; starting fresh deletes them",
+    "storage": "the server keeps the newest 1024 lists of each account and adds a list only on top of the newest revision that the device read; it cannot make or change a list",
     "read": "GET gives the newest 32 lists, or with after=N the next 32 after revision N, oldest first, and the newest revision; a device takes only lists that continue the one it keeps, and of them the newest that an approved device signed; else it signs its newest trusted list again on top; a device without a list takes the newest list that an approved device signed",
     "use": "a device reads the identity of another account only with a record, and only when the identity root is equal to the root of the record",
     "created": "by the user: a friend request, an accepted request, Trust, or Verify with an invite text",
@@ -121,6 +128,9 @@
       "GET /api/users/{userId}/identity",
       "POST /api/me/identity/device-list",
       "POST /api/me/identity/reset",
+      "GET /api/me/identity/reset",
+      "POST /api/me/identity/reset/{requestId}/approve",
+      "DELETE /api/me/identity/reset/{requestId}",
       "POST /api/me/connections/renew"
     ],
     "enrollment": [

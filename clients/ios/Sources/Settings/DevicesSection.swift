@@ -13,6 +13,11 @@ struct DevicesSection: View {
 
     var body: some View {
         Section {
+            if account.localDeviceEnrolled, let reset = account.otherDeviceReset {
+                StartFreshRequest(reset: reset, allow: account.allowReset, stop: account.stopReset)
+                    .padding(.vertical, 6)
+                    .raisedRows(fill: theme.colors.dangerSoft.opacity(theme.isDark ? 0.7 : 0.55))
+            }
             ForEach(account.deviceRequests) { request in
                 Button { approving = true } label: {
                     DeviceRequestLabel(request: request)

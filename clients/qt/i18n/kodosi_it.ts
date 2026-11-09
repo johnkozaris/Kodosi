@@ -602,6 +602,10 @@
         <translation>Scegli «Approva» su quel dispositivo.</translation>
     </message>
     <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it, or allow it now.</source>
+        <translation>Questo computer può ricominciare da zero da %1. Fino ad allora, gli altri tuoi dispositivi possono fermarlo o consentirlo subito.</translation>
+    </message>
+    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>Un dispositivo che usi deve approvare questo computer una volta.</translation>
     </message>
@@ -626,12 +630,32 @@
         <translation>Ricomincia da zero…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Non ricominciare da zero</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Chiave di recupero</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Approva</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 ha chiesto di ricominciare da zero</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Se nessuno lo ferma, può ricominciare da zero da %1 e tutti i tuoi dispositivi perdono l&apos;accesso. Fermalo, a meno che non l&apos;abbia chiesto tu.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Ferma</translation>
+    </message>
+    <message>
+        <source>Allow now…</source>
+        <translation>Consenti ora…</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -722,12 +746,24 @@
         <translation>Ricominciare da zero su questo computer?</translation>
     </message>
     <message>
-        <source>Start fresh</source>
-        <translation>Ricomincia da zero</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day, unless one of them allows it. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Gli altri tuoi dispositivi perdono l&apos;accesso finché non li approvi di nuovo da questo computer. Gli amici devono fidarsi di nuovo di te e dovrai ricreare le tue stanze. Se il tuo account ha dispositivi, questo computer aspetta un giorno, a meno che uno di essi non lo consenta. Se hai una chiave di recupero, annulla e usala: così mantieni amici e stanze.</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Gli altri tuoi dispositivi perdono l&apos;accesso finché non li approvi di nuovo da questo computer. Gli amici devono fidarsi di nuovo di te e dovrai ricreare le tue stanze. Se hai una chiave di recupero, annulla e usala: così mantieni amici e stanze.</translation>
+        <source>Let %1 start fresh now?</source>
+        <translation>Lasciare che %1 ricominci da zero ora?</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>Consenti</translation>
+    </message>
+    <message>
+        <source>All your devices lose access, and your friends confirm your identity again. Allow it only if you asked for it.</source>
+        <translation>Tutti i tuoi dispositivi perdono l&apos;accesso e i tuoi amici confermano di nuovo la tua identità. Consentilo solo se l&apos;hai chiesto tu.</translation>
+    </message>
+    <message>
+        <source>Start fresh</source>
+        <translation>Ricomincia da zero</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1938,6 +1974,10 @@
         <translation>Kodosi è stato aggiornato. Riavvialo per usare la nuova versione.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 ha chiesto di ricominciare da zero. Fermalo, a meno che non l&apos;abbia chiesto tu.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 vuole usare il tuo account.</translation>
     </message>
@@ -1968,6 +2008,10 @@
     <message>
         <source>Approve…</source>
         <translation>Approva…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Controlla…</translation>
     </message>
     <message>
         <source>Show code</source>

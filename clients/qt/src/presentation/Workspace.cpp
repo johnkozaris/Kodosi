@@ -327,6 +327,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_devices.m_selfDeviceId = event.value(QStringLiteral("selfDeviceId")).toString();
         m_devices.m_enrolled = event.value(QStringLiteral("localDeviceEnrolled")).toBool();
         m_devices.m_notice = m_devices.m_enrolled ? QString {} : event.value(QStringLiteral("notice")).toString();
+        m_devices.m_pendingReset = event.value(QStringLiteral("reset")).toObject().toVariantMap();
         emit m_devices.changed();
         return;
     }

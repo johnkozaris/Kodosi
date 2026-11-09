@@ -602,6 +602,10 @@
         <translation>Επιλέξτε «Έγκριση» σε εκείνη τη συσκευή.</translation>
     </message>
     <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it, or allow it now.</source>
+        <translation>Από %1 αυτός ο υπολογιστής μπορεί να κάνει νέα αρχή. Μέχρι τότε, οι άλλες συσκευές σας μπορούν να το σταματήσουν ή να το επιτρέψουν τώρα.</translation>
+    </message>
+    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>Μια συσκευή που χρησιμοποιείτε πρέπει να εγκρίνει αυτόν τον υπολογιστή μία φορά.</translation>
     </message>
@@ -626,12 +630,32 @@
         <translation>Νέα αρχή…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Να μη γίνει νέα αρχή</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Κλειδί ανάκτησης</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Έγκριση</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Αν κανείς δεν το σταματήσει, μπορεί να κάνει νέα αρχή από %1, και όλες οι συσκευές σας χάνουν την πρόσβαση. Σταματήστε το, εκτός αν το ζητήσατε εσείς.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Διακοπή</translation>
+    </message>
+    <message>
+        <source>Allow now…</source>
+        <translation>Να επιτραπεί τώρα…</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -722,12 +746,24 @@
         <translation>Νέα αρχή σε αυτόν τον υπολογιστή;</translation>
     </message>
     <message>
-        <source>Start fresh</source>
-        <translation>Νέα αρχή</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day, unless one of them allows it. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν ο λογαριασμός σας έχει συσκευές, αυτός ο υπολογιστής περιμένει μία ημέρα, εκτός αν κάποια από αυτές το επιτρέψει. Αν έχετε κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε το: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν έχετε κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε το: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
+        <source>Let %1 start fresh now?</source>
+        <translation>Να κάνει η συσκευή %1 νέα αρχή τώρα;</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>Να επιτρέπεται</translation>
+    </message>
+    <message>
+        <source>All your devices lose access, and your friends confirm your identity again. Allow it only if you asked for it.</source>
+        <translation>Όλες οι συσκευές σας χάνουν την πρόσβαση και οι φίλοι σας επιβεβαιώνουν ξανά την ταυτότητά σας. Επιτρέψτε το μόνο αν το ζητήσατε εσείς.</translation>
+    </message>
+    <message>
+        <source>Start fresh</source>
+        <translation>Νέα αρχή</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1938,6 +1974,10 @@
         <translation>Το Kodosi ενημερώθηκε. Κάντε επανεκκίνηση για να χρησιμοποιήσετε τη νέα έκδοση.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή. Σταματήστε την, εκτός αν τη ζητήσατε εσείς.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>Η συσκευή %1 θέλει να χρησιμοποιήσει τον λογαριασμό σας.</translation>
     </message>
@@ -1968,6 +2008,10 @@
     <message>
         <source>Approve…</source>
         <translation>Έγκριση…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Έλεγχος…</translation>
     </message>
     <message>
         <source>Show code</source>

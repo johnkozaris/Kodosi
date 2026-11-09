@@ -27,7 +27,7 @@ struct MainTabView: View {
             Tab("Settings", systemImage: "gearshape") {
                 NavigationStack { SettingsHome() }
             }
-            .badge(model.account.deviceRequests.count)
+            .badge(model.account.deviceRequests.count + (model.account.otherDeviceReset == nil ? 0 : 1))
             .accessibilityIdentifier("tab.settings")
         }
         .tabViewStyle(.sidebarAdaptable)

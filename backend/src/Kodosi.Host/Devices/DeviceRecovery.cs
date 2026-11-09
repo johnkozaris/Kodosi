@@ -33,6 +33,7 @@ public sealed partial class DeviceService
         var device = ToDevice(userId, cert, certBytes, certSig);
         db.Devices.Add(device);
         UpdateList(current, next, listBytes, listSig);
+        await db.IdentityResets.Where(x => x.UserId == userId && x.DeviceId == cert.DeviceId).ExecuteDeleteAsync(ct);
         return device;
     }
 

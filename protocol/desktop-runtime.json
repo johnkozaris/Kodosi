@@ -616,6 +616,98 @@
           "requestId": {
             "type": "string"
           },
+          "resetId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "devices.reset.approve"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "resetId",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "resetId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "devices.reset.cancel"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "resetId",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
           "type": {
             "const": "devices.recovery.create"
           }
@@ -6205,6 +6297,43 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "deviceLabel": {
+                    "type": "string"
+                  },
+                  "readyAtMs": {
+                    "format": "i64",
+                    "type": "integer"
+                  },
+                  "requestedAtMs": {
+                    "format": "i64",
+                    "type": "integer"
+                  },
+                  "resetId": {
+                    "type": "string"
+                  },
+                  "thisDevice": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "resetId",
+                  "deviceLabel",
+                  "thisDevice",
+                  "requestedAtMs",
+                  "readyAtMs"
+                ],
+                "type": "object"
               },
               {
                 "type": "null"

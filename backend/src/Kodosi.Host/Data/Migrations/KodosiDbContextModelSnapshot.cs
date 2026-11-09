@@ -234,6 +234,39 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("hidden_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.IdentityReset", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("DeviceLabel")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ReadyAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("SigningPublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("identity_resets", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.Mission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -624,6 +657,15 @@ namespace Kodosi.Data.Migrations
                     b.HasOne("Kodosi.Data.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.IdentityReset", b =>
+                {
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.IdentityReset", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

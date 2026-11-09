@@ -134,6 +134,21 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     #expect(app.errorMessage == nil)
     app.account.chooseTrust()
     app.account.startFresh()
+    func devices(reset: JSONValue) throws -> RuntimeEvent {
+        try runtimeEvent("devices.list", fields: [
+            "selfDeviceId": .string("mac"), "localDeviceEnrolled": .bool(false), "devices": .array([]), "reset": reset,
+        ])
+    }
+    try app.receive(devices(reset: .object([
+        "resetId": .string(UUIDv7.generate()), "deviceLabel": .string("Mac"), "thisDevice": .bool(true),
+        "requestedAtMs": .int(1_000), "readyAtMs": .int(86_401_000),
+    ])))
+    #expect(app.account.stage == .trustingDevice(.waiting(Date(timeIntervalSince1970: 86401))))
+    app.account.stopReset()
+    #expect(record.sent.last == "devices.reset.cancel")
+    try app.receive(devices(reset: .null))
+    #expect(app.account.stage == .trustingDevice(.choose))
+    app.account.startFresh()
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
     #expect(app.account.stage == .signedIn)
     #expect(app.account.localDeviceEnrolled)

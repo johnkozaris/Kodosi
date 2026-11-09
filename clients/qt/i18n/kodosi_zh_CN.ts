@@ -601,6 +601,10 @@
         <translation>在那台设备上选择“批准”。</translation>
     </message>
     <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it, or allow it now.</source>
+        <translation>这台电脑可在 %1 之后重新开始。在此之前，你的其他设备可以阻止它，或立即允许。</translation>
+    </message>
+    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>你正在使用的某台设备需要批准这台电脑一次。</translation>
     </message>
@@ -625,12 +629,32 @@
         <translation>重新开始…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>不重新开始</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>恢复密钥</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>批准</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 请求重新开始</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>如果没有人阻止，它可在 %1 之后重新开始，你的所有设备都将失去访问权限。除非是你自己请求的，否则请阻止它。</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>阻止</translation>
+    </message>
+    <message>
+        <source>Allow now…</source>
+        <translation>立即允许…</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -721,12 +745,24 @@
         <translation>在这台电脑上重新开始？</translation>
     </message>
     <message>
-        <source>Start fresh</source>
-        <translation>重新开始</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day, unless one of them allows it. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建房间。如果你的账号有设备，这台电脑需要等待一天，除非其中一台设备允许。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建房间。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</translation>
+        <source>Let %1 start fresh now?</source>
+        <translation>允许 %1 现在重新开始？</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>允许</translation>
+    </message>
+    <message>
+        <source>All your devices lose access, and your friends confirm your identity again. Allow it only if you asked for it.</source>
+        <translation>你的所有设备都将失去访问权限，好友需要重新确认你的身份。只有在你自己请求时才允许。</translation>
+    </message>
+    <message>
+        <source>Start fresh</source>
+        <translation>重新开始</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1935,6 +1971,10 @@
         <translation>Kodosi 已更新。重启即可使用新版本。</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 请求重新开始。除非是你自己请求的，否则请阻止它。</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 想使用你的账号。</translation>
     </message>
@@ -1965,6 +2005,10 @@
     <message>
         <source>Approve…</source>
         <translation>批准…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>查看…</translation>
     </message>
     <message>
         <source>Show code</source>

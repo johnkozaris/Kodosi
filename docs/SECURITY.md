@@ -45,8 +45,9 @@ metadata, each terminal's agent and state (such as working or waiting for an app
 never its text), routing fields, timing and ciphertext sizes. Encryption does not hide
 this metadata or prevent an outage. A device that you remove loses access from then on.
 After you remove a lost or stolen device, make a new recovery key to keep that device
-out. GitHub and Gitea credentials stay
-on your computer.
+out. When someone starts fresh on your account while you have devices, it waits a day
+and your devices show it, so that you can stop it. GitHub and Gitea credentials stay on
+your computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
 rooms; messages in other people's rooms stay without an account. For 30 days the service
