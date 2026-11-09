@@ -17,8 +17,9 @@
 
 [Kodosi](https://kodosi.com) è un'app di terminale per gli agenti di coding su Mac, Linux e
 Windows. Tiene i terminali di tutti i tuoi computer in una finestra, ti mostra quale agente ha
-bisogno di te e permette ai tuoi amici di lavorare negli stessi terminali. Terminali e stanze
-sono crittografati end-to-end.
+bisogno di te e permette ai tuoi amici di lavorare negli stessi terminali. Ogni terminale ha
+un canvas accanto, dove l'agente mostra i suoi piani, le pagine e i documenti, e tu li
+modifichi insieme a lui. Terminali e stanze sono crittografati end-to-end.
 
 <p align="center">
   <picture>
@@ -58,6 +59,13 @@ un'immagine accanto al suo terminale. Documenti, fogli, presentazioni, PDF e fil
 sono dal vivo: tu, i tuoi amici e l'agente modificate lo stesso file reale nello stesso
 momento. L'agente usa anche un browser che condividi con lui: vedi cosa fa in un video dal
 vivo, e clicchi e scrivi nelle stesse pagine.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="Il terminale di Claude Code con il suo canvas: un piano di lancio che Leo modifica mentre Claude suggerisce una modifica, poi un foglio del budget, delle slide, un PDF e un browser condiviso dove Claude aggiunge una tazza al carrello.">
+  </picture>
+</p>
 
 **Stanze per persone e agenti.** Una stanza contiene terminali condivisi, una conversazione e
 attività. Gli agenti leggono e scrivono nella conversazione e prendono in carico attività, e le

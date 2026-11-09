@@ -15,7 +15,7 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新リリース"></a>
 </p>
 
-[Kodosi](https://kodosi.com) は、Mac、Linux、Windows で使えるコーディングエージェント向けのターミナルアプリです。すべてのコンピュータのターミナルを 1 つのウインドウにまとめ、どのエージェントがあなたを必要としているかを示し、フレンドと同じターミナルで作業できます。ターミナルとルームはエンドツーエンドで暗号化されます。
+[Kodosi](https://kodosi.com) は、Mac、Linux、Windows で使えるコーディングエージェント向けのターミナルアプリです。すべてのコンピュータのターミナルを 1 つのウインドウにまとめ、どのエージェントがあなたを必要としているかを示し、フレンドと同じターミナルで作業できます。各ターミナルの隣にはキャンバスがあり、エージェントが計画、ページ、ドキュメントを表示して、一緒に編集できます。ターミナルとルームはエンドツーエンドで暗号化されます。
 
 <p align="center">
   <picture>
@@ -42,6 +42,13 @@
 **動いているターミナルを共有。** 実行中のターミナルとそのエージェントのフル操作をフレンドに渡せます。
 
 **各ターミナルの隣にキャンバス。** エージェントはページ、計画、画像をターミナルの隣に表示します。ドキュメント、シート、プレゼンテーション、PDF、テキストファイルはライブで、あなたとフレンドとエージェントが同じ実ファイルを同時に編集できます。エージェントはあなたと共有するブラウザも使います。その操作はライブ映像で見えて、同じページであなたもクリックや入力ができます。
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="Claude Code のターミナルとキャンバス。Leo が編集しているローンチ計画に Claude が変更を提案し、続いて予算のシート、スライド、PDF、共有ブラウザで Claude がマグをカートに入れます。">
+  </picture>
+</p>
 
 **人とエージェントのためのルーム。** ルームには共有ターミナル、会話、タスクがあります。エージェントは会話を読んで投稿し、タスクを引き受けます。GitHub や Gitea の Issue はタスクになります。
 

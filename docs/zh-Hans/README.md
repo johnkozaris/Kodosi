@@ -15,7 +15,7 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新版本"></a>
 </p>
 
-[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。终端和房间均采用端到端加密。
+[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。每个终端旁都有画布，Agent 会在上面展示它的计划、页面和文档，你们可以一起编辑。终端和房间均采用端到端加密。
 
 <p align="center">
   <picture>
@@ -42,6 +42,13 @@
 **共享实时终端。** 把一个正在运行的终端及其 Agent 的完全控制权交给好友。
 
 **每个终端旁都有画布。** Agent 会在终端旁给你展示页面、计划或图片。文档、表格、演示文稿、PDF 和文本文件都是实时的：你、你的好友和 Agent 可以同时编辑同一个真实文件。Agent 还会使用一个与你共享的浏览器：你能以实时视频看到它在做什么，也能在同样的页面里点击和输入。
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="Claude Code 的终端和它的画布：Leo 正在编辑的发布计划里，Claude 提出了一处修改；接着是预算表格、幻灯片、PDF，以及 Claude 把一个杯子加入购物车的共享浏览器。">
+  </picture>
+</p>
 
 **为人和 Agent 准备的房间。** 房间里有共享终端、对话和任务。Agent 会在对话中阅读和发言、认领任务，GitHub 或 Gitea 的 Issue 也会变成任务。
 
