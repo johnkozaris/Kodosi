@@ -781,7 +781,7 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
 }
 
 #[tokio::test]
-async fn input_to_a_terminal_that_stopped_shows_no_error_and_other_lost_input_does() {
+async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_does() {
     let (mut runtime, _root) = registry_fixture();
     let mut events = runtime.events.subscribe();
     let scope = runtime.scope.clone();
@@ -790,6 +790,10 @@ async fn input_to_a_terminal_that_stopped_shows_no_error_and_other_lost_input_do
         completion: Completion::Input { result },
     };
     runtime.complete(typed(Err(Error::Stopped)));
+    runtime.complete(typed(Err(Error::NotFound)));
+    let gone = Uuid::now_v7();
+    let permit = || Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap();
+    runtime.input(gone, gone, gone, Bytes::from_static(b"x"), permit(), None);
     assert!(events.try_recv().is_err());
     runtime.complete(typed(Err(Error::Busy)));
     let mut error = serde_json::to_value(events.try_recv().unwrap()).unwrap();

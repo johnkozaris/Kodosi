@@ -1331,7 +1331,7 @@ impl Runtime {
             Completion::Input { result } => {
                 if current
                     && let Err(error) = result
-                    && !matches!(error, Error::Stopped)
+                    && !matches!(error, Error::Stopped | Error::NotFound)
                 {
                     self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
                 }

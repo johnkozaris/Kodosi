@@ -162,12 +162,12 @@ pub use client::{
     Client, Commands, Events, TerminalClient, connect_or_start, host_status, stop_other_host,
 };
 use framing::{
-    CONTROL, DATA, INPUT, INPUT_ACK, REFRESH, RESIZE, TERMINAL_FRAME_MAX, checkpoint_frame,
-    control_frame, read_frame, read_json, resize_frame, write_frame, write_json,
+    CONTROL, DATA, INPUT, REFRESH, RESIZE, TERMINAL_FRAME_MAX, checkpoint_frame, control_frame,
+    read_frame, read_json, resize_frame, write_frame, write_json,
 };
 pub use framing::{
-    FrameReader, TerminalFrame, read_terminal, write_control, write_input, write_refresh,
-    write_resize,
+    FrameReader, TerminalFrame, input_ack_frame, read_terminal, write_control, write_input,
+    write_refresh, write_resize,
 };
 pub use server::{LocalServer, serve};
 use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};
