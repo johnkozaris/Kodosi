@@ -75,16 +75,41 @@ fn linked_deck() -> Vec<u8> {
     let relations = format!(
         r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{RELATIONSHIP}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="{RELATIONSHIP}/hyperlink" Target="https://kodosi.com/docs" TargetMode="External"/><Relationship Id="rId3" Type="{RELATIONSHIP}/slide" Target="slide2.xml"/></Relationships>"#
     );
-    let file = deck();
-    let mut original = Package::open(&file).unwrap();
+    with_parts(
+        &deck(),
+        &[
+            ("ppt/slides/slide1.xml", &slide),
+            ("ppt/slides/_rels/slide1.xml.rels", &relations),
+        ],
+    )
+}
+
+/// The deck with a text box in the place of the first slide's box, as python-pptx writes one:
+/// with no fill, and a bold run in the color that the box had.
+fn labelled_deck() -> Vec<u8> {
+    let slide = slide_xml("First");
+    let start = slide.find(r#"<p:sp><p:nvSpPr><p:cNvPr id="3""#).unwrap();
+    let end = start + slide[start..].find("</p:sp>").unwrap() + "</p:sp>".len();
+    let label = concat!(
+        r#"<p:sp><p:nvSpPr><p:cNvPr id="3" name="TextBox 2"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>"#,
+        r#"<p:spPr><a:xfrm><a:off x="12700" y="25400"/><a:ext cx="127000" cy="254000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>"#,
+        r#"<p:txBody><a:bodyPr wrap="square" anchor="ctr"/><a:lstStyle/><a:p><a:r><a:rPr sz="1800" b="1"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:rPr>"#,
+        r#"<a:t>Kiln &amp; Co.</a:t></a:r></a:p></p:txBody></p:sp>"#,
+    );
+    let slide = format!("{}{label}{}", &slide[..start], &slide[end..]);
+    with_parts(&deck(), &[("ppt/slides/slide1.xml", &slide)])
+}
+
+/// A file with some of its parts written again.
+fn with_parts(file: &[u8], parts: &[(&str, &str)]) -> Vec<u8> {
+    let mut original = Package::open(file).unwrap();
     let names: Vec<String> = original.names().map(str::to_owned).collect();
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let options = zip::write::SimpleFileOptions::default();
     for name in names {
-        let bytes = match name.as_str() {
-            "ppt/slides/slide1.xml" => slide.clone().into_bytes(),
-            "ppt/slides/_rels/slide1.xml.rels" => relations.clone().into_bytes(),
-            _ => original.bytes(&name).unwrap(),
+        let bytes = match parts.iter().find(|(part, _)| *part == name) {
+            Some((_, xml)) => xml.as_bytes().to_vec(),
+            None => original.bytes(&name).unwrap(),
         };
         writer.start_file(name, options).unwrap();
         writer.write_all(&bytes).unwrap();
@@ -194,7 +219,7 @@ fn a_view_sends_steps_for_text_and_fields_for_a_shape() {
                 slide: "257".to_owned(),
                 shape: "3".to_owned(),
                 fields: ShapeFields {
-                    fill: Some("00FF00".to_owned()),
+                    fill: Some(Some("00FF00".to_owned())),
                     ..ShapeFields::default()
                 },
             },
@@ -340,6 +365,46 @@ fn a_compare_finds_only_what_a_write_changed() {
     let written = saved(&other, &file);
     let changes = Pptx::compare(&base, &read(&written));
     assert_eq!(changes.len(), 1, "{changes:?}");
+}
+
+#[test]
+fn a_write_that_puts_another_shape_under_an_id_brings_that_shape() {
+    let file = deck();
+    let mut model = read(&file);
+    let written = labelled_deck();
+    for change in Pptx::compare(&read(&file), &read(&written)) {
+        Pptx::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
+    }
+    let label = |model: &Model| {
+        model.snapshot()["slides"][0]["shapes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|shape| shape["id"] == "3")
+            .cloned()
+    };
+    assert_eq!(label(&model), label(&read(&written)));
+    assert_eq!(saved(&model, &written), written);
+}
+
+#[test]
+fn a_new_fill_takes_the_place_of_the_fill_that_the_shape_had() {
+    let file = labelled_deck();
+    let mut model = read(&file);
+    apply_ops(
+        &mut model,
+        vec![Op::SetFill {
+            slide: "256".to_owned(),
+            shape: "3".to_owned(),
+            color: "00FF00".to_owned(),
+        }],
+    );
+    let xml = part(&saved(&model, &file), "ppt/slides/slide1.xml");
+    assert!(
+        xml.contains(
+            r#"</a:prstGeom><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></p:spPr>"#
+        )
+    );
 }
 
 #[test]
