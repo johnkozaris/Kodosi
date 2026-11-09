@@ -755,6 +755,30 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
     drop(runtime);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_cancelled_sign_in_ends_without_an_error() {
+    let runtime = TestRuntime::new().await;
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    runtime
+        .send(Command::CancelLogin {
+            request_id: Uuid::now_v7().to_string(),
+        })
+        .await;
+    let ended = timeout(Duration::from_secs(5), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["type"] == "auth.error" || event["reason"] == "cancelled" {
+                break event;
+            }
+        }
+    })
+    .await
+    .expect("the cancelled sign-in ended");
+    assert_eq!(ended["type"], "auth.required", "{ended}");
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
 #[tokio::test]
 async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_error() {
     let (mut runtime, _root) = registry_fixture();

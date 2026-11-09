@@ -14,13 +14,19 @@ sys.dont_write_bytecode = True
 
 import digest  # noqa: E402
 
-PLATFORMS = ("macos", "linux", "windows")
-PLATFORM_NAMES = {"macos": "macOS and iOS", "linux": "Linux", "windows": "Windows"}
-REFS = {"macos": "MacOSGhostty.ref", "linux": "LinuxGhostty.ref", "windows": "WindowsGhostty.ref"}
+PLATFORMS = ("macos", "linux", "windows", "android")
+PLATFORM_NAMES = {"macos": "macOS and iOS", "linux": "Linux", "windows": "Windows", "android": "Android"}
+REFS = {
+    "macos": "MacOSGhostty.ref",
+    "linux": "LinuxGhostty.ref",
+    "windows": "WindowsGhostty.ref",
+    "android": "AndroidGhostty.ref",
+}
 ZIG_TARGETS = {
     "macos": ("aarch64-macos",),
     "linux": ("x86_64-linux",),
     "windows": ("x86_64-windows", "aarch64-windows"),
+    "android": ("aarch64-macos", "x86_64-linux"),
 }
 MAC_SLICE = "macos-arm64"
 NATIVE_BUILD_POLICY = {
@@ -59,6 +65,7 @@ MAC_KEYS = (*APPLE_KEYS, "renderer_artifact_sha256", "vt_artifact_sha256")
 IOS_KEYS = (*APPLE_KEYS, "library_identifier", "slice_artifact_sha256")
 LINUX_KEYS = (*COMMON_KEYS, "vt_archive_sha256", "vt_artifact_sha256")
 WINDOWS_KEYS = (*COMMON_KEYS, "vt_archive_sha256")
+ANDROID_KEYS = (*COMMON_KEYS, "ndk_version", "vt_archive_sha256", "vt_artifact_sha256")
 KEY = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
 VALUE = re.compile(r"[A-Za-z0-9._,=+-]*")
 COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -218,6 +225,8 @@ class Verifier:
         self.linux = load_metadata(self.ghostty / "LinuxVtBuild.env")
         self.linux_layout = self.linux.value("GHOSTTY_LINUX_VT_LAYOUT")
         self.windows, self.windows_targets = windows_layouts(self.ghostty)
+        self.android = load_metadata(self.ghostty / "AndroidVtBuild.env")
+        self.android_layout = self.android.value("GHOSTTY_ANDROID_VT_LAYOUT")
         self.lock = None if arguments.working_tree else self.load_lock()
 
     def load_lock(self) -> Record:
@@ -226,9 +235,13 @@ class Verifier:
             "macos": list(self.slices),
             "linux": [self.linux_layout],
             "windows": [layout for layout in self.windows_targets if vendored(self.vendor, layout)],
+            "android": [self.android_layout],
         }
         known = {f"{platform}_ghostty_commit" for platform in PLATFORMS}
-        known.update(lock_key(name) for name in [*self.slices, self.linux_layout, *self.windows_targets])
+        known.update(
+            lock_key(name)
+            for name in [*self.slices, self.linux_layout, *self.windows_targets, self.android_layout]
+        )
         unknown = sorted(set(lock.values) - known)
         if unknown:
             fail(f"{lock.label} has an unknown key: {', '.join(unknown)}")
@@ -406,6 +419,35 @@ class Verifier:
             self.expect_build_inputs(record, self.build_inputs(commit), "linux-vt-build-options.sh")
         return commit
 
+    def verify_android(self) -> str:
+        commit = self.verify_commit("android")
+        layout = self.android_layout
+        folder = self.vendor / "GhosttyVt" / layout
+        record = load_metadata(self.vendor / "GhosttyVt" / f"{layout}.version")
+        record.require_keys(ANDROID_KEYS)
+        self.verify_identity(record, "android", commit)
+        self.verify_build_values(
+            record,
+            self.android,
+            ("vt",),
+            {
+                "target": "GHOSTTY_ANDROID_VT_TARGET",
+                "cpu": "GHOSTTY_ANDROID_VT_CPU",
+                "optimize": "GHOSTTY_ANDROID_VT_OPTIMIZE",
+            },
+        )
+        record.expect(
+            "ndk_version",
+            self.android.value("GHOSTTY_ANDROID_NDK_VERSION"),
+            f"GHOSTTY_ANDROID_NDK_VERSION in {self.android.label}",
+        )
+        self.verify_archive(record, "vt_archive_sha256", layout, folder / "lib" / "libghostty-vt.a")
+        if os.name != "nt":
+            record.expect("vt_artifact_sha256", measure_folder(folder), f"the digest of {label(folder)}")
+        if self.patched_source is not None:
+            self.expect_build_inputs(record, self.build_inputs(commit), "android-vt-build-options.sh")
+        return commit
+
     def verify_windows(self) -> str:
         commit = self.verify_commit("windows")
         for layout, target in self.windows_targets.items():
@@ -426,7 +468,12 @@ class Verifier:
         return commit
 
     def verify(self) -> None:
-        verifiers = {"macos": self.verify_apple, "linux": self.verify_linux, "windows": self.verify_windows}
+        verifiers = {
+            "macos": self.verify_apple,
+            "linux": self.verify_linux,
+            "windows": self.verify_windows,
+            "android": self.verify_android,
+        }
         commits = {platform: verifiers[platform]() for platform in self.platforms}
         if self.lock is None:
             print("[*] The check did not use Ghostty.lock. Do not publish this build.", file=sys.stderr)
@@ -469,12 +516,12 @@ def main() -> None:
         metavar="FOLDER",
         help=(
             "also compare the build inputs with this patched Ghostty source. "
-            "Use it with --platform macos or --platform linux."
+            "Use it with --platform macos, linux or android."
         ),
     )
     arguments = parser.parse_args()
-    if arguments.patched_source is not None and arguments.platform not in {"macos", "linux"}:
-        parser.error("--patched-source needs --platform macos or --platform linux")
+    if arguments.patched_source is not None and arguments.platform not in {"macos", "linux", "android"}:
+        parser.error("--patched-source needs --platform macos, linux or android")
     Verifier(arguments).verify()
 
 

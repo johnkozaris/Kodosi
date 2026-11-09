@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Kodosi</string>
+    <string name="agent_claude" translatable="false">Claude Code</string>
+    <string name="agent_codex" translatable="false">Codex</string>
+    <string name="agent_copilot" translatable="false">Copilot</string>
+    <string name="agent_cursor" translatable="false">Cursor</string>
+    <string name="agent_gemini" translatable="false">Gemini CLI</string>
+    <string name="agent_opencode" translatable="false">OpenCode</string>
+    <string name="account_changed">Your account changed before that finished.</string>
+    <string name="account_deleted">Your Kodosi account is deleted.</string>
+    <string name="agent_shell">Shell</string>
+    <string name="approval_instructions">On a device you already use, choose Approve, then enter this code.</string>
+    <string name="approve">Approve</string>
+    <string name="approve_from_another_device">Approve from another device</string>
+    <string name="asking_other_devices">Asking your other devices</string>
+    <string name="back">Back</string>
+    <string name="back_to_terminals">Back to terminals</string>
+    <string name="cancel">Cancel</string>
+    <string name="cancel_request">Cancel request</string>
+    <string name="checking_recovery_key">Checking your recovery key</string>
+    <string name="closing">Closing</string>
+    <string name="connect">Connect</string>
+    <string name="connecting">Connecting</string>
+    <string name="did_not_work">That did not work.</string>
+    <string name="did_not_work_code">That did not work (%1$d).</string>
+    <string name="encrypted_end_to_end">Encrypted end to end</string>
+    <string name="event_unreadable">Kodosi got an update it cannot read: %1$s</string>
+    <string name="feature_answer_detail">Approvals and questions come to you first.</string>
+    <string name="feature_answer_title">Answer when they ask</string>
+    <string name="feature_follow_detail">Live terminals from every computer you use.</string>
+    <string name="feature_follow_title">Follow your agents</string>
+    <string name="host_offline">%1$s is offline</string>
+    <string name="key_control">Control</string>
+    <string name="key_down">Down arrow</string>
+    <string name="key_escape">Escape</string>
+    <string name="key_left">Left arrow</string>
+    <string name="key_right">Right arrow</string>
+    <string name="key_tab">Tab</string>
+    <string name="key_up">Up arrow</string>
+    <string name="keyboard">Keyboard</string>
+    <string name="no_access">No access</string>
+    <string name="no_other_device">I have no other device</string>
+    <string name="not_connected">Not connected</string>
+    <string name="nothing_matches">Nothing matches.</string>
+    <string name="opening_sign_in">Opening sign-in</string>
+    <string name="other_account">Kodosi got an answer for a different account.</string>
+    <string name="reconnecting">Reconnecting</string>
+    <string name="recovery_key">Recovery key</string>
+    <string name="remote_computer">Remote computer</string>
+    <string name="running">Running</string>
+    <string name="runtime_could_not_start">Kodosi could not start.</string>
+    <string name="runtime_damaged">This copy of Kodosi is damaged. Install it again.</string>
+    <string name="runtime_unavailable">Kodosi is not ready.</string>
+    <string name="search_terminals">Search terminals</string>
+    <string name="shared_with_you">Shared with you</string>
+    <string name="sign_changed">New activity</string>
+    <string name="sign_done">Done</string>
+    <string name="sign_failed">Failed</string>
+    <string name="sign_hand">Needs your approval</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_in_again">Sign in again</string>
+    <string name="sign_in_ended">Your sign-in has ended. Sign in again.</string>
+    <string name="sign_in_page_failed">Kodosi could not open the sign-in page.</string>
+    <string name="sign_key">Needs you to sign in</string>
+    <string name="sign_question">Needs your answer</string>
+    <string name="signing_in">Signing in</string>
+    <string name="start_fresh">Start fresh</string>
+    <string name="start_fresh_message">Your other devices lose access until you approve them again from this phone. Friends confirm your identity again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</string>
+    <string name="start_fresh_title">Start fresh on this phone?</string>
+    <string name="starting_fresh">Starting fresh</string>
+    <string name="storage_failed">Kodosi could not prepare its storage.</string>
+    <string name="terminal_closed">The terminal closed.</string>
+    <string name="terminal_could_not_connect">The terminal could not connect.</string>
+    <string name="terminal_ended">This terminal has ended.</string>
+    <string name="terminal_fell_behind">This terminal fell behind. Try again.</string>
+    <string name="terminal_invalid_control">The terminal received an invalid control frame. Retry the terminal to reconnect.</string>
+    <string name="terminal_not_available">This terminal is not available</string>
+    <string name="terminal_opens_when_back">The terminal opens when its computer is back.</string>
+    <string name="terminals">Terminals</string>
+    <string name="terminals_empty_message">Start a terminal in Kodosi on your computer, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents.</string>
+    <string name="terminals_empty_title">Your terminals run on your computers</string>
+    <string name="trust_message">Kodosi encrypts your terminals and rooms end to end. A device you already trust gives this phone its keys.</string>
+    <string name="trust_title">Trust this phone</string>
+    <string name="try_again">Try again</string>
+    <string name="use_recovery_key">Use my recovery key</string>
+    <string name="waiting_for_approval">Waiting for approval</string>
+    <string name="waiting_for_sign_in_page">Waiting for the sign-in page</string>
+    <string name="welcome_message">See what your agents do, answer them, and talk with your rooms. Your terminals keep running on your computers.</string>
+    <string name="welcome_title">Your terminals, with you</string>
+</resources>

@@ -10,9 +10,10 @@ Install `just`, Python 3 and the toolchains of the part you change.
 [backend/global.json](../backend/global.json) pins .NET; put that .NET SDK in
 `backend/.tools/dotnet/`. `just rust-tools-install` puts the Rust check tools in
 `.tools/rust/`. Keep every tool and dependency inside the project. The
-[Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md) and
-[iOS](../clients/ios/README.md) guides list the native prerequisites; on Windows run the
-recipes in Git Bash. The apps need Bun for the document views.
+[Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md),
+[iOS](../clients/ios/README.md) and [Android](../clients/android/README.md) guides list the
+native prerequisites; on Windows run the recipes in Git Bash. The apps need Bun for the
+document views.
 
 ## Commands
 
@@ -35,6 +36,7 @@ Run these from the repository root; `just --list` shows the rest.
 | `just windows-check` | Build and check the Windows app, on Windows |
 | `just windows-rust-lint` | Lint the runtime for Windows in Docker, from any host |
 | `just ios-build`, `just ios-check` | Build or check the iPhone and iPad app |
+| `just android-build`, `just android-check` | Build or check the Android app |
 | `just sign-in-check` | Check and build the sign-in pages |
 | `just translations-check` | Check that each text has its words in each language |
 
@@ -62,7 +64,7 @@ just backend-docker-run
 identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
 `Auth__Authority` and `Auth__Audience` in a local Compose override.
 
-Debug builds of the Mac and iPhone apps use this local backend. For the Linux and
+Debug builds of the Mac, iPhone and Android apps use this local backend. For the Linux and
 Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 `KODOSI__AUTH__ISSUER` for another sign-in service.
 
@@ -97,6 +99,8 @@ Spanish, French, Italian, Japanese, Korean and Simplified Chinese.
   String Catalogs.
 - Qt: `qsTr()` in QML and `tr()` in C++, with `%n` for a count. `just linux-strings-sync` adds
   the new texts to `clients/qt/i18n/`.
+- Android: `stringResource(R.string.…)` in Compose, with the words in each
+  `clients/android/app/src/main/res/values*/strings.xml`.
 - Runtime: `text!("… {name} …", name = value)` for a sentence for people, with its words in
   `runtime/texts/`. The detail of an internal fault stays English, as `Text::plain`.
 - Backend: a refusal that people read stays an English sentence in the backend. List it in

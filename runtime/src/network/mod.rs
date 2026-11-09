@@ -19,7 +19,7 @@ mod wire;
 mod tests;
 
 pub use backend_client::BackendClient;
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) use backend_client::device_label;
 #[cfg(feature = "host")]
 pub(crate) use backend_client::host_label;

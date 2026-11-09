@@ -6,7 +6,7 @@ flowchart LR
     CLI["kodosi command"] -->|local connection| Host
     Host -->|PTY| Shell["Shell / agent CLI"]
     Host <-->|HTTPS + encrypted WebSockets| Backend["Kodosi backend"]
-    Phone["iPhone and iPad app: viewer runtime"] <-->|HTTPS + encrypted WebSockets| Backend
+    Phone["iPhone, iPad and Android apps: viewer runtime"] <-->|HTTPS + encrypted WebSockets| Backend
     Other["Another participant's host"] <-->|HTTPS + encrypted WebSockets| Backend
     Backend --> DB[(PostgreSQL)]
     Host --> OIDC["OIDC sign-in"]
@@ -18,8 +18,11 @@ The desktop apps and the `kodosi` command are its clients over a local connectio
 first client that needs the host starts it in the background. Each client gets the
 answers to its own requests, and every client gets the state of terminals and rooms, so
 what one client does, the others show. The host keeps terminal state with Ghostty's
-terminal library, and the apps draw it with Ghostty. The iPhone and iPad app embeds the
-viewer build of the runtime and hosts no terminals.
+terminal library, and the apps draw it with Ghostty. The iPhone, iPad and Android apps
+embed the viewer build of the runtime and host no terminals. The Android app loads it as a
+shared library through a small JNI layer in C, which also keeps the state of the terminal
+on the screen in the app's own copy of Ghostty's terminal library, and the app draws that
+state.
 
 Quit in a desktop app stops a background host and its terminals. A host that runs in a
 terminal with `kodosi host` stops only there. An app that finds a background host of an
@@ -221,7 +224,7 @@ browser that macOS keeps waits for Full Disk Access.
 ## Languages
 
 Each part takes the words of the language that it shows. The apps keep their own words in
-String Catalogs and Qt translation files, and the document views in
+String Catalogs, Qt translation files and Android string resources, and the document views in
 [documents/views/words](../documents/views/words/). The runtime marks each sentence for
 people with `text!` and gives it to an app as its English template and values; the app's
 runtime fills it in the language that the app set with `kodosi_set_language`, from

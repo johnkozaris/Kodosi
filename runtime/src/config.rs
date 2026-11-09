@@ -105,7 +105,7 @@ impl Config {
     }
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 fn platform_roots() -> Result<(PathBuf, PathBuf)> {
     let home = kodosi_os::fs::home_dir()?;
     let production = match std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT") {
@@ -115,7 +115,7 @@ fn platform_roots() -> Result<(PathBuf, PathBuf)> {
     Ok((home, production))
 }
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "android"))]
 fn platform_roots() -> Result<(PathBuf, PathBuf)> {
     if crate::network::device_label().is_none() {
         return Err(Error::Invalid(

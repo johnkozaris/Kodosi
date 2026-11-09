@@ -1942,9 +1942,11 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "cbindgen",
+ "jni",
  "kodosi-os",
  "kodosi-runtime",
  "openh264",
+ "rustls-platform-verifier",
  "serde_json",
  "tempfile",
  "tokio",

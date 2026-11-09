@@ -7,13 +7,13 @@ distribution.
 
 ## Pins
 
-`MacOSGhostty.ref`, `LinuxGhostty.ref` and `WindowsGhostty.ref` pick the upstream commit
-of each platform; iOS uses the macOS one. Root `Ghostty.lock` pins those commits and the
-archive digests of the artifacts in `Vendor/`, and each artifact's `.version` file
-records its inputs and outputs. The build options are in `NativeBuild.env` (Apple),
-`LinuxVtBuild.env` and `WindowsVtBuild.env`. `Toolchain.env` pins Zig, and
-`scripts/install-zig.sh` applies `Patches/zig` to it. `VERSION` names this package, not
-the Ghostty version.
+`MacOSGhostty.ref`, `LinuxGhostty.ref`, `WindowsGhostty.ref` and `AndroidGhostty.ref` pick
+the upstream commit of each platform; iOS uses the macOS one. Root `Ghostty.lock` pins
+those commits and the archive digests of the artifacts in `Vendor/`, and each artifact's
+`.version` file records its inputs and outputs. The build options are in `NativeBuild.env`
+(Apple), `LinuxVtBuild.env`, `WindowsVtBuild.env` and `AndroidVtBuild.env`, which also pins
+the Android NDK. `Toolchain.env` pins Zig, and `scripts/install-zig.sh` applies
+`Patches/zig` to it. `VERSION` names this package, not the Ghostty version.
 
 `just ghostty-check` checks the pins, digests and notices without a build. The Windows
 Ghostty library workflow rebuilds the Windows x64 artifact from a clean checkout and
@@ -23,8 +23,9 @@ compares its record and headers with the committed ones.
 
 1. Rebase `Patches/ghostty` on the new upstream commit and drop the patches that
    upstream already contains.
-2. Run `./scripts/build.sh` on each platform; for Windows x64, commit the artifact of
-   the Windows Ghostty library workflow.
+2. Run `./scripts/build.sh` on each platform, and `./scripts/build.sh --android` on macOS
+   or Linux with the pinned NDK; for Windows x64, commit the artifact of the Windows
+   Ghostty library workflow.
 3. Update the third-party notices from the real source and artifacts.
 4. If a VT header changed or the runtime needs a new symbol, add it to the allowlist of
    `runtime/crates/ghostty-vt-sys/generate-bindings.sh` and run the script on each

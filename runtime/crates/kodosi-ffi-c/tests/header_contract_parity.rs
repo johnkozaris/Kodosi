@@ -39,3 +39,12 @@ fn the_header_states_the_terminal_limits_of_the_contract() {
         define("KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES")
     );
 }
+
+#[test]
+fn only_android_declares_the_android_entry_point() {
+    let header = header();
+    let declaration = header.find("kodosi_android_init(").expect("declaration");
+    let guard = header[..declaration].rfind("#if").expect("guard");
+    assert!(header[guard..].starts_with("#if defined(__ANDROID__)"));
+    assert!(!header[guard..declaration].contains("#endif"));
+}

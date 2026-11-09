@@ -36,6 +36,8 @@
 
 #define KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED 9
 
+#define KODOSI_FFI_PLATFORM_FAILED 10
+
 #define KODOSI_FFI_PANIC -1
 
 #define KODOSI_START_INVALID_CALLBACKS 1
@@ -169,6 +171,10 @@ extern "C" {
  int32_t kodosi_cli_main(int32_t length, const char *const *values) ;
 
  int32_t kodosi_send_command(void *handle, const uint8_t *bytes, uintptr_t len) ;
+
+#if defined(__ANDROID__)
+ int32_t kodosi_android_init(void *env, void *context) ;
+#endif
 
 
 int32_t kodosi_prepare(kodosi_activation_cb_t on_activation,
