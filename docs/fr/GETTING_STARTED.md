@@ -168,8 +168,9 @@ ordinateur affiche les terminaux de tous vos ordinateurs.
 
 Pour lancer un terminal sur un autre de vos ordinateurs, choisissez cet ordinateur à
 l'extrémité droite de la bande du lanceur. Le bouton de dossier liste alors ses dossiers
-récents, et Choisir un dossier… ouvre les dossiers de son dossier personnel. Cet ordinateur
-doit avoir Kodosi ouvert, ou `kodosi host` en cours dans un terminal.
+récents, et Choisir un dossier… ouvre les dossiers de son dossier personnel. Sur un iPhone ou
+un iPad, choisissez + dans Terminaux, ou le + à côté de l'un de vos ordinateurs. Cet
+ordinateur doit avoir Kodosi ouvert, ou `kodosi host` en cours dans un terminal.
 
 Créez aussi une clé de récupération et gardez-la en lieu sûr. Si vous perdez tous vos
 appareils, connectez-vous sur un nouveau et choisissez « Utiliser ma clé de récupération »

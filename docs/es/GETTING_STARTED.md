@@ -159,7 +159,8 @@ todos tus ordenadores.
 
 Para iniciar un terminal en otro de tus ordenadores, elige ese ordenador en el extremo
 derecho de la banda del lanzador. El botón de carpeta muestra entonces sus carpetas
-recientes, y Elegir una carpeta… abre las carpetas de su directorio personal. Ese ordenador
+recientes, y Elegir una carpeta… abre las carpetas de su directorio personal. En un iPhone o
+iPad, selecciona + en Terminales, o el + junto a uno de tus ordenadores. Ese ordenador
 necesita Kodosi abierto, o `kodosi host` ejecutándose en un terminal.
 
 Crea también allí una clave de recuperación y guárdala bien. Si pierdes todos tus

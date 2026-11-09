@@ -1,20 +1,22 @@
 import Foundation
-import KodosiBridge
 import Observation
 import os
 
+/// The agents, choices and folders of one computer for a new terminal there: this computer's,
+/// or with `computer` another of the person's computers.
 @MainActor
 @Observable
-final class LauncherState {
+public final class LauncherState {
     private let commands: CommandSink
-    let computer: String?
-    private(set) var catalog: AgentCatalog?
-    private(set) var choice = AgentChoice()
-    private(set) var models: [String: AgentModels] = [:]
-    private(set) var loadingModels: Set<String> = []
-    private(set) var places: FolderList?
-    private(set) var usage: [String: AccountUsage] = [:]
-    private(set) var usageRead = false
+    public let computer: String?
+    public private(set) var catalog: AgentCatalog?
+    public private(set) var choice = AgentChoice()
+    public private(set) var models: [String: AgentModels] = [:]
+    public private(set) var loadingModels: Set<String> = []
+    public private(set) var places: FolderList?
+    public private(set) var usage: [String: AccountUsage] = [:]
+    public private(set) var usageRead = false
+    public private(set) var failure: String?
     private var readingUsage = false
     private var refreshing = false
     private var refreshesAgain = false
@@ -25,20 +27,20 @@ final class LauncherState {
         var choice: AgentChoice
     }
 
-    init(commands: CommandSink, computer: String? = nil) {
+    public init(commands: CommandSink, computer: String? = nil) {
         self.commands = commands
         self.computer = computer
     }
 
-    var installed: [AgentInfo] {
+    public var installed: [AgentInfo] {
         catalog?.agents.filter(\.installed) ?? []
     }
 
-    func agent(_ id: String?) -> AgentInfo? {
+    public func agent(_ id: String?) -> AgentInfo? {
         catalog?.agents.first { $0.agent == id }
     }
 
-    func refresh(force: Bool = false) async {
+    public func refresh(force: Bool = false) async {
         if refreshing {
             refreshesAgain = refreshesAgain || force
             return
@@ -48,6 +50,7 @@ final class LauncherState {
         defer { refreshing = false }
         repeat {
             refreshesAgain = false
+            failure = nil
             do {
                 let asOf = changes
                 let reply = try await commands.request("provider.agents", fields())
@@ -60,22 +63,25 @@ final class LauncherState {
                 try adopt(reply.value("result", as: Chosen.self).choice, asOf: asOf)
                 refreshedAt = Date()
             } catch {
+                if !(error is CancellationError) {
+                    failure = error.localizedDescription
+                }
                 Logger.app.warning("Agents of a computer unknown: \(error.localizedDescription, privacy: .public)")
             }
         } while refreshesAgain
     }
 
-    var usageAccounts: [(info: AgentInfo, account: AgentAccount)] {
+    public var usageAccounts: [(info: AgentInfo, account: AgentAccount)] {
         installed.filter(\.reportsUsage).flatMap { info in
             info.accounts.filter { $0.identity != nil }.map { (info, $0) }
         }
     }
 
-    func usage(of agent: String, account: String) -> AccountUsage? {
+    public func usage(of agent: String, account: String) -> AccountUsage? {
         usage[AccountUsage.key(agent, account)]
     }
 
-    func refreshUsage() async {
+    public func refreshUsage() async {
         guard !readingUsage else { return }
         readingUsage = true
         defer { readingUsage = false }
@@ -92,7 +98,7 @@ final class LauncherState {
         }
     }
 
-    func loadModels(_ agent: String) async {
+    public func loadModels(_ agent: String) async {
         guard models[agent] == nil, !loadingModels.contains(agent), self.agent(agent)?.installed == true else { return }
         loadingModels.insert(agent)
         defer { loadingModels.remove(agent) }
@@ -106,7 +112,7 @@ final class LauncherState {
         }
     }
 
-    func choose(_ change: AgentChoiceChange) {
+    public func choose(_ change: AgentChoiceChange) {
         changes += 1
         let asOf = changes
         choice.apply(change)
@@ -120,7 +126,7 @@ final class LauncherState {
         }
     }
 
-    func addAccount(_ agent: String, name: String) async throws -> AgentAccount {
+    public func addAccount(_ agent: String, name: String) async throws -> AgentAccount {
         let reply = try await commands.request("provider.addAccount", fields(["agent": .string(agent), "name": .string(name)]))
         let account: AgentAccount = try reply.value("result")
         if let index = catalog?.agents.firstIndex(where: { $0.agent == agent }) {
@@ -130,7 +136,7 @@ final class LauncherState {
         return account
     }
 
-    func folders(at path: String? = nil) async throws -> FolderList {
+    public func folders(at path: String? = nil) async throws -> FolderList {
         let reply = try await commands.request("folders.list", fields(path.map { ["path": .string($0)] } ?? [:]))
         let list: FolderList = try reply.value("folders")
         if path == nil {

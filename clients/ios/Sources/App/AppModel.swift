@@ -25,6 +25,7 @@ final class AppModel {
     @ObservationIgnored private var eventTask: Task<Void, Never>?
     @ObservationIgnored private var accountKnown = false
     @ObservationIgnored private(set) var accountEpoch: UInt64 = 0
+    @ObservationIgnored private var launchers: [String: LauncherState] = [:]
 
     init() {
         let commands = CommandSink()
@@ -93,6 +94,16 @@ final class AppModel {
         refresh()
     }
 
+    /// The agents, choices and folders of one of the person's computers, for a new terminal there.
+    func launcher(for computer: String) -> LauncherState {
+        if let known = launchers[computer] {
+            return known
+        }
+        let made = LauncherState(commands: commands, computer: computer)
+        launchers[computer] = made
+        return made
+    }
+
     func refresh() {
         terminals.list()
         guard account.userId != nil else { return }
@@ -131,6 +142,7 @@ final class AppModel {
     }
 
     private func resetStores(userId: String?) {
+        launchers.removeAll()
         account.reset(userId: userId)
         terminals.reset(userId: userId)
         rooms.reset(userId: userId)

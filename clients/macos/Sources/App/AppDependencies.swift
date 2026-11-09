@@ -331,29 +331,16 @@ final class AppDependencies {
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
-        var fields: [String: JSONValue] = ["name": .string(name)]
         if let roomId {
             roomView(roomId).shownSection = 0
-            fields["missionId"] = .string(roomId)
         }
-        for (key, value) in [("workingDir", directory), ("computer", computer), ("command", command), ("prompt", prompt)] {
-            if let value {
-                fields[key] = .string(value)
-            }
-        }
+        var fields = TerminalStart(
+            name: name, directory: directory, computer: computer, roomId: roomId, command: command, agent: agent, prompt: prompt,
+            branch: branch, worktrees: branch == nil ? nil : settings.branchFolder, size: startSize(computer: computer, roomId: roomId),
+        ).fields
         if let resume {
             fields["resume"] = .object(["provider": .string(resume.provider.rawValue), "nativeConversationId": .string(resume.nativeConversationId)])
         }
-        if let branch {
-            fields["branch"] = .string(branch)
-            if let folder = settings.branchFolder {
-                fields["worktrees"] = .string(folder)
-            }
-        }
-        if let agent {
-            fields["agent"] = agent.json
-        }
-        fields["size"] = startSize(computer: computer, roomId: roomId)
         let created = try await commandSink.request("session.create", fields)
         if computer == nil {
             settings.lastWorkingDir = directory

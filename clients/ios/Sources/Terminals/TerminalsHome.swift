@@ -8,6 +8,7 @@ struct TerminalsHome: View {
     @Environment(\.openRoute) private var openRoute
     @State private var query = ""
     @State private var prompt: TerminalPrompt?
+    @State private var newTerminal: NewTerminalRequest?
 
     private var store: TerminalStore {
         model.terminals
@@ -18,7 +19,7 @@ struct TerminalsHome: View {
         let groups = TerminalCatalog.groups(sessions)
         List {
             ForEach(groups) { group in
-                GroupHeader(group: group)
+                GroupHeader(group: group, computer: startable(group)) { newTerminal = NewTerminalRequest(computer: $0) }
                     .cardRow(top: 16, bottom: 2)
                 ForEach(group.sessions) { session in
                     row(session)
@@ -32,12 +33,21 @@ struct TerminalsHome: View {
         .overlay { emptyContent(isEmpty: sessions.isEmpty) }
         .animation(theme.motion.soft, value: groups.map(\.id))
         .navigationTitle("Terminals")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                IconButton(title: "New terminal", symbol: "plus", identifier: "terminals.new", size: 32) {
+                    newTerminal = NewTerminalRequest()
+                }
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
         .searchable(text: $query, prompt: Text("Search terminals"))
         .refreshable { await store.refresh() }
         .navigationDestination(for: TerminalRoute.self) { route in
             TerminalScreen(sessionId: route.sessionId)
         }
         .terminalPrompts($prompt)
+        .newTerminalSheet($newTerminal)
         .sensoryFeedback(.impact(weight: .medium), trigger: store.listed ? store.needsYou.map(\.id) : nil) { old, new in
             arrived(old, new)
         }
@@ -45,6 +55,12 @@ struct TerminalsHome: View {
             arrived(old, new)
         }
         .accessibilityIdentifier("terminals.home")
+    }
+
+    /// The computer of a group when it is one of yours that is online, so it can start a terminal.
+    private func startable(_ group: TerminalGroup) -> String? {
+        guard case let .computer(id, _) = group.place, model.account.computers.contains(where: { $0.deviceId == id }) else { return nil }
+        return id
     }
 
     private func arrived(_ old: [String]?, _ new: [String]?) -> Bool {
@@ -114,24 +130,36 @@ struct TerminalsHome: View {
 }
 
 /// The name of a computer over its terminals, or the face and name of the friend who shares them.
+/// One of your computers that is online has the key that starts a terminal on it.
 private struct GroupHeader: View {
     @Environment(\.theme) private var theme
     let group: TerminalGroup
+    let computer: String?
+    let newTerminal: (String) -> Void
 
     var body: some View {
         HStack(spacing: 7) {
-            ComputerCaption(title: group.title, ownerName: group.friend.map { _ in group.title }, ownerKey: group.friend,
-                            away: group.away, size: 18, style: .subhead)
-            Text(group.sessions.count, format: .number)
-                .appTextStyle(.caption)
-                .monospacedDigit()
-                .foregroundStyle(theme.colors.inkFaint)
-                .contentTransition(.numericText(value: Double(group.sessions.count)))
+            HStack(spacing: 7) {
+                ComputerCaption(title: group.title, ownerName: group.friend.map { _ in group.title }, ownerKey: group.friend,
+                                away: group.away, size: 18, style: .subhead)
+                Text(group.sessions.count, format: .number)
+                    .appTextStyle(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.colors.inkFaint)
+                    .contentTransition(.numericText(value: Double(group.sessions.count)))
+                    .fixedSize()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
+            if let computer {
+                IconButton(
+                    title: "New terminal", symbol: "plus", identifier: "terminals.group.new.\(AccessibilityIdentifier.token(computer))", size: 28,
+                ) { newTerminal(computer) }
+                    .accessibilityValue(Text(verbatim: group.title))
+            }
         }
         .foregroundStyle(theme.colors.inkMuted)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

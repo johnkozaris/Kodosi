@@ -160,7 +160,8 @@ computer.
 
 Per avviare un terminale su un altro dei tuoi computer, scegli quel computer all'estremità
 destra della banda del launcher. Il pulsante della cartella elenca allora le sue cartelle
-recenti, e Scegli una cartella… apre le cartelle della sua home. Su quel computer deve essere
+recenti, e Scegli una cartella… apre le cartelle della sua home. Su un iPhone o un iPad,
+seleziona + in Terminali, o il + accanto a uno dei tuoi computer. Su quel computer deve essere
 aperto Kodosi, o deve girare `kodosi host` in un terminale.
 
 Crea anche lì una chiave di recupero e conservala bene. Se perdi tutti i tuoi dispositivi,

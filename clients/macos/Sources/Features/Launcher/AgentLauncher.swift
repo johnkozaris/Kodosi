@@ -206,7 +206,7 @@ struct AgentLauncher: View {
         if let computer {
             let places = launcher.places
             PickerKey(
-                title: directory.map { places?.shown($0) == "~" ? "~" : HostPath.folderName($0) } ?? "~",
+                title: directory.map { places?.name(of: $0) ?? HostPath.folderName($0) } ?? "~",
                 open: menu == .folder, identifier: "launcher.folder",
                 label: String(localized: "Folder"), help: directory.map { places?.shown($0) ?? $0 },
             ) {

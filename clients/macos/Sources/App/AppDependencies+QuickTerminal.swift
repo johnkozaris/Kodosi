@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import KodosiBridge
 
 extension AppDependencies {
     /// The selected terminal's folder on this computer, or else the folder that the launcher offers.
