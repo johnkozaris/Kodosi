@@ -1,7 +1,7 @@
 use document::{Guide, GuideField, GuideOp};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use text::{Fragment, Mark, Node, Slice, Step};
+use text::{Fragment, Mark, Node, Slice, Step, StepMap};
 
 use crate::{
     apply::run_steps,
@@ -227,18 +227,33 @@ fn mark_of(name: &str, attrs: Option<&Value>) -> Result<Mark, String> {
     Mark::new(schema(), kind, attrs).map_err(|failed| failed.0)
 }
 
-fn paragraph_of(text: &str, style: Option<&str>, id: Option<&str>) -> Result<Node, String> {
+/// Who makes a tracked change. A change of an agent has no date.
+fn by(author: &str) -> Value {
+    json!({ "author": author, "date": "" })
+}
+
+/// A new paragraph. A tracked one is an insertion: its words and the mark that ends it.
+fn paragraph_of(
+    text: &str,
+    style: Option<&str>,
+    id: Option<&str>,
+    by: Option<&Value>,
+) -> Result<Node, String> {
+    let marks = match by {
+        Some(by) => vec![mark_of("insertion", Some(by))?],
+        None => Vec::new(),
+    };
     let content = if text.is_empty() {
         Fragment::default()
     } else {
         Fragment::from_array(vec![
-            Node::text(schema(), text, Vec::new()).map_err(|failed| failed.0)?,
+            Node::text(schema(), text, marks).map_err(|failed| failed.0)?,
         ])
     };
     Node::new(
         schema(),
         node_kind("paragraph"),
-        Some(&json!({ "style": style, "id": id })),
+        Some(&json!({ "style": style, "id": id, "inserted": by })),
         content,
         Vec::new(),
     )
@@ -255,7 +270,7 @@ fn table_of(rows: &[Vec<String>], id: &str) -> Result<Node, String> {
                     schema(),
                     node_kind("tableCell"),
                     None,
-                    Fragment::from_array(vec![paragraph_of(cell, None, None)?]),
+                    Fragment::from_array(vec![paragraph_of(cell, None, None, None)?]),
                     Vec::new(),
                 )
                 .map_err(|failed| failed.0)?,
@@ -418,11 +433,10 @@ fn replace_text_steps(
     doc: &Node,
     (from, to): (usize, usize),
     with: &str,
-    track: bool,
-    author: &str,
+    by: Option<&Value>,
 ) -> Result<Vec<Step>, String> {
     let mut marks = marks_at(doc, from);
-    if !track {
+    let Some(by) = by else {
         let slice = if with.is_empty() {
             Slice::empty()
         } else {
@@ -435,17 +449,88 @@ fn replace_text_steps(
             slice,
             structure: false,
         }]);
-    }
-    let by = json!({ "author": author });
+    };
     let mut steps = vec![Step::AddMark {
         from,
         to,
-        mark: mark_of("deletion", Some(&by))?,
+        mark: mark_of("deletion", Some(by))?,
     }];
     if !with.is_empty() {
-        marks.push(mark_of("insertion", Some(&by))?);
+        marks.push(mark_of("insertion", Some(by))?);
         let node = Node::text(schema(), with, marks).map_err(|failed| failed.0)?;
         steps.push(insert_step(to, node));
+    }
+    Ok(steps)
+}
+
+/// Deletion marks on the words, breaks and pictures of a textblock whose content starts at
+/// `offset`, where no deletion is yet. What the tree keeps as XML of its own stays as it is.
+fn word_deletions(node: &Node, offset: usize, deletion: &Mark) -> Vec<Step> {
+    let mut steps = Vec::new();
+    let mut position = offset;
+    for child in node.content().children() {
+        let end = position + child.node_size();
+        let deleted = child
+            .marks()
+            .iter()
+            .any(|mark| schema().mark_name(mark.kind()) == "deletion");
+        if !deleted && schema().node_name(child.kind()) != "inlineOpaque" {
+            steps.push(Step::AddMark {
+                from: position,
+                to: end,
+                mark: deletion.clone(),
+            });
+        }
+        position = end;
+    }
+    steps
+}
+
+fn is_paragraph(node: &Node) -> bool {
+    schema().node_name(node.kind()) == "paragraph"
+}
+
+fn has_change(node: &Node, name: &str) -> bool {
+    node.attrs().get(name).is_some_and(|value| !value.is_null())
+}
+
+/// A tracked deletion of a paragraph at `start`: its words and the mark that ends it.
+fn deletion_steps(start: usize, node: &Node, by: &Value) -> Result<Vec<Step>, String> {
+    let mut steps = word_deletions(node, start + 1, &mark_of("deletion", Some(by))?);
+    if !has_change(node, "deleted") {
+        steps.push(Step::Attr {
+            pos: start,
+            attr: "deleted".to_owned(),
+            value: by.clone(),
+        });
+    }
+    Ok(steps)
+}
+
+/// A tracked change of the text of a cell at `position`: its words and the marks that end its
+/// paragraphs but the last are deletions, and the new text follows them as an insertion.
+fn cell_steps(position: usize, cell: &Node, text: &str, by: &Value) -> Result<Vec<Step>, String> {
+    let deletion = mark_of("deletion", Some(by))?;
+    let blocks = cell.content().children();
+    let mut steps = Vec::new();
+    let mut start = position + 1;
+    let mut end = start;
+    for (index, block) in blocks.iter().enumerate() {
+        steps.extend(word_deletions(block, start + 1, &deletion));
+        if index + 1 < blocks.len() && !has_change(block, "deleted") {
+            steps.push(Step::Attr {
+                pos: start,
+                attr: "deleted".to_owned(),
+                value: by.clone(),
+            });
+        }
+        end = start + block.node_size() - 1;
+        start += block.node_size();
+    }
+    if !text.is_empty() {
+        let insertion = mark_of("insertion", Some(by))?;
+        let node = Node::text(schema(), text, vec![insertion]).map_err(|failed| failed.0)?;
+        steps.push(insert_step(end, node));
     }
     Ok(steps)
 }
@@ -493,14 +578,10 @@ fn cell_position(
     Ok((position, cell.clone()))
 }
 
+/// The steps of an op. With `by`, text and paragraphs change as tracked changes, and what cannot
+/// be one, such as a look or a table, changes directly.
 #[expect(clippy::too_many_lines, reason = "one arm for each op")]
-fn op_steps(
-    doc: &Node,
-    op: &Op,
-    track: bool,
-    author: &str,
-    taken: usize,
-) -> Result<Vec<Step>, String> {
+fn op_steps(doc: &Node, op: &Op, by: Option<&Value>, taken: usize) -> Result<Vec<Step>, String> {
     match op {
         Op::ReplaceText {
             find,
@@ -519,21 +600,24 @@ fn op_steps(
             };
             let mut steps = Vec::new();
             for place in chosen {
-                steps.extend(replace_text_steps(doc, place, with, track, author)?);
+                steps.extend(replace_text_steps(doc, place, with, by)?);
             }
             Ok(steps)
         }
         Op::InsertParagraph { text, after, style } => {
             let position = end_after(doc, after.as_deref())?;
             let id = new_id(doc, taken);
-            let node = paragraph_of(text, style.as_deref(), Some(&id))?;
+            let node = paragraph_of(text, style.as_deref(), Some(&id), by)?;
             Ok(vec![insert_step(position, node)])
         }
         Op::DeleteBlock { block } => {
             let (start, node) =
                 block_start(doc, block).ok_or_else(|| format!("There is no block {block}."))?;
+            if let Some(by) = by.filter(|_| is_paragraph(&node)) {
+                return deletion_steps(start, &node, by);
+            }
             if doc.child_count() == 1 {
-                let replacement = paragraph_of("", None, Some(&new_id(doc, taken)))?;
+                let replacement = paragraph_of("", None, Some(&new_id(doc, taken)), None)?;
                 return Ok(vec![Step::Replace {
                     from: start,
                     to: start + node.node_size(),
@@ -593,8 +677,12 @@ fn op_steps(
             text,
         } => {
             let (position, cell) = cell_position(doc, table, *row, *column)?;
+            let paragraphs = cell.content().children().iter().all(is_paragraph);
+            if let Some(by) = by.filter(|_| paragraphs) {
+                return cell_steps(position, &cell, text, by);
+            }
             let slice = Slice::new(
-                Fragment::from_array(vec![paragraph_of(text, None, None)?]),
+                Fragment::from_array(vec![paragraph_of(text, None, None, None)?]),
                 0,
                 0,
             );
@@ -626,24 +714,45 @@ fn op_steps(
     }
 }
 
-/// The text and pictures of tracked changes under a node whose content starts at `offset`,
-/// each with its mark.
-fn changes_under(node: &Node, offset: usize, changes: &mut Vec<(usize, usize, Mark)>) {
-    let mut position = offset;
-    for child in node.content().children() {
-        let end = position + child.node_size();
-        if child.is_text() || child.is_leaf() {
-            changes.extend(
-                child
-                    .marks()
-                    .iter()
-                    .filter(|mark| is_change(mark))
-                    .map(|mark| (position, end, mark.clone())),
-            );
-        } else {
-            changes_under(child, position + 1, changes);
+/// The attributes of a paragraph that say whether the mark that ends it is a tracked change.
+const ENDS: [&str; 2] = ["inserted", "deleted"];
+
+/// The tracked changes of a part of a document: words and pictures with each mark, and the
+/// paragraphs whose ending mark is a change, with the name of its attribute.
+#[derive(Default)]
+struct Changes {
+    words: Vec<(usize, usize, Mark)>,
+    ends: Vec<(usize, &'static str)>,
+}
+
+impl Changes {
+    fn add_ends(&mut self, node: &Node, position: usize) {
+        for name in ENDS {
+            if has_change(node, name) {
+                self.ends.push((position, name));
+            }
         }
-        position = end;
+    }
+
+    /// Adds the changes under a node whose content starts at `offset`.
+    fn add_under(&mut self, node: &Node, offset: usize) {
+        let mut position = offset;
+        for child in node.content().children() {
+            let end = position + child.node_size();
+            if child.is_text() || child.is_leaf() {
+                self.words.extend(
+                    child
+                        .marks()
+                        .iter()
+                        .filter(|mark| is_change(mark))
+                        .map(|mark| (position, end, mark.clone())),
+                );
+            } else {
+                self.add_ends(child, position);
+                self.add_under(child, position + 1);
+            }
+            position = end;
+        }
     }
 }
 
@@ -652,33 +761,48 @@ fn is_change(mark: &Mark) -> bool {
 }
 
 /// Accepts or rejects the tracked changes of the body or of one block. An accepted insertion
-/// and a rejected deletion lose their mark; the text of the others goes, from the end.
+/// and a rejected deletion lose their mark. The text of the others goes, from the end, and then
+/// the marks that end paragraphs.
 fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Step>, String> {
-    let mut changes = Vec::new();
+    let mut changes = Changes::default();
     match block {
         Some(block) => {
             let (start, node) =
                 block_start(doc, block).ok_or_else(|| format!("There is no block {block}."))?;
-            changes_under(&node, start + 1, &mut changes);
+            changes.add_ends(&node, start);
+            changes.add_under(&node, start + 1);
         }
-        None => changes_under(doc, 0, &mut changes),
+        None => changes.add_under(doc, 0),
     }
-    if changes.is_empty() {
+    if changes.words.is_empty() && changes.ends.is_empty() {
         return Err("There are no tracked changes there.".to_owned());
     }
-    let stays = |mark: &Mark| (schema().mark_name(mark.kind()) == "insertion") == accept;
+    let stays = |name: &str| matches!(name, "insertion" | "inserted") == accept;
     let mut steps: Vec<Step> = changes
+        .words
         .iter()
-        .filter(|(_, _, mark)| stays(mark))
+        .filter(|(_, _, mark)| stays(schema().mark_name(mark.kind())))
         .map(|(from, to, mark)| Step::RemoveMark {
             from: *from,
             to: *to,
             mark: mark.clone(),
         })
         .collect();
+    steps.extend(
+        changes
+            .ends
+            .iter()
+            .filter(|(_, name)| stays(name))
+            .map(|(pos, name)| Step::Attr {
+                pos: *pos,
+                attr: (*name).to_owned(),
+                value: Value::Null,
+            }),
+    );
     let mut gone: Vec<(usize, usize)> = changes
+        .words
         .iter()
-        .filter(|(_, _, mark)| !stays(mark))
+        .filter(|(_, _, mark)| !stays(schema().mark_name(mark.kind())))
         .map(|(from, to, _)| (*from, *to))
         .collect();
     gone.dedup();
@@ -688,7 +812,66 @@ fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Ste
         slice: Slice::empty(),
         structure: false,
     }));
+    let failed = |failed: text::Failed| failed.0;
+    let maps: Vec<StepMap> = steps.iter().map(Step::map).collect();
+    let mut current = doc.clone();
+    for step in &steps {
+        current = step.apply(schema(), &current).map_err(failed)?;
+    }
+    for (pos, name) in changes.ends.into_iter().rev() {
+        if stays(name) {
+            continue;
+        }
+        let at = maps.iter().fold(pos, |pos, map| map.map(pos, 1));
+        for step in end_removal(&current, at, name)? {
+            current = step.apply(schema(), &current).map_err(failed)?;
+            steps.push(step);
+        }
+    }
     Ok(steps)
+}
+
+/// Takes away the mark that ends the paragraph at `at`: the paragraph goes when nothing is left
+/// of it, and else it joins the paragraph after it. The last block of the body or of a cell, and
+/// a paragraph before a table, keep their mark and lose only its change.
+fn end_removal(doc: &Node, at: usize, name: &str) -> Result<Vec<Step>, String> {
+    let failed = |failed: text::Failed| failed.0;
+    let node = doc
+        .node_at(at)
+        .map_err(failed)?
+        .ok_or_else(|| format!("There is no paragraph at {at}."))?;
+    let end = at + node.node_size();
+    let alone = doc.resolve(at).map_err(failed)?.parent().child_count() == 1;
+    let next = doc
+        .resolve(end)
+        .map_err(failed)?
+        .node_after()
+        .map_err(failed)?;
+    let unchanged = Step::Attr {
+        pos: at,
+        attr: name.to_owned(),
+        value: Value::Null,
+    };
+    if node.content().size() == 0 && !alone {
+        return Ok(vec![Step::Replace {
+            from: at,
+            to: end,
+            slice: Slice::empty(),
+            structure: false,
+        }]);
+    }
+    if node.content().size() > 0 && next.as_ref().is_some_and(is_paragraph) {
+        return Ok(vec![
+            unchanged,
+            Step::Replace {
+                from: end - 1,
+                to: end + 1,
+                slice: Slice::empty(),
+                structure: false,
+            },
+        ]);
+    }
+    Ok(vec![unchanged])
 }
 
 /// Turns ops into steps, each one on the document as the ops before it left it, all or none.
@@ -698,10 +881,11 @@ pub(crate) fn to_steps(
     track: bool,
     author: &str,
 ) -> Result<Vec<Value>, String> {
+    let by = track.then(|| by(author));
     let mut doc = doc.clone();
     let mut all = Vec::new();
     for (taken, op) in ops.iter().enumerate() {
-        for step in op_steps(&doc, op, track, author, taken)? {
+        for step in op_steps(&doc, op, by.as_ref(), taken)? {
             let json = step.to_json(schema());
             let (next, _) =
                 run_steps(&doc, std::slice::from_ref(&json)).map_err(|failed| failed.0)?;
@@ -718,7 +902,7 @@ pub(crate) fn merge_steps(doc: &Node, ops: &[Op]) -> Result<Vec<Value>, String> 
     let mut doc = doc.clone();
     let mut all = Vec::new();
     for (taken, op) in ops.iter().enumerate() {
-        let steps = match op_steps(&doc, op, false, "", taken) {
+        let steps = match op_steps(&doc, op, None, taken) {
             Ok(steps) => steps,
             Err(_) => match op {
                 Op::InsertBlock { node, .. } => op_steps(
@@ -727,8 +911,7 @@ pub(crate) fn merge_steps(doc: &Node, ops: &[Op]) -> Result<Vec<Value>, String> 
                         after: None,
                         node: node.clone(),
                     },
-                    false,
-                    "",
+                    None,
                     taken,
                 )?,
                 _ => continue,
@@ -774,7 +957,8 @@ fn block_json(node: &Node) -> Value {
 }
 
 fn tracked_changes(node: &Node) -> usize {
-    let own = node.marks().iter().filter(|mark| is_change(mark)).count();
+    let own = node.marks().iter().filter(|mark| is_change(mark)).count()
+        + ENDS.iter().filter(|name| has_change(node, name)).count();
     own + node
         .content()
         .children()

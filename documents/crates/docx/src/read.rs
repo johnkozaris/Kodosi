@@ -113,7 +113,8 @@ pub(crate) fn run_look(properties: Xml<'_, '_>) -> RunLook {
 }
 
 /// The look of a paragraph that its attributes hold apart from its original XML. The line is
-/// in 240ths of a line, and the indent in twentieths of a point.
+/// in 240ths of a line, and the indent in twentieths of a point. The mark that ends the
+/// paragraph can be a tracked insertion or deletion, with its author and date.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ParagraphLook {
     pub style: Option<String>,
@@ -122,6 +123,8 @@ pub(crate) struct ParagraphLook {
     pub level: Option<String>,
     pub line: Option<String>,
     pub indent: Option<String>,
+    pub inserted: Value,
+    pub deleted: Value,
 }
 
 /// The spacing of lines, when it is a number of lines rather than points.
@@ -148,6 +151,11 @@ pub(crate) fn paragraph_look(properties: Xml<'_, '_>) -> ParagraphLook {
             .and_then(|node| word_attribute(node, "val"))
             .map(str::to_owned)
     };
+    let mark = word_child(properties, "rPr");
+    let change = |name: &str| {
+        mark.and_then(|node| word_child(node, name))
+            .map_or(Value::Null, change_attrs)
+    };
     ParagraphLook {
         style: value("pStyle"),
         align: value("jc"),
@@ -159,7 +167,17 @@ pub(crate) fn paragraph_look(properties: Xml<'_, '_>) -> ParagraphLook {
         indent: word_child(properties, "ind")
             .and_then(indent_of)
             .map(str::to_owned),
+        inserted: change("ins"),
+        deleted: change("del"),
     }
+}
+
+/// Who made a tracked change, and when.
+pub(crate) fn change_attrs(element: Xml<'_, '_>) -> Value {
+    json!({
+        "author": word_attribute(element, "author").unwrap_or_default(),
+        "date": word_attribute(element, "date").unwrap_or_default(),
+    })
 }
 
 struct Reader<'t, 'input> {
@@ -330,6 +348,8 @@ impl<'input> Reader<'_, 'input> {
             "pageBreak": properties
                 .and_then(|node| word_child(node, "pageBreakBefore"))
                 .is_some_and(|node| !matches!(word_attribute(node, "val"), Some("0" | "false"))),
+            "inserted": look.inserted,
+            "deleted": look.deleted,
         });
         let mut inlines = Vec::new();
         for child in element.children().filter(Xml::is_element) {
@@ -583,13 +603,7 @@ fn with_marks(name: &str, marks: &[Mark]) -> Result<Node, text::Failed> {
 }
 
 fn change_mark(name: &str, element: Xml<'_, '_>) -> Result<Mark, text::Failed> {
-    mark(
-        name,
-        Some(&json!({
-            "author": word_attribute(element, "author").unwrap_or_default(),
-            "date": word_attribute(element, "date").unwrap_or_default(),
-        })),
-    )
+    mark(name, Some(&change_attrs(element)))
 }
 
 pub(crate) fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {

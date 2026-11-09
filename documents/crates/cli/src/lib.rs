@@ -83,7 +83,7 @@ pub struct ApplyArguments {
     /// The rev that the last read printed.
     #[arg(long)]
     pub base: u64,
-    /// Writes the ops of a .docx file as tracked changes.
+    /// Makes your text changes in a .docx file suggestions; other changes apply directly.
     #[arg(long)]
     pub track: bool,
 }

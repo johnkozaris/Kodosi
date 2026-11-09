@@ -28,9 +28,8 @@ look.
   shape of its JSON.
 - `kodosi doc apply <file> --ops '<json>' --base <rev>` sends a list of ops as one change: all
   of them or none. `--ops` also takes the path of a JSON file. Use the rev of your last read.
-- `--track` writes the ops of a .docx file as tracked changes in your name, so that a person
-  accepts or rejects them. Use it when the person should decide. The ops `acceptChanges` and
-  `rejectChanges` decide tracked changes when a person asks you to.
+- `--track` makes your text changes suggestions that people accept or reject; other changes
+  apply directly.
 - `kodosi doc check <file>` lists formula errors, shapes that leave their slide, empty
   placeholders, tracked changes and notes. Run it after each change.
 - `kodosi doc selection <file>` says who is here and what each person has selected, as `read`
