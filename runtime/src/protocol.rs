@@ -425,7 +425,12 @@ pub enum Command {
         request_id: String,
         #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(default)]
         paths: Vec<String>,
+        /// A web or file address for the shared browser.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        address: Option<String>,
+        folder: String,
     },
     #[serde(rename = "canvas.browser")]
     CanvasBrowse {
@@ -842,6 +847,9 @@ pub struct SessionEntry {
     pub program: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program_account: Option<u8>,
+    /// The agent in front started without Kodosi's note, because a person started it by hand.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub program_outside: bool,
     pub prompt: bool,
     pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2070,16 +2078,31 @@ impl Command {
 
     fn validate_canvas(&self) -> Result<()> {
         match self {
-            Self::CanvasShow { paths, .. } => {
-                if paths.is_empty() || paths.len() > crate::canvas::MOST_PATHS {
+            Self::CanvasShow {
+                paths,
+                address,
+                folder,
+                ..
+            } => {
+                if (paths.is_empty() && address.is_none())
+                    || paths.len() > crate::canvas::MOST_PATHS
+                {
                     return Err(Error::Invalid(format!(
-                        "Show 1 to {} files at once.",
+                        "Show 1 to {} files, or an address.",
                         crate::canvas::MOST_PATHS
                     )));
                 }
                 for path in paths {
                     absolute_input(path, "file")?;
                 }
+                if let Some(address) = address
+                    && !crate::canvas::is_address(address)
+                {
+                    return Err(Error::Invalid(
+                        "Show a web address (http or https) or a file address (file).".to_owned(),
+                    ));
+                }
+                absolute_input(folder, "working directory")?;
             }
             Self::CanvasBrowse {
                 folder, arguments, ..

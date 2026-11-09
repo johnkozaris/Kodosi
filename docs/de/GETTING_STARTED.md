@@ -96,16 +96,18 @@ einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
 ## 4. Sehen, was ein Agent zeigt
 
 Ein Agent kann dir auf dem Canvas seines Terminals eine Seite, Markdown, ein Bild, ein PDF, ein
-Dokument, eine Tabelle oder eine Präsentation zeigen und einen Browser nutzen, den du mit ihm
-teilst. Agents, die Kodosi startet, wissen, wie das geht; einem anderen Agent sagst du, er
-soll `kodosi skill canvas` lesen. Hat das Canvas etwas, zeigt die Kopfzeile des Terminals einen
-Button für seine Dateien und einen für seinen Browser, mit einem kupferfarbenen Punkt für
+Dokument, eine Tabelle, eine Präsentation oder die App zeigen, die er ausführt, und einen
+Browser nutzen, den du mit ihm teilst. Das Canvas öffnet sich mit dem, was der Agent zeigt,
+während du sein Terminal ansiehst. Claude Code und Copilot CLI wissen, wie das geht, auch wenn
+du sie selbst startest, und ebenso ein Codex, den Kodosi startet; einem anderen Agent sagst du,
+er soll `kodosi skill canvas` lesen. Hat das Canvas etwas, zeigt die Kopfzeile des Terminals
+einen Button für seine Dateien und einen für seinen Browser, mit einem kupferfarbenen Punkt für
 Neues. Wähle einen, um das Canvas neben dem Terminal zu öffnen; Mehr Platz gibt dem Canvas die
-Bühne und hält das Terminal klein in seiner Ecke. Schließe einen Teil mit dem × an seinem
-Button und öffne ihn mit + wieder. Browser öffnen im Aktionen-Button öffnet den Browser, bevor
-der Agent ihn nutzt, und Datei hinzufügen… legt eine Datei auf das Canvas und in den Ordner
-des Terminals; du kannst eine Datei auch auf das Canvas ziehen. Auf dem iPhone ist der
-Canvas-Button in der Leiste des Terminals.
+Bühne und hält das Terminal klein in seiner Ecke. Schließe einen Teil mit dem × an seinem Button
+und öffne ihn mit + wieder. Browser öffnen im Aktionen-Button öffnet den Browser, bevor der
+Agent ihn nutzt, und Datei hinzufügen… legt eine Datei auf das Canvas und in den Ordner des
+Terminals; du kannst eine Datei auch auf das Canvas ziehen. Auf dem iPhone ist der Canvas-Button
+in der Leiste des Terminals.
 
 - Ein Dokument, eine Tabelle, eine Präsentation, ein PDF oder eine Textdatei ist live: Du,
   die Personen im Terminal und der Agent bearbeiten es gleichzeitig, und es bleibt eine
@@ -209,11 +211,11 @@ füge Freunde hinzu und starte dann ein Terminal im Raum oder teile eines hinein
   Git-Credential-Helper, und Gitea den Credential-Helper oder `KODOSI_GITEA_TOKEN` für den
   Server in `KODOSI_GITEA_URL`. Deine Zugangsdaten bleiben auf deinem Computer.
 - Schreib `@` und den Namen eines Terminals in den Chat, und Kodosi gibt dem Agent in diesem
-  Terminal deine Nachricht mit deinem Namen und dem Raum; der Agent entscheidet, was er
-  damit tut. Agents, die Kodosi startet, wissen, dass sie in Kodosi laufen, und
-  `kodosi skill` gibt den [Skill](../../runtime/skills/kodosi/SKILL.md) aus, mit dem ein Agent
-  mitmacht. In einem Kodosi-Terminal findet der Befehl den Raum; anderswo ergänzt du
-  `--room <name>`.
+  Terminal deine Nachricht mit deinem Namen und dem Raum; der Agent entscheidet, was er damit
+  tut. Claude Code und Copilot CLI in einem Kodosi-Terminal und ein Codex, den Kodosi startet,
+  wissen, dass sie in Kodosi laufen, und `kodosi skill` gibt den
+  [Skill](../../runtime/skills/kodosi/SKILL.md) aus, mit dem ein Agent mitmacht. In einem
+  Kodosi-Terminal findet der Befehl den Raum; anderswo ergänzt du `--room <name>`.
 
 ## 8. Die Befehlszeile nutzen
 
@@ -235,7 +237,7 @@ tut.
 | `kodosi terminal wait <terminal> --until done,failed` | Wartet auf einen Zustand. |
 | `kodosi terminal show <terminal>` | Zeigt das Terminal in der App. |
 | `kodosi dosi say "What needs me?"` | Fragt Dosi. `kodosi dosi show` gibt die Unterhaltung aus, und `kodosi dosi stop` stoppt Dosi. |
-| `kodosi show <file>` | Zeigt eine Datei auf dem Canvas dieses Terminals. `kodosi canvas` listet, was es zeigt, und `kodosi canvas remove <file>` nimmt eine Datei weg. |
+| `kodosi show <file>` | Zeigt eine Datei auf dem Canvas dieses Terminals, das sich für die Menschen öffnet, die es ansehen; `kodosi show <address>` zeigt eine Webadresse in seinem Browser. `kodosi canvas` listet, was es zeigt, und `kodosi canvas remove <file>` nimmt eine Datei weg. |
 | `kodosi browser open <address>` | Öffnet eine Seite im geteilten Browser dieses Terminals. Die anderen agent-browser-Befehle funktionieren auch. |
 | `kodosi skill` | Gibt den Skill aus, mit dem ein Agent mit den Menschen und Agents in Kodosi arbeitet. `kodosi skill canvas` gibt den Skill für das Canvas aus. |
 | `kodosi dosi skill` | Gibt den Skill aus, mit dem ein anderer Agent als Dosi handelt. |

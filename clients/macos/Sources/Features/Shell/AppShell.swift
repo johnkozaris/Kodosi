@@ -217,6 +217,8 @@ private struct VisibleReporter: View {
     @Environment(AppDependencies.self) private var deps
 
     var body: some View {
-        Color.clear.onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
+        Color.clear
+            .onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
+            .onChange(of: deps.frontSessionId) { _, _ in deps.openShownCanvas() }
     }
 }

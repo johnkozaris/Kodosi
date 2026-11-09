@@ -38,8 +38,11 @@ the `kodosi` command and its skill, when they choose to.
 Agents run through their own CLIs. Execution, prompts, permissions, settings, memory and
 conversations stay with the provider. When Kodosi starts Claude Code, Codex or Copilot
 CLI, it adds only a short note: the agent runs in Kodosi with people and other agents,
-messages can come, and it decides with its own judgment and its current work what to do
-with them.
+messages can come, it decides with its own judgment and its current work what to do with
+them, and it shows what it makes to look at on the terminal's canvas. Claude Code and
+Copilot CLI get the note and Kodosi's skills also when a person starts them in a terminal
+by hand. Codex gets them only from Kodosi, so a desktop app says so on a terminal where a
+person started Codex by hand.
 
 A room message that names a terminal with `@` goes to the agent in that terminal at once,
 also while it works, and an agent can send a message to the agent of another terminal
@@ -110,8 +113,11 @@ from another device with a note that Dosi is off there.
 ## Canvas
 
 - Each terminal has a canvas with two parts: its files and its shared browser. Its agent
-  puts files there with `kodosi show`: a web page, Markdown or text, a picture, a PDF, a
-  document, a sheet or a presentation. A person adds a file with Add a File or a drop, on
+  shows what it makes there with `kodosi show`: a web page, Markdown or text, a picture, a
+  PDF, a document, a sheet or a presentation, or an address, such as the app that it runs,
+  in the shared browser. A page that loads from the network opens in the shared browser too.
+  The canvas then opens at it on each device where the terminal is in front, or when the
+  person comes to the terminal. A person adds a file with Add a File or a drop, on
   any device: it goes into the terminal's folder on the terminal's computer, a taken name
   gets a number, and the limit is 32 MB. The canvas shows the newest first and keeps 20.
   When a file changes, each device shows the new version. Save a Copy keeps a copy on the

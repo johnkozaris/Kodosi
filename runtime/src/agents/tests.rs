@@ -606,18 +606,27 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
     );
     let zsh = Path::new("/bin/zsh");
     assert_eq!(
-        Agent::Claude.with_context("claude --model opus", zsh),
-        "claude --model opus --append-system-prompt \"$KODOSI_AGENT_CONTEXT\""
-    );
-    assert_eq!(
         Agent::Codex.with_context("codex", zsh),
         "codex -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
-    assert_eq!(
-        Agent::Copilot.with_context("copilot", zsh),
-        "copilot --plugin-dir \"$KODOSI_PLUGIN_DIR\""
-    );
+    for agent in [Agent::Claude, Agent::Copilot, Agent::Gemini] {
+        assert_eq!(agent.with_context(agent.program(), zsh), agent.program());
+    }
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
+}
+
+#[test]
+fn only_a_codex_that_a_person_started_by_hand_misses_kodosi_s_note() {
+    let words = |line: &str| line.split(' ').map(str::to_owned).collect::<Vec<_>>();
+    assert!(Agent::Codex.outside(&words("codex -m gpt-5.6-sol")));
+    assert!(!Agent::Codex.outside(&[
+        "codex".to_owned(),
+        "-c".to_owned(),
+        format!("developer_instructions={}", CONTEXT.trim()),
+    ]));
+    assert!(!Agent::Codex.outside(&[]));
+    assert!(!Agent::Claude.outside(&words("claude")));
+    assert!(!Agent::Copilot.outside(&words("copilot")));
 }
 
 #[test]
@@ -629,8 +638,17 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     assert_eq!(plugin_dir(&notes), None);
     write_notes(&notes).unwrap();
     write_notes(&notes).unwrap();
-    let text = fs::read_to_string(notes.join("AGENTS.md")).unwrap();
-    assert_eq!(text, format!("# Kodosi\n\n{}\n", CONTEXT.trim()));
+    let text = fs::read_to_string(
+        notes
+            .join(".github")
+            .join("instructions")
+            .join("kodosi.instructions.md"),
+    )
+    .unwrap();
+    assert_eq!(
+        text,
+        format!("---\napplyTo: \"**\"\n---\n\n{}\n", CONTEXT.trim())
+    );
     let plugin = notes.join("plugin");
     let manifest: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(plugin.join(".claude-plugin").join("plugin.json")).unwrap(),
@@ -641,7 +659,19 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
         let file = plugin.join("skills").join(skill).join("SKILL.md");
         assert_eq!(fs::read_to_string(file).unwrap(), text);
     }
+    let hooks: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(plugin.join("hooks").join("hooks.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"],
+        "kodosi skill context"
+    );
     assert_eq!(plugin_dir(&notes).as_deref(), plugin.to_str());
+    assert!(
+        skill_dirs(&notes)
+            .unwrap()
+            .ends_with(plugin.join("skills").to_str().unwrap())
+    );
 }
 
 fn claude_with_accounts() -> AgentInfo {

@@ -141,71 +141,83 @@ struct SessionTileView: View {
             let manager = deps.terminalManager
             let managed = manager.session(for: session.id)
             let state = manager.renderState(for: session.id)
+            VStack(spacing: 0) {
+                surface(manager: manager, managed: managed, state: state)
+                if let message = manager.inputError(for: session.id) {
+                    HStack(spacing: 8) {
+                        Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
+                        Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+                        Spacer()
+                        Button("Dismiss") { manager.clearInputError(for: session.id) }.buttonStyle(.kodosi(.ghost, size: .small))
+                    }
+                    .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
+                    .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                    .padding(.top, 5)
+                }
+                if session.programOutside == true, session.kind == .local, !deps.workbench.notedOutside.contains(session.id) {
+                    OutsideNote(session: session) { deps.workbench.notedOutside.insert(session.id) }
+                        .padding(.top, 5)
+                        .transition(.opacity)
+                }
+            }
+            .animation(theme.motion.soft, value: session.programOutside)
+        }
+    }
+
+    private func surface(manager: TerminalSessionManager, managed: ManagedTerminalSession, state: TerminalRenderState) -> some View {
+        ZStack {
+            TerminalSurfaceWrapper(
+                renderer: managed.renderer, sessionId: session.id, sessionName: session.name, token: managed.token,
+                isFocused: isSelected && state == .rendered && !renaming,
+                allowsInput: session.canControl && state == .rendered,
+                asksBeforeClipboardRead: !session.isOwner,
+                otherComputer: session.otherComputer,
+                isSurfaceVisible: state == .rendered,
+            ) {
+                select()
+            } onFocusChange: { focused in
+                if focused, session.canControl {
+                    deps.terminalFocus.acquire(
+                        sessionId: session.id, runtimeIncarnationId: session.incarnationId,
+                        subscriptionId: managed.token.subscriptionId,
+                        subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId,
+                    )
+                    deps.typeAhead.deliver(to: session.id)
+                } else {
+                    deps.terminalFocus.release(surfaceId: surfaceId)
+                }
+            } registerFocusRevoker: { revoker in
+                deps.terminalFocus.registerRevoker(surfaceId: surfaceId, revoker: revoker)
+            } onShareShortcut: {
+                if session.kind == .local, session.isOwner {
+                    deps.workbench.sharingSessionId = session.id
+                } else {
+                    deps.workbench.detailsSessionId = session.id
+                }
+            }
+            .id(managed.token.subscriptionId)
+            .accessibilityHidden(state != .rendered)
+            switch state {
+            case .rendered: EmptyView()
+            case .connecting: ConnectingCard()
+            case let .closed(message):
+                failure(message: message ?? String(localized: "The terminal closed."), manager: manager)
+            case let .failed(message):
+                failure(message: message, manager: manager)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            let picture = manager.picture(for: session.id)
             ZStack {
-                TerminalSurfaceWrapper(
-                    renderer: managed.renderer, sessionId: session.id, sessionName: session.name, token: managed.token,
-                    isFocused: isSelected && state == .rendered && !renaming,
-                    allowsInput: session.canControl && state == .rendered,
-                    asksBeforeClipboardRead: !session.isOwner,
-                    otherComputer: session.otherComputer,
-                    isSurfaceVisible: state == .rendered,
-                ) {
-                    select()
-                } onFocusChange: { focused in
-                    if focused, session.canControl {
-                        deps.terminalFocus.acquire(
-                            sessionId: session.id, runtimeIncarnationId: session.incarnationId,
-                            subscriptionId: managed.token.subscriptionId,
-                            subscriptionGeneration: managed.token.subscriptionGeneration, surfaceId: surfaceId,
-                        )
-                        deps.typeAhead.deliver(to: session.id)
-                    } else {
-                        deps.terminalFocus.release(surfaceId: surfaceId)
-                    }
-                } registerFocusRevoker: { revoker in
-                    deps.terminalFocus.registerRevoker(surfaceId: surfaceId, revoker: revoker)
-                } onShareShortcut: {
-                    if session.kind == .local, session.isOwner {
-                        deps.workbench.sharingSessionId = session.id
-                    } else {
-                        deps.workbench.detailsSessionId = session.id
-                    }
-                }
-                .id(managed.token.subscriptionId)
-                .accessibilityHidden(state != .rendered)
-                switch state {
-                case .rendered: EmptyView()
-                case .connecting: ConnectingCard()
-                case let .closed(message):
-                    failure(message: message ?? String(localized: "The terminal closed."), manager: manager)
-                case let .failed(message):
-                    failure(message: message, manager: manager)
+                if let picture, let computer = session.otherComputer {
+                    PictureNotice(computer: computer, fraction: picture.fraction, arrived: picture.arrived)
+                        .padding(10)
+                        .transition(.opacity.combined(with: .offset(y: 8))
+                            .combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
-                let picture = manager.picture(for: session.id)
-                ZStack {
-                    if let picture, let computer = session.otherComputer {
-                        PictureNotice(computer: computer, fraction: picture.fraction, arrived: picture.arrived)
-                            .padding(10)
-                            .transition(.opacity.combined(with: .offset(y: 8))
-                                .combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
-                    }
-                }
-                .animation(theme.motion.spring, value: picture == nil)
-                .allowsHitTesting(false)
-            }
-            if let message = manager.inputError(for: session.id) {
-                HStack(spacing: 8) {
-                    Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                    Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                    Spacer()
-                    Button("Dismiss") { manager.clearInputError(for: session.id) }.buttonStyle(.kodosi(.ghost, size: .small))
-                }
-                .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
-                .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-                .padding(.top, 5)
-            }
+            .animation(theme.motion.spring, value: picture == nil)
+            .allowsHitTesting(false)
         }
     }
 
@@ -277,5 +289,26 @@ private struct JoinCard: View {
         .padding(.leading, 9).padding(.trailing, 14).frame(height: 44)
         .raised(Radius.lg, fill: theme.colors.lifted, elevation: .floating)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Says on a terminal that its agent, which a person started by hand, does not see Kodosi.
+private struct OutsideNote: View {
+    @Environment(\.theme) private var theme
+    let session: RuntimeSession
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("\(session.agent.label) started by hand doesn't see Kodosi. Start it from Kodosi next time.")
+                .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
+            Spacer(minLength: 4)
+            IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(AccessibilityIdentifier.stageSession(session.id)).outside.dismiss",
+                       size: 22, action: dismiss)
+        }
+        .padding(.leading, 12).padding(.trailing, 6).frame(minHeight: 34)
+        .background(theme.colors.raised, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).outside")
     }
 }

@@ -117,23 +117,29 @@ impl Agent {
             .collect()
     }
 
+    /// The words that give a launched agent Kodosi's note. Codex reads it only from its command
+    /// line; Claude Code and Copilot CLI read Kodosi's note and skills from the environment of
+    /// each Kodosi terminal, also when a person starts them by hand.
     #[cfg(feature = "host")]
     pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
         match self {
-            Self::Claude => Some(format!(
-                "--append-system-prompt {}",
-                variable_word(shell, "", CONTEXT_VARIABLE)
-            )),
             Self::Codex => Some(format!(
                 "-c {}",
                 variable_word(shell, "developer_instructions=", CONTEXT_VARIABLE)
             )),
-            Self::Copilot => Some(format!(
-                "--plugin-dir {}",
-                variable_word(shell, "", PLUGIN_VARIABLE)
-            )),
-            Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
         }
+    }
+
+    /// Whether the agent that runs with `arguments` missed Kodosi's note, because a person
+    /// started it by hand. Windows shows no arguments, so there it never misses it.
+    #[cfg(feature = "host")]
+    pub(crate) fn outside(self, arguments: &[String]) -> bool {
+        self.context_words(Path::new("")).is_some()
+            && !arguments.is_empty()
+            && !arguments.iter().any(|argument| {
+                argument.starts_with("developer_instructions=") && argument.contains("Kodosi")
+            })
     }
 
     #[cfg(feature = "host")]
@@ -182,7 +188,7 @@ pub(crate) const CONTEXT_VARIABLE: &str = "KODOSI_AGENT_CONTEXT";
 pub(crate) const COPILOT_INSTRUCTIONS: &str = "COPILOT_CUSTOM_INSTRUCTIONS_DIRS";
 
 #[cfg(feature = "host")]
-pub(crate) const PLUGIN_VARIABLE: &str = "KODOSI_PLUGIN_DIR";
+pub(crate) const COPILOT_SKILLS: &str = "COPILOT_SKILLS_DIRS";
 #[cfg(feature = "host")]
 pub(crate) const CLAUDE_PLUGINS: &str = "CLAUDE_CODE_PLUGIN_DIRS";
 #[cfg(feature = "host")]
@@ -196,21 +202,47 @@ pub(crate) const PAGE: &str = include_str!("../../skills/kodosi-canvas/assets/pa
 #[cfg(feature = "host")]
 const PLUGIN: &str = "plugin";
 
+/// Claude Code's start of a session in a Kodosi terminal: it reads Kodosi's note there.
+#[cfg(feature = "host")]
+const CLAUDE_HOOKS: &str = r#"{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "kodosi skill context"
+          }
+        ]
+      }
+    ]
+  }
+}
+"#;
+
 /// Writes Kodosi's note for agents, and the plugin with its skills for agents that load plugins
-/// from a folder. Agents read both only in Kodosi terminals; nothing goes into their own folders.
+/// or skills from a folder. Agents read both only in Kodosi terminals; nothing goes into their
+/// own folders.
 #[cfg(feature = "host")]
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
     let manifest = format!(
-        "{{\n  \"name\": \"kodosi\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them files and a shared browser on the canvas of a terminal.\"\n}}\n",
+        "{{\n  \"name\": \"kodosi\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them what you make on the canvas of a terminal.\"\n}}\n",
         env!("KODOSI_VERSION")
     );
     let files = [
         (
-            folder.join("AGENTS.md"),
-            format!("# Kodosi\n\n{}\n", CONTEXT.trim()),
+            folder
+                .join(".github")
+                .join("instructions")
+                .join("kodosi.instructions.md"),
+            format!("---\napplyTo: \"**\"\n---\n\n{}\n", CONTEXT.trim()),
         ),
         (plugin.join(".claude-plugin").join("plugin.json"), manifest),
+        (
+            plugin.join("hooks").join("hooks.json"),
+            CLAUDE_HOOKS.to_owned(),
+        ),
         (
             plugin.join("skills").join("kodosi").join("SKILL.md"),
             SKILL.to_owned(),
@@ -260,6 +292,19 @@ pub(crate) fn plugin_dirs(notes: &Path) -> Option<String> {
                 || plugin.clone(),
                 |folders| format!("{folders}{separator}{plugin}"),
             ),
+    )
+}
+
+/// The skill folders for Copilot CLI in a Kodosi terminal: the person's own, then Kodosi's.
+#[cfg(feature = "host")]
+pub(crate) fn skill_dirs(notes: &Path) -> Option<String> {
+    let skills = Path::new(&plugin_dir(notes)?).join("skills");
+    let skills = skills.to_str()?.to_owned();
+    Some(
+        std::env::var(COPILOT_SKILLS)
+            .ok()
+            .filter(|folders| !folders.is_empty())
+            .map_or_else(|| skills.clone(), |folders| format!("{folders},{skills}")),
     )
 }
 

@@ -41,9 +41,10 @@ visual system. The Linux and Windows app follows this app.
 ## Canvas
 
 A key of the canvas in a terminal's header opens the canvas beside the terminal, which is
-then alone on the stage; in a room, it opens beside the room's terminal. When the
-terminal is alone on the stage and its canvas first gets something, the canvas opens by
-itself, unless you hid it. Drag the gap between them to share the width. More room gives
+then alone on the stage; in a room, it opens beside the room's terminal. The terminal in
+front is the one in single view, the selected one on the stage or the only one there, or the
+one that a room shows. When the terminal is alone on the stage and its canvas first gets
+something, the canvas opens by itself, unless you hid it. Drag the gap between them to share the width. More room gives
 the canvas the stage and zooms the terminal out into its corner, where it stays live; a
 click on it puts them side by side again. Hide canvas leaves the terminal alone.
 

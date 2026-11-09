@@ -140,7 +140,11 @@ private struct TerminalScreenContent: View {
             controller.disappear()
             ScreenAwake.terminalGone()
         }
-        .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
+        .onChange(of: scenePhase) { _, phase in
+            controller.setActive(phase == .active)
+            openShownCanvas()
+        }
+        .onChange(of: session?.canvas?.open, initial: true) { _, _ in openShownCanvas() }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: composing) { _, focused in
@@ -168,6 +172,12 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.impact(flexibility: .solid), trigger: controller.sent)
         .sensoryFeedback(.impact(weight: .light), trigger: controller.bells)
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
+    }
+
+    /// Opens the canvas at what the terminal's agent showed, once for each show.
+    private func openShownCanvas() {
+        guard scenePhase == .active, let session = controller.session, model.terminals.canvas.openShown(session) else { return }
+        canvasOpen = true
     }
 
     private func openBrowser(of session: RuntimeSession) {

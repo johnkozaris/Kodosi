@@ -87,16 +87,18 @@ progress bar. A program that reports nothing shows no state.
 
 ## 4. See what an agent shows
 
-An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet or a
-presentation on the canvas of its terminal, and use a browser that you share with it.
-Agents that Kodosi starts know how; tell another agent to read `kodosi skill canvas`. When
+An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet, a
+presentation or the app that it runs on the canvas of its terminal, and use a browser that
+you share with it. The canvas opens with what the agent shows while you look at its
+terminal. Claude Code and Copilot CLI know how, also when you start them yourself, and so
+does a Codex that Kodosi starts; tell another agent to read `kodosi skill canvas`. When
 the canvas has something, the terminal's header shows a key for its files and one for its
 browser, with a copper dot for news. Select one to open the canvas beside the terminal;
 More room gives the canvas the stage and keeps the terminal small in its corner. Close a
-part with the × on its key, and open it again with +. Open Browser in the actions key opens
-the browser before the agent uses it, and Add a File puts a file on the canvas and into the
-terminal's folder; you can also drop a file on the canvas. On the iPhone, the canvas key is
-in the terminal's bar.
+part with the × on its key, and open it again with +. Open Browser in the actions key
+opens the browser before the agent uses it, and Add a File puts a file on the canvas and
+into the terminal's folder; you can also drop a file on the canvas. On the iPhone, the
+canvas key is in the terminal's bar.
 
 - A document, sheet, presentation, PDF or text file is live: you, the people in the
   terminal and the agent edit it at the same time, and it stays a normal file in its
@@ -191,10 +193,11 @@ friends, then start a terminal in the room or share one into it.
   and Gitea the credential helper or `KODOSI_GITEA_TOKEN` for the server in
   `KODOSI_GITEA_URL`. Your credentials stay on your computer.
 - Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
-  terminal your message with your name and the room; the agent decides what to do with
-  it. Agents that Kodosi starts know that they run in Kodosi, and `kodosi skill` prints
-  the [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent take part. In a
-  Kodosi terminal, the command finds the room; elsewhere, add `--room <name>`.
+  terminal your message with your name and the room; the agent decides what to do with it.
+  Claude Code and Copilot CLI in a Kodosi terminal, and a Codex that Kodosi starts, know
+  that they run in Kodosi, and `kodosi skill` prints the
+  [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent take part. In a Kodosi
+  terminal, the command finds the room; elsewhere, add `--room <name>`.
 
 ## 8. Use the command line
 
@@ -216,7 +219,7 @@ does.
 | `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |
 | `kodosi terminal show <terminal>` | Shows the terminal in the app. |
 | `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
-| `kodosi show <file>` | Shows a file on the canvas of this terminal. `kodosi canvas` lists what it shows, and `kodosi canvas remove <file>` takes a file off. |
+| `kodosi show <file>` | Shows a file on the canvas of this terminal, which opens for the people who look at it; `kodosi show <address>` shows a web address in its browser. `kodosi canvas` lists what it shows, and `kodosi canvas remove <file>` takes a file off. |
 | `kodosi browser open <address>` | Opens a page in the shared browser of this terminal. The other agent-browser commands work too. |
 | `kodosi skill` | Prints the skill that lets an agent work with the people and agents in Kodosi. `kodosi skill canvas` prints the skill for the canvas. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |

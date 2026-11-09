@@ -2820,6 +2820,16 @@
               }
             ]
           },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "computer": {
             "anyOf": [
               {
@@ -2829,6 +2839,9 @@
                 "type": "null"
               }
             ]
+          },
+          "folder": {
+            "type": "string"
           },
           "paths": {
             "items": {
@@ -2852,7 +2865,7 @@
           "type",
           "requestId",
           "sessionId",
-          "paths"
+          "folder"
         ],
         "type": "object"
       },
@@ -7148,6 +7161,30 @@
                           },
                           "type": "array"
                         },
+                        "open": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "at": {
+                                  "format": "u64",
+                                  "type": "integer"
+                                },
+                                "key": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "at"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "sequence": {
                           "format": "u64",
                           "type": "integer"
@@ -7355,6 +7392,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "programOutside": {
+                  "type": "boolean"
                 },
                 "programStatus": {
                   "anyOf": [

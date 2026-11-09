@@ -1,30 +1,32 @@
 ---
 name: kodosi-canvas
-description: "Show pages, pictures, documents, sheets, presentations and PDFs to the people of a Kodosi terminal on its canvas, and use a browser that they see and can use too. Use it when a result is easier to see than to read in the terminal."
+description: "Show people what you make, on the canvas beside a Kodosi terminal: HTML pages and artifacts, reports, diagrams, pictures, documents, sheets, presentations, PDFs and running web apps; and use a browser that they see and use too. Use it whenever you would ask a person to open a file or a local address."
 ---
 
 # Kodosi canvas
 
-Each Kodosi terminal has a canvas. The people in the terminal open it next to the terminal,
-on every computer and phone where they see the terminal. Show them what is easier to see
-than to read: a plan with choices, a table, a diagram, a picture, a report, a page of the
-app that you build.
+Each Kodosi terminal has a canvas beside it, on every computer and phone where people see the
+terminal. Show them what is easier to see than to read: a page or artifact that you made, a
+plan with choices, a table, a diagram, a picture, a report, the app that you build.
 
-The canvas never opens by itself. When you show something, tell the person what it is and
-why they should look.
+`kodosi show <file or address>` opens the canvas with it for the people who look at this
+terminal. Say in one line what it is and what they should look at. Do not ask them to open a
+file or an address themselves.
 
-## Show files
+## Show
 
-- `kodosi show <file>`: show one or more files on the canvas of this terminal. The newest
-  comes first, and the canvas keeps 20. When you change a file, the canvas shows the new
-  version, so show a file once and then edit it.
+- `kodosi show <file>`: show one or more files. The canvas opens at the first. When you
+  change a file, the canvas shows the new version, so show a file once and then edit it.
+- `kodosi show <address>`: open a web address in the shared browser on the canvas, such as
+  the app that you run (`kodosi show http://localhost:5173`) or a page on the web.
 - Pages are HTML, Markdown and text files. Markdown and text get the look of Kodosi.
-  Pictures (PNG, JPEG, GIF, WebP, SVG) show as they are. Documents (.docx), sheets
-  (.xlsx), presentations (.pptx) and PDFs are live: people edit them there, and you edit
-  them with `kodosi doc`. Read `kodosi skill documents` first.
-- A page runs in a closed frame. It can run its own scripts, but it cannot load anything
-  from the network or open other files. Put the styles, scripts and pictures into the page
-  itself; use inline SVG or data: addresses for pictures.
+  Pictures (PNG, JPEG, GIF, WebP, SVG) show as they are. Documents (.docx), sheets (.xlsx),
+  presentations (.pptx) and PDFs are live: people edit them there, and you edit them with
+  `kodosi doc`. Read `kodosi skill documents` first.
+- A page runs in a closed frame: its own scripts run, but it loads nothing from the network
+  and opens no other files. Put the styles, scripts and pictures into the page, with inline
+  SVG or data: addresses for pictures. A page that loads from the network, such as one with
+  a script from a CDN, opens in the shared browser instead.
 - `kodosi skill page` prints a page with the look of Kodosi: its colors, cards, tags and
   tables, in light and dark. Start from it for a page that people decide on.
 - Write pages where you can write files, for example the temporary folder or the project.
@@ -36,9 +38,11 @@ what the person must decide. Mark your recommendation.
 
 ## Use the shared browser
 
-`kodosi browser <command>` runs an agent-browser command on the browser of this terminal.
-The browser starts at the first command. It sleeps after 10 minutes with no use and wakes
-with the same sign-ins. The people see it on the canvas, and they can click and type in it.
+`kodosi browser <command>` runs an agent-browser command on the browser of this terminal,
+for your own work in it, such as a test of your app. The browser starts at the first command.
+It sleeps after 10 minutes with no use and wakes with the same sign-ins. The people see it on
+the canvas, and they can click and type in it. To show them a page, use
+`kodosi show <address>`.
 
 - `kodosi browser open https://example.com`: go to an address.
 - `kodosi browser snapshot -i`: the parts of the page that you can use, each with a

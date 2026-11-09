@@ -60,6 +60,9 @@ final class WorkbenchState {
     var selectedMissionId: String?
     var dismissedDeviceRequests: Set<String> = []
     var dismissedReset: String?
+    /// The terminals where the person dismissed the note that their agent, started by hand,
+    /// does not see Kodosi.
+    var notedOutside: Set<String> = []
     var approvalNoticeDismissed = false
     var focusesDeviceCode = false
     var sidebarCollapsed = false {
@@ -332,6 +335,7 @@ final class WorkbenchState {
         launcherDraft = LauncherDraft()
         dismissedDeviceRequests = []
         dismissedReset = nil
+        notedOutside = []
         approvalNoticeDismissed = false
         focusesDeviceCode = false
     }
@@ -365,6 +369,7 @@ final class WorkbenchState {
             openCanvas(id)
         }
         hiddenCanvases.formIntersection(current.keys)
+        notedOutside.formIntersection(current.keys)
         canvasesLeftOpen.formIntersection(current.keys)
         closing.formIntersection(current.keys)
         let followed = follow(sessions)

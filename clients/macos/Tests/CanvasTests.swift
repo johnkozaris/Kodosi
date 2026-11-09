@@ -68,6 +68,32 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     #expect(store.current(removed)?.key == "/tmp/work/plan.md")
 }
 
+@Test @MainActor func `a canvas opens once at each show of its agent, and not at a show from before`() throws {
+    let store = CanvasStore(commands: CommandSink())
+    let shown = { (at: UInt64, key: String) in
+        try terminal(canvas: [
+            "sequence": .uint(at), "items": .array([item("plan.md", changed: 5), item("compare.html", changed: 4)]),
+            "open": .object(["key": .string("/tmp/work/\(key)"), "at": .uint(at)]),
+        ])
+    }
+    let before = try shown(6, "compare.html")
+    store.observe([before])
+    #expect(!store.openShown(before))
+    let again = try shown(7, "compare.html")
+    store.observe([again])
+    #expect(store.showsNew(again))
+    #expect(store.openShown(again))
+    #expect(store.current(again)?.key == "/tmp/work/compare.html")
+    #expect(!store.openShown(again))
+    let next = try shown(8, "plan.md")
+    store.observe([next])
+    store.close(.files, in: next)
+    #expect(!store.openShown(next))
+    let gone = try shown(9, "gone.md")
+    store.observe([gone])
+    #expect(!store.showsNew(gone))
+}
+
 @Test func `a point of the view becomes a point of the browser`() {
     let wide = CGSize(width: 1000, height: 500)
     let browser = CGSize(width: 1280, height: 720)

@@ -678,9 +678,20 @@ impl Runtime {
         let command = command.clone();
         self.spawn(async move {
             let result = match &command {
-                Command::CanvasShow { paths, .. } => {
+                Command::CanvasShow {
+                    paths,
+                    address,
+                    folder,
+                    ..
+                } => {
                     canvas
-                        .show(paths.iter().map(PathBuf::from).collect(), terminal)
+                        .show(crate::canvas::Show {
+                            paths: paths.iter().map(PathBuf::from).collect(),
+                            address: address.clone(),
+                            folder: PathBuf::from(folder),
+                            terminal,
+                            agent,
+                        })
                         .await
                 }
                 Command::CanvasBrowse {
@@ -1348,9 +1359,20 @@ impl Runtime {
             #[cfg(feature = "host")]
             Completion::Created { id, result } => self.created(id, result, current),
             #[cfg(feature = "host")]
-            Completion::Account { id, group, account } => {
-                if let Some(local) = self.local.get(&id) {
+            Completion::Account {
+                id,
+                group,
+                account,
+                agent,
+                outside,
+            } => {
+                if let Some(local) = self.local.get_mut(&id) {
                     drop(local.terminal.set_account(group, account));
+                    let outside = outside && local.entry.program.as_deref() == Some(agent.name());
+                    if local.entry.program_outside != outside {
+                        local.entry.program_outside = outside;
+                        self.publish_catalog();
+                    }
                 }
             }
             Completion::BackendClient {
@@ -1584,6 +1606,7 @@ impl Runtime {
                     connected_users: vec![],
                     program: None,
                     program_account: None,
+                    program_outside: false,
                     prompt: false,
                     repository: started.repository,
                     title: None,
@@ -1949,12 +1972,9 @@ async fn session_program(
         .await
         .ok_or_else(|| Error::Refused(text!("The provider CLI is not installed.")))?;
     let arguments = match resume.provider {
-        provider::Provider::Claude => vec![
-            "--append-system-prompt".to_owned(),
-            crate::agents::CONTEXT.trim().to_owned(),
-            "--resume".to_owned(),
-            resume.native_conversation_id.clone(),
-        ],
+        provider::Provider::Claude => {
+            vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
+        }
         provider::Provider::Copilot => {
             vec![format!("--resume={}", resume.native_conversation_id)]
         }

@@ -45,7 +45,7 @@
 
 ## 4. 查看 Agent 展示的内容
 
-Agent 可以在其终端的画布上给你展示页面、Markdown、图片、PDF、文档、表格或演示文稿，也可以使用与你共享的浏览器。Kodosi 启动的 Agent 知道该怎么做；对于其他 Agent，让它读取 `kodosi skill canvas` 即可。画布上有内容时，终端标题栏会显示文件按钮和浏览器按钮，有新内容时会带一个铜色圆点。选择其中一个，即可在终端旁打开画布；“更多空间”会把舞台交给画布，终端则缩小在角落里。用按钮上的 × 关闭某一部分，用 + 再次打开。操作按钮中的“打开浏览器”会在 Agent 使用之前打开浏览器，“添加文件…”会把文件放到画布上并放入终端的文件夹；你也可以把文件拖放到画布上。在 iPhone 上，画布按钮位于终端的栏中。
+Agent 可以在其终端的画布上给你展示页面、Markdown、图片、PDF、文档、表格、演示文稿或它运行的应用，也可以使用与你共享的浏览器。当你查看它的终端时，画布会随 Agent 展示的内容打开。Claude Code 和 Copilot CLI 即使由你自己启动也知道该怎么做，由 Kodosi 启动的 Codex 也一样；对于其他 Agent，让它读取 `kodosi skill canvas` 即可。画布上有内容时，终端标题栏会显示文件按钮和浏览器按钮，有新内容时会带一个铜色圆点。选择其中一个，即可在终端旁打开画布；“更多空间”会把舞台交给画布，终端则缩小在角落里。用按钮上的 × 关闭某一部分，用 + 再次打开。操作按钮中的“打开浏览器”会在 Agent 使用之前打开浏览器，“添加文件…”会把文件放到画布上并放入终端的文件夹；你也可以把文件拖放到画布上。在 iPhone 上，画布按钮位于终端的栏中。
 
 - 文档、表格、演示文稿、PDF 或文本文件都是实时的：你、终端里的人和 Agent 可以同时编辑，它仍然是其文件夹中的普通文件。文档有修订记录时，它的栏中会出现一个接受或拒绝修订的按钮。“设置 › 文档”可以开启或关闭每种查看器，选择以页面还是以适应画布的文本显示文档，并在 Kodosi 为深色时让页面也变暗。
 - 页面不联网。页面、文档、表格、演示文稿和 PDF 中的链接会按与终端链接相同的规则，在你自己的浏览器中打开。在可以编辑的地方，按住 ⌘ 点按链接（Linux 和 Windows 上为 Ctrl+点按）；在其他地方，点按即可打开，在 iPhone 上轻点即可。指向同一文件中某张幻灯片或某个单元格的链接会直接跳转过去。
@@ -93,7 +93,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 - 所有成员都可以使用共享终端，也可以共享自己的终端。后来加入的人也会获得这些终端和完整的对话。文件留在各个终端所在的电脑上。
 - 你可以发布任务供人认领，认领、放弃认领，带着结果关闭任务，或重新打开任务。
 - 关联 GitHub 或 Gitea 仓库，即可把 Issue 变成任务；当你修改这样的任务时，Kodosi 会同步修改对应的 Issue。GitHub 使用你的 `gh` 登录或 Git credential helper，Gitea 使用 credential helper，或为 `KODOSI_GITEA_URL` 中的服务器使用 `KODOSI_GITEA_TOKEN`。你的凭据留在你的电脑上。
-- 在聊天中输入 `@` 和终端名称，Kodosi 会把你的消息连同你的名字和房间交给那个终端里的 Agent；如何处理由 Agent 决定。Kodosi 启动的 Agent 知道自己运行在 Kodosi 中，`kodosi skill` 会输出让 Agent 参与协作的 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端中，这条命令会自动找到房间；在其他地方，请加上 `--room <name>`。
+- 在聊天中输入 `@` 和终端名称，Kodosi 会把你的消息连同你的名字和房间交给那个终端里的 Agent；如何处理由 Agent 决定。Kodosi 终端中的 Claude Code 和 Copilot CLI，以及由 Kodosi 启动的 Codex，都知道自己运行在 Kodosi 中，`kodosi skill` 会输出让 Agent 参与协作的 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端中，这条命令会自动找到房间；在其他地方，请加上 `--room <name>`。
 
 ## 8. 使用命令行
 
@@ -114,7 +114,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 | `kodosi terminal wait <terminal> --until done,failed` | 等待某个状态。 |
 | `kodosi terminal show <terminal>` | 在应用中显示该终端。 |
 | `kodosi dosi say "What needs me?"` | 向 Dosi 提问。`kodosi dosi show` 输出对话，`kodosi dosi stop` 让 Dosi 停止。 |
-| `kodosi show <file>` | 在当前终端的画布上显示一个文件。`kodosi canvas` 列出正在显示的内容，`kodosi canvas remove <file>` 移除一个文件。 |
+| `kodosi show <file>` | 在当前终端的画布上显示一个文件，并为正在查看该终端的人打开画布；`kodosi show <address>` 在其浏览器中显示一个网址。`kodosi canvas` 列出正在显示的内容，`kodosi canvas remove <file>` 移除一个文件。 |
 | `kodosi browser open <address>` | 在当前终端的共享浏览器中打开一个页面。其他 agent-browser 命令也都可以使用。 |
 | `kodosi skill` | 输出让 Agent 与 Kodosi 中的人和 Agent 协作的 skill。`kodosi skill canvas` 输出画布的 skill。 |
 | `kodosi dosi skill` | 输出让其他 Agent 充当 Dosi 的 skill。 |

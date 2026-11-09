@@ -228,6 +228,7 @@ extension AppDependencies {
         let restored = workbench.reconcile(received)
         reportVisible()
         restored.forEach(openStaged)
+        openShownCanvas()
         consumeDeepLink()
     }
 
@@ -269,6 +270,40 @@ extension AppDependencies {
     var shownSessionIds: [String] {
         guard windowShown() else { return [] }
         return sessions.map(\.id).filter(isShown).sorted()
+    }
+
+    /// The terminal that the person looks at: the one in single view, the selected one on the
+    /// stage or the only one there, or the terminal that a room shows.
+    var frontSessionId: String? {
+        guard windowShown() else { return nil }
+        let staged = workbench.stagedSessionIds
+        switch workbench.section {
+        case .sessions:
+            if let focused = workbench.focusedSessionId {
+                return staged.contains(focused) ? focused : nil
+            }
+            if let selected = workbench.selectedSessionId, staged.contains(selected) {
+                return selected
+            }
+            return staged.count == 1 ? staged.first : nil
+        case .missions:
+            return staged.first(where: isShown)
+        case .people, .settings:
+            return nil
+        }
+    }
+
+    /// Opens the canvas of the terminal in front at what its agent showed, once for each show.
+    func openShownCanvas() {
+        guard let id = frontSessionId, let session = session(id), canvas.openShown(session) else { return }
+        switch workbench.section {
+        case .sessions:
+            workbench.openCanvas(id)
+        case .missions:
+            workbench.selectedMissionId.flatMap { roomViews[$0] }?.showsCanvas = true
+        case .people, .settings:
+            break
+        }
     }
 
     private func isShown(_ id: String) -> Bool {

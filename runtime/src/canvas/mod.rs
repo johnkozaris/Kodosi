@@ -18,7 +18,7 @@ mod render;
 mod tests;
 
 #[cfg(feature = "host")]
-pub(crate) use actor::{CanvasHandle, CanvasServices, close_left, keep_profiles};
+pub(crate) use actor::{CanvasHandle, CanvasServices, Show, close_left, keep_profiles};
 
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
@@ -47,6 +47,17 @@ pub struct Canvas {
     pub items: Vec<CanvasItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<CanvasBrowser>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<CanvasOpen>,
+}
+
+/// What the agent showed last with `kodosi show`: an item by its key, or the browser, and the
+/// stamp of the canvas then. Each device that shows the terminal opens its canvas there once.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanvasOpen {
+    pub key: String,
+    pub at: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -269,6 +280,10 @@ impl Canvas {
         self.items.len() <= MOST_ITEMS
             && self.items.iter().all(CanvasItem::is_valid)
             && self.browser.as_ref().is_none_or(CanvasBrowser::is_valid)
+            && self
+                .open
+                .as_ref()
+                .is_none_or(|open| bounded(&open.key, MOST_KEY))
     }
 }
 
@@ -353,6 +368,16 @@ impl CanvasAnswer {
 
 fn bounded(text: &str, most: usize) -> bool {
     text.len() <= most && !text.contains('\0')
+}
+
+/// Whether `kodosi show` takes a word as an address for the shared browser.
+pub fn is_address(word: &str) -> bool {
+    let lower = word.get(..8).unwrap_or(word).to_ascii_lowercase();
+    ["http://", "https://", "file://"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+        && bounded(word, MOST_URL)
+        && !word.chars().any(char::is_control)
 }
 
 /// The live view of a file, by its extension.

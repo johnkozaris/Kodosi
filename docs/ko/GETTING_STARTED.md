@@ -83,15 +83,15 @@ Mac에서는 다른 터미널 앱처럼 터미널의 프로그램이 Kodosi에 �
 
 ## 4. 에이전트가 보여 주는 것 보기
 
-에이전트는 터미널의 캔버스에 페이지, Markdown, 이미지, PDF, 문서, 시트, 프레젠테이션을
-보여 주고, 나와 함께 쓰는 브라우저를 쓸 수 있어요. Kodosi가 시작한 에이전트는 방법을 알고
-있어요. 다른 에이전트에게는 `kodosi skill canvas`를 읽으라고 하세요. 캔버스에 무언가 있으면
-터미널 헤더에 파일 버튼과 브라우저 버튼이 나오고, 새 소식이 있으면 구리색 점이 붙어요.
-하나를 고르면 터미널 옆에 캔버스가 열려요. 더 넓게를 고르면 캔버스가 스테이지를 쓰고
-터미널은 구석에 작게 남아요. 각 부분은 버튼의 ×로 닫고 +로 다시 열어요. 동작 버튼의
-브라우저 열기는 에이전트가 쓰기 전에 브라우저를 열고, 파일 추가…는 파일을 캔버스와 터미널
-폴더에 넣어요. 캔버스에 파일을 끌어다 놓아도 돼요. iPhone에서는 캔버스 버튼이 터미널 막대에
-있어요.
+에이전트는 터미널의 캔버스에 페이지, Markdown, 이미지, PDF, 문서, 시트, 프레젠테이션, 실행 중인
+앱을 보여 주고, 나와 함께 쓰는 브라우저를 쓸 수 있어요. 터미널을 보고 있으면 에이전트가 보여
+주는 것으로 캔버스가 열려요. Claude Code와 Copilot CLI는 직접 시작해도 방법을 알고, Kodosi가
+시작한 Codex도 알아요. 다른 에이전트에게는 `kodosi skill canvas`를 읽으라고 하세요. 캔버스에
+무언가 있으면 터미널 헤더에 파일 버튼과 브라우저 버튼이 나오고, 새 소식이 있으면 구리색 점이
+붙어요. 하나를 고르면 터미널 옆에 캔버스가 열려요. 더 넓게를 고르면 캔버스가 스테이지를 쓰고
+터미널은 구석에 작게 남아요. 각 부분은 버튼의 ×로 닫고 +로 다시 열어요. 동작 버튼의 브라우저
+열기는 에이전트가 쓰기 전에 브라우저를 열고, 파일 추가…는 파일을 캔버스와 터미널 폴더에 넣어요.
+캔버스에 파일을 끌어다 놓아도 돼요. iPhone에서는 캔버스 버튼이 터미널 막대에 있어요.
 
 - 문서, 시트, 프레젠테이션, PDF, 텍스트 파일은 실시간이에요. 나와 터미널의 사람들,
   에이전트가 동시에 편집하고, 파일은 폴더 안의 일반 파일로 남아요. 문서에 변경 내용 추적이
@@ -178,10 +178,10 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
   바꿔요. GitHub는 `gh` 로그인이나 Git credential helper를, Gitea는 credential helper나
   `KODOSI_GITEA_URL` 서버용 `KODOSI_GITEA_TOKEN`을 써요. 자격 증명은 내 컴퓨터에 남아요.
 - 채팅에 `@`와 터미널 이름을 쓰면, Kodosi가 내 이름과 방을 붙여 그 터미널의 에이전트에게
-  메시지를 전달해요. 무엇을 할지는 에이전트가 정해요. Kodosi가 시작한 에이전트는 Kodosi
-  안에서 실행된다는 걸 알고, `kodosi skill`은 에이전트가 참여하는 데 필요한
-  [skill](../../runtime/skills/kodosi/SKILL.md)을 출력해요. Kodosi 터미널에서는 명령이 방을
-  찾아요. 다른 곳에서는 `--room <name>`을 붙이세요.
+  메시지를 전달해요. 무엇을 할지는 에이전트가 정해요. Kodosi 터미널의 Claude Code와 Copilot CLI,
+  그리고 Kodosi가 시작한 Codex는 Kodosi 안에서 실행된다는 걸 알고, `kodosi skill`은 에이전트가
+  참여하는 데 필요한 [skill](../../runtime/skills/kodosi/SKILL.md)을 출력해요. Kodosi
+  터미널에서는 명령이 방을 찾아요. 다른 곳에서는 `--room <name>`을 붙이세요.
 
 ## 8. 명령줄 쓰기
 
@@ -202,7 +202,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 | `kodosi terminal wait <terminal> --until done,failed` | 상태가 될 때까지 기다려요. |
 | `kodosi terminal show <terminal>` | 앱에서 터미널을 보여 줘요. |
 | `kodosi dosi say "What needs me?"` | Dosi에게 물어요. `kodosi dosi show`는 대화를 출력하고, `kodosi dosi stop`은 Dosi를 멈춰요. |
-| `kodosi show <file>` | 이 터미널의 캔버스에 파일을 보여 줘요. `kodosi canvas`는 보여 주는 것의 목록을 출력하고, `kodosi canvas remove <file>`은 파일을 내려요. |
+| `kodosi show <file>` | 이 터미널의 캔버스에 파일을 보여 주고, 터미널을 보는 사람의 캔버스를 열어요. `kodosi show <address>`는 웹 주소를 브라우저에 보여 줘요. `kodosi canvas`는 보여 주는 것의 목록을 출력하고, `kodosi canvas remove <file>`은 파일을 내려요. |
 | `kodosi browser open <address>` | 이 터미널의 공유 브라우저에서 페이지를 열어요. agent-browser의 다른 명령도 써요. |
 | `kodosi skill` | 에이전트가 Kodosi의 사람과 에이전트와 함께 일하는 skill을 출력해요. `kodosi skill canvas`는 캔버스용 skill을 출력해요. |
 | `kodosi dosi skill` | 다른 에이전트가 Dosi처럼 동작하는 skill을 출력해요. |

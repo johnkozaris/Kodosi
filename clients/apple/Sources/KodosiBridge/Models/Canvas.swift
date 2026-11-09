@@ -5,11 +5,14 @@ public struct Canvas: Decodable, Equatable, Sendable {
     public let sequence: UInt64
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
+    /// What the agent showed last with `kodosi show`, which each device opens once.
+    public let open: CanvasOpen?
 
-    public init(sequence: UInt64, items: [CanvasItem], browser: CanvasBrowser?) {
+    public init(sequence: UInt64, items: [CanvasItem], browser: CanvasBrowser?, open: CanvasOpen? = nil) {
         self.sequence = sequence
         self.items = items
         self.browser = browser
+        self.open = open
     }
 
     public init(from decoder: any Decoder) throws {
@@ -17,9 +20,10 @@ public struct Canvas: Decodable, Equatable, Sendable {
         sequence = try container.decode(UInt64.self, forKey: .sequence)
         items = try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         browser = try container.decodeIfPresent(CanvasBrowser.self, forKey: .browser)
+        open = try container.decodeIfPresent(CanvasOpen.self, forKey: .open)
     }
 
-    private enum CodingKeys: String, CodingKey { case sequence, items, browser }
+    private enum CodingKeys: String, CodingKey { case sequence, items, browser, open }
 
     /// The items, the newest first, and then the browser.
     public var shown: [CanvasShown] {
@@ -59,6 +63,17 @@ public enum CanvasSection: String, Identifiable, Sendable {
 
     public var id: String {
         rawValue
+    }
+}
+
+/// The item or browser that the agent showed, by its key, and the stamp of the canvas then.
+public struct CanvasOpen: Decodable, Equatable, Sendable {
+    public let key: String
+    public let at: UInt64
+
+    public init(key: String, at: UInt64) {
+        self.key = key
+        self.at = at
     }
 }
 

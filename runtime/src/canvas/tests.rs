@@ -1,13 +1,30 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use base64::Engine as _;
 use serde_json::json;
 
 use super::{
     BrowserAct, BrowserDoingKind, BrowserPoint, CanvasAnswer, CanvasHandle, CanvasKind,
-    CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES, browser, files::Files, files::Stamp,
-    kind_of, page,
+    CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES, browser,
+    files::{Files, Showing, Stamp, examine_all},
+    is_address, kind_of, page,
 };
+use crate::text::Text;
+
+async fn show(files: &mut Files, paths: Vec<PathBuf>, stamp: &Stamp) -> Result<Showing, Text> {
+    Ok(files.show(examine_all(paths).await?, stamp))
+}
+
+#[test]
+fn show_takes_web_and_file_addresses_for_the_browser() {
+    assert!(is_address("http://localhost:5173"));
+    assert!(is_address("HTTPS://example.com/a?b=c"));
+    assert!(is_address("file:///tmp/report.html"));
+    assert!(!is_address("report.html"));
+    assert!(!is_address("localhost:3000"));
+    assert!(!is_address("ftp://example.com"));
+    assert!(!is_address("https://example.com/\nmore"));
+}
 
 #[test]
 fn a_file_shows_by_its_extension() {
@@ -84,8 +101,8 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     std::fs::write(&shot, [1, 2, 3]).unwrap();
     let stamp = Stamp::default();
     let mut files = Files::default();
-    files.show(vec![plan.clone()], &stamp).await.unwrap();
-    files.show(vec![shot.clone()], &stamp).await.unwrap();
+    show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
+    show(&mut files, vec![shot.clone()], &stamp).await.unwrap();
     let names = |files: &Files| {
         files
             .items()
@@ -94,7 +111,7 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
             .collect::<Vec<_>>()
     };
     assert_eq!(names(&files), ["shot.png", "plan.md"]);
-    files.show(vec![plan.clone()], &stamp).await.unwrap();
+    show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
     assert_eq!(names(&files), ["plan.md", "shot.png"]);
     assert_eq!(files.items()[0].revision, 1);
 
@@ -120,8 +137,7 @@ async fn a_text_file_opens_live_while_its_format_takes_it_and_else_shows_as_a_pa
     std::fs::write(&notes, b"caf\xe9\n").unwrap();
     let stamp = Stamp::default();
     let mut files = Files::default();
-    files
-        .show(vec![notes, config.clone()], &stamp)
+    show(&mut files, vec![notes, config.clone()], &stamp)
         .await
         .unwrap();
     let views = |files: &Files| {
@@ -145,10 +161,9 @@ async fn the_canvas_refuses_what_it_cannot_show() {
     let mut files = Files::default();
     let script = folder.path().join("run.sh");
     std::fs::write(&script, "echo").unwrap();
-    assert!(files.show(vec![script], &stamp).await.is_err());
+    assert!(show(&mut files, vec![script], &stamp).await.is_err());
     assert!(
-        files
-            .show(vec![folder.path().join("gone.md")], &stamp)
+        show(&mut files, vec![folder.path().join("gone.md")], &stamp)
             .await
             .is_err()
     );
@@ -268,6 +283,65 @@ fn a_file_name_has_no_folders() {
 }
 
 #[tokio::test]
+async fn showing_opens_the_canvas_at_the_first_file_until_that_file_goes() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path(), true),
+    );
+    canvas.moved_to(folder.path().to_owned());
+    let plan = folder.path().join("plan.md");
+    let shot = folder.path().join("shot.png");
+    std::fs::write(&plan, "# Plan").unwrap();
+    std::fs::write(&shot, [1, 2, 3]).unwrap();
+    let showing = |paths: Vec<PathBuf>| crate::canvas::Show {
+        paths,
+        address: None,
+        folder: folder.path().to_owned(),
+        terminal: "Ivory Moose".to_owned(),
+        agent: None,
+    };
+
+    let answer = canvas
+        .show(showing(vec![plan, shot.clone()]))
+        .await
+        .unwrap();
+    let CanvasAnswer::Text { text, code: 0 } = answer else {
+        panic!("shown");
+    };
+    assert!(text.contains("opens for the people"), "{text}");
+    let first = canvas.current().unwrap().open.unwrap();
+    assert!(first.key.ends_with("plan.md"), "{}", first.key);
+
+    let added = canvas
+        .request(CanvasRequest::Attach {
+            upload: uuid::Uuid::now_v7().to_string(),
+            name: "notes.md".to_owned(),
+            offset: 0,
+            data: "IyBOb3Rlcw==".to_owned(),
+            last: true,
+            page: false,
+        })
+        .await;
+    assert!(matches!(added, Ok(CanvasAnswer::Attached { .. })));
+    assert_eq!(canvas.current().unwrap().open, Some(first.clone()));
+
+    canvas.show(showing(vec![shot])).await.unwrap();
+    let again = canvas.current().unwrap().open.unwrap();
+    assert!(again.key.ends_with("shot.png"), "{}", again.key);
+    assert!(again.at > first.at);
+
+    canvas
+        .request(CanvasRequest::Remove {
+            keys: vec![again.key],
+        })
+        .await
+        .unwrap();
+    assert_eq!(canvas.current().unwrap().open, None);
+}
+
+#[tokio::test]
 async fn the_canvas_keeps_the_newest_items() {
     let folder = tempfile::tempdir().unwrap();
     let stamp = Stamp::default();
@@ -275,7 +349,7 @@ async fn the_canvas_keeps_the_newest_items() {
     for number in 0..=MOST_ITEMS {
         let path = folder.path().join(format!("{number}.txt"));
         std::fs::write(&path, "x").unwrap();
-        let showing = files.show(vec![path], &stamp).await.unwrap();
+        let showing = show(&mut files, vec![path], &stamp).await.unwrap();
         assert_eq!(showing.dropped.len(), usize::from(number == MOST_ITEMS));
     }
     assert_eq!(files.items().len(), MOST_ITEMS);
@@ -297,7 +371,7 @@ async fn a_large_file_comes_in_parts_of_one_revision() {
     std::fs::write(&path, &content).unwrap();
     let stamp = Stamp::default();
     let mut files = Files::default();
-    files.show(vec![path.clone()], &stamp).await.unwrap();
+    show(&mut files, vec![path.clone()], &stamp).await.unwrap();
     let key = files.items()[0].key.clone();
     let mut read = Vec::new();
     let mut offset = 0;

@@ -89,16 +89,18 @@ una barra de progreso. Un programa que no indica nada no muestra estado.
 
 ## 4. Mira lo que muestra un agente
 
-Un agente puede mostrarte una página, Markdown, una imagen, un PDF, un documento, una hoja o
-una presentación en el lienzo de su terminal, y usar un navegador que compartes con él. Los
-agentes que inicia Kodosi ya saben cómo; a otro agente, dile que lea `kodosi skill canvas`.
-Cuando el lienzo tiene algo, la cabecera del terminal muestra un botón para sus archivos y
-otro para su navegador, con un punto cobrizo cuando hay novedades. Selecciona uno para abrir
-el lienzo junto al terminal; Más espacio le da el escenario al lienzo y deja el terminal
-pequeño en su esquina. Cierra una parte con la × de su botón y vuelve a abrirla con +. Abrir
-navegador, en el botón de acciones, abre el navegador antes de que lo use el agente, y Añadir
-un archivo… pone un archivo en el lienzo y en la carpeta del terminal; también puedes soltar
-un archivo sobre el lienzo. En el iPhone, el botón del lienzo está en la barra del terminal.
+Un agente puede mostrarte una página, Markdown, una imagen, un PDF, un documento, una hoja,
+una presentación o la app que ejecuta en el lienzo de su terminal, y usar un navegador que
+compartes con él. El lienzo se abre con lo que muestra el agente mientras miras su terminal.
+Claude Code y Copilot CLI saben cómo, también cuando los inicias tú, y también un Codex que
+inicia Kodosi; a otro agente, dile que lea `kodosi skill canvas`. Cuando el lienzo tiene algo,
+la cabecera del terminal muestra un botón para sus archivos y otro para su navegador, con un
+punto cobrizo cuando hay novedades. Selecciona uno para abrir el lienzo junto al terminal; Más
+espacio le da el escenario al lienzo y deja el terminal pequeño en su esquina. Cierra una
+parte con la × de su botón y vuelve a abrirla con +. Abrir navegador, en el botón de acciones,
+abre el navegador antes de que lo use el agente, y Añadir un archivo… pone un archivo en el
+lienzo y en la carpeta del terminal; también puedes soltar un archivo sobre el lienzo. En el
+iPhone, el botón del lienzo está en la barra del terminal.
 
 - Un documento, una hoja, una presentación, un PDF o un archivo de texto está en directo:
   tú, las personas del terminal y el agente lo editáis a la vez, y sigue siendo un archivo
@@ -197,10 +199,11 @@ añade amigos y luego inicia un terminal en la sala o comparte uno en ella.
   helper de Git, y Gitea el credential helper o `KODOSI_GITEA_TOKEN` para el servidor de
   `KODOSI_GITEA_URL`. Tus credenciales se quedan en tu ordenador.
 - Escribe `@` y el nombre de un terminal en el chat, y Kodosi le da al agente de ese terminal
-  tu mensaje con tu nombre y la sala; el agente decide qué hacer con él. Los agentes que
-  inicia Kodosi saben que se ejecutan en Kodosi, y `kodosi skill` imprime la
-  [skill](../../runtime/skills/kodosi/SKILL.md) que permite a un agente participar. En un
-  terminal de Kodosi, el comando encuentra la sala; en otro sitio, añade `--room <name>`.
+  tu mensaje con tu nombre y la sala; el agente decide qué hacer con él. Claude Code y Copilot
+  CLI en un terminal de Kodosi, y un Codex que inicia Kodosi, saben que se ejecutan en Kodosi,
+  y `kodosi skill` imprime la [skill](../../runtime/skills/kodosi/SKILL.md) que permite a un
+  agente participar. En un terminal de Kodosi, el comando encuentra la sala; en otro sitio,
+  añade `--room <name>`.
 
 ## 8. Usa la línea de comandos
 
@@ -221,7 +224,7 @@ El comando `kodosi` trabaja con los mismos terminales que la app, y la app muest
 | `kodosi terminal wait <terminal> --until done,failed` | Espera a un estado. |
 | `kodosi terminal show <terminal>` | Muestra el terminal en la app. |
 | `kodosi dosi say "What needs me?"` | Le pregunta a Dosi. `kodosi dosi show` imprime la conversación, y `kodosi dosi stop` detiene a Dosi. |
-| `kodosi show <file>` | Muestra un archivo en el lienzo de este terminal. `kodosi canvas` lista lo que muestra, y `kodosi canvas remove <file>` quita un archivo. |
+| `kodosi show <file>` | Muestra un archivo en el lienzo de este terminal, que se abre para quienes lo miran; `kodosi show <address>` muestra una dirección web en su navegador. `kodosi canvas` lista lo que muestra, y `kodosi canvas remove <file>` quita un archivo. |
 | `kodosi browser open <address>` | Abre una página en el navegador compartido de este terminal. Los demás comandos de agent-browser también funcionan. |
 | `kodosi skill` | Imprime la skill que permite a un agente trabajar con las personas y los agentes de Kodosi. `kodosi skill canvas` imprime la skill del lienzo. |
 | `kodosi dosi skill` | Imprime la skill que permite a otro agente actuar como Dosi. |

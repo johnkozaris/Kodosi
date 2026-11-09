@@ -626,6 +626,7 @@ mod tests {
                 ("path", json!(DIRECTORY)),
                 ("paths", json!([DIRECTORY])),
                 ("folder", json!(DIRECTORY)),
+                ("address", json!("https://example.com")),
                 ("worktrees", json!(WORKTREES)),
                 ("branch", json!("fix/login")),
                 ("rows", json!(24)),

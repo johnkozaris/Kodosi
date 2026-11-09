@@ -10,11 +10,11 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasRequest, PipeEnds,
+    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest, PipeEnds,
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
-    files::{Files, Showing, Stamp, key_of},
+    files::{self, Files, Showing, Stamp, key_of},
     render::{self, RenderArguments},
 };
 use crate::documents::{DocumentHost, path_of};
@@ -48,8 +48,7 @@ impl CanvasServices {
 
 enum Job {
     Show {
-        paths: Vec<PathBuf>,
-        terminal: String,
+        show: Show,
         reply: Reply,
     },
     Browse {
@@ -88,6 +87,16 @@ enum Job {
     },
 }
 
+/// An agent's `kodosi show`: files, and an address for the shared browser, which the canvas
+/// opens at for the people of the terminal.
+pub(crate) struct Show {
+    pub(crate) paths: Vec<PathBuf>,
+    pub(crate) address: Option<String>,
+    pub(crate) folder: PathBuf,
+    pub(crate) terminal: String,
+    pub(crate) agent: Option<String>,
+}
+
 /// The canvas of one terminal: the files that its agent shows and its shared browser.
 #[derive(Clone)]
 pub(crate) struct CanvasHandle {
@@ -117,6 +126,7 @@ impl CanvasHandle {
             sharing,
             browsers: services.browsers,
             browser: None,
+            open: None,
         };
         tokio::spawn(actor.run());
         Self {
@@ -161,17 +171,8 @@ impl CanvasHandle {
             .collect()
     }
 
-    pub(crate) async fn show(
-        &self,
-        paths: Vec<PathBuf>,
-        terminal: String,
-    ) -> Result<CanvasAnswer, Text> {
-        self.ask(|reply| Job::Show {
-            paths,
-            terminal,
-            reply,
-        })
-        .await
+    pub(crate) async fn show(&self, show: Show) -> Result<CanvasAnswer, Text> {
+        self.ask(|reply| Job::Show { show, reply }).await
     }
 
     pub(crate) async fn browse(
@@ -346,6 +347,7 @@ struct Actor {
     sharing: watch::Receiver<bool>,
     browsers: BrowserHost,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
+    open: Option<CanvasOpen>,
 }
 
 impl Actor {
@@ -392,6 +394,13 @@ impl Actor {
     }
 
     fn publish(&self) {
+        let open = self.open.clone().filter(|open| {
+            if open.key == BROWSER_PIPE {
+                self.browser.is_some()
+            } else {
+                self.files.contains(&open.key)
+            }
+        });
         let canvas = Canvas {
             sequence: self.stamp.now(),
             items: self.files.items(),
@@ -399,6 +408,7 @@ impl Actor {
                 .browser
                 .as_ref()
                 .map(|(_, state)| state.borrow().clone()),
+            open,
         };
         self.published.send_if_modified(|current| {
             if *current == canvas {
@@ -412,19 +422,7 @@ impl Actor {
 
     async fn handle(&mut self, job: Job) {
         match job {
-            Job::Show {
-                paths,
-                terminal,
-                reply,
-            } => {
-                let answer = self
-                    .files
-                    .show(paths, &self.stamp)
-                    .await
-                    .map(|showing| shown(&showing, &terminal));
-                self.publish();
-                drop(reply.send(answer));
-            }
+            Job::Show { show, reply } => self.show(show, reply).await,
             Job::Browse {
                 folder,
                 arguments,
@@ -468,8 +466,11 @@ impl Actor {
                 tokio::spawn(async move { drop(reply.send(browser.watch(viewer).await)) });
             }
             Job::Downloaded { path } => {
-                if let Err(problem) = self.files.show(vec![path], &self.stamp).await {
-                    tracing::debug!(%problem, "the canvas does not show this download");
+                match files::examine_all(vec![path]).await {
+                    Ok(files) => drop(self.files.show(files, &self.stamp)),
+                    Err(problem) => {
+                        tracing::debug!(%problem, "the canvas does not show this download");
+                    }
                 }
                 self.publish();
             }
@@ -496,6 +497,96 @@ impl Actor {
             }
             Job::End { .. } => {}
         }
+    }
+
+    /// Shows files and pages on the canvas and opens it at them for the people of the terminal.
+    /// A page that loads from the network, and an address, open in the shared browser.
+    async fn show(&mut self, show: Show, reply: Reply) {
+        let Show {
+            paths,
+            address,
+            folder,
+            terminal,
+            agent,
+        } = show;
+        if address.is_some()
+            && self.browser.is_none()
+            && let Some(missing) = browser::missing()
+        {
+            drop(reply.send(Err(missing)));
+            return;
+        }
+        let can_browse = self.browser.is_some() || browser::missing().is_none();
+        let examined = match files::examine_all(paths).await {
+            Ok(examined) => examined,
+            Err(problem) => {
+                drop(reply.send(Err(problem)));
+                return;
+            }
+        };
+        let (pages, kept): (Vec<_>, Vec<_>) = examined
+            .into_iter()
+            .partition(|file| can_browse && file.loads.is_some() && file.address().is_some());
+        let showing = self.files.show(kept, &self.stamp);
+        let mut lines = shown(&showing, &terminal);
+        let mut addresses = Vec::from_iter(address);
+        for page in pages {
+            lines.push(format!(
+                "{} loads {} from the network, so it opens in the shared browser.",
+                page.name(),
+                page.loads.as_deref().unwrap_or_default()
+            ));
+            addresses.extend(page.address());
+        }
+        let browser = (!addresses.is_empty()).then(|| self.browser());
+        let key = if browser.is_some() {
+            Some(BROWSER_PIPE.to_owned())
+        } else {
+            showing.shown.first().map(|shown| shown.key.clone())
+        };
+        if let Some(key) = key {
+            self.open = Some(CanvasOpen {
+                key,
+                at: self.stamp.next(),
+            });
+        }
+        self.publish();
+        let Some(browser) = browser else {
+            drop(reply.send(Ok(CanvasAnswer::Text {
+                text: lines.join("\n"),
+                code: 0,
+            })));
+            return;
+        };
+        tokio::spawn(async move {
+            let mut code = 0;
+            for (index, address) in addresses.into_iter().enumerate() {
+                let arguments = if index == 0 {
+                    vec!["open".to_owned(), address]
+                } else {
+                    vec!["tab".to_owned(), "new".to_owned(), address]
+                };
+                match browser
+                    .run(folder.clone(), arguments, &terminal, agent.clone())
+                    .await
+                {
+                    Ok(CanvasAnswer::Text { text, code: run }) => {
+                        lines.push(text.trim_end().to_owned());
+                        code = code.max(run);
+                    }
+                    Ok(_) => {}
+                    Err(problem) => {
+                        drop(reply.send(Err(problem)));
+                        return;
+                    }
+                }
+            }
+            lines.retain(|line| !line.is_empty());
+            drop(reply.send(Ok(CanvasAnswer::Text {
+                text: lines.join("\n"),
+                code,
+            })));
+        });
     }
 
     async fn request(&mut self, request: CanvasRequest, reply: Reply) {
@@ -564,7 +655,9 @@ impl Actor {
         if page {
             return Ok(CanvasAnswer::Attached { key });
         }
-        let showing = self.files.show(vec![path], &self.stamp).await;
+        let showing = files::examine_all(vec![path])
+            .await
+            .map(|files| self.files.show(files, &self.stamp));
         self.publish();
         showing.map(|_| CanvasAnswer::Attached { key })
     }
@@ -625,16 +718,19 @@ fn pictures(data_root: &Path, id: Uuid) -> PathBuf {
     data_root.join("render").join(id.to_string())
 }
 
-fn shown(showing: &Showing, terminal: &str) -> CanvasAnswer {
-    let names = showing
-        .shown
-        .iter()
-        .map(|shown| shown.name.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let mut lines = vec![format!(
-        "On the canvas of {terminal}: {names}. The people in this terminal open the canvas to see it."
-    )];
+fn shown(showing: &Showing, terminal: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    if !showing.shown.is_empty() {
+        let names = showing
+            .shown
+            .iter()
+            .map(|shown| shown.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        lines.push(format!(
+            "The canvas of {terminal} shows {names}, and it opens for the people who look at this terminal."
+        ));
+    }
     lines.extend(showing.shown.iter().filter_map(|shown| {
         shown.loads.as_ref().map(|address| {
             format!(
@@ -650,10 +746,7 @@ fn shown(showing: &Showing, terminal: &str) -> CanvasAnswer {
             showing.dropped.join(", ")
         ));
     }
-    CanvasAnswer::Text {
-        text: lines.join("\n"),
-        code: 0,
-    }
+    lines
 }
 
 /// Deletes the browser profiles of the terminals that do not come back, and the pictures of

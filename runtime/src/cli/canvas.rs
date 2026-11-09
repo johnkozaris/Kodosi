@@ -30,28 +30,46 @@ fn terminal() -> Result<Uuid> {
         .ok_or_else(|| Error::Invalid(IN_A_TERMINAL.to_owned()))
 }
 
+/// Shows files and an address on the canvas, and gives the exit code.
 pub(super) async fn show(
-    files: Vec<PathBuf>,
+    things: Vec<PathBuf>,
     client: &mut local_host::Client,
     context: &mut Context,
     json_output: bool,
-) -> Result<()> {
+) -> Result<u8> {
     let session = terminal()?;
-    let paths = files
-        .into_iter()
-        .map(|file| {
-            super::path(Some(file.clone()))?
-                .ok_or_else(|| Error::Invalid(format!("There is no file {}.", file.display())))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let mut paths = Vec::new();
+    let mut address = None;
+    for thing in things {
+        match thing
+            .to_str()
+            .filter(|word| crate::canvas::is_address(word))
+        {
+            Some(_) if address.is_some() => {
+                return Err(Error::Invalid("Show one address at a time.".to_owned()));
+            }
+            Some(word) => address = Some(word.to_owned()),
+            None => {
+                paths.push(super::path(Some(thing.clone()))?.ok_or_else(|| {
+                    Error::Invalid(format!("There is no file {}.", thing.display()))
+                })?);
+            }
+        }
+    }
+    let folder = super::path(Some(PathBuf::from(".")))?
+        .ok_or_else(|| Error::Invalid("This folder is not available.".to_owned()))?;
     let event = request(
         client,
         context,
-        json!({"type":"canvas.show","sessionId":session,"paths":paths}),
+        json!({"type":"canvas.show","sessionId":session,"paths":paths,"address":address,"folder":folder}),
         json_output,
     )
     .await?;
-    output(&event, json_output, answer_text(&event))
+    output(&event, json_output, answer_text(&event))?;
+    Ok(event["answer"]["code"]
+        .as_i64()
+        .and_then(|code| u8::try_from(code).ok())
+        .unwrap_or(1))
 }
 
 /// Runs an agent-browser command and gives its exit code.

@@ -73,16 +73,17 @@ enum Action {
         about = "Print the skill that lets an agent work with the people and agents in Kodosi, or another part of it."
     )]
     Skill {
-        /// canvas: how to show files and use the shared browser; documents: how to edit documents, sheets, presentations, PDFs and text files with people; page: the page template of the canvas.
+        /// context: Kodosi's short note for an agent; canvas: how to show what you make and use the shared browser; documents: how to edit documents, sheets, presentations, PDFs and text files with people; page: the page template of the canvas.
         #[arg(value_enum)]
         topic: Option<SkillTopic>,
     },
     #[command(
-        about = "Show files on the canvas of this terminal: pages, pictures, documents, sheets, presentations and PDFs."
+        about = "Show files or a web address to the people of this terminal on its canvas, which opens for them: pages, pictures, documents, sheets, presentations, PDFs and web apps."
     )]
     Show {
+        /// Files, and at most one address (http, https or file) for the shared browser.
         #[arg(required = true)]
-        files: Vec<PathBuf>,
+        things: Vec<PathBuf>,
     },
     #[command(about = "List or remove what the canvas of this terminal shows.")]
     Canvas {
@@ -119,6 +120,7 @@ const TERMINAL: &str =
 
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {
+    Context,
     Canvas,
     Documents,
     Page,
@@ -518,6 +520,9 @@ async fn dispatch(args: Arguments) -> Result<u8> {
     if let Action::Doc { arguments } = args.command {
         return canvas::document(arguments, &mut client, &mut context, json_output).await;
     }
+    if let Action::Show { things } = args.command {
+        return canvas::show(things, &mut client, &mut context, json_output).await;
+    }
     match args.command {
         Action::Room(arguments) => {
             rooms::run(arguments, &mut client, &mut context, json_output).await
@@ -588,7 +593,6 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             link_device(&mut client, &mut context, json_output).await
         }
         Action::Dosi(action) => dosi::run(action, &mut client, &mut context, json_output).await,
-        Action::Show { files } => canvas::show(files, &mut client, &mut context, json_output).await,
         Action::Canvas { action } => {
             canvas::run(action, &mut client, &mut context, json_output).await
         }
@@ -604,6 +608,9 @@ async fn dispatch(args: Arguments) -> Result<u8> {
 const fn skill(action: &Action) -> Option<&'static str> {
     match action {
         Action::Skill { topic: None } => Some(crate::agents::SKILL),
+        Action::Skill {
+            topic: Some(SkillTopic::Context),
+        } => Some(crate::agents::CONTEXT),
         Action::Skill {
             topic: Some(SkillTopic::Canvas),
         } => Some(crate::agents::CANVAS_SKILL),
