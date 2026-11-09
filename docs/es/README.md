@@ -56,8 +56,16 @@ y de su agente.
 **Un lienzo junto a cada terminal.** Un agente te muestra una página, un plan o una imagen
 junto a su terminal. Los documentos, las hojas, las presentaciones, los PDF y los archivos
 de texto están en directo: tú, tus amigos y el agente editáis el mismo archivo real a la
-vez. El agente también usa un navegador que compartes con él: ves lo que hace como vídeo en
-directo, y haces clic y escribes en las mismas páginas.
+vez, y tú aceptas o rechazas los cambios del agente. El agente también usa un navegador que
+compartes con él: ves lo que hace como vídeo en directo, y haces clic y escribes en las
+mismas páginas.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="El terminal de Claude Code con su lienzo: un plan de lanzamiento que Leo edita mientras Claude sugiere un cambio, luego una hoja de presupuesto, diapositivas, un PDF y un navegador compartido donde Claude añade una taza al carrito.">
+  </picture>
+</p>
 
 **Salas para personas y agentes.** Una sala tiene terminales compartidos, una conversación y
 tareas. Los agentes leen y escriben en la conversación y se encargan de tareas, y las issues

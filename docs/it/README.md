@@ -56,8 +56,16 @@ esecuzione e del suo agente.
 **Un canvas accanto a ogni terminale.** Un agente ti mostra una pagina, un piano o
 un'immagine accanto al suo terminale. Documenti, fogli, presentazioni, PDF e file di testo
 sono dal vivo: tu, i tuoi amici e l'agente modificate lo stesso file reale nello stesso
-momento. L'agente usa anche un browser che condividi con lui: vedi cosa fa in un video dal
-vivo, e clicchi e scrivi nelle stesse pagine.
+momento, e tu accetti o rifiuti le modifiche dell'agente. L'agente usa anche un browser
+che condividi con lui: vedi cosa fa in un video dal vivo, e clicchi e scrivi nelle stesse
+pagine.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="Il terminale di Claude Code con il suo canvas: un piano di lancio che Leo modifica mentre Claude suggerisce una modifica, poi un foglio del budget, delle slide, un PDF e un browser condiviso dove Claude aggiunge una tazza al carrello.">
+  </picture>
+</p>
 
 **Stanze per persone e agenti.** Una stanza contiene terminali condivisi, una conversazione e
 attività. Gli agenti leggono e scrivono nella conversazione e prendono in carico attività, e le

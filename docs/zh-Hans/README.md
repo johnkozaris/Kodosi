@@ -41,7 +41,14 @@
 
 **共享实时终端。** 把一个正在运行的终端及其 Agent 的完全控制权交给好友。
 
-**每个终端旁都有画布。** Agent 会在终端旁给你展示页面、计划或图片。文档、表格、演示文稿、PDF 和文本文件都是实时的：你、你的好友和 Agent 可以同时编辑同一个真实文件。Agent 还会使用一个与你共享的浏览器：你能以实时视频看到它在做什么，也能在同样的页面里点击和输入。
+**每个终端旁都有画布。** Agent 会在终端旁给你展示页面、计划或图片。文档、表格、演示文稿、PDF 和文本文件都是实时的：你、你的好友和 Agent 可以同时编辑同一个真实文件，你也可以接受或拒绝 Agent 的修改。Agent 还会使用一个与你共享的浏览器：你能以实时视频看到它在做什么，也能在同样的页面里点击和输入。
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
+    <img src="../media/canvas.webp" width="900" alt="Claude Code 的终端和它的画布：Leo 正在编辑的发布计划里，Claude 提出了一处修改；接着是预算表格、幻灯片、PDF，以及 Claude 把一个杯子加入购物车的共享浏览器。">
+  </picture>
+</p>
 
 **为人和 Agent 准备的房间。** 房间里有共享终端、对话和任务。Agent 会在对话中阅读和发言、认领任务，GitHub 或 Gitea 的 Issue 也会变成任务。
 
