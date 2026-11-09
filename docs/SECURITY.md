@@ -12,12 +12,13 @@ threat model, mechanisms and known limits; no independent party has audited it y
 Sharing a terminal grants full control with the host user's operating-system privileges.
 A terminal in a room goes to the friends of its owner in that room, including friends
 who join later. When you remove a friend, they lose your terminals, and each of you
-leaves the rooms that the other owns. A shared terminal runs as you: the people in it
-can also run `kodosi` as you and read and change your files on that computer, so share
-it only with people whom you trust with that computer. Kodosi trusts everyone who shares
-a terminal or a room, and the programs and agents in their terminals, and does not limit
-what they do. Each of your approved devices controls all your terminals and can start
-new ones on your other computers that run Kodosi.
+leaves the rooms that the other owns. Blocking a person does the same, and they cannot
+send you friend requests. A shared terminal runs as you: the people in it can also run
+`kodosi` as you and read and change your files on that computer, so share it only with
+people whom you trust with that computer. Kodosi trusts everyone who shares a terminal
+or a room, and the programs and agents in their terminals, and does not limit what they
+do. Each of your approved devices controls all your terminals and can start new ones on
+your other computers that run Kodosi.
 
 Everyone who can open a terminal also sees the files on its canvas and uses its shared
 browser, so sign in there only where all of them may act. The shared browser of a shared

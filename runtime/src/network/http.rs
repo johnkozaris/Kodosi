@@ -481,6 +481,7 @@ fn backend_refusals() -> Vec<Text> {
         text!("This device was removed."),
         text!("This invitation is no longer available."),
         text!("This operation is not authorized."),
+        text!("This person does not take friend requests from you."),
         text!("This person has the most friends that they can have."),
         text!("This person has too many open friend requests. Try again later."),
         text!("This person has too many open room invitations."),
@@ -501,6 +502,7 @@ fn backend_refusals() -> Vec<Text> {
         ),
         text!("Too many open views."),
         text!("Too many pending device approvals."),
+        text!("Unblock this person first."),
         text!("You cannot leave your own terminal."),
         text!("You have too many terminals."),
     ]

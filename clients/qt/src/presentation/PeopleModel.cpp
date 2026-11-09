@@ -41,6 +41,18 @@ void PeopleModel::remove(const QString& username)
         QStringLiteral("friends.remove"), { { QStringLiteral("username"), username } });
 }
 
+void PeopleModel::block(const QString& username)
+{
+    m_workspace.sendUntracked(
+        QStringLiteral("friends.block"), { { QStringLiteral("username"), username } });
+}
+
+void PeopleModel::unblock(const QString& username)
+{
+    m_workspace.sendUntracked(
+        QStringLiteral("friends.unblock"), { { QStringLiteral("username"), username } });
+}
+
 void PeopleModel::trust(const QString& username)
 {
     m_workspace.sendUntracked(
@@ -86,6 +98,7 @@ void PeopleModel::reset()
     m_friends.clear();
     m_incoming.clear();
     m_outgoing.clear();
+    m_blocked.clear();
     m_inviteRequested.invalidate();
     emit changed();
 }

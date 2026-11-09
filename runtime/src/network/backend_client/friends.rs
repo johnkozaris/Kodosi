@@ -375,9 +375,16 @@ impl BackendClient {
     pub(super) async fn friend_event(&self) -> Result<Value> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
-            return Ok(json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[]}));
+            return Ok(
+                json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[],"blocked":[]}),
+            );
         }
         let (friends, requests) = self.friend_directory(&credentials).await?;
+        let blocked: Value = self
+            .inner
+            .http
+            .device(Method::GET, "api/friends/blocked", &credentials, None)
+            .await?;
         let (list, _) = self.sync_friends(&credentials).await?;
         for friend in &friends {
             let user = wire::text(friend, "userId")?;
@@ -427,7 +434,7 @@ impl BackendClient {
             .collect::<Result<Vec<_>>>()?;
         drop(state);
         Ok(
-            json!({"type":"friends.snapshot","friends":friends,"incoming":requests["incoming"],"outgoing":requests["outgoing"]}),
+            json!({"type":"friends.snapshot","friends":friends,"incoming":requests["incoming"],"outgoing":requests["outgoing"],"blocked":blocked}),
         )
     }
 
@@ -446,6 +453,12 @@ impl BackendClient {
     }
 
     async fn friend_user(&self, credentials: &Credentials, handle: &str) -> Result<String> {
+        self.known_user(credentials, handle)
+            .await?
+            .ok_or_else(|| Error::Text(text!("This person is not in your friends or requests.")))
+    }
+
+    async fn known_user(&self, credentials: &Credentials, handle: &str) -> Result<Option<String>> {
         let (friends, requests) = self.friend_directory(credentials).await?;
         let listed = |people: Option<&Vec<Value>>| {
             people.into_iter().flatten().find_map(|person| {
@@ -457,10 +470,9 @@ impl BackendClient {
                     .map(str::to_owned)
             })
         };
-        listed(Some(&friends))
+        Ok(listed(Some(&friends))
             .or_else(|| listed(requests["outgoing"].as_array()))
-            .or_else(|| listed(requests["incoming"].as_array()))
-            .ok_or_else(|| Error::Text(text!("This person is not in your friends or requests.")))
+            .or_else(|| listed(requests["incoming"].as_array())))
     }
 
     async fn friend_request(
@@ -478,6 +490,16 @@ impl BackendClient {
             "remove" => (
                 Method::DELETE,
                 format!("api/friends/{}", path_segment(handle)?),
+                None,
+            ),
+            "block" => (
+                Method::PUT,
+                format!("api/friends/blocked/{}", path_segment(handle)?),
+                None,
+            ),
+            "unblock" => (
+                Method::DELETE,
+                format!("api/friends/blocked/{}", path_segment(handle)?),
                 None,
             ),
             action => (
@@ -572,6 +594,20 @@ impl BackendClient {
                 self.friend_request(&credentials, "accept", typed).await?;
             }
             "friends.request.reject" => self.friend_request(&credentials, "reject", typed).await?,
+            "friends.block" => {
+                #[cfg(feature = "host")]
+                self.exclude_friend(&credentials, typed).await?;
+                if let Some(other) = self.known_user(&credentials, typed).await? {
+                    self.end_rooms_with(&credentials, &other).await?;
+                }
+                self.friend_request(&credentials, "block", typed).await?;
+                self.change_friends(&credentials, |list| {
+                    let user = list.by_handle(typed).map(|(user, _)| user.clone());
+                    user.is_some_and(|user| list.friends.remove(&user).is_some())
+                })
+                .await?;
+            }
+            "friends.unblock" => self.friend_request(&credentials, "unblock", typed).await?,
             "friends.request.cancel" | "friends.remove" => {
                 if operation == "friends.remove" {
                     #[cfg(feature = "host")]
@@ -646,7 +682,7 @@ impl BackendClient {
         #[cfg(feature = "host")]
         if matches!(
             operation,
-            "friends.remove" | "friends.identity.trust" | "friends.verify"
+            "friends.remove" | "friends.block" | "friends.identity.trust" | "friends.verify"
         ) {
             self.review_access().await?;
         }

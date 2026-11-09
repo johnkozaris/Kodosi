@@ -14,13 +14,14 @@ verificato.
 Condividere un terminale concede il pieno controllo, con i privilegi di sistema operativo
 dell'utente dell'host. Un terminale in una stanza va agli amici del suo proprietario in quella
 stanza, compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi
-terminali, e ciascuno di voi lascia le stanze dell'altro. Un terminale condiviso viene
-eseguito come te: le persone che lo usano possono anche eseguire `kodosi` come te e leggere e
-modificare i tuoi file su quel computer, quindi condividilo solo con persone a cui affideresti
-quel computer. Kodosi si fida di tutti quelli che condividono un terminale o una stanza, e dei
-programmi e degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi
-dispositivi approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri
-tuoi computer che eseguono Kodosi.
+terminali, e ciascuno di voi lascia le stanze dell'altro. Bloccare una persona fa lo stesso, e
+non può inviarti richieste di amicizia. Un terminale condiviso viene eseguito come te: le
+persone che lo usano possono anche eseguire `kodosi` come te e leggere e modificare i tuoi
+file su quel computer, quindi condividilo solo con persone a cui affideresti quel computer.
+Kodosi si fida di tutti quelli che condividono un terminale o una stanza, e dei programmi e
+degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi
+approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer
+che eseguono Kodosi.
 
 Chi può aprire un terminale vede anche i file sul suo canvas e usa il suo browser condiviso,
 quindi accedi lì solo dove tutti possono agire. Il browser condiviso di un terminale condiviso

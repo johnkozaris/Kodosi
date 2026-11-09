@@ -305,7 +305,7 @@ import Testing
             "userId": .string("other"), "handle": .string("other"), "displayName": .string("Other"),
             "verified": .bool(false), "identityState": .string("changed"), "inviteNeeded": .bool(false),
         ])]),
-        "incoming": .array([]), "outgoing": .array([]),
+        "incoming": .array([]), "outgoing": .array([]), "blocked": .array([]),
     ]))
     #expect(app.people.friends.isEmpty)
     app.shutdownProcess()
@@ -331,7 +331,7 @@ import Testing
                 "verified": .bool(false), "identityState": .string("changed"), "inviteNeeded": .bool(false),
             ]),
         ]),
-        "incoming": .array([]), "outgoing": .array([]),
+        "incoming": .array([]), "outgoing": .array([]), "blocked": .array([]),
     ]))
     #expect(app.people.friends.map(\.verified) == [true, false])
     #expect(app.people.friends.map(\.identityChanged) == [false, true])

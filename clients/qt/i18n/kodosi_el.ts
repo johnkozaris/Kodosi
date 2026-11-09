@@ -2218,6 +2218,10 @@
         <translation>Απόρριψη</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Αποκλεισμός…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Το αίτημα στάλθηκε στον χρήστη %1</translation>
     </message>
@@ -2274,12 +2278,32 @@
         <translation>Άνοιγμα %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Αποκλεισμένοι</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Άρση αποκλεισμού</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Δεν έχετε φίλους ακόμη</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Στείλτε την πρόσκλησή σας ή προσθέστε ένα όνομα χρήστη παραπάνω.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>Αποκλεισμός %1;</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Αποκλεισμός</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Το άτομο δεν μπορεί να σας στέλνει αιτήματα φιλίας. Αν είστε φίλοι, σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου.</translation>
     </message>
     <message>
         <source>Remove %1?</source>

@@ -6,6 +6,7 @@ struct PeopleView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var pendingRemoval: FriendEntry?
+    @State private var blocking: BlockTarget?
     @State private var copied = false
     @FocusState private var adding: Bool
 
@@ -45,11 +46,29 @@ struct PeopleView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
                             ForEach(Array(deps.people.friends.enumerated()), id: \.element.id) { index, friend in
-                                FriendCard(friend: friend) { pendingRemoval = friend }
-                                    .arrive(delay: 0.04 * Double(min(index, 8) + 2))
+                                FriendCard(friend: friend) { pendingRemoval = friend } block: {
+                                    blocking = BlockTarget(handle: friend.handle, name: friend.personName)
+                                }
+                                .arrive(delay: 0.04 * Double(min(index, 8) + 2))
                             }
                         }
                     }
+                    if !deps.people.blocked.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Blocked").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
+                            ForEach(deps.people.blocked) { person in blocked(person).transition(AnyTransition.rise) }
+                        }
+                    }
+                }
+                .blockConfirmation(isPresented: Binding(get: { blocking != nil }, set: {
+                    if !$0 {
+                        blocking = nil
+                    }
+                }), name: blocking?.name ?? "") {
+                    if let target = blocking {
+                        deps.people.block(handle: target.handle)
+                    }
+                    blocking = nil
                 }
                 .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 36)
                 .frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity)
@@ -57,6 +76,7 @@ struct PeopleView: View {
             .animation(theme.motion.spring, value: deps.people.friends.map(\.id))
             .animation(theme.motion.spring, value: deps.people.incoming.map(\.id))
             .animation(theme.motion.spring, value: deps.people.outgoing.map(\.id))
+            .animation(theme.motion.spring, value: deps.people.blocked.map(\.id))
             .animation(theme.motion.snappy, value: copied)
             .confirmationDialog(
                 "Remove \(pendingRemoval?.personName ?? "")?",
@@ -118,12 +138,28 @@ struct PeopleView: View {
                 Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
             Spacer()
+            Button("Block…") { blocking = BlockTarget(handle: person.handle, name: name) }.buttonStyle(.kodosi(.ghost))
+                .accessibilityIdentifier("people.block.\(person.handle)")
             Button("Not now") { deps.people.decline(person) }.buttonStyle(.kodosi(.ghost))
             Button("Accept…") { deps.workbench.trusting = .accept(person) }.buttonStyle(.kodosi(.primary))
         }
         .padding(14).frame(maxWidth: 620)
         .raised(Radius.xl)
         .overlay { RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.6), lineWidth: 1.5) }
+    }
+
+    private func blocked(_ person: BlockedEntry) -> some View {
+        HStack(spacing: 12) {
+            PersonAvatar(name: person.personName, key: person.userId, size: 28)
+            Text(person.personName).appTextStyle(.body).foregroundStyle(theme.colors.ink)
+            Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+            Spacer()
+            Button("Unblock") { deps.people.unblock(person) }
+                .buttonStyle(.kodosi(.ghost, size: .small))
+                .accessibilityIdentifier("people.unblock.\(person.handle)")
+        }
+        .padding(.horizontal, 12).frame(height: 46).frame(maxWidth: 620)
+        .well(Radius.lg)
     }
 
     private func outgoing(_ person: FriendRequestEntry) -> some View {
@@ -141,6 +177,11 @@ struct PeopleView: View {
     }
 }
 
+private struct BlockTarget: Equatable {
+    let handle: String
+    let name: String
+}
+
 private struct FriendCard: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -149,6 +190,7 @@ private struct FriendCard: View {
     @State private var invite = ""
     let friend: FriendEntry
     let remove: () -> Void
+    let block: () -> Void
 
     private var name: String {
         friend.personName
@@ -177,6 +219,7 @@ private struct FriendCard: View {
                         Button("Verify with their invite…") { verifying = true }
                     }
                     Button("Remove…", role: .destructive, action: remove)
+                    Button("Block…", role: .destructive, action: block)
                 } label: {
                     Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                         .frame(width: 26, height: 26).contentShape(Circle())

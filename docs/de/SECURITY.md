@@ -13,13 +13,14 @@ die Mechanismen und die bekannten Grenzen; noch hat es keine unabhängige Stelle
 Wer ein Terminal teilt, gibt die volle Kontrolle mit den Betriebssystemrechten des
 Host-Benutzers. Ein Terminal in einem Raum geht an die Freunde seines Eigentümers in diesem
 Raum, auch an Freunde, die später beitreten. Wenn du einen Freund entfernst, verliert er
-deine Terminals, und jeder von euch verlässt die Räume, die dem anderen gehören. Ein
-geteiltes Terminal läuft als du: Die Personen darin können auch `kodosi` als du ausführen
-und deine Dateien auf diesem Computer lesen und ändern. Teile es also nur mit Personen,
-denen du diesen Computer anvertraust. Kodosi vertraut allen, die ein Terminal oder einen
-Raum teilen, sowie den Programmen und Agents in ihren Terminals, und schränkt nicht ein, was
-sie tun. Jedes deiner freigegebenen Geräte steuert all deine Terminals und kann neue auf
-deinen anderen Computern starten, auf denen Kodosi läuft.
+deine Terminals, und jeder von euch verlässt die Räume, die dem anderen gehören. Wenn du
+eine Person blockierst, geschieht dasselbe, und sie kann dir keine Freundschaftsanfragen
+senden. Ein geteiltes Terminal läuft als du: Die Personen darin können auch `kodosi` als du
+ausführen und deine Dateien auf diesem Computer lesen und ändern. Teile es also nur mit
+Personen, denen du diesen Computer anvertraust. Kodosi vertraut allen, die ein Terminal oder
+einen Raum teilen, sowie den Programmen und Agents in ihren Terminals, und schränkt nicht
+ein, was sie tun. Jedes deiner freigegebenen Geräte steuert all deine Terminals und kann
+neue auf deinen anderen Computern starten, auf denen Kodosi läuft.
 
 Alle, die ein Terminal öffnen können, sehen auch die Dateien auf seinem Canvas und nutzen
 seinen geteilten Browser; melde dich dort also nur an, wo alle von ihnen handeln dürfen. Der

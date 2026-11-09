@@ -84,6 +84,7 @@ struct IncomingRequestRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @State private var trusting = false
+    @State private var blocking = false
     let request: FriendRequestEntry
 
     private var people: PeopleStore {
@@ -114,6 +115,10 @@ struct IncomingRequestRow: View {
                 Label("Not now", systemImage: "xmark")
             }
             .tint(TileTint.graphite)
+            Button { blocking = true } label: {
+                Label("Block", systemImage: "hand.raised")
+            }
+            .tint(theme.colors.danger)
         }
         .contextMenu {
             Button { trusting = true } label: {
@@ -122,8 +127,12 @@ struct IncomingRequestRow: View {
             Button { people.decline(request) } label: {
                 Label("Not now", systemImage: "xmark")
             }
+            Button(role: .destructive) { blocking = true } label: {
+                Label("Block…", systemImage: "hand.raised")
+            }
         }
         .friendTrustAlert(isPresented: $trusting, name: request.personName) { people.accept(request) }
+        .blockConfirmation(isPresented: $blocking, name: request.personName) { people.block(handle: request.handle) }
     }
 
     private var identity: some View {

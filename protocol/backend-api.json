@@ -105,6 +105,11 @@
     "stop": "DELETE /api/me/identity/reset/{requestId} removes it; a link or recovery approval of its device also removes it",
     "complete": "POST /api/me/devices with the device id and signing key of a ready reset revokes every device of the account, removes the device list and friend lists, cancels pending links and registers the device as the first device of a new identity, in one transaction"
   },
+  "blocking": {
+    "block": "PUT /api/friends/blocked/{username} ends the friendship or the open request between the two accounts, as removing a friend does, and keeps the block",
+    "effect": "the blocked account cannot send a friend request to the account that blocked it, and that account must unblock before it sends one",
+    "list": "GET /api/friends/blocked gives userId, handle and displayName of each blocked account"
+  },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
     "list": "JSON of the records with the account id, a revision, previous (the hexadecimal SHA-256 of the list before it; absent in the first list) and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
@@ -152,6 +157,9 @@
       "POST /api/friends/requests/{username}/reject",
       "POST /api/friends/requests/{username}/cancel",
       "DELETE /api/friends/{username}",
+      "GET /api/friends/blocked",
+      "PUT /api/friends/blocked/{username}",
+      "DELETE /api/friends/blocked/{username}",
       "GET /api/me/friend-list",
       "PUT /api/me/friend-list"
     ],

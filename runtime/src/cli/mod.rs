@@ -389,6 +389,10 @@ enum FriendAction {
     Cancel { username: String },
     /// Remove a friend. Terminals that you shared with this friend close for them.
     Remove { username: String },
+    /// Block a person: they stop being your friend and cannot send you friend requests.
+    Block { username: String },
+    /// Let a blocked person send you friend requests again.
+    Unblock { username: String },
     /// Print your invite text. A friend who adds you with it becomes verified at once.
     Invite,
     /// Verify a friend with the invite text that they sent you.
@@ -647,6 +651,8 @@ const fn guarded(action: &Action) -> bool {
                     | DeviceAction::Approve { .. }
                     | DeviceAction::Revoke { .. }
                     | DeviceAction::Reset
+                    | DeviceAction::ResetAllow
+                    | DeviceAction::ResetStop
                     | DeviceAction::RecoveryKey
                     | DeviceAction::Recover
             )
@@ -1278,6 +1284,12 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
         }
         FriendAction::Remove { username } => {
             json!({"type":"friends.remove","username":username})
+        }
+        FriendAction::Block { username } => {
+            json!({"type":"friends.block","username":username})
+        }
+        FriendAction::Unblock { username } => {
+            json!({"type":"friends.unblock","username":username})
         }
         FriendAction::Invite => json!({"type":"friends.invite"}),
         FriendAction::Verify { username, invite } => {

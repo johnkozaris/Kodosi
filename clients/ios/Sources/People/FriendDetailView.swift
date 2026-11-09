@@ -37,6 +37,7 @@ private struct FriendDetailList: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @State private var confirmingRemoval = false
+    @State private var blocking = false
     let friend: FriendEntry
 
     private var people: PeopleStore {
@@ -144,6 +145,18 @@ private struct FriendDetailList: View {
                 } message: {
                     Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
                 }
+                Button(role: .destructive) { blocking = true } label: {
+                    SettingRow(
+                        symbol: "hand.raised",
+                        tint: TileTint.red,
+                        title: Text("Block"),
+                        titleColor: theme.colors.danger,
+                    )
+                }
+                .disabled(people.isBusy(friend.handle))
+                .raisedRows()
+                .accessibilityIdentifier("people.detail.block")
+                .blockConfirmation(isPresented: $blocking, name: friend.personName) { people.block(handle: friend.handle) }
             }
         }
         .groupedListChrome()

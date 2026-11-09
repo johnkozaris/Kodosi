@@ -185,6 +185,18 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "friends.block")]
+    BlockFriend {
+        username: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "friends.unblock")]
+    UnblockFriend {
+        username: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "friends.identity.trust")]
     TrustFriend {
         username: String,
@@ -947,6 +959,7 @@ pub enum EventBody {
         friends: Vec<FriendEntry>,
         incoming: Vec<FriendRequestEntry>,
         outgoing: Vec<FriendRequestEntry>,
+        blocked: Vec<BlockedEntry>,
     },
     #[serde(rename = "friends.result")]
     FriendsResult {
@@ -1306,6 +1319,15 @@ pub struct FriendRequestEntry {
     pub created_at: String,
 }
 
+/// A person whom the user blocked: they cannot send the user friend requests.
+#[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockedEntry {
+    pub user_id: String,
+    pub handle: String,
+    pub display_name: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceEntry {
@@ -1642,6 +1664,8 @@ impl Command {
             Self::RejectFriend { .. } => "friends.request.reject",
             Self::CancelFriend { .. } => "friends.request.cancel",
             Self::RemoveFriend { .. } => "friends.remove",
+            Self::BlockFriend { .. } => "friends.block",
+            Self::UnblockFriend { .. } => "friends.unblock",
             Self::TrustFriend { .. } => "friends.identity.trust",
             Self::VerifyFriend { .. } => "friends.verify",
             Self::FriendInvite { .. } => "friends.invite",
@@ -1768,6 +1792,8 @@ impl Command {
             | Self::RejectFriend { request_id, .. }
             | Self::CancelFriend { request_id, .. }
             | Self::RemoveFriend { request_id, .. }
+            | Self::BlockFriend { request_id, .. }
+            | Self::UnblockFriend { request_id, .. }
             | Self::TrustFriend { request_id, .. }
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
@@ -2265,6 +2291,8 @@ impl Command {
             | Self::RejectFriend { username, .. }
             | Self::CancelFriend { username, .. }
             | Self::RemoveFriend { username, .. }
+            | Self::BlockFriend { username, .. }
+            | Self::UnblockFriend { username, .. }
             | Self::TrustFriend { username, .. }
             | Self::VerifyFriend { username, .. } => {
                 let username = username.trim();
@@ -2647,6 +2675,8 @@ mod tests {
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
+            json!({"type":"friends.block","username":"example","requestId":ID}),
+            json!({"type":"friends.unblock","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":DIRECTORY,"resume":{"provider":"claude","nativeConversationId":ID}}),
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
@@ -2735,7 +2765,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 67);
+        assert_eq!(kinds.len(), 69);
     }
 
     #[test]

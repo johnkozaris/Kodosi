@@ -16,7 +16,8 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
   owner, including friends invited later. A shared terminal runs as its owner, with the
   owner's `kodosi` command and files on that computer.
 - Removing a friend ends what the two share: each loses the terminals of the other and
-  leaves the rooms that the other owns.
+  leaves the rooms that the other owns. Blocking a person also does this, and the blocked
+  person cannot send friend requests until the block ends.
 - A room holds a conversation, tasks, repositories and terminals from many computers,
   folders and repositories. Every member can share their own terminals into it, and new
   members get the full history.

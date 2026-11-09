@@ -18,9 +18,11 @@ struct PeopleHome: View {
                 loadingSection
             } else if people.isEmpty, !people.sendingRequest {
                 emptySection
+                blockedSection
             } else {
                 requestsSection
                 friendsSection
+                blockedSection
             }
         }
         .groupedListChrome()
@@ -49,6 +51,7 @@ struct PeopleHome: View {
         .animation(theme.motion.spring, value: people.friends.map(\.id))
         .animation(theme.motion.spring, value: people.incoming.map(\.id))
         .animation(theme.motion.spring, value: people.outgoing.map(\.id))
+        .animation(theme.motion.spring, value: people.blocked.map(\.id))
         .animation(theme.motion.soft, value: people.loaded)
         .animation(theme.motion.snappy, value: people.sendingRequest)
         .sensoryFeedback(trigger: FriendTally(loaded: people.loaded, count: people.friends.count)) { old, new in
@@ -143,6 +146,33 @@ struct PeopleHome: View {
                 }
             } header: {
                 GroupedListHeader(title: "Friends", count: people.friends.count)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var blockedSection: some View {
+        if !people.blocked.isEmpty {
+            Section {
+                ForEach(people.blocked) { person in
+                    HStack(spacing: 12) {
+                        PersonAvatar(name: person.personName, key: person.userId, size: 32)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(person.personName).appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                            Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        }
+                        Spacer(minLength: 8)
+                        Button("Unblock") { people.unblock(person) }
+                            .buttonStyle(.kodosi(.ghost, size: .small))
+                            .disabled(people.isBusy(person.handle))
+                            .accessibilityIdentifier("people.unblock.\(person.handle)")
+                    }
+                    .padding(.vertical, 4)
+                    .raisedRows()
+                }
+            } header: {
+                GroupedListHeader(title: "Blocked", count: people.blocked.count)
             }
         }
     }

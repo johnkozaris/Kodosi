@@ -37,6 +37,19 @@ public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct BlockedEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let userId: String
+    public let handle: String
+    public let displayName: String
+    public var id: String {
+        userId
+    }
+
+    public var personName: String {
+        displayName.isEmpty ? handle : displayName
+    }
+}
+
 public struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
     public let deviceId: String
     public let label: String

@@ -2211,6 +2211,10 @@
         <translation>辞退</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>ブロック…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>%1 さんにリクエストを送信しました</translation>
     </message>
@@ -2267,12 +2271,32 @@
         <translation>%1 を開く</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>ブロック中</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>ブロックを解除</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>まだフレンドはいません</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>招待を送るか、上でユーザー名を追加してください。</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 をブロックしますか？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>ブロック</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。</translation>
     </message>
     <message>
         <source>Remove %1?</source>

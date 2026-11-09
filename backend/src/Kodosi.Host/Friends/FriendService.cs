@@ -103,6 +103,10 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         {
             case "send":
                 if (link is not null) return;
+                if (await db.Blocks.AnyAsync(x => x.BlockerId == userId && x.BlockedId == other.Id, ct))
+                    throw ApiException.Conflict("Unblock this person first.");
+                if (await db.Blocks.AnyAsync(x => x.BlockerId == other.Id && x.BlockedId == userId, ct))
+                    throw ApiException.Forbidden("This person does not take friend requests from you.");
                 var mine = await plans.LimitsAsync(db, userId, ct);
                 var sent = await OpenRequests(userId).CountAsync(x => x.RequestedBy == userId, ct);
                 if (sent >= mine.SentFriendRequests)
@@ -128,16 +132,18 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 db.Friendships.Remove(link);
                 break;
             case "remove":
-                if (link is null) return;
-                db.Friendships.Remove(link);
-                var grants = await db.SessionMembers.Where(m =>
-                    (m.UserId == other.Id && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == userId)) ||
-                    (m.UserId == userId && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == other.Id))).ToListAsync(ct);
-                db.SessionMembers.RemoveRange(grants);
-                var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
-                shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended)
-                    .Union(TerminalAccess.InRoomsBetween(db, userId, other.Id)).ToListAsync(ct);
-                foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+            case "block":
+                if (link is null && action == "remove") return;
+                if (link is not null)
+                {
+                    db.Friendships.Remove(link);
+                    shared = await EndSharingAsync(userId, other.Id, ct);
+                }
+                if (action == "block" && !await db.Blocks.AnyAsync(x => x.BlockerId == userId && x.BlockedId == other.Id, ct))
+                    db.Blocks.Add(new Block { BlockerId = userId, BlockedId = other.Id, CreatedAt = clock.GetUtcNow() });
+                break;
+            case "unblock":
+                db.Blocks.RemoveRange(await db.Blocks.Where(x => x.BlockerId == userId && x.BlockedId == other.Id).ToListAsync(ct));
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");
         }
@@ -146,6 +152,24 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         if (shared.Count == 0) return;
         await TerminalAccess.RevokeAsync(db, connections, shared, ct);
         connections.Notify([userId, other.Id], "sessions");
+    }
+
+    public async Task<object> BlockedAsync(Guid user, CancellationToken ct) =>
+        await db.Blocks.AsNoTracking().Where(x => x.BlockerId == user)
+            .Join(db.Users, block => block.BlockedId, person => person.Id, (_, person) => person)
+            .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName }).ToListAsync(ct);
+
+    private async Task<List<Session>> EndSharingAsync(Guid userId, Guid otherId, CancellationToken ct)
+    {
+        var grants = await db.SessionMembers.Where(m =>
+            (m.UserId == otherId && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == userId)) ||
+            (m.UserId == userId && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == otherId))).ToListAsync(ct);
+        db.SessionMembers.RemoveRange(grants);
+        var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
+        var shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended)
+            .Union(TerminalAccess.InRoomsBetween(db, userId, otherId)).ToListAsync(ct);
+        foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        return shared;
     }
 
     private IQueryable<Friendship> OpenRequests(Guid user) =>
@@ -175,6 +199,18 @@ internal static class FriendEndpoints
         group.MapDelete("/{username}", async (string username, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
         {
             await friends.MutateAsync(caller.User.Id, username, "remove", ct);
+            return Results.NoContent();
+        });
+        group.MapGet("/blocked", async (DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+            Results.Ok(await friends.BlockedAsync(caller.User.Id, ct)));
+        group.MapPut("/blocked/{username}", async (string username, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+        {
+            await friends.MutateAsync(caller.User.Id, username, "block", ct);
+            return Results.NoContent();
+        });
+        group.MapDelete("/blocked/{username}", async (string username, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+        {
+            await friends.MutateAsync(caller.User.Id, username, "unblock", ct);
             return Results.NoContent();
         });
         var list = app.MapGroup("/api/me/friend-list").RequireAuthorization();
