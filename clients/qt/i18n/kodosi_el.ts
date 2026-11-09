@@ -710,6 +710,14 @@
         <translation>Δημιουργία κλειδιού ανάκτησης</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>Έγκριση της συσκευής %1;</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Θα μπορεί έπειτα να χρησιμοποιεί όλα τα τερματικά, τα δωμάτια και τους φίλους σας. Εγκρίνετέ την μόνο αν κρατάτε αυτή τη συσκευή.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>Δημιουργία νέου κλειδιού ανάκτησης;</translation>
     </message>

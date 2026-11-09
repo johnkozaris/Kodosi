@@ -709,6 +709,14 @@
         <translation>복구 키 만들기</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1을(를) 승인할까요?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>승인하면 그 기기가 내 모든 터미널, 방, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>새 복구 키를 만들까요?</translation>
     </message>

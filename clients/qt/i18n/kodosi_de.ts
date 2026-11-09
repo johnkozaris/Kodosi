@@ -710,6 +710,14 @@
         <translation>Wiederherstellungsschlüssel erstellen</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1 freigeben?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Es kann dann alle deine Terminals, Räume und Freunde nutzen. Gib es nur frei, wenn du dieses Gerät in der Hand hast.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>Neuen Wiederherstellungsschlüssel erstellen?</translation>
     </message>

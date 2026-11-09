@@ -358,6 +358,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             m_devices.m_approvalCode = event.value(QStringLiteral("code")).toString();
         else if (operation == QStringLiteral("devices.recovery.create"))
             m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
+        else if (operation == QStringLiteral("devices.link.check") && !m_devices.m_checkedCode.isEmpty())
+            m_devices.m_checkedLabel = event.value(QStringLiteral("deviceLabel")).toString();
         else
             return;
         emit m_devices.changed();

@@ -709,6 +709,14 @@
         <translation>生成恢复密钥</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>批准 %1？</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>批准后，它可以使用你的所有终端、房间和好友。只有当那台设备在你手中时才批准。</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>生成新的恢复密钥？</translation>
     </message>

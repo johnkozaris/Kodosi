@@ -104,6 +104,12 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "devices.link.check")]
+    CheckDevice {
+        code: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "devices.link.approve")]
     ApproveDevice {
         code: String,
@@ -1003,6 +1009,8 @@ pub enum EventBody {
         code: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         key: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_label: Option<String>,
     },
     #[serde(rename = "devices.error")]
     DevicesError {
@@ -1650,6 +1658,7 @@ impl Command {
             Self::RefreshAuth { .. } => "auth.refresh",
             Self::RefreshDevices { .. } => "devices.refresh",
             Self::RevokeDevice { .. } => "devices.revoke",
+            Self::CheckDevice { .. } => "devices.link.check",
             Self::ApproveDevice { .. } => "devices.link.approve",
             Self::LinkDevice { .. } => "devices.link.startSelf",
             Self::CancelDeviceLink { .. } => "devices.link.cancelSelf",
@@ -1778,6 +1787,7 @@ impl Command {
             | Self::RefreshAuth { request_id }
             | Self::RefreshDevices { request_id }
             | Self::RevokeDevice { request_id, .. }
+            | Self::CheckDevice { request_id, .. }
             | Self::ApproveDevice { request_id, .. }
             | Self::LinkDevice { request_id }
             | Self::CancelDeviceLink { request_id }
@@ -2284,7 +2294,9 @@ impl Command {
                 parse_id(reset_id)?;
             }
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
-            Self::ApproveDevice { code, .. } => text(code, "code", 64)?,
+            Self::CheckDevice { code, .. } | Self::ApproveDevice { code, .. } => {
+                text(code, "code", 64)?;
+            }
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
             | Self::AcceptFriend { username, .. }
@@ -2672,6 +2684,7 @@ mod tests {
             json!({"type":"devices.revoke","requestId":ID,"deviceId":"native-device-name"}),
             json!({"type":"devices.reset.approve","requestId":ID,"resetId":ID}),
             json!({"type":"devices.reset.cancel","requestId":ID,"resetId":ID}),
+            json!({"type":"devices.link.check","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
@@ -2765,7 +2778,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 69);
+        assert_eq!(kinds.len(), 70);
     }
 
     #[test]

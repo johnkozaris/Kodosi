@@ -470,22 +470,31 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
+    async fn linked_device(&self, credentials: &Credentials, typed: &str) -> Result<LinkedDevice> {
         let code = typed_code(typed).ok_or_else(|| {
             Error::Text(text!(
                 "Type the 12 characters of the code that the new device shows."
             ))
         })?;
-        let credentials = self.credentials()?;
-        let requests = self.link_requests(&credentials).await?;
+        let requests = self.link_requests(credentials).await?;
         let user = credentials.user_id.clone();
-        let pending =
-            tokio::task::spawn_blocking(move || request_with_code(&user, requests, &code))
-                .await
-                .map_err(|_| Error::Closed)??
-                .ok_or_else(|| {
-                    Error::Trust(text!("No device that waits for approval has this code. Compare it with the code on the new device."))
-                })?;
+        tokio::task::spawn_blocking(move || request_with_code(&user, requests, &code))
+            .await
+            .map_err(|_| Error::Closed)??
+            .ok_or_else(|| {
+                Error::Trust(text!("No device that waits for approval has this code. Compare it with the code on the new device."))
+            })
+    }
+
+    /// The name of the device that shows this code, so that the person sees it before approving.
+    pub(super) async fn link_label(&self, typed: &str) -> Result<String> {
+        let credentials = self.credentials()?;
+        Ok(self.linked_device(&credentials, typed).await?.label)
+    }
+
+    pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
+        let credentials = self.credentials()?;
+        let pending = self.linked_device(&credentials, typed).await?;
         let verified = self.fetch_identity(&credentials.user_id).await?;
         let new_device = pending.device_id.as_str();
         let approval =

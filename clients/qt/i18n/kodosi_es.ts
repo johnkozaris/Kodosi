@@ -710,6 +710,14 @@
         <translation>Crear una clave de recuperación</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>¿Aprobar %1?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Luego podrá usar todos tus terminales, salas y amigos. Apruébalo solo si tienes ese dispositivo en tus manos.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>¿Crear una clave de recuperación nueva?</translation>
     </message>

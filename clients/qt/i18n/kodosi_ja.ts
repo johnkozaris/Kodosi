@@ -709,6 +709,14 @@
         <translation>リカバリーキーを作成</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1 を承認しますか？</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>承認すると、そのデバイスはあなたのすべてのターミナル、ルーム、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>新しいリカバリーキーを作成しますか？</translation>
     </message>

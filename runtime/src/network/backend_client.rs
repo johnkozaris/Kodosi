@@ -582,6 +582,10 @@ impl BackendClient {
                 self.cancel_link().await?;
                 events.push(json!({"type":"devices.link.selfResolved","outcome":"cancelled"}));
             }
+            "devices.link.check" => {
+                let label = self.link_label(wire::text(&args, "code")?).await?;
+                events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"deviceLabel":label}));
+            }
             "devices.link.approve" => {
                 let label = self.approve_link(wire::text(&args, "code")?).await?;
                 events.push(
