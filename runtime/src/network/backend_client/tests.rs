@@ -355,6 +355,18 @@ fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert!(normalize_host_label("  ").is_none());
     assert!(normalize_host_label("bad\nname").is_none());
     assert!(normalize_host_label(&"é".repeat(100)).unwrap().len() <= 128);
+    assert_eq!(
+        normalize_host_label("Studio\u{200B} \u{202E}Mac\u{FEFF}").as_deref(),
+        Some("Studio Mac")
+    );
+    assert_eq!(
+        normalize_host_label("a\u{200D}b").as_deref(),
+        Some("a\u{200D}b")
+    );
+    assert_eq!(
+        normalize_host_label(&format!("{} x", "a".repeat(127))).as_deref(),
+        Some("a".repeat(127).as_str())
+    );
 }
 
 #[tokio::test]

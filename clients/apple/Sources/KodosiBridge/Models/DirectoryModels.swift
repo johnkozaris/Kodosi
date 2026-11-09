@@ -35,6 +35,11 @@ public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
     public var personName: String {
         displayName.isEmpty ? handle : displayName
     }
+
+    /// The name with the user name, which only this account has.
+    public var nameWithHandle: String {
+        displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"
+    }
 }
 
 public struct BlockedEntry: Decodable, Equatable, Identifiable, Sendable {

@@ -15,6 +15,7 @@ public sealed partial class DeviceService
     {
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var label = Limits.Text(request.DeviceLabel, "Device label", 128);
+        if (label != request.DeviceLabel) throw ApiException.Invalid("The device label has invisible characters or spaces at its ends.");
         var signing = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
         if (IsRecoveryId(deviceId)) throw ApiException.Invalid("This device identifier is for a recovery key.");
         var nonce = Limits.Base64(request.Nonce, "Nonce", LinkNonceLength);

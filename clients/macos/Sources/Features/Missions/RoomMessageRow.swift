@@ -25,6 +25,11 @@ struct RoomMessageRow: View {
         message.terminalId.flatMap(deps.session)
     }
 
+    private var authorHandle: String? {
+        guard let detail = deps.missionDetail, detail.mission.id == roomId else { return nil }
+        return detail.members.first { $0.userId == message.authorId }?.handle
+    }
+
     private var startsGroup: Bool {
         RoomDates.startsGroup(message, after: previous)
     }
@@ -115,6 +120,10 @@ struct RoomMessageRow: View {
     private var header: some View {
         HStack(spacing: 6) {
             Text(message.agent ?? message.authorName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
+            if message.agent == nil, let authorHandle {
+                Text(verbatim: "@\(authorHandle)").appTextStyle(.caption).fontWeight(.regular)
+                    .foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+            }
             if message.agent != nil {
                 Text("for \(message.authorName)").appTextStyle(.caption).fontWeight(.regular)
                     .foregroundStyle(theme.colors.inkFaint).lineLimit(1)

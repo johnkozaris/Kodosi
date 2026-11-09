@@ -144,8 +144,8 @@ struct SessionSharingPopover: View {
             FriendChoice(name: name, key: friend.userId, selected: selected, changed: friend.identityChanged, blocked: blocked)
         }
         .buttonStyle(PressScaleStyle()).disabled(saving || blocked)
-        .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : name)
-        .accessibilityLabel(name).accessibilityAddTraits(selected ? .isSelected : [])
+        .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : "\(name) (@\(friend.handle))")
+        .accessibilityLabel(Text(verbatim: "\(name) (@\(friend.handle))")).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func save() {

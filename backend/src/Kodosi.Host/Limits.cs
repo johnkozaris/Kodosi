@@ -18,13 +18,26 @@ internal static class Limits
 
     public static string Text(string? value, string field, int max)
     {
-        value = value?.Trim();
+        value = Visible(value).Trim();
         if (string.IsNullOrWhiteSpace(value) || System.Text.Encoding.UTF8.GetByteCount(value) > max
             || value.Any(char.IsControl))
         {
             throw ApiException.Invalid($"{field} must contain 1 to {max} UTF-8 bytes without control characters.");
         }
         return value;
+    }
+
+    /// The text without the invisible format characters that reorder or hide letters, so that one
+    /// name cannot look like another. It keeps the joiners that scripts and emoji need.
+    public static string Visible(string? value)
+    {
+        var visible = new System.Text.StringBuilder();
+        foreach (var rune in (value ?? "").EnumerateRunes())
+        {
+            if (System.Text.Rune.GetUnicodeCategory(rune) != System.Globalization.UnicodeCategory.Format || rune.Value is 0x200C or 0x200D)
+                visible.Append(rune.ToString());
+        }
+        return visible.ToString();
     }
 
     public static Guid Id(Guid value, string field)

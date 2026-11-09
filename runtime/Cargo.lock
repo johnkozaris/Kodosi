@@ -2023,6 +2023,7 @@ dependencies = [
  "tokio-tungstenite",
  "tokio-util",
  "tracing",
+ "unicode-properties",
  "uuid",
  "zeroize",
 ]

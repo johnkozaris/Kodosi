@@ -13,12 +13,23 @@ namespace Kodosi.HostTests;
 public sealed class AccountTests(PostgresFixture postgres)
 {
     private const string Issuer = "https://accounts.test.invalid/";
-    private static DefaultHttpContext Context(string subject, string name) => new()
+    private static DefaultHttpContext Context(string subject, string name, string? displayName = null) => new()
     {
         User = new ClaimsPrincipal(new ClaimsIdentity([
-            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name)
+            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name),
+            .. displayName is null ? Array.Empty<Claim>() : [new Claim("name", displayName)],
         ], "test"))
     };
+
+    [Fact]
+    public async Task NamesAndDeviceLabelsLoseTheInvisibleCharactersThatReorderOrHideLetters()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("bob-subject", "bob", "Al\u200Bice \u202Eecila\u202C 👨\u200D💻"), ct);
+        Assert.Equal("Alice ecila 👨\u200D💻", account.DisplayName);
+        Assert.Equal("Laptop", Limits.Text("\u2066Lap\uFEFFtop\u2069", "Device label", 128));
+    }
 
     [Fact]
     public async Task AUserNameIsTheHandleOfOneAccountOnly()

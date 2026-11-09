@@ -1387,12 +1387,27 @@ pub(crate) fn device_label() -> Option<String> {
         .and_then(|value| normalize_host_label(&value))
 }
 
+/// The label as the backend keeps it: without the invisible format characters that it removes,
+/// except the joiners, and within 128 bytes. A link proof covers the label, so the backend must
+/// not change it.
 fn normalize_host_label(value: &str) -> Option<String> {
-    let value = value.trim();
+    use unicode_properties::{GeneralCategory, UnicodeGeneralCategory as _};
+    let visible = value
+        .chars()
+        .filter(|letter| {
+            matches!(letter, '\u{200C}' | '\u{200D}')
+                || letter.general_category() != GeneralCategory::Format
+        })
+        .collect::<String>();
+    let value = visible.trim();
     if value.is_empty() || value.chars().any(char::is_control) {
         return None;
     }
-    Some(value[..value.floor_char_boundary(128)].to_owned())
+    Some(
+        value[..value.floor_char_boundary(128)]
+            .trim_end()
+            .to_owned(),
+    )
 }
 fn sign_in_language(args: &Value) -> crate::text::Language {
     args.get("language")

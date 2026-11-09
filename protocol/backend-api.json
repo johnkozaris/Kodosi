@@ -86,7 +86,7 @@
     "requestProof": "HMAC-SHA256 with the key over the length-prefixed fields: request, account id, device id, label, signing key",
     "approvalProof": "HMAC-SHA256 with the key over the length-prefixed fields: approval, account id, device id, identity root",
     "identityRoot": "SHA-256 of kodosi-identity-root-v1 and the certificate body of the one self-signed device of the account",
-    "request": "the new device sends its device id, label, signing key, nonce and request proof; at most 5 open requests for each account; 10 minutes, which the new device also counts itself",
+    "request": "the new device sends its device id, label, signing key, nonce and request proof; the server refuses a label with invisible format characters other than the joiners, or with spaces at its ends, because the proof covers it; at most 5 open requests for each account; 10 minutes, which the new device also counts itself",
     "approve": "the approving device signs only the request whose request proof holds for the code that the user typed, and sends the approval proof",
     "accept": "the new device takes the account identity only when the approval proof holds for the identity root of the identity that it reads",
     "server": "stores and lists the requests and the two proofs; makes and checks no code"

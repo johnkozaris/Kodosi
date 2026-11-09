@@ -19,6 +19,9 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await using var store = await TestStore.CreateAsync(postgres);
         var owner = await store.UserAsync("owner");
         var second = new DeviceFixture(owner.User.Id, "second-device");
+        foreach (var hidden in new[] { "Sec\u200Bond", "Second " })
+            Assert.Equal(400, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.StartLinkAsync(owner.User.Id,
+                new(second.DeviceId, hidden, Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken))).Status);
         var init = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id,
             new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken), TestJson.Options);
         var nonce = Convert.ToBase64String(Enumerable.Repeat((byte)7, 16).ToArray());
