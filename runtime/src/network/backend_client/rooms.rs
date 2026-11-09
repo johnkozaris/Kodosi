@@ -1086,6 +1086,21 @@ impl BackendClient {
         self.room_keys(credentials, room).await.map(|_| ())
     }
 
+    /// The hash of the first key state of a room, which fixes its owner and the start of its
+    /// history. A choice of a terminal's room signs it.
+    pub(super) async fn room_history(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+    ) -> Result<String> {
+        self.room_keys(credentials, room)
+            .await?
+            .states
+            .get(&1)
+            .map(|first| first.hash.clone())
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))
+    }
+
     pub(crate) async fn room_identity(
         &self,
         credentials: &Credentials,

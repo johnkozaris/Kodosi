@@ -61,9 +61,10 @@ each field carries its length.
   only that device's approved key; the host admits only verified, non-recovery devices of
   its own account and answers only those requests.
 - **Terminal rooms.** The device that puts a terminal into a room, or takes it out, signs
-  the change with a sequence. The host takes a room for its terminal only with the
-  signature of an approved device of its owner and a sequence newer than the last one
-  that it took.
+  the change with a sequence and the hash of the room's first key state. The host takes a
+  room for its terminal only with the signature of an approved device of its owner, a
+  sequence newer than the last one that it took, and a room whose history starts with that
+  key state.
 - **Room key states.** The room key states form a hash chain that member devices sign.
   Only the owner adds members
   or removes others; a member can leave. Devices remember the newest state they
@@ -103,3 +104,7 @@ each field carries its length.
     or stolen device.
 11. An owner who starts fresh cannot open the rooms they made.
 12. The backend sees the metadata listed in [Security](SECURITY.md).
+13. A removed device keeps its signing key. A device or friend that has not yet received
+    the list without it still trusts it, so the backend can show them device lists that it
+    signs. A device that received the removal refuses each device that the removed device
+    approves.

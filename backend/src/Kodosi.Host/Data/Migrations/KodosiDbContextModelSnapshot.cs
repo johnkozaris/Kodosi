@@ -477,6 +477,10 @@ namespace Kodosi.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("RoomHistory")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<long>("RoomSequence")
                         .HasColumnType("bigint");
 

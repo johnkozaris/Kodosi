@@ -112,17 +112,19 @@ pub(crate) fn terminal_room_preimage(
     terminal: Uuid,
     incarnation: Uuid,
     room: Option<Uuid>,
+    history: &str,
     sequence: u64,
     device_id: &str,
 ) -> Result<Vec<u8>> {
     let room = room.map(|room| room.to_string()).unwrap_or_default();
     signed_fields(
-        b"kodosi-terminal-room-v1",
+        b"kodosi-terminal-room-v2",
         &[
             owner_id.as_bytes(),
             terminal.to_string().as_bytes(),
             incarnation.to_string().as_bytes(),
             room.as_bytes(),
+            history.as_bytes(),
             &sequence.to_be_bytes(),
             device_id.as_bytes(),
         ],
@@ -192,7 +194,7 @@ mod tests {
 
     #[test]
     fn the_terminal_room_vector_matches_the_current_manifest() {
-        let vector = vector("terminalRoomV1");
+        let vector = vector("terminalRoomV2");
         let text = |key: &str| vector[key].as_str().unwrap().to_owned();
         let id = |key: &str| Uuid::parse_str(&text(key)).unwrap();
         let bytes = terminal_room_preimage(
@@ -200,6 +202,7 @@ mod tests {
             id("terminalId"),
             id("incarnationId"),
             Some(id("roomId")),
+            &text("history"),
             vector["sequence"].as_u64().unwrap(),
             &text("deviceId"),
         )

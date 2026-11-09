@@ -9,6 +9,7 @@ impl BackendClient {
         credentials: &Credentials,
         current: &SessionDto,
         room: Option<Uuid>,
+        history: &str,
     ) -> Result<Value> {
         let sequence = (current.room_sequence + 1).max(crate::identity::now_ms());
         let device = &credentials.keys.device_id;
@@ -17,11 +18,14 @@ impl BackendClient {
             current.id,
             current.incarnation_id,
             room,
+            history,
             sequence,
             device,
         )?;
         let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &preimage)?;
-        Ok(json!({"deviceId":device,"sequence":sequence,"signature":BASE64.encode(signature)}))
+        Ok(
+            json!({"deviceId":device,"sequence":sequence,"signature":BASE64.encode(signature),"history":history}),
+        )
     }
 
     #[cfg(feature = "host")]
@@ -67,7 +71,16 @@ impl BackendClient {
                 .ok()
                 .and_then(key);
         }
-        public.is_some_and(|public| signature_holds(dto, &public))
+        if !public.is_some_and(|public| signature_holds(dto, &public)) {
+            return false;
+        }
+        match dto.mission_id {
+            Some(room) => self
+                .room_history(credentials, room)
+                .await
+                .is_ok_and(|history| history == choice.history),
+            None => choice.history.is_empty(),
+        }
     }
 }
 
@@ -96,6 +109,7 @@ fn signature_holds(dto: &SessionDto, public: &[u8]) -> bool {
         dto.id,
         dto.incarnation_id,
         dto.mission_id,
+        &choice.history,
         dto.room_sequence,
         &choice.device_id,
     ) else {
@@ -120,11 +134,13 @@ mod tests {
     }
 
     fn signed(keys: &DeviceKeys, mut dto: SessionDto) -> SessionDto {
+        let history = "a".repeat(64);
         let preimage = crypto::terminal_room_preimage(
             &dto.owner_user_id,
             dto.id,
             dto.incarnation_id,
             dto.mission_id,
+            &history,
             dto.room_sequence,
             &keys.device_id,
         )
@@ -133,6 +149,7 @@ mod tests {
             device_id: keys.device_id.clone(),
             signature: BASE64
                 .encode(crypto::sign_control_message(keys.signing_pkcs8(), &preimage).unwrap()),
+            history,
         });
         dto
     }
@@ -169,6 +186,11 @@ mod tests {
         let mut replayed = choice.clone();
         replayed.room_sequence = 12;
         assert!(!signature_holds(&replayed, keys.signing_public()));
+        let mut forked = choice.clone();
+        if let Some(signed) = forked.room_choice.as_mut() {
+            signed.history = "b".repeat(64);
+        }
+        assert!(!signature_holds(&forked, keys.signing_public()));
         let mut elsewhere = choice;
         elsewhere.incarnation_id = Uuid::now_v7();
         assert!(!signature_holds(&elsewhere, keys.signing_public()));

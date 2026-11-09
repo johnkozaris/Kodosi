@@ -64,6 +64,7 @@ pub(crate) struct SessionDto {
 pub(crate) struct RoomChoice {
     pub device_id: String,
     pub signature: String,
+    pub history: String,
 }
 
 #[cfg(feature = "host")]
