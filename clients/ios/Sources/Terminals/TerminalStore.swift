@@ -154,6 +154,11 @@ final class TerminalStore {
         await RefreshWait.until { revision != before }
     }
 
+    /// Asks a computer to start a terminal, and gives its identifier.
+    func start(_ terminal: TerminalStart) async throws -> String? {
+        try await commands.request("session.create", terminal.fields).string("sessionId")
+    }
+
     func open(_ sessionId: String) async throws {
         _ = try await commands.request("session.openRemote", ["sessionId": .string(sessionId)])
     }

@@ -4,9 +4,9 @@
 visual system.
 
 The app follows, answers and controls the terminals of your computers and of the
-friends who share with you, and takes part in rooms. Starting terminals or programs,
-sharing a terminal with friends and reading provider conversations stay on the
-computer.
+friends who share with you, starts terminals on your computers, and takes part in rooms.
+Starting an agent in an open terminal, sharing a terminal with friends and reading
+provider conversations stay on the computer.
 
 - Sign-in opens in a system sign-in window. You approve a new iPhone or iPad as you
   approve a computer: with a code that you enter on an approved device, with the recovery
@@ -14,6 +14,10 @@ computer.
 - The Terminals tab groups your terminals by computer, then the terminals of each friend,
   each with the sign of its state, and counts the waiting terminals that you can answer:
   your own, and others' while you have them open.
+- The + of the Terminals tab, or of one of your computers in it, starts a terminal on one
+  of your computers where Kodosi runs: a shell, or one of that computer's agents with its
+  account, model, effort and a first prompt, in a recent folder or a folder that you browse
+  to. A room's terminals start one in the room. The terminal opens when it starts.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
   its cursor when the cursor is above them.

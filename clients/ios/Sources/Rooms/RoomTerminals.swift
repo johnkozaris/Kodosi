@@ -9,6 +9,7 @@ struct RoomTerminals: View {
     let roomId: String
     @State private var moving: String?
     @State private var added = 0
+    @State private var newTerminal: NewTerminalRequest?
 
     var body: some View {
         let sessions = model.terminals.sessions.filter { $0.missionId == roomId }
@@ -21,11 +22,9 @@ struct RoomTerminals: View {
                 ) {
                     TerminalGhost()
                 } actions: {
-                    if !mine.isEmpty {
-                        addMenu(mine) {
-                            Label("Add one of my terminals", systemImage: "plus")
-                        }
-                        .buttonStyle(.kodosi(.primary))
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { emptyKeys(mine, stacked: false) }
+                        VStack(spacing: 8) { emptyKeys(mine, stacked: true) }
                     }
                 }
             } else {
@@ -34,20 +33,9 @@ struct RoomTerminals: View {
                         ForEach(sessions) { session in
                             card(session)
                         }
-                        if !mine.isEmpty {
-                            addMenu(mine) {
-                                DashedSlot(radius: Radius.lg) {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "plus").font(.system(size: 14, weight: .semibold))
-                                        Text("Add one of my terminals").appTextStyle(.subhead)
-                                    }
-                                    .foregroundStyle(theme.colors.inkMuted)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity, minHeight: 56)
-                                }
-                            }
-                            .buttonStyle(PressScaleStyle(scale: 0.98))
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 10) { slots(mine) }
+                            VStack(spacing: 10) { slots(mine) }
                         }
                         Text("Everyone in the room can type, resize and close these terminals.")
                             .appTextStyle(.caption).fontWeight(.regular)
@@ -63,6 +51,62 @@ struct RoomTerminals: View {
         }
         .animation(theme.motion.spring, value: sessions.map(\.id))
         .sensoryFeedback(.success, trigger: added)
+        .newTerminalSheet($newTerminal)
+    }
+
+    /// The keys of the empty room: the primary one first when they stand under each other.
+    @ViewBuilder
+    private func emptyKeys(_ mine: [RuntimeSession], stacked: Bool) -> some View {
+        if stacked {
+            addKey(mine)
+        }
+        Button { newTerminal = NewTerminalRequest(roomId: roomId) } label: {
+            Label("New terminal", systemImage: "apple.terminal")
+        }
+        .buttonStyle(.kodosi(mine.isEmpty ? .primary : .secondary))
+        .accessibilityIdentifier("rooms.terminals.new")
+        if !stacked {
+            addKey(mine)
+        }
+    }
+
+    @ViewBuilder
+    private func addKey(_ mine: [RuntimeSession]) -> some View {
+        if !mine.isEmpty {
+            addMenu(mine) {
+                Label("Add one of my terminals", systemImage: "plus")
+            }
+            .buttonStyle(.kodosi(.primary))
+        }
+    }
+
+    @ViewBuilder
+    private func slots(_ mine: [RuntimeSession]) -> some View {
+        Button { newTerminal = NewTerminalRequest(roomId: roomId) } label: {
+            slot("New terminal", symbol: "apple.terminal")
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.98))
+        .accessibilityIdentifier("rooms.terminals.new")
+        if !mine.isEmpty {
+            addMenu(mine) {
+                slot("Add one of my terminals", symbol: "plus")
+            }
+            .buttonStyle(PressScaleStyle(scale: 0.98))
+        }
+    }
+
+    private func slot(_ title: LocalizedStringKey, symbol: String) -> some View {
+        DashedSlot(radius: Radius.lg) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
+                Text(title).appTextStyle(.subhead)
+            }
+            .foregroundStyle(theme.colors.inkMuted)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 56)
+        }
     }
 
     private func card(_ session: RuntimeSession) -> some View {

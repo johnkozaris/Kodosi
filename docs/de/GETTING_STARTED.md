@@ -169,7 +169,8 @@ Computer die Terminals all deiner Computer.
 
 Um ein Terminal auf einem anderen deiner Computer zu starten, wähle diesen Computer am rechten
 Ende der Leiste des Launchers. Der Ordner-Button listet dann seine letzten Ordner, und Ordner
-auswählen… öffnet die Ordner in seinem Home-Verzeichnis. Auf diesem Computer muss Kodosi
+auswählen… öffnet die Ordner in seinem Home-Verzeichnis. Auf einem iPhone oder iPad wählst
+du + in Terminals oder das + neben einem deiner Computer. Auf diesem Computer muss Kodosi
 geöffnet sein oder `kodosi host` in einem Terminal laufen.
 
 Erstelle dort auch einen Wiederherstellungsschlüssel und bewahre ihn sicher auf. Wenn du all

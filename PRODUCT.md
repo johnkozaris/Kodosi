@@ -214,7 +214,8 @@ progress where work happens and give each failure a clear recovery action.
 
 - The Mac app and the Linux and Windows app run terminals on the computer's host and take
   part in rooms. The iPhone and iPad app follows, answers and controls the terminals of
-  the person's computers and friends, takes part in rooms, and starts no terminals.
+  the person's computers and friends, starts terminals on the person's computers, and
+  takes part in rooms.
 - Each desktop app contains the `kodosi` command, so that people and agents can do from a
   shell what the apps do.
 - Apps update themselves in the background and never restart without asking, because a

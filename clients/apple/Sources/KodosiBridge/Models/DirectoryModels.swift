@@ -97,6 +97,11 @@ public struct FolderList: Decodable, Equatable, Sendable {
     public func child(_ name: String) -> String {
         path.hasSuffix(separator) ? path + name : path + separator + name
     }
+
+    /// The name of a folder in a list: `~` for the home folder.
+    public func name(of folder: String) -> String {
+        shown(folder) == "~" ? "~" : HostPath.folderName(folder)
+    }
 }
 
 public struct RepositoryChoices: Decodable, Equatable, Sendable {

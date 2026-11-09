@@ -154,7 +154,8 @@ your computers.
 
 To start a terminal on another of your computers, choose that computer at the right end
 of the launcher's band. The folder key then lists its recent folders, and Choose a
-folder… opens the folders in its home. That computer needs Kodosi open, or `kodosi host`
+folder… opens the folders in its home. On an iPhone or iPad, select + in Terminals, or
+the + beside one of your computers. That computer needs Kodosi open, or `kodosi host`
 running in a terminal.
 
 Make a recovery key there too, and keep it safe. If you lose all your devices, sign in

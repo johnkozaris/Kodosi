@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 enum StableHash {
@@ -99,6 +100,12 @@ public enum AgentKind: String, CaseIterable, Sendable {
         case .opencode: "OpenCode"
         case .shell: String(localized: "Shell", bundle: .module)
         }
+    }
+}
+
+public extension AgentInfo {
+    var kind: AgentKind {
+        AgentKind(program: agent)
     }
 }
 

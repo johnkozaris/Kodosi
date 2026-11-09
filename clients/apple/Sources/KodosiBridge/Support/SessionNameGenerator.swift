@@ -1,4 +1,4 @@
-func generateSessionName() -> String {
+public func generateSessionName() -> String {
     let adjectives = [
         "Amber", "Arctic", "Azure", "Brass", "Bronze", "Cedar", "Cobalt",
         "Copper", "Coral", "Crimson", "Crystal", "Dusk", "Ember", "Fern",
