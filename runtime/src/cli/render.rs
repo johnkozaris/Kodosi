@@ -394,7 +394,12 @@ fn friends(event: &Value) -> String {
     let rows = list("friends")
         .iter()
         .map(|friend| {
-            let state = if friend["identityState"] == "changed" {
+            let state = if friend["inviteNeeded"] == true {
+                format!(
+                    "identity changed: kodosi friends verify {} <their invite>",
+                    text(friend, "handle")
+                )
+            } else if friend["identityState"] == "changed" {
                 format!(
                     "identity changed: kodosi friends trust {}",
                     text(friend, "handle")

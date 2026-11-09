@@ -407,3 +407,61 @@ fn a_bundle_with_two_first_devices_is_refused() {
             .is_err()
     );
 }
+
+#[test]
+fn a_removed_device_cannot_approve_a_new_device() {
+    let fixture = Fixture::new();
+    let mut pins = fixture.pins();
+    pins.verify(
+        &fixture.with_both(),
+        Anchor::Root(&fixture.with_both().root().unwrap()),
+        2000,
+    )
+    .unwrap();
+    let removed = fixture.only_b();
+    pins.verify(&removed, Anchor::Pinned, 2000).unwrap();
+    let previous =
+        SignedDeviceList::parse_body(&decode(&removed.device_list.body, 527_432).unwrap()).unwrap();
+    let approved_by = |approver: &DeviceKeys| {
+        let added = DeviceKeys::generate().unwrap();
+        let mut entries = previous.entries.clone();
+        entries.push(DeviceListEntry {
+            device_id: added.device_id.clone(),
+            signer_device_id: approver.device_id.clone(),
+        });
+        let signed = build_replacement_list(
+            &fixture.user,
+            previous.generation,
+            &previous.entries,
+            entries,
+            &fixture.b.device_id,
+            &fixture.b.signing_key().unwrap(),
+            1300,
+            Some(20_000),
+        )
+        .unwrap();
+        let added = build_cert_for(
+            &fixture.user,
+            &added.device_id,
+            "added",
+            added.signing_public(),
+            &approver.device_id,
+            &approver.signing_key().unwrap(),
+            1300,
+            None,
+        )
+        .unwrap();
+        IdentityBundle {
+            device_list: list(&signed),
+            devices: vec![fixture.cert_b.clone(), certificate(added)],
+            certificate_chain: vec![fixture.cert_a.clone()],
+            ..removed.clone()
+        }
+    };
+    assert!(
+        pins.verify(&approved_by(&fixture.a), Anchor::Pinned, 2000)
+            .is_err()
+    );
+    pins.verify(&approved_by(&fixture.b), Anchor::Pinned, 2000)
+        .unwrap();
+}

@@ -137,7 +137,7 @@ impl RoomCache {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         items
             .iter()
-            .try_for_each(|item| content.take(cached, room, item))
+            .try_for_each(|item| content.take(cached, room, item, &credentials.user_id))
     }
 
     fn merge(
@@ -155,7 +155,7 @@ impl RoomCache {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
         for item in items {
-            content.take(cached, room, item)?;
+            content.take(cached, room, item, &credentials.user_id)?;
         }
         content.sequence = content.sequence.max(sequence);
         content.history_trimmed |= trimmed;
@@ -168,7 +168,9 @@ impl RoomCache {
             && let (Some(cached), Some(content)) =
                 (self.rooms.get(&room), self.contents.get_mut(&room))
             && item.sequence == content.sequence + 1
-            && content.take(cached, room, item).is_ok()
+            && content
+                .take(cached, room, item, &credentials.user_id)
+                .is_ok()
         {
             content.sequence = item.sequence;
         }
@@ -213,7 +215,7 @@ impl RoomCache {
 }
 
 impl Content {
-    fn take(&mut self, cached: &CachedRoom, room: Uuid, item: &Item) -> Result<()> {
+    fn take(&mut self, cached: &CachedRoom, room: Uuid, item: &Item, own: &str) -> Result<()> {
         match BackendClient::room_payload(cached, room, item)? {
             Payload::Message {
                 text,
@@ -248,7 +250,11 @@ impl Content {
             }
             Payload::Repository { mut repository } if item.kind == "repository" => {
                 repository.id = item.id.to_string();
-                self.repositories.insert(repository.id.clone(), repository);
+                if rooms::providers::linkable(&repository, item.user_id == own) {
+                    self.repositories.insert(repository.id.clone(), repository);
+                } else {
+                    tracing::warn!(item = %item.id, "a room repository names another address than its own, so Kodosi leaves it out");
+                }
             }
             Payload::Dosi { .. } | Payload::DosiInstructions { .. } => {}
             _ => return Err(invalid("Room content has a different type.")),
@@ -787,6 +793,50 @@ impl BackendClient {
         .ok_or_else(|| invalid("The room membership did not change."))
     }
 
+    /// Takes the room state that this device signed and the server accepted, so the server
+    /// cannot keep serving the state before it.
+    pub(super) async fn apply_own_state(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        written: &Value,
+    ) -> Result<()> {
+        let body = wire::text(written, "body")?;
+        let state: KeyState =
+            serde_json::from_slice(&identity::pins::decode(body, 3 * 1024 * 1024)?)?;
+        let mut cached = self
+            .inner
+            .rooms
+            .lock()
+            .await
+            .rooms
+            .get(&room)
+            .cloned()
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+        let anchor = self
+            .room_anchor(credentials, room, &cached, &state.owner_user_id)
+            .await?;
+        let verified = room_crypto::verify_state(
+            &SignedState {
+                version: state.version,
+                body: body.to_owned(),
+                signature: wire::text(written, "signature")?.to_owned(),
+            },
+            room,
+            &state.owner_user_id,
+            &anchor,
+            cached.states.last_key_value().map(|(_, previous)| previous),
+        )?;
+        if let Ok(key) =
+            room_crypto::unwrap(&verified.state, &credentials.user_id, &credentials.keys)
+        {
+            cached.keys.insert(verified.state.epoch, key);
+        }
+        cached.states.insert(state.version, verified);
+        self.remember_room(credentials, room, cached).await?;
+        Ok(())
+    }
+
     async fn next_room_state(
         &self,
         credentials: &Credentials,
@@ -988,6 +1038,9 @@ impl BackendClient {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1
             .state;
+        if !state.members.contains_key(&credentials.user_id) {
+            return Err(invalid("This device's person is no longer in the room."));
+        }
         let anchor = state
             .members
             .get(user)

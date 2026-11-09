@@ -2223,8 +2223,12 @@
         <translation>移除…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>对方的设备已变更。重新信任对方后才能共享。</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>对方的身份已变更。请用对方发来的新邀请验证新身份。</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>对方的身份已变更。仅在对方告诉过你时才信任新身份。</translation>
     </message>
     <message>
         <source>Trust</source>

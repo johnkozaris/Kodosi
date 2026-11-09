@@ -2223,8 +2223,12 @@
         <translation>削除…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>相手のデバイスが変わりました。共有するには再度信頼してください。</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>相手の ID が変わりました。相手からの新しい招待で確認してください。</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>相手の ID が変わりました。相手から知らされた場合だけ信頼してください。</translation>
     </message>
     <message>
         <source>Trust</source>

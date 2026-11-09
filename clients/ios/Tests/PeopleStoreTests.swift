@@ -128,8 +128,8 @@ struct PeopleStoreTests {
     private func deliverSnapshot() throws {
         try store.receive(event("friends.snapshot", [
             "friends": [
-                ["userId": "id-ana", "handle": "ana", "displayName": "Ana", "verified": true, "identityState": "fixed"],
-                ["userId": "id-bo", "handle": "bo", "displayName": "", "verified": true, "identityState": "changed"],
+                ["userId": "id-ana", "handle": "ana", "displayName": "Ana", "verified": true, "identityState": "fixed", "inviteNeeded": false],
+                ["userId": "id-bo", "handle": "bo", "displayName": "", "verified": true, "identityState": "changed", "inviteNeeded": false],
             ],
             "incoming": [["userId": "id-cy", "handle": "cy", "displayName": "Cy", "createdAt": "2026-10-11T10:00:00Z"]],
             "outgoing": [["userId": "id-di", "handle": "di", "displayName": "Di", "createdAt": "2026-10-11T11:00:00Z"]],

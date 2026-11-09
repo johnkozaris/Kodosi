@@ -70,7 +70,13 @@ public struct FriendCard<Trailing: View, Footer: View>: View {
             HStack(spacing: 8) {
                 Tag(text: String(localized: "New identity", bundle: .module), symbol: "exclamationmark", tone: .caution)
                 Spacer()
-                if let trust {
+                if friend.inviteNeeded {
+                    if let verify {
+                        Button(action: verify) { Text("Verify with their invite…", bundle: .module) }
+                            .buttonStyle(.kodosi(.primary, size: .small))
+                            .accessibilityIdentifier("people.verify.\(friend.handle)")
+                    }
+                } else if let trust {
                     Button(action: trust) { Text("Trust", bundle: .module) }
                         .buttonStyle(.kodosi(.primary, size: .small))
                         .accessibilityIdentifier("people.trust.\(friend.handle)")

@@ -200,20 +200,28 @@ private struct IdentityChangedCard: View {
                     Text("New identity")
                         .appTextStyle(.headline)
                         .foregroundStyle(theme.colors.ink)
-                    Text("Their identity changed. Trust it to share with them again.")
-                        .appTextStyle(.footnote)
-                        .foregroundStyle(theme.colors.inkMuted)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Group {
+                        if friend.inviteNeeded {
+                            Text("Their identity changed. Verify it with a new invite from them.")
+                        } else {
+                            Text("Their identity changed. Trust it only if they told you so.")
+                        }
+                    }
+                    .appTextStyle(.footnote)
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            HStack {
-                Spacer()
-                if model.people.isBusy(friend.handle) {
-                    Spinner(size: 14)
-                } else {
-                    Button("Trust") { model.people.trust(friend) }
-                        .buttonStyle(.kodosi(.primary, size: .small))
-                        .accessibilityIdentifier("people.trust.\(friend.handle)")
+            if !friend.inviteNeeded {
+                HStack {
+                    Spacer()
+                    if model.people.isBusy(friend.handle) {
+                        Spinner(size: 14)
+                    } else {
+                        Button("Trust") { model.people.trust(friend) }
+                            .buttonStyle(.kodosi(.primary, size: .small))
+                            .accessibilityIdentifier("people.trust.\(friend.handle)")
+                    }
                 }
             }
         }

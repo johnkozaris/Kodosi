@@ -2230,8 +2230,12 @@
         <translation>Αφαίρεση…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Οι συσκευές του ατόμου άλλαξαν. Ορίστε το ξανά ως αξιόπιστο για να μοιραστείτε.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Η ταυτότητα του ατόμου άλλαξε. Επαληθεύστε την με μια νέα πρόσκληση από αυτό.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη μόνο αν σας το είπε το ίδιο.</translation>
     </message>
     <message>
         <source>Trust</source>

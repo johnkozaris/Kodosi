@@ -379,6 +379,107 @@ async fn a_key_made_by_someone_who_left_is_replaced_before_anyone_writes_with_it
     );
 }
 
+#[tokio::test]
+async fn a_device_keeps_the_room_state_that_it_signed_when_the_server_withholds_it() {
+    let (alice, alice_identity) = person();
+    let alice = Arc::new(alice);
+    let (_, bob_identity) = person();
+    let (owner, member) = (alice_identity.user_id.clone(), bob_identity.user_id.clone());
+    let room = Uuid::now_v7();
+    let key = room_crypto::secret().unwrap();
+    let mut first = KeyState {
+        room_id: room,
+        owner_user_id: owner.clone(),
+        author_id: owner.clone(),
+        device_id: alice.device_id.clone(),
+        version: 1,
+        epoch: 1,
+        created_at_ms: 2000,
+        previous_hash: String::new(),
+        members: BTreeMap::from([
+            (owner.clone(), alice_identity),
+            (member.clone(), bob_identity),
+        ]),
+        recipients: vec![],
+        previous_key: None,
+    };
+    first.recipients = vec![
+        room_crypto::wrap(&first, &owner, &alice.device_id, alice.room_public(), &key).unwrap(),
+    ];
+    let first = state_signed(&first, &alice, None);
+    let next_key = room_crypto::secret().unwrap();
+    let mut removed = first.state.clone();
+    removed.version = 2;
+    removed.epoch = 2;
+    removed.previous_hash.clone_from(&first.hash);
+    removed.members.remove(&member);
+    removed.previous_key = Some(room_crypto::seal_previous(room, 2, &next_key, &key).unwrap());
+    removed.recipients = vec![
+        room_crypto::wrap(
+            &removed,
+            &owner,
+            &alice.device_id,
+            alice.room_public(),
+            &next_key,
+        )
+        .unwrap(),
+    ];
+    let (body, signature) = room_crypto::sign(room_crypto::STATE_DOMAIN, &alice, &removed).unwrap();
+
+    let storage = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(storage.path().join("network")).unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let credentials = Credentials {
+        user_id: owner.clone(),
+        display_name: "You".to_owned(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::clone(&alice),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    let withheld = CachedRoom {
+        states: BTreeMap::from([(1, first)]),
+        keys: BTreeMap::from([(1, key)]),
+        ..CachedRoom::default()
+    };
+    *network.inner.rooms.lock().await = RoomCache {
+        generation: credentials.generation,
+        rooms: BTreeMap::from([(room, withheld.clone())]),
+        ..RoomCache::default()
+    };
+
+    network
+        .apply_own_state(
+            &credentials,
+            room,
+            &json!({"body": body, "signature": signature}),
+        )
+        .await
+        .unwrap();
+    let kept = network.inner.rooms.lock().await.rooms[&room]
+        .states
+        .last_key_value()
+        .map(|(version, state)| (*version, state.state.members.contains_key(&member)));
+    assert_eq!(kept, Some((2, false)));
+    assert!(
+        network
+            .remember_room(&credentials, room, withheld)
+            .await
+            .is_err()
+    );
+}
+
 fn message(text: &str) -> Payload {
     Payload::Message {
         text: text.into(),

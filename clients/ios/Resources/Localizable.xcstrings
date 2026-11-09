@@ -16474,54 +16474,54 @@
         }
       }
     },
-    "Their identity changed. Trust it to share with them again." : {
+    "Their identity changed. Trust it only if they told you so." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Identität dieser Person hat sich geändert. Vertraue ihr, um wieder mit ihr zu teilen."
+            "value" : "Die Identität dieser Person hat sich geändert. Vertraue ihr nur, wenn die Person es dir gesagt hat."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη για να μοιραστείτε ξανά μαζί του."
+            "value" : "Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη μόνο αν σας το είπε το ίδιο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Su identidad ha cambiado. Confía en ella para volver a compartir con esta persona."
+            "value" : "Su identidad ha cambiado. Confía en ella solo si esta persona te lo dijo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Son identité a changé. Faites confiance à sa nouvelle identité pour partager à nouveau avec cette personne."
+            "value" : "Son identité a changé. Faites-lui confiance seulement si cette personne vous l'a dit."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sua identità è cambiata. Considerala attendibile per condividere di nuovo con questa persona."
+            "value" : "La sua identità è cambiata. Considerala attendibile solo se questa persona te lo ha detto."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相手の ID が変わりました。再び共有するには、その ID を信頼してください。"
+            "value" : "相手の ID が変わりました。相手から知らされた場合だけ信頼してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "상대의 신원이 바뀌었어요. 다시 공유하려면 신원을 신뢰하세요."
+            "value" : "상대의 신원이 바뀌었어요. 상대가 직접 알려 준 경우에만 신뢰하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "对方的身份已变更。信任新身份后才能再次与其共享。"
+            "value" : "对方的身份已变更。仅在对方告诉过你时才信任新身份。"
           }
         }
       }
@@ -16574,6 +16574,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "对方的身份已变更。请先在“好友”中信任对方。"
+          }
+        }
+      }
+    },
+    "Their identity changed. Verify it with a new invite from them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Identität dieser Person hat sich geändert. Verifiziere sie mit einer neuen Einladung von ihr."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η ταυτότητα του ατόμου άλλαξε. Επαληθεύστε την με μια νέα πρόσκληση από αυτό."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su identidad ha cambiado. Verifícala con una invitación nueva de esta persona."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son identité a changé. Vérifiez-la avec une nouvelle invitation de cette personne."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sua identità è cambiata. Verificala con un nuovo invito di questa persona."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の ID が変わりました。相手からの新しい招待で確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대의 신원이 바뀌었어요. 상대가 보낸 새 초대로 확인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对方的身份已变更。请用对方发来的新邀请验证新身份。"
           }
         }
       }

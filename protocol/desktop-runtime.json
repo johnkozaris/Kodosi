@@ -6075,6 +6075,9 @@
                     }
                   ]
                 },
+                "inviteNeeded": {
+                  "type": "boolean"
+                },
                 "userId": {
                   "type": "string"
                 },
@@ -6087,7 +6090,8 @@
                 "handle",
                 "displayName",
                 "verified",
-                "identityState"
+                "identityState",
+                "inviteNeeded"
               ],
               "type": "object"
             },

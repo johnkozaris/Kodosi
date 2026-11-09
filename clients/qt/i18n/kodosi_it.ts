@@ -2230,8 +2230,12 @@
         <translation>Rimuovi…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>I suoi dispositivi sono cambiati. Considerali di nuovo attendibili per condividere.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>La sua identità è cambiata. Verificala con un nuovo invito di questa persona.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>La sua identità è cambiata. Considerala attendibile solo se questa persona te lo ha detto.</translation>
     </message>
     <message>
         <source>Trust</source>

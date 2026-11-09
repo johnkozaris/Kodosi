@@ -848,22 +848,11 @@ impl BackendClient {
                     continue;
                 }
                 info.name.clone_from(&dto.name);
-                if let Some((room, sequence)) =
-                    change.filter(|_| (info.mission_id, info.room_sequence) == local)
-                {
-                    info.mission_id = room;
-                    info.room_sequence = sequence;
-                }
-                let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
-                let removed = !info.shared_with.is_subset(&reported);
-                if info.mission_id.is_none() {
-                    info.shared_with.retain(|user| reported.contains(user));
-                } else if info.mission_id == dto.mission_id {
-                    info.shared_with.clone_from(&reported);
-                }
+                let change = change.filter(|_| (info.mission_id, info.room_sequence) == local);
+                let (removed, shown) = follow_sharing(&mut info, dto, change);
                 let sharing = json!({
                     "type":"network.sharing", "sessionId":dto.id, "incarnationId":dto.incarnation_id,
-                    "sharedWith":info.shared_with, "missionId":info.mission_id, "roomSequence":info.room_sequence
+                    "sharedWith":shown, "missionId":info.mission_id, "roomSequence":info.room_sequence
                 });
                 drop(info);
                 let previous = publication.dto.read().await.clone();
@@ -995,31 +984,45 @@ impl BackendClient {
                 }
             }
         };
-        let body = if operation == "mission.invitation.reject" {
-            let list = self.mission_list().await?;
-            let invitation = wire::text(args, "invitationId")?;
-            let room = list["invitations"]
-                .as_array()
-                .and_then(|items| {
-                    items
-                        .iter()
-                        .find(|item| item["id"].as_str() == Some(invitation))
-                })
-                .and_then(|item| item["missionId"].as_str())
-                .ok_or_else(|| Error::Text(text!("This invitation is unavailable.")))?;
-            let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?;
-            Some(
-                json!({"keys":self.prepare_room_membership(&credentials, room, None, Some(&credentials.user_id)).await?}),
-            )
+        let (body, room) = if operation == "mission.invitation.reject" {
+            let (keys, room) = self.leaving_invitation(&credentials, args).await?;
+            (Some(json!({ "keys": keys })), Some(room))
         } else {
-            body
+            (body, wire::id(args, "missionId").ok())
         };
+        let signed = body.as_ref().and_then(|body| body.get("keys")).cloned();
         let _response: Value = self
             .inner
             .http
             .device(method, &path, &credentials, body)
             .await?;
+        if let (Some(room), Some(signed)) = (room, signed) {
+            self.apply_own_state(&credentials, room, &signed).await?;
+        }
         Ok(())
+    }
+
+    async fn leaving_invitation(
+        &self,
+        credentials: &Credentials,
+        args: &Value,
+    ) -> Result<(Value, Uuid)> {
+        let list = self.mission_list().await?;
+        let invitation = wire::text(args, "invitationId")?;
+        let room = list["invitations"]
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item["id"].as_str() == Some(invitation))
+            })
+            .and_then(|item| item["missionId"].as_str())
+            .ok_or_else(|| Error::Text(text!("This invitation is unavailable.")))?;
+        let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?;
+        let keys = self
+            .prepare_room_membership(credentials, room, None, Some(&credentials.user_id))
+            .await?;
+        Ok((keys, room))
     }
 
     #[cfg(feature = "host")]
@@ -1326,6 +1329,33 @@ fn path_segment(value: &str) -> Result<String> {
         .map_err(|()| invalid("Invalid URL."))?
         .push(value);
     Ok(url.path().trim_start_matches('/').to_owned())
+}
+
+/// Takes the server's word for a published terminal. A room change ends its people, as it does
+/// on the server, and the server can only take people away from the host's own choice. A room
+/// terminal shows the room's people.
+#[cfg(feature = "host")]
+fn follow_sharing(
+    info: &mut LocalPublication,
+    dto: &SessionDto,
+    change: Option<(Option<Uuid>, u64)>,
+) -> (bool, BTreeSet<String>) {
+    if let Some((room, sequence)) = change {
+        if info.mission_id != room {
+            info.shared_with.clear();
+        }
+        info.mission_id = room;
+        info.room_sequence = sequence;
+    }
+    let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
+    let removed = !info.shared_with.is_subset(&reported);
+    info.shared_with.retain(|user| reported.contains(user));
+    let shown = if info.mission_id.is_some() && info.mission_id == dto.mission_id {
+        reported
+    } else {
+        info.shared_with.clone()
+    };
+    (removed, shown)
 }
 
 #[cfg(feature = "host")]

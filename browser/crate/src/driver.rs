@@ -21,7 +21,7 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::{engine::Engine, link::ToEngine};
+use crate::{engine::Engine, link::ToEngine, socket};
 
 /// A driver keeps one connection while it works, so more are left over from earlier drivers.
 const MOST_DRIVERS: usize = 8;
@@ -44,20 +44,23 @@ const REFUSED: [&str; 6] = [
     "Target.disposeBrowserContext",
 ];
 
-/// The driver port of a window, bound before the window opens.
+/// The driver port of a window, bound before the window opens. Only the path with its token opens
+/// it, so a page that finds the port gets nothing.
 pub(crate) struct Listener {
-    listener: TcpListener,
+    tcp: TcpListener,
     port: u16,
+    path: String,
 }
 
 impl Listener {
     pub(crate) fn bind() -> io::Result<Self> {
-        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-        listener.set_nonblocking(true)?;
-        let port = listener.local_addr()?.port();
+        let tcp = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        tcp.set_nonblocking(true)?;
+        let port = tcp.local_addr()?.port();
         Ok(Self {
-            listener: TcpListener::from_std(listener)?,
+            tcp: TcpListener::from_std(tcp)?,
             port,
+            path: format!("/devtools/browser/{}", socket::token()?),
         })
     }
 
@@ -67,13 +70,14 @@ impl Listener {
         window: i64,
         mut open: watch::Receiver<bool>,
     ) -> String {
-        let Self { listener, port } = self;
+        let Self { tcp, port, path } = self;
+        let address = format!("ws://127.0.0.1:{port}{path}");
         tokio::spawn(async move {
             let mut drivers = JoinSet::new();
             let mut started: VecDeque<AbortHandle> = VecDeque::new();
             loop {
                 tokio::select! {
-                    accepted = listener.accept() => {
+                    accepted = tcp.accept() => {
                         let stream = match accepted {
                             Ok((stream, _)) => stream,
                             Err(problem) => {
@@ -86,7 +90,7 @@ impl Listener {
                         {
                             oldest.abort();
                         }
-                        started.push_back(drivers.spawn(serve(stream, Arc::clone(&engine), window)));
+                        started.push_back(drivers.spawn(serve(stream, Arc::clone(&engine), window, path.clone())));
                     }
                     Some(_) = drivers.join_next(), if !drivers.is_empty() => {
                         started.retain(|driver| !driver.is_finished());
@@ -95,12 +99,13 @@ impl Listener {
                 }
             }
         });
-        format!("ws://127.0.0.1:{port}/devtools/browser/{window}")
+        address
     }
 }
 
-async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64) {
-    let Ok(driver) = tokio_tungstenite::accept_async(stream).await else {
+async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64, path: String) {
+    let Ok(driver) = tokio_tungstenite::accept_hdr_async(stream, socket::Admission { path }).await
+    else {
         return;
     };
     let Ok((browser, _)) = tokio_tungstenite::connect_async(engine.address()).await else {

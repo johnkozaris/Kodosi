@@ -121,17 +121,18 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     public async Task IssuerAndSubjectIdentifyTheAccount()
     {
         await using var store = await TestStore.CreateAsync(postgres);
-        static Microsoft.AspNetCore.Http.DefaultHttpContext Context(string iss, string sub)
+        static Microsoft.AspNetCore.Http.DefaultHttpContext Context(string iss, string sub, string name)
         {
             var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
             context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
-                new System.Security.Claims.Claim("iss", iss), new System.Security.Claims.Claim("sub", sub)
+                new System.Security.Claims.Claim("iss", iss), new System.Security.Claims.Claim("sub", sub),
+                new System.Security.Claims.Claim("preferred_username", name)
             ], "test"));
             return context;
         }
-        var user = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
-        var again = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
-        var other = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://other.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var user = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user", "alias"), TestContext.Current.CancellationToken);
+        var again = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user", "alias"), TestContext.Current.CancellationToken);
+        var other = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://other.example/realms/kodosi", "alias-user", "other-alias"), TestContext.Current.CancellationToken);
         Assert.Equal(user.Id, again.Id);
         Assert.NotEqual(user.Id, other.Id);
     }
