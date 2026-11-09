@@ -15,7 +15,7 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新リリース"></a>
 </p>
 
-[Kodosi](https://kodosi.com) は、Mac、Linux、Windows で使えるコーディングエージェント向けのターミナルアプリです。すべてのコンピュータのターミナルを 1 つのウインドウにまとめ、どのエージェントがあなたを必要としているかを示し、フレンドと同じターミナルで作業できます。ターミナルとルームはエンドツーエンドで暗号化されます。
+[Kodosi](https://kodosi.com) は、Mac、Linux、Windows で使えるコーディングエージェント向けのターミナルアプリです。すべてのコンピュータのターミナルを 1 つのウインドウにまとめ、どのエージェントがあなたを必要としているかを示し、フレンドと同じターミナルで作業できます。各ターミナルの隣にはキャンバスがあり、エージェントが計画、ページ、ドキュメントを表示して、一緒に編集できます。ターミナルとルームはエンドツーエンドで暗号化されます。
 
 <p align="center">
   <picture>

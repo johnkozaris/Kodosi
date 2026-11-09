@@ -17,8 +17,9 @@
 
 [Kodosi](https://kodosi.com) est une app de terminal pour les agents de code, sur Mac, Linux
 et Windows. Elle réunit les terminaux de tous vos ordinateurs dans une fenêtre, vous montre
-quel agent a besoin de vous et laisse vos amis travailler dans les mêmes terminaux. Les
-terminaux et les salons sont chiffrés de bout en bout.
+quel agent a besoin de vous et laisse vos amis travailler dans les mêmes terminaux. Chaque
+terminal a un canvas à côté, où l'agent montre ses plans, ses pages et ses documents, et
+vous les modifiez ensemble. Les terminaux et les salons sont chiffrés de bout en bout.
 
 <p align="center">
   <picture>

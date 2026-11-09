@@ -17,8 +17,9 @@
 
 [Kodosi](https://kodosi.com) ist eine Terminal-App für Coding-Agents auf Mac, Linux und
 Windows. Sie hält die Terminals all deiner Computer in einem Fenster, zeigt dir, welcher
-Agent dich braucht, und lässt deine Freunde in denselben Terminals mitarbeiten. Terminals und
-Räume sind Ende-zu-Ende-verschlüsselt.
+Agent dich braucht, und lässt deine Freunde in denselben Terminals mitarbeiten. Jedes
+Terminal hat einen Canvas: Dort zeigt der Agent seine Pläne, Seiten und Dokumente, und du
+bearbeitest sie mit ihm. Terminals und Räume sind Ende-zu-Ende-verschlüsselt.
 
 <p align="center">
   <picture>

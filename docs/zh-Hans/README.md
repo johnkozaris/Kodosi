@@ -15,7 +15,7 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新版本"></a>
 </p>
 
-[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。终端和房间均采用端到端加密。
+[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。每个终端旁都有画布，Agent 会在上面展示它的计划、页面和文档，你们可以一起编辑。终端和房间均采用端到端加密。
 
 <p align="center">
   <picture>
