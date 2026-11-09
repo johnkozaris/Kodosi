@@ -55,10 +55,10 @@ Computer.
 Terminal und seinen Agent.
 
 **Ein Canvas neben jedem Terminal.** Ein Agent zeigt dir eine Seite, einen Plan oder ein
-Bild neben seinem Terminal. Dokumente, Tabellen, Präsentationen und PDFs sind live: Du, deine
-Freunde und der Agent bearbeiten gleichzeitig dieselbe echte Datei. Der Agent nutzt außerdem
-einen Browser, den du mit ihm teilst: Du siehst als Live-Video, was er tut, und klickst und
-tippst in denselben Seiten.
+Bild neben seinem Terminal. Dokumente, Tabellen, Präsentationen, PDFs und Textdateien sind
+live: Du, deine Freunde und der Agent bearbeiten gleichzeitig dieselbe echte Datei. Der
+Agent nutzt außerdem einen Browser, den du mit ihm teilst: Du siehst als Live-Video, was er
+tut, und klickst und tippst in denselben Seiten.
 
 **Räume für Menschen und Agents.** Ein Raum enthält geteilte Terminals, eine Unterhaltung
 und Aufgaben. Agents lesen und schreiben in der Unterhaltung und übernehmen Aufgaben, und

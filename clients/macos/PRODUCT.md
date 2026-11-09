@@ -48,14 +48,26 @@ the canvas the stage and zooms the terminal out into its corner, where it stays 
 click on it puts them side by side again. Hide canvas leaves the terminal alone.
 
 The files are tabs over the file, and the key with their count shows them all as cards.
-A pointer on a tab or a card shows the key that takes the file off the canvas. A file's
-menu has Save a copy, Ask about this, which names the terminal's agent, and Remove from
-canvas. The plus key and the terminal's actions add a file, and a drop on the canvas does
-too. Documents, sheets, presentations and PDFs are live, and other pictures and files show
-with Quick Look. In the shared browser, the bar has back, forward, reload, the address, the
-tabs and the last action of the agent, and the picture takes clicks, scrolling and keys.
-When macOS keeps a copy from reading Safari's sign-ins, Settings › Browser has a button
-that opens Full Disk Access.
+Each tab ends with the key that takes the file off the canvas, and a pointer on a card
+shows it. A file's menu has Save a copy, Ask about this, which names the terminal's agent,
+and Remove from canvas. The plus key and the terminal's actions add a file, and a drop on
+the canvas does too. Documents, sheets, presentations, PDFs and text files are live, and
+other pictures and files show with Quick Look. In the shared browser, its tabs are over
+the bar, with a plus key for a new one, and the bar has back, forward, reload and the
+address, which offers the pages that the shared browsers showed on this Mac. The picture
+takes clicks, scrolling and keys. Settings › Browser gets Kodosi Browser now or checks for
+a newer one. A browser whose sign-ins macOS keeps from Kodosi, such as Safari, asks there
+for Full Disk Access. Settings › General shows Kodosi's permissions, which the programs in
+its terminals have too: Full Disk Access, Device Control and Data Access (Accessibility
+before macOS 27) and Screen & System Audio Recording for programs that read other apps'
+data, control apps or see the screen, App Management for a program that changes another
+app, and notifications. Allow asks macOS, which lists Kodosi switched off, and opens the
+list with a card beside it that holds Kodosi's icon to drag into the list where macOS adds
+no app by itself, as for Full Disk Access. Kodosi declares the camera, the microphone,
+automation of other apps, contacts, calendars, location and photos, so macOS asks the
+person when a program in a terminal needs one. When macOS quits Kodosi to open it again
+with a permission that the person turns on from Settings, or to log out, restart or shut
+down, Kodosi quits without asking, and its terminals start again when it opens.
 
 ## Rooms
 

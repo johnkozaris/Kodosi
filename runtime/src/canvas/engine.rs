@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Once},
+    sync::{Arc, Mutex, Once},
     time::Duration,
 };
 
@@ -59,18 +59,24 @@ struct Current {
 
 /// What Settings › Browser shows.
 pub(crate) struct BrowserStatus {
-    pub(crate) sources: Vec<String>,
+    pub(crate) sources: Vec<shared_browser::SignInSource>,
     pub(crate) sites: usize,
     pub(crate) engine: Option<String>,
+    /// The part of a download of Kodosi Browser, from 0 to 100, while one runs.
+    pub(crate) getting: Option<u8>,
 }
 
 /// The host's browsers. Kodosi Browser comes the first time that a window opens on this
-/// computer.
+/// computer, or when a person gets it in Settings.
 #[derive(Clone)]
 pub(crate) struct BrowserHost {
     folder: PathBuf,
     browsers: Arc<OnceCell<Browsers>>,
     updating: Arc<Once>,
+    /// One download at a time, so no two write the same engine and no start removes one that
+    /// comes.
+    installing: Arc<tokio::sync::Mutex<()>>,
+    getting: Arc<Mutex<Option<u8>>>,
 }
 
 impl BrowserHost {
@@ -79,6 +85,8 @@ impl BrowserHost {
             folder: data_root.join("browser"),
             browsers: Arc::default(),
             updating: Arc::new(Once::new()),
+            installing: Arc::default(),
+            getting: Arc::default(),
         }
     }
 
@@ -89,13 +97,7 @@ impl BrowserHost {
             .get_or_try_init(|| async {
                 let engine = match on_disk() {
                     Some(program) => program,
-                    None => match installed(&self.engines()).await {
-                        Some((version, program)) => {
-                            remove_others(&self.engines(), &version).await;
-                            program
-                        }
-                        None => install(&self.engines(), progress).await?,
-                    },
+                    None => self.engine(progress).await?,
                 };
                 Ok::<_, Text>(Browsers::new(Settings {
                     engine,
@@ -109,16 +111,68 @@ impl BrowserHost {
         Ok(browsers)
     }
 
+    /// The engine on this computer, with the others removed, or else the newest of the feed.
+    async fn engine(&self, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
+        let _one = self.installing.lock().await;
+        if let Some((version, program)) = installed(&self.engines()).await {
+            remove_others(&self.engines(), &version).await;
+            return Ok(program);
+        }
+        self.download(progress).await
+    }
+
+    /// Gets the newest engine of the feed unless it is here. The caller holds `installing`.
+    async fn download(&self, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
+        let got = install(&self.engines(), move |part| {
+            self.tell(Some(part));
+            progress(part);
+        })
+        .await;
+        self.tell(None);
+        got
+    }
+
+    async fn newest(&self) -> Result<PathBuf, Text> {
+        let _one = self.installing.lock().await;
+        self.download(|_| {}).await
+    }
+
+    fn tell(&self, part: Option<u8>) {
+        *self
+            .getting
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = part;
+    }
+
+    fn getting(&self) -> Option<u8> {
+        *self
+            .getting
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// A person's own step in Settings: gets Kodosi Browser now, or its newest version. A
+    /// browser that runs keeps its own engine, as with each daily look.
+    pub(crate) async fn get(&self) -> Result<(), Text> {
+        if on_disk().is_some() {
+            return Ok(());
+        }
+        let program = self.newest().await?;
+        if let Some(browsers) = self.browsers.get() {
+            browsers.use_engine(program);
+        }
+        Ok(())
+    }
+
     /// Gets each newer engine while the host runs. A browser that starts later uses it, a
     /// browser that runs keeps its own, and the older engine goes when the host starts again.
     fn keep_current(&self) {
-        let engines = self.engines();
-        let browsers = Arc::clone(&self.browsers);
+        let host = self.clone();
         tokio::spawn(async move {
             loop {
-                match install(&engines, |_| {}).await {
+                match host.newest().await {
                     Ok(program) => {
-                        if let Some(browsers) = browsers.get() {
+                        if let Some(browsers) = host.browsers.get() {
                             browsers.use_engine(program);
                         }
                     }
@@ -163,12 +217,10 @@ impl BrowserHost {
                 .map(|(version, _)| format!("Chromium {version}")),
         };
         BrowserStatus {
-            sources: shared_browser::sign_in_sources()
-                .into_iter()
-                .map(|source| source.name)
-                .collect(),
+            sources: shared_browser::sign_in_sources(),
             sites: shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE),
             engine,
+            getting: self.getting(),
         }
     }
 
@@ -184,12 +236,12 @@ impl BrowserHost {
         let sign_ins = source
             .read(&self.folder.join(READING))
             .await
-            .map_err(|problem| Text::plain(problem.to_string()))?;
+            .map_err(copy_problem)?;
         self.browsers(|_| {})
             .await?
             .add_sign_ins(KEPT_PROFILE, sign_ins)
             .await
-            .map_err(|problem| Text::plain(problem.to_string()))
+            .map_err(copy_problem)
     }
 
     /// Removes what copies gave the kept profile, and returns for how many sites.
@@ -219,6 +271,31 @@ impl BrowserHost {
 
 fn on_disk() -> Option<PathBuf> {
     std::env::var_os(ON_DISK).map(PathBuf::from)
+}
+
+/// Why sign-ins did not copy, in the words of the person's language.
+fn copy_problem(problem: shared_browser::CopyError) -> Text {
+    use shared_browser::CopyError;
+    match problem {
+        CopyError::NoAccess(name) if cfg!(target_os = "macos") => text!(
+            "macOS did not give Kodosi the key of the sign-ins of {name}. Copy again, and allow Kodosi when macOS asks.",
+            name = name
+        ),
+        CopyError::NoAccess(name) => text!(
+            "{name} did not give Kodosi the key of its sign-ins.",
+            name = name
+        ),
+        CopyError::Locked(name) => text!(
+            "{name} keeps its sign-ins locked on this computer, so sign in on the canvas.",
+            name = name
+        ),
+        CopyError::Protected(name) => text!(
+            "macOS lets only apps with Full Disk Access read the sign-ins of {name}.",
+            name = name
+        ),
+        CopyError::Store(error) => text!("The sign-ins could not be read: {error}", error = error),
+        CopyError::Browser(error) => Text::plain(error.to_string()),
+    }
 }
 
 fn platform() -> String {

@@ -3145,6 +3145,48 @@
               }
             ]
           },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.get"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "key": {
             "type": "string"
           },
@@ -6767,6 +6809,9 @@
                                       },
                                       {
                                         "const": "pdf"
+                                      },
+                                      {
+                                        "const": "text"
                                       }
                                     ]
                                   },
@@ -8597,6 +8642,17 @@
               }
             ]
           },
+          "getting": {
+            "anyOf": [
+              {
+                "format": "u8",
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "operation": {
             "type": "string"
           },
@@ -8618,7 +8674,24 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "additionalProperties": false,
+                  "properties": {
+                    "browser": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "protected": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "browser",
+                    "protected"
+                  ],
+                  "type": "object"
                 },
                 "type": "array"
               },

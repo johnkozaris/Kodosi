@@ -165,8 +165,20 @@
         <translation>Αναζήτηση σε αυτόν τον υπολογιστή</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>Λήψη, %1%</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>Λήψη την πρώτη φορά που ανοίγει ο κοινόχρηστος browser</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>Έλεγχος για ενημερώσεις</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Λήψη</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -359,6 +371,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>Κείμενο</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>Εικόνα</translation>
@@ -783,6 +799,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>Προβολή παρουσιάσεων</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>Προβολή κειμένου</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2888,10 +2908,6 @@
         <translation>Τερματικό</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>Πληκτρολόγιο</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -2910,6 +2926,10 @@
     <message>
         <source>Devices</source>
         <translation>Συσκευές</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>Συντομεύσεις</translation>
     </message>
 </context>
 <context>
@@ -3406,10 +3426,6 @@
         <translation>Εφαρμογή</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>Εφαρμόστηκε</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>Ένα τερματικό σε νέο branch αποκτά δικό του φάκελο. Το Kodosi αφαιρεί έναν φάκελο χωρίς αλλαγές όταν τελειώνει το τερματικό του.</translation>
     </message>
@@ -3790,6 +3806,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>Το canvas δέχεται αρχεία έως 32 MB.</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>Ενημερωμένο</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

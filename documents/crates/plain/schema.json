@@ -1,0 +1,8 @@
+{
+  "nodes": [
+    { "name": "doc", "content": "line+" },
+    { "name": "line", "content": "text*" },
+    { "name": "text" }
+  ],
+  "marks": []
+}

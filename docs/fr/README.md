@@ -55,10 +55,10 @@ chaque ordinateur.
 et de son agent.
 
 **Un canvas à côté de chaque terminal.** Un agent vous montre une page, un plan ou une image
-à côté de son terminal. Les documents, les feuilles, les présentations et les PDF sont en
-direct : vous, vos amis et l'agent modifiez le même vrai fichier en même temps. L'agent
-utilise aussi un navigateur que vous partagez avec lui : vous voyez ce qu'il fait en vidéo en
-direct, et vous cliquez et tapez dans les mêmes pages.
+à côté de son terminal. Les documents, les feuilles, les présentations, les PDF et les
+fichiers texte sont en direct : vous, vos amis et l'agent modifiez le même vrai fichier en
+même temps. L'agent utilise aussi un navigateur que vous partagez avec lui : vous voyez ce
+qu'il fait en vidéo en direct, et vous cliquez et tapez dans les mêmes pages.
 
 **Des salons pour les personnes et les agents.** Un salon réunit des terminaux partagés, une
 conversation et des tâches. Les agents lisent et écrivent dans la conversation et prennent des

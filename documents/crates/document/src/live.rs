@@ -123,7 +123,12 @@ pub struct Document<F: Format> {
 }
 
 impl<F: Format> Document<F> {
-    pub fn open(file: Vec<u8>, epoch: u64, mut assets: Assets) -> Result<Self, Unreadable> {
+    pub fn open(file: Vec<u8>, epoch: u64, assets: Assets) -> Result<Self, Unreadable> {
+        F::opens(&file)?;
+        Self::start(file, epoch, assets)
+    }
+
+    fn start(file: Vec<u8>, epoch: u64, mut assets: Assets) -> Result<Self, Unreadable> {
         let model = F::read(&file, &mut assets)?;
         Ok(Self {
             model,
@@ -149,7 +154,7 @@ impl<F: Format> Document<F> {
         records: &[Vec<u8>],
         assets: Assets,
     ) -> Result<Self, Unreadable> {
-        let mut document = Self::open(original, restored.epoch, assets)?;
+        let mut document = Self::start(original, restored.epoch, assets)?;
         document.first_rev = restored.first_rev;
         document.rev = restored.first_rev;
         document.saved_rev = restored.saved.last().copied().unwrap_or(restored.first_rev);
@@ -567,7 +572,7 @@ impl<F: Format> Document<F> {
         let mut assets = self.assets.clone();
         let mut state = F::read(&self.original, &mut assets).ok()?;
         let mut applied = self.first_rev;
-        let mut nearest: Option<Vec<F::Change>> = None;
+        let mut nearest: Option<(usize, Vec<F::Change>)> = None;
         let mut log = self.log.iter();
         for saved in self.saved_states.clone() {
             while applied < saved {
@@ -576,14 +581,12 @@ impl<F: Format> Document<F> {
                 applied = ordered.rev;
             }
             let changes = F::compare(&state, new);
-            if nearest
-                .as_ref()
-                .is_none_or(|best| changes.len() < best.len())
-            {
-                nearest = Some(changes);
+            let distance = F::distance(&changes);
+            if nearest.as_ref().is_none_or(|(best, _)| distance < *best) {
+                nearest = Some((distance, changes));
             }
         }
-        nearest
+        nearest.map(|(_, changes)| changes)
     }
 
     fn save(&mut self, file: &[u8]) -> Vec<Effect> {

@@ -5,7 +5,8 @@ use serde_json::json;
 
 use super::{
     BrowserAct, BrowserDoingKind, BrowserPoint, CanvasAnswer, CanvasHandle, CanvasKind,
-    CanvasRequest, MOST_ITEMS, PART_BYTES, browser, files::Files, files::Stamp, kind_of, page,
+    CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES, browser, files::Files, files::Stamp,
+    kind_of, page,
 };
 
 #[test]
@@ -107,6 +108,34 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     assert!(files.items()[1].missing);
     let key = files.items()[1].key.clone();
     assert!(files.read(&key, 1, 0).await.is_err());
+}
+
+#[tokio::test]
+async fn a_text_file_opens_live_while_its_format_takes_it_and_else_shows_as_a_page() {
+    let folder = tempfile::tempdir().unwrap();
+    let folder = kodosi_os::fs::canonicalize(folder.path()).unwrap();
+    let config = folder.join("config.yaml");
+    let notes = folder.join("notes.txt");
+    std::fs::write(&config, "port: 80\n").unwrap();
+    std::fs::write(&notes, b"caf\xe9\n").unwrap();
+    let stamp = Stamp::default();
+    let mut files = Files::default();
+    files
+        .show(vec![notes, config.clone()], &stamp)
+        .await
+        .unwrap();
+    let views = |files: &Files| {
+        files
+            .items()
+            .into_iter()
+            .map(|item| item.view)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(views(&files), [Some(DocumentView::Text), None]);
+
+    std::fs::write(&config, "port: 80\n".repeat(20_000)).unwrap();
+    assert!(files.check(&stamp).await);
+    assert_eq!(views(&files), [None, None]);
 }
 
 #[tokio::test]

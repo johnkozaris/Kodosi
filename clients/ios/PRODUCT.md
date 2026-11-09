@@ -26,12 +26,14 @@ computer.
 - A tap on a link opens it by the shared link rules, except in a program that uses the
   mouse. A tap on the name of your own terminal in its bar renames it.
 - The canvas key in a terminal's bar opens the canvas full screen with the keys of its
-  parts in the bar. A long press on a key closes its part, and the plus key opens a
-  closed part or the browser, or adds a file. The files are tabs over the file, or all as
-  cards, and a long press on one has Save a Copy, Ask about this and Remove from canvas.
-  Documents, sheets, presentations and PDFs are live, and other pictures and files show
-  with Quick Look. In the shared browser, taps and drags are clicks and scrolling, and the
-  keyboard key types into it.
+  parts in the bar. A long press on a key closes its part, and the plus key opens a closed
+  part or the browser, or adds a file. The files are tabs over the file, each with the key
+  that takes it off the canvas, or all as cards, and a long press on one has Save a Copy,
+  Ask about this and Remove from canvas. Documents, sheets, presentations, PDFs and text
+  files are live, and other pictures and files show with Quick Look. In the shared
+  browser, its tabs are over the bar, taps and drags are clicks and scrolling, the address
+  offers the pages that the shared browsers showed on this device, and the keyboard key
+  types into it.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,

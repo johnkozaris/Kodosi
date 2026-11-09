@@ -35,6 +35,11 @@ enum Kind {
 pub struct SignInSource {
     /// What a person reads: the browser, and the profile's name when it has several.
     pub name: String,
+    /// The browser, such as `chrome` or `safari`, so an app can show its icon.
+    pub browser: &'static str,
+    /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
+    /// Access, so its profiles are not known yet.
+    pub protected: bool,
     kind: Kind,
     folder: PathBuf,
 }
@@ -48,7 +53,7 @@ pub struct SignIns {
 /// Why a copy could not start.
 #[derive(Debug, thiserror::Error)]
 pub enum CopyError {
-    #[error("{0} did not give access to its sign-ins.")]
+    #[error("{0} did not give Kodosi the key of its sign-ins.")]
     NoAccess(String),
     #[error("{0} keeps its sign-ins locked on this computer.")]
     Locked(String),
@@ -66,13 +71,15 @@ impl From<rusqlite::Error> for CopyError {
     }
 }
 
+/// macOS refuses the files of another app's data with `EPERM` until the person gives Kodosi
+/// Full Disk Access.
 impl From<io::Error> for CopyError {
     fn from(error: io::Error) -> Self {
-        if error.kind() == io::ErrorKind::PermissionDenied {
-            Self::NoAccess("The browser".to_owned())
-        } else {
-            Self::Store(error.to_string())
+        #[cfg(target_os = "macos")]
+        if error.raw_os_error() == Some(rustix::io::Errno::PERM.raw_os_error()) {
+            return Self::Protected(String::new());
         }
+        Self::Store(error.to_string())
     }
 }
 
@@ -100,6 +107,17 @@ struct Key {
 }
 
 impl SignInSource {
+    /// A browser whose data this computer's apps may not read yet, as one source.
+    fn protected(name: &str, browser: &'static str, kind: Kind, folder: PathBuf) -> Self {
+        Self {
+            name: name.to_owned(),
+            browser,
+            protected: true,
+            kind,
+            folder,
+        }
+    }
+
     /// Reads the sign-ins with no browser running. Copies of open stores go in `working`, a
     /// private folder that goes when the read ends.
     pub async fn read(&self, working: &Path) -> Result<SignIns, CopyError> {
@@ -135,7 +153,8 @@ fn home() -> PathBuf {
     std::env::var_os(name).map_or_else(PathBuf::new, PathBuf::from)
 }
 
-/// The profiles on this computer that hold sign-ins.
+/// The profiles on this computer that hold sign-ins. Nothing here reads the data of a browser
+/// that macOS keeps from Kodosi, so looking never makes macOS refuse or warn.
 pub fn sign_in_sources() -> Vec<SignInSource> {
     let home = home();
     let mut sources = chromium::sources(&home);
@@ -144,12 +163,25 @@ pub fn sign_in_sources() -> Vec<SignInSource> {
     sources
 }
 
+/// Whether Kodosi may read a file that is there. macOS keeps the data of other apps from Kodosi
+/// until the person gives it Full Disk Access, and answers this without asking the person and
+/// without counting it as a refused read.
+#[cfg(target_os = "macos")]
+fn readable(path: &Path) -> bool {
+    rustix::fs::access(path, rustix::fs::Access::READ_OK).is_ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn readable(_path: &Path) -> bool {
+    true
+}
+
 /// Reads a store through a copy, as the browser may hold the real one open. Open stores keep
 /// their journal beside them.
 fn store_copy(store: &Path, working: &Path) -> Result<PathBuf, CopyError> {
     std::fs::create_dir_all(working)?;
     let copy = working.join("store");
-    std::fs::copy(store, &copy)?;
+    copy_data(store, &copy)?;
     for ending in ["-wal", "-shm", "-journal"] {
         let mut name = store.as_os_str().to_owned();
         name.push(ending);
@@ -157,13 +189,24 @@ fn store_copy(store: &Path, working: &Path) -> Result<PathBuf, CopyError> {
         if beside.exists() {
             let mut target = copy.clone().into_os_string();
             target.push(ending);
-            std::fs::copy(&beside, PathBuf::from(target))?;
+            copy_data(&beside, &PathBuf::from(target))?;
         }
     }
     Ok(copy)
 }
 
+/// Copies only the bytes of a file. macOS refuses a copy of the extended attributes of another
+/// app's file, even where it lets Kodosi read the file.
+fn copy_data(from: &Path, to: &Path) -> io::Result<()> {
+    let mut source = std::fs::File::open(from)?;
+    let mut target = std::fs::File::create(to)?;
+    io::copy(&mut source, &mut target).map(drop)
+}
+
 fn read_source(source: &SignInSource, working: &Path) -> Result<Vec<Cookie>, CopyError> {
+    if source.protected {
+        return Err(CopyError::Protected(source.name.clone()));
+    }
     let cookies = match &source.kind {
         Kind::Chromium(family) => chromium::read(family, &source.folder, working),
         Kind::Firefox => firefox::read(&source.folder, working),

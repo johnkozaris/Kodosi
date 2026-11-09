@@ -26,7 +26,7 @@ the shell of the new terminal.
   the folder of the selected terminal.
 - The keys follow Ghostty. ⌘1 to ⌘9 select a terminal (Alt+1 to Alt+9 on Linux and
   Windows), ⌥⌘ with an arrow selects the one beside it (Ctrl+Alt with an arrow), and ⌘W
-  closes the selected terminal. Settings › Keyboard lists every key and changes it.
+  closes the selected terminal. Settings › Shortcuts lists every key and changes it.
 - If an agent is missing, the launcher shows its install command.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
@@ -56,9 +56,17 @@ on a desktop without a system tray, closing the window quits Kodosi. When you qu
 Kodosi, your terminals stop. Kodosi saves what they show on your computer and nowhere
 else. When you open Kodosi again, they start again in their folders, rooms and places on
 the stage, with their earlier screen and history above a new prompt (on Windows, scroll
-up to see it). Claude Code continues its conversation, and Codex and Copilot CLI show
-their conversations so that you can continue one. In Settings, you can choose what
-closing the window does.
+up to see it). Claude Code, Codex and Copilot CLI continue their conversations, and on a
+Mac or on Linux they keep the model and effort that you chose. When Kodosi cannot tell
+which conversation an agent showed, the agent lists its conversations so that you can
+continue one. In Settings, you can choose what closing the window does.
+
+On a Mac, the programs in your terminals have the permissions that you give Kodosi, as in
+any terminal app. When macOS says that Kodosi was prevented from modifying apps, a program
+in a terminal tried to change another app. To let it, turn on Kodosi in App Management;
+Settings › General opens it. There you also allow Device Control and Data Access
+(Accessibility before macOS 27) and Screen & System Audio Recording, for programs that
+control apps or see the screen.
 
 ## 3. See which agent needs you
 
@@ -90,11 +98,11 @@ the browser before the agent uses it, and Add a File puts a file on the canvas a
 terminal's folder; you can also drop a file on the canvas. On the iPhone, the canvas key is
 in the terminal's bar.
 
-- A document, sheet, presentation or PDF is live: you, the people in the terminal and the
-  agent edit it at the same time, and it stays a normal file in its folder. When a
-  document has tracked changes, its bar has a key that accepts or rejects them. Settings ›
-  Documents turns each viewer off or on, shows documents as pages or as text that fits
-  the canvas, and makes pages dark when Kodosi is dark.
+- A document, sheet, presentation, PDF or text file is live: you, the people in the
+  terminal and the agent edit it at the same time, and it stays a normal file in its
+  folder. When a document has tracked changes, its bar has a key that accepts or rejects
+  them. Settings › Documents turns each viewer off or on, shows documents as pages or as
+  text that fits the canvas, and makes pages dark when Kodosi is dark.
 
 - A page has no network. Links in pages, documents, sheets, presentations and PDFs open in
   your own browser by the same rules as terminal links. Where you can edit, ⌘-click a link
@@ -108,8 +116,9 @@ in the terminal's bar.
   agent uses it. The first browser on a computer gets Kodosi Browser, so it takes a moment.
 - To use your sign-ins in your private terminals, select Copy beside a browser in
   Settings › Browser. Remove takes away what you copied, and Remove All removes every
-  sign-in and all site data of your private terminals. On a Mac, a copy from Safari
-  needs Full Disk Access for Kodosi.
+  sign-in and all site data of your private terminals. On a Mac, when macOS keeps a
+  browser's sign-ins from Kodosi, as it does Safari's, select Allow… beside the browser to
+  give Kodosi Full Disk Access.
 - On one network, the browser's picture goes straight between your devices. macOS and iOS
   ask once for local network access; without it, the picture goes through the service.
 - Everyone who can open the terminal sees its canvas and uses its browser. When the

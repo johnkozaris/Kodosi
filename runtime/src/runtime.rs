@@ -1759,11 +1759,12 @@ impl Runtime {
         for (id, local) in &self.local {
             if let Some(program) = local.entry.program.clone().filter(|_| local.comes_back()) {
                 let (id, terminal, home) = (*id, local.terminal.clone(), self.config.home.clone());
+                let folder = local.entry.working_dir.clone().map(PathBuf::from);
                 let shell = commands::shell(&self.config);
                 asking.spawn(async move {
                     (
                         id,
-                        restore::agent_line(terminal, program, home, shell).await,
+                        restore::agent_line(terminal, program, home, shell, folder).await,
                     )
                 });
             }

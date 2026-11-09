@@ -29,6 +29,7 @@ class CanvasModel final : public QObject {
     Q_PROPERTY(QStringList browserSources READ browserSources NOTIFY browserChanged)
     Q_PROPERTY(int browserSites READ browserSites NOTIFY browserChanged)
     Q_PROPERTY(QString browserEngine READ browserEngine NOTIFY browserChanged)
+    Q_PROPERTY(int browserGetting READ browserGetting NOTIFY browserChanged)
     Q_PROPERTY(QString browserWork READ browserWork NOTIFY browserChanged)
     Q_PROPERTY(QVariantMap browserDone READ browserDone NOTIFY browserChanged)
     Q_PROPERTY(QString browserProblem READ browserProblem NOTIFY browserChanged)
@@ -43,17 +44,23 @@ public:
     CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent = nullptr);
 
     [[nodiscard]] int revision() const { return m_revision; }
-    // What Settings › Browser shows: the last status of this computer, the step that runs, by the
-    // source's name, "forget" or "clear", and what each step did.
+    // What Settings › Browser shows: the last status of this computer, the part of a download of
+    // Kodosi Browser from 0 to 100 or -1, the step that runs, by the source's name, "engine",
+    // "forget" or "clear", and what each step did.
     [[nodiscard]] bool browserKnown() const { return m_browserKnown; }
     [[nodiscard]] QStringList browserSources() const { return m_browserSources; }
     [[nodiscard]] int browserSites() const { return m_browserSites; }
     [[nodiscard]] QString browserEngine() const { return m_browserEngine; }
+    [[nodiscard]] int browserGetting() const { return m_browserGetting; }
     [[nodiscard]] QString browserWork() const { return m_browserWork; }
     [[nodiscard]] QVariantMap browserDone() const { return m_browserDone; }
     [[nodiscard]] QString browserProblem() const { return m_browserProblem; }
     // Starts the page afresh, with no notes from before and the status of now.
     Q_INVOKABLE void openBrowserSettings();
+    // Asks for the status of now again, as while Kodosi Browser comes.
+    Q_INVOKABLE void refreshBrowser();
+    // Gets Kodosi Browser now, or its newest version.
+    Q_INVOKABLE void getBrowser();
     Q_INVOKABLE void copySignIns(const QString& source);
     Q_INVOKABLE void forgetSignIns();
     Q_INVOKABLE void removeBrowsingData();
@@ -172,6 +179,9 @@ private:
     QStringList m_browserSources;
     int m_browserSites = 0;
     QString m_browserEngine;
+    int m_browserGetting = -1;
+    // The engine before a person's check for a newer one, until the status after it.
+    std::optional<QString> m_browserChecked;
     QString m_browserStatusRequest;
     QString m_browserStepRequest;
     QString m_browserWork;

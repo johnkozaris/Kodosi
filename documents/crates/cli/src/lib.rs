@@ -17,6 +17,7 @@ use document::{CONTRACT, Catchup, Format, Frame, Guide, ToClient, ToDocument, co
 use documents::{Documents, Formats, OpenError, Pipe, Viewer, format};
 use docx::Docx;
 use pdf::Pdf;
+use plain::Plain;
 use pptx::Pptx;
 use serde_json::{Value, json};
 use xlsx::Xlsx;
@@ -67,7 +68,8 @@ pub struct NewArguments {
 #[derive(Debug, Clone, Args)]
 pub struct ReadArguments {
     pub file: PathBuf,
-    /// A block id, a cell range such as Sheet1!A1:C9, a slide id or a page number.
+    /// A block id, a cell range such as Sheet1!A1:C9, a slide id, a page number, or lines of a
+    /// text file such as 10-20.
     #[arg(long = "where")]
     pub place: Option<String>,
 }
@@ -93,7 +95,7 @@ pub struct FileArguments {
 
 #[derive(Debug, Clone, Args)]
 pub struct GuideArguments {
-    /// docx, xlsx, pptx or pdf.
+    /// docx, xlsx, pptx, pdf or text.
     pub format: String,
     /// One op of the format.
     pub op: Option<String>,
@@ -132,13 +134,19 @@ impl Command {
     }
 }
 
-/// All four formats, by file extension.
+/// The extensions of plain text files, which open as text.
+const TEXT_EXTENSIONS: [&str; 6] = ["txt", "json", "yaml", "yml", "toml", "xml"];
+
+/// Each format, by file extension.
 pub fn formats() -> Formats {
-    Formats::default()
-        .with("docx", format::<Docx>())
-        .with("xlsx", format::<Xlsx>())
-        .with("pptx", format::<Pptx>())
-        .with("pdf", format::<Pdf>())
+    TEXT_EXTENSIONS.into_iter().fold(
+        Formats::default()
+            .with("docx", format::<Docx>())
+            .with("xlsx", format::<Xlsx>())
+            .with("pptx", format::<Pptx>())
+            .with("pdf", format::<Pdf>()),
+        |formats, extension| formats.with(extension, format::<Plain>()),
+    )
 }
 
 fn kind_of(path: &Path) -> Result<&'static str, Failed> {
@@ -147,16 +155,27 @@ fn kind_of(path: &Path) -> Result<&'static str, Failed> {
         .and_then(|extension| extension.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
+    if TEXT_EXTENSIONS.contains(&extension.as_str()) {
+        return Ok("text");
+    }
     ["docx", "xlsx", "pptx", "pdf"]
         .into_iter()
         .find(|kind| *kind == extension)
         .ok_or_else(|| {
-            Failed::Says("This command takes .docx, .xlsx, .pptx and .pdf files.".to_owned())
+            Failed::Says(
+                "This command takes .docx, .xlsx, .pptx and .pdf files, and text files such as \
+                 .txt, .json, .yaml, .yml, .toml and .xml."
+                    .to_owned(),
+            )
         })
 }
 
-fn read_query(kind: &str, place: Option<&str>) -> Value {
-    match (kind, place) {
+fn read_query(kind: &str, place: Option<&str>) -> Result<Value, Failed> {
+    Ok(match (kind, place) {
+        ("text", place) => {
+            let (from, to) = place.map_or(Ok((None, None)), lines_of)?;
+            json!({ "kind": "read", "from": from, "to": to })
+        }
         ("docx", place) => json!({ "kind": "read", "block": place }),
         ("xlsx", Some(place)) => match place.split_once('!') {
             Some((sheet, range)) => json!({ "kind": "read", "sheet": sheet, "range": range }),
@@ -171,7 +190,25 @@ fn read_query(kind: &str, place: Option<&str>) -> Value {
             "kind": "read",
             "page": place.and_then(|page| page.parse::<u32>().ok()),
         }),
-    }
+    })
+}
+
+/// The lines that `--where` names in a text file: one line, `10-20`, or `10-` to the end.
+fn lines_of(place: &str) -> Result<(Option<usize>, Option<usize>), Failed> {
+    let number = |text: &str| text.trim().parse::<usize>().ok().filter(|line| *line > 0);
+    let lines = match place.split_once('-') {
+        Some((from, "")) => number(from).map(|from| (Some(from), None)),
+        Some((from, to)) => number(from)
+            .zip(number(to))
+            .filter(|(from, to)| from <= to)
+            .map(|(from, to)| (Some(from), Some(to))),
+        None => number(place).map(|line| (Some(line), Some(line))),
+    };
+    lines.ok_or_else(|| {
+        Failed::Says(format!(
+            "{place} names no lines. Give a line or lines, such as 12, 10-20 or 10-."
+        ))
+    })
 }
 
 fn is_cell(place: &str) -> bool {
@@ -208,8 +245,9 @@ fn guide_of(kind: &str) -> Result<Guide, Failed> {
         "xlsx" => Ok(Xlsx::guide()),
         "pptx" => Ok(Pptx::guide()),
         "pdf" => Ok(Pdf::guide()),
+        kind if kind == "text" || TEXT_EXTENSIONS.contains(&kind) => Ok(Plain::guide()),
         other => Err(Failed::Says(format!(
-            "There is no format {other}. Use docx, xlsx, pptx or pdf."
+            "There is no format {other}. Use docx, xlsx, pptx, pdf or text."
         ))),
     }
 }
@@ -307,6 +345,7 @@ fn random_client() -> Result<String, Failed> {
 /// One agent's place in one document.
 struct Seat {
     pipe: Pipe,
+    client: String,
     rev: u64,
     seq: u64,
     next_query: u64,
@@ -316,9 +355,10 @@ struct Seat {
 impl Seat {
     async fn open(documents: &Documents, path: &Path, viewer: Viewer) -> Result<Self, Failed> {
         let mut pipe = documents.open(path, viewer).await?;
+        let client = random_client()?;
         let join = ToDocument::Join {
             contract: CONTRACT,
-            client: random_client()?,
+            client: client.clone(),
             epoch: 0,
             rev: 0,
         };
@@ -333,6 +373,7 @@ impl Seat {
                 } => {
                     return Ok(Self {
                         pipe,
+                        client,
                         rev,
                         seq,
                         next_query: 1,
@@ -381,7 +422,9 @@ impl Seat {
         send(&self.pipe, &ToDocument::Change { seq, base, body }).await?;
         loop {
             match message(&mut self.pipe).await? {
-                ToClient::Changed(changed) if changed.seq == seq && changed.rev > self.rev => {
+                ToClient::Changed(changed)
+                    if changed.client == self.client && changed.seq == seq =>
+                {
                     self.rev = changed.rev;
                     return Ok(changed.rev);
                 }
@@ -475,10 +518,9 @@ impl Agents {
                 guide_text(&guide_of(&arguments.format)?, arguments.op.as_deref())
             }
             Command::Read(arguments) => {
-                let kind = kind_of(&arguments.file)?;
+                let body = read_query(kind_of(&arguments.file)?, arguments.place.as_deref())?;
                 let seat = self.seat(viewer, &arguments.file).await?;
                 let mut seat = seat.lock().await;
-                let body = read_query(kind, arguments.place.as_deref());
                 let (rev, answer) = seat.query(body).await?;
                 seat.used_at = Instant::now();
                 drop(seat);

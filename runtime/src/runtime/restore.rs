@@ -180,25 +180,45 @@ pub(super) fn earlier_screen(file: &Path) -> Vec<u8> {
     screen
 }
 
+/// The line that continues the conversation of the agent `program` in `terminal`, with the
+/// account, model and effort that it runs with. `folder` is the folder of the terminal.
 pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
     home: PathBuf,
     shell: PathBuf,
+    folder: Option<PathBuf>,
 ) -> Option<String> {
     let agent = Agent::named(&program)?;
     let (_, variable) = agent.home()?;
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
-    let folder = agent.account_folder(&home, foreground.variable)?;
-    let command = agent.with_context(
-        &crate::agents::account_command(agent, &home, &folder),
-        &shell,
-    );
-    let conversation = match (agent, foreground.group) {
-        (Agent::Claude, Some(group)) => crate::provider::claude_conversation(folder, group).await,
-        _ => None,
+    let account = agent.account_folder(&home, account_variable(foreground.variable, variable))?;
+    let command = restart_command(agent, &home, &account, &foreground.arguments, &shell);
+    let conversation = match foreground.group {
+        Some(group) => crate::provider::shown_conversation(agent, account, group, folder).await,
+        None => None,
     };
     resume_line(agent, &command, conversation.as_deref())
+}
+
+/// The folder variable `name` of a running agent. Windows shows no other process's environment,
+/// and the programs of its terminals start with the host's.
+pub(super) fn account_variable(shown: Option<String>, name: &str) -> Option<String> {
+    shown.or_else(|| cfg!(windows).then(|| std::env::var(name).ok()).flatten())
+}
+
+/// The command that starts `agent` again in its account folder `account`, with the model and
+/// effort of the `arguments` that it runs with.
+pub(super) fn restart_command(
+    agent: Agent,
+    home: &Path,
+    account: &Path,
+    arguments: &[String],
+    shell: &Path,
+) -> String {
+    let mut words = vec![crate::agents::account_command(agent, home, account)];
+    words.extend(agent.chosen(arguments));
+    agent.with_context(&words.join(" "), shell)
 }
 
 pub(super) fn usual_line(program: &str, shell: &Path) -> Option<String> {

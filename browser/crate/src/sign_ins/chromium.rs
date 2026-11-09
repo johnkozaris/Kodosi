@@ -42,6 +42,7 @@ const BOUND_TO_APP: &[u8] = b"v20";
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Family {
     name: &'static str,
+    id: &'static str,
     mac: &'static str,
     linux: &'static str,
     windows: &'static str,
@@ -53,6 +54,7 @@ pub(crate) struct Family {
 static FAMILIES: [Family; 6] = [
     Family {
         name: "Chrome",
+        id: "chrome",
         mac: "Google/Chrome",
         linux: "google-chrome",
         windows: "Google/Chrome/User Data",
@@ -62,6 +64,7 @@ static FAMILIES: [Family; 6] = [
     },
     Family {
         name: "Edge",
+        id: "edge",
         mac: "Microsoft Edge",
         linux: "microsoft-edge",
         windows: "Microsoft/Edge/User Data",
@@ -71,6 +74,7 @@ static FAMILIES: [Family; 6] = [
     },
     Family {
         name: "Brave",
+        id: "brave",
         mac: "BraveSoftware/Brave-Browser",
         linux: "BraveSoftware/Brave-Browser",
         windows: "BraveSoftware/Brave-Browser/User Data",
@@ -80,6 +84,7 @@ static FAMILIES: [Family; 6] = [
     },
     Family {
         name: "Chromium",
+        id: "chromium",
         mac: "Chromium",
         linux: "chromium",
         windows: "Chromium/User Data",
@@ -89,6 +94,7 @@ static FAMILIES: [Family; 6] = [
     },
     Family {
         name: "Arc",
+        id: "arc",
         mac: "Arc/User Data",
         linux: "",
         windows: "",
@@ -98,6 +104,7 @@ static FAMILIES: [Family; 6] = [
     },
     Family {
         name: "Vivaldi",
+        id: "vivaldi",
         mac: "Vivaldi",
         linux: "vivaldi",
         windows: "Vivaldi/User Data",
@@ -142,14 +149,25 @@ fn store_of(profile: &Path) -> Option<PathBuf> {
         .find(|store| store.is_file())
 }
 
-/// Each profile of each browser of the family on this computer.
+/// Each profile of each browser of the family on this computer. A browser whose data macOS
+/// keeps from Kodosi is one source, as its profiles are in that data.
 pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     let mut sources = Vec::new();
     for family in &FAMILIES {
         let Some(root) = root_of(family, home) else {
             continue;
         };
-        let state: LocalState = std::fs::read(root.join("Local State"))
+        let state = root.join("Local State");
+        if state.exists() && !super::readable(&state) {
+            sources.push(SignInSource::protected(
+                family.name,
+                family.id,
+                Kind::Chromium(family),
+                root,
+            ));
+            continue;
+        }
+        let state: LocalState = std::fs::read(state)
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
@@ -174,6 +192,8 @@ pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
                 } else {
                     family.name.to_owned()
                 },
+                browser: family.id,
+                protected: false,
                 kind: Kind::Chromium(family),
                 folder,
             });
@@ -228,7 +248,14 @@ impl Opener for SealKeys {
 fn opener_of(family: &Family, _folder: &Path) -> Result<Box<dyn Opener>, CopyError> {
     let password =
         security_framework::passwords::get_generic_password(family.secret, family.account)
-            .map_err(|_| CopyError::NoAccess(family.name.to_owned()))?;
+            .map_err(|error| {
+                tracing::info!(
+                    code = error.code(),
+                    browser = family.name,
+                    "no key of sign-ins"
+                );
+                CopyError::NoAccess(family.name.to_owned())
+            })?;
     Ok(Box::new(SealKeys {
         with_key: Some(key_of(&password)),
         with_system_key: None,
@@ -419,17 +446,18 @@ fn read_store(
     Ok(cookies)
 }
 
+/// Copies the store first, so a browser whose data macOS keeps from Kodosi asks for no key.
 pub(super) fn read(
     family: &Family,
     folder: &Path,
     working: &Path,
 ) -> Result<Vec<Cookie>, CopyError> {
     let store = store_of(folder).ok_or_else(|| CopyError::Store("no cookies".to_owned()))?;
-    let opener = opener_of(family, folder)?;
     let copy = store_copy(&store, working).map_err(|error| match error {
         CopyError::Store(_) if cfg!(windows) => CopyError::Locked(family.name.to_owned()),
         other => other,
     })?;
+    let opener = opener_of(family, folder)?;
     read_store(&copy, opener.as_ref(), &BoundCookies::read(folder))
 }
 
@@ -580,6 +608,35 @@ mod tests {
                 (".other.test", "__Secure-bound")
             ]
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_browser_whose_data_kodosi_may_not_read_is_one_source_that_reads_nothing() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let home = tempfile::tempdir().unwrap();
+        let Some(root) = root_of(&FAMILIES[2], home.path()) else {
+            return;
+        };
+        std::fs::create_dir_all(root.join("Profile 1")).unwrap();
+        std::fs::write(root.join("Profile 1").join("Cookies"), b"").unwrap();
+        let state = root.join("Local State");
+        std::fs::write(
+            &state,
+            br#"{"profile":{"info_cache":{"Profile 1":{"name":"Work"}}}}"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&state, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let found = sources(home.path());
+        assert_eq!(found.len(), 1);
+        assert!(found[0].protected);
+        assert_eq!(
+            (found[0].name.as_str(), found[0].browser),
+            ("Brave", "brave")
+        );
+        let copied = super::super::read_source(&found[0], &home.path().join("working"));
+        assert!(matches!(copied, Err(CopyError::Protected(name)) if name == "Brave"));
     }
 
     #[test]

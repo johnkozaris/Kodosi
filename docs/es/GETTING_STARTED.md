@@ -26,7 +26,7 @@ la shell del terminal nuevo.
   la carpeta del terminal seleccionado.
 - Las teclas siguen a Ghostty. ⌘1 a ⌘9 seleccionan un terminal (Alt+1 a Alt+9 en Linux y
   Windows), ⌥⌘ con una flecha selecciona el de al lado (Ctrl+Alt con una flecha) y ⌘W cierra
-  el terminal seleccionado. Ajustes › Teclado muestra todas las teclas y las cambia.
+  el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
 - Si falta un agente, el lanzador muestra su comando de instalación.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
@@ -58,9 +58,17 @@ bandeja del sistema; en un escritorio sin bandeja del sistema, cerrar la ventana
 Kodosi. Cuando sales de Kodosi, tus terminales se detienen. Kodosi guarda lo que muestran en
 tu ordenador y en ningún otro sitio. Cuando vuelves a abrir Kodosi, se inician de nuevo en sus
 carpetas, salas y posiciones en el escenario, con su pantalla y su historial anteriores sobre
-un prompt nuevo (en Windows, desplázate hacia arriba para verlos). Claude Code continúa su
-conversación, y Codex y Copilot CLI muestran sus conversaciones para que continúes una. En
-Ajustes eliges qué hace cerrar la ventana.
+un prompt nuevo (en Windows, desplázate hacia arriba para verlos). Claude Code, Codex y Copilot
+CLI continúan sus conversaciones, y en un Mac o en Linux mantienen el modelo y el esfuerzo que
+elegiste. Cuando Kodosi no puede saber qué conversación mostraba un agente, el agente muestra
+sus conversaciones para que continúes una. En Ajustes eliges qué hace cerrar la ventana.
+
+En un Mac, los programas de tus terminales tienen los permisos que le das a Kodosi, como en
+cualquier app de terminal. Cuando macOS dice que impidió que Kodosi modificara apps, un
+programa de un terminal intentó cambiar otra app. Para permitirlo, activa Kodosi en Gestión
+de apps; Ajustes › General la abre. Allí también permites el Control de dispositivos y
+acceso a datos (Accesibilidad antes de macOS 27) y la Grabación de pantalla y del audio del
+sistema, para los programas que controlan apps o ven la pantalla.
 
 ## 3. Mira qué agente te necesita
 
@@ -92,12 +100,12 @@ navegador, en el botón de acciones, abre el navegador antes de que lo use el ag
 un archivo… pone un archivo en el lienzo y en la carpeta del terminal; también puedes soltar
 un archivo sobre el lienzo. En el iPhone, el botón del lienzo está en la barra del terminal.
 
-- Un documento, una hoja, una presentación o un PDF está en directo: tú, las personas del
-  terminal y el agente lo editáis a la vez, y sigue siendo un archivo normal en su carpeta.
-  Cuando un documento tiene cambios registrados, su barra tiene un botón que los acepta o los
-  rechaza. Ajustes › Documentos activa o desactiva cada visor, muestra los documentos como
-  páginas o como texto que se ajusta al lienzo, y oscurece las páginas cuando Kodosi está en
-  modo oscuro.
+- Un documento, una hoja, una presentación, un PDF o un archivo de texto está en directo:
+  tú, las personas del terminal y el agente lo editáis a la vez, y sigue siendo un archivo
+  normal en su carpeta. Cuando un documento tiene cambios registrados, su barra tiene un
+  botón que los acepta o los rechaza. Ajustes › Documentos activa o desactiva cada visor,
+  muestra los documentos como páginas o como texto que se ajusta al lienzo, y oscurece las
+  páginas cuando Kodosi está en modo oscuro.
 - Una página no tiene red. Los enlaces de páginas, documentos, hojas, presentaciones y PDF se
   abren en tu propio navegador con las mismas reglas que los enlaces del terminal. Donde
   puedes editar, haz ⌘-clic en un enlace (Ctrl-clic en Linux y Windows); en el resto, basta
@@ -110,10 +118,11 @@ un archivo sobre el lienzo. En el iPhone, el botón del lienzo está en la barra
   minutos sin uso, el navegador se duerme, y vuelve a abrir su última página cuando lo miras o
   cuando el agente lo usa. El primer navegador de un ordenador descarga Kodosi Browser, así
   que tarda un momento.
-- Para usar tus sesiones en tus terminales privados, selecciona Copiar junto a un navegador en
-  Ajustes › Navegador. Quitar elimina lo que copiaste, y Quitar todo elimina todas las
-  sesiones y todos los datos de sitios de tus terminales privados. En un Mac, copiar desde
-  Safari requiere Acceso total al disco para Kodosi.
+- Para usar tus sesiones en tus terminales privados, selecciona Copiar junto a un navegador
+  en Ajustes › Navegador. Quitar elimina lo que copiaste, y Quitar todo elimina todas las
+  sesiones y todos los datos de sitios de tus terminales privados. En un Mac, cuando macOS
+  protege de Kodosi los inicios de sesión de un navegador, como los de Safari, selecciona
+  Permitir… junto al navegador para dar a Kodosi Acceso total al disco.
 - En una misma red, la imagen del navegador va directamente entre tus dispositivos. macOS e
   iOS piden una vez acceso a la red local; sin él, la imagen pasa por el servicio.
 - Todas las personas que pueden abrir el terminal ven su lienzo y usan su navegador. Cuando

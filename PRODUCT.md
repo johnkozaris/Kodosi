@@ -107,17 +107,18 @@ conversation follows the person to all their computers.
   gets a number, and the limit is 32 MB. The canvas shows the newest first and keeps 20.
   When a file changes, each device shows the new version. Save a Copy keeps a copy on the
   device.
-- A document (.docx), sheet (.xlsx), presentation (.pptx) or PDF on the canvas is live.
-  The people and agents of the terminal edit it at the same time, each sees where the
-  others are, and each edit reaches all of them at once. The file stays a normal file on
-  the terminal's computer, and Kodosi saves it there a moment after each change. A change
-  that another program saves merges in. When the computer is away, a person goes on, and
-  the edits wait on the device. A person accepts or rejects the tracked changes of a
-  document, one by one or all at once.
+- A document (.docx), sheet (.xlsx), presentation (.pptx), PDF or text file (.txt, .json,
+  .yaml, .yml, .toml or .xml) on the canvas is live. The people and agents of the terminal
+  edit it at the same time, each sees where the others are, and each edit reaches all of
+  them at once. The file stays a normal file on the terminal's computer, and Kodosi saves
+  it there a moment after each change. A change that another program saves merges in. When
+  the computer is away, a person goes on, and the edits wait on the device. A person
+  accepts or rejects the tracked changes of a document, one by one or all at once. A text
+  file of more than 10,000 lines or 512 KB, or one that is not UTF-8, is a page.
 - Settings › Documents turns each viewer on or off on the device: the document, sheet,
-  presentation and PDF viewer. A viewer that is off shows a preview, or Save a Copy where
-  the app has no preview. Documents show as pages or as text that fits the canvas, and
-  documents, sheets and PDFs can go dark with the app.
+  presentation, PDF and text viewer. A viewer that is off shows a preview, or Save a Copy
+  where the app has no preview. Documents show as pages or as text that fits the canvas,
+  and documents, sheets and PDFs can go dark with the app.
 - The terminal has a key for each part that has something, with a dot for news, and the
   files key names a file for a moment when the agent shows or changes it. A key opens
   the canvas at its part. An open canvas follows the newest file until the person picks
@@ -131,18 +132,20 @@ conversation follows the person to all their computers.
   opens it. A link to a slide or to a cell of the same file goes there.
 - A terminal can have one shared browser. The agent uses it with `kodosi browser` and
   agent-browser's commands, and the people see it on the canvas as live video and click
-  and type in it, each with a named pointer. It has one size: the view where a person used
-  it last. When a person used it, the agent's next browser command says so. It runs Kodosi
-  Browser, a Chromium that Kodosi gets the first time and keeps up to date. It never shows
-  a window or an icon on the computer, and it blocks ads and trackers. It sleeps after 10 minutes with no use and
-  nobody looking, and opens its last page again when it wakes. While the agent acts in
-  it, a pointer with the agent's mark shows where. A download lands in the terminal's
-  folder and on the canvas.
+  and type in it, each with a named pointer. Words in its address bar that are no address
+  search with Google. It has one size: the view where a person used it last. When a
+  person used it, the agent's next browser command says so. It runs Kodosi Browser, a
+  Chromium that Kodosi gets the first time, or when a person gets it in Settings ›
+  Browser, and keeps up to date. It never shows a window or an icon on the computer, and
+  it blocks ads and trackers. It sleeps after 10 minutes with no use and nobody looking,
+  and opens its last page again when it wakes. While the agent acts in it, a pointer with
+  the agent's mark shows where. A download lands in the terminal's folder and on the
+  canvas.
 - A person keeps one set of sign-ins on each computer, and all their private terminals
-  use it. Settings › Browser shows the computer's Kodosi Browser, copies the sign-ins of
-  another browser on that computer, says for how many sites, and removes what it copied
-  or all browsing data of the private terminals. A shared terminal has a browser profile
-  of its own, so sharing a terminal shares no kept sign-in.
+  use it. Settings › Browser shows and gets the computer's Kodosi Browser, copies the
+  sign-ins of another browser on that computer, says for how many sites, and removes what
+  it copied or all browsing data of the private terminals. A shared terminal has a
+  browser profile of its own, so sharing a terminal shares no kept sign-in.
 - Ask about this types the item and the selected words into the terminal, and the person
   writes the question.
 - Everyone who can open the terminal sees its canvas, edits its files and uses its

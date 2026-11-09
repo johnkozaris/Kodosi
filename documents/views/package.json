@@ -14,12 +14,14 @@
     "pdf",
     "pptx",
     "text-parity",
-    "docx"
+    "docx",
+    "peers",
+    "plain"
   ],
   "scripts": {
     "build": "tsc && vite build",
     "tsc": "tsc",
-    "test": "bun test bar client docx xlsx",
+    "test": "bun test bar client docx peers plain xlsx",
     "format": "biome check --write .",
     "format:check": "biome check ."
   },

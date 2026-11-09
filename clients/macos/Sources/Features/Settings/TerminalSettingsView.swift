@@ -79,17 +79,18 @@ struct TerminalSettingsView: View {
                                   range: DesktopSettings.TerminalDefaults.scrollbackRange, step: 1000)
                 }
             }
-            HStack(spacing: 8) {
-                Spacer()
-                if changed {
-                    Button("Revert") { draft = deps.settings.terminalSettings }.buttonStyle(.kodosi(.ghost)).transition(.opacity)
+            if changed {
+                HStack(spacing: 8) {
+                    Spacer()
+                    Button("Revert") { draft = deps.settings.terminalSettings }.buttonStyle(.kodosi(.ghost))
+                    Button("Apply to all terminals") {
+                        draft = deps.settings.commitTerminalSettings(draft)
+                        deps.terminalManager.applySettings(draft)
+                    }
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("settings.terminal.apply")
                 }
-                Button(changed ? "Apply to all terminals" : "Applied") {
-                    draft = deps.settings.commitTerminalSettings(draft)
-                    deps.terminalManager.applySettings(draft)
-                }
-                .buttonStyle(.kodosi(changed ? .primary : .ghost)).disabled(!changed)
-                .accessibilityIdentifier("settings.terminal.apply")
+                .transition(.opacity)
             }
             ListGroup(footer: "A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.") {
                 ListRow(String(localized: "Branch folders"), subtitle: deps.settings.branchFolder ?? String(localized: "Beside the repository"),

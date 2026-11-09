@@ -11,6 +11,8 @@
         "align": { "default": null },
         "numId": { "default": null },
         "ilvl": { "default": null },
+        "line": { "default": null },
+        "indent": { "default": null },
         "props": { "default": null },
         "pageBreak": { "default": false }
       }
@@ -39,6 +41,7 @@
     },
     { "name": "text", "group": "inline" },
     { "name": "hardBreak", "group": "inline", "inline": true },
+    { "name": "pageBreak", "group": "inline", "inline": true },
     { "name": "tab", "group": "inline", "inline": true },
     {
       "name": "image",
@@ -66,6 +69,8 @@
     { "name": "italic" },
     { "name": "underline" },
     { "name": "strike" },
+    { "name": "superscript", "excludes": "subscript" },
+    { "name": "subscript", "excludes": "superscript" },
     {
       "name": "textStyle",
       "attrs": {

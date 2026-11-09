@@ -103,6 +103,45 @@ fn is_record(name: &str) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
 }
 
+/// Of the Copilot CLI sessions that a process of the group `group` holds with its lock, the
+/// one that it entered or wrote last.
+pub(super) fn copilot_conversation(state_root: &Path, group: u32) -> Option<String> {
+    let root = storage::transcript_root(state_root, Provider::Copilot);
+    std::fs::read_dir(root)
+        .ok()?
+        .take(storage::MAX_DIRECTORY_ENTRIES)
+        .filter_map(Result::ok)
+        .filter_map(|session| {
+            let id = storage::conversation_id(session.file_name().to_str()?).ok()?;
+            let entered = std::fs::read_dir(session.path())
+                .ok()?
+                .take(storage::MAX_DIRECTORY_ENTRIES)
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    copilot_lock(&entry.file_name()).is_some_and(|pid| {
+                        pid == group || kodosi_pty::process_group(pid) == Some(group)
+                    })
+                })
+                .filter_map(|lock| lock.metadata().ok()?.modified().ok())
+                .max()?;
+            let written = std::fs::metadata(session.path().join("events.jsonl"))
+                .and_then(|events| events.modified())
+                .map_or(entered, |written| written.max(entered));
+            Some((written, id))
+        })
+        .max_by_key(|(written, _)| *written)
+        .map(|(_, id)| id)
+}
+
+fn copilot_lock(name: &std::ffi::OsStr) -> Option<u32> {
+    name.to_str()?
+        .strip_prefix("inuse.")?
+        .strip_suffix(".lock")?
+        .parse()
+        .ok()
+        .filter(|pid| *pid != 0)
+}
+
 fn claude_record(root: &File, name: &str) -> Result<serde_json::Value, String> {
     let mut file = storage::open_file(root, name)?;
     let mut bytes = Vec::new();

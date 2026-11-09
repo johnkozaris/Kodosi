@@ -1,10 +1,11 @@
-import type { Editor } from "@tiptap/core";
+import { type Editor, getMarkRange } from "@tiptap/core";
 import type { Mark, Node as ProseNode, ResolvedPos } from "@tiptap/pm/model";
-import type { EditorState, Transaction } from "@tiptap/pm/state";
+import { type EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { DocxView, StyleLook } from "./styles";
+import { inTable } from "./tables";
 
 export type Align = "left" | "center" | "right" | "both";
-export type MarkName = "bold" | "italic" | "underline" | "strike";
+export type MarkName = "bold" | "italic" | "underline" | "strike" | "superscript" | "subscript";
 
 /** The look that a textStyle mark gives: a color as hex, a size in half points. */
 export interface TextLook {
@@ -16,8 +17,22 @@ export interface TextLook {
 
 type Attrs = Record<string, unknown>;
 
-const LOOK_MARKS = ["bold", "italic", "underline", "strike", "textStyle"];
+const LOOK_MARKS = [
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "superscript",
+  "subscript",
+  "textStyle",
+];
 const MOST_LEVEL = 8;
+/** A step of indent: half an inch, in the twentieths of a point that a file counts. */
+const INDENT_STEP = 720;
+/** The page of a file that does not say, in points: A4 with margins of an inch. */
+const PAGE = { width: 595, left: 72, right: 72 };
+const EMAIL = /^[^\s@/:]+@[^\s@/]+\.[^\s@/]+$/;
+const HOST = /^[^\s@/:]+\.[^\s@/:]+([:/?#]|$)/;
 
 /** The marks where the selection starts, or the ones that the next letters get. */
 function marksAt(state: EditorState): readonly Mark[] {
@@ -99,7 +114,7 @@ export function paragraphAt(state: EditorState): ProseNode | null {
 }
 
 /** Changes each paragraph that the selection touches. */
-function eachParagraph(editor: Editor, change: (attrs: Attrs) => Attrs | null): void {
+function eachParagraph(editor: Editor, change: (paragraph: ProseNode) => Attrs | null): void {
   editor
     .chain()
     .focus()
@@ -107,7 +122,7 @@ function eachParagraph(editor: Editor, change: (attrs: Attrs) => Attrs | null): 
       const { from, to } = state.selection;
       state.doc.nodesBetween(from, to, (node, position) => {
         if (node.type.name !== "paragraph") return true;
-        const next = change(node.attrs);
+        const next = change(node);
         if (next) tr.setNodeMarkup(position, undefined, { ...node.attrs, ...next });
         return false;
       });
@@ -116,12 +131,29 @@ function eachParagraph(editor: Editor, change: (attrs: Attrs) => Attrs | null): 
     .run();
 }
 
+/** Sends a change, and keeps the caret in the page where the person goes on. */
+export function dispatch(editor: Editor, transaction: Transaction | null): void {
+  if (!transaction) return;
+  editor.view.dispatch(transaction.scrollIntoView());
+  editor.view.focus();
+}
+
 export function setStyle(editor: Editor, style: string): void {
   eachParagraph(editor, () => ({ style }));
 }
 
 export function setAlign(editor: Editor, align: Align): void {
   eachParagraph(editor, () => ({ align }));
+}
+
+/** Sets the spacing of the lines, in 240ths of a line. */
+export function setLine(editor: Editor, line: string): void {
+  eachParagraph(editor, () => ({ line }));
+}
+
+/** The spacing of the lines that a paragraph sets itself, in 240ths of a line. */
+export function lineOf(state: EditorState): string | null {
+  return (paragraphAt(state)?.attrs.line as string | null | undefined) ?? null;
 }
 
 function styleOf(view: DocxView, paragraph: ProseNode | null): StyleLook | undefined {
@@ -176,18 +208,71 @@ export function listFormatOf(view: DocxView, paragraph: ProseNode | null): strin
 /** Puts the paragraphs in a list, or takes them out when they are in it. */
 export function toggleList(editor: Editor, list: string): void {
   const inList = paragraphAt(editor.state)?.attrs.numId === list;
-  eachParagraph(editor, (attrs) =>
-    inList ? { numId: null, ilvl: null } : { numId: list, ilvl: attrs.ilvl ?? "0" },
+  eachParagraph(editor, (paragraph) =>
+    inList ? { numId: null, ilvl: null } : { numId: list, ilvl: paragraph.attrs.ilvl ?? "0" },
   );
 }
 
-/** Moves the items of a list one level in or out. */
-export function indent(editor: Editor, step: 1 | -1): void {
-  eachParagraph(editor, (attrs) => {
-    if (!attrs.numId || attrs.numId === "0") return null;
-    const level = Math.min(MOST_LEVEL, Math.max(0, Number(attrs.ilvl ?? 0) + step));
-    return { ilvl: String(level) };
-  });
+function inList(paragraph: ProseNode): boolean {
+  const list = paragraph.attrs.numId as string | null | undefined;
+  return Boolean(list) && list !== "0";
+}
+
+/** A list item one level in or out, or nothing at the first or the last level. */
+function levelled(paragraph: ProseNode, step: 1 | -1): Attrs | null {
+  const level = Number(paragraph.attrs.ilvl ?? 0);
+  const next = Math.min(MOST_LEVEL, Math.max(0, level + step));
+  return next === level ? null : { ilvl: String(next) };
+}
+
+/** The indent where a paragraph's lines start, its own or its style's, in twentieths of a point. */
+function indentOf(view: DocxView, paragraph: ProseNode): number {
+  const own = paragraph.attrs.indent as string | null | undefined;
+  if (own != null) return Number(own) || 0;
+  return Math.round((styleOf(view, paragraph)?.indent ?? 0) * 20);
+}
+
+/** The deepest indent that leaves the lines a step of the page. */
+function mostIndent(view: DocxView): number {
+  const page = view.page;
+  const width =
+    (page?.width ?? PAGE.width) - (page?.left ?? PAGE.left) - (page?.right ?? PAGE.right);
+  return Math.round(width * 20) - INDENT_STEP;
+}
+
+/**
+ * What a step of indent makes of a paragraph: a list item moves a level, and another paragraph
+ * moves to the next half inch, between the margin and the far side of the page.
+ */
+export function indented(view: DocxView, paragraph: ProseNode, step: 1 | -1): Attrs | null {
+  if (inList(paragraph)) return levelled(paragraph, step);
+  const now = indentOf(view, paragraph);
+  if (step > 0) {
+    const next = (Math.floor(now / INDENT_STEP) + 1) * INDENT_STEP;
+    return next > mostIndent(view) ? null : { indent: String(next) };
+  }
+  if (now <= 0) return null;
+  return { indent: String(Math.max(0, (Math.ceil(now / INDENT_STEP) - 1) * INDENT_STEP)) };
+}
+
+export function indent(editor: Editor, view: DocxView, step: 1 | -1): void {
+  eachParagraph(editor, (paragraph) => indented(view, paragraph, step));
+}
+
+export function canIndent(state: EditorState, view: DocxView, step: 1 | -1): boolean {
+  const paragraph = paragraphAt(state);
+  return paragraph !== null && indented(view, paragraph, step) !== null;
+}
+
+/** Moves the items of a list one level in or out, as Tab and Shift-Tab do. */
+export function shiftLevel(editor: Editor, step: 1 | -1): void {
+  eachParagraph(editor, (paragraph) => (inList(paragraph) ? levelled(paragraph, step) : null));
+}
+
+/** Whether the caret is in an item of a list. */
+export function inListAt(state: EditorState): boolean {
+  const paragraph = paragraphAt(state);
+  return paragraph !== null && inList(paragraph);
 }
 
 interface Tracked {
@@ -201,19 +286,45 @@ function isChange(mark: Mark): boolean {
 }
 
 /**
- * The changed text that touches a caret, from the first to the last change of the run, so a
- * replacement (a deletion next to an insertion) is one decision.
+ * The runs of changed text of a textblock whose content starts at `start`, with neighbors
+ * joined, so a replacement (a deletion next to an insertion) is one change.
  */
-function changeRunAt(at: ResolvedPos): { from: number; to: number } | undefined {
+function changeRunsIn(block: ProseNode, start: number): { from: number; to: number }[] {
   const runs: { from: number; to: number }[] = [];
-  at.parent.forEach((node, offset) => {
+  block.forEach((node, offset) => {
     if (!node.marks.some(isChange)) return;
-    const from = at.start() + offset;
+    const from = start + offset;
     const last = runs.at(-1);
     if (last && last.to === from) last.to = from + node.nodeSize;
     else runs.push({ from, to: from + node.nodeSize });
   });
-  return runs.find((run) => run.from <= at.pos && at.pos <= run.to);
+  return runs;
+}
+
+/** The changed text that touches a caret, from the first to the last change of the run. */
+function changeRunAt(at: ResolvedPos): { from: number; to: number } | undefined {
+  return changeRunsIn(at.parent, at.start()).find((run) => run.from <= at.pos && at.pos <= run.to);
+}
+
+/** The first tracked change after the selection, or the last one before it. */
+export function changeNear(
+  state: EditorState,
+  forward: boolean,
+): { from: number; to: number } | undefined {
+  const runs: { from: number; to: number }[] = [];
+  state.doc.descendants((node, position) => {
+    if (!node.isTextblock) return true;
+    runs.push(...changeRunsIn(node, position + 1));
+    return false;
+  });
+  const { from, to } = state.selection;
+  return forward ? runs.find((run) => run.from >= to) : runs.findLast((run) => run.to <= from);
+}
+
+/** Selects the next or the previous tracked change, and shows it. */
+export function goToChange(editor: Editor, forward: boolean): void {
+  const run = changeNear(editor.state, forward);
+  if (run) editor.chain().focus().setTextSelection(run).scrollIntoView().run();
 }
 
 /** The tracked changes in the selection, or the changes that touch the caret. */
@@ -274,10 +385,77 @@ export function decide(editor: Editor, accept: boolean, all: boolean): void {
   if (transaction) editor.view.dispatch(transaction);
 }
 
-export function canIndent(state: EditorState, step: 1 | -1): boolean {
-  const paragraph = paragraphAt(state);
-  const list = paragraph?.attrs.numId as string | null | undefined;
-  if (!list || list === "0") return false;
-  const level = Number(paragraph?.attrs.ilvl ?? 0);
-  return step > 0 ? level < MOST_LEVEL : level > 0;
+/**
+ * The address of a link that a person typed: a web or e-mail address as they wrote it, with
+ * the scheme that it lacks. Other schemes make no link.
+ */
+export function linkAddress(typed: string): string | null {
+  const text = typed.trim();
+  let address = text;
+  if (!/^(https?|mailto):/i.test(text)) {
+    if (EMAIL.test(text)) address = `mailto:${text}`;
+    else if (HOST.test(text)) address = `https://${text}`;
+    else return null;
+  }
+  if (!URL.canParse(address)) return null;
+  const url = new URL(address);
+  if (url.protocol === "mailto:") return url.pathname.includes("@") ? address : null;
+  return url.hostname ? address : null;
+}
+
+/** The link that the caret is in, or that holds the whole selection. */
+export function linkAt(state: EditorState): { from: number; to: number; href: string } | null {
+  const type = state.schema.marks.link;
+  if (!type) return null;
+  const { $from, from, to } = state.selection;
+  const range = getMarkRange($from, type);
+  if (!range || range.from > from || range.to < to) return null;
+  const href = state.doc.nodeAt(range.from)?.marks.find((mark) => mark.type === type)?.attrs.href as
+    | string
+    | undefined;
+  return { ...range, href: href ?? "" };
+}
+
+/**
+ * Gives the link that the caret is in a new address, or links the selected words. With
+ * neither, the words go in at the caret as a new link, and the next letters are plain.
+ */
+export function linked(state: EditorState, address: string, words: string): Transaction | null {
+  const type = state.schema.marks.link;
+  if (!type) return null;
+  const mark = type.create({ href: address });
+  const tr = state.tr;
+  const link = linkAt(state);
+  const { from, to, empty } = state.selection;
+  if (link) return tr.removeMark(link.from, link.to, type).addMark(link.from, link.to, mark);
+  if (!empty) return tr.addMark(from, to, mark);
+  const end = from + words.length;
+  tr.insertText(words, from).addMark(from, end, mark);
+  tr.setSelection(TextSelection.create(tr.doc, end));
+  return tr.setStoredMarks(
+    tr.doc
+      .resolve(end)
+      .marks()
+      .filter((known) => known.type !== type),
+  );
+}
+
+/** Takes the link away from the words that the caret is in. */
+export function unlinked(state: EditorState): Transaction | null {
+  const type = state.schema.marks.link;
+  const link = linkAt(state);
+  return type && link ? state.tr.removeMark(link.from, link.to, type) : null;
+}
+
+/** Ends the caret's paragraph with a page break, and the caret goes on at the top of the next page. */
+export function pageBroken(state: EditorState): Transaction | null {
+  const type = state.schema.nodes.pageBreak;
+  if (!type || inTable(state) || !(state.selection instanceof TextSelection)) return null;
+  const tr = state.tr.deleteSelection();
+  const $at = tr.selection.$from;
+  const paragraph = $at.parent;
+  if (paragraph.type.name !== "paragraph") return null;
+  tr.insert($at.pos, type.create());
+  tr.split($at.pos + 1, 1, [{ type: paragraph.type, attrs: { ...paragraph.attrs, id: null } }]);
+  return tr.setSelection(TextSelection.create(tr.doc, $at.pos + 3));
 }

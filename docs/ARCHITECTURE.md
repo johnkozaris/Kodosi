@@ -25,15 +25,19 @@ Quit in a desktop app stops a background host and its terminals. A host that run
 terminal with `kodosi host` stops only there. An app that finds a background host of an
 earlier version restarts it, and asks first when that host still has terminals.
 
-The host saves its terminals in `terminals.json` in its data folder while they change,
-and again as it stops, with the conversation that each agent shows. It reads Claude
-Code's own records of the conversation that each Claude process shows, and for Codex and
-Copilot CLI it types their own list of conversations to continue. A new host keeps the
-saved terminals until an app sends `session.restore`; then it starts each one again with
-a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces. The
-host also gives `restoredFrom` to the backend, so that views on other devices can follow
-the terminal. A restored terminal joins its room or its people again when the account
-that chose them is signed in.
+The host saves its terminals in `terminals.json` in its data folder while they change, and
+again as it stops, with the command that continues the conversation that each agent shows.
+It finds the conversation in the agent's own records: Claude Code's record of each Claude
+process, the lock that Copilot CLI keeps in the folder of a session while a process uses
+it, and the rollout that a Codex process holds open, or else the one live Codex
+conversation of the terminal's folder. The command keeps the account, model and effort of
+the agent's environment and arguments, which Windows does not show. When the host finds no
+conversation, the command opens the agent's own list of conversations. A new host keeps
+the saved terminals until an app sends `session.restore`; then it starts each one again
+with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.
+The host also gives `restoredFrom` to the backend, so that views on other devices can
+follow the terminal. A restored terminal joins its room or its people again when the
+account that chose them is signed in.
 
 As it stops, the host also saves the primary screen and history of each terminal that
 comes back. It writes them as VT text to a file in `screens/` in its data folder. The file
@@ -164,16 +168,21 @@ each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a read
 Chromium that draws each page off screen, with no window, no icon and no display, and a
 debug port on `127.0.0.1`. It talks with its host on one local WebSocket, which it opens
 with a one-time token, and it ends when that link ends. Its tabs cancel the requests that
-EasyList and EasyPrivacy name; each engine build takes the lists of that day. The first window gets the engine
-from a signed feed. The host looks at the feed each day: a browser
-that starts after an update uses the new engine, a browser that runs keeps its own, and the
-old engine goes when the host starts again.
+EasyList and EasyPrivacy name; each engine build takes the lists of that day. The first
+window, or a person in Settings, gets the engine from a signed feed, one download at a time.
+The host looks at the feed each day: a browser that starts after an update uses the new
+engine, a browser that runs keeps its own, and the old engine goes when the host starts
+again. Words that a person types as an address and that name no computer go to Google's
+search.
 
 While a device looks, the engine encodes the window's tab as H.264, with VideoToolbox on
 the Mac and OpenH264 on Linux and Windows, and sends the frames on its link. A viewer's
 pipe carries these frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
 window, and the host steers its bitrate from the round trip, so no queue forms. A viewer
-that falls behind gets nothing until the next key frame. The Mac and iPhone apps show frames
+that falls behind gets nothing until the next key frame, which comes once the floor of a
+second between key frames passes, also on a still page. A picture that the encoder or the
+link drops makes the page draw again, so a page that stops changing still reaches the viewers
+as it is. The Mac and iPhone apps show frames
 on a display layer. The Linux and Windows app decodes with OpenH264 in the runtime library.
 Clicks, keys and text come back on the pipe, and the host gives them to the page on the
 debug port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as
@@ -204,7 +213,10 @@ terminals share one kept profile. A shared terminal has a profile of its own, wh
 with the terminal, and a new host deletes the profiles that no terminal has. Settings ›
 Browser reads the cookies of another browser's store before a browser starts, puts them
 into the kept profile on the debug port, and notes which ones, so a button can remove them
-again. Another button deletes the kept profile.
+again. Another button deletes the kept profile. macOS keeps the data of Safari and of other
+browsers from apps without Full Disk Access. The host asks the system whether it may read a
+browser's data before it reads any, so looking at the browsers is never a refused read, and a
+browser that macOS keeps waits for Full Disk Access.
 
 ## Languages
 

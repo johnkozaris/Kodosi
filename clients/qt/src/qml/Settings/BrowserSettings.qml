@@ -27,9 +27,30 @@ ColumnLayout {
             tint: "#5b82c9"
             title: qsTr("Kodosi Browser")
             subtitle: !Models.Canvas.browserKnown ? qsTr("Looking on this computer")
-                : Models.Canvas.browserEngine.length > 0 ? Models.Canvas.browserEngine
+                : Models.Canvas.browserGetting >= 0 ? qsTr("Downloading, %1%").arg(Models.Canvas.browserGetting)
+                : Models.Canvas.browserEngine.length > 0
+                    ? [Models.Canvas.browserEngine].concat(Models.Canvas.browserDone["engine"] ?? []).join(" · ")
                 : qsTr("Downloads when the shared browser first opens")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                visible: Models.Canvas.browserKnown && Models.Canvas.browserGetting < 0
+                enabled: !root.busy
+                working: Models.Canvas.browserWork === "engine"
+                objectName: "settings.browser.get"
+                text: Models.Canvas.browserEngine.length > 0 ? qsTr("Check for updates") : qsTr("Download")
+
+                onClicked: Models.Canvas.getBrowser()
+            }
         }
+    }
+    Timer {
+        interval: 400
+        repeat: true
+        running: root.visible && (Models.Canvas.browserWork === "engine" || Models.Canvas.browserGetting >= 0)
+
+        onTriggered: Models.Canvas.refreshBrowser()
     }
     ListGroup {
         Layout.fillWidth: true

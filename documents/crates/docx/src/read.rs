@@ -32,15 +32,17 @@ pub(crate) fn is_word(node: Xml<'_, '_>, name: &str) -> bool {
         && matches!(node.tag_name().namespace(), Some(MAIN | STRICT_MAIN))
 }
 
-fn word_child<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml<'a, 'input>> {
+pub(crate) fn word_child<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml<'a, 'input>> {
     node.children().find(|child| is_word(*child, name))
+}
+
+pub(crate) fn is_word_attribute(attribute: &roxmltree::Attribute<'_, '_>) -> bool {
+    matches!(attribute.namespace(), Some(MAIN | STRICT_MAIN))
 }
 
 pub(crate) fn word_attribute<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
     node.attributes()
-        .find(|attribute| {
-            attribute.name() == name && matches!(attribute.namespace(), Some(MAIN | STRICT_MAIN))
-        })
+        .find(|attribute| attribute.name() == name && is_word_attribute(attribute))
         .map(|attribute| attribute.value())
 }
 
@@ -77,6 +79,8 @@ pub(crate) struct RunLook {
     pub italic: bool,
     pub underline: bool,
     pub strike: bool,
+    pub superscript: bool,
+    pub subscript: bool,
     pub color: Option<String>,
     pub size: Option<String>,
     pub font: Option<String>,
@@ -92,16 +96,69 @@ pub(crate) fn run_look(properties: Xml<'_, '_>) -> RunLook {
             .and_then(|node| word_attribute(node, attribute))
             .map(str::to_owned)
     };
+    let vertical = value("vertAlign", "val");
     RunLook {
         bold: on("b"),
         italic: on("i"),
         underline: word_child(properties, "u")
             .is_some_and(|node| word_attribute(node, "val") != Some("none")),
         strike: on("strike"),
+        superscript: vertical.as_deref() == Some("superscript"),
+        subscript: vertical.as_deref() == Some("subscript"),
         color: value("color", "val").filter(|color| color != "auto"),
         size: value("sz", "val"),
         font: value("rFonts", "ascii"),
         highlight: value("highlight", "val"),
+    }
+}
+
+/// The look of a paragraph that its attributes hold apart from its original XML. The line is
+/// in 240ths of a line, and the indent in twentieths of a point.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct ParagraphLook {
+    pub style: Option<String>,
+    pub align: Option<String>,
+    pub list: Option<String>,
+    pub level: Option<String>,
+    pub line: Option<String>,
+    pub indent: Option<String>,
+}
+
+/// The spacing of lines, when it is a number of lines rather than points.
+pub(crate) fn line_of<'a>(spacing: Xml<'a, '_>) -> Option<&'a str> {
+    word_attribute(spacing, "line")
+        .filter(|_| matches!(word_attribute(spacing, "lineRule"), None | Some("auto")))
+}
+
+/// The indent on the side where lines start.
+pub(crate) fn indent_of<'a>(indent: Xml<'a, '_>) -> Option<&'a str> {
+    word_attribute(indent, "start").or_else(|| word_attribute(indent, "left"))
+}
+
+pub(crate) fn paragraph_look(properties: Xml<'_, '_>) -> ParagraphLook {
+    let value = |name: &str| {
+        word_child(properties, name)
+            .and_then(|node| word_attribute(node, "val"))
+            .map(str::to_owned)
+    };
+    let number = word_child(properties, "numPr");
+    let number_value = |name: &str| {
+        number
+            .and_then(|node| word_child(node, name))
+            .and_then(|node| word_attribute(node, "val"))
+            .map(str::to_owned)
+    };
+    ParagraphLook {
+        style: value("pStyle"),
+        align: value("jc"),
+        list: number_value("numId"),
+        level: number_value("ilvl"),
+        line: word_child(properties, "spacing")
+            .and_then(line_of)
+            .map(str::to_owned),
+        indent: word_child(properties, "ind")
+            .and_then(indent_of)
+            .map(str::to_owned),
     }
 }
 
@@ -260,23 +317,15 @@ impl<'input> Reader<'_, 'input> {
         id: Option<&str>,
     ) -> Result<Node, text::Failed> {
         let properties = word_child(element, "pPr");
-        let value = |name: &str| {
-            properties
-                .and_then(|node| word_child(node, name))
-                .and_then(|node| word_attribute(node, "val"))
-        };
-        let number = properties.and_then(|node| word_child(node, "numPr"));
-        let number_value = |name: &str| {
-            number
-                .and_then(|node| word_child(node, name))
-                .and_then(|node| word_attribute(node, "val"))
-        };
+        let look = properties.map(paragraph_look).unwrap_or_default();
         let attrs = json!({
             "id": id,
-            "style": value("pStyle"),
-            "align": value("jc"),
-            "numId": number_value("numId"),
-            "ilvl": number_value("ilvl"),
+            "style": look.style,
+            "align": look.align,
+            "numId": look.list,
+            "ilvl": look.level,
+            "line": look.line,
+            "indent": look.indent,
             "props": self.keep_child(element, "pPr"),
             "pageBreak": properties
                 .and_then(|node| word_child(node, "pageBreakBefore"))
@@ -354,6 +403,20 @@ impl<'input> Reader<'_, 'input> {
         marks: &[Mark],
         out: &mut Vec<Node>,
     ) -> Result<(), text::Failed> {
+        let children = element.children().filter(Xml::is_element);
+        if children.clone().any(|child| !held_in_tree(child)) {
+            let raw = self.keep(self.xml_of(element));
+            let mut text = all_text(element);
+            if children.clone().any(is_page_break) {
+                text.push(PAGE_BREAK);
+            }
+            out.push(node(
+                "inlineOpaque",
+                json!({ "raw": raw, "text": text }),
+                Vec::new(),
+            )?);
+            return Ok(());
+        }
         let properties = word_child(element, "rPr");
         let mut marks = marks.to_vec();
         if let Some(properties) = properties {
@@ -361,34 +424,19 @@ impl<'input> Reader<'_, 'input> {
             marks.push(mark("run", Some(&json!({ "props": props })))?);
             marks.extend(look_marks(&run_look(properties))?);
         }
-        for child in element.children().filter(Xml::is_element) {
-            if is_word(child, "rPr") {
-                continue;
-            }
+        for child in children {
             if is_word(child, "t") || is_word(child, "delText") {
                 if let Some(text) = child.text().filter(|text| !text.is_empty()) {
                     out.push(Node::text(schema(), text, marks.clone())?);
                 }
             } else if is_word(child, "tab") {
                 out.push(with_marks("tab", &marks)?);
-            } else if is_word(child, "br") && word_attribute(child, "type").is_none() {
+            } else if is_page_break(child) {
+                out.push(with_marks("pageBreak", &marks)?);
+            } else if is_word(child, "br") {
                 out.push(with_marks("hardBreak", &marks)?);
             } else if is_word(child, "drawing") {
                 out.push(self.drawing(element, child, &marks)?);
-            } else {
-                let raw = self.keep(self.xml_of(element));
-                let page_break =
-                    is_word(child, "br") && word_attribute(child, "type") == Some("page");
-                let mut text = all_text(element);
-                if page_break {
-                    text.push(PAGE_BREAK);
-                }
-                out.push(node(
-                    "inlineOpaque",
-                    json!({ "raw": raw, "text": text }),
-                    Vec::new(),
-                )?);
-                return Ok(());
             }
         }
         Ok(())
@@ -494,6 +542,18 @@ impl<'input> Reader<'_, 'input> {
     }
 }
 
+fn is_page_break(node: Xml<'_, '_>) -> bool {
+    is_word(node, "br") && word_attribute(node, "type") == Some("page")
+}
+
+/// Whether the tree holds this child of a run. A run with any other child stays as it came.
+fn held_in_tree(child: Xml<'_, '_>) -> bool {
+    ["rPr", "t", "delText", "tab", "drawing"]
+        .iter()
+        .any(|name| is_word(child, name))
+        || (is_word(child, "br") && matches!(word_attribute(child, "type"), None | Some("page")))
+}
+
 fn simple_table(element: Xml<'_, '_>) -> bool {
     let mut rows = 0;
     for child in element.children().filter(Xml::is_element) {
@@ -539,6 +599,8 @@ pub(crate) fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
         (look.italic, "italic"),
         (look.underline, "underline"),
         (look.strike, "strike"),
+        (look.superscript, "superscript"),
+        (look.subscript, "subscript"),
     ] {
         if on {
             marks.push(mark(name, None)?);

@@ -134,6 +134,79 @@ async fn an_agent_writes_a_docx_file_through_the_live_document() {
 }
 
 #[tokio::test]
+async fn an_agent_edits_a_text_file_by_its_lines_and_it_keeps_its_line_endings() {
+    let rig = rig();
+    let file = rig.path("config.yaml");
+    std::fs::write(&file, "name: one\r\nport: 80\r\n").unwrap();
+    let read = |place: &str| {
+        rig.run(Command::Read(ReadArguments {
+            file: file.clone(),
+            place: Some(place.to_owned()),
+        }))
+    };
+    let wrong = read("2-1").await;
+    assert!(matches!(wrong, Err(Failed::Says(text)) if text.contains("names no lines")));
+    let second = read("2").await.unwrap();
+    assert_eq!(
+        second["content"],
+        json!({ "count": 2, "lines": [{ "line": 2, "text": "port: 80" }] })
+    );
+    rig.apply(
+        &file,
+        rev_of(&second),
+        json!([
+            { "op": "replaceText", "find": "80", "with": "8080" },
+            { "op": "insertLines", "text": "host: here", "after": 1 },
+        ]),
+        false,
+    )
+    .await
+    .unwrap();
+    rig.documents.close().await;
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "name: one\r\nhost: here\r\nport: 8080\r\n"
+    );
+}
+
+#[tokio::test]
+async fn an_agent_waits_for_its_own_answer_and_not_for_a_change_of_the_same_number() {
+    let rig = rig();
+    let file = rig.path("notes.txt");
+    std::fs::write(&file, "one\ntwo\n").unwrap();
+    let base = rev_of(&rig.read(&file).await);
+    let other = Viewer {
+        id: "other".to_owned(),
+        name: "Other".to_owned(),
+        can_edit: true,
+    };
+    rig.agents
+        .run(
+            &other,
+            Command::Apply(ApplyArguments {
+                file: file.clone(),
+                ops: json!([{ "op": "insertLines", "text": "zero", "after": 0 }]).to_string(),
+                base,
+                track: false,
+            }),
+        )
+        .await
+        .unwrap();
+    let late = rig
+        .apply(
+            &file,
+            base,
+            json!([{ "op": "deleteLines", "from": 2 }]),
+            false,
+        )
+        .await;
+    assert!(
+        matches!(&late, Err(Failed::Refused(detail)) if detail.contains("Other")),
+        "{late:?}"
+    );
+}
+
+#[tokio::test]
 async fn a_read_with_a_rev_makes_an_old_apply_fail_with_a_name() {
     let rig = rig();
     let file = rig.new_file("a.xlsx", None).await;

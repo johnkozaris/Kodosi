@@ -17,6 +17,7 @@ documents = { workspace = true }
 docx = { workspace = true }
 getrandom = "0.4.3"
 pdf = { workspace = true }
+plain = { workspace = true }
 pptx = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

@@ -857,3 +857,31 @@ async fn the_ready_event_says_where_the_sign_in_is_kept() {
         root.path().join("secrets").display().to_string()
     );
 }
+
+#[tokio::test]
+async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer() {
+    use crate::identity::link_code::{LinkKey, NONCE_LEN};
+    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
+    network.inner.state.lock().await.link = Some(enrollment::PendingLink {
+        device_code: "device".into(),
+        request_id: Uuid::now_v7().to_string(),
+        key: Arc::new(LinkKey::derive("ABCDEFGHJKLM", &[0; NONCE_LEN])),
+        started: std::time::Instant::now(),
+        accepted: true,
+    });
+    let mut events = network.events();
+    let error = network.poll_link().await.unwrap_err();
+    assert!(error.unanswered(), "{error}");
+    let held = network
+        .inner
+        .state
+        .lock()
+        .await
+        .link
+        .as_ref()
+        .is_some_and(|link| link.accepted);
+    assert!(held);
+    while let Ok(event) = events.try_recv() {
+        assert_ne!(event.event["type"], "devices.link.selfResolved");
+    }
+}

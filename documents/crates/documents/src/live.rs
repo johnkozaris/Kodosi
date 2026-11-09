@@ -50,6 +50,9 @@ impl<F: Format> Live for Document<F> {
 
 /// Makes the open document of one format.
 pub trait Opener: Send + Sync {
+    /// Whether a file opens live, as `Format::opens` says.
+    fn opens(&self, file: &[u8]) -> bool;
+
     fn open(&self, file: Vec<u8>, epoch: u64) -> Result<Box<dyn Live>, Unreadable>;
 
     fn restore(
@@ -64,6 +67,10 @@ pub trait Opener: Send + Sync {
 struct FormatOpener<F>(PhantomData<fn() -> F>);
 
 impl<F: Format> Opener for FormatOpener<F> {
+    fn opens(&self, file: &[u8]) -> bool {
+        F::opens(file).is_ok()
+    }
+
     fn open(&self, file: Vec<u8>, epoch: u64) -> Result<Box<dyn Live>, Unreadable> {
         let document = Document::<F>::open(file, epoch, Assets::default())?;
         Ok(Box::new(document))
@@ -102,5 +109,11 @@ impl Formats {
     pub(crate) fn of(&self, path: &Path) -> Option<Arc<dyn Opener>> {
         let extension = path.extension()?.to_str()?.to_ascii_lowercase();
         self.by_extension.get(&extension).cloned()
+    }
+
+    /// Whether a file opens live: a format takes its extension, and takes the file.
+    #[must_use]
+    pub fn opens(&self, path: &Path, file: &[u8]) -> bool {
+        self.of(path).is_some_and(|opener| opener.opens(file))
     }
 }

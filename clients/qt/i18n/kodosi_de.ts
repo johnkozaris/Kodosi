@@ -165,8 +165,20 @@
         <translation>Suche auf diesem Computer</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>Wird geladen, %1 %</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>Wird beim ersten Öffnen des geteilten Browsers geladen</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>Nach Updates suchen</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Laden</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -359,6 +371,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>Bild</translation>
@@ -783,6 +799,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>Präsentationsansicht</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>Textansicht</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2888,10 +2908,6 @@
         <translation>Terminal</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>Tastatur</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -2910,6 +2926,10 @@
     <message>
         <source>Devices</source>
         <translation>Geräte</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>Kurzbefehle</translation>
     </message>
 </context>
 <context>
@@ -3406,10 +3426,6 @@
         <translation>Übernehmen</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>Übernommen</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>Ein Terminal auf einem neuen Branch bekommt einen eigenen Ordner. Kodosi entfernt einen Ordner ohne Änderungen, wenn sein Terminal endet.</translation>
     </message>
@@ -3790,6 +3806,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>Das Canvas nimmt Dateien bis 32 MB an.</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>Aktuell</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

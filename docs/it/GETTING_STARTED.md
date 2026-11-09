@@ -25,7 +25,7 @@ comando nella shell del nuovo terminale.
   nella cartella del terminale selezionato.
 - I tasti seguono Ghostty. Da ⌘1 a ⌘9 selezioni un terminale (da Alt+1 ad Alt+9 su Linux e
   Windows), ⌥⌘ con una freccia seleziona quello accanto (Ctrl+Alt con una freccia) e ⌘W chiude
-  il terminale selezionato. Impostazioni › Tastiera elenca ogni tasto e lo cambia.
+  il terminale selezionato. Impostazioni › Scorciatoie elenca ogni tasto e lo cambia.
 - Se manca un agente, il launcher mostra il suo comando di installazione.
 - Un nuovo account ha una sua cartella di accesso, come `~/.claude-work`. Kodosi trova anche
   gli account che configura la tua shell, come
@@ -58,9 +58,19 @@ barra dei menu o nell'area di notifica; su un desktop senza area di notifica, ch
 finestra chiude Kodosi. Quando esci da Kodosi, i tuoi terminali si fermano. Kodosi salva ciò
 che mostrano sul tuo computer e da nessun'altra parte. Quando riapri Kodosi, ripartono nelle
 loro cartelle, stanze e posizioni sulla scena, con lo schermo e la cronologia precedenti sopra
-un nuovo prompt (su Windows, scorri verso l'alto per vederli). Claude Code riprende la sua
-conversazione, e Codex e Copilot CLI mostrano le loro conversazioni così puoi riprenderne una.
-Nelle Impostazioni scegli cosa fa la chiusura della finestra.
+un nuovo prompt (su Windows, scorri verso l'alto per vederli). Claude Code, Codex e Copilot CLI
+riprendono le loro conversazioni e, su un Mac o su Linux, mantengono il modello e il livello di
+ragionamento che hai scelto. Quando Kodosi non riesce a capire quale conversazione mostrava un
+agente, l'agente mostra le sue conversazioni così puoi riprenderne una. Nelle Impostazioni
+scegli cosa fa la chiusura della finestra.
+
+Su un Mac, i programmi nei tuoi terminali hanno le autorizzazioni che dai a Kodosi, come in
+qualsiasi app di terminale. Quando macOS dice di aver impedito a Kodosi di modificare le
+app, un programma in un terminale ha provato a cambiare un'altra app. Per consentirlo,
+attiva Kodosi in Gestione app; Impostazioni › Generale la apre. Lì consenti anche il
+Controllo del dispositivo e accesso ai dati (Accessibilità prima di macOS 27) e la
+Registrazione schermo e audio di sistema, per i programmi che controllano le app o vedono lo
+schermo.
 
 ## 3. Scopri quale agente ha bisogno di te
 
@@ -92,12 +102,12 @@ riaprila con +. Apri browser, nel pulsante delle azioni, apre il browser prima c
 usi, e Aggiungi un file… mette un file sul canvas e nella cartella del terminale; puoi anche
 trascinare un file sul canvas. Su iPhone, il pulsante del canvas è nella barra del terminale.
 
-- Un documento, un foglio, una presentazione o un PDF è dal vivo: tu, le persone nel
-  terminale e l'agente lo modificate nello stesso momento, e resta un file normale nella sua
-  cartella. Quando un documento ha revisioni, la sua barra ha un pulsante che le accetta o le
-  rifiuta. Impostazioni › Documenti attiva o disattiva ogni visualizzatore, mostra i
-  documenti come pagine o come testo che si adatta al canvas, e scurisce le pagine quando
-  Kodosi è scuro.
+- Un documento, un foglio, una presentazione, un PDF o un file di testo è dal vivo: tu, le
+  persone nel terminale e l'agente lo modificate nello stesso momento, e resta un file
+  normale nella sua cartella. Quando un documento ha revisioni, la sua barra ha un pulsante
+  che le accetta o le rifiuta. Impostazioni › Documenti attiva o disattiva ogni
+  visualizzatore, mostra i documenti come pagine o come testo che si adatta al canvas, e
+  scurisce le pagine quando Kodosi è scuro.
 - Una pagina non ha rete. I link in pagine, documenti, fogli, presentazioni e PDF si aprono nel
   tuo browser con le stesse regole dei link del terminale. Dove puoi modificare, fai ⌘-clic su
   un link (Ctrl-clic su Linux e Windows); altrove basta un clic, e su iPhone un tocco. Un link
@@ -110,9 +120,10 @@ trascinare un file sul canvas. Su iPhone, il pulsante del canvas è nella barra 
   quando l'agente lo usa. Il primo browser su un computer scarica Kodosi Browser, quindi ci
   mette un momento.
 - Per usare i tuoi accessi nei tuoi terminali privati, seleziona Copia accanto a un browser
-  in Impostazioni › Browser. Rimuovi toglie ciò che hai copiato, e Rimuovi tutto rimuove ogni
-  accesso e tutti i dati dei siti dei tuoi terminali privati. Su un Mac, una copia da Safari
-  richiede l'Accesso completo al disco per Kodosi.
+  in Impostazioni › Browser. Rimuovi toglie ciò che hai copiato, e Rimuovi tutto rimuove
+  ogni accesso e tutti i dati dei siti dei tuoi terminali privati. Su un Mac, quando macOS
+  protegge da Kodosi gli accessi di un browser, come quelli di Safari, seleziona Consenti…
+  accanto al browser per dare a Kodosi l'Accesso completo al disco.
 - Sulla stessa rete, l'immagine del browser passa direttamente tra i tuoi dispositivi. macOS e
   iOS chiedono una volta l'accesso alla rete locale; senza, l'immagine passa dal servizio.
 - Tutte le persone che possono aprire il terminale vedono il suo canvas e usano il suo

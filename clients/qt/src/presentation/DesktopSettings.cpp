@@ -24,7 +24,7 @@ const QList<std::pair<QString, bool>>& viewerDefaults()
         { QStringLiteral("documentPages"), true }, { QStringLiteral("darkDocuments"), false },
         { QStringLiteral("sheets"), true }, { QStringLiteral("darkSheets"), true },
         { QStringLiteral("presentations"), true }, { QStringLiteral("pdfs"), true },
-        { QStringLiteral("darkPdfs"), false } };
+        { QStringLiteral("darkPdfs"), false }, { QStringLiteral("texts"), true } };
     return defaults;
 }
 }
@@ -67,7 +67,8 @@ QVariantMap DesktopSettings::shownViews() const
     return { { QStringLiteral("docx"), m_viewers.value(QStringLiteral("documents")) },
         { QStringLiteral("xlsx"), m_viewers.value(QStringLiteral("sheets")) },
         { QStringLiteral("pptx"), m_viewers.value(QStringLiteral("presentations")) },
-        { QStringLiteral("pdf"), m_viewers.value(QStringLiteral("pdfs")) } };
+        { QStringLiteral("pdf"), m_viewers.value(QStringLiteral("pdfs")) },
+        { QStringLiteral("text"), m_viewers.value(QStringLiteral("texts")) } };
 }
 QVariantMap DesktopSettings::viewPreferences() const
 {
@@ -76,7 +77,7 @@ QVariantMap DesktopSettings::viewPreferences() const
                  QVariantMap { { QStringLiteral("pages"), m_viewers.value(QStringLiteral("documentPages")) },
                      { QStringLiteral("dark"), m_viewers.value(QStringLiteral("darkDocuments")) } } },
         { QStringLiteral("xlsx"), dark(QStringLiteral("darkSheets")) }, { QStringLiteral("pptx"), QVariantMap {} },
-        { QStringLiteral("pdf"), dark(QStringLiteral("darkPdfs")) } };
+        { QStringLiteral("pdf"), dark(QStringLiteral("darkPdfs")) }, { QStringLiteral("text"), QVariantMap {} } };
 }
 void DesktopSettings::setViewer(const QString& name, bool on)
 {

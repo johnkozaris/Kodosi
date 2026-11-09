@@ -65,6 +65,54 @@ fn first_id(model: &Model) -> String {
     blocks(model)[0]["id"].as_str().unwrap().to_owned()
 }
 
+/// Runs steps as a view sends them.
+fn stepped(model: &mut Model, steps: Vec<Value>) {
+    let change = Change::Steps {
+        steps,
+        touched: Vec::new(),
+        keep: BTreeMap::default(),
+        sources: BTreeMap::default(),
+    };
+    applied(model, change).unwrap();
+}
+
+fn starts(model: &Model) -> Vec<usize> {
+    let mut position = 0;
+    model
+        .doc
+        .content()
+        .children()
+        .iter()
+        .map(|block| {
+            let start = position;
+            position += block.node_size();
+            start
+        })
+        .collect()
+}
+
+fn attrs_of(model: &Model, name: &str) -> Vec<Value> {
+    let doc = model.doc.to_json(schema());
+    doc["content"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|block| block["attrs"][name].clone())
+        .collect()
+}
+
+fn mark_names(node: &Value) -> Vec<&str> {
+    node["marks"]
+        .as_array()
+        .map(|marks| {
+            marks
+                .iter()
+                .map(|mark| mark["type"].as_str().unwrap())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 const THREE: &str = r#"<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Title</w:t></w:r></w:p><w:p w:rsidR="00AB"><w:r><w:rPr><w:rFonts w:ascii="Arial"/><w:b/><w:lang w:val="el-GR"/></w:rPr><w:t xml:space="preserve">bold words </w:t></w:r><w:r><w:t>and plain</w:t></w:r><w:bookmarkStart w:id="1" w:name="x"/></w:p><w:p><w:r><w:t>Last</w:t></w:r></w:p>"#;
 
 #[test]
@@ -505,4 +553,235 @@ fn a_new_file_from_markdown_has_bullets_and_numbers() {
         .map(|block| &block["attrs"]["numId"])
         .collect();
     assert_eq!(items, [&json!("1"), &json!("2")]);
+}
+
+#[test]
+fn superscript_and_subscript_are_the_vertical_alignment_of_a_run() {
+    let file = docx_file(
+        r#"<w:p><w:r><w:t>E=mc</w:t></w:r><w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:t>2</w:t></w:r></w:p>"#,
+    );
+    let mut model = read(&file);
+    let doc = model.doc.to_json(schema());
+    assert_eq!(
+        mark_names(&doc["content"][0]["content"][1]),
+        ["run", "superscript"]
+    );
+    stepped(
+        &mut model,
+        vec![
+            json!({ "stepType": "addMark", "from": 5, "to": 6, "mark": { "type": "subscript" } }),
+            json!({ "stepType": "addMark", "from": 1, "to": 2, "mark": { "type": "superscript" } }),
+        ],
+    );
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "word/document.xml");
+    assert!(xml.contains(
+        r#"<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:t xml:space="preserve">E</w:t></w:r>"#
+    ));
+    assert!(xml.contains(
+        r#"<w:r><w:rPr><w:vertAlign w:val="subscript"/></w:rPr><w:t xml:space="preserve">2</w:t></w:r>"#
+    ));
+    let doc = read(&new_file).doc.to_json(schema());
+    let runs = doc["content"][0]["content"].as_array().unwrap();
+    assert_eq!(mark_names(&runs[0]), ["run", "superscript"]);
+    assert_eq!(mark_names(runs.last().unwrap()), ["run", "subscript"]);
+}
+
+#[test]
+fn line_spacing_comes_and_goes_and_the_space_around_a_paragraph_stays() {
+    let file = docx_file(concat!(
+        r#"<w:p><w:pPr><w:spacing w:before="120" w:after="240" w:line="276" w:lineRule="auto"/></w:pPr><w:r><w:t>One</w:t></w:r></w:p>"#,
+        r#"<w:p><w:pPr><w:spacing w:line="300" w:lineRule="exact"/></w:pPr><w:r><w:t>Two</w:t></w:r></w:p>"#,
+        r#"<w:p><w:r><w:t>Three</w:t></w:r></w:p>"#,
+    ));
+    let mut model = read(&file);
+    assert_eq!(
+        attrs_of(&model, "line"),
+        [json!("276"), Value::Null, Value::Null]
+    );
+    let steps = starts(&model)
+        .into_iter()
+        .map(|pos| json!({ "stepType": "attr", "pos": pos, "attr": "line", "value": "480" }))
+        .collect();
+    stepped(&mut model, steps);
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "word/document.xml");
+    assert!(
+        xml.contains(r#"<w:spacing w:line="480" w:lineRule="auto" w:before="120" w:after="240"/>"#)
+    );
+    assert!(!xml.contains("exact"));
+    assert_eq!(attrs_of(&read(&new_file), "line"), vec![json!("480"); 3]);
+}
+
+#[test]
+fn a_left_indent_moves_and_the_rest_of_the_indent_stays() {
+    let file = docx_file(concat!(
+        r#"<w:p><w:pPr><w:ind w:left="720" w:leftChars="200" w:hanging="360"/></w:pPr><w:r><w:t>One</w:t></w:r></w:p>"#,
+        r#"<w:p><w:pPr><w:ind w:start="1440" w:end="720"/></w:pPr><w:r><w:t>Two</w:t></w:r></w:p>"#,
+        r#"<w:p><w:r><w:t>Three</w:t></w:r></w:p>"#,
+    ));
+    let mut model = read(&file);
+    assert_eq!(
+        attrs_of(&model, "indent"),
+        [json!("720"), json!("1440"), Value::Null]
+    );
+    let steps = starts(&model)
+        .into_iter()
+        .zip(["1440", "720", "720"])
+        .map(|(pos, indent)| {
+            json!({ "stepType": "attr", "pos": pos, "attr": "indent", "value": indent })
+        })
+        .collect();
+    stepped(&mut model, steps);
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "word/document.xml");
+    assert!(xml.contains(r#"<w:ind w:left="1440" w:hanging="360"/>"#));
+    assert!(xml.contains(r#"<w:ind w:start="720" w:end="720"/>"#));
+    assert!(xml.contains(r#"<w:pPr><w:ind w:left="720"/></w:pPr>"#));
+    assert_eq!(
+        attrs_of(&read(&new_file), "indent"),
+        [json!("1440"), json!("720"), json!("720")]
+    );
+}
+
+#[test]
+fn a_page_break_is_a_break_in_a_run_of_its_own() {
+    let file = docx_file(
+        r#"<w:p><w:r><w:t>One</w:t></w:r><w:r><w:br w:type="page"/></w:r></w:p><w:p><w:r><w:t>Two</w:t></w:r></w:p>"#,
+    );
+    let mut model = read(&file);
+    assert_eq!(saved(&model, &file), file);
+    let end = starts(&model)[1] + 1 + "Two".len();
+    stepped(
+        &mut model,
+        vec![json!({
+            "stepType": "replace",
+            "from": end,
+            "to": end,
+            "slice": { "content": [{ "type": "pageBreak" }] },
+        })],
+    );
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "word/document.xml");
+    assert!(xml.contains(
+        r#"<w:t xml:space="preserve">Two</w:t></w:r><w:r><w:br w:type="page"/></w:r></w:p>"#
+    ));
+    let doc = read(&new_file).doc.to_json(schema());
+    for paragraph in doc["content"].as_array().unwrap() {
+        assert_eq!(paragraph["content"][1]["type"], "pageBreak");
+    }
+}
+
+#[test]
+fn a_run_with_a_child_that_the_tree_does_not_hold_stays_whole() {
+    let file = docx_file(
+        r#"<w:p><w:r><w:t>Hi</w:t><w:sym w:font="Wingdings" w:char="F04A"/></w:r></w:p>"#,
+    );
+    let mut model = read(&file);
+    stepped(
+        &mut model,
+        vec![json!({
+            "stepType": "replace",
+            "from": 1,
+            "to": 1,
+            "slice": { "content": [{ "type": "text", "text": "Oh " }] },
+        })],
+    );
+    let xml = part(&saved(&model, &file), "word/document.xml");
+    assert_eq!(xml.matches("Hi").count(), 1);
+    assert!(xml.contains(r#"<w:r><w:t>Hi</w:t><w:sym w:font="Wingdings" w:char="F04A"/></w:r>"#));
+}
+
+#[test]
+fn a_new_table_has_lines_and_a_grid_as_wide_as_the_text() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    steps_of(
+        &mut model,
+        vec![Op::InsertTable {
+            rows: vec![vec!["a".to_owned(), "b".to_owned()]],
+            after: None,
+        }],
+    );
+    let xml = part(&saved(&model, &file), "word/document.xml");
+    assert!(xml.contains(r#"<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#));
+    assert!(xml.contains(
+        r#"</w:tblPr><w:tblGrid><w:gridCol w:w="4513"/><w:gridCol w:w="4513"/></w:tblGrid><w:tr>"#
+    ));
+}
+
+const MERGED: &str = concat!(
+    r#"<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="6000"/></w:tblGrid>"#,
+    r#"<w:tr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:vMerge w:val="restart"/></w:tcPr><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr>"#,
+    r#"<w:tr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:vMerge/></w:tcPr><w:p/></w:tc><w:tc><w:p><w:r><w:t>C</w:t></w:r></w:p></w:tc></w:tr>"#,
+    r#"<w:tr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:vMerge/></w:tcPr><w:p/></w:tc><w:tc><w:p><w:r><w:t>D</w:t></w:r></w:p></w:tc></w:tr>"#,
+    r#"<w:tr><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>E</w:t></w:r></w:p></w:tc></w:tr>"#,
+    r#"</w:tbl><w:p/>"#,
+);
+
+#[test]
+fn a_changed_table_keeps_its_merges_and_a_grid_column_for_each_column() {
+    let file = docx_file(MERGED);
+    let mut model = read(&file);
+    let mut table = model.doc.to_json(schema())["content"][0].clone();
+    let rows = table["content"].as_array_mut().unwrap();
+    rows.remove(0);
+    rows[0]["content"][0]["attrs"]["merged"] = json!(false);
+    for row in &mut rows[..2] {
+        let cell = json!({ "type": "tableCell", "content": [{ "type": "paragraph" }] });
+        row["content"].as_array_mut().unwrap().push(cell);
+    }
+    rows[2]["content"][0]["attrs"]["span"] = json!(3);
+    let size = model.doc.content().children()[0].node_size();
+    stepped(
+        &mut model,
+        vec![json!({
+            "stepType": "replace",
+            "from": 0,
+            "to": size,
+            "slice": { "content": [table] },
+        })],
+    );
+    let new_file = saved(&model, &file);
+    let xml = part(&new_file, "word/document.xml");
+    assert!(xml.contains(
+        r#"<w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/></w:tblGrid>"#
+    ));
+    assert!(xml.contains(
+        r#"<w:tr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:vMerge w:val="restart"/></w:tcPr>"#
+    ));
+    assert!(xml.contains(r#"<w:tc><w:tcPr><w:gridSpan w:val="3"/></w:tcPr>"#));
+    let table = &read(&new_file).doc.to_json(schema())["content"][0];
+    let first = |row: usize| &table["content"][row]["content"][0]["attrs"];
+    assert_eq!(first(0)["merged"], false);
+    assert_eq!(first(1)["merged"], true);
+    assert_eq!(first(2)["span"], 3);
+}
+
+#[test]
+fn a_new_link_keeps_one_relationship_over_many_saves() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    let start = starts(&model)[2] + 1;
+    let link =
+        json!({ "type": "link", "attrs": { "href": "https://kodosi.com", "relation": null } });
+    stepped(
+        &mut model,
+        vec![json!({ "stepType": "addMark", "from": start, "to": start + 4, "mark": link })],
+    );
+    let first = saved(&model, &file);
+    stepped(
+        &mut model,
+        vec![json!({
+            "stepType": "replace",
+            "from": 2,
+            "to": 2,
+            "slice": { "content": [{ "type": "text", "text": "A " }] },
+        })],
+    );
+    let second = saved(&model, &first);
+    let relations = part(&second, "word/_rels/document.xml.rels");
+    assert_eq!(relations.matches("https://kodosi.com").count(), 1);
+    assert!(relations.contains(r#"Id="rIdDoc1""#));
+    assert!(part(&second, "word/document.xml").contains(r#"r:id="rIdDoc1""#));
 }

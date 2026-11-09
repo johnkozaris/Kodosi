@@ -2015,6 +2015,18 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
 
 #[cfg(feature = "host")]
 #[test]
+fn on_windows_a_restored_agent_has_the_account_folder_of_the_host() {
+    let shown = Some("/srv/copilot".to_owned());
+    assert_eq!(restore::account_variable(shown.clone(), "PATH"), shown);
+    assert_eq!(restore::account_variable(None, "KODOSI_TEST_MISSING"), None);
+    assert_eq!(
+        restore::account_variable(None, "PATH"),
+        std::env::var("PATH").ok().filter(|_| cfg!(windows))
+    );
+}
+
+#[cfg(feature = "host")]
+#[test]
 fn a_restored_agent_continues_its_conversation_or_lists_them() {
     use crate::agents::Agent;
     let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
@@ -2046,6 +2058,129 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
         "claude --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume"
     );
     assert_eq!(restore::usual_line("vim", zsh), None);
+    let home = Path::new("/home/ana");
+    let restart = |agent, account: &str, arguments: &[&str]| {
+        let arguments = arguments
+            .iter()
+            .map(|argument| (*argument).to_owned())
+            .collect::<Vec<_>>();
+        restore::restart_command(agent, home, &home.join(account), &arguments, zsh)
+    };
+    let claude = restart(
+        Agent::Claude,
+        ".claude",
+        &["claude", "--model", "opus", "--effort", "high"],
+    );
+    assert_eq!(
+        line(Agent::Claude, &claude, Some(id)).unwrap(),
+        format!(
+            "claude --model opus --effort high --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume {id}"
+        )
+    );
+    let codex = restart(
+        Agent::Codex,
+        ".codex",
+        &[
+            "codex",
+            "-m",
+            "gpt-5.6-sol",
+            "-c",
+            "model_reasoning_effort=high",
+        ],
+    );
+    assert_eq!(
+        line(Agent::Codex, &codex, None).unwrap(),
+        "codex -m gpt-5.6-sol -c model_reasoning_effort=high -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume"
+    );
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_its_choices() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let root = tempfile::tempdir().unwrap();
+    let home = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+    let session = home.join(".copilot/session-state").join(id);
+    let rollout = home.join(format!(
+        ".codex/sessions/2026/11/08/rollout-2026-11-08T20-14-39-{id}.jsonl"
+    ));
+    std::fs::create_dir_all(&session).unwrap();
+    std::fs::create_dir_all(rollout.parent().unwrap()).unwrap();
+    let meta = json!({"type":"session_meta","payload":{"id":id,"cwd":home,"source":"cli"}});
+    std::fs::write(&rollout, format!("{meta}\n")).unwrap();
+    let (changes, _changes) = mpsc::channel(64);
+    let stopping = async |program: &str, start: String, arguments: &str| {
+        let agent = home.join("bin").join(program);
+        std::fs::create_dir_all(agent.parent().unwrap()).unwrap();
+        std::fs::write(
+            &agent,
+            format!("#!/bin/sh\n{start}\necho agent-ready\nsleep 30\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let terminal = TerminalSession::spawn(
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            PathBuf::from(SHELL),
+            vec![
+                "-c".to_owned(),
+                format!("exec '{}' {arguments}", agent.display()),
+            ],
+            home.clone(),
+            None,
+            None,
+            Vec::new(),
+            Default::default(),
+            stand_in_canvas(),
+            home.join("pictures"),
+            changes.clone(),
+        )
+        .await
+        .unwrap();
+        timeout(Duration::from_secs(10), async {
+            while !terminal.read(false).await.unwrap().contains("agent-ready") {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let line = restore::agent_line(
+            terminal.clone(),
+            program.to_owned(),
+            home.clone(),
+            PathBuf::from("/bin/zsh"),
+            Some(home.clone()),
+        )
+        .await;
+        terminal.close().await.unwrap();
+        drop(terminal);
+        line.unwrap()
+    };
+    let copilot = stopping(
+        "copilot",
+        format!(": > '{}/inuse.'$$'.lock'", session.display()),
+        "--yolo --model claude-opus-5.5 --reasoning-effort max",
+    )
+    .await;
+    assert_eq!(
+        copilot,
+        format!(
+            "copilot --model claude-opus-5.5 --reasoning-effort max --plugin-dir \"$KODOSI_PLUGIN_DIR\" --resume={id}"
+        )
+    );
+    let codex = stopping(
+        "codex",
+        format!("exec 3<'{}'", rollout.display()),
+        "-m gpt-5.6-sol -c model_reasoning_effort=high",
+    )
+    .await;
+    assert_eq!(
+        codex,
+        format!(
+            "codex -m gpt-5.6-sol -c model_reasoning_effort=high -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume {id}"
+        )
+    );
 }
 
 #[cfg(feature = "host")]

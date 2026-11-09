@@ -114,6 +114,34 @@ wrap_task! {
     }
 }
 
+/// Asks the watched tab of a window to draw again after `delay_ms`, from any thread. A still
+/// page draws nothing by itself, so a picture that never reached the viewers would stay
+/// missing.
+pub(crate) fn redraw(window: i64, delay_ms: i64) {
+    let mut task = RedrawTaskBuilder::new(window);
+    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
+}
+
+wrap_task! {
+    struct RedrawTaskBuilder {
+        window: i64,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            let browser = with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                let tab = shared.capture.borrow().as_ref()?.tab;
+                engine.browser_of(tab)
+            })
+            .flatten();
+            if let Some(host) = browser.and_then(|browser| browser.host()) {
+                host.invalidate(PaintElementType::VIEW);
+            }
+        }
+    }
+}
+
 /// The engine, unless it is borrowed: a handler that CEF calls while a command runs gets `None`.
 /// So no code calls CEF while it holds the engine.
 pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {

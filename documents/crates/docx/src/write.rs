@@ -1,14 +1,20 @@
-use std::{collections::HashSet, fmt::Write as _};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write as _,
+};
 
 use document::{Assets, Hash, Unwritable};
-use package::{Package, Parts, RELATIONSHIPS, escape, rewrite};
+use package::{Package, Parts, RELATIONSHIPS, Relation, escape, rewrite};
 use roxmltree::Node as Xml;
 use serde_json::Value;
 use text::{Mark, Node};
 
 use crate::{
     model::{Model, schema},
-    read::{MAIN_PART, RunLook, is_word, run_look, word_attribute},
+    read::{
+        MAIN_PART, ParagraphLook, RunLook, is_word, is_word_attribute, paragraph_look, run_look,
+        word_attribute, word_child,
+    },
 };
 
 const RELATIONS_PART: &str = "word/_rels/document.xml.rels";
@@ -19,6 +25,19 @@ const IMAGE_KIND: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 const FIRST_CHANGE_ID: u32 = 90_000;
 const EMU_PER_PIXEL: f64 = 9525.0;
+/// The width of the text on an A4 page with margins of an inch, in twentieths of a point.
+const TEXT_WIDTH: u64 = 9026;
+/// The look of a new table: as wide as its columns, with thin lines around each cell.
+const NEW_TABLE: &str = concat!(
+    r#"<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>"#,
+    r#"<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
+    r#"</w:tblBorders></w:tblPr>"#,
+);
 
 /// The children of `w:rPr` in their order in the schema, which readers hold a file to.
 const RUN_ORDER: &[&str] = &[
@@ -100,6 +119,26 @@ const PARAGRAPH_ORDER: &[&str] = &[
     "sectPr",
     "pPrChange",
 ];
+const CELL_ORDER: &[&str] = &[
+    "cnfStyle",
+    "tcW",
+    "gridSpan",
+    "hMerge",
+    "vMerge",
+    "tcBorders",
+    "shd",
+    "noWrap",
+    "tcMar",
+    "textDirection",
+    "tcFitText",
+    "vAlign",
+    "hideMark",
+    "headers",
+    "cellIns",
+    "cellDel",
+    "cellMerge",
+    "tcPrChange",
+];
 
 fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
@@ -116,11 +155,75 @@ struct Out<'m> {
     model: &'m Model,
     assets: &'m Assets,
     namespaces: String,
+    /// The relationships of the document part, and those that this write adds, by id.
+    relations: HashMap<String, Relation>,
     links: Vec<(String, String)>,
     images: Vec<(String, Hash, String)>,
+    /// The width of the text on a page, in twentieths of a point, which a new table fills.
+    text_width: u64,
     next_relation: u32,
     next_change: u32,
     next_picture: u32,
+}
+
+/// Whether a cell of a table goes on down into the cells below it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Merge {
+    Apart,
+    Starts,
+    Continues,
+}
+
+fn merge_of(properties: Xml<'_, '_>) -> Merge {
+    match word_child(properties, "vMerge") {
+        None => Merge::Apart,
+        Some(merge) if word_attribute(merge, "val") == Some("restart") => Merge::Starts,
+        Some(_) => Merge::Continues,
+    }
+}
+
+/// Where a cell lies in the grid of its table.
+struct Place {
+    start: u64,
+    span: u64,
+    merged: bool,
+}
+
+fn places_of(row: &Node) -> Vec<Place> {
+    let mut start = 0;
+    row.content()
+        .children()
+        .iter()
+        .map(|cell| {
+            let span = cell
+                .attrs()
+                .get("span")
+                .and_then(Value::as_u64)
+                .unwrap_or(1)
+                .max(1);
+            let merged = cell.attrs().get("merged").and_then(Value::as_bool) == Some(true);
+            let place = Place {
+                start,
+                span,
+                merged,
+            };
+            start += span;
+            place
+        })
+        .collect()
+}
+
+fn text_width_of(section: Xml<'_, '_>) -> u64 {
+    let twips = |name: &str, attribute: &str| {
+        word_child(section, name)
+            .and_then(|node| word_attribute(node, attribute))
+            .and_then(|value| value.parse::<u64>().ok())
+    };
+    let page = twips("pgSz", "w").unwrap_or(TEXT_WIDTH + 2880);
+    let margins = twips("pgMar", "left").unwrap_or(1440) + twips("pgMar", "right").unwrap_or(1440);
+    page.checked_sub(margins)
+        .filter(|width| *width > 0)
+        .unwrap_or(TEXT_WIDTH)
 }
 
 pub(crate) fn write(model: &Model, file: &[u8], assets: &Assets) -> Result<Vec<u8>, Unwritable> {
@@ -139,8 +242,10 @@ pub(crate) fn write(model: &Model, file: &[u8], assets: &Assets) -> Result<Vec<u
         model,
         assets,
         namespaces: namespaces_of(root),
+        relations: package.relations(MAIN_PART),
         links: Vec::new(),
         images: Vec::new(),
+        text_width: section.map_or(TEXT_WIDTH, text_width_of),
         next_relation: 1,
         next_change: FIRST_CHANGE_ID,
         next_picture: 1,
@@ -205,6 +310,8 @@ fn look_of(marks: &[Mark]) -> RunLook {
         italic: mark_named(marks, "italic").is_some(),
         underline: mark_named(marks, "underline").is_some(),
         strike: mark_named(marks, "strike").is_some(),
+        superscript: mark_named(marks, "superscript").is_some(),
+        subscript: mark_named(marks, "subscript").is_some(),
         color: value("color"),
         size: value("size"),
         font: value("font"),
@@ -257,13 +364,15 @@ impl Out<'_> {
     }
 
     fn parse_piece<T>(&self, xml: &str, read: impl FnOnce(Xml<'_, '_>) -> T) -> Result<T, String> {
+        self.parse_pieces(xml, |pieces| pieces.first_element_child().map(read))?
+            .ok_or_else(|| "an empty piece".to_owned())
+    }
+
+    /// Reads pieces of XML side by side, under one element that holds them.
+    fn parse_pieces<T>(&self, xml: &str, read: impl FnOnce(Xml<'_, '_>) -> T) -> Result<T, String> {
         let wrapped = format!("<piece{}>{xml}</piece>", self.namespaces);
         let parsed = roxmltree::Document::parse(&wrapped).map_err(|error| error.to_string())?;
-        let piece = parsed
-            .root_element()
-            .first_element_child()
-            .ok_or_else(|| "an empty piece".to_owned())?;
-        Ok(read(piece))
+        Ok(read(parsed.root_element()))
     }
 
     fn paragraph_props(&self, node: &Node) -> Result<String, String> {
@@ -272,90 +381,69 @@ impl Out<'_> {
             None => String::new(),
         };
         let wanted = |name: &str| text_attr(node, name).map(str::to_owned);
-        let (style, align, list, level) = (
-            wanted("style"),
-            wanted("align"),
-            wanted("numId"),
-            wanted("ilvl"),
-        );
+        let wanted = ParagraphLook {
+            style: wanted("style"),
+            align: wanted("align"),
+            list: wanted("numId"),
+            level: wanted("ilvl"),
+            line: wanted("line"),
+            indent: wanted("indent"),
+        };
         if raw.is_empty() {
-            let mut props = String::new();
-            add_paragraph_props(
-                &mut props,
-                style.as_ref(),
-                align.as_ref(),
-                list.as_ref(),
-                level.as_ref(),
-            );
-            return Ok(if props.is_empty() {
-                props
-            } else {
-                format!("<w:pPr>{props}</w:pPr>")
-            });
+            let mut children = Vec::new();
+            add_paragraph_look(&wanted, &mut children);
+            return Ok(wrapped("pPr", children));
         }
         self.parse_piece(&raw, |properties| {
-            let value = |name: &str| {
-                properties
-                    .children()
-                    .find(|child| is_word(*child, name))
-                    .and_then(|child| word_attribute(child, "val"))
-                    .map(str::to_owned)
-            };
-            let number = properties.children().find(|child| is_word(*child, "numPr"));
-            let number_value = |name: &str| {
-                number
-                    .and_then(|node| node.children().find(|child| is_word(*child, name)))
-                    .and_then(|child| word_attribute(child, "val"))
-                    .map(str::to_owned)
-            };
-            let same = value("pStyle") == style
-                && value("jc") == align
-                && number_value("numId") == list
-                && number_value("ilvl") == level;
-            if same {
+            let current = paragraph_look(properties);
+            if current == wanted {
                 return raw.clone();
             }
-            let mut children: Vec<(usize, String)> = properties
-                .children()
-                .filter(Xml::is_element)
-                .filter(|child| {
-                    !["pStyle", "jc", "numPr"]
-                        .iter()
-                        .any(|name| is_word(*child, name))
-                })
-                .map(|child| {
-                    let name = child.tag_name().name();
-                    (
-                        rank(PARAGRAPH_ORDER, name),
-                        raw[shifted(properties, child)].to_owned(),
-                    )
-                })
-                .collect();
-            if let Some(style) = &style {
-                children.push((
-                    rank(PARAGRAPH_ORDER, "pStyle"),
-                    format!(r#"<w:pStyle w:val="{}"/>"#, escape(style)),
-                ));
+            let mut missing = wanted;
+            let mut children = Vec::new();
+            for child in properties.children().filter(Xml::is_element) {
+                if ["pStyle", "jc", "numPr"]
+                    .iter()
+                    .any(|name| is_word(child, name))
+                {
+                    continue;
+                }
+                let xml = &raw[shifted(properties, child)];
+                let kept = if is_word(child, "spacing") {
+                    let line = missing.line.take();
+                    if current.line == line {
+                        Some(xml.to_owned())
+                    } else {
+                        let line = line.as_deref().map_or_else(Vec::new, |line| {
+                            vec![("line", line), ("lineRule", "auto")]
+                        });
+                        with_attributes(child, xml, &["line", "lineRule"], &line)
+                    }
+                } else if is_word(child, "ind") {
+                    let indent = missing.indent.take();
+                    if current.indent == indent {
+                        Some(xml.to_owned())
+                    } else {
+                        let side = if word_attribute(child, "start").is_some() {
+                            "start"
+                        } else {
+                            "left"
+                        };
+                        let indent = indent
+                            .as_deref()
+                            .map_or_else(Vec::new, |indent| vec![(side, indent)]);
+                        let gone = ["start", "left", "startChars", "leftChars"];
+                        with_attributes(child, xml, &gone, &indent)
+                    }
+                } else {
+                    Some(xml.to_owned())
+                };
+                if let Some(xml) = kept {
+                    children.push((rank(PARAGRAPH_ORDER, child.tag_name().name()), xml));
+                }
             }
-            if let Some(list) = &list {
-                children.push((
-                    rank(PARAGRAPH_ORDER, "numPr"),
-                    format!(
-                        r#"<w:numPr><w:ilvl w:val="{}"/><w:numId w:val="{}"/></w:numPr>"#,
-                        escape(level.as_deref().unwrap_or("0")),
-                        escape(list)
-                    ),
-                ));
-            }
-            if let Some(align) = &align {
-                children.push((
-                    rank(PARAGRAPH_ORDER, "jc"),
-                    format!(r#"<w:jc w:val="{}"/>"#, escape(align)),
-                ));
-            }
-            children.sort_by_key(|(rank, _)| *rank);
-            let inner: String = children.into_iter().map(|(_, xml)| xml).collect();
-            format!("<w:pPr>{inner}</w:pPr>")
+            add_paragraph_look(&missing, &mut children);
+            wrapped("pPr", children)
         })
     }
 
@@ -408,22 +496,52 @@ impl Out<'_> {
     }
 
     fn link_open(&mut self, link: &Mark) -> String {
-        if let Some(relation) = mark_text(link, "relation") {
-            return format!(
-                r#"<w:hyperlink xmlns:r="{RELATIONSHIPS}" r:id="{}">"#,
-                escape(relation)
-            );
-        }
-        let id = self.new_relation();
-        let href = mark_text(link, "href").unwrap_or_default().to_owned();
-        self.links.push((id.clone(), href));
-        format!(r#"<w:hyperlink xmlns:r="{RELATIONSHIPS}" r:id="{id}">"#)
+        let id = if let Some(relation) = mark_text(link, "relation") {
+            relation.to_owned()
+        } else {
+            let href = mark_text(link, "href").unwrap_or_default().to_owned();
+            let (id, new) = self.relation_to(HYPERLINK_KIND, &href, true);
+            if new {
+                self.links.push((id.clone(), href));
+            }
+            id
+        };
+        format!(
+            r#"<w:hyperlink xmlns:r="{RELATIONSHIPS}" r:id="{}">"#,
+            escape(&id)
+        )
     }
 
-    fn new_relation(&mut self) -> String {
-        let id = format!("rIdDoc{}", self.next_relation);
-        self.next_relation += 1;
-        id
+    /// The relationship to a target: the one that the file has, or a new one that the write
+    /// adds. A later write finds the one that an earlier write added.
+    fn relation_to(&mut self, kind: &str, target: &str, external: bool) -> (String, bool) {
+        let known = self
+            .relations
+            .iter()
+            .filter(|(_, relation)| {
+                relation.kind == kind && relation.target == target && relation.external == external
+            })
+            .map(|(id, _)| id)
+            .min();
+        if let Some(id) = known {
+            return (id.clone(), false);
+        }
+        let id = loop {
+            let id = format!("rIdDoc{}", self.next_relation);
+            self.next_relation += 1;
+            if !self.relations.contains_key(&id) {
+                break id;
+            }
+        };
+        self.relations.insert(
+            id.clone(),
+            Relation {
+                kind: kind.to_owned(),
+                target: target.to_owned(),
+                external,
+            },
+        );
+        (id, true)
     }
 
     fn inline(&mut self, node: &Node, deleted: bool) -> Result<String, String> {
@@ -433,6 +551,10 @@ impl Out<'_> {
         match schema().node_name(node.kind()) {
             "hardBreak" => Ok(format!(
                 "<w:r>{}<w:br/></w:r>",
+                self.run_props(node.marks())?
+            )),
+            "pageBreak" => Ok(format!(
+                r#"<w:r>{}<w:br w:type="page"/></w:r>"#,
                 self.run_props(node.marks())?
             )),
             "tab" => Ok(format!(
@@ -490,13 +612,22 @@ impl Out<'_> {
         if raw.is_empty() {
             let mut children = Vec::new();
             add_run_look(&wanted, &mut children);
-            return Ok(wrap_run_props(children));
+            return Ok(wrapped("rPr", children));
         }
         self.parse_piece(&raw, |properties| {
             if run_look(properties) == wanted {
                 return raw.clone();
             }
-            let managed = ["b", "i", "u", "strike", "color", "sz", "highlight"];
+            let managed = [
+                "b",
+                "i",
+                "u",
+                "strike",
+                "vertAlign",
+                "color",
+                "sz",
+                "highlight",
+            ];
             let keep_fonts = run_look(properties).font == wanted.font;
             let mut children: Vec<(usize, String)> = properties
                 .children()
@@ -518,29 +649,49 @@ impl Out<'_> {
                 look.font = None;
             }
             add_run_look(&look, &mut children);
-            wrap_run_props(children)
+            wrapped("rPr", children)
         })
     }
 
     fn table(&mut self, node: &Node) -> Result<String, String> {
-        let props = match text_attr(node, "props") {
-            Some(name) => self.raw(name)?.to_owned(),
-            None => "<w:tblPr/>".to_owned(),
-        };
-        let mut xml = format!("<w:tbl>{props}");
-        for row in node.content().children() {
+        let rows = node.content().children();
+        let places: Vec<Vec<Place>> = rows.iter().map(places_of).collect();
+        let columns = places
+            .iter()
+            .filter_map(|row| row.last().map(|cell| cell.start + cell.span))
+            .max()
+            .unwrap_or(1);
+        let mut xml = format!("<w:tbl>{}", self.table_props(node, columns)?);
+        for (index, row) in rows.iter().enumerate() {
             xml.push_str("<w:tr>");
             if let Some(name) = text_attr(row, "props") {
                 xml.push_str(self.raw(name)?);
             }
-            for cell in row.content().children() {
+            let below = places.get(index + 1);
+            for (cell, place) in row.content().children().iter().zip(&places[index]) {
+                let merge = if place.merged {
+                    Merge::Continues
+                } else if below.is_some_and(|below| {
+                    below
+                        .iter()
+                        .any(|other| other.start == place.start && other.merged)
+                }) {
+                    Merge::Starts
+                } else {
+                    Merge::Apart
+                };
                 xml.push_str("<w:tc>");
-                if let Some(name) = text_attr(cell, "props") {
-                    xml.push_str(self.raw(name)?);
-                }
-                for block in cell.content().children() {
+                xml.push_str(&self.cell_props(cell, place.span, merge)?);
+                let blocks = cell.content().children();
+                for block in blocks {
                     let inner = self.block(block)?;
                     xml.push_str(&inner);
+                }
+                if blocks
+                    .last()
+                    .is_some_and(|block| schema().node_name(block.kind()) == "table")
+                {
+                    xml.push_str("<w:p/>");
                 }
                 xml.push_str("</w:tc>");
             }
@@ -548,6 +699,99 @@ impl Out<'_> {
         }
         xml.push_str("</w:tbl>");
         Ok(xml)
+    }
+
+    /// The properties and grid of a table. The grid keeps its widths while it has a column for
+    /// each column of the cells, and else shares their sum out again.
+    fn table_props(&self, node: &Node, columns: u64) -> Result<String, String> {
+        let raw = match text_attr(node, "props") {
+            Some(name) => self.raw(name)?.to_owned(),
+            None => return Ok(format!("{NEW_TABLE}{}", grid_of(columns, self.text_width))),
+        };
+        self.parse_pieces(&raw, |pieces| {
+            let children: Vec<Xml<'_, '_>> = pieces.children().filter(Xml::is_element).collect();
+            let start = children.first().map_or(0, |child| child.range().start);
+            let mut xml = String::new();
+            if !children.iter().any(|child| is_word(*child, "tblPr")) {
+                xml.push_str("<w:tblPr/>");
+            }
+            let grid = children.iter().find(|child| is_word(**child, "tblGrid"));
+            let widths: Vec<u64> = grid.map_or_else(Vec::new, |grid| {
+                grid.children()
+                    .filter(|column| is_word(*column, "gridCol"))
+                    .map(|column| {
+                        word_attribute(column, "w")
+                            .and_then(|width| width.parse().ok())
+                            .unwrap_or(0)
+                    })
+                    .collect()
+            });
+            let total: u64 = widths.iter().sum();
+            let new_grid = grid_of(columns, if total > 0 { total } else { self.text_width });
+            match grid {
+                Some(_) if widths.len() as u64 == columns => xml.push_str(&raw),
+                Some(grid) => {
+                    let range = grid.range();
+                    xml.push_str(&raw[..range.start - start]);
+                    xml.push_str(&new_grid);
+                    xml.push_str(&raw[range.end - start..]);
+                }
+                None => {
+                    xml.push_str(&raw);
+                    xml.push_str(&new_grid);
+                }
+            }
+            xml
+        })
+    }
+
+    /// The properties of a cell, with the span and the vertical merge that its place gives.
+    fn cell_props(&self, cell: &Node, span: u64, merge: Merge) -> Result<String, String> {
+        let mut children = Vec::new();
+        if let Some(name) = text_attr(cell, "props") {
+            let raw = self.raw(name)?;
+            let kept = self.parse_piece(raw, |properties| {
+                let now = word_child(properties, "gridSpan")
+                    .and_then(|node| word_attribute(node, "val"))
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .unwrap_or(1);
+                if now == span && merge_of(properties) == merge {
+                    return None;
+                }
+                Some(
+                    properties
+                        .children()
+                        .filter(Xml::is_element)
+                        .filter(|child| !is_word(*child, "gridSpan") && !is_word(*child, "vMerge"))
+                        .map(|child| {
+                            (
+                                rank(CELL_ORDER, child.tag_name().name()),
+                                raw[shifted(properties, child)].to_owned(),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })?;
+            match kept {
+                Some(kept) => children = kept,
+                None => return Ok(raw.to_owned()),
+            }
+        }
+        if span > 1 {
+            children.push((
+                rank(CELL_ORDER, "gridSpan"),
+                format!(r#"<w:gridSpan w:val="{span}"/>"#),
+            ));
+        }
+        let vertical = match merge {
+            Merge::Apart => None,
+            Merge::Starts => Some(r#"<w:vMerge w:val="restart"/>"#),
+            Merge::Continues => Some("<w:vMerge/>"),
+        };
+        if let Some(vertical) = vertical {
+            children.push((rank(CELL_ORDER, "vMerge"), vertical.to_owned()));
+        }
+        Ok(wrapped("tcPr", children))
     }
 
     fn new_image(&mut self, node: &Node) -> Result<String, String> {
@@ -564,8 +808,11 @@ impl Out<'_> {
                 .and_then(Value::as_f64)
                 .unwrap_or(0.0)
         };
-        let id = self.new_relation();
-        self.images.push((id.clone(), hash, extension.to_owned()));
+        let media = media_of(&hash, extension);
+        let (id, new) = self.relation_to(IMAGE_KIND, &format!("word/{media}"), false);
+        if new {
+            self.images.push((id.clone(), hash, extension.to_owned()));
+        }
         let picture = self.next_picture;
         self.next_picture += 1;
         Ok(picture_run(
@@ -593,11 +840,7 @@ impl Out<'_> {
         }
         let mut extensions = HashSet::new();
         for (id, hash, extension) in &self.images {
-            let name: String = hash.iter().take(8).fold(String::new(), |mut text, byte| {
-                let _ = write!(text, "{byte:02x}");
-                text
-            });
-            let target = format!("media/{name}.{extension}");
+            let target = media_of(hash, extension);
             let _ = write!(
                 added,
                 r#"<Relationship Id="{id}" Type="{IMAGE_KIND}" Target="{target}"/>"#
@@ -639,26 +882,74 @@ fn shifted(properties: Xml<'_, '_>, child: Xml<'_, '_>) -> std::ops::Range<usize
     child.range().start - start..child.range().end - start
 }
 
-fn add_paragraph_props(
-    xml: &mut String,
-    style: Option<&String>,
-    align: Option<&String>,
-    list: Option<&String>,
-    level: Option<&String>,
-) {
-    if let Some(style) = style {
-        let _ = write!(xml, r#"<w:pStyle w:val="{}"/>"#, escape(style));
+/// An element of a piece with some of its attributes gone and others added, or nothing when it
+/// has none left.
+fn with_attributes(
+    element: Xml<'_, '_>,
+    xml: &str,
+    gone: &[&str],
+    added: &[(&str, &str)],
+) -> Option<String> {
+    let start = element.range().start;
+    let mut text = xml.to_owned();
+    let mut left = added.len();
+    let attributes: Vec<_> = element.attributes().collect();
+    for attribute in attributes.iter().rev() {
+        if !is_word_attribute(attribute) || !gone.contains(&attribute.name()) {
+            left += 1;
+            continue;
+        }
+        let range = attribute.range();
+        let end = range.end - start;
+        let from = text[..range.start - start].trim_end().len();
+        text.replace_range(from..end, "");
     }
-    if let Some(list) = list {
-        let _ = write!(
-            xml,
-            r#"<w:numPr><w:ilvl w:val="{}"/><w:numId w:val="{}"/></w:numPr>"#,
-            escape(level.map_or("0", String::as_str)),
-            escape(list)
+    if left == 0 {
+        return None;
+    }
+    let name_end = text
+        .find(|letter: char| letter.is_ascii_whitespace() || letter == '/' || letter == '>')
+        .unwrap_or(text.len());
+    let new = added.iter().fold(String::new(), |mut new, (name, value)| {
+        let _ = write!(new, r#" w:{name}="{}""#, escape(value));
+        new
+    });
+    text.insert_str(name_end, &new);
+    Some(text)
+}
+
+fn add_paragraph_look(look: &ParagraphLook, children: &mut Vec<(usize, String)>) {
+    let mut add = |name: &str, xml: String| children.push((rank(PARAGRAPH_ORDER, name), xml));
+    if let Some(style) = &look.style {
+        add(
+            "pStyle",
+            format!(r#"<w:pStyle w:val="{}"/>"#, escape(style)),
         );
     }
-    if let Some(align) = align {
-        let _ = write!(xml, r#"<w:jc w:val="{}"/>"#, escape(align));
+    if let Some(list) = &look.list {
+        add(
+            "numPr",
+            format!(
+                r#"<w:numPr><w:ilvl w:val="{}"/><w:numId w:val="{}"/></w:numPr>"#,
+                escape(look.level.as_deref().unwrap_or("0")),
+                escape(list)
+            ),
+        );
+    }
+    if let Some(line) = &look.line {
+        add(
+            "spacing",
+            format!(
+                r#"<w:spacing w:line="{}" w:lineRule="auto"/>"#,
+                escape(line)
+            ),
+        );
+    }
+    if let Some(indent) = &look.indent {
+        add("ind", format!(r#"<w:ind w:left="{}"/>"#, escape(indent)));
+    }
+    if let Some(align) = &look.align {
+        add("jc", format!(r#"<w:jc w:val="{}"/>"#, escape(align)));
     }
 }
 
@@ -695,15 +986,47 @@ fn add_run_look(look: &RunLook, children: &mut Vec<(usize, String)>) {
     if look.underline {
         add("u", r#"<w:u w:val="single"/>"#.to_owned());
     }
+    if look.superscript {
+        add(
+            "vertAlign",
+            r#"<w:vertAlign w:val="superscript"/>"#.to_owned(),
+        );
+    } else if look.subscript {
+        add(
+            "vertAlign",
+            r#"<w:vertAlign w:val="subscript"/>"#.to_owned(),
+        );
+    }
 }
 
-fn wrap_run_props(mut children: Vec<(usize, String)>) -> String {
+/// Properties in the order of the schema, in their element, or nothing when there are none.
+fn wrapped(name: &str, mut children: Vec<(usize, String)>) -> String {
     if children.is_empty() {
         return String::new();
     }
     children.sort_by_key(|(rank, _)| *rank);
     let inner: String = children.into_iter().map(|(_, xml)| xml).collect();
-    format!("<w:rPr>{inner}</w:rPr>")
+    format!("<w:{name}>{inner}</w:{name}>")
+}
+
+/// A grid of columns of one width that fill a table's width, in twentieths of a point.
+fn grid_of(columns: u64, width: u64) -> String {
+    let columns = columns.max(1);
+    let mut xml = "<w:tblGrid>".to_owned();
+    for _ in 0..columns {
+        let _ = write!(xml, r#"<w:gridCol w:w="{}"/>"#, width / columns);
+    }
+    xml.push_str("</w:tblGrid>");
+    xml
+}
+
+/// The part of a new picture, beside the document part.
+fn media_of(hash: &Hash, extension: &str) -> String {
+    let name: String = hash.iter().take(8).fold(String::new(), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    });
+    format!("media/{name}.{extension}")
 }
 
 fn hash_from_hex(text: &str) -> Option<Hash> {

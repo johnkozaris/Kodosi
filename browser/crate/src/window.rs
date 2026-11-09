@@ -403,6 +403,9 @@ impl Live {
                 bitrate,
             });
         }
+        if self.capturing.is_some() && self.flow.keyframe_due(now) {
+            self.ask_keyframe();
+        }
         if self.dirty {
             self.publish();
         }
@@ -555,11 +558,12 @@ impl Live {
                 self.used_at = now;
                 self.resize(size);
                 self.update_capture();
+                self.flow.keyframe_sent(now);
                 self.ask_keyframe();
             }
             ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
             ToWindow::Keyframe => {
-                if self.flow.keyframe_allowed(now) {
+                if self.flow.ask_keyframe(now) {
                     self.ask_keyframe();
                 }
             }

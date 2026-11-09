@@ -26,6 +26,32 @@
     <string>$(KODOSI_DEBUG_BACKEND_HOST)</string>
     <key>KodosiDebugBackendPort</key>
     <string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to control another app.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to record the sound of this Mac.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use Bluetooth.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use your calendars.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use the camera.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use your contacts.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to know where this Mac is.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use the microphone.</string>
+    <key>NSMotionUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use motion data.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use your photos.</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use your reminders.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to use speech recognition.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>A program in a Kodosi terminal wants to change settings of this Mac.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Kodosi connects straight to your other computers on this network, so that a shared browser answers at once.</string>
     <key>LSMinimumSystemVersion</key>

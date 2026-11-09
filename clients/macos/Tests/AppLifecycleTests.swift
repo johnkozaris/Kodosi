@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import KodosiBridge
 @testable import KodosiDesktop
@@ -352,4 +353,24 @@ import Testing
     #expect(settings.keepRunning)
     settings.keepRunning = false
     #expect(!DesktopSettings(defaults: defaults).keepRunning)
+}
+
+@Test @MainActor func `kodosi quits without asking when macOS ends the session or opens it again for a permission`() {
+    func quit(_ reason: OSType?) -> NSAppleEventDescriptor {
+        let event = NSAppleEventDescriptor(
+            eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEQuitApplication), targetDescriptor: nil,
+            returnID: AEReturnID(kAutoGenerateReturnID), transactionID: AETransactionID(kAnyTransactionID),
+        )
+        if let reason {
+            event.setAttribute(NSAppleEventDescriptor(typeCode: reason), forKeyword: AEKeyword(kAEQuitReason))
+        }
+        return event
+    }
+    #expect(!AppDelegate.systemQuits(nil, guiding: false))
+    #expect(!AppDelegate.systemQuits(quit(nil), guiding: false))
+    #expect(!AppDelegate.systemQuits(quit(kAELogOut), guiding: false))
+    for reason in [kAEShutDown, kAERestart, kAEReallyLogOut] {
+        #expect(AppDelegate.systemQuits(quit(reason), guiding: false))
+    }
+    #expect(AppDelegate.systemQuits(nil, guiding: true))
 }

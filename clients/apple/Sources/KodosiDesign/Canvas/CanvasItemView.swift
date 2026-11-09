@@ -1,188 +1,5 @@
 import KodosiBridge
 import SwiftUI
-import UniformTypeIdentifiers
-
-#if os(iOS)
-    private let control: CGFloat = 40
-#else
-    private let control: CGFloat = 26
-#endif
-
-/// The shared browser of a terminal: the bar, and the picture that people click and type in,
-/// with the agent's pointer over it. Asleep, the last picture stays in grey.
-public struct CanvasBrowserView: View {
-    @Environment(\.theme) private var theme
-    let browser: CanvasBrowser
-    let feed: BrowserFeed
-    var typing = false
-    @Environment(\.displayScale) private var displayScale
-    @State private var address = ""
-    @State private var picking = false
-    @FocusState private var editing: Bool
-
-    public init(browser: CanvasBrowser, feed: BrowserFeed, typing: Bool = false) {
-        self.browser = browser
-        self.feed = feed
-        self.typing = typing
-    }
-
-    private var blank: Bool {
-        (browser.activeTab?.url ?? Self.blankPage) == Self.blankPage
-    }
-
-    private static let blankPage = "about:blank"
-
-    public var body: some View {
-        VStack(spacing: 0) {
-            bar
-            ZStack {
-                theme.colors.terminal
-                BrowserVideoView(feed: feed)
-                    .opacity(feed.hasPicture && !blank ? 1 : 0)
-                    .grayscale(browser.state == .awake ? 0 : 1)
-                    .animation(theme.motion.fade, value: browser.state)
-                if blank, browser.state == .awake {
-                    Image(systemName: "globe").font(.system(size: 34, weight: .light))
-                        .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
-                        .transition(.opacity)
-                }
-                if browser.state == .awake {
-                    BrowserInputArea(feed: feed, typing: typing)
-                    BrowserPointersLayer(feed: feed)
-                    AgentPointerLayer(browser: browser, feed: feed)
-                    BrowserPartsLayer(feed: feed)
-                } else {
-                    sleeping.transition(.opacity)
-                }
-            }
-            .clipped()
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
-            .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
-            .task(id: browser.problem == nil) {
-                if browser.problem == nil {
-                    await feed.watch()
-                }
-            }
-            .onChange(of: feed.window.copied) { _, words in
-                if let words {
-                    Pasteboard.copy(words)
-                }
-            }
-            .onChange(of: feed.window.chooser) { _, chooser in picking = chooser != nil }
-            .fileImporter(isPresented: $picking, allowedContentTypes: [.item], allowsMultipleSelection: feed.window.chooser?.several == true) { result in
-                Task { await feed.give((try? result.get()) ?? []) }
-            } onCancellation: {
-                feed.send(.files([]))
-            }
-        }
-        .animation(theme.motion.fade, value: browser.state)
-        .onChange(of: browser.activeTab?.url, initial: true) { _, url in
-            if !editing {
-                address = url == Self.blankPage ? "" : url ?? ""
-            }
-        }
-    }
-
-    private var bar: some View {
-        HStack(spacing: 2) {
-            HStack(spacing: 2) {
-                IconButton(title: "Back", bundle: .module, symbol: "chevron.left", identifier: "canvas.browser.back", size: control) { feed.send(.back) }
-                IconButton(title: "Forward", bundle: .module, symbol: "chevron.right", identifier: "canvas.browser.forward", size: control) { feed.send(.forward) }
-                IconButton(title: "Reload", bundle: .module, symbol: "arrow.clockwise", identifier: "canvas.browser.reload", size: control) { feed.send(.reload) }
-                HStack(spacing: 6) {
-                    Image(systemName: secure ? "lock.fill" : "globe").font(.system(size: 9.5, weight: .semibold))
-                        .foregroundStyle(theme.colors.inkFaint)
-                    TextField(String(localized: "Address", bundle: .module), text: $address)
-                        .textFieldStyle(.plain).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                        .focused($editing)
-                        .onSubmit { open() }
-                        .accessibilityIdentifier("canvas.browser.address")
-                }
-                .padding(.horizontal, 10).frame(height: control - 2).frame(maxWidth: 620).wellCapsule()
-                .padding(.leading, 4)
-                .layoutPriority(1)
-                tabs
-            }
-            .disabled(browser.state != .awake)
-            if let failure = feed.failure ?? browser.problem {
-                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.colors.caution).help(failure)
-                    .accessibilityLabel(Text(failure))
-            }
-        }
-        .padding(.horizontal, 6).frame(height: control + 8)
-    }
-
-    private var secure: Bool {
-        browser.activeTab?.url.hasPrefix("https://") == true
-    }
-
-    @ViewBuilder
-    private var tabs: some View {
-        if browser.tabs.count > 1 {
-            Menu {
-                ForEach(browser.tabs) { tab in
-                    Button(tab.title.isEmpty ? tab.url : tab.title) { feed.send(.tab(tab.id)) }
-                }
-                Divider()
-                Button(String(localized: "New tab", bundle: .module)) { feed.send(.newTab) }
-                if let active = browser.activeTab {
-                    Button(String(localized: "Close tab", bundle: .module)) { feed.send(.closeTab(active.id)) }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.on.square").font(.system(size: 10, weight: .semibold))
-                    Text(browser.tabs.count, format: .number).monospacedDigit()
-                }
-                .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-                .padding(.horizontal, 8).frame(height: control - 2)
-            }
-            .menuStyle(.button).buttonStyle(.plain).fixedSize()
-            .help(String(localized: "Tabs", bundle: .module))
-            .accessibilityIdentifier("canvas.browser.tabs")
-        } else {
-            IconButton(title: "New tab", bundle: .module, symbol: "plus", identifier: "canvas.browser.newTab", size: control) { feed.send(.newTab) }
-        }
-    }
-
-    @ViewBuilder
-    private var sleeping: some View {
-        switch browser.state {
-        case .starting:
-            VStack(spacing: 10) {
-                Spinner(size: 18)
-                if let getting = browser.getting {
-                    Text("Getting the browser, \(getting)%", bundle: .module)
-                        .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
-                        .contentTransition(.numericText())
-                }
-            }
-        case .asleep:
-            Button { Task { await feed.wake() } } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "moon.zzz.fill").font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.colors.inkMuted)
-                    Text("Wake", bundle: .module).appTextStyle(.footnote).fontWeight(.semibold).foregroundStyle(theme.colors.ink)
-                }
-                .padding(.horizontal, 14).frame(height: 32)
-                .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
-                .contentShape(Capsule())
-            }
-            .buttonStyle(PressScaleStyle())
-            .help(browser.problem ?? String(localized: "The browser is asleep. It opens its last page again.", bundle: .module))
-            .accessibilityIdentifier("canvas.browser.wake")
-        case .awake:
-            EmptyView()
-        }
-    }
-
-    private func open() {
-        let typed = address.trimmingCharacters(in: .whitespaces)
-        guard !typed.isEmpty else { return }
-        editing = false
-        feed.send(.open(typed))
-    }
-}
 
 /// The item of a canvas that a device shows: a page, a file or the browser.
 public struct CanvasItemView: View {
@@ -191,7 +8,7 @@ public struct CanvasItemView: View {
     let session: RuntimeSession
     let shown: CanvasShown
     let store: CanvasStore
-    let frame: CanvasFrame
+    let frames: CanvasFrames
     let pages: CanvasDocumentPages
     var typing = false
     var ask: CanvasAsk?
@@ -204,13 +21,13 @@ public struct CanvasItemView: View {
         let data: Data
     }
 
-    public init(session: RuntimeSession, shown: CanvasShown, store: CanvasStore, frame: CanvasFrame, pages: CanvasDocumentPages,
+    public init(session: RuntimeSession, shown: CanvasShown, store: CanvasStore, frames: CanvasFrames, pages: CanvasDocumentPages,
                 typing: Bool = false, ask: CanvasAsk? = nil)
     {
         self.session = session
         self.shown = shown
         self.store = store
-        self.frame = frame
+        self.frames = frames
         self.pages = pages
         self.typing = typing
         self.ask = ask
@@ -241,7 +58,8 @@ public struct CanvasItemView: View {
     private func file(_ item: CanvasItem) -> some View {
         if let content, content.key == item.key {
             switch item.kind {
-            case .page: CanvasPageView(frame: frame, content: content.data, otherComputer: session.otherComputer, ask: ask)
+            case .page:
+                CanvasPageView(key: item.key, frames: frames, content: content.data, otherComputer: session.otherComputer, ask: ask)
             case .picture, .pdf, .document, .sheet, .presentation: CanvasFileView(content: content.data, name: item.name).transition(.opacity)
             }
         } else if item.missing {
@@ -327,8 +145,7 @@ struct CanvasMissing: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: item.kind.symbol).font(.system(size: 26, weight: .medium))
-                .foregroundStyle(theme.colors.inkFaint)
+            FileIcon(name: item.name, kind: item.kind, size: 34, missing: true)
             Text(item.name).appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.inkMuted)
                 .lineLimit(1).truncationMode(.middle)
         }

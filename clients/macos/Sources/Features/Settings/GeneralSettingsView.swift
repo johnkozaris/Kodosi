@@ -88,6 +88,7 @@ struct GeneralSettingsView: View {
                         subtitle: deps.commandLink ?? String(localized: "Only in Kodosi terminals"),
                         monoSubtitle: deps.commandLink != nil, symbol: "terminal", tint: TileTint.graphite)
             }
+            PermissionsGroup()
         }
     }
 }

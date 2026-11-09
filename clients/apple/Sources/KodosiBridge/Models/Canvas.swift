@@ -97,7 +97,7 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
 public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case page, picture, pdf, document, sheet, presentation }
     /// The live view of a file that people edit together.
-    public enum View: String, Decodable, Sendable { case docx, xlsx, pptx, pdf }
+    public enum View: String, Decodable, Sendable { case docx, xlsx, pptx, pdf, text }
 
     public let key: String
     public let name: String
@@ -214,17 +214,36 @@ public struct BrowserDoing: Decodable, Equatable, Sendable {
 
 /// What Settings › Browser shows of this computer.
 public struct BrowserStatus: Equatable, Sendable {
+    /// A browser profile whose sign-ins a person can copy.
+    public struct Source: Decodable, Hashable, Sendable {
+        public let name: String
+        /// The browser, such as `chrome` or `safari`.
+        public let browser: String
+        /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
+        /// Access.
+        public let protected: Bool
+
+        public init(name: String, browser: String, protected: Bool) {
+            self.name = name
+            self.browser = browser
+            self.protected = protected
+        }
+    }
+
     /// The browsers whose sign-ins a person can copy.
-    public let sources: [String]
+    public let sources: [Source]
     /// For how many sites copies gave sign-ins.
     public let sites: Int
     /// The Kodosi Browser of this computer, when it has one.
     public let engine: String?
+    /// The part of a download of Kodosi Browser, from 0 to 100, while one runs.
+    public let getting: Int?
 
-    public init(sources: [String], sites: Int, engine: String?) {
+    public init(sources: [Source], sites: Int, engine: String?, getting: Int?) {
         self.sources = sources
         self.sites = sites
         self.engine = engine
+        self.getting = getting
     }
 }
 
@@ -273,6 +292,24 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
         public let several: Bool
     }
 
+    /// A tab of the window, as the viewer sees it now.
+    public struct Tab: Decodable, Equatable, Identifiable, Sendable {
+        public let id: String
+        public let title: String
+        public let address: String
+        public let active: Bool
+        public let loading: Bool
+
+        public init(id: String, title: String, address: String, active: Bool, loading: Bool) {
+            self.id = id
+            self.title = title
+            self.address = address
+            self.active = active
+            self.loading = loading
+        }
+    }
+
+    public var tabs: [Tab] = []
     public var width = 0
     public var height = 0
     public var shape = ""
@@ -290,6 +327,7 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        tabs = try container.decodeIfPresent([Tab].self, forKey: .tabs) ?? []
         width = try container.decode(Int.self, forKey: .width)
         height = try container.decode(Int.self, forKey: .height)
         shape = try container.decode(String.self, forKey: .shape)
@@ -300,7 +338,7 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
         copied = try container.decodeIfPresent(String.self, forKey: .copied)
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, shape, pointers, menu, dialog, chooser, copied }
+    private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied }
 }
 
 /// A person's step in the shared browser, in the CSS pixels of its page.

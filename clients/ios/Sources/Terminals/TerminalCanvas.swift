@@ -62,7 +62,7 @@ struct CanvasScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     let sessionId: String
-    @State private var frame: CanvasFrame?
+    @State private var frames = CanvasFrames()
     @State private var typing = false
     @State private var addingFile = false
     @State private var copy: CanvasCopy?
@@ -96,21 +96,19 @@ struct CanvasScreen: View {
                         } actions: { item in
                             actions(item, in: session)
                         }
-                        .transition(.opacity)
-                    } else if let session, let current, let frame {
-                        CanvasItemView(session: session, shown: current, store: store, frame: frame, pages: model.terminals.documentPages,
+                    } else if let session, let current {
+                        CanvasItemView(session: session, shown: current, store: store, frames: frames, pages: model.terminals.documentPages,
                                        typing: typing, ask: ask(current, in: session))
                             .id(current.key)
-                            .transition(.opacity)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
                         ContentUnavailableView("The canvas shows nothing.", systemImage: CanvasSymbol.canvas)
                     }
                 }
+                .transaction(value: current?.key) { $0.animation = nil }
+                .transaction(value: shelf) { $0.animation = nil }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(theme.motion.fade, value: current?.key)
-                .animation(theme.motion.fade, value: shelf)
             }
             .background(theme.colors.sheet)
             .navigationBarTitleDisplayMode(.inline)
@@ -151,11 +149,6 @@ struct CanvasScreen: View {
         .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) {})
         .fileExporter(isPresented: Binding { copy != nil } set: { _ in copy = nil }, item: copy?.data, contentTypes: [.data],
                       defaultFilename: copy?.name) { _ in copy = nil }
-        .onAppear {
-            if frame == nil {
-                frame = CanvasFrame()
-            }
-        }
         .onChange(of: current, initial: true) { _, current in
             if let current {
                 store.saw(current, in: sessionId)
@@ -190,8 +183,8 @@ struct CanvasScreen: View {
         Task {
             let words: String? = if let words {
                 words
-            } else if case let .item(item) = shown, item.view != nil {
-                await model.terminals.documentPages.selectedWords(of: item.key, in: session.id)
+            } else if case let .item(item) = shown {
+                await selectedWords(of: item, in: session)
             } else {
                 nil
             }
@@ -201,6 +194,14 @@ struct CanvasScreen: View {
                 dismiss()
             } catch { model.notices.show(error) }
         }
+    }
+
+    /// The words that the person selected in what shows of an item: its page or its live document.
+    private func selectedWords(of item: CanvasItem, in session: RuntimeSession) async -> String? {
+        if let words = await frames.selectedWords(of: item.key) {
+            return words
+        }
+        return await model.terminals.documentPages.selectedWords(of: item.key, in: session.id)
     }
 
     private func save(_ item: CanvasItem, from session: RuntimeSession) {

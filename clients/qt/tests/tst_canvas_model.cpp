@@ -397,9 +397,13 @@ private slots:
             fields.insert(QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")));
             model.applyBrowser(fields);
         };
+        const auto source = [](const QString& name) {
+            return QJsonObject { { QStringLiteral("name"), name }, { QStringLiteral("browser"), name.toLower() },
+                { QStringLiteral("protected"), false } };
+        };
         model.openBrowserSettings();
         answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
-            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome"), QStringLiteral("Firefox") } },
+            { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")), source(QStringLiteral("Firefox")) } },
                 { QStringLiteral("sites"), 0 } });
         QVERIFY(model.browserKnown());
         QCOMPARE(model.browserSources(), QStringList({ QStringLiteral("Chrome"), QStringLiteral("Firefox") }));
@@ -414,7 +418,7 @@ private slots:
         QCOMPARE(model.browserDone().value(QStringLiteral("Chrome")).toString(), QStringLiteral("Copied for 12 sites"));
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.status"));
         answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
-            { { QStringLiteral("sources"), QJsonArray { QStringLiteral("Chrome") } }, { QStringLiteral("sites"), 12 },
+            { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")) } }, { QStringLiteral("sites"), 12 },
                 { QStringLiteral("engine"), QStringLiteral("Chromium 156.0.8078.47") } });
         QCOMPARE(model.browserSites(), 12);
         QCOMPARE(model.browserEngine(), QStringLiteral("Chromium 156.0.8078.47"));

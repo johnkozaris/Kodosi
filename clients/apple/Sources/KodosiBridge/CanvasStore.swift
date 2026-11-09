@@ -240,7 +240,13 @@ public final class CanvasStore {
     /// What Settings › Browser shows of this computer.
     public func browserStatus() async throws -> BrowserStatus {
         let event = try await commands.request("browser.status", [:])
-        return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"))
+        return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"),
+                                 getting: try? event.value("getting", as: Int.self))
+    }
+
+    /// Gets the Kodosi Browser of this computer now, or its newest version.
+    public func getBrowser() async throws {
+        _ = try await commands.request("browser.get", [:])
     }
 
     /// Copies the sign-ins of a browser into the profile of this person's private terminals, and

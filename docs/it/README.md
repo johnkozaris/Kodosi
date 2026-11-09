@@ -54,10 +54,10 @@ ogni computer.
 esecuzione e del suo agente.
 
 **Un canvas accanto a ogni terminale.** Un agente ti mostra una pagina, un piano o
-un'immagine accanto al suo terminale. Documenti, fogli, presentazioni e PDF sono dal vivo: tu,
-i tuoi amici e l'agente modificate lo stesso file reale nello stesso momento. L'agente usa
-anche un browser che condividi con lui: vedi cosa fa in un video dal vivo, e clicchi e scrivi
-nelle stesse pagine.
+un'immagine accanto al suo terminale. Documenti, fogli, presentazioni, PDF e file di testo
+sono dal vivo: tu, i tuoi amici e l'agente modificate lo stesso file reale nello stesso
+momento. L'agente usa anche un browser che condividi con lui: vedi cosa fa in un video dal
+vivo, e clicchi e scrivi nelle stesse pagine.
 
 **Stanze per persone e agenti.** Una stanza contiene terminali condivisi, una conversazione e
 attività. Gli agenti leggono e scrivono nella conversazione e prendono in carico attività, e le

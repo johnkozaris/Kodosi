@@ -165,8 +165,20 @@
         <translation>Recherche sur cet ordinateur</translation>
     </message>
     <message>
+        <source>Downloading, %1%</source>
+        <translation>Téléchargement, %1 %</translation>
+    </message>
+    <message>
         <source>Downloads when the shared browser first opens</source>
         <translation>Téléchargé à la première ouverture du navigateur partagé</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>Rechercher les mises à jour</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Télécharger</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -359,6 +371,10 @@
 </context>
 <context>
     <name>CanvasPanel</name>
+    <message>
+        <source>Text</source>
+        <translation>Texte</translation>
+    </message>
     <message>
         <source>Picture</source>
         <translation>Image</translation>
@@ -783,6 +799,10 @@
     <message>
         <source>Presentation viewer</source>
         <translation>Visionneuse de présentations</translation>
+    </message>
+    <message>
+        <source>Text viewer</source>
+        <translation>Visionneuse de texte</translation>
     </message>
     <message>
         <source>When a viewer is off, you save a copy of its files or open them in their own app.</source>
@@ -2888,10 +2908,6 @@
         <translation>Terminal</translation>
     </message>
     <message>
-        <source>Keyboard</source>
-        <translation>Clavier</translation>
-    </message>
-    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -2910,6 +2926,10 @@
     <message>
         <source>Devices</source>
         <translation>Appareils</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>Raccourcis</translation>
     </message>
 </context>
 <context>
@@ -3406,10 +3426,6 @@
         <translation>Appliquer</translation>
     </message>
     <message>
-        <source>Applied</source>
-        <translation>Appliqué</translation>
-    </message>
-    <message>
         <source>A terminal on a new branch gets its own folder. Kodosi removes a folder with no changes when its terminal ends.</source>
         <translation>Un terminal sur une nouvelle branche a son propre dossier. Kodosi supprime ce dossier à la fermeture du terminal s&apos;il ne contient aucune modification.</translation>
     </message>
@@ -3790,6 +3806,10 @@
     <message>
         <source>The canvas takes files up to 32 MB.</source>
         <translation>Le canvas accepte les fichiers jusqu&apos;à 32 Mo.</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>À jour</translation>
     </message>
     <message numerus="yes">
         <source>Copied for %n sites</source>

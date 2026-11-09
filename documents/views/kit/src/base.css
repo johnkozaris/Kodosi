@@ -20,6 +20,8 @@ body {
   --line: light-dark(#d9ccba, #3b2f29);
   --accent: light-dark(#9a4516, #eaa47e);
   --ui-font: system-ui, sans-serif;
+  --mono-font:
+    ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
   display: flex;
   flex-direction: column;
   height: 100%;

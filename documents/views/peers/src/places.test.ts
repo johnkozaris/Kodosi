@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
-import { getSchema } from "@tiptap/core";
+import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { collab } from "prosemirror-collab";
-import { shownPlace } from "./places";
-import { extensions } from "./schema";
+import { shownPlace } from "./index";
 
-const schema = getSchema(extensions);
+const schema = new Schema({
+  nodes: { doc: { content: "paragraph+" }, paragraph: { content: "text*" }, text: {} },
+});
 
 test("a peer's place comes across the typing that waits in this copy", () => {
   const doc = schema.node("doc", null, [

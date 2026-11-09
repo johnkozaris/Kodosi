@@ -83,6 +83,7 @@ pub enum DocumentView {
     Xlsx,
     Pptx,
     Pdf,
+    Text,
 }
 
 impl DocumentView {
@@ -93,6 +94,7 @@ impl DocumentView {
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
             Self::Pdf => "pdf",
+            Self::Text => "text",
         }
     }
 }
@@ -361,6 +363,7 @@ pub fn view_of(path: &std::path::Path) -> Option<DocumentView> {
         "xlsx" => DocumentView::Xlsx,
         "pptx" => DocumentView::Pptx,
         "pdf" => DocumentView::Pdf,
+        "txt" | "json" | "yaml" | "yml" | "toml" | "xml" => DocumentView::Text,
         _ => return None,
     })
 }

@@ -235,8 +235,8 @@ ColumnLayout {
             Accessible.id: objectName
             objectName: "panel.settingsView.apply-terminal-settings"
             variant: KButton.Primary
-            enabled: root.changed
-            text: root.changed ? qsTr("Apply") : qsTr("Applied")
+            visible: root.changed
+            text: qsTr("Apply")
 
             onClicked: Models.DesktopSettings.apply(family.text, size.value, root.cursorStyle, lineHeight.value / 100, scrollback.value, blink.checked)
         }

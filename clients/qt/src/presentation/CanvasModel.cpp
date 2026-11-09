@@ -620,6 +620,11 @@ void CanvasModel::openBrowserSettings()
     askBrowserStatus();
 }
 
+void CanvasModel::refreshBrowser()
+{
+    askBrowserStatus();
+}
+
 void CanvasModel::askBrowserStatus()
 {
     m_browserStatusRequest = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
@@ -647,6 +652,15 @@ void CanvasModel::browserStep(const QString& key, const QString& type, QJsonObje
         m_browserProblem = sent.error().message;
     }
     emit browserChanged();
+}
+
+void CanvasModel::getBrowser()
+{
+    if (!m_browserWork.isEmpty())
+        return;
+    m_browserChecked = m_browserEngine;
+    m_browserDone.remove(QStringLiteral("engine"));
+    browserStep(QStringLiteral("engine"), QStringLiteral("browser.get"));
 }
 
 void CanvasModel::copySignIns(const QString& source)
@@ -678,10 +692,17 @@ void CanvasModel::applyBrowser(const QJsonObject& event)
             m_browserSources.clear();
             const auto sources = event.value(QStringLiteral("sources")).toArray();
             for (const auto& source : sources)
-                m_browserSources.append(source.toString());
+                m_browserSources.append(source.toObject().value(QStringLiteral("name")).toString());
             m_browserSites = event.value(QStringLiteral("sites")).toInt();
             m_browserEngine = event.value(QStringLiteral("engine")).toString();
+            const auto getting = event.value(QStringLiteral("getting"));
+            m_browserGetting = getting.isDouble() ? getting.toInt() : -1;
             m_browserKnown = true;
+            if (m_browserChecked && m_browserWork.isEmpty()) {
+                if (!m_browserChecked->isEmpty() && *m_browserChecked == m_browserEngine)
+                    m_browserDone.insert(QStringLiteral("engine"), tr("Up to date"));
+                m_browserChecked.reset();
+            }
         }
         emit browserChanged();
         return;
@@ -689,9 +710,11 @@ void CanvasModel::applyBrowser(const QJsonObject& event)
     m_browserStepRequest.clear();
     const auto key = std::exchange(m_browserWork, {});
     const auto operation = event.value(QStringLiteral("operation")).toString();
+    if (failed)
+        m_browserChecked.reset();
     if (!failed && operation == QStringLiteral("browser.copy")) {
         m_browserDone.insert(key, tr("Copied for %n sites", nullptr, event.value(QStringLiteral("sites")).toInt()));
-    } else if (!failed) {
+    } else if (!failed && operation != QStringLiteral("browser.get")) {
         m_browserDone.clear();
         if (operation == QStringLiteral("browser.clear"))
             m_browserDone.insert(key, tr("Removed"));
