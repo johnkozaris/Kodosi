@@ -342,9 +342,7 @@ async fn serve_terminal(
             ()=cancel.cancelled()=>return Ok(()),
             result=admissions.next(),if !admissions.is_empty()=>{
                 if let Some(result)=result {
-                    let mut ack=vec![INPUT_ACK];
-                    ack.extend(serde_json::to_vec(&json!({"accepted":result.is_ok(),"message":result.err().map(|error:Error|error.text())}))?);
-                    write_frame(&mut writer,&ack).await?;
+                    write_frame(&mut writer,&input_ack_frame(&result)?).await?;
                 }
             }
             answer=controls.next(),if !controls.is_empty()=>{

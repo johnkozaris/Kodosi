@@ -87,9 +87,9 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                 if !outgoing.is_empty(){local_host::write_input(&mut client.writer,&outgoing).await?;unacknowledged+=1;}
             }
             frame=local_host::read_terminal(&mut client.reader)=>match frame?{
-                TerminalFrame::InputAck { accepted, message } => {
+                TerminalFrame::InputAck { accepted, ended, message } => {
                     unacknowledged=unacknowledged.saturating_sub(1);
-                    if !accepted { return Err(Error::Text(message.unwrap_or_else(|| crate::text::Text::plain("The terminal refused the input")))); }
+                    if !accepted && !ended { return Err(Error::Text(message.unwrap_or_else(|| crate::text::Text::plain("The terminal refused the input")))); }
                 },
                 TerminalFrame::Checkpoint{bytes,console,next_sequence}=>{mirror=restore(&bytes,console)?;next=next_sequence;dirty=true;}
                 TerminalFrame::Data{bytes,sequence}=>{

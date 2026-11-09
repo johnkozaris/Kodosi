@@ -544,14 +544,18 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                 final_sequence,
             } => return (reason, final_sequence),
             TerminalFrame::Answer(answer) => state.control(token, answer),
-            TerminalFrame::InputAck { accepted, message } => {
+            TerminalFrame::InputAck {
+                accepted,
+                ended,
+                message,
+            } => {
                 {
                     let mut waiting = lock(unacknowledged);
                     if let Some(size) = waiting.frames.pop_front() {
                         waiting.bytes -= size;
                     }
                 }
-                if !accepted {
+                if !accepted && !ended {
                     pending.system_error(
                         state,
                         &json!(kodosi_runtime::text!(
@@ -667,5 +671,52 @@ mod tests {
             json!({"type":"auth.error","requestId":"waiting","operation":"auth.login.start",
                 "message":late().to_string(),"accountUserId":"me","accountEpoch":7})
         );
+    }
+
+    #[tokio::test]
+    async fn input_that_reaches_a_terminal_that_is_gone_shows_no_error() {
+        let events = Mutex::new(Vec::<Value>::new());
+        let state = State {
+            callbacks: KodosiCallbacks {
+                on_event: Some(record),
+                on_terminal_data: None,
+                on_terminal_control: None,
+                on_terminal_connect_result: None,
+                on_terminal_checkpoint: None,
+            },
+            userdata: UserData((&raw const events).cast_mut().cast()),
+            gate: Gate::default(),
+            serial: Mutex::new(()),
+            cancel: CancellationToken::new(),
+            subscriptions: Mutex::new(Subscriptions::default()),
+        };
+        let token = SubscriptionState {
+            session: std::ffi::CString::new("session").unwrap(),
+            id: std::ffi::CString::new("view").unwrap(),
+            generation: 1,
+            cancel: CancellationToken::new(),
+            refresh: tokio::sync::Notify::new(),
+            gate: Gate::default(),
+            connected: Mutex::new(None),
+        };
+        let mut frames = Vec::new();
+        for result in [Err(Error::Stopped), Err(Error::NotFound), Err(Error::Busy)] {
+            let frame = local_host::input_ack_frame(&result).unwrap();
+            frames.extend(u32::try_from(frame.len()).unwrap().to_be_bytes());
+            frames.extend(frame);
+        }
+        let mut reader = local_host::FrameReader::new(&frames[..]);
+        read_frames(
+            &mut reader,
+            &state,
+            &Pending::default(),
+            &token,
+            &AtomicU64::new(0),
+            &Mutex::new(Unacknowledged::default()),
+        )
+        .await;
+        let heard = lock(&events).clone();
+        assert_eq!(heard.len(), 1, "{heard:?}");
+        assert_eq!(heard[0]["type"], "system.error");
     }
 }

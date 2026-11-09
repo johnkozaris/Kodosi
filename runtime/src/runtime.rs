@@ -2137,6 +2137,7 @@ impl Runtime {
             }
             Err(error) => match reply {
                 Some(reply) => drop(reply.send(Err(error))),
+                None if matches!(error, Error::Stopped | Error::NotFound) => {}
                 None => self.emit(json!({"type":"system.error", "message":error.text()})),
             },
         }
