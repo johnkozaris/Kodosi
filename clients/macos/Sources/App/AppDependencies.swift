@@ -59,6 +59,18 @@ final class AppDependencies {
 
     var accountEpoch: UInt64 = 0
     var accountKnown = false
+    @ObservationIgnored private(set) lazy var dosiPlace = DosiPlace(
+        dosi: dosi,
+        terminal: { [weak self] in self?.terminal(named: $0) },
+        room: { [weak self] in self?.room(named: $0) },
+        sessions: { [weak self] in self?.listedSessions ?? [] },
+        rooms: { [weak self] in self?.missions ?? [] },
+        open: { [weak self] in self?.open($0) },
+        answer: { [weak self] in self?.answerDosi($0, $1) },
+        send: { [weak self] in self?.sendToDosi($0) },
+        canSend: { [weak self] in self?.dosi.state != .unavailable },
+        openSettings: { [weak self] in self?.workbench.showDosiSettings() },
+    )
     @ObservationIgnored private var otherLaunchers: [String: LauncherState] = [:]
     @ObservationIgnored private var outdatedHostRestarted = false
     private var eventTask: Task<Void, Never>?

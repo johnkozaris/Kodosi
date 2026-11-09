@@ -1,8 +1,8 @@
 #[cfg(feature = "host")]
 mod adapters;
+mod chat;
 #[cfg(feature = "host")]
 mod context;
-#[cfg(feature = "host")]
 mod conversation;
 #[cfg(feature = "host")]
 mod engine;
@@ -12,15 +12,18 @@ mod folder;
 mod process;
 #[cfg(feature = "host")]
 mod receipt;
-#[cfg(feature = "host")]
 mod shared;
-#[cfg(feature = "host")]
 mod store;
 #[cfg(all(test, feature = "host"))]
 mod tests;
+#[cfg(any(test, not(feature = "host")))]
+mod viewer;
 
+pub(crate) use chat::{Failure, Message, Output};
 #[cfg(feature = "host")]
-pub(crate) use engine::{Engine, Failure, Installed, Message, Output};
+pub(crate) use engine::{Engine, Installed};
+#[cfg(any(test, not(feature = "host")))]
+pub(crate) use viewer::Viewer;
 
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +56,8 @@ pub enum DosiState {
     Stopping,
     Connecting,
     Unavailable,
+    /// Dosi is off on this computer.
+    Off,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -69,6 +74,25 @@ pub struct DosiSnapshot {
     pub items: Vec<DosiItem>,
     pub earlier: bool,
     pub queued: Vec<DosiQueued>,
+    /// The messages that wait for the computer that the person asked to answer them.
+    pub asks: Vec<DosiAsk>,
+    /// The computer that answered last, which answers a message from a device that runs no
+    /// Dosi unless the person picks another.
+    pub last: Option<DosiComputer>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DosiComputer {
+    pub device: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DosiAsk {
+    pub item: String,
+    pub computer: DosiComputer,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -305,6 +329,15 @@ pub enum DosiRecord {
         conversation: String,
         item: DosiItem,
     },
+    /// A message of the person for `computer`, which answers it in a turn with the turn of
+    /// `item`. Until that turn opens, a `Stop` of it takes the message back.
+    Ask {
+        conversation: String,
+        computer: DosiComputer,
+        /// What the person had open on the device that asked, for Dosi.
+        context: Option<String>,
+        item: DosiItem,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -312,6 +345,8 @@ pub enum DosiRecord {
 pub struct DosiEntry {
     pub sequence: u64,
     pub mine: bool,
+    /// The device that wrote the record, as its signature proves.
+    pub device: String,
     pub record: DosiRecord,
 }
 
@@ -326,4 +361,6 @@ pub struct DosiLog {
     pub sequence: u64,
     pub instructions: Option<SharedInstructions>,
     pub reset: bool,
+    /// The person's devices now, as the keys of the Dosi room prove.
+    pub devices: std::collections::BTreeSet<String>,
 }

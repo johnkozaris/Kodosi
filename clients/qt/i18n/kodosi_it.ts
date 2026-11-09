@@ -1077,6 +1077,14 @@
         <translation>Al lavoro su %1</translation>
     </message>
     <message>
+        <source>Waiting for %1</source>
+        <translation>In attesa di %1</translation>
+    </message>
+    <message>
+        <source>Do not send</source>
+        <translation>Non inviare</translation>
+    </message>
+    <message>
         <source>thought for %1s</source>
         <translation>ha pensato per %1 s</translation>
     </message>

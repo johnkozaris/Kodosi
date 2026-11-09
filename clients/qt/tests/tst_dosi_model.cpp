@@ -302,12 +302,35 @@ private slots:
     {
         Fixture f;
         f.desktop.openDosi();
-        f.desktop.setDosiOn(false);
+        f.dosi.use(false);
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("dosi.use"));
         QVERIFY(!f.desktop.dosiOpen());
         f.desktop.toggleDosi();
         QVERIFY(!f.desktop.dosiOpen());
         kodosi::DesktopStateModel restored { std::make_unique<QSettings>(f.dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat) };
-        QVERIFY(!restored.dosiOn() && !restored.dosiOpen());
+        QVERIFY(!restored.dosiOpen());
+        f.snapshot({}, QStringLiteral("c1"), false, QStringLiteral("idle"));
+        QVERIFY(f.desktop.dosiOn());
+        f.snapshot({}, QStringLiteral("c1"), false, QStringLiteral("off"));
+        QVERIFY(!f.desktop.dosiOn());
+        QCOMPARE(f.dosi.mood(), QStringLiteral("off"));
+    }
+
+    void aMessageFromThePhoneWaitsForItsComputer()
+    {
+        Fixture f;
+        const QJsonObject ask { { QStringLiteral("item"), QStringLiteral("a") },
+            { QStringLiteral("computer"), QJsonObject { { QStringLiteral("device"), QStringLiteral("d1") },
+                                              { QStringLiteral("name"), QStringLiteral("Studio") } } } };
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("dosi.snapshot") },
+                              { QStringLiteral("dosi"), QJsonObject { { QStringLiteral("state"), QStringLiteral("idle") },
+                                  { QStringLiteral("conversation"), QJsonObject { { QStringLiteral("id"), QStringLiteral("c1") } } },
+                                  { QStringLiteral("items"), QJsonArray { entry(QStringLiteral("a"), words(QStringLiteral("person"), QStringLiteral("Later"))) } },
+                                  { QStringLiteral("asks"), QJsonArray { ask } } } } },
+            0);
+        QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("waiting")).toString(), QStringLiteral("Studio"));
+        f.dosi.unqueue(QStringLiteral("a"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("queuedId")).toString(), QStringLiteral("a"));
     }
 };
 

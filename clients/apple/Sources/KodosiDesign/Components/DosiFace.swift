@@ -435,7 +435,7 @@ private final class FaceRig {
 public extension DosiStore {
     func mood(listening: Bool = false) -> DosiFace.Mood {
         switch state {
-        case .unavailable: .off
+        case .unavailable, .off: .off
         case .stopping: .stopping
         case .connecting: .resting
         case .idle: idleMood(listening: listening)

@@ -2,7 +2,9 @@ use std::{collections::VecDeque, time::Duration};
 
 use uuid::Uuid;
 
-use super::{DosiBody, DosiRecord, SharedInstructions, conversation::clip};
+#[cfg(feature = "host")]
+use super::SharedInstructions;
+use super::{DosiBody, DosiRecord, conversation::clip};
 
 const MAX_PENDING: usize = 512;
 const TEXT_BYTES: usize = 24 * 1024;
@@ -25,15 +27,28 @@ pub(super) struct Written {
     pub sync: Option<u64>,
 }
 
+pub(super) struct Again {
+    pub write: Option<DosiRecord>,
+    pub sync: Option<u64>,
+    #[cfg(feature = "host")]
+    pub save: Option<SharedInstructions>,
+}
+
 pub(super) struct Shared {
     pub user: Uuid,
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(dead_code, reason = "only a host writes turns")
+    )]
     pub computer: String,
     synced: Option<u64>,
     heard: u64,
     reading: Reading,
     writing: bool,
     pending: VecDeque<DosiRecord>,
+    #[cfg(feature = "host")]
     saving: bool,
+    #[cfg(feature = "host")]
     unsaved: Option<SharedInstructions>,
     delay: Duration,
 }
@@ -48,7 +63,9 @@ impl Shared {
             reading: Reading::Idle,
             writing: false,
             pending: VecDeque::new(),
+            #[cfg(feature = "host")]
             saving: false,
+            #[cfg(feature = "host")]
             unsaved: None,
             delay: FIRST_DELAY,
         }
@@ -140,11 +157,13 @@ impl Shared {
         self.reading = Reading::Idle;
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn save(&mut self, instructions: SharedInstructions) -> Option<SharedInstructions> {
         self.unsaved = Some(instructions);
         self.next_save()
     }
 
+    #[cfg(feature = "host")]
     fn next_save(&mut self) -> Option<SharedInstructions> {
         if self.saving {
             return None;
@@ -154,6 +173,7 @@ impl Shared {
         Some(instructions)
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn saved(
         &mut self,
         failed: Option<SharedInstructions>,
@@ -168,18 +188,22 @@ impl Shared {
         }
     }
 
+    #[cfg(feature = "host")]
     pub(super) const fn saving(&self) -> bool {
         self.saving || self.unsaved.is_some()
     }
 
-    pub(super) fn retry(
-        &mut self,
-    ) -> (Option<DosiRecord>, Option<u64>, Option<SharedInstructions>) {
+    pub(super) fn retry(&mut self) -> Again {
         let write = self.next_write();
         let wanted = self.reading == Reading::Wanted
             || (self.reading == Reading::Idle && (self.synced.is_none() || self.behind()));
         let sync = wanted.then(|| self.sync()).flatten();
-        (write, sync, self.next_save())
+        Again {
+            write,
+            sync,
+            #[cfg(feature = "host")]
+            save: self.next_save(),
+        }
     }
 
     pub(super) fn backoff(&mut self) -> Duration {
@@ -195,7 +219,7 @@ fn fit(record: DosiRecord) -> DosiRecord {
         mut item,
     } = record
     else {
-        return record;
+        return fit_ask(record);
     };
     item.body = match item.body {
         DosiBody::Person { text } => DosiBody::Person {
@@ -233,4 +257,27 @@ fn fit(record: DosiRecord) -> DosiRecord {
         body => body,
     };
     DosiRecord::Item { conversation, item }
+}
+
+fn fit_ask(record: DosiRecord) -> DosiRecord {
+    let DosiRecord::Ask {
+        conversation,
+        computer,
+        context,
+        mut item,
+    } = record
+    else {
+        return record;
+    };
+    if let DosiBody::Person { text } = &item.body {
+        item.body = DosiBody::Person {
+            text: clip(text, TEXT_BYTES),
+        };
+    }
+    DosiRecord::Ask {
+        conversation,
+        computer,
+        context: context.map(|context| clip(&context, TOOL_BYTES)),
+        item,
+    }
 }

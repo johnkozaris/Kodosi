@@ -1074,6 +1074,14 @@
         <translation>%1 で作業中</translation>
     </message>
     <message>
+        <source>Waiting for %1</source>
+        <translation>%1 を待っています</translation>
+    </message>
+    <message>
+        <source>Do not send</source>
+        <translation>送信しない</translation>
+    </message>
+    <message>
         <source>thought for %1s</source>
         <translation>%1 秒間思考</translation>
     </message>

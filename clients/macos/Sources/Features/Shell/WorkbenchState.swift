@@ -79,9 +79,9 @@ final class WorkbenchState {
         }
     }
 
+    /// Whether Dosi is on on this computer, as its host says.
     var dosiOn = true {
         didSet {
-            defaults.set(dosiOn, forKey: "dosi.on")
             if !dosiOn {
                 dosiOpen = false
             }
@@ -118,8 +118,7 @@ final class WorkbenchState {
     init(defaults: UserDefaults) {
         self.defaults = defaults
         sidebarCollapsed = defaults.bool(forKey: "sidebar.collapsed")
-        dosiOn = defaults.object(forKey: "dosi.on") as? Bool ?? true
-        dosiOpen = dosiOn && defaults.bool(forKey: "dosi.open")
+        dosiOpen = defaults.bool(forKey: "dosi.open")
         if let width = defaults.object(forKey: "sidebar.width") as? Double {
             sidebarWidth = CGFloat(width).clamped(to: Self.sidebarWidths)
         }

@@ -47,7 +47,12 @@ Dosi is the person's agent for their other agents. It sees every terminal, agent
 of the person, acts on them with the `kodosi` command, shows them in the app and asks
 with choices. It runs on the computer where the person writes, with the agent, account,
 model and effort chosen in Settings, and works in its own folder. One encrypted
-conversation follows the person to all their computers.
+conversation follows the person to all their devices. On a phone, the person writes to
+Dosi on one of their computers, at first the one that answered last, and that computer
+answers. A message for a computer that is away waits until it runs Kodosi again, or until
+the person takes it back or starts a new chat. Any device answers Dosi's questions, and
+Dosi goes on on the computer that asked. A computer where Dosi is off answers a message
+from another device with a note that Dosi is off there.
 
 ## Terminal behavior
 

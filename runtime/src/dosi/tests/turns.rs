@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     os::unix::fs::PermissionsExt as _,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -11,9 +12,9 @@ use uuid::Uuid;
 
 use crate::agents::{Agent, AgentChoiceChange, AgentPick, Runner};
 use crate::dosi::{
-    DosiAction, DosiAgent, DosiBody, DosiEntry, DosiItem, DosiLog, DosiRecord, DosiTone,
-    DosiToolStatus, SharedInstructions,
-    engine::{Answer, Engine, Message, Output, Runners},
+    DosiAction, DosiAgent, DosiBody, DosiComputer, DosiEntry, DosiItem, DosiLog, DosiRecord,
+    DosiTone, DosiToolStatus, Message, Output, SharedInstructions, Viewer,
+    engine::{Answer, Engine, Runners},
 };
 
 const STUB: &str = r#"#!/bin/sh
@@ -97,16 +98,30 @@ impl Runners for Stub {
 struct Server {
     records: Vec<(Uuid, DosiRecord)>,
     instructions: Option<SharedInstructions>,
+    devices: BTreeSet<String>,
 }
 
 impl Server {
+    fn device(server: &Arc<Mutex<Self>>) -> Uuid {
+        let device = Uuid::now_v7();
+        server.lock().unwrap().devices.insert(device.to_string());
+        device
+    }
+
     fn read(&self, device: Uuid, after: u64) -> DosiLog {
+        if after > self.records.len() as u64 {
+            return DosiLog {
+                reset: true,
+                ..DosiLog::default()
+            };
+        }
         let entries = (1..)
             .zip(&self.records)
             .filter(|(sequence, _)| *sequence > after)
             .map(|(sequence, (writer, record))| DosiEntry {
                 sequence,
                 mine: *writer == device,
+                device: writer.to_string(),
                 record: record.clone(),
             })
             .collect::<Vec<_>>();
@@ -115,6 +130,7 @@ impl Server {
             entries,
             instructions: self.instructions.clone(),
             reset: false,
+            devices: self.devices.clone(),
         }
     }
 }
@@ -152,17 +168,27 @@ impl Rig {
         rig.shared = Some(Shared {
             server: Arc::clone(server),
             user,
-            device: Uuid::now_v7(),
+            device: Server::device(server),
         });
         rig.join(computer);
         rig
     }
 
     fn join(&mut self, computer: &str) {
-        let user = self.shared.as_ref().map(|shared| shared.user);
+        let account = self
+            .shared
+            .as_ref()
+            .map(|shared| (shared.user, shared.device.to_string()));
         let mut out = Output::default();
-        self.engine.share(user, || computer.to_owned(), &mut out);
+        self.engine.share(account, || computer.to_owned(), &mut out);
         self.apply(out);
+    }
+
+    fn computer(&self, name: &str) -> DosiComputer {
+        DosiComputer {
+            device: self.shared.as_ref().unwrap().device.to_string(),
+            name: name.to_owned(),
+        }
     }
 
     fn engine(base: &std::path::Path) -> (Engine, mpsc::Receiver<Message>) {
@@ -265,7 +291,7 @@ impl Rig {
 
     fn send(&mut self, text: &str) {
         let mut out = Output::default();
-        self.engine.send(text, None, &mut out).unwrap();
+        self.engine.send(text, None, None, &mut out).unwrap();
         self.apply(out);
     }
 
@@ -280,6 +306,151 @@ impl Rig {
         self.engine.nudge(None, &mut out);
         self.apply(out);
     }
+
+    fn turn(&mut self, on: bool) {
+        let mut out = Output::default();
+        self.engine.turn(on, &mut out);
+        self.apply(out);
+    }
+
+    /// Dosi here asks `question` in a turn that the person then stops.
+    async fn question(&mut self, question: &str) -> DosiItem {
+        self.send("slow please");
+        self.until(|rig| !rig.file("token").is_empty()).await;
+        let token = self.file("token");
+        let mut out = Output::default();
+        self.engine
+            .ask(
+                &token,
+                question.to_owned(),
+                vec!["api".to_owned(), "web".to_owned()],
+                Vec::new(),
+                false,
+                None,
+                &mut out,
+            )
+            .unwrap();
+        self.apply(out);
+        self.stop();
+        self.idle().await;
+        self.items()
+            .into_iter()
+            .find(|item| matches!(&item.body, DosiBody::Question { question: asked, .. } if asked == question))
+            .unwrap()
+    }
+}
+
+/// A phone of the person: it runs no agent, and asks Dosi on one of the person's computers.
+struct Phone {
+    viewer: Viewer,
+    server: Arc<Mutex<Server>>,
+    user: Uuid,
+    device: Uuid,
+    root: tempfile::TempDir,
+}
+
+impl Phone {
+    fn new(server: &Arc<Mutex<Server>>, user: Uuid) -> Self {
+        let root = tempfile::tempdir().unwrap();
+        let (viewer, _) = Viewer::load(root.path());
+        let mut phone = Self {
+            viewer,
+            server: Arc::clone(server),
+            user,
+            device: Server::device(server),
+            root,
+        };
+        phone.join();
+        phone
+    }
+
+    fn join(&mut self) {
+        let mut out = Output::default();
+        self.viewer
+            .share(Some((self.user, self.device.to_string())), &mut out);
+        self.apply(out);
+    }
+
+    fn restart(&mut self) {
+        (self.viewer, _) = Viewer::load(self.root.path());
+        self.join();
+    }
+
+    fn apply(&mut self, mut out: Output) {
+        loop {
+            let generation = self.viewer.generation();
+            let mut next = Output::default();
+            if let Some(record) = out.write.take() {
+                let mut server = self.server.lock().unwrap();
+                server.records.push((self.device, record));
+                let sequence = server.records.len() as u64;
+                drop(server);
+                let written = Message::Written {
+                    generation,
+                    result: Ok(sequence),
+                };
+                self.viewer.handle(written, &mut next);
+            }
+            if let Some(after) = out.sync.take() {
+                let log = self.server.lock().unwrap().read(self.device, after);
+                let synced = Message::Synced {
+                    generation,
+                    result: Ok(log),
+                };
+                self.viewer.handle(synced, &mut next);
+            }
+            if next.write.is_none() && next.sync.is_none() {
+                return;
+            }
+            out = next;
+        }
+    }
+
+    fn act(&mut self, act: impl FnOnce(&mut Viewer, &mut Output)) {
+        self.act_result(act);
+    }
+
+    fn act_result<T>(&mut self, act: impl FnOnce(&mut Viewer, &mut Output) -> T) -> T {
+        let mut out = Output::default();
+        let result = act(&mut self.viewer, &mut out);
+        self.apply(out);
+        result
+    }
+
+    fn snapshot(&self) -> Value {
+        self.viewer.snapshot()["dosi"].clone()
+    }
+
+    fn items(&self) -> Vec<DosiItem> {
+        serde_json::from_value(self.snapshot()["items"].clone()).unwrap()
+    }
+
+    fn ask(&mut self, text: &str, computer: DosiComputer) {
+        self.act(|viewer, out| viewer.send(text, None, Some(computer), out).unwrap());
+    }
+
+    fn nudge(&mut self) {
+        self.act(|viewer, out| viewer.nudge(None, out));
+    }
+
+    fn waiting(&self) -> Vec<String> {
+        self.snapshot()["asks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|ask| ask["computer"]["name"].as_str().unwrap().to_owned())
+            .collect()
+    }
+}
+
+fn people(items: &[DosiItem]) -> Vec<String> {
+    items
+        .iter()
+        .filter_map(|item| match &item.body {
+            DosiBody::Person { text } => Some(text.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn texts(items: &[DosiItem]) -> Vec<(String, bool)> {
@@ -621,4 +792,604 @@ async fn a_turn_on_another_computer_holds_new_messages_and_stops_from_here() {
         vec![("Two need you.".to_owned(), false)]
     );
     assert!(laptop.file("input").contains("What needs me?"));
+}
+
+#[tokio::test]
+async fn a_phone_asks_a_computer_that_answers_in_the_turn_of_the_message() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut laptop = Rig::shared(&server, user, "Laptop");
+    let mut phone = Phone::new(&server, user);
+    phone.ask("What needs me?", studio.computer("Studio"));
+    assert_eq!(phone.waiting(), ["Studio"]);
+    assert_eq!(people(&phone.items()), ["What needs me?"]);
+
+    laptop.nudge();
+    assert_eq!(laptop.snapshot()["state"], "idle");
+    assert_eq!(laptop.snapshot()["asks"][0]["computer"]["name"], "Studio");
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "working");
+    studio.idle().await;
+    assert!(studio.file("input").contains("What needs me?"));
+    assert_eq!(people(&studio.items()), ["What needs me?"]);
+    assert_eq!(
+        texts(&studio.items()),
+        [("Two need you.".to_owned(), false)]
+    );
+
+    phone.nudge();
+    assert_eq!(phone.items(), studio.items());
+    assert_eq!(phone.waiting(), Vec::<String>::new());
+    assert_eq!(phone.snapshot()["last"]["name"], "Studio");
+    assert_eq!(phone.snapshot()["state"], "idle");
+
+    studio.restart("Studio");
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    assert_eq!(studio.file("input").matches("What needs me?").count(), 1);
+}
+
+#[tokio::test]
+async fn a_message_waits_for_its_computer_until_the_person_takes_it_back() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut phone = Phone::new(&server, user);
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let away = studio.computer("Studio");
+    phone.ask("Later", away.clone());
+    phone.ask("Never mind", away);
+    assert_eq!(phone.waiting(), ["Studio", "Studio"]);
+    let taken = phone.snapshot()["asks"][1]["item"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    phone.act(|viewer, out| viewer.unqueue(&taken, out).unwrap());
+    assert_eq!(phone.waiting(), ["Studio"]);
+    assert_eq!(people(&phone.items()), ["Later"]);
+
+    studio.nudge();
+    studio.idle().await;
+    let input = studio.file("input");
+    assert!(input.contains("Later") && !input.contains("Never mind"));
+    assert_eq!(people(&studio.items()), ["Later"]);
+    phone.nudge();
+    assert_eq!(phone.waiting(), Vec::<String>::new());
+    assert!(
+        phone
+            .act_result(|viewer, out| viewer.unqueue(&taken, out))
+            .is_err()
+    );
+
+    phone.restart();
+    studio.restart("Studio");
+    studio.nudge();
+    assert_eq!(people(&phone.items()), ["Later"]);
+    assert_eq!(people(&studio.items()), ["Later"]);
+}
+
+#[tokio::test]
+async fn the_phone_answers_a_question_and_the_computer_that_asked_goes_on() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut laptop = Rig::shared(&server, user, "Laptop");
+    let mut phone = Phone::new(&server, user);
+    studio.send("slow please");
+    studio.until(|rig| !rig.file("token").is_empty()).await;
+    let token = studio.file("token");
+    let mut out = Output::default();
+    studio
+        .engine
+        .ask(
+            &token,
+            "Which folder?".to_owned(),
+            vec!["api".to_owned(), "web".to_owned()],
+            Vec::new(),
+            false,
+            None,
+            &mut out,
+        )
+        .unwrap();
+    studio.apply(out);
+    studio.stop();
+    studio.idle().await;
+
+    phone.nudge();
+    let question = phone
+        .items()
+        .into_iter()
+        .find(|item| matches!(item.body, DosiBody::Question { .. }))
+        .unwrap();
+    phone.act(|viewer, out| {
+        viewer
+            .answer(&question.id, vec!["web".to_owned()], out)
+            .unwrap();
+    });
+    laptop.nudge();
+    let mut late = Output::default();
+    assert!(
+        laptop
+            .engine
+            .answer(&question.id, vec!["api".to_owned()], &mut late)
+            .is_err()
+    );
+    assert_eq!(laptop.snapshot()["state"], "idle");
+
+    studio.nudge();
+    studio
+        .until(|rig| texts(&rig.items()).len() == 1 && rig.snapshot()["state"] == "idle")
+        .await;
+    assert!(
+        studio
+            .file("input")
+            .contains(r#"The person answered \"Which folder?\" with web"#)
+    );
+    phone.nudge();
+    assert!(phone.items().iter().any(|item| matches!(
+        &item.body,
+        DosiBody::Question { answer: Some(answer), .. } if answer == &["web".to_owned()]
+    )));
+}
+
+#[tokio::test]
+async fn a_computer_with_dosi_off_tells_why_it_does_not_answer() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    let mut out = Output::default();
+    studio.engine.turn(false, &mut out);
+    studio.apply(out);
+    assert_eq!(studio.snapshot()["state"], "off");
+    phone.ask("What needs me?", studio.computer("Studio"));
+    studio.nudge();
+    phone.nudge();
+    assert_eq!(phone.waiting(), Vec::<String>::new());
+    assert!(phone.items().iter().any(|item| matches!(
+        &item.body,
+        DosiBody::Notice { tone: DosiTone::Failed, text: Some(text) } if text.contains("Studio")
+    )));
+    assert_eq!(studio.file("input"), "");
+}
+
+#[tokio::test]
+async fn the_phone_stops_a_turn_and_starts_a_new_chat_for_every_device() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    studio.send("slow please");
+    studio.until(running).await;
+    phone.nudge();
+    assert_eq!(phone.snapshot()["state"], "working");
+    assert_eq!(phone.snapshot()["remote"]["computer"], "Studio");
+    let items = phone.items();
+    let earlier = phone.viewer.page(&items.last().unwrap().id);
+    assert_eq!(earlier.items, items[..items.len() - 1]);
+
+    phone.act(Viewer::stop);
+    assert_eq!(phone.snapshot()["state"], "stopping");
+    studio.nudge();
+    studio.idle().await;
+    phone.nudge();
+    assert_eq!(phone.snapshot()["state"], "idle");
+    assert!(phone.items().iter().any(|item| matches!(
+        item.body,
+        DosiBody::Notice {
+            tone: DosiTone::Stopped,
+            ..
+        }
+    )));
+
+    phone.act(Viewer::renew);
+    studio.nudge();
+    assert_eq!(studio.items(), Vec::new());
+    assert_eq!(
+        studio.snapshot()["conversation"],
+        phone.snapshot()["conversation"]
+    );
+}
+
+#[tokio::test]
+async fn an_answer_from_another_device_changes_only_the_answer() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    studio.send("slow please");
+    studio.until(|rig| !rig.file("token").is_empty()).await;
+    let token = studio.file("token");
+    let mut out = Output::default();
+    studio
+        .engine
+        .ask(
+            &token,
+            "Allow it?".to_owned(),
+            vec!["Yes".to_owned(), "No".to_owned()],
+            vec!["1".to_owned(), "2".to_owned()],
+            false,
+            Some("api".to_owned()),
+            &mut out,
+        )
+        .unwrap();
+    studio.apply(out);
+    studio.stop();
+    studio.idle().await;
+    let mut question = studio
+        .items()
+        .into_iter()
+        .find(|item| matches!(item.body, DosiBody::Question { .. }))
+        .unwrap();
+    question.body = DosiBody::Question {
+        question: "Allow it?".to_owned(),
+        options: vec!["Yes".to_owned(), "No".to_owned()],
+        keys: vec!["rm -rf ~".to_owned(), "2".to_owned()],
+        multiple: false,
+        terminal: Some("web".to_owned()),
+        answer: Some(vec!["Yes".to_owned()]),
+    };
+    let conversation = studio.snapshot()["conversation"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let phone = Server::device(&server);
+    server.lock().unwrap().records.push((
+        phone,
+        DosiRecord::Item {
+            conversation,
+            item: question,
+        },
+    ));
+    let mut out = Output::default();
+    studio.engine.nudge(None, &mut out);
+    let after = out.sync.take().unwrap();
+    let log = server
+        .lock()
+        .unwrap()
+        .read(studio.shared.as_ref().unwrap().device, after);
+    let mut typed = Output::default();
+    studio.engine.handle(
+        Message::Synced {
+            generation: studio.engine.generation(),
+            result: Ok(log),
+        },
+        &mut typed,
+    );
+    let typing = typed
+        .typing
+        .iter()
+        .map(|typing| (typing.terminal.as_str(), typing.text.as_str()))
+        .collect::<Vec<_>>();
+    assert_eq!(typing, [("api", "1\r")]);
+}
+
+fn conversation(snapshot: &Value) -> String {
+    snapshot["conversation"]["id"].as_str().unwrap().to_owned()
+}
+
+fn closed(items: &[DosiItem], id: &str) -> bool {
+    items.iter().any(|item| {
+        item.id == id
+            && matches!(&item.body, DosiBody::Question { answer: Some(answer), .. } if answer.is_empty())
+    })
+}
+
+#[tokio::test]
+async fn a_question_closed_by_a_turn_on_another_computer_closes_here_without_a_turn() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut laptop = Rig::shared(&server, user, "Laptop");
+    let question = studio.question("Which folder?").await;
+    laptop.nudge();
+    laptop.send("What needs me?");
+    laptop.idle().await;
+
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    assert!(closed(&studio.items(), &question.id));
+    assert!(!studio.file("input").contains("The person answered"));
+}
+
+#[tokio::test]
+async fn records_that_the_server_loses_or_sends_again_do_not_run_again() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    phone.ask("What needs me?", studio.computer("Studio"));
+    studio.nudge();
+    studio.idle().await;
+    let question = studio.question("Which folder?").await;
+    phone.nudge();
+    phone.act(|viewer, out| {
+        viewer
+            .answer(&question.id, vec!["web".to_owned()], out)
+            .unwrap();
+    });
+    studio.nudge();
+    studio
+        .until(|rig| {
+            rig.file("input").contains("The person answered") && rig.snapshot()["state"] == "idle"
+        })
+        .await;
+
+    let records = server.lock().unwrap().records.clone();
+    let asked = records
+        .iter()
+        .position(|(_, record)| matches!(record, DosiRecord::Ask { .. }))
+        .unwrap();
+    let answered = records
+        .iter()
+        .rposition(|(_, record)| {
+            matches!(record, DosiRecord::Item { item, .. } if closed(std::slice::from_ref(item), &question.id) || matches!(&item.body, DosiBody::Question { answer: Some(answer), .. } if !answer.is_empty()))
+        })
+        .unwrap();
+    server.lock().unwrap().records.truncate(answered + 1);
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    server
+        .lock()
+        .unwrap()
+        .records
+        .extend([records[asked].clone(), records[answered].clone()]);
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    studio.restart("Studio");
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    let input = studio.file("input");
+    assert_eq!(input.matches("What needs me?").count(), 1);
+    assert_eq!(
+        input
+            .matches(r#"The person answered \"Which folder?\""#)
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn every_device_keeps_the_newest_conversation() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    phone.act(Viewer::renew);
+    let mut out = Output::default();
+    studio.engine.renew(&mut out);
+    studio.apply(out);
+    let mut started = [
+        conversation(&phone.snapshot()),
+        conversation(&studio.snapshot()),
+    ];
+    started.sort();
+    let [oldest, newest] = started;
+
+    phone.nudge();
+    studio.nudge();
+    assert_eq!(conversation(&phone.snapshot()), newest);
+    assert_eq!(conversation(&studio.snapshot()), newest);
+    server.lock().unwrap().records.push((
+        phone.device,
+        DosiRecord::Begin {
+            conversation: oldest,
+        },
+    ));
+    phone.nudge();
+    studio.nudge();
+    assert_eq!(conversation(&phone.snapshot()), newest);
+    assert_eq!(conversation(&studio.snapshot()), newest);
+}
+
+#[tokio::test]
+async fn a_new_chat_follows_the_newest_conversation_when_the_clock_is_behind() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    let hour_ahead = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 3600;
+    let ahead =
+        Uuid::new_v7(uuid::Timestamp::from_unix(uuid::NoContext, hour_ahead, 0)).to_string();
+    let device = studio.shared.as_ref().unwrap().device;
+    server.lock().unwrap().records.push((
+        device,
+        DosiRecord::Begin {
+            conversation: ahead.clone(),
+        },
+    ));
+    phone.nudge();
+    assert_eq!(conversation(&phone.snapshot()), ahead);
+
+    phone.act(Viewer::renew);
+    let renewed = conversation(&phone.snapshot());
+    assert!(renewed > ahead);
+    studio.nudge();
+    assert_eq!(conversation(&studio.snapshot()), renewed);
+}
+
+#[tokio::test]
+async fn a_take_back_holds_after_the_person_removes_the_device_that_took_it_back() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    let mut pad = Phone::new(&server, user);
+    phone.ask("What needs me?", studio.computer("Studio"));
+    pad.nudge();
+    let item = pad.snapshot()["asks"][0]["item"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    pad.act(|viewer, out| viewer.unqueue(&item, out).unwrap());
+    let removed = pad.device.to_string();
+    server.lock().unwrap().devices.remove(&removed);
+
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "idle");
+    assert_eq!(studio.file("input"), "");
+}
+
+#[tokio::test]
+async fn a_message_that_waits_here_outlasts_many_turns_elsewhere_and_a_restart() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    studio.send("slow please");
+    studio.until(running).await;
+    phone.nudge();
+    phone.ask("What needs me?", studio.computer("Studio"));
+    let conversation = conversation(&studio.snapshot());
+    let laptop = Server::device(&server);
+    let long_ago = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap()
+        - 3_600_000;
+    for _ in 0..1100 {
+        server.lock().unwrap().records.push((
+            laptop,
+            DosiRecord::Turn {
+                conversation: conversation.clone(),
+                turn: Uuid::now_v7().to_string(),
+                open: true,
+                computer: "Laptop".to_owned(),
+                at: long_ago,
+            },
+        ));
+    }
+    studio.nudge();
+    studio.restart("Studio");
+    studio.nudge();
+    studio
+        .until(|rig| {
+            rig.file("input").contains("What needs me?") && rig.snapshot()["state"] == "idle"
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn the_phone_forgets_a_removed_computer_as_the_one_that_answered_last() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut laptop = Rig::shared(&server, user, "Laptop");
+    let mut phone = Phone::new(&server, user);
+    laptop.send("What needs me?");
+    laptop.idle().await;
+    phone.nudge();
+    assert_eq!(phone.snapshot()["last"]["name"], "Laptop");
+
+    let removed = laptop.shared.as_ref().unwrap().device.to_string();
+    server.lock().unwrap().devices.remove(&removed);
+    phone.nudge();
+    assert_eq!(phone.snapshot()["last"], Value::Null);
+    phone.restart();
+    assert_eq!(phone.snapshot()["last"], Value::Null);
+}
+
+#[tokio::test]
+async fn messages_from_a_device_that_the_person_removed_do_not_run() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    studio.send("slow please");
+    studio.until(running).await;
+    phone.nudge();
+    phone.ask("What needs me?", studio.computer("Studio"));
+    studio.nudge();
+    assert_eq!(studio.snapshot()["asks"].as_array().unwrap().len(), 1);
+
+    let removed = phone.device.to_string();
+    server.lock().unwrap().devices.remove(&removed);
+    phone.ask("And now?", studio.computer("Studio"));
+    studio.nudge();
+    studio.stop();
+    studio.idle().await;
+    assert_eq!(studio.snapshot()["asks"], json!([]));
+    assert_eq!(people(&studio.items()), ["slow please"]);
+    let input = studio.file("input");
+    assert!(!input.contains("What needs me?") && !input.contains("And now?"));
+}
+
+#[tokio::test]
+async fn dosi_off_closes_its_questions_and_leaves_other_computers_alone() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut laptop = Rig::shared(&server, user, "Laptop");
+    let mut phone = Phone::new(&server, user);
+    let question = studio.question("Which folder?").await;
+    phone.nudge();
+    studio.turn(false);
+    assert!(closed(&studio.items(), &question.id));
+    phone.act(|viewer, out| {
+        viewer
+            .answer(&question.id, vec!["web".to_owned()], out)
+            .unwrap();
+    });
+    studio.nudge();
+    studio.turn(true);
+    assert_eq!(studio.snapshot()["state"], "idle");
+    assert!(!studio.file("input").contains("The person answered"));
+
+    laptop.nudge();
+    let mut out = Output::default();
+    laptop.engine.renew(&mut out);
+    laptop.apply(out);
+    laptop.send("slow please");
+    laptop.until(running).await;
+    studio.nudge();
+    assert_eq!(studio.snapshot()["state"], "working");
+    let stops = || {
+        server
+            .lock()
+            .unwrap()
+            .records
+            .iter()
+            .filter(|(_, record)| matches!(record, DosiRecord::Stop { .. }))
+            .count()
+    };
+    let before = stops();
+    studio.turn(false);
+    assert_eq!(stops(), before);
+    laptop.nudge();
+    assert!(running(&laptop));
+}
+
+#[tokio::test]
+async fn a_message_from_the_phone_reaches_a_resumed_agent_once() {
+    let server = Arc::new(Mutex::new(Server::default()));
+    let user = Uuid::now_v7();
+    let mut studio = Rig::shared(&server, user, "Studio");
+    let mut phone = Phone::new(&server, user);
+    studio.send("What needs me?");
+    studio.idle().await;
+    phone.nudge();
+    phone.ask("And the web?", studio.computer("Studio"));
+    studio.nudge();
+    studio.idle().await;
+    assert_eq!(studio.file("input").matches("And the web?").count(), 1);
+}
+
+#[tokio::test]
+async fn a_phone_sends_nothing_before_it_has_read_the_conversation() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut viewer, _) = Viewer::load(root.path());
+    let mut out = Output::default();
+    viewer.share(Some((Uuid::now_v7(), Uuid::now_v7().to_string())), &mut out);
+    let studio = DosiComputer {
+        device: Uuid::now_v7().to_string(),
+        name: "Studio".to_owned(),
+    };
+    let sent = viewer.send("What needs me?", None, Some(studio), &mut out);
+    assert!(matches!(sent, Err(crate::Error::Busy)));
+    assert!(out.write.is_none());
 }

@@ -15,6 +15,9 @@ later. Sharing one terminal shares nothing else. Kodosi trusts everyone who shar
 terminal or a room, and the programs and agents in their terminals, and does not limit
 what they do. Each of your approved devices controls
 all your terminals and can start new ones on your other computers that run Kodosi.
+From any of your devices you can write to Dosi on your computers, and Dosi acts there as
+it does when you write to it at the computer. A device that you remove can no longer
+write to Dosi.
 
 Everyone who can open a terminal also sees the files on its canvas and uses its shared
 browser, so sign in there only where all of them may act. A shared terminal never has

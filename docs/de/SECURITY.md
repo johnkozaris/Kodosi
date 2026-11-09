@@ -16,7 +16,7 @@ Mitglieder, die später eingeladen werden. Wer ein Terminal teilt, teilt sonst n
 vertraut allen, die ein Terminal oder einen Raum teilen, sowie den Programmen und Agents in
 ihren Terminals, und schränkt nicht ein, was sie tun. Jedes deiner freigegebenen Geräte
 steuert all deine Terminals und kann neue auf deinen anderen Computern starten, auf denen
-Kodosi läuft.
+Kodosi läuft. Von jedem deiner Geräte aus kannst du Dosi auf deinen Computern schreiben, und Dosi handelt dort genauso, wie wenn du direkt am Computer schreibst. Ein Gerät, das du entfernst, kann Dosi nicht mehr schreiben.
 
 Alle, die ein Terminal öffnen können, sehen auch die Dateien auf seinem Canvas und nutzen
 seinen geteilten Browser; melde dich dort also nur an, wo alle von ihnen handeln dürfen. Ein

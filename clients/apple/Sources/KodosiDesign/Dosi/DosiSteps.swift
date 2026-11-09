@@ -1,5 +1,4 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
 struct DosiThought: View {
@@ -13,17 +12,18 @@ struct DosiThought: View {
         VStack(alignment: .leading, spacing: 5) {
             Button { open.toggle() } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
+                    Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                         .rotationEffect(.degrees(open ? 90 : 0))
-                    Text(live ? String(localized: "thinking") : seconds.map { String(localized: "thought for \($0)s") }
-                        ?? String(localized: "thought"))
+                    Text(live ? String(localized: "thinking", bundle: .module)
+                        : seconds.map { String(localized: "thought for \($0)s", bundle: .module) } ?? String(localized: "thought", bundle: .module))
+                        .font(mac: 11, ios: .caption, design: .monospaced)
                 }
-                .font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
-                .frame(height: 18).contentShape(Rectangle())
+                .foregroundStyle(theme.colors.inkFaint)
+                .controlHeight(18).touchTarget(Rectangle())
             }
             .buttonStyle(.plain).disabled(text.isEmpty)
             if open, !text.isEmpty {
-                Text(text).font(.system(size: 11.5)).lineSpacing(2).foregroundStyle(theme.colors.inkFaint).textSelection(.enabled)
+                Text(text).font(mac: 11.5, ios: .footnote).lineSpacing(2).foregroundStyle(theme.colors.inkFaint).textSelection(.enabled)
                     .padding(.leading, 12)
                     .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
                     .padding(.leading, 4)
@@ -38,8 +38,8 @@ struct DosiThinking: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("thinking").font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
-            .padding(.leading, 14).frame(height: 18)
+        Text("thinking", bundle: .module).font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
+            .padding(.leading, 14).controlHeight(18)
             .accessibilityIdentifier("dosi.thinking")
     }
 }
@@ -54,9 +54,9 @@ struct DosiToolStatus: View {
             case .running:
                 Spinner(size: 10)
             case .done:
-                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.ready)
+                Image(systemName: "checkmark").font(mac: 9, ios: .caption2, weight: .bold).foregroundStyle(theme.colors.ready)
             case .failed:
-                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9, weight: .semibold))
+                Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
                     .foregroundStyle(theme.colors.caution)
             }
         }
@@ -65,7 +65,7 @@ struct DosiToolStatus: View {
 }
 
 struct DosiMini: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let target: DosiTarget?
     let action: DosiTool.Action
@@ -73,23 +73,23 @@ struct DosiMini: View {
     var body: some View {
         switch target?.kind {
         case .terminal:
-            if let target, let session = deps.terminal(named: target.value) {
+            if let target, let session = place.terminal(target.value) {
                 AgentMark(session: session, size: 14)
             } else {
                 glyph("apple.terminal")
             }
         case .room:
-            RoomSigil(key: target.map { deps.room(named: $0.value)?.id ?? $0.value } ?? "", size: 14)
-        case .terminals where !deps.listedSessions.isEmpty:
+            RoomSigil(key: target.map { place.room($0.value)?.id ?? $0.value } ?? "", size: 14)
+        case .terminals where !place.sessions().isEmpty:
             HStack(spacing: -5) {
-                ForEach(deps.listedSessions.prefix(3)) { session in
+                ForEach(place.sessions().prefix(3)) { session in
                     AgentMark(session: session, size: 14)
                         .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                 }
             }
-        case .rooms where !deps.missions.isEmpty:
+        case .rooms where !place.rooms().isEmpty:
             HStack(spacing: -5) {
-                ForEach(deps.missions.prefix(3)) { mission in
+                ForEach(place.rooms().prefix(3)) { mission in
                     RoomSigil(key: mission.id, size: 14)
                         .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                 }
@@ -117,7 +117,7 @@ struct DosiMini: View {
 }
 
 struct DosiReceipt: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let tool: DosiTool
     @State private var open = false
@@ -132,31 +132,33 @@ struct DosiReceipt: View {
             HStack(spacing: 2) {
                 Button {
                     if let target = tool.target, openable {
-                        deps.open(target)
+                        place.open(target)
                     } else if tool.output != nil {
                         open.toggle()
                     }
                 } label: {
                     HStack(spacing: 7) {
                         DosiMini(target: tool.target, action: tool.action)
-                        Text(DosiWords.receipt(tool)).font(.system(size: 11, design: .monospaced))
+                        Text(DosiWords.receipt(tool)).font(mac: 11, ios: .caption, design: .monospaced)
                             .foregroundStyle(running ? theme.colors.ink : theme.colors.inkMuted)
                             .lineLimit(1).truncationMode(.middle)
                         DosiToolStatus(status: tool.status)
                     }
-                    .padding(.leading, 5).padding(.trailing, 9).frame(height: 22)
+                    .padding(.leading, 5).padding(.trailing, 9).controlHeight(22)
                     .background(theme.colors.surface, in: Capsule())
-                    .contentShape(Capsule())
+                    .touchTarget(Capsule())
                 }
                 .buttonStyle(PressScaleStyle(scale: 0.97))
                 .help(tool.target?.value ?? "")
                 if tool.output != nil {
                     Button { open.toggle() } label: {
-                        Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
+                        Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                             .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
-                            .frame(width: 18, height: 22).contentShape(Rectangle())
+                            .frame(width: 18).controlHeight(22).touchTarget(Rectangle())
                     }
-                    .buttonStyle(.plain).help(open ? "Hide the output" : "Show the output")
+                    .buttonStyle(.plain)
+                    .help(open ? Text("Hide the output", bundle: .module) : Text("Show the output", bundle: .module))
+                    .accessibilityLabel(open ? Text("Hide the output", bundle: .module) : Text("Show the output", bundle: .module))
                 }
             }
             if open, let output = tool.output {
@@ -198,16 +200,17 @@ struct DosiToolGroup: View {
                                 .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                         }
                     }
-                    Text(DosiWords.summary(tools)).font(.system(size: 11, design: .monospaced))
+                    Text(DosiWords.summary(tools)).font(mac: 11, ios: .caption, design: .monospaced)
                         .foregroundStyle(running ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                     DosiToolStatus(status: running ? .running : failed ? .failed : .done)
-                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
+                    Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                         .rotationEffect(.degrees(shown ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
                 }
-                .frame(height: 22).contentShape(Rectangle())
+                .controlHeight(22).touchTarget(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(shown ? "Hide the steps" : "Show the steps")
+            .help(shown ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
+            .accessibilityHint(shown ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
             if shown {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(items) { item in
@@ -238,24 +241,28 @@ struct DosiToolGroup: View {
 }
 
 struct DosiToolLine: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let tool: DosiTool
 
     var body: some View {
         HStack(spacing: 7) {
             DosiMini(target: tool.target, action: tool.action)
-            Text(DosiWords.receipt(tool)).font(.system(size: 11, design: .monospaced))
+            Text(DosiWords.receipt(tool)).font(mac: 11, ios: .caption, design: .monospaced)
                 .foregroundStyle(tool.status == .running ? theme.colors.ink : theme.colors.inkMuted)
                 .lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 4)
             DosiToolStatus(status: tool.status)
         }
+        #if os(iOS)
+        .frame(minHeight: 44)
+        #else
         .frame(height: 22)
+        #endif
         .contentShape(Rectangle())
         .onTapGesture {
             if let target = tool.target {
-                deps.open(target)
+                place.open(target)
             }
         }
         .help(tool.target?.value ?? "")

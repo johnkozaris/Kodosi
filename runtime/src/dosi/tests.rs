@@ -1,10 +1,13 @@
 use serde_json::{Value, json};
 
+use uuid::{NoContext, Timestamp, Uuid};
+
 use super::{
     DosiAction, DosiBody, DosiItem, DosiTarget, DosiTargetKind,
     adapters::{Adapter, Event},
     context,
     receipt::{self, Shown},
+    store::Marks,
 };
 use crate::agents::Agent;
 
@@ -200,4 +203,28 @@ fn a_catch_up_keeps_the_newest_lines_within_its_bounds() {
     assert!(shown.contains("Kodosi left out older messages."));
     assert!(shown.contains("message 99") && !shown.contains("message 0 "));
     assert_eq!(context::catch_up(&[], false), None);
+}
+
+#[test]
+fn marks_keep_old_turns_settled_after_they_let_their_ids_go() {
+    let mut marks = Marks::default();
+    let hour_ahead = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 3600;
+    let ahead = Uuid::new_v7(Timestamp::from_unix(NoContext, hour_ahead, 0)).to_string();
+    assert!(marks.settle(&ahead));
+    let waiting = Uuid::now_v7().to_string();
+    let turns = (0..1100)
+        .map(|_| Uuid::now_v7().to_string())
+        .collect::<Vec<_>>();
+    for turn in &turns {
+        assert!(marks.settle(turn));
+        marks.trim(Some(&waiting));
+    }
+    assert!(!marks.settled(&waiting));
+    marks.trim(None);
+    assert!(turns.iter().all(|turn| marks.settled(turn)));
+    assert!(!marks.settled(&Uuid::now_v7().to_string()));
 }

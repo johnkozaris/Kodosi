@@ -72,4 +72,14 @@ extension View {
             frame(height: height)
         #endif
     }
+
+    /// A font of `size` points on a Mac, and of the text style `style` on iPhone and iPad, where
+    /// it grows with Dynamic Type.
+    func font(mac size: CGFloat, ios style: Font.TextStyle, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        #if os(iOS)
+            font(.system(style, design: design, weight: weight))
+        #else
+            font(.system(size: size, weight: weight, design: design))
+        #endif
+    }
 }

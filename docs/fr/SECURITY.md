@@ -17,7 +17,7 @@ les membres invités plus tard. Partager un terminal ne partage rien d'autre. Ko
 confiance à toutes les personnes qui partagent un terminal ou un salon, ainsi qu'aux
 programmes et aux agents de leurs terminaux, et ne limite pas ce qu'ils font. Chacun de vos
 appareils approuvés contrôle tous vos terminaux et peut en lancer de nouveaux sur vos autres
-ordinateurs qui exécutent Kodosi.
+ordinateurs qui exécutent Kodosi. Depuis n'importe lequel de vos appareils, vous pouvez écrire à Dosi sur vos ordinateurs, et Dosi y agit comme lorsque vous lui écrivez sur l'ordinateur même. Un appareil que vous retirez ne peut plus écrire à Dosi.
 
 Toutes les personnes qui peuvent ouvrir un terminal voient aussi les fichiers de son canvas et
 utilisent son navigateur partagé : ne vous y connectez donc que là où toutes ces personnes

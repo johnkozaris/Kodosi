@@ -12,6 +12,7 @@ struct DosiPanel: View {
             DosiThread(listening: composing).arrive(delay: 0.12, rise: 8)
             DosiComposer(focused: $composing)
         }
+        .environment(deps.dosiPlace)
         .onAppear { deps.dosi.see() }
         .onChange(of: deps.dosi.items.last?.id) { _, _ in deps.dosi.see() }
     }

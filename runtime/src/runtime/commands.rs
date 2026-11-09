@@ -37,7 +37,7 @@ fn run_on_host() -> crate::text::Text {
     text!("Start a program on the computer that hosts this terminal.")
 }
 #[cfg(not(feature = "host"))]
-fn no_dosi() -> crate::text::Text {
+pub(super) fn no_dosi() -> crate::text::Text {
     text!("Dosi runs on the computer that hosts your terminals.")
 }
 
@@ -204,10 +204,7 @@ impl Runtime {
                 self.emit(json!({"type":"mission.show", "missionId":mission_id}));
                 self.result(command);
             }
-            #[cfg(feature = "host")]
             command if command.is_dosi() => self.dosi_command(command)?,
-            #[cfg(not(feature = "host"))]
-            command if command.is_dosi() => return Err(Error::Text(no_dosi())),
             Command::SeeMission {
                 mission_id,
                 sequence,

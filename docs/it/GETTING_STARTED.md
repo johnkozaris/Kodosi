@@ -145,7 +145,10 @@ con il suo account, il modello e il livello di ragionamento.
 Chiedi a Dosi cosa ha bisogno di te, o chiedigli di fare qualcosa. Dosi legge i tuoi terminali
 e le tue stanze, risponde, e scrive, avvia e chiude cose per te. Quando serve una scelta,
 chiede con dei pulsanti, e puoi anche rispondere con parole tue. La tua conversazione con Dosi
-è la stessa su tutti i tuoi computer.
+è la stessa su tutti i tuoi dispositivi. Su iPhone o iPad, la scheda Dosi scrive a Dosi sul
+computer che scegli sopra il messaggio, all'inizio quello che ha risposto per ultimo. Un
+messaggio per un computer offline aspetta finché non esegue di nuovo Kodosi, e Non inviare
+lo ritira.
 
 La riga accanto alla faccia di Dosi ti dice quando Dosi lavora, quando ha risposto e quando ha
 una domanda. Su un computer senza agenti, mostra Configura Dosi e apre Impostazioni › Dosi. Per

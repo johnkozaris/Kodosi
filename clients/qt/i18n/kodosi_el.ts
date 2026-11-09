@@ -1077,6 +1077,14 @@
         <translation>Δουλεύει στο %1</translation>
     </message>
     <message>
+        <source>Waiting for %1</source>
+        <translation>Περιμένει το %1</translation>
+    </message>
+    <message>
+        <source>Do not send</source>
+        <translation>Να μην σταλεί</translation>
+    </message>
+    <message>
         <source>thought for %1s</source>
         <translation>σκέφτηκε για %1 δ.</translation>
     </message>

@@ -16,7 +16,7 @@ private func snapshot(state: String = "idle", conversation: String = "c1", items
         "agents": .array([.object(["agent": .string("claude"), "installed": .bool(true)])]),
         "instructionsEdited": .bool(false), "folder": .string("/tmp/dosi"), "shared": .bool(true), "remote": remote,
         "conversation": .object(["id": .string(conversation), "startedAt": .int(1_792_000_000_000)]),
-        "items": .array(items), "earlier": .bool(earlier), "queued": .array([]),
+        "items": .array(items), "earlier": .bool(earlier), "queued": .array([]), "asks": .array([]), "last": .null,
     ])]
 }
 
@@ -201,8 +201,22 @@ private struct Named {
     #expect(!workbench.dosiOpen)
     workbench.toggleDosi()
     #expect(!workbench.dosiOpen && workbench.shownSidebarWidth == Metrics.sidebarWidth)
-    let restored = WorkbenchState(defaults: defaults)
-    #expect(!restored.dosiOn && !restored.dosiOpen)
+    #expect(!WorkbenchState(defaults: defaults).dosiOpen)
+}
+
+@Test @MainActor func `a message from the phone waits under the computer that it asked`() throws {
+    let dosi = DosiStore(commands: CommandSink())
+    var fields = snapshot(items: [person("a", "What needs me?")])
+    if case var .object(inner)? = fields["dosi"] {
+        inner["asks"] = .array([.object(["item": .string("a"), "computer": .object([
+            "device": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "name": .string("Studio"),
+        ])])])
+        inner["state"] = .string("off")
+        fields["dosi"] = .object(inner)
+    }
+    try dosi.receive(runtimeEvent("dosi.snapshot", fields: fields))
+    #expect(dosi.items.first.flatMap(dosi.waiting)?.name == "Studio")
+    #expect(dosi.state == .off)
 }
 
 @Test func `the thread groups steps of a turn and marks long gaps`() throws {
