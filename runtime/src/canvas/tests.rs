@@ -161,7 +161,7 @@ async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path()),
+        crate::canvas::CanvasServices::new(folder.path(), true),
     );
     canvas.moved_to(folder.path().to_owned());
     let attach = |upload: uuid::Uuid, offset, data: &[u8], last| CanvasRequest::Attach {
@@ -197,7 +197,7 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path()),
+        crate::canvas::CanvasServices::new(folder.path(), true),
     );
     canvas.moved_to(folder.path().to_owned());
     let attach = |name: &str, upload: uuid::Uuid, offset| CanvasRequest::Attach {
@@ -226,7 +226,7 @@ async fn a_file_for_a_page_of_any_kind_goes_into_the_folder_and_not_on_the_canva
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path()),
+        crate::canvas::CanvasServices::new(folder.path(), true),
     );
     canvas.moved_to(folder.path().to_owned());
     let attached = canvas

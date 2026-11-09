@@ -21,7 +21,7 @@ async fn runs_start_line(shell: PathBuf, arguments: Vec<String>, line: &str, out
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
@@ -70,7 +70,7 @@ async fn a_screen_that_a_console_starts_with_stays_in_its_history() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,

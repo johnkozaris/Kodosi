@@ -1167,7 +1167,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         pipes_closed_early: HashSet::new(),
         direct: HashMap::new(),
         #[cfg(feature = "host")]
-        services: crate::canvas::CanvasServices::new(&config.data_root),
+        services: crate::canvas::CanvasServices::new(&config.data_root, config.isolated),
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]

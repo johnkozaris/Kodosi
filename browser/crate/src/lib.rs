@@ -74,6 +74,10 @@ mod host {
         /// The browser program: an app bundle on a Mac, otherwise its executable.
         pub engine: PathBuf,
         pub profiles: PathBuf,
+        /// The browsers keep the key of their cookies and saved passwords in the system's keychain
+        /// or keyring. A host whose profiles are thrown away, such as a test run, says no: then
+        /// the browsers use a fixed key and never touch the keychain of the person.
+        pub system_keychain: bool,
     }
 
     /// One window: its profile, its name among the host's windows, the page that it opens first
@@ -91,6 +95,7 @@ mod host {
     pub struct Browsers {
         program: RwLock<PathBuf>,
         profiles: PathBuf,
+        system_keychain: bool,
         engines: Mutex<HashMap<String, Arc<Engine>>>,
         windows: Mutex<HashMap<(String, String), Window>>,
     }
@@ -100,6 +105,7 @@ mod host {
             Self {
                 program: RwLock::new(settings.engine),
                 profiles: settings.profiles,
+                system_keychain: settings.system_keychain,
                 engines: Mutex::default(),
                 windows: Mutex::default(),
             }
@@ -129,7 +135,8 @@ mod host {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .clone();
-            let engine = Engine::start(&program, &self.profiles, profile).await?;
+            let engine =
+                Engine::start(&program, &self.profiles, profile, self.system_keychain).await?;
             engines.insert(profile.to_owned(), Arc::clone(&engine));
             drop(engines);
             Ok(engine)
