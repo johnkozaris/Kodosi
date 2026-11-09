@@ -149,6 +149,7 @@
 "The folder name is not text that Kodosi can show.": "文件夹名称不是 Kodosi 可以显示的文本。",
 "The folder {name} is there already. Use another branch name.": "文件夹 {name} 已存在。请使用其他分支名称。",
 "The friend list changed on another device.": "好友列表已在另一台设备上更改。",
+"The friend list on the server does not continue the friend list on this device.": "服务器上的好友列表与此设备上的好友列表不连续。",
 "The host could not check this device. Try again.": "主机无法验证此设备。请重试。",
 "The host did not answer.": "主机没有响应。",
 "The host did not confirm the operation, and Kodosi did not send it again.": "主机未确认此操作，Kodosi 没有重新发送。",

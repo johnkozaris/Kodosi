@@ -149,6 +149,7 @@
 "The folder name is not text that Kodosi can show.": "폴더 이름에 Kodosi가 표시할 수 없는 문자가 있어요.",
 "The folder {name} is there already. Use another branch name.": "{name} 폴더가 이미 있어요. 다른 브랜치 이름을 쓰세요.",
 "The friend list changed on another device.": "다른 기기에서 친구 목록이 바뀌었어요.",
+"The friend list on the server does not continue the friend list on this device.": "서버의 친구 목록이 이 기기의 친구 목록에 이어지지 않아요.",
 "The host could not check this device. Try again.": "호스트가 이 기기를 확인하지 못했어요. 다시 시도하세요.",
 "The host did not answer.": "호스트가 응답하지 않았어요.",
 "The host did not confirm the operation, and Kodosi did not send it again.": "호스트가 작업을 확인하지 않아서 Kodosi가 다시 보내지 않았어요.",

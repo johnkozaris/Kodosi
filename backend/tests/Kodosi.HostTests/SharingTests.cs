@@ -39,7 +39,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
-        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(owner.User.Id, ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(owner.User.Id, null, ct));
         var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
         string Body(byte value) => Convert.ToBase64String([value]);
         await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, Body(1), signature), ct);
@@ -47,10 +47,13 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Equal(409, stale.Status);
         await Assert.ThrowsAsync<ApiException>(() => store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 1, Body(2), signature), ct));
         await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 3, Body(3), signature), ct);
-        var list = JsonSerializer.SerializeToElement(await store.Friends.SignedListAsync(owner.User.Id, ct), TestJson.Options);
+        IEnumerable<string?> Bodies(object stored) => JsonSerializer.SerializeToElement(stored, TestJson.Options).GetProperty("lists").EnumerateArray().Select(x => x.GetProperty("body").GetString());
+        var list = JsonSerializer.SerializeToElement(await store.Friends.SignedListAsync(owner.User.Id, null, ct), TestJson.Options);
         Assert.Equal(3, list.GetProperty("revision").GetInt64());
-        Assert.Equal(Body(3), list.GetProperty("body").GetString());
-        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(friend.User.Id, ct));
+        Assert.Equal([Body(1), Body(3)], Bodies(list));
+        Assert.Equal([Body(3)], Bodies(await store.Friends.SignedListAsync(owner.User.Id, 1, ct)));
+        Assert.Empty(Bodies(await store.Friends.SignedListAsync(owner.User.Id, 3, ct)));
+        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(friend.User.Id, null, ct));
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
         var listed = Assert.Single(JsonSerializer.SerializeToElement(await store.Friends.ListAsync(owner.User.Id, ct), TestJson.Options).EnumerateArray());

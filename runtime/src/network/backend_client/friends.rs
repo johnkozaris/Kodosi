@@ -7,16 +7,17 @@ use super::{
     invalid, json, path_segment, untrusted, wire,
 };
 use crate::identity::{
-    friends::{Friend, FriendList, SignedFriendList, invite, parse_invite, root_hex},
+    friends::{
+        Chain, Friend, FriendList, Head, Newest, SignedFriendList, invite, parse_invite, root_hex,
+    },
     pins::Root,
 };
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct StoredList {
+struct StoredLists {
     revision: u64,
-    body: String,
-    signature: String,
+    lists: Vec<SignedFriendList>,
 }
 
 impl BackendClient {
@@ -29,28 +30,62 @@ impl BackendClient {
             .get(&credentials.user_id)
     }
 
-    async fn sync_friends(&self, credentials: &Credentials) -> Result<(FriendList, u64)> {
-        let kept = self.kept_friends(credentials).await?;
-        let stored = match self
+    async fn stored_friends(
+        &self,
+        credentials: &Credentials,
+        after: Option<u64>,
+    ) -> Result<Option<StoredLists>> {
+        let path = after.map_or_else(
+            || "api/me/friend-list".to_owned(),
+            |after| format!("api/me/friend-list?after={after}"),
+        );
+        match self
             .inner
             .http
-            .device::<StoredList>(Method::GET, "api/me/friend-list", credentials, None)
+            .device(Method::GET, &path, credentials, None)
             .await
         {
-            Ok(stored) => Some(stored),
-            Err(Error::Backend { status: 404, .. }) => None,
-            Err(error) => return Err(error),
-        };
-        let kept_revision = kept.as_ref().map_or(0, |list| list.revision);
-        let Some(stored) = stored else {
-            let list = kept.unwrap_or_else(|| FriendList::new(&credentials.user_id));
-            if kept_revision == 0 {
-                return Ok((list, 0));
+            Ok(stored) => Ok(Some(stored)),
+            Err(Error::Backend { status: 404, .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn sync_friends(&self, credentials: &Credentials) -> Result<(FriendList, Head)> {
+        for _ in 0..3 {
+            match self.follow_friends(credentials).await {
+                Err(Error::Backend { status: 409, .. }) => {}
+                result => return result,
             }
-            let list = self
-                .put_friends(credentials, list, kept_revision, 0)
-                .await?;
-            return Ok((list, kept_revision));
+        }
+        Err(Error::Busy)
+    }
+
+    async fn follow_friends(&self, credentials: &Credentials) -> Result<(FriendList, Head)> {
+        let user = &credentials.user_id;
+        let kept = self.inner.state.lock().await.friend_lists.signed(user);
+        let kept_head = kept
+            .as_ref()
+            .map(|kept| FriendList::read(kept, user))
+            .transpose()?;
+        let stored = self
+            .stored_friends(
+                credentials,
+                kept_head
+                    .as_ref()
+                    .map(|(_, head)| head.revision.saturating_sub(1)),
+            )
+            .await?;
+        let latest = stored.as_ref().map_or(0, |stored| stored.revision);
+        if let Some((list, head)) = &kept_head
+            && latest < head.revision
+        {
+            return self
+                .put_friends(credentials, list.clone(), head, latest)
+                .await;
+        }
+        let Some(mut stored) = stored else {
+            return Ok((FriendList::new(user), Head::default()));
         };
         let bundle: IdentityBundle = self
             .inner
@@ -58,27 +93,38 @@ impl BackendClient {
             .bearer(Method::GET, "api/me/identity", &credentials.token, None)
             .await?;
         let own = self.verify_bundle(&bundle, None).await?;
-        let signed = SignedFriendList {
-            body: stored.body,
-            signature: stored.signature,
-        };
-        match FriendList::open(&signed, &credentials.user_id, &own.devices) {
-            Ok(list) if list.revision >= kept_revision => {
-                self.inner
-                    .state
-                    .lock()
-                    .await
-                    .friend_lists
-                    .put(&credentials.user_id, signed)?;
-                Ok((list, stored.revision))
+        let mut chain = Chain::new(user, &own.devices);
+        if let Some(kept) = kept {
+            chain.anchor(kept)?;
+        }
+        loop {
+            let more = !stored.lists.is_empty();
+            for signed in stored.lists {
+                chain.follow(signed)?;
             }
-            Ok(_) | Err(_) => {
-                let list = kept.unwrap_or_else(|| FriendList::new(&credentials.user_id));
-                let revision = kept_revision.max(stored.revision) + 1;
-                let list = self
-                    .put_friends(credentials, list, revision, stored.revision)
-                    .await?;
-                Ok((list, revision))
+            if !more || chain.revision() >= stored.revision {
+                break;
+            }
+            stored = self
+                .stored_friends(credentials, Some(chain.revision()))
+                .await?
+                .ok_or(Error::Busy)?;
+        }
+        match chain.end()? {
+            Newest::Signed(list, head, signed) => {
+                if kept_head.is_none_or(|(_, kept)| kept != head) {
+                    self.inner
+                        .state
+                        .lock()
+                        .await
+                        .friend_lists
+                        .put(user, signed)?;
+                }
+                Ok((list, head))
+            }
+            Newest::Resign(list, head) => {
+                let expected = head.revision;
+                self.put_friends(credentials, list, &head, expected).await
             }
         }
     }
@@ -87,11 +133,11 @@ impl BackendClient {
         &self,
         credentials: &Credentials,
         mut list: FriendList,
-        revision: u64,
+        on: &Head,
         expected: u64,
-    ) -> Result<FriendList> {
-        let signed = list.sign(
-            revision,
+    ) -> Result<(FriendList, Head)> {
+        let (signed, head) = list.sign(
+            on,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
         )?;
@@ -102,7 +148,7 @@ impl BackendClient {
                 Method::PUT,
                 "api/me/friend-list",
                 credentials,
-                Some(json!({"expectedRevision":expected,"revision":revision,"body":signed.body,"signature":signed.signature})),
+                Some(json!({"expectedRevision":expected,"revision":head.revision,"body":signed.body,"signature":signed.signature})),
             )
             .await?;
         self.inner
@@ -111,7 +157,7 @@ impl BackendClient {
             .await
             .friend_lists
             .put(&credentials.user_id, signed)?;
-        Ok(list)
+        Ok((list, head))
     }
 
     async fn change_friends(
@@ -120,24 +166,24 @@ impl BackendClient {
         change: impl Fn(&mut FriendList) -> bool,
     ) -> Result<FriendList> {
         for _ in 0..3 {
-            let (mut list, stored) = self.sync_friends(credentials).await?;
+            let (mut list, head) = self.sync_friends(credentials).await?;
             if !change(&mut list) {
                 return Ok(list);
             }
-            let revision = list.revision.max(stored) + 1;
-            match self.put_friends(credentials, list, revision, stored).await {
+            let expected = head.revision;
+            match self.put_friends(credentials, list, &head, expected).await {
                 Err(Error::Backend { status: 409, .. }) => {}
-                result => return result,
+                result => return result.map(|(list, _)| list),
             }
         }
         Err(Error::Busy)
     }
 
     pub(super) async fn resign_friends(&self, credentials: &Credentials) -> Result<()> {
-        let (list, stored) = self.sync_friends(credentials).await?;
-        if stored > 0 {
-            self.put_friends(credentials, list, stored + 1, stored)
-                .await?;
+        let (list, head) = self.sync_friends(credentials).await?;
+        if head.revision > 0 {
+            let expected = head.revision;
+            self.put_friends(credentials, list, &head, expected).await?;
         }
         Ok(())
     }

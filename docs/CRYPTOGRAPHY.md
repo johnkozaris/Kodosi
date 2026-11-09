@@ -38,8 +38,9 @@ each field carries its length.
   renew every 24 hours. Devices pin each account they verify: the root changes only when the
   person accepts it, the list never goes back, and removed devices never return.
 - **Friend list.** The friend list is a signed list of friends' roots, and invites carry
-  it. Sharing with a friend whose root changed stops until the person accepts the new
-  root.
+  it. Each list names the SHA-256 of the list before it, and a device takes only lists
+  that continue the list it keeps. Sharing with a friend whose root changed stops until
+  the person accepts the new root.
 - **Link code.** The link code has 60 bits, stretched with PBKDF2-HMAC-SHA512 (2^20
   rounds), with HMAC-SHA256 proofs of the request, the approval and the identity root.
 - **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound to the account and its root,
@@ -108,3 +109,6 @@ each field carries its length.
     the list without it still trusts it, so the backend can show them device lists that it
     signs. A device that received the removal refuses each device that the removed device
     approves.
+14. The backend can withhold a newer friend list from a device. A device without a friend
+    list takes the newest one that an approved device signed, so the backend can give it
+    an older one.

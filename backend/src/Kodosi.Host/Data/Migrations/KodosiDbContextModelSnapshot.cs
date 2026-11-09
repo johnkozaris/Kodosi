@@ -179,18 +179,18 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint");
+
                     b.Property<byte[]>("Body")
                         .IsRequired()
                         .HasColumnType("bytea");
-
-                    b.Property<long>("Revision")
-                        .HasColumnType("bigint");
 
                     b.Property<byte[]>("Signature")
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.HasKey("UserId");
+                    b.HasKey("UserId", "Revision");
 
                     b.ToTable("friend_lists", (string)null);
                 });

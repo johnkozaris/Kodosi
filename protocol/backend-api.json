@@ -100,8 +100,9 @@
   },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
-    "list": "JSON of the records with the account id, a revision and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
-    "storage": "the server stores the newest signed list of each account and replaces it only from the revision that the device read; it cannot make or change a list",
+    "list": "JSON of the records with the account id, a revision, previous (the hexadecimal SHA-256 of the list before it; absent in the first list) and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
+    "storage": "the server keeps the newest 1024 lists of each account and adds a list only on top of the newest revision that the device read; it cannot make or change a list; starting fresh deletes them",
+    "read": "GET gives the newest 32 lists, or with after=N the next 32 after revision N, oldest first, and the newest revision; a device takes only lists that continue the one it keeps, and of them the newest that an approved device signed; else it signs its newest trusted list again on top; a device without a list takes the newest list that an approved device signed",
     "use": "a device reads the identity of another account only with a record, and only when the identity root is equal to the root of the record",
     "created": "by the user: a friend request, an accepted request, Trust, or Verify with an invite text",
     "inviteText": "kodosi:<handle>:<identity root in 64 hexadecimal characters>",

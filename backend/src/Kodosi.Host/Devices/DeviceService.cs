@@ -164,6 +164,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         foreach (var device in devices) device.Revoked = true;
         if (list is not null) db.DeviceLists.Remove(list);
+        await db.FriendLists.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
         await db.DeviceLinks.Where(x => x.UserId == userId && x.State == "pending")
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
         var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
