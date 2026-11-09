@@ -86,7 +86,7 @@ struct RoomConversation: View {
             touching = phase == .interacting || phase == .decelerating
         }
         .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y + geometry.containerSize.height - geometry.contentInsets.bottom >= geometry.contentSize.height - 40
+            geometry.contentOffset.y + geometry.contentInsets.top + geometry.containerSize.height >= geometry.contentSize.height - 40
         } action: { _, bottom in
             if bottom {
                 state.followsLatest = true
