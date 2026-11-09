@@ -11,8 +11,8 @@ KDialog {
     property string text: ""
     property var request: null
     readonly property string friendHandle: request ? request.handle || "" : handleIn(text)
-    readonly property string name: request ? request.displayName || request.handle || "" : friendHandle.length > 0 ? "@" + friendHandle : ""
-    readonly property string firstName: request ? name.split(" ")[0] : name
+    readonly property string name: request ? (request.displayName ? request.displayName + " (@" + request.handle + ")" : "@" + request.handle) : friendHandle.length > 0 ? "@" + friendHandle : ""
+    readonly property string firstName: request ? (request.displayName || request.handle).split(" ")[0] : name
 
     signal added()
 

@@ -131,7 +131,7 @@ struct IncomingRequestRow: View {
                 Label("Block…", systemImage: "hand.raised")
             }
         }
-        .friendTrustAlert(isPresented: $trusting, name: request.personName) { people.accept(request) }
+        .friendTrustAlert(isPresented: $trusting, name: request.nameWithHandle) { people.accept(request) }
         .blockConfirmation(isPresented: $blocking, name: request.personName) { people.block(handle: request.handle) }
     }
 

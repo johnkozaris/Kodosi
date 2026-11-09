@@ -14,6 +14,10 @@ struct RoomMessageRow: View {
     let targets: [RoomMention]
     @State private var madeTask = 0
 
+    private var authorHandle: String? {
+        model.rooms.details[roomId]?.members.first { $0.userId == message.authorId }?.handle
+    }
+
     private var date: Date? {
         RoomDates.parse(message.createdAt)
     }
@@ -144,6 +148,13 @@ struct RoomMessageRow: View {
                     .appTextStyle(.subhead)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(1)
+                if message.agent == nil, let authorHandle {
+                    Text(verbatim: "@\(authorHandle)")
+                        .appTextStyle(.caption)
+                        .fontWeight(.regular)
+                        .foregroundStyle(theme.colors.inkFaint)
+                        .lineLimit(1)
+                }
                 if message.agent != nil {
                     Text("for \(message.authorName)")
                         .appTextStyle(.caption)

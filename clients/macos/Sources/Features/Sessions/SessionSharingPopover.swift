@@ -177,8 +177,8 @@ struct SessionSharingPopover: View {
             .frame(width: 60).padding(.top, 4).opacity(blocked ? 0.45 : 1)
         }
         .buttonStyle(PressScaleStyle()).disabled(saving || blocked)
-        .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : name)
-        .accessibilityLabel(name).accessibilityAddTraits(selected ? .isSelected : [])
+        .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : "\(name) (@\(friend.handle))")
+        .accessibilityLabel(Text(verbatim: "\(name) (@\(friend.handle))")).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func save() {

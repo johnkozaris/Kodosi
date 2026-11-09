@@ -219,10 +219,10 @@ KPopover {
                         scale: pressed ? 0.95 : 1
                         objectName: "sharing.friend." + modelData.userId
                         Accessible.id: objectName
-                        Accessible.name: fullName
+                        Accessible.name: fullName + " (@" + modelData.handle + ")"
                         Accessible.selected: selected
                         ToolTip.visible: hovered
-                        ToolTip.text: blocked ? qsTr("Their identity changed. Trust them in Friends first.") : fullName
+                        ToolTip.text: blocked ? qsTr("Their identity changed. Trust them in Friends first.") : fullName + " (@" + modelData.handle + ")"
                         ToolTip.delay: Tip.delay
                         hoverEnabled: true
                         contentItem: Item {

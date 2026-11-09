@@ -70,7 +70,7 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
     {
         var result = new StringBuilder();
         var bytes = 0;
-        foreach (var rune in (value ?? "").EnumerateRunes())
+        foreach (var rune in Limits.Visible(value).EnumerateRunes())
         {
             if (Rune.IsControl(rune)) continue;
             if (bytes + rune.Utf8SequenceLength > maximum) break;
