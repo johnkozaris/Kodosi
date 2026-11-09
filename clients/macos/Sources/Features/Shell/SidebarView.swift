@@ -206,13 +206,13 @@ struct SidebarView: View {
                     }
                     .background(alignment: .leading) {
                         if collapsed {
-                            foldMarks(computer.folders.flatMap(\.sessions))
+                            foldMarks(computer.folders.flatMap(\.sessions), at: SidebarIndent.computer)
                         }
                     }
                 }
                 if !collapsed {
                     ForEach(computer.folders) { group in
-                        folder(group)
+                        folder(group, underCaption: titled && group.id == computer.folders.first?.id)
                     }
                 }
             }
@@ -220,10 +220,10 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
-    private func folder(_ group: SessionFolderGroup) -> some View {
+    private func folder(_ group: SessionFolderGroup, underCaption: Bool) -> some View {
         let collapsed = group.directory != nil && collapsedFolders.contains(group.id)
         if group.directory != nil {
-            SidebarFolderHeader(group: group, collapsed: collapsed) {
+            SidebarFolderHeader(group: group, collapsed: collapsed, underCaption: underCaption) {
                 withAnimation(theme.motion.spring) {
                     if collapsed {
                         collapsedFolders.remove(group.id)
@@ -234,7 +234,7 @@ struct SidebarView: View {
             }
             .background(alignment: .leading) {
                 if collapsed {
-                    foldMarks(group.sessions)
+                    foldMarks(group.sessions, at: SidebarIndent.folder)
                 }
             }
         }
@@ -246,13 +246,14 @@ struct SidebarView: View {
         }
     }
 
-    private func foldMarks(_ sessions: [RuntimeSession]) -> some View {
+    private func foldMarks(_ sessions: [RuntimeSession], at indent: CGFloat) -> some View {
         ZStack {
             ForEach(sessions) { session in
                 Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
             }
         }
-        .padding(.leading, 4)
+        .frame(width: 13)
+        .padding(.leading, indent)
     }
 
     private var footer: some View {

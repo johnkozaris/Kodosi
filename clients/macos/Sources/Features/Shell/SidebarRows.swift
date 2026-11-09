@@ -2,6 +2,12 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+enum SidebarIndent {
+    static let section: CGFloat = 6
+    static let computer: CGFloat = 10
+    static let folder: CGFloat = 14
+}
+
 struct SidebarSectionHeader: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -19,7 +25,7 @@ struct SidebarSectionHeader: View {
                         .foregroundStyle(hovered ? theme.colors.ink : theme.colors.inkFaint)
                     Spacer(minLength: 0)
                 }
-                .padding(.leading, 10).frame(height: 26).contentShape(Rectangle())
+                .padding(.leading, SidebarIndent.section).frame(height: 26).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             IconButton(title: addTitle, symbol: "plus", identifier: identifier, size: 22, action: add)
@@ -153,6 +159,7 @@ struct SidebarFolderHeader: View {
     @State private var choosingOffline = false
     let group: SessionFolderGroup
     let collapsed: Bool
+    var underCaption = false
     let toggle: () -> Void
 
     private var branches: Bool {
@@ -170,7 +177,7 @@ struct SidebarFolderHeader: View {
                     FoldTriangle(collapsed: collapsed, sessions: group.sessions)
                     Spacer(minLength: 4)
                 }
-                .padding(.leading, 8).frame(height: 24).contentShape(Rectangle())
+                .padding(.leading, SidebarIndent.folder).frame(height: 24).contentShape(Rectangle())
             }
             .buttonStyle(.plain).help(group.directory ?? group.name)
             .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
@@ -212,7 +219,7 @@ struct SidebarFolderHeader: View {
                 .opacity(hovered ? 1 : 0)
             }
         }
-        .padding(.top, 6)
+        .padding(.top, underCaption ? 0 : 6)
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
@@ -230,7 +237,7 @@ struct SidebarPinnedHeader: View {
             Text("Pinned").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
             Spacer(minLength: 0)
         }
-        .padding(.leading, 8).frame(height: 24).padding(.top, 6)
+        .padding(.leading, SidebarIndent.computer).frame(height: 24).padding(.top, 6)
         .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("sidebar.pinned")
     }
@@ -250,7 +257,7 @@ struct SidebarComputerHeader: View {
                 Spacer(minLength: 0)
             }
             .foregroundStyle(theme.colors.inkFaint)
-            .padding(.leading, 10).frame(height: 20).contentShape(Rectangle())
+            .padding(.leading, SidebarIndent.computer).frame(height: 20).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .padding(.top, 10)
@@ -326,7 +333,7 @@ struct SidebarTerminalRow: View {
                 .accessibilityValue(Text(sharing ?? ""))
             trailing
         }
-        .padding(.leading, 8).padding(.trailing, 4).frame(height: 38)
+        .padding(.leading, SidebarIndent.folder).padding(.trailing, 4).frame(height: 38)
         .background {
             if selected {
                 SelectionPill(namespace: pill)
