@@ -153,7 +153,10 @@ Modell und Denkaufwand.
 Frag Dosi, was dich braucht, oder bitte es, etwas zu tun. Dosi liest deine Terminals und
 Räume, antwortet und tippt, startet und schließt Dinge für dich. Braucht es eine
 Entscheidung, fragt es mit Buttons, und du kannst auch mit eigenen Worten antworten. Deine
-Unterhaltung mit Dosi ist auf all deinen Computern dieselbe.
+Unterhaltung mit Dosi ist auf all deinen Geräten dieselbe. Auf einem iPhone oder iPad
+schreibt der Tab Dosi an Dosi auf dem Computer, den du über der Nachricht wählst, zuerst an
+den, der zuletzt geantwortet hat. Eine Nachricht für einen Computer, der offline ist,
+wartet, bis er Kodosi wieder ausführt, und Nicht senden nimmt sie zurück.
 
 Die Zeile neben Dosis Gesicht sagt dir, wann Dosi arbeitet, wann es geantwortet hat und wann
 es eine Frage hat. Auf einem Computer ohne Agent steht dort Dosi einrichten, und sie öffnet

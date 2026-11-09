@@ -1074,6 +1074,14 @@
         <translation>正在处理 %1</translation>
     </message>
     <message>
+        <source>Waiting for %1</source>
+        <translation>正在等待 %1</translation>
+    </message>
+    <message>
+        <source>Do not send</source>
+        <translation>不发送</translation>
+    </message>
+    <message>
         <source>thought for %1s</source>
         <translation>思考了 %1 秒</translation>
     </message>

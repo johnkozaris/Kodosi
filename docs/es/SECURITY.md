@@ -16,7 +16,7 @@ sala, también los miembros invitados más tarde. Compartir un terminal no compa
 Kodosi confía en todas las personas que comparten un terminal o una sala, y en los programas y
 agentes de sus terminales, y no limita lo que hacen. Cada uno de tus dispositivos aprobados
 controla todos tus terminales y puede iniciar otros nuevos en tus demás ordenadores que
-ejecutan Kodosi.
+ejecutan Kodosi. Desde cualquiera de tus dispositivos puedes escribir a Dosi en tus ordenadores, y Dosi actúa allí igual que cuando le escribes en el propio ordenador. Un dispositivo que quitas ya no puede escribir a Dosi.
 
 Todas las personas que pueden abrir un terminal también ven los archivos de su lienzo y usan su
 navegador compartido, así que inicia sesión allí solo donde todas puedan actuar. Un terminal

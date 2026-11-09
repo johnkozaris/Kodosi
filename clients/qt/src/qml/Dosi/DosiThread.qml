@@ -255,7 +255,7 @@ Item {
             Component {
                 id: personView
                 Item {
-                    height: bubble.height
+                    height: bubble.height + (waiting.visible ? waiting.height + 4 : 0)
 
                     Rectangle {
                         id: bubble
@@ -286,6 +286,37 @@ Item {
                             onLinkActivated: link => root.openLink(link)
 
                             HoverHandler { cursorShape: words.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
+                        }
+                    }
+                    Row {
+                        id: waiting
+                        anchors.right: parent.right
+                        anchors.top: bubble.bottom
+                        anchors.topMargin: 4
+                        spacing: 4
+                        visible: (entry.row.waiting || "").length > 0
+
+                        KIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10
+                            height: 10
+                            name: "history"
+                            color: KodosiTheme.inkFaint
+                        }
+                        PlainLabel {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: qsTr("Waiting for %1").arg(entry.row.waiting || "")
+                            color: KodosiTheme.inkFaint
+                            font.pixelSize: KodosiTheme.fontFootnote
+                        }
+                        KIconButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            glyph: "close"
+                            size: 20
+                            objectName: "dosi.waiting.remove"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Do not send")
+                            onClicked: Models.Dosi.unqueue(entry.row.id)
                         }
                     }
                 }

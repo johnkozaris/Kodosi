@@ -3,7 +3,7 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use serde_json::{Value, json};
@@ -11,16 +11,14 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::{
-    AGENTS, DosiAgent, DosiBody, DosiConversation, DosiEntry, DosiInstructions, DosiItem, DosiLog,
-    DosiPage, DosiQueued, DosiRecord, DosiRemote, DosiSnapshot, DosiState, DosiTone,
-    DosiToolStatus, SharedInstructions, TOKEN_VARIABLE,
+    AGENTS, DosiAgent, DosiBody, DosiComputer, DosiInstructions, DosiItem, DosiPage, DosiQueued,
+    DosiRecord, DosiSnapshot, DosiState, DosiTone, DosiToolStatus, SharedInstructions,
+    TOKEN_VARIABLE,
     adapters::{Adapter, Choice, Event},
-    context,
-    conversation::{self, Conversation},
-    folder,
+    chat::{Account, Chat, Heard, Message, Output},
+    context, conversation, folder,
     process::{self, Child, Spawn},
-    shared::Shared,
-    store::{Book, ProviderSession, Saved, Store},
+    store::{ProviderSession, Saved, Store},
 };
 use crate::{
     Error, Result,
@@ -31,18 +29,11 @@ const IDLE_LIFE: Duration = Duration::from_mins(10);
 const STOP_GRACE: Duration = Duration::from_secs(6);
 const FLUSH_DELAY: Duration = Duration::from_millis(80);
 const BEAT: Duration = Duration::from_mins(3);
-const REMOTE_LIFE: i64 = 10 * 60 * 1000;
-const REMOTE_STOP: Duration = Duration::from_secs(8);
-const MAX_QUEUED: usize = 8;
+const MAX_QUEUED: usize = super::chat::MAX_WAITING;
 const MAX_SESSIONS: usize = 8;
-const MESSAGES: usize = 256;
 
-pub(crate) struct Failure {
-    pub retry: bool,
-    pub message: String,
-}
-
-pub(crate) enum Message {
+/// What the work of this computer's Dosi tells it: its agent's process and its timers.
+pub(crate) enum Run {
     Prepared {
         process: u64,
         result: std::result::Result<agents::Runner, String>,
@@ -69,47 +60,11 @@ pub(crate) enum Message {
         generation: u64,
         turns: u64,
     },
-    Written {
-        generation: u64,
-        result: std::result::Result<u64, Failure>,
-    },
-    Synced {
-        generation: u64,
-        result: std::result::Result<DosiLog, Failure>,
-    },
-    Saved {
-        generation: u64,
-        instructions: SharedInstructions,
-        result: std::result::Result<(), Failure>,
-    },
-    Retry {
-        generation: u64,
-    },
-    Gone {
-        generation: u64,
-        turn: String,
-    },
 }
 
 pub(crate) struct Typing {
     pub terminal: String,
     pub text: String,
-}
-
-#[derive(Default)]
-pub(crate) struct Output {
-    pub events: Vec<Value>,
-    pub snapshot: bool,
-    pub typing: Vec<Typing>,
-    pub write: Option<DosiRecord>,
-    pub sync: Option<u64>,
-    pub save: Option<SharedInstructions>,
-}
-
-impl Output {
-    fn item(&mut self, item: &DosiItem) {
-        self.events.push(json!({"type":"dosi.item","item":item}));
-    }
 }
 
 pub(crate) type Answer<T> = futures_util::future::BoxFuture<'static, T>;
@@ -169,28 +124,6 @@ enum Phase {
     Stopping,
 }
 
-enum Log {
-    Local { next: u64 },
-    Shared(Shared),
-}
-
-struct Remote {
-    turn: String,
-    computer: String,
-    since: i64,
-    last: i64,
-    stopping: Option<Instant>,
-}
-
-impl Remote {
-    fn live(&self) -> bool {
-        conversation::now() - self.last < REMOTE_LIFE
-            && self
-                .stopping
-                .is_none_or(|stopping| stopping.elapsed() < REMOTE_STOP)
-    }
-}
-
 #[derive(Clone, PartialEq, Eq)]
 struct Key {
     conversation: String,
@@ -218,16 +151,11 @@ struct Running {
 
 pub(crate) struct Engine {
     runners: Arc<dyn Runners>,
+    chat: Chat,
     store: Store,
     folder: PathBuf,
-    messages: mpsc::Sender<Message>,
-    setup: AgentChoice,
-    sessions: Vec<ProviderSession>,
+    saved: Saved,
     agents: Vec<DosiAgent>,
-    log: Log,
-    generation: u64,
-    conversation: Option<Conversation>,
-    remote: Option<Remote>,
     phase: Phase,
     turns: u64,
     queue: VecDeque<DosiQueued>,
@@ -248,20 +176,14 @@ impl Engine {
         home: &Path,
         runners: Arc<dyn Runners>,
     ) -> (Self, mpsc::Receiver<Message>) {
-        let (messages, receiver) = mpsc::channel(MESSAGES);
+        let (chat, receiver) = Chat::load(data_root);
         let store = Store::open(data_root);
-        let saved = store.load();
-        let mut engine = Self {
+        let engine = Self {
             runners,
+            chat,
             folder: folder::path(home),
-            messages,
-            setup: saved.setup,
-            sessions: saved.sessions,
+            saved: store.load(),
             agents: Vec::new(),
-            log: Log::Local { next: 1 },
-            generation: 0,
-            conversation: None,
-            remote: None,
             phase: Phase::Idle,
             turns: 0,
             queue: VecDeque::new(),
@@ -276,58 +198,37 @@ impl Engine {
             dirty: Vec::new(),
             store,
         };
-        engine.open(None);
         (engine, receiver)
     }
 
     pub(crate) fn sender(&self) -> mpsc::Sender<Message> {
-        self.messages.clone()
+        self.chat.sender()
     }
 
     pub(crate) const fn generation(&self) -> u64 {
-        self.generation
+        self.chat.generation()
     }
 
     pub(crate) fn share(
         &mut self,
-        user: Option<Uuid>,
+        account: Option<(Uuid, String)>,
         computer: impl FnOnce() -> String,
         out: &mut Output,
     ) {
-        let current = match &self.log {
-            Log::Local { .. } => None,
-            Log::Shared(shared) => Some(shared.user),
-        };
-        if current == user {
+        let account = account.map(|(user, device)| Account {
+            user,
+            device,
+            computer: String::new(),
+        });
+        if !self.chat.differs(account.as_ref()) {
             return;
         }
         self.quiet();
-        self.generation += 1;
-        self.open(user.map(|user| (user, computer())));
-        self.request_sync(out);
-        out.snapshot = true;
-    }
-
-    fn open(&mut self, account: Option<(Uuid, String)>) {
-        let book = account
-            .as_ref()
-            .map_or(Book::Local, |(user, _)| Book::Shared(*user));
-        let log = self.store.log(book);
-        self.log = match account {
-            Some((user, computer)) => Log::Shared(Shared::new(
-                user,
-                computer,
-                (log.sequence > 0).then_some(log.sequence),
-            )),
-            None => Log::Local {
-                next: log.sequence + 1,
-            },
-        };
-        self.conversation = None;
-        let mut out = Output::default();
-        for entry in log.entries {
-            self.record(entry, true, &mut out);
-        }
+        let account = account.map(|account| Account {
+            computer: computer(),
+            ..account
+        });
+        self.chat.share(account, out);
     }
 
     fn quiet(&mut self) {
@@ -335,7 +236,6 @@ impl Engine {
         self.phase = Phase::Idle;
         self.preparing = None;
         self.queue.clear();
-        self.remote = None;
         self.notes.clear();
         self.wake = false;
         self.dirty.clear();
@@ -352,20 +252,16 @@ impl Engine {
 
     pub(crate) fn refresh_agents(&self) {
         let installed = self.runners.installed();
-        let messages = self.messages.clone();
+        let messages = self.chat.sender();
         tokio::spawn(async move {
             if let Some(agents) = installed.await {
-                drop(messages.send(Message::Agents(agents)).await);
+                drop(messages.send(Message::Run(Run::Agents(agents))).await);
             }
         });
     }
 
-    fn later(&self, delay: Duration, message: Message) {
-        let messages = self.messages.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(delay).await;
-            drop(messages.send(message).await);
-        });
+    fn later(&self, delay: Duration, run: Run) {
+        self.chat.later(delay, Message::Run(run));
     }
 
     fn agent(&self) -> Option<Agent> {
@@ -376,93 +272,59 @@ impl Engine {
                     .iter()
                     .any(|known| known.agent == agent && known.installed)
         };
-        self.setup
+        self.saved
+            .setup
             .agent
             .filter(|agent| installed(*agent))
             .or_else(|| AGENTS.into_iter().find(|agent| installed(*agent)))
     }
 
     fn account(&self, agent: Agent) -> String {
-        self.setup
+        self.saved
+            .setup
             .pick(agent)
             .account
             .unwrap_or_else(|| "default".to_owned())
     }
 
-    fn remote(&self) -> Option<&Remote> {
-        self.remote.as_ref().filter(|remote| remote.live())
-    }
-
-    const fn ready(&self) -> bool {
-        match &self.log {
-            Log::Local { .. } => true,
-            Log::Shared(shared) => shared.synced().is_some(),
-        }
-    }
-
     fn free(&self) -> bool {
-        self.phase == Phase::Idle && self.remote().is_none() && self.ready()
-    }
-
-    fn computer(&self) -> String {
-        match &self.log {
-            Log::Local { .. } => String::new(),
-            Log::Shared(shared) => shared.computer.clone(),
-        }
+        self.phase == Phase::Idle && self.chat.remote().is_none() && self.chat.ready()
     }
 
     pub(crate) fn snapshot(&self) -> Value {
-        let state = match (self.phase, self.remote()) {
-            (Phase::Stopping, _)
-            | (
-                Phase::Idle,
-                Some(Remote {
-                    stopping: Some(_), ..
-                }),
-            ) => DosiState::Stopping,
+        let state = match (self.phase, self.chat.remote()) {
+            _ if !self.saved.on => DosiState::Off,
+            (Phase::Stopping, _) => DosiState::Stopping,
+            (Phase::Idle, Some(remote)) if remote.stopping() => DosiState::Stopping,
             (Phase::Working, _) | (Phase::Idle, Some(_)) => DosiState::Working,
             (Phase::Idle, None) if self.agent().is_none() => DosiState::Unavailable,
-            (Phase::Idle, None) if !self.ready() => DosiState::Connecting,
+            (Phase::Idle, None) if !self.chat.ready() => DosiState::Connecting,
             (Phase::Idle, None) => DosiState::Idle,
         };
-        let (items, earlier) = self
-            .conversation
-            .as_ref()
-            .map(Conversation::window)
-            .unwrap_or_default();
+        let (conversation, items, earlier) = self.chat.conversation_snapshot();
         let snapshot = DosiSnapshot {
             state,
             setup: AgentChoice {
                 agent: self.agent(),
-                picks: AGENTS.map(|agent| self.setup.pick(agent)).to_vec(),
+                picks: AGENTS.map(|agent| self.saved.setup.pick(agent)).to_vec(),
             },
             agents: self.agents.clone(),
             instructions_edited: self.edited,
             folder: self.folder.to_string_lossy().into_owned(),
-            shared: matches!(self.log, Log::Shared(_)),
-            remote: self.remote().map(|remote| DosiRemote {
-                computer: remote.computer.clone(),
-                since: remote.since,
-            }),
-            conversation: self
-                .conversation
-                .as_ref()
-                .map(|conversation| DosiConversation {
-                    id: conversation.id.clone(),
-                    started_at: conversation.started_at,
-                }),
+            shared: self.chat.shared(),
+            remote: self.chat.remote_snapshot(),
+            conversation,
             items,
             earlier,
             queued: self.queue.iter().cloned().collect(),
+            asks: self.chat.waiting(),
+            last: self.chat.last(),
         };
         json!({"type":"dosi.snapshot","dosi":snapshot})
     }
 
     fn save(&self) {
-        self.store.save(&Saved {
-            setup: self.setup.clone(),
-            sessions: self.sessions.clone(),
-        });
+        self.store.save(&self.saved);
     }
 
     fn instructions(&self) -> String {
@@ -471,13 +333,23 @@ impl Engine {
             .unwrap_or_else(|| folder::DEFAULT_INSTRUCTIONS.to_owned())
     }
 
+    /// Sends a message to Dosi here, or to Dosi on `computer` when it is another computer.
     pub(crate) fn send(
         &mut self,
         text: &str,
         context: Option<String>,
+        computer: Option<DosiComputer>,
         out: &mut Output,
     ) -> Result<()> {
         let text = text.trim();
+        if let Some(computer) = computer.filter(|computer| computer.device != self.chat.device()) {
+            return self.chat.ask(text, context, computer, out);
+        }
+        if !self.saved.on {
+            return Err(Error::Refused(text!(
+                "Dosi is off on this computer. Turn it on in Settings."
+            )));
+        }
         if self.agent().is_none() {
             return Err(Error::Refused(text!(
                 "Install Claude Code or Codex, then choose it for Dosi in Settings."
@@ -495,7 +367,7 @@ impl Engine {
             return Ok(());
         }
         let message = self.compose(text, context);
-        self.begin(Some(text), message, out);
+        self.begin(None, Some(text), message, out);
         Ok(())
     }
 
@@ -508,38 +380,100 @@ impl Engine {
     }
 
     fn advance(&mut self, out: &mut Output) {
-        if !self.free() {
+        while self.free() {
+            if self.saved.on
+                && let Some(next) = self.queue.pop_front()
+            {
+                let message = self.compose(&next.text, None);
+                self.begin(None, Some(&next.text), message, out);
+            } else if let Some(ask) = self.chat.asked_here() {
+                let (turn, text, context) =
+                    (ask.turn.clone(), ask.text.clone(), ask.context.clone());
+                self.chat.take(&turn);
+                if let Some(reason) = self.refusal() {
+                    self.refuse(&turn, &reason, out);
+                    continue;
+                }
+                let message = self.compose(&text, context);
+                self.begin(Some(turn), None, message, out);
+            } else if self.saved.on && self.wake {
+                self.wake = false;
+                let message = std::mem::take(&mut self.notes).join("\n\n");
+                self.begin(None, None, message, out);
+            }
             return;
-        }
-        if let Some(next) = self.queue.pop_front() {
-            let message = self.compose(&next.text, None);
-            self.begin(Some(&next.text), message, out);
-        } else if self.wake {
-            self.wake = false;
-            let message = std::mem::take(&mut self.notes).join("\n\n");
-            self.begin(None, message, out);
         }
     }
 
-    fn begin(&mut self, person: Option<&str>, text: String, out: &mut Output) {
-        let Some(agent) = self.agent() else {
-            return;
-        };
-        if self.conversation.is_none() {
-            let id = Uuid::now_v7().to_string();
-            self.conversation = Some(Conversation::begun(id.clone()));
-            self.append(DosiRecord::Begin { conversation: id }, out);
+    fn has_work(&self) -> bool {
+        (self.saved.on && (!self.queue.is_empty() || self.wake)) || self.chat.asked_here().is_some()
+    }
+
+    /// Why Dosi here does not answer a message that another device sent to this computer.
+    fn refusal(&self) -> Option<crate::text::Text> {
+        if !self.saved.on {
+            return Some(text!(
+                "Dosi is off on {computer}. Turn it on in Settings there.",
+                computer = self.chat.computer()
+            ));
         }
-        let computer = self.computer();
-        let Some(conversation) = self.conversation.as_mut() else {
+        self.agent()
+            .is_none()
+            .then(|| text!("Install Claude Code or Codex, then choose it for Dosi in Settings."))
+    }
+
+    /// Answers a message for this computer with why Dosi here does not run it.
+    fn refuse(&mut self, turn: &str, reason: &crate::text::Text, out: &mut Output) {
+        let computer = self.chat.computer();
+        let conversation = self.chat.current(out);
+        let id = conversation.id.clone();
+        let notice = DosiItem {
+            id: Uuid::now_v7().to_string(),
+            turn: turn.to_owned(),
+            at: conversation::now(),
+            body: DosiBody::Notice {
+                tone: DosiTone::Failed,
+                text: Some(reason.to_string()),
+            },
+        };
+        conversation.place(notice.clone());
+        for open in [true, false] {
+            if !open {
+                out.item(&notice);
+                self.chat.write(notice.clone(), out);
+            }
+            self.chat.append(
+                DosiRecord::Turn {
+                    conversation: id.clone(),
+                    turn: turn.to_owned(),
+                    open,
+                    computer: computer.clone(),
+                    at: conversation::now(),
+                },
+                out,
+            );
+        }
+        out.snapshot = true;
+    }
+
+    fn begin(
+        &mut self,
+        turn: Option<String>,
+        person: Option<&str>,
+        text: String,
+        out: &mut Output,
+    ) {
+        let Some(agent) = self.agent().filter(|_| self.saved.on) else {
             return;
         };
-        let turn = Uuid::now_v7().to_string();
-        let closed = conversation.close_questions();
+        let computer = self.chat.computer();
+        let conversation = self.chat.current(out);
+        let turn = turn.unwrap_or_else(|| Uuid::now_v7().to_string());
+        let closed = conversation.close_questions(false);
         let person = conversation.begin(turn.clone(), person);
         let id = conversation.id.clone();
         self.turns += 1;
-        self.append(
+        self.chat.append(
             DosiRecord::Turn {
                 conversation: id.clone(),
                 turn,
@@ -551,7 +485,7 @@ impl Engine {
         );
         for item in closed.into_iter().chain(person) {
             out.item(&item);
-            self.write(item, out);
+            self.chat.write(item, out);
         }
         self.phase = Phase::Working;
         self.beat_later();
@@ -582,11 +516,11 @@ impl Engine {
     }
 
     fn beat_later(&self) {
-        if matches!(self.log, Log::Shared(_)) {
+        if self.chat.shared() {
             self.later(
                 BEAT,
-                Message::Beat {
-                    generation: self.generation,
+                Run::Beat {
+                    generation: self.chat.generation(),
                     turns: self.turns,
                 },
             );
@@ -594,42 +528,46 @@ impl Engine {
     }
 
     fn message(&mut self, key: &Key, text: &str) -> String {
-        let Some(conversation) = &self.conversation else {
+        let Some(conversation) = self.chat.conversation() else {
             return text.to_owned();
         };
         let latest = conversation.latest();
         let known = self
+            .saved
             .sessions
             .iter()
             .find(|session| key.matches(session))
             .filter(|session| session.session.is_some())
             .map(|session| session.seen);
-        let items = known.map_or_else(
-            || {
+        let earlier = |item: &&DosiItem| Some(item.turn.as_str()) != conversation.turn();
+        let items: Vec<_> = known.map_or_else(
+            || conversation.items().filter(earlier).collect(),
+            |seen| {
                 conversation
-                    .items()
-                    .filter(|item| Some(item.turn.as_str()) != conversation.turn())
+                    .foreign_since(seen)
+                    .into_iter()
+                    .filter(earlier)
                     .collect()
             },
-            |seen| conversation.foreign_since(seen),
         );
         let catch_up = context::catch_up(&items, known.is_none());
         if let Some(session) = self
+            .saved
             .sessions
             .iter_mut()
             .find(|session| key.matches(session))
         {
             session.seen = latest;
         } else {
-            self.sessions.push(ProviderSession {
+            self.saved.sessions.push(ProviderSession {
                 conversation: key.conversation.clone(),
                 agent: key.agent,
                 account: key.account.clone(),
                 session: None,
                 seen: latest,
             });
-            if self.sessions.len() > MAX_SESSIONS {
-                self.sessions.remove(0);
+            if self.saved.sessions.len() > MAX_SESSIONS {
+                self.saved.sessions.remove(0);
             }
         }
         self.save();
@@ -650,13 +588,17 @@ impl Engine {
         }
         self.processes += 1;
         let process = self.processes;
-        let account = self.setup.pick(key.agent).account;
+        let account = self.saved.setup.pick(key.agent).account;
         let runner = self.runners.runner(key.agent, account);
         self.preparing = Some((process, key, message, text));
-        let messages = self.messages.clone();
+        let messages = self.chat.sender();
         tokio::spawn(async move {
             let result = runner.await;
-            drop(messages.send(Message::Prepared { process, result }).await);
+            drop(
+                messages
+                    .send(Message::Run(Run::Prepared { process, result }))
+                    .await,
+            );
         });
     }
 
@@ -673,6 +615,7 @@ impl Engine {
             return;
         };
         let session = self
+            .saved
             .sessions
             .iter_mut()
             .find(|session| key.matches(session));
@@ -688,7 +631,7 @@ impl Engine {
             })
         });
         self.save();
-        let pick = self.setup.pick(key.agent);
+        let pick = self.saved.setup.pick(key.agent);
         let launch = adapter.launch(
             &Choice {
                 session: session_id.as_deref(),
@@ -727,7 +670,7 @@ impl Engine {
                 variables,
                 input: launch.input,
             },
-            self.messages.clone(),
+            self.chat.sender(),
         );
         match spawned {
             Ok(child) => {
@@ -750,21 +693,77 @@ impl Engine {
 
     pub(crate) fn handle(&mut self, message: Message, out: &mut Output) {
         match message {
-            Message::Agents(agents) => {
+            Message::Written { generation, result } => self.chat.written(generation, result, out),
+            Message::Synced { generation, result } => {
+                let Some((heard, instructions)) = self.chat.synced(generation, result, out) else {
+                    return;
+                };
+                self.heard(heard, out);
+                if let Some(instructions) = instructions
+                    && let Err(error) = self.adopt_instructions(instructions.text.as_deref(), out)
+                {
+                    tracing::warn!(%error, "Dosi's instructions from another computer were not kept");
+                }
+                self.advance(out);
+            }
+            Message::Saved {
+                generation,
+                instructions,
+                result,
+            } => self.chat.saved(generation, instructions, result, out),
+            Message::Retry { generation } => self.chat.retry(generation, out),
+            Message::Gone { generation, turn } => {
+                if self.chat.gone(generation, &turn, out) {
+                    self.advance(out);
+                }
+            }
+            Message::Run(run) => self.run(run, out),
+        }
+    }
+
+    fn heard(&mut self, heard: Vec<Heard>, out: &mut Output) {
+        for heard in heard {
+            match heard {
+                Heard::Reset => self.quiet(),
+                Heard::Adopted => {
+                    if self.phase != Phase::Idle {
+                        self.end_process();
+                        self.phase = Phase::Idle;
+                        self.preparing = None;
+                    }
+                }
+                Heard::Stopped(turn) => {
+                    let running = self
+                        .chat
+                        .conversation()
+                        .and_then(conversation::Conversation::turn)
+                        == Some(turn.as_str());
+                    if running && self.phase == Phase::Working {
+                        self.stop(out);
+                    }
+                }
+                Heard::Answered(item) => self.go_on(item, out),
+            }
+        }
+    }
+
+    fn run(&mut self, run: Run, out: &mut Output) {
+        match run {
+            Run::Agents(agents) => {
                 if agents != self.agents {
                     self.agents = agents;
                     out.snapshot = true;
                 }
             }
-            Message::Prepared { process, result } => self.prepared(process, result, out),
-            Message::Line { process, line } => self.line(process, &line, out),
-            Message::Exited { process, error } => self.exited(process, error, out),
-            Message::Idle { process, turns } => {
+            Run::Prepared { process, result } => self.prepared(process, result, out),
+            Run::Line { process, line } => self.line(process, &line, out),
+            Run::Exited { process, error } => self.exited(process, error, out),
+            Run::Idle { process, turns } => {
                 if self.phase == Phase::Idle && self.current(process) && self.turns == turns {
                     self.end_process();
                 }
             }
-            Message::Late { process, turns } => {
+            Run::Late { process, turns } => {
                 if self.phase == Phase::Stopping
                     && self.current(process)
                     && self.turns == turns
@@ -773,28 +772,8 @@ impl Engine {
                     running.child.end();
                 }
             }
-            Message::Flush => self.flush(out),
-            Message::Beat { generation, turns } => self.beat(generation, turns, out),
-            Message::Written { generation, result } => self.written(generation, result, out),
-            Message::Synced { generation, result } => self.synced(generation, result, out),
-            Message::Saved {
-                generation,
-                instructions,
-                result,
-            } => self.saved(generation, instructions, result, out),
-            Message::Retry { generation } => self.retry(generation, out),
-            Message::Gone { generation, turn } => {
-                if generation == self.generation
-                    && self
-                        .remote
-                        .as_ref()
-                        .is_some_and(|remote| remote.turn == turn && !remote.live())
-                {
-                    self.remote = None;
-                    out.snapshot = true;
-                    self.advance(out);
-                }
-            }
+            Run::Flush => self.flush(out),
+            Run::Beat { generation, turns } => self.beat(generation, turns, out),
         }
     }
 
@@ -820,7 +799,7 @@ impl Engine {
     }
 
     fn flush(&mut self, out: &mut Output) {
-        let Some(conversation) = &self.conversation else {
+        let Some(conversation) = self.chat.conversation() else {
             return;
         };
         for id in self.dirty.drain(..) {
@@ -831,11 +810,12 @@ impl Engine {
     }
 
     fn beat(&mut self, generation: u64, turns: u64, out: &mut Output) {
-        if generation != self.generation || turns != self.turns || self.phase == Phase::Idle {
+        if generation != self.chat.generation() || turns != self.turns || self.phase == Phase::Idle
+        {
             return;
         }
-        let computer = self.computer();
-        let Some(conversation) = &self.conversation else {
+        let computer = self.chat.computer();
+        let Some(conversation) = self.chat.conversation() else {
             return;
         };
         let Some(turn) = conversation.turn() else {
@@ -848,7 +828,7 @@ impl Engine {
             computer,
             at: conversation::now(),
         };
-        self.append(record, out);
+        self.chat.append(record, out);
         self.beat_later();
     }
 
@@ -880,6 +860,7 @@ impl Engine {
                     return;
                 };
                 if let Some(known) = self
+                    .saved
                     .sessions
                     .iter_mut()
                     .find(|known| key.matches(known))
@@ -900,8 +881,8 @@ impl Engine {
                     return;
                 }
                 let Some(item) = self
-                    .conversation
-                    .as_mut()
+                    .chat
+                    .conversation_mut()
                     .and_then(|conversation| conversation.apply(event))
                 else {
                     return;
@@ -922,7 +903,7 @@ impl Engine {
                         ..
                     }
                 ) {
-                    self.write(item, out);
+                    self.chat.write(item, out);
                 }
             }
         }
@@ -934,7 +915,7 @@ impl Engine {
         }
         self.dirty.push(id);
         if self.dirty.len() == 1 {
-            self.later(FLUSH_DELAY, Message::Flush);
+            self.later(FLUSH_DELAY, Run::Flush);
         }
     }
 
@@ -945,8 +926,8 @@ impl Engine {
         let interrupted = self.phase == Phase::Stopping;
         self.phase = Phase::Idle;
         self.preparing = None;
-        let computer = self.computer();
-        let Some(conversation) = self.conversation.as_mut() else {
+        let computer = self.chat.computer();
+        let Some(conversation) = self.chat.conversation_mut() else {
             return;
         };
         let mut settled = conversation.settle(interrupted);
@@ -980,16 +961,16 @@ impl Engine {
         conversation.end();
         for item in settled {
             out.item(&item);
-            self.write(item, out);
+            self.chat.write(item, out);
         }
         if let Some(closing) = closing {
-            self.append(closing, out);
+            self.chat.append(closing, out);
         }
         out.snapshot = true;
         if std::mem::take(&mut self.restart) {
             self.end_process();
         }
-        if !self.queue.is_empty() || self.wake {
+        if self.has_work() {
             self.advance(out);
         } else if let Some(running) = self
             .process
@@ -998,7 +979,7 @@ impl Engine {
         {
             self.later(
                 IDLE_LIFE,
-                Message::Idle {
+                Run::Idle {
                     process: running.child.id,
                     turns: self.turns,
                 },
@@ -1022,6 +1003,7 @@ impl Engine {
         });
         if running.resuming && !running.heard && missing && self.phase == Phase::Working {
             if let Some(session) = self
+                .saved
                 .sessions
                 .iter_mut()
                 .find(|session| running.key.matches(session))
@@ -1042,7 +1024,7 @@ impl Engine {
 
     pub(crate) fn stop(&mut self, out: &mut Output) {
         if self.phase == Phase::Idle {
-            self.stop_remote(out);
+            self.chat.stop_remote(out);
             return;
         }
         if self.phase != Phase::Working {
@@ -1065,56 +1047,48 @@ impl Engine {
             .is_some_and(|line| running.child.write(line));
         if asked {
             let process = running.child.id;
-            self.later(STOP_GRACE, Message::Late { process, turns });
+            self.later(STOP_GRACE, Run::Late { process, turns });
         } else {
             running.child.end();
         }
     }
 
-    fn stop_remote(&mut self, out: &mut Output) {
-        let Some(remote) = self
-            .remote
-            .as_mut()
-            .filter(|remote| remote.live() && remote.stopping.is_none())
-        else {
-            return;
-        };
-        remote.stopping = Some(Instant::now());
-        let turn = remote.turn.clone();
-        self.append(DosiRecord::Stop { turn: turn.clone() }, out);
-        self.later(
-            REMOTE_STOP,
-            Message::Gone {
-                generation: self.generation,
-                turn,
-            },
-        );
-        out.snapshot = true;
-    }
-
+    /// Takes back a message that waits here or for another computer.
     pub(crate) fn unqueue(&mut self, id: &str, out: &mut Output) -> Result<()> {
         let before = self.queue.len();
         self.queue.retain(|queued| queued.id != id);
-        if self.queue.len() == before {
-            return Err(Error::Refused(text!("You sent that message already.")));
+        if self.queue.len() < before {
+            out.snapshot = true;
+            return Ok(());
         }
-        out.snapshot = true;
-        Ok(())
+        if self.chat.take_back(id, out) {
+            return Ok(());
+        }
+        Err(Error::Refused(text!("You sent that message already.")))
     }
 
+    /// Answers a question. When Dosi asked it here, Dosi goes on with the answer here; when it
+    /// asked on another computer, Dosi goes on there.
     pub(crate) fn answer(
         &mut self,
         item: &str,
         choices: Vec<String>,
         out: &mut Output,
     ) -> Result<()> {
-        let conversation = self
-            .conversation
-            .as_mut()
-            .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
-        let answered = conversation.answer(item, choices).map_err(Error::Text)?;
-        out.item(&answered);
-        self.write(answered.clone(), out);
+        let (answered, here) = self.chat.answer(item, choices, out)?;
+        if here {
+            self.go_on(answered, out);
+            self.advance(out);
+        }
+        Ok(())
+    }
+
+    /// Takes the answer to a question that Dosi asked here into Dosi's next turn, and types the
+    /// chosen keys in the terminal that asked.
+    fn go_on(&mut self, answered: DosiItem, out: &mut Output) {
+        if !self.saved.on {
+            return;
+        }
         let DosiBody::Question {
             question,
             options,
@@ -1124,7 +1098,7 @@ impl Engine {
             ..
         } = answered.body
         else {
-            return Ok(());
+            return;
         };
         let (picked, own): (Vec<_>, Vec<_>) = choices
             .into_iter()
@@ -1166,14 +1140,12 @@ impl Engine {
                 "{note}. Kodosi typed {typed} in the terminal {terminal}."
             ));
             if own.is_empty() {
-                return Ok(());
+                return;
             }
         } else {
             self.notes.push(format!("{note}."));
         }
         self.wake = true;
-        self.advance(out);
-        Ok(())
     }
 
     pub(crate) fn ask(
@@ -1192,8 +1164,8 @@ impl Engine {
             ));
         }
         let conversation = self
-            .conversation
-            .as_mut()
+            .chat
+            .conversation_mut()
             .ok_or_else(|| Error::Refused(text!("Dosi has no conversation.")))?;
         let item = conversation.push(DosiBody::Question {
             question,
@@ -1204,16 +1176,34 @@ impl Engine {
             answer: None,
         });
         out.item(&item);
-        self.write(item, out);
+        self.chat.write(item, out);
         Ok(())
     }
 
     pub(crate) fn renew(&mut self, out: &mut Output) {
         self.quiet();
-        let id = Uuid::now_v7().to_string();
-        self.conversation = Some(Conversation::begun(id.clone()));
-        self.append(DosiRecord::Begin { conversation: id }, out);
+        self.chat.renew(out);
+    }
+
+    /// Turns Dosi on this computer on or off. Off, Dosi here stops its turn and closes its
+    /// questions, and answers messages from other devices with a note that it is off here.
+    pub(crate) fn turn(&mut self, on: bool, out: &mut Output) {
+        if self.saved.on == on {
+            return;
+        }
+        self.saved.on = on;
+        self.save();
+        if !on {
+            self.queue.clear();
+            self.notes.clear();
+            self.wake = false;
+            if self.phase == Phase::Working {
+                self.stop(out);
+            }
+            self.chat.close_own_questions(out);
+        }
         out.snapshot = true;
+        self.advance(out);
     }
 
     pub(crate) fn configure(&mut self, change: &AgentChoiceChange, out: &mut Output) -> Result<()> {
@@ -1224,9 +1214,9 @@ impl Engine {
         if agent.is_some_and(|agent| !AGENTS.contains(&agent)) {
             return Err(Error::Refused(text!("Dosi cannot run on that agent.")));
         }
-        let used = |engine: &Self| engine.agent().map(|agent| engine.setup.pick(agent));
+        let used = |engine: &Self| engine.agent().map(|agent| engine.saved.setup.pick(agent));
         let before = used(self);
-        self.setup.apply(change);
+        self.saved.setup.apply(change);
         if used(self) != before {
             self.restart_process();
         }
@@ -1261,9 +1251,7 @@ impl Engine {
             .filter(|text| !text.is_empty() && *text != folder::DEFAULT_INSTRUCTIONS.trim())
             .map(str::to_owned);
         self.adopt_instructions(text.as_deref(), out)?;
-        if let Log::Shared(shared) = &mut self.log {
-            out.save = shared.save(SharedInstructions { text });
-        }
+        out.save = self.chat.save(SharedInstructions { text });
         Ok(self.read_instructions())
     }
 
@@ -1280,13 +1268,11 @@ impl Engine {
     }
 
     pub(crate) fn page(&self, before: &str) -> DosiPage {
-        self.conversation.as_ref().map_or_else(
-            || DosiPage {
-                items: Vec::new(),
-                earlier: false,
-            },
-            |conversation| conversation.page(before),
-        )
+        self.chat.page(before)
+    }
+
+    pub(crate) fn nudge(&mut self, sequence: Option<u64>, out: &mut Output) {
+        self.chat.nudge(sequence, out);
     }
 
     fn end_process(&mut self) {
@@ -1299,357 +1285,6 @@ impl Engine {
         if let Some(running) = self.process.take() {
             running.child.end_now();
         }
-    }
-
-    fn write(&mut self, item: DosiItem, out: &mut Output) {
-        let Some(conversation) = &self.conversation else {
-            return;
-        };
-        let record = DosiRecord::Item {
-            conversation: conversation.id.clone(),
-            item,
-        };
-        self.append(record, out);
-    }
-
-    fn append(&mut self, record: DosiRecord, out: &mut Output) {
-        match &mut self.log {
-            Log::Local { next } => {
-                let entry = DosiEntry {
-                    sequence: *next,
-                    mine: true,
-                    record,
-                };
-                *next += 1;
-                self.store.append(Book::Local, std::slice::from_ref(&entry));
-                self.settle(entry);
-            }
-            Log::Shared(shared) => {
-                if let Some(record) = shared.push(record) {
-                    out.write = Some(record);
-                }
-            }
-        }
-    }
-
-    fn settle(&mut self, entry: DosiEntry) {
-        if let DosiRecord::Item { conversation, item } = entry.record
-            && let Some(current) = self
-                .conversation
-                .as_mut()
-                .filter(|current| current.id == conversation)
-        {
-            current.upsert(item, entry.sequence, true, false);
-        }
-    }
-
-    fn request_sync(&mut self, out: &mut Output) {
-        if let Log::Shared(shared) = &mut self.log
-            && let Some(after) = shared.sync()
-        {
-            out.sync = Some(after);
-        }
-    }
-
-    pub(crate) fn nudge(&mut self, sequence: Option<u64>, out: &mut Output) {
-        if let Log::Shared(shared) = &mut self.log
-            && let Some(after) = shared.hear(sequence)
-        {
-            out.sync = Some(after);
-        }
-    }
-
-    fn retry_later(&mut self) {
-        let Log::Shared(shared) = &mut self.log else {
-            return;
-        };
-        let delay = shared.backoff();
-        self.later(
-            delay,
-            Message::Retry {
-                generation: self.generation,
-            },
-        );
-    }
-
-    fn retry(&mut self, generation: u64, out: &mut Output) {
-        if generation != self.generation {
-            return;
-        }
-        let Log::Shared(shared) = &mut self.log else {
-            return;
-        };
-        let (write, sync, save) = shared.retry();
-        if write.is_some() {
-            out.write = write;
-        }
-        if sync.is_some() {
-            out.sync = sync;
-        }
-        if save.is_some() {
-            out.save = save;
-        }
-    }
-
-    fn written(
-        &mut self,
-        generation: u64,
-        result: std::result::Result<u64, Failure>,
-        out: &mut Output,
-    ) {
-        if generation != self.generation {
-            return;
-        }
-        let Log::Shared(shared) = &mut self.log else {
-            return;
-        };
-        match result {
-            Ok(sequence) => {
-                let written = shared.written(sequence);
-                let book = Book::Shared(shared.user);
-                if written.write.is_some() {
-                    out.write = written.write;
-                }
-                if written.sync.is_some() {
-                    out.sync = written.sync;
-                }
-                if let Some(record) = written.settled {
-                    let entry = DosiEntry {
-                        sequence,
-                        mine: true,
-                        record,
-                    };
-                    self.store.append(book, std::slice::from_ref(&entry));
-                    self.settle(entry);
-                }
-            }
-            Err(failure) => {
-                tracing::debug!(
-                    message = failure.message,
-                    "a Dosi record waits for the server"
-                );
-                if let Some(next) = shared.write_failed(failure.retry) {
-                    out.write = Some(next);
-                }
-                if failure.retry {
-                    self.retry_later();
-                }
-            }
-        }
-    }
-
-    fn synced(
-        &mut self,
-        generation: u64,
-        result: std::result::Result<DosiLog, Failure>,
-        out: &mut Output,
-    ) {
-        if generation != self.generation {
-            return;
-        }
-        let Log::Shared(shared) = &mut self.log else {
-            return;
-        };
-        let log = match result {
-            Ok(log) => log,
-            Err(failure) => {
-                tracing::debug!(
-                    message = failure.message,
-                    "Dosi's conversation waits for the server"
-                );
-                shared.sync_failed();
-                self.retry_later();
-                return;
-            }
-        };
-        let book = Book::Shared(shared.user);
-        if log.reset {
-            shared.reset();
-            self.store.clear(book);
-            self.quiet();
-            self.conversation = None;
-            out.snapshot = true;
-            self.request_sync(out);
-            return;
-        }
-        let known = shared.synced().unwrap_or_default();
-        let again = shared.synced_to(log.sequence);
-        let saving = shared.saving();
-        let entries = log
-            .entries
-            .into_iter()
-            .filter(|entry| entry.sequence > known)
-            .collect::<Vec<_>>();
-        self.store.append(book, &entries);
-        for entry in entries {
-            self.record(entry, false, out);
-        }
-        if let Some(instructions) = log.instructions.filter(|_| !saving)
-            && let Err(error) = self.adopt_instructions(instructions.text.as_deref(), out)
-        {
-            tracing::warn!(%error, "Dosi's instructions from another computer were not kept");
-        }
-        if again {
-            self.request_sync(out);
-        }
-        out.snapshot = true;
-        self.advance(out);
-    }
-
-    fn saved(
-        &mut self,
-        generation: u64,
-        instructions: SharedInstructions,
-        result: std::result::Result<(), Failure>,
-        out: &mut Output,
-    ) {
-        if generation != self.generation {
-            return;
-        }
-        let Log::Shared(shared) = &mut self.log else {
-            return;
-        };
-        match result {
-            Ok(()) => out.save = shared.saved(None),
-            Err(failure) if failure.retry => {
-                shared.saved(Some(instructions));
-                self.retry_later();
-            }
-            Err(failure) => {
-                tracing::warn!(
-                    message = failure.message,
-                    "Dosi's instructions were not shared"
-                );
-                out.save = shared.saved(None);
-            }
-        }
-    }
-
-    fn record(&mut self, entry: DosiEntry, restoring: bool, out: &mut Output) {
-        let DosiEntry {
-            sequence,
-            mine,
-            record,
-        } = entry;
-        match record {
-            DosiRecord::Begin { conversation } => {
-                if self
-                    .conversation
-                    .as_ref()
-                    .is_none_or(|current| current.id != conversation)
-                {
-                    self.adopt(conversation, out);
-                }
-                if let Some(current) = self.conversation.as_mut() {
-                    current.confirmed = true;
-                }
-            }
-            DosiRecord::Turn {
-                conversation,
-                turn,
-                open,
-                computer,
-                at,
-            } => {
-                if !self.belongs(&conversation, out) || mine {
-                    return;
-                }
-                if open {
-                    self.remote_turn(turn, computer, at, out);
-                } else if self
-                    .remote
-                    .as_ref()
-                    .is_some_and(|remote| remote.turn == turn)
-                {
-                    self.remote = None;
-                    out.snapshot = true;
-                }
-            }
-            DosiRecord::Stop { turn } => {
-                let running =
-                    self.conversation.as_ref().and_then(Conversation::turn) == Some(turn.as_str());
-                if !mine && running && self.phase == Phase::Working {
-                    self.stop(out);
-                }
-            }
-            DosiRecord::Item { conversation, item } => {
-                if !self.belongs(&conversation, out) {
-                    return;
-                }
-                if let Some(remote) = self
-                    .remote
-                    .as_mut()
-                    .filter(|remote| remote.turn == item.turn)
-                {
-                    remote.last = remote.last.max(item.at);
-                }
-                let id = item.id.clone();
-                if let Some(current) = self.conversation.as_mut()
-                    && current.upsert(item, sequence, mine, restoring)
-                    && let Some(item) = current.item(&id)
-                {
-                    out.item(item);
-                }
-            }
-        }
-    }
-
-    fn belongs(&mut self, conversation: &str, out: &mut Output) -> bool {
-        match &self.conversation {
-            Some(current) if current.id == conversation => true,
-            Some(current) if current.confirmed || current.id.as_str() > conversation => false,
-            _ => {
-                self.adopt(conversation.to_owned(), out);
-                true
-            }
-        }
-    }
-
-    fn adopt(&mut self, id: String, out: &mut Output) {
-        if self.phase != Phase::Idle {
-            self.end_process();
-            self.phase = Phase::Idle;
-            self.preparing = None;
-        }
-        self.remote = None;
-        let started = conversation::time_of(&id).unwrap_or_else(conversation::now);
-        self.conversation = Some(Conversation::new(id, started));
-        out.snapshot = true;
-    }
-
-    fn remote_turn(&mut self, turn: String, computer: String, at: i64, out: &mut Output) {
-        match self.remote.as_mut().filter(|remote| remote.turn == turn) {
-            Some(remote) => remote.last = remote.last.max(at),
-            None => {
-                self.remote = Some(Remote {
-                    since: conversation::time_of(&turn).unwrap_or(at),
-                    turn: turn.clone(),
-                    computer,
-                    last: at,
-                    stopping: None,
-                });
-            }
-        }
-        let left = self
-            .remote
-            .as_ref()
-            .filter(|remote| remote.live())
-            .map(|remote| REMOTE_LIFE - (conversation::now() - remote.last));
-        match left {
-            Some(left) => {
-                let wait = Duration::from_millis(u64::try_from(left).unwrap_or_default())
-                    + Duration::from_secs(1);
-                self.later(
-                    wait,
-                    Message::Gone {
-                        generation: self.generation,
-                        turn,
-                    },
-                );
-            }
-            None => self.remote = None,
-        }
-        out.snapshot = true;
     }
 }
 

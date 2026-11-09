@@ -120,9 +120,7 @@ ColumnLayout {
                 onToggled: {
                     const wanted = checked;
                     checked = Qt.binding(() => Models.DesktopState.dosiOn);
-                    if (!wanted && Models.Dosi.busy)
-                        Models.Dosi.stop();
-                    Models.DesktopState.dosiOn = wanted;
+                    Models.Dosi.use(wanted);
                 }
             }
         }

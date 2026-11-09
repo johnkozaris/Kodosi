@@ -71,6 +71,8 @@ extension AppDependencies {
             try dosi.receive(event)
             if event.type == "dosi.item" {
                 try touch(by: event.value("item"))
+            } else if event.type == "dosi.snapshot" {
+                workbench.dosiOn = dosi.state != .off
             }
         } else {
             try receiveMission(event)

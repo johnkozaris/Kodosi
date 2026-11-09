@@ -4667,6 +4667,16 @@
               }
             ]
           },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -4942,6 +4952,52 @@
           "accountEpoch",
           "type",
           "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dosi.use"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "on"
         ],
         "type": "object"
       },
@@ -10478,6 +10534,38 @@
                 },
                 "type": "array"
               },
+              "asks": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "computer": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "device": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "device",
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "item": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "item",
+                    "computer"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "conversation": {
                 "anyOf": [
                   {
@@ -10881,6 +10969,29 @@
                 },
                 "type": "array"
               },
+              "last": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "device": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "device",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "queued": {
                 "items": {
                   "additionalProperties": false,
@@ -11049,6 +11160,9 @@
                   },
                   {
                     "const": "unavailable"
+                  },
+                  {
+                    "const": "off"
                   }
                 ]
               }
@@ -11064,7 +11178,9 @@
               "conversation",
               "items",
               "earlier",
-              "queued"
+              "queued",
+              "asks",
+              "last"
             ],
             "type": "object"
           },
@@ -12112,7 +12228,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 81,
+  "protocolVersion": 82,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

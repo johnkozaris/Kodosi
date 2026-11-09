@@ -19,6 +19,9 @@ final class AppModel {
     let terminals: TerminalStore
     let rooms: RoomStore
     let people: PeopleStore
+    let dosi: DosiStore
+    /// The computer that the person picked to answer Dosi on this device.
+    var dosiDevice: String?
 
     @ObservationIgnored private let inbox: RuntimeEventInbox
     @ObservationIgnored private let runtime: RuntimeHandle
@@ -38,6 +41,7 @@ final class AppModel {
         terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
         rooms = RoomStore(commands: commands, notices: notices)
         people = PeopleStore(commands: commands)
+        dosi = DosiStore(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
         account.notify = { [notices] message in notices.show(message) }
     }
@@ -147,6 +151,8 @@ final class AppModel {
         terminals.reset(userId: userId)
         rooms.reset(userId: userId)
         people.reset(userId: userId)
+        dosi.reset()
+        dosiDevice = nil
     }
 
     private func acceptAccount(_ event: RuntimeEvent) -> Bool {
@@ -175,6 +181,7 @@ final class AppModel {
         case "sessions", "session", "term", "document": try terminals.receive(event)
         case "friends": try people.receive(event)
         case "mission", "missions", "room": try rooms.receive(event)
+        case "dosi": try dosi.receive(event)
         default: break
         }
     }

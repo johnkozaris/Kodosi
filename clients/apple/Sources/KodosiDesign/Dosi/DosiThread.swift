@@ -1,19 +1,18 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
-struct DosiRow: Identifiable, Equatable {
-    enum Kind: Equatable {
+public struct DosiRow: Identifiable, Equatable {
+    public enum Kind: Equatable {
         case divider(String)
         case item(DosiItem)
         case tools([DosiItem])
     }
 
-    let id: String
-    let kind: Kind
-    let startsTurn: Bool
+    public let id: String
+    public let kind: Kind
+    public let startsTurn: Bool
 
-    static func rows(_ items: [DosiItem], now: Date = .now, calendar: Calendar = .current) -> [DosiRow] {
+    public static func rows(_ items: [DosiItem], now: Date = .now, calendar: Calendar = .current) -> [DosiRow] {
         var rows: [DosiRow] = []
         var previous: DosiItem?
         var shown: String?
@@ -43,12 +42,12 @@ struct DosiRow: Identifiable, Equatable {
         if calendar.isDate(date, inSameDayAs: now) {
             let hour = calendar.component(.hour, from: date)
             if hour < 12 {
-                return String(localized: "this morning")
+                return String(localized: "this morning", bundle: .module)
             }
-            return hour < 17 ? String(localized: "this afternoon") : String(localized: "this evening")
+            return hour < 17 ? String(localized: "this afternoon", bundle: .module) : String(localized: "this evening", bundle: .module)
         }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
-            return String(localized: "yesterday")
+            return String(localized: "yesterday", bundle: .module)
         }
         if let days = calendar.dateComponents([.day], from: date, to: now).day, days < 7 {
             let weekday = date.formatted(.dateTime.weekday(.wide))
@@ -73,8 +72,9 @@ struct DosiRow: Identifiable, Equatable {
     }
 }
 
-struct DosiThread: View {
-    @Environment(AppDependencies.self) private var deps
+/// Dosi's conversation, with the welcome while it is empty.
+public struct DosiThread: View {
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let listening: Bool
     @State private var following = true
@@ -88,10 +88,15 @@ struct DosiThread: View {
         removal: .opacity.combined(with: .offset(y: -12)),
     )
 
-    var body: some View {
-        let items = deps.dosi.items
+    /// `listening` is whether the person writes to Dosi now.
+    public init(listening: Bool) {
+        self.listening = listening
+    }
+
+    public var body: some View {
+        let items = place.dosi.items
         let rows = DosiRow.rows(items)
-        let live = deps.dosi.busy ? items.last?.turn : nil
+        let live = place.dosi.busy ? items.last?.turn : nil
         let starts = items.last.map { last in
             if case .person = last.body {
                 return true
@@ -102,32 +107,32 @@ struct DosiThread: View {
             ScrollView {
                 VStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 0) {
-                        if deps.dosi.earlier, let first = items.first {
+                        if place.dosi.earlier, let first = items.first {
                             Button {
                                 Task {
-                                    try? await deps.dosi.loadEarlier()
+                                    try? await place.dosi.loadEarlier()
                                     proxy.scrollTo(first.id, anchor: .top)
                                 }
-                            } label: { Label("Earlier", systemImage: "arrow.up") }
+                            } label: { Label { Text("Earlier", bundle: .module) } icon: { Image(systemName: "arrow.up") } }
                                 .buttonStyle(.kodosi(.ghost, size: .small)).frame(maxWidth: .infinity)
-                                .disabled(deps.dosi.loadingEarlier).padding(.bottom, 4)
+                                .disabled(place.dosi.loadingEarlier).padding(.bottom, 4)
                                 .accessibilityIdentifier("dosi.earlier")
                         }
                         ForEach(rows) { row in
                             DosiRowView(row: row, live: live).id(row.id).transition(Self.row)
                         }
-                        if thinking, deps.dosi.pending {
+                        if thinking, place.dosi.pending {
                             DosiTurnRow(turn: "", starts: starts, live: "") { DosiThinking() }
                                 .transition(.asymmetric(insertion: Self.row, removal: .opacity))
                         }
-                        if let remote = deps.dosi.snapshot?.remote, deps.dosi.state == .working {
+                        if let remote = place.dosi.snapshot?.remote, place.dosi.state == .working {
                             DosiAway(computer: remote.computer).padding(.top, 12).transition(AnyTransition.rise)
                         }
                     }
                     .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
                     .frame(minHeight: max(viewport - 1, 0), alignment: .bottom)
                     .animation(theme.motion.spring, value: rows.map(\.id))
-                    .animation(theme.motion.spring, value: deps.dosi.pending)
+                    .animation(theme.motion.spring, value: place.dosi.pending)
                     Color.clear.frame(height: 1).id("latest")
                 }
             }
@@ -137,19 +142,20 @@ struct DosiThread: View {
             .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { old, new in
                 viewport = new.containerSize.height
                 let end = max(0, new.contentSize.height - new.containerSize.height)
-                if new.contentSize != old.contentSize || new.containerSize != old.containerSize {
-                    if following, abs(new.contentOffset.y - end) > 0.5 {
+                let offset = new.contentOffset.y + new.contentInsets.top
+                if new.contentSize != old.contentSize || new.containerSize != old.containerSize || new.contentInsets != old.contentInsets {
+                    if following, abs(offset - end) > 0.5 {
                         withTransaction(\.disablesAnimations, true) { position.scrollTo(y: end) }
                     }
-                } else if new.contentOffset.y >= end - 40 {
+                } else if offset >= end - 40 {
                     following = true
                 } else if old.contentOffset.y - new.contentOffset.y > ([.tracking, .interacting, .decelerating].contains(phase) ? 0.5 : 8) {
                     following = false
                 }
             }
             .onScrollPhaseChange { _, new in phase = new }
-            .task(id: deps.dosi.pending) {
-                guard deps.dosi.pending else {
+            .task(id: place.dosi.pending) {
+                guard place.dosi.pending else {
                     thinking = false
                     return
                 }
@@ -160,7 +166,7 @@ struct DosiThread: View {
                     withAnimation(theme.motion.spring) { thinking = true }
                 }
             }
-            .onChange(of: deps.dosi.snapshot?.conversation?.id) { _, _ in
+            .onChange(of: place.dosi.snapshot?.conversation?.id) { _, _ in
                 following = true
             }
             .overlay {
@@ -174,7 +180,7 @@ struct DosiThread: View {
                         Button {
                             following = true
                             withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
-                        } label: { Label("Latest", systemImage: "arrow.down") }
+                        } label: { Label { Text("Latest", bundle: .module) } icon: { Image(systemName: "arrow.down") } }
                             .buttonStyle(.kodosi(.secondary, size: .small)).padding(8)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
@@ -186,6 +192,8 @@ struct DosiThread: View {
 }
 
 struct DosiRowView: View {
+    @Environment(DosiPlace.self) private var place
+    @Environment(\.theme) private var theme
     let row: DosiRow
     let live: String?
 
@@ -195,7 +203,15 @@ struct DosiRowView: View {
             DosiDivider(label: label).padding(.top, 14).padding(.bottom, 2)
         case let .item(item):
             if case let .person(text) = item.body {
-                DosiPersonBubble(text: text).padding(.top, 12)
+                let computer = place.dosi.waiting(item)
+                VStack(alignment: .trailing, spacing: 4) {
+                    DosiPersonBubble(text: text)
+                    if let computer {
+                        DosiWaiting(item: item, computer: computer).transition(AnyTransition.rise)
+                    }
+                }
+                .padding(.top, 12)
+                .animation(theme.motion.snappy, value: computer)
             } else {
                 DosiTurnRow(turn: item.turn, starts: row.startsTurn, live: live) { DosiItemContent(item: item) }
             }
@@ -206,7 +222,7 @@ struct DosiRowView: View {
 }
 
 struct DosiTurnRow<Content: View>: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     let turn: String
     let starts: Bool
     let live: String?
@@ -216,7 +232,7 @@ struct DosiTurnRow<Content: View>: View {
         HStack(alignment: .top, spacing: 8) {
             ZStack {
                 if starts {
-                    DosiFace(mood: live == turn ? deps.dosi.mood() : .resting, size: 20, still: true)
+                    DosiFace(mood: live == turn ? place.dosi.mood() : .resting, size: 20, still: true)
                 }
             }
             .frame(width: 20)
@@ -257,11 +273,11 @@ struct DosiDivider: View {
     var body: some View {
         HStack(spacing: 8) {
             Rectangle().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.55)).frame(height: 1)
-            Text(label).font(.system(size: 10, design: .monospaced)).tracking(0.4).foregroundStyle(theme.colors.inkFaint)
+            Text(label).font(mac: 10, ios: .caption2, design: .monospaced).tracking(0.4).foregroundStyle(theme.colors.inkFaint)
                 .fixedSize()
             Rectangle().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.55)).frame(height: 1)
         }
-        .frame(height: 16)
+        .controlHeight(16)
         .accessibilityElement(children: .combine)
     }
 }

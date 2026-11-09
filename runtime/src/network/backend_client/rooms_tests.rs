@@ -784,7 +784,7 @@ async fn dosi_keeps_its_records_and_instructions_in_its_own_room() {
             cached.members_checked = Some(tokio::time::Instant::now());
         }
     }
-    *network.inner.credentials.write().unwrap() = Some(credentials);
+    *network.inner.credentials.write().unwrap() = Some(credentials.clone());
     let begin = DosiRecord::Begin {
         conversation: Uuid::now_v7().to_string(),
     };
@@ -804,6 +804,10 @@ async fn dosi_keeps_its_records_and_instructions_in_its_own_room() {
     );
     assert_eq!(log.instructions, Some(brief));
     assert_eq!(log.sequence, 3);
+    assert_eq!(
+        log.devices.iter().collect::<Vec<_>>(),
+        [&fake.keys.device_id]
+    );
 
     let standard = SharedInstructions { text: None };
     network.dosi_save(standard.clone()).await.unwrap();
@@ -813,4 +817,45 @@ async fn dosi_keeps_its_records_and_instructions_in_its_own_room() {
 
     fake.items.lock().unwrap().truncate(1);
     assert!(network.dosi_read(4).await.unwrap().reset);
+
+    let mut listed = json!({"dosi": Uuid::now_v7()});
+    network.learn_dosi(&credentials, &mut listed).await;
+    assert_eq!(network.inner.rooms.lock().await.dosi, Some(room));
+}
+
+#[tokio::test]
+async fn dosi_uses_no_room_that_someone_else_can_read() {
+    use crate::dosi::DosiRecord;
+    let (_root, network, credentials, fake) = fake_room().await;
+    let room = fake.room;
+    let (_, friend) = person();
+    let first = network.inner.rooms.lock().await.rooms[&room].states[&1].clone();
+    let mut shared = first.state.clone();
+    shared.version = 2;
+    shared.previous_hash.clone_from(&first.hash);
+    shared.members.insert(friend.user_id.clone(), friend);
+    let second = state_signed(&shared, &fake.keys, Some(&first));
+    {
+        let mut cache = network.inner.rooms.lock().await;
+        cache.dosi = Some(room);
+        if let Some(cached) = cache.rooms.get_mut(&room) {
+            cached.members_checked = Some(tokio::time::Instant::now());
+            cached.states.insert(2, second);
+        }
+    }
+    *network.inner.credentials.write().unwrap() = Some(credentials.clone());
+    fake.add(Uuid::now_v7(), 1, &message("not for Dosi"));
+    let begin = DosiRecord::Begin {
+        conversation: Uuid::now_v7().to_string(),
+    };
+    assert!(matches!(
+        network.dosi_write(&begin).await,
+        Err(Error::Invalid { .. })
+    ));
+    assert!(matches!(
+        network.dosi_read(0).await,
+        Err(Error::Invalid { .. })
+    ));
+    assert_eq!(fake.items.lock().unwrap().len(), 1);
+    assert_eq!(network.pinned_dosi(&credentials).unwrap(), None);
 }

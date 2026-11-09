@@ -653,6 +653,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
                 }),
             )
             .0,
+            #[cfg(not(feature = "host"))]
+            dosi: crate::dosi::Viewer::load(&config.data_root).0,
             #[cfg(feature = "host")]
             launcher,
             #[cfg(feature = "host")]

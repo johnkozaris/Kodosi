@@ -17,7 +17,7 @@ compresi i membri invitati dopo. Condividere un terminale non condivide nient'al
 fida di tutti quelli che condividono un terminale o una stanza, e dei programmi e degli agenti
 nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi approvati
 controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer che
-eseguono Kodosi.
+eseguono Kodosi. Da qualsiasi tuo dispositivo puoi scrivere a Dosi sui tuoi computer, e Dosi agisce lì come quando gli scrivi direttamente sul computer. Un dispositivo che rimuovi non può più scrivere a Dosi.
 
 Chi può aprire un terminale vede anche i file sul suo canvas e usa il suo browser condiviso,
 quindi accedi lì solo dove tutti possono agire. Un terminale condiviso non ha mai i tuoi

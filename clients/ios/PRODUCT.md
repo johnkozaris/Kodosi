@@ -45,6 +45,11 @@ provider conversations stay on the computer.
   appearance, the size of terminal text on this device, whether the screen stays on while
   a terminal is open, the document viewers, the lock, the language, licenses and account
   deletion.
+- The Dosi tab holds the conversation with Dosi. Above the composer, you choose the
+  computer that answers: one that runs Kodosi, or the one that answered last, also while it
+  is offline. Without either, the tab asks you to open Kodosi on a computer. The stop key
+  stops the turn on that computer, New chat asks first, and the tab counts Dosi's
+  questions, or an answer that you did not see.
 - With the lock on, Kodosi asks for Face ID, Touch ID or the passcode when it opens and
   after a minute away, and covers what it shows while it is not in front, also in the app
   switcher.

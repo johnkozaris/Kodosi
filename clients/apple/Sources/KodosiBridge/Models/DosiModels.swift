@@ -2,7 +2,7 @@ import Foundation
 
 public struct DosiSnapshot: Decodable, Equatable, Sendable {
     public enum State: String, Decodable, Sendable {
-        case idle, working, stopping, connecting, unavailable
+        case idle, working, stopping, connecting, unavailable, off
     }
 
     public var state: State
@@ -16,6 +16,29 @@ public struct DosiSnapshot: Decodable, Equatable, Sendable {
     public var items: [DosiItem]
     public var earlier: Bool
     public var queued: [DosiQueued]
+    public var asks: [DosiAsk]
+    public var last: DosiComputer?
+}
+
+/// One of the person's computers, whose Dosi answers a message.
+public struct DosiComputer: Decodable, Equatable, Hashable, Sendable, Identifiable {
+    public let device: String
+    public let name: String
+
+    public init(device: String, name: String) {
+        self.device = device
+        self.name = name
+    }
+
+    public var id: String {
+        device
+    }
+}
+
+/// A message that waits for the computer that the person asked to answer it.
+public struct DosiAsk: Decodable, Equatable, Sendable {
+    public let item: String
+    public let computer: DosiComputer
 }
 
 public struct DosiAgent: Decodable, Equatable, Sendable, Identifiable {

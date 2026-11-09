@@ -1,18 +1,21 @@
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    time::Instant,
-};
+use std::collections::{HashSet, VecDeque};
+#[cfg(feature = "host")]
+use std::{collections::HashMap, time::Instant};
 
 use uuid::Uuid;
 
+use super::{DosiBody, DosiItem, DosiPage};
+#[cfg(feature = "host")]
 use super::{
-    DosiBody, DosiItem, DosiPage, DosiTone, DosiToolStatus,
+    DosiTone, DosiToolStatus,
     adapters::Event,
     receipt::{self, Shown},
 };
 
 pub(super) const MAX_ITEMS: usize = 1000;
+#[cfg(feature = "host")]
 const MAX_TEXT_BYTES: usize = 256 * 1024;
+#[cfg(feature = "host")]
 const MAX_OUTPUT_BYTES: usize = 4 * 1024;
 const WINDOW_ITEMS: usize = 60;
 const WINDOW_BYTES: usize = 256 * 1024;
@@ -29,10 +32,17 @@ pub(super) struct Conversation {
     pub started_at: i64,
     pub confirmed: bool,
     entries: VecDeque<Entry>,
+    /// The turns of messages that the person took back before a computer answered them.
+    withdrawn: HashSet<String>,
+    #[cfg(feature = "host")]
     turn: Option<String>,
+    #[cfg(feature = "host")]
     blocks: HashMap<String, String>,
+    #[cfg(feature = "host")]
     tools: HashMap<String, String>,
+    #[cfg(feature = "host")]
     hidden: HashSet<String>,
+    #[cfg(feature = "host")]
     thinking: HashMap<String, Instant>,
 }
 
@@ -65,9 +75,10 @@ pub(super) fn clip(text: &str, bytes: usize) -> String {
 
 impl Conversation {
     pub(super) fn begun(id: String) -> Self {
+        let started_at = time_of(&id).unwrap_or_else(now);
         Self {
             confirmed: true,
-            ..Self::new(id, now())
+            ..Self::new(id, started_at)
         }
     }
 
@@ -77,22 +88,68 @@ impl Conversation {
             started_at,
             confirmed: false,
             entries: VecDeque::new(),
+            withdrawn: HashSet::new(),
+            #[cfg(feature = "host")]
             turn: None,
+            #[cfg(feature = "host")]
             blocks: HashMap::new(),
+            #[cfg(feature = "host")]
             tools: HashMap::new(),
+            #[cfg(feature = "host")]
             hidden: HashSet::new(),
+            #[cfg(feature = "host")]
             thinking: HashMap::new(),
         }
     }
 
+    fn shown(&self) -> impl DoubleEndedIterator<Item = &Entry> {
+        self.entries
+            .iter()
+            .filter(|entry| !self.withdrawn.contains(&entry.item.turn))
+    }
+
+    #[cfg(feature = "host")]
     pub(super) fn items(&self) -> impl DoubleEndedIterator<Item = &DosiItem> {
-        self.entries.iter().map(|entry| &entry.item)
+        self.shown().map(|entry| &entry.item)
     }
 
     pub(super) fn item(&self, id: &str) -> Option<&DosiItem> {
-        self.items().find(|item| item.id == id)
+        self.entries
+            .iter()
+            .map(|entry| &entry.item)
+            .find(|item| item.id == id)
     }
 
+    /// Whether this device wrote the item `id`, and no other device changed it since.
+    pub(super) fn mine(&self, id: &str) -> bool {
+        self.entries
+            .iter()
+            .any(|entry| entry.item.id == id && entry.mine)
+    }
+
+    /// Whether the item `id` is a question that has its answer, which no later answer changes.
+    pub(super) fn answered(&self, id: &str) -> bool {
+        self.entries.iter().any(|entry| {
+            entry.item.id == id
+                && matches!(
+                    entry.item.body,
+                    DosiBody::Question {
+                        answer: Some(_),
+                        ..
+                    }
+                )
+        })
+    }
+
+    pub(super) fn withdraw(&mut self, turn: &str) {
+        self.withdrawn.insert(turn.to_owned());
+    }
+
+    pub(super) fn reveal(&mut self, turn: &str) {
+        self.withdrawn.remove(turn);
+    }
+
+    #[cfg(feature = "host")]
     pub(super) fn latest(&self) -> u64 {
         self.entries
             .iter()
@@ -101,10 +158,12 @@ impl Conversation {
             .unwrap_or_default()
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn turn(&self) -> Option<&str> {
         self.turn.as_deref()
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn begin(&mut self, turn: String, person: Option<&str>) -> Option<DosiItem> {
         self.turn = Some(turn);
         self.blocks.clear();
@@ -118,10 +177,12 @@ impl Conversation {
         })
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn end(&mut self) {
         self.turn = None;
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn push(&mut self, body: DosiBody) -> DosiItem {
         let item = DosiItem {
             id: Uuid::now_v7().to_string(),
@@ -132,13 +193,18 @@ impl Conversation {
             at: now(),
             body,
         };
+        self.place(item.clone());
+        item
+    }
+
+    /// Adds an item that this device wrote and the server does not hold yet.
+    pub(super) fn place(&mut self, item: DosiItem) {
         self.entries.push_back(Entry {
-            item: item.clone(),
+            item,
             sequence: None,
             mine: true,
         });
         self.bound();
-        item
     }
 
     pub(super) fn upsert(
@@ -184,9 +250,9 @@ impl Conversation {
         }
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn foreign_since(&self, seen: u64) -> Vec<&DosiItem> {
-        self.entries
-            .iter()
+        self.shown()
             .filter(|entry| !entry.mine && entry.sequence.is_some_and(|sequence| sequence > seen))
             .map(|entry| &entry.item)
             .collect()
@@ -200,6 +266,7 @@ impl Conversation {
             .find(|item| item.id == id)
     }
 
+    #[cfg(feature = "host")]
     fn block(&mut self, block: &str, body: impl FnOnce() -> DosiBody) -> &mut DosiItem {
         let known = self
             .blocks
@@ -213,6 +280,7 @@ impl Conversation {
         &mut self.entries[position].item
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn apply(&mut self, event: Event) -> Option<DosiItem> {
         match event {
             Event::TextDelta { block, text } => Some(self.stream(&block, &text, false)),
@@ -225,6 +293,7 @@ impl Conversation {
         }
     }
 
+    #[cfg(feature = "host")]
     fn stream(&mut self, block: &str, text: &str, reasoning: bool) -> DosiItem {
         if reasoning {
             self.thinking
@@ -254,6 +323,7 @@ impl Conversation {
         item.clone()
     }
 
+    #[cfg(feature = "host")]
     fn text_done(&mut self, block: &str, text: &str) -> Option<DosiItem> {
         if text.trim().is_empty() && !self.blocks.contains_key(block) {
             return None;
@@ -269,6 +339,7 @@ impl Conversation {
         Some(item.clone())
     }
 
+    #[cfg(feature = "host")]
     fn reasoning_done(&mut self, block: &str, text: &str) -> DosiItem {
         let seconds = self
             .thinking
@@ -291,6 +362,7 @@ impl Conversation {
         item.clone()
     }
 
+    #[cfg(feature = "host")]
     fn tool_start(
         &mut self,
         id: String,
@@ -312,6 +384,7 @@ impl Conversation {
         Some(item)
     }
 
+    #[cfg(feature = "host")]
     fn tool_end(&mut self, id: &str, failed: bool, output: &str) -> Option<DosiItem> {
         if self.hidden.contains(id) {
             return None;
@@ -335,6 +408,7 @@ impl Conversation {
         Some(item.clone())
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn settle(&mut self, interrupted: bool) -> Vec<DosiItem> {
         let Some(turn) = self.turn.clone() else {
             return Vec::new();
@@ -387,10 +461,26 @@ impl Conversation {
         Ok(item.clone())
     }
 
-    pub(super) fn close_questions(&mut self) -> Vec<DosiItem> {
+    /// Closes the question `id` when it is open, and answers the closed question.
+    pub(super) fn close(&mut self, id: &str) -> Option<DosiItem> {
+        let item = self.find(id)?;
+        let DosiBody::Question { answer, .. } = &mut item.body else {
+            return None;
+        };
+        if answer.is_some() {
+            return None;
+        }
+        *answer = Some(Vec::new());
+        Some(item.clone())
+    }
+
+    /// Closes the open questions, or only those that this device asked.
+    #[cfg(feature = "host")]
+    pub(super) fn close_questions(&mut self, only_mine: bool) -> Vec<DosiItem> {
         let mut changed = Vec::new();
         for entry in &mut self.entries {
-            if let DosiBody::Question { answer, .. } = &mut entry.item.body
+            if (entry.mine || !only_mine)
+                && let DosiBody::Question { answer, .. } = &mut entry.item.body
                 && answer.is_none()
             {
                 *answer = Some(Vec::new());
@@ -403,7 +493,7 @@ impl Conversation {
     pub(super) fn window(&self) -> (Vec<DosiItem>, bool) {
         let mut bytes = 0;
         let mut window = Vec::new();
-        for item in self.items().rev() {
+        for item in self.shown().map(|entry| &entry.item).rev() {
             let size = size(item);
             if window.len() == WINDOW_ITEMS || (!window.is_empty() && bytes + size > WINDOW_BYTES) {
                 break;
@@ -411,22 +501,21 @@ impl Conversation {
             bytes += size;
             window.push(item.clone());
         }
-        let earlier = window.len() < self.entries.len();
+        let earlier = window.len() < self.shown().count();
         window.reverse();
         (window, earlier)
     }
 
     pub(super) fn page(&self, before: &str) -> DosiPage {
-        let end = self
-            .entries
+        let shown = self.shown().collect::<Vec<_>>();
+        let end = shown
             .iter()
             .position(|entry| entry.item.id == before)
             .unwrap_or(0);
         let start = end.saturating_sub(PAGE_ITEMS);
         DosiPage {
-            items: self
-                .entries
-                .range(start..end)
+            items: shown[start..end]
+                .iter()
                 .map(|entry| entry.item.clone())
                 .collect(),
             earlier: start > 0,
@@ -460,6 +549,7 @@ fn size(item: &DosiItem) -> usize {
     .saturating_add(128)
 }
 
+#[cfg(feature = "host")]
 pub(super) fn finished(body: DosiBody, interrupted: bool) -> DosiBody {
     match body {
         DosiBody::Text { text, .. } => DosiBody::Text { text, live: false },
@@ -489,6 +579,7 @@ pub(super) fn finished(body: DosiBody, interrupted: bool) -> DosiBody {
     }
 }
 
+#[cfg(feature = "host")]
 pub(super) fn tone(message: &str) -> DosiTone {
     let lower = message.to_ascii_lowercase();
     if [

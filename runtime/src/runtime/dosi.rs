@@ -1,11 +1,16 @@
+#[cfg(feature = "host")]
 use bytes::Bytes;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use super::{Completion, Runtime};
+#[cfg(feature = "host")]
+use super::Completion;
+use super::Runtime;
+#[cfg(feature = "host")]
+use crate::dosi::SharedInstructions;
 use crate::{
     Command, Error, Result,
-    dosi::{DosiContext, DosiRecord, Failure, Message, Output, SharedInstructions},
+    dosi::{DosiComputer, DosiContext, DosiRecord, Failure, Message, Output},
     network,
 };
 
@@ -26,11 +31,17 @@ impl Runtime {
     pub(super) fn dosi_command(&mut self, command: &Command) -> Result<()> {
         let mut out = Output::default();
         let extra = match command {
-            Command::DosiSend { text, context, .. } => {
+            Command::DosiSend {
+                text,
+                context,
+                device,
+                ..
+            } => {
                 let context = context
                     .as_ref()
                     .and_then(|context| self.dosi_context(context));
-                self.dosi.send(text, context, &mut out)?;
+                let computer = device.as_deref().map(|device| self.dosi_computer(device));
+                self.dosi.send(text, context, computer, &mut out)?;
                 None
             }
             Command::DosiStop { .. } => {
@@ -47,6 +58,7 @@ impl Runtime {
                 self.dosi.answer(item_id, choices.clone(), &mut out)?;
                 None
             }
+            #[cfg(feature = "host")]
             Command::DosiAsk {
                 token,
                 question,
@@ -71,18 +83,34 @@ impl Runtime {
                 self.dosi.renew(&mut out);
                 None
             }
+            #[cfg(feature = "host")]
+            Command::DosiUse { on, .. } => {
+                self.dosi.turn(*on, &mut out);
+                None
+            }
+            #[cfg(feature = "host")]
             Command::DosiConfigure { change, .. } => {
                 self.dosi.configure(change, &mut out)?;
                 None
             }
+            #[cfg(feature = "host")]
             Command::DosiReadInstructions { .. } => {
                 Some(json!({"instructions":self.dosi.read_instructions()}))
             }
+            #[cfg(feature = "host")]
             Command::DosiWriteInstructions { text, .. } => {
                 let instructions = self.dosi.write_instructions(text.as_deref(), &mut out)?;
                 Some(json!({"instructions":instructions}))
             }
             Command::DosiHistory { before, .. } => Some(json!({"page":self.dosi.page(before)})),
+            #[cfg(not(feature = "host"))]
+            Command::DosiAsk { .. }
+            | Command::DosiUse { .. }
+            | Command::DosiConfigure { .. }
+            | Command::DosiReadInstructions { .. }
+            | Command::DosiWriteInstructions { .. } => {
+                return Err(Error::Text(super::commands::no_dosi()));
+            }
             _ => return Err(Error::Invalid("expected a Dosi command".to_owned())),
         };
         self.dosi_output(out);
@@ -96,6 +124,7 @@ impl Runtime {
         Ok(())
     }
 
+    #[cfg(feature = "host")]
     pub(super) fn learn_agents(&mut self, command: &Command, value: &Value) {
         if !matches!(command, Command::InspectAgents { .. }) {
             return;
@@ -108,14 +137,37 @@ impl Runtime {
     }
 
     pub(super) fn dosi_account(&mut self) {
-        let user = self
+        let account = self
             .network
             .identity()
             .filter(|identity| identity.enrolled)
-            .and_then(|identity| Uuid::parse_str(&identity.user_id).ok());
+            .and_then(|identity| {
+                Some((Uuid::parse_str(&identity.user_id).ok()?, identity.device_id))
+            });
         let mut out = Output::default();
-        self.dosi.share(user, network::host_label, &mut out);
+        #[cfg(feature = "host")]
+        self.dosi.share(account, network::host_label, &mut out);
+        #[cfg(not(feature = "host"))]
+        self.dosi.share(account, &mut out);
         self.dosi_output(out);
+    }
+
+    /// The computer `device` of the person, with its name from the person's devices.
+    fn dosi_computer(&self, device: &str) -> DosiComputer {
+        let name = self
+            .cached_events
+            .get("devices.list")
+            .and_then(|list| list.get("devices"))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|entry| entry.get("deviceId").and_then(Value::as_str) == Some(device))
+            .and_then(|entry| entry.get("label").and_then(Value::as_str))
+            .unwrap_or_default();
+        DosiComputer {
+            device: device.to_owned(),
+            name: name.to_owned(),
+        }
     }
 
     pub(super) fn dosi_nudge(&mut self, event: &Value) {
@@ -125,6 +177,10 @@ impl Runtime {
         self.dosi_output(out);
     }
 
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(clippy::needless_pass_by_ref_mut, reason = "a computer types answers")
+    )]
     pub(super) fn dosi_output(&mut self, out: Output) {
         for event in out.events {
             self.emit(event);
@@ -132,6 +188,7 @@ impl Runtime {
         if out.snapshot {
             self.emit(self.dosi.snapshot());
         }
+        #[cfg(feature = "host")]
         for typing in out.typing {
             self.type_for_dosi(&typing.terminal, typing.text);
         }
@@ -141,6 +198,7 @@ impl Runtime {
         if let Some(after) = out.sync {
             self.dosi_sync(after);
         }
+        #[cfg(feature = "host")]
         if let Some(instructions) = out.save {
             self.dosi_save(instructions);
         }
@@ -176,6 +234,7 @@ impl Runtime {
         });
     }
 
+    #[cfg(feature = "host")]
     fn dosi_save(&self, instructions: SharedInstructions) {
         let (network, messages, generation) = (
             self.network.clone(),
@@ -196,6 +255,7 @@ impl Runtime {
         });
     }
 
+    #[cfg(feature = "host")]
     fn type_for_dosi(&mut self, reference: &str, text: String) {
         let input = self.job_capacity().and_then(|()| {
             let id = self.find_terminal(reference).ok_or(Error::NotFound)?;
@@ -211,6 +271,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn find_terminal(&self, reference: &str) -> Option<Uuid> {
         let entries = self.entries();
         let named = entries

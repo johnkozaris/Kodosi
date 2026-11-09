@@ -1,5 +1,4 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
 struct DosiPersonBubble: View {
@@ -22,6 +21,44 @@ struct DosiPersonBubble: View {
     }
 }
 
+/// Under a message that waits for its computer: which computer, and a key that takes it back.
+struct DosiWaiting: View {
+    @Environment(DosiPlace.self) private var place
+    @Environment(\.theme) private var theme
+    let item: DosiItem
+    let computer: DosiComputer
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                line.lineLimit(1)
+                key
+            }
+            VStack(alignment: .trailing, spacing: 2) {
+                line.multilineTextAlignment(.trailing)
+                key
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dosi.waiting")
+    }
+
+    private var line: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: "clock").font(mac: 9, ios: .caption2, weight: .semibold).accessibilityHidden(true)
+            Text("Waiting for \(computer.name)", bundle: .module)
+        }
+        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var key: some View {
+        Button { place.dosi.takeBack(item) } label: { Text("Do not send", bundle: .module) }
+            .buttonStyle(.kodosi(.ghost, size: .small))
+            .accessibilityIdentifier("dosi.waiting.remove")
+    }
+}
+
 struct DosiProse: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -41,7 +78,7 @@ struct DosiProse: View {
 }
 
 struct DosiQuestionView: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let item: DosiItem
     let question: DosiQuestion
@@ -51,13 +88,13 @@ struct DosiQuestionView: View {
             if let answer = question.answer {
                 HStack(spacing: 7) {
                     if answer.isEmpty {
-                        Image(systemName: "minus").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+                        Image(systemName: "minus").font(mac: 9, ios: .caption2, weight: .bold).foregroundStyle(theme.colors.inkFaint)
                     } else {
-                        Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.ready)
+                        Image(systemName: "checkmark").font(mac: 9, ios: .caption2, weight: .bold).foregroundStyle(theme.colors.ready)
                     }
-                    Text(answered(answer)).font(.system(size: 11, design: .monospaced)).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+                    Text(answered(answer)).font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                 }
-                .padding(.leading, 8).padding(.trailing, 10).frame(height: 22)
+                .padding(.leading, 8).padding(.trailing, 10).controlHeight(22)
                 .background(theme.colors.surface, in: Capsule())
                 .help(question.question)
                 .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
@@ -69,14 +106,14 @@ struct DosiQuestionView: View {
     }
 
     private func answered(_ answer: [String]) -> String {
-        let choice = answer.isEmpty ? String(localized: "not answered") : answer.joined(separator: ", ")
+        let choice = answer.isEmpty ? String(localized: "not answered", bundle: .module) : answer.joined(separator: ", ")
         guard let reference = question.terminal else { return choice }
-        return "\(choice) · \(deps.terminal(named: reference)?.name ?? reference)"
+        return "\(choice) · \(place.terminal(reference)?.name ?? reference)"
     }
 }
 
 struct DosiQuestionCard: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let item: DosiItem
     let question: DosiQuestion
@@ -94,10 +131,10 @@ struct DosiQuestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .center, spacing: 8) {
-                if let reference = question.terminal, let session = deps.terminal(named: reference) {
+                if let reference = question.terminal, let session = place.terminal(reference) {
                     AgentMark(session: session, size: 18)
                 }
-                Text(question.question).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.colors.ink)
+                Text(question.question).font(mac: 12.5, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
                     .textSelection(.enabled)
             }
             FlowLayout(spacing: 6) {
@@ -108,12 +145,12 @@ struct DosiQuestionCard: View {
                 }
             }
             HStack(spacing: 6) {
-                TextField("Something else", text: $own)
+                TextField(String(localized: "Something else", bundle: .module), text: $own)
                     .textFieldStyle(WellTextFieldStyle(radius: Radius.sm, compact: true))
                     .onSubmit(send)
                     .accessibilityIdentifier("dosi.answer.own")
                 if question.multiple || !words.isEmpty {
-                    Button("Send", action: send)
+                    Button(action: send) { Text("Send", bundle: .module) }
                         .buttonStyle(.kodosi(.primary, size: .small)).disabled(choices.isEmpty)
                         .accessibilityIdentifier("dosi.answer.send")
                         .transition(AnyTransition.pop)
@@ -129,7 +166,7 @@ struct DosiQuestionCard: View {
 
     private func choose(_ option: String) {
         guard question.multiple else {
-            deps.answerDosi(item, [option])
+            place.answer(item, [option])
             return
         }
         if picked.contains(option) {
@@ -141,33 +178,33 @@ struct DosiQuestionCard: View {
 
     private func send() {
         guard !choices.isEmpty, question.multiple || choices.count == 1 else { return }
-        deps.answerDosi(item, choices)
+        place.answer(item, choices)
     }
 }
 
 struct DosiNoticeView: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let notice: DosiNotice
 
     var body: some View {
         switch notice.tone {
         case .stopped:
-            Text("Stopped").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(theme.colors.inkFaint)
-                .padding(.horizontal, 8).frame(height: 18).background(theme.colors.surface, in: Capsule())
+            Text("Stopped", bundle: .module).font(mac: 10.5, ios: .caption2, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
+                .padding(.horizontal, 8).controlHeight(18).background(theme.colors.surface, in: Capsule())
         case .failed, .signIn:
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     Image(systemName: notice.tone == .signIn ? "key.fill" : "exclamationmark.triangle.fill")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.caution)
-                    Text(notice.tone == .signIn ? "Dosi needs you to sign in" : "Dosi stopped")
-                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.colors.ink)
+                        .font(mac: 12, ios: .footnote, weight: .semibold).foregroundStyle(theme.colors.caution)
+                    Text(notice.tone == .signIn ? "Dosi needs you to sign in" : "Dosi stopped", bundle: .module)
+                        .font(mac: 12.5, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
                 }
                 if let text = notice.text, !text.isEmpty {
                     Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
                 }
-                if notice.tone == .signIn {
-                    Button("Open Settings") { deps.workbench.showDosiSettings() }
+                if notice.tone == .signIn, let openSettings = place.openSettings {
+                    Button(action: openSettings) { Text("Open Settings", bundle: .module) }
                         .buttonStyle(.kodosi(.secondary, size: .small))
                 }
             }
@@ -185,8 +222,8 @@ struct DosiAway: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            DeviceGlyph(label: computer).font(.system(size: 10, weight: .medium))
-            Text("Working on \(computer)")
+            DeviceGlyph(label: computer).font(mac: 10, ios: .caption2, weight: .medium)
+            Text("Working on \(computer)", bundle: .module)
         }
         .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
         .padding(.leading, 28)
@@ -194,19 +231,28 @@ struct DosiAway: View {
 }
 
 struct DosiWelcome: View {
-    @Environment(AppDependencies.self) private var deps
+    @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
     let listening: Bool
 
     var body: some View {
         VStack(spacing: 14) {
-            DosiFace(mood: deps.dosi.mood(listening: listening), size: 58)
-            Text("Your agent for your agents").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted)
+            DosiFace(mood: place.dosi.mood(listening: listening), size: 58)
+            Text("Your agent for your agents", bundle: .module).appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted)
+                .multilineTextAlignment(.center)
             VStack(spacing: 6) {
                 ForEach(Array(Self.asks.enumerated()), id: \.offset) { index, ask in
-                    Button(ask) { deps.sendToDosi(ask) }
-                        .buttonStyle(.kodosi(.secondary, size: .small))
-                        .disabled(deps.dosi.state == .unavailable)
+                    Button { place.send(ask) } label: {
+                        Text(ask)
+                        #if os(iOS)
+                            .multilineTextAlignment(.center).lineLimit(3)
+                        #endif
+                    }
+                    .buttonStyle(.kodosi(.secondary, size: .small))
+                    #if os(iOS)
+                        .fixedSize(horizontal: false, vertical: true)
+                    #endif
+                        .disabled(!place.canSend())
                         .arrive(delay: 0.2 + Double(index) * 0.06, rise: 6)
                 }
             }
@@ -216,8 +262,8 @@ struct DosiWelcome: View {
     }
 
     static let asks = [
-        String(localized: "What needs me?"),
-        String(localized: "Sum up my rooms"),
-        String(localized: "Tell me when my terminals finish"),
+        String(localized: "What needs me?", bundle: .module),
+        String(localized: "Sum up my rooms", bundle: .module),
+        String(localized: "Tell me when my terminals finish", bundle: .module),
     ]
 }

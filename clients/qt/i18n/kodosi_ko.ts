@@ -1074,6 +1074,14 @@
         <translation>%1에서 작업 중</translation>
     </message>
     <message>
+        <source>Waiting for %1</source>
+        <translation>%1을(를) 기다리는 중</translation>
+    </message>
+    <message>
+        <source>Do not send</source>
+        <translation>보내지 않기</translation>
+    </message>
+    <message>
         <source>thought for %1s</source>
         <translation>%1초 동안 생각함</translation>
     </message>

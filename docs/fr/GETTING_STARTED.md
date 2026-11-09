@@ -152,7 +152,10 @@ avec son compte, son modèle et son effort.
 Demandez à Dosi ce qui a besoin de vous, ou demandez-lui de faire quelque chose. Dosi lit vos
 terminaux et vos salons, répond, et tape, lance et ferme des choses pour vous. Quand il a
 besoin d'un choix, il demande avec des boutons, et vous pouvez aussi répondre avec vos propres
-mots. Votre conversation avec Dosi est la même sur tous vos ordinateurs.
+mots. Votre conversation avec Dosi est la même sur tous vos appareils. Sur un iPhone ou un
+iPad, l'onglet Dosi écrit à Dosi sur l'ordinateur que vous choisissez au-dessus du message,
+d'abord celui qui a répondu en dernier. Un message pour un ordinateur hors ligne attend qu'il
+exécute de nouveau Kodosi, et Ne pas envoyer le reprend.
 
 La ligne à côté du visage de Dosi vous indique quand Dosi travaille, quand il a répondu et
 quand il a une question. Sur un ordinateur sans agent, elle affiche Configurer Dosi et ouvre

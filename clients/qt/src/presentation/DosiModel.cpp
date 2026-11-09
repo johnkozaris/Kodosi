@@ -94,7 +94,7 @@ bool DosiModel::busy() const
 QString DosiModel::mood() const
 {
     const auto value = state();
-    if (value == QStringLiteral("unavailable"))
+    if (value == QStringLiteral("unavailable") || value == QStringLiteral("off"))
         return QStringLiteral("off");
     if (value == QStringLiteral("stopping"))
         return QStringLiteral("stopping");
@@ -298,6 +298,12 @@ void DosiModel::unqueue(const QString& id)
     request(QStringLiteral("dosi.unqueue"), { { QStringLiteral("queuedId"), id } });
 }
 
+void DosiModel::use(bool on)
+{
+    m_workspace.m_desktop.setDosiOn(on);
+    request(QStringLiteral("dosi.use"), { { QStringLiteral("on"), on } });
+}
+
 void DosiModel::answer(const QString& itemId, const QStringList& choices)
 {
     request(QStringLiteral("dosi.answer"),
@@ -402,6 +408,7 @@ void DosiModel::applySnapshot(const QJsonObject& dosi)
     };
     const bool replaced = m_snapshot.isEmpty() || conversation(m_snapshot) != conversation(dosi);
     m_snapshot = dosi;
+    m_workspace.m_desktop.setDosiOn(state() != QStringLiteral("off"));
     const auto items = dosi.value(QStringLiteral("items")).toArray().toVariantList();
     qsizetype start = -1;
     if (!replaced && !items.isEmpty()) {
@@ -626,6 +633,14 @@ QVariantMap DosiModel::row(const QVariantMap& item, const QVariantList& run, boo
     }
     shown.insert(QStringLiteral("text"), content.value(QStringLiteral("text")).toString());
     shown.insert(QStringLiteral("live"), content.value(QStringLiteral("live")).toBool());
+    if (type == QStringLiteral("person")) {
+        for (const auto& ask : m_snapshot.value(QStringLiteral("asks")).toArray()) {
+            const auto waiting = ask.toObject();
+            if (waiting.value(QStringLiteral("item")).toString() == id)
+                shown.insert(QStringLiteral("waiting"),
+                    waiting.value(QStringLiteral("computer")).toObject().value(QStringLiteral("name")).toString());
+        }
+    }
     if (type == QStringLiteral("reasoning"))
         shown.insert(QStringLiteral("seconds"),
             content.value(QStringLiteral("seconds")).isNull() ? -1 : content.value(QStringLiteral("seconds")).toInt());

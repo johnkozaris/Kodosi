@@ -37,7 +37,7 @@ extension AppDependencies {
                 return String(localized: "Dosi is working on \(remote.computer)")
             }
             return String(localized: "Dosi is working")
-        case .idle, .connecting:
+        case .idle, .connecting, .off:
             if !dosi.openQuestions.isEmpty {
                 return String(localized: "Dosi has a question")
             }

@@ -124,10 +124,8 @@ struct DosiSettingsView: View {
     }
 
     private func turn(_ on: Bool) {
-        if !on, deps.dosi.busy {
-            deps.dosi.stop()
-        }
         deps.workbench.dosiOn = on
+        deps.dosi.use(on)
     }
 
     private var conversationLine: String {

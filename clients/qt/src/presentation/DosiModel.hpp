@@ -60,6 +60,7 @@ public:
     Q_INVOKABLE void send(const QString& text = {});
     Q_INVOKABLE void stop();
     Q_INVOKABLE void unqueue(const QString& id);
+    Q_INVOKABLE void use(bool on);
     Q_INVOKABLE void answer(const QString& itemId, const QStringList& choices);
     Q_INVOKABLE void renew();
     Q_INVOKABLE void choose(const QVariantMap& change);

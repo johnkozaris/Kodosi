@@ -33,7 +33,6 @@ use crate::{
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod commands;
-#[cfg(feature = "host")]
 mod dosi;
 #[cfg(feature = "host")]
 mod messages;
@@ -43,10 +42,7 @@ mod restore;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "host")]
 type DosiMessage = crate::dosi::Message;
-#[cfg(not(feature = "host"))]
-type DosiMessage = std::convert::Infallible;
 
 #[cfg(feature = "host")]
 pub(crate) fn not_published() -> crate::text::Text {
@@ -1024,6 +1020,8 @@ struct Runtime {
     services: crate::canvas::CanvasServices,
     #[cfg(feature = "host")]
     dosi: crate::dosi::Engine,
+    #[cfg(not(feature = "host"))]
+    dosi: crate::dosi::Viewer,
     #[cfg(feature = "host")]
     recent: crate::folders::Recent,
     #[cfg(feature = "host")]
@@ -1159,7 +1157,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     #[cfg(feature = "host")]
     let (dosi, dosi_messages) = dosi_engine(&config, &launcher);
     #[cfg(not(feature = "host"))]
-    let (_, dosi_messages) = mpsc::channel::<DosiMessage>(1);
+    let (dosi, dosi_messages) = crate::dosi::Viewer::load(&config.data_root);
     #[cfg(feature = "host")]
     network.answer_calls(handle.command_client().answering());
     let runtime = Runtime {
@@ -1181,7 +1179,6 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         config,
         #[cfg(feature = "host")]
         launcher,
-        #[cfg(feature = "host")]
         dosi,
         network,
         events,
@@ -1536,7 +1533,6 @@ impl Runtime {
             self.auth_event(),
             json!({"type":"sessions.snapshot", "sessions":self.entries()}),
         ];
-        #[cfg(feature = "host")]
         values.push(self.dosi.snapshot());
         values.extend(self.cached_events.values().cloned());
         values.into_iter().map(|value| self.event(value)).collect()
@@ -1617,7 +1613,7 @@ impl Runtime {
         mut network_events: broadcast::Receiver<BackendEvent>,
         mut dosi_messages: mpsc::Receiver<DosiMessage>,
     ) {
-        let mut dosi_open = cfg!(feature = "host");
+        let mut dosi_open = true;
         self.emit(self.ready_event());
         let network = self.network.clone();
         self.spawn(async move {
@@ -1731,17 +1727,10 @@ impl Runtime {
         self.network.shutdown().await;
     }
 
-    #[cfg(feature = "host")]
     fn dosi_message(&mut self, message: DosiMessage) {
         let mut out = crate::dosi::Output::default();
         self.dosi.handle(message, &mut out);
         self.dosi_output(out);
-    }
-
-    #[cfg(not(feature = "host"))]
-    #[expect(clippy::unused_self, reason = "a viewer runs no Dosi")]
-    const fn dosi_message(&self, message: DosiMessage) {
-        match message {}
     }
 
     #[cfg(feature = "host")]
@@ -2358,13 +2347,11 @@ impl Runtime {
         self.apply_wanted();
         self.emit(self.auth_event());
         self.publish_catalog();
-        #[cfg(feature = "host")]
         self.dosi_account();
         Ok(())
     }
 
     fn network_event(&mut self, event: BackendEvent) {
-        #[cfg(feature = "host")]
         self.dosi_account();
         if event.event.get("requestId").is_some() {
             let ends_sign_in = matches!(
@@ -2396,7 +2383,6 @@ impl Runtime {
             #[cfg(feature = "host")]
             self.sharing_changed(&event.event);
         } else if kind == "network.dosi" {
-            #[cfg(feature = "host")]
             self.dosi_nudge(&event.event);
         } else if kind == "network.terminal" {
             self.terminal_changed(&event.event);

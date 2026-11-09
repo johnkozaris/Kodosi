@@ -144,7 +144,10 @@ su cuenta, su modelo y su esfuerzo.
 Pregúntale a Dosi qué te necesita, o pídele que haga algo. Dosi lee tus terminales y salas,
 responde, y escribe, inicia y cierra cosas por ti. Cuando necesita que elijas, pregunta con
 botones, y también puedes responder con tus propias palabras. Tu conversación con Dosi es la
-misma en todos tus ordenadores.
+misma en todos tus dispositivos. En un iPhone o iPad, la pestaña Dosi escribe a Dosi en el
+ordenador que eliges encima del mensaje, al principio el que respondió por última vez. Un
+mensaje para un ordenador sin conexión espera hasta que vuelva a ejecutar Kodosi, y No enviar
+lo retira.
 
 La línea junto a la cara de Dosi te dice cuándo trabaja, cuándo ha respondido y cuándo tiene
 una pregunta. En un ordenador sin agente, dice Configurar Dosi y abre Ajustes › Dosi. Para

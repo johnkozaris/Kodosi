@@ -24,7 +24,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 81;
+pub const VERSION: u32 = 82;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -658,6 +658,9 @@ pub enum Command {
         text: String,
         #[serde(default)]
         context: Option<DosiContext>,
+        /// The device ID of the computer whose Dosi answers, when it is another computer.
+        #[serde(default)]
+        device: Option<String>,
     },
     #[serde(rename = "dosi.stop")]
     DosiStop {
@@ -697,6 +700,13 @@ pub enum Command {
     DosiNew {
         #[serde(rename = "requestId")]
         request_id: String,
+    },
+    /// Turns Dosi on this computer on or off.
+    #[serde(rename = "dosi.use")]
+    DosiUse {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        on: bool,
     },
     #[serde(rename = "dosi.setup")]
     DosiConfigure {
@@ -1690,6 +1700,7 @@ impl Command {
             Self::DosiAnswer { .. } => "dosi.answer",
             Self::DosiAsk { .. } => "dosi.ask",
             Self::DosiNew { .. } => "dosi.new",
+            Self::DosiUse { .. } => "dosi.use",
             Self::DosiConfigure { .. } => "dosi.setup",
             Self::DosiReadInstructions { .. } => "dosi.instructions.read",
             Self::DosiWriteInstructions { .. } => "dosi.instructions.write",
@@ -1708,6 +1719,7 @@ impl Command {
                 | Self::DosiAnswer { .. }
                 | Self::DosiAsk { .. }
                 | Self::DosiNew { .. }
+                | Self::DosiUse { .. }
                 | Self::DosiConfigure { .. }
                 | Self::DosiReadInstructions { .. }
                 | Self::DosiWriteInstructions { .. }
@@ -1815,6 +1827,7 @@ impl Command {
             | Self::DosiAnswer { request_id, .. }
             | Self::DosiAsk { request_id, .. }
             | Self::DosiNew { request_id }
+            | Self::DosiUse { request_id, .. }
             | Self::DosiConfigure { request_id, .. }
             | Self::DosiReadInstructions { request_id }
             | Self::DosiWriteInstructions { request_id, .. }
@@ -2065,12 +2078,20 @@ impl Command {
             MAX_OPTIONS, MAX_QUESTION_BYTES,
         };
         match self {
-            Self::DosiSend { text, context, .. } => {
+            Self::DosiSend {
+                text,
+                context,
+                device,
+                ..
+            } => {
                 writing(text, "message", MAX_MESSAGE_BYTES)?;
                 if let Some(context) = context {
                     for id in [&context.terminal, &context.room].into_iter().flatten() {
                         parse_id(id)?;
                     }
+                }
+                if let Some(device) = device {
+                    parse_id(device)?;
                 }
             }
             Self::DosiUnqueue { queued_id: id, .. } | Self::DosiHistory { before: id, .. } => {

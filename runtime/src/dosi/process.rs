@@ -10,7 +10,7 @@ use tokio::{
     sync::{mpsc, oneshot},
 };
 
-use super::engine::Message;
+use super::{chat::Message, engine::Run};
 
 const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 const STDERR_TAIL_BYTES: usize = 4 * 1024;
@@ -125,7 +125,7 @@ pub(super) fn spawn(
                     let messages = messages.clone();
                     async move {
                         messages
-                            .send(Message::Line { process: id, line })
+                            .send(Message::Run(Run::Line { process: id, line }))
                             .await
                             .is_ok()
                     }
@@ -153,12 +153,12 @@ pub(super) fn spawn(
         let failed = status.is_none_or(|status| !status.success());
         drop(
             messages
-                .send(Message::Exited {
+                .send(Message::Run(Run::Exited {
                     process: id,
                     error: failed
                         .then_some(tail)
                         .filter(|tail| !tail.trim().is_empty()),
-                })
+                }))
                 .await,
         );
     });

@@ -149,6 +149,65 @@ struct AppModelTests {
         #expect(model.terminals.live.picture(for: "s1")?.sent == 3)
     }
 
+    @Test func `the computer that answered last answers Dosi, or else the first that runs Kodosi`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        try deliver("devices.list", ["selfDeviceId": "phone", "localDeviceEnrolled": true, "devices": [
+            device("phone", "iPhone"), device("studio", "Studio"), device("air", "Air"), device("key", "Recovery key", recovery: true),
+        ]])
+        #expect(model.dosiComputer == nil)
+        try deliver("devices.hosts", ["deviceIds": ["phone", "studio", "air", "key"]])
+        #expect(model.dosiComputers.map(\.name) == ["Air", "Studio"])
+        #expect(model.dosiComputer?.name == "Air")
+        try deliver("dosi.snapshot", ["dosi": dosi(last: ["device": "studio", "name": "Studio"])])
+        #expect(model.dosiComputer?.name == "Studio")
+        try deliver("devices.hosts", ["deviceIds": ["phone", "air"]])
+        let studio = try #require(model.dosiComputer)
+        #expect(model.dosiComputers.map(\.name) == ["Air", "Studio"])
+        #expect(studio.name == "Studio" && model.dosiAway(studio))
+        model.dosiDevice = "air"
+        #expect(model.dosiComputer?.name == "Air")
+        try deliver("devices.hosts", ["deviceIds": ["phone"]])
+        #expect(model.dosiComputers.map(\.name) == ["Studio"])
+        #expect(model.dosiComputer?.name == "Studio")
+    }
+
+    @Test func `a message to Dosi goes to the chosen computer, and another account starts clean`() async throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        try deliver("devices.list", ["selfDeviceId": "phone", "localDeviceEnrolled": true, "devices": [
+            device("phone", "iPhone"), device("studio", "Studio"),
+        ]])
+        try deliver("devices.hosts", ["deviceIds": ["studio"]])
+        try deliver("dosi.snapshot", ["dosi": dosi(state: "connecting")])
+        #expect(!model.dosiConnected)
+        try deliver("dosi.snapshot", ["dosi": dosi()])
+        #expect(model.dosiConnected)
+        model.dosi.draft = "  What needs me?  "
+        model.sendToDosi()
+        #expect(model.dosi.draft.isEmpty)
+        for _ in 0 ..< 200 where sent.last("dosi.send") == nil {
+            await Task.yield()
+        }
+        let send = try #require(sent.last("dosi.send"))
+        #expect(send["text"] as? String == "What needs me?" && send["device"] as? String == "studio")
+        try deliver("dosi.item", ["item": ["id": "a", "turn": "1", "at": 1, "body": ["kind": "person", "text": "What needs me?"]]])
+        #expect(model.dosi.items.map(\.id) == ["a"])
+        model.dosiDevice = "studio"
+        try deliver("auth.ready", userId: "user-2", epoch: 2, ["userId": "user-2", "enrolled": true])
+        #expect(model.dosi.snapshot == nil && model.dosi.items.isEmpty && model.dosiDevice == nil)
+    }
+
+    private func device(_ id: String, _ label: String, recovery: Bool = false) -> [String: Any] {
+        ["deviceId": id, "label": label, "certIssuedAtMs": 1, "recoveryKey": recovery]
+    }
+
+    private func dosi(state: String = "idle", last: [String: Any]? = nil) -> [String: Any] {
+        [
+            "state": state, "setup": ["agent": NSNull(), "picks": [Any]()], "agents": [Any](), "instructionsEdited": false,
+            "folder": "", "shared": true, "remote": NSNull(), "conversation": NSNull(), "items": [Any](), "earlier": false,
+            "queued": [Any](), "asks": [Any](), "last": last ?? NSNull(),
+        ]
+    }
+
     private func session(id: String, state: String) -> [String: Any] {
         [
             "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",

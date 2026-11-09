@@ -304,7 +304,6 @@ impl Content {
     }
 }
 
-#[cfg(feature = "host")]
 mod dosi;
 #[cfg(test)]
 #[path = "rooms_tests.rs"]
@@ -646,7 +645,12 @@ impl BackendClient {
                         "The room changed during setup. Open it again."
                     )));
                 }
-                self.initialize_room(credentials, room, &history.owner_user_id, &history.members)
+                let members = if self.inner.rooms.lock().await.dosi == Some(room) {
+                    std::slice::from_ref(&credentials.user_id)
+                } else {
+                    &history.members
+                };
+                self.initialize_room(credentials, room, &history.owner_user_id, members)
                     .await?;
                 continue;
             }
@@ -1206,10 +1210,17 @@ impl BackendClient {
     }
 
     pub(super) async fn learn_dosi(&self, credentials: &Credentials, catalog: &mut Value) {
-        let room = catalog
+        let listed = catalog
             .as_object_mut()
             .and_then(|fields| fields.remove("dosi"))
             .and_then(|room| room.as_str().and_then(|room| Uuid::parse_str(room).ok()));
+        let room = match self.pinned_dosi(credentials) {
+            Ok(pinned) => pinned.or(listed),
+            Err(error) => {
+                tracing::warn!(%error, "Dosi could not read the room it keeps");
+                None
+            }
+        };
         let mut cache = self.inner.rooms.lock().await;
         if cache.generation == credentials.generation && room.is_some() {
             cache.dosi = room;
