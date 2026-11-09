@@ -11,6 +11,7 @@ use std::{
 
 use serde_json::{Value, json};
 use tokio::{
+    io::{AsyncBufReadExt as _, BufReader},
     net::TcpListener,
     process::{Child, Command},
     sync::{mpsc, oneshot, watch},
@@ -26,7 +27,6 @@ use crate::{
 };
 
 const START_LIMIT: Duration = Duration::from_secs(30);
-const START_CHECK: Duration = Duration::from_millis(50);
 const ATTACH_LIMIT: Duration = Duration::from_secs(5);
 const COMMANDS: usize = 256;
 const QUIT_LIMIT: Duration = Duration::from_secs(5);
@@ -693,20 +693,41 @@ async fn free_port() -> Result<u16, Error> {
     Ok(listener.local_addr()?.port())
 }
 
+/// Waits for the address that the engine prints when its debug port listens, and keeps reading
+/// the rest of its error output so that the engine never waits for it.
 async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Error> {
-    tokio::time::timeout(START_LIMIT, async {
-        loop {
-            if let Some(address) = devtools::address_on(port).await {
+    let output = process
+        .stderr
+        .take()
+        .ok_or_else(|| Error::Engine("the program has no error output".to_owned()))?;
+    let mut lines = BufReader::new(output).lines();
+    let address = tokio::time::timeout(START_LIMIT, async {
+        while let Ok(Some(line)) = lines.next_line().await {
+            if let Some(address) = debug_address(&line, port) {
                 return Ok(address);
             }
-            if let Ok(Some(status)) = process.try_wait() {
-                return Err(Error::Engine(ended(status)));
-            }
-            tokio::time::sleep(START_CHECK).await;
         }
+        Err(Error::Engine(ended(process.wait().await?)))
     })
     .await
-    .map_err(|_| Error::Engine("the debug port did not answer".to_owned()))?
+    .map_err(|_| Error::Engine("the debug port did not answer".to_owned()))??;
+    tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
+    Ok(address)
+}
+
+/// The address in the line that the engine prints when its debug port listens. Only the engine
+/// writes this output, so a program that held the port first cannot give the host its address.
+/// When the port of `127.0.0.1` is taken, the engine listens on `::1` instead.
+fn debug_address(line: &str, port: u16) -> Option<String> {
+    let address = line.trim().strip_prefix("DevTools listening on ")?;
+    let browser = ["127.0.0.1", "[::1]"]
+        .into_iter()
+        .find_map(|host| address.strip_prefix(&format!("ws://{host}:{port}/devtools/browser/")))?;
+    (!browser.is_empty()
+        && browser
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'))
+    .then(|| address.to_owned())
 }
 
 fn ended(status: std::process::ExitStatus) -> String {
@@ -743,7 +764,7 @@ fn launch(engine: &Path, arguments: &[String]) -> Result<Child, Error> {
         .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
         .map_err(|error| Error::Engine(error.to_string()))
@@ -801,6 +822,28 @@ mod tests {
         assert_eq!(tabs, [10]);
         assert_eq!(active, Some(10));
         assert!(!routes.tabs.contains_key(&30));
+    }
+
+    #[test]
+    fn only_the_engine_line_for_its_own_port_gives_the_debug_address() {
+        let address = "ws://127.0.0.1:34387/devtools/browser/e81b9d87-9ad6-4c2b-8509-7f09dc467d48";
+        let line = format!("DevTools listening on {address}\n");
+        assert_eq!(debug_address(&line, 34387).as_deref(), Some(address));
+        assert_eq!(debug_address(&line, 34388), None);
+        let fallback = "ws://[::1]:34387/devtools/browser/79590703-47df-4aaf-8c11-287032c0d5e2";
+        assert_eq!(
+            debug_address(&format!("DevTools listening on {fallback}"), 34387).as_deref(),
+            Some(fallback)
+        );
+        for other in [
+            "DevTools listening on ws://10.0.0.1:34387/devtools/browser/e81b9d87",
+            "DevTools listening on ws://127.0.0.1:34387/devtools/page/e81b9d87",
+            "DevTools listening on ws://127.0.0.1:34387/devtools/browser/e81b9d87?x=1",
+            "DevTools listening on ws://127.0.0.1:34387/devtools/browser/",
+            "[WARNING] ws://127.0.0.1:34387/devtools/browser/e81b9d87",
+        ] {
+            assert_eq!(debug_address(other, 34387), None, "{other}");
+        }
     }
 
     #[test]
