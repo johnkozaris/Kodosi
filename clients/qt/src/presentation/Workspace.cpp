@@ -358,6 +358,9 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             m_devices.m_approvalCode = event.value(QStringLiteral("code")).toString();
         else if (operation == QStringLiteral("devices.recovery.create"))
             m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
+        else if (operation == QStringLiteral("devices.link.check") && !m_devices.m_checkRequest.isEmpty()
+            && event.value(QStringLiteral("requestId")).toString() == m_devices.m_checkRequest)
+            m_devices.m_checkedLabel = event.value(QStringLiteral("deviceLabel")).toString();
         else
             return;
         emit m_devices.changed();
@@ -439,6 +442,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_account.loginChanged();
         if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("auth.deleteAccount"))
             m_account.endDeletion();
+    }
+    if (type == QStringLiteral("devices.error") && !id.isEmpty() && id == m_devices.m_checkRequest) {
+        m_devices.m_checkRequest.clear();
+        m_devices.m_checkedCode.clear();
+        emit m_devices.changed();
     }
     if (quiet)
         return;

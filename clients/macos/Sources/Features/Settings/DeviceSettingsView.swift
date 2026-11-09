@@ -91,7 +91,7 @@ struct DeviceSettingsView: View {
                             .accessibilityIdentifier("settings.devices.code")
                             Button("Approve", action: approve)
                                 .buttonStyle(.kodosi(.primary))
-                                .disabled(!DeviceCode.isComplete(code) || deps.account.approval == .approving)
+                                .disabled(!DeviceCode.isComplete(code) || deps.account.approval?.isBusy == true)
                                 .accessibilityIdentifier("settings.devices.approve")
                         }
                         .padding(.leading, 16).padding(.trailing, 6).frame(height: 46)
@@ -154,6 +154,12 @@ struct DeviceSettingsView: View {
                 Button("Remove", role: .destructive) { deps.account.revokeDevice(device); revoke = nil }
             }
         } message: { Text(revoke?.removalMessage(hasRecoveryKey: deps.account.hasRecoveryKey) ?? "") }
+        .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
+                            titleVisibility: .visible) {
+            Button("Approve") { deps.account.confirmApproval() }
+                .accessibilityIdentifier("settings.devices.confirmApprove")
+            Button("Cancel", role: .cancel) { deps.account.finishApproval() }
+        } message: { Text("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.") }
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
             Button("Make a new key") { deps.account.createRecoveryKey() }
         } message: { Text("The recovery key that you have now stops working.") }
@@ -197,9 +203,13 @@ struct DeviceSettingsView: View {
         }
     }
 
+    private var confirmingLabel: String? {
+        if case let .confirming(label) = deps.account.approval { label } else { nil }
+    }
+
     private func approve() {
         guard DeviceCode.isComplete(code) else { return }
-        deps.account.approveDevice(code: code)
+        deps.account.checkDevice(code: code)
         code = ""
     }
 }

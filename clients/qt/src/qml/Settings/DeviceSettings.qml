@@ -320,6 +320,26 @@ ColumnLayout {
                 root.recovering = false;
                 recoveryKeyField.clear();
             }
+            if (Models.Devices.checkedLabel.length > 0 && !approveChecked.opened)
+                approveChecked.open();
+        }
+    }
+    KDialog {
+        id: approveChecked
+
+        objectName: "panel.settings.approve.confirmation"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Approve %1?").arg(Models.Devices.checkedLabel)
+
+        onAccepted: Models.Devices.confirmApproval()
+        onRejected: Models.Devices.dropApproval()
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Approve")
+
+        PlainLabel {
+            color: KodosiTheme.inkMuted
+            text: qsTr("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.")
+            width: 380
+            wrapMode: Text.WordWrap
         }
     }
     KDialog {
