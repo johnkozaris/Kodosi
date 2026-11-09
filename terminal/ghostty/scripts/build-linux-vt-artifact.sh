@@ -61,7 +61,7 @@ if [ "$SKIP_TESTS" -eq 0 ]; then
     python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
         --working-tree --vendor "$STAGE_ROOT" --platform linux --patched-source "$SOURCE_DIR"
     "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh" --vendor "$STAGE_ROOT"
-    python3 "$ROOT_DIR/scripts/verify-linux-third-party-notices.py" --vendor "$STAGE_ROOT"
+    python3 "$ROOT_DIR/scripts/verify-vt-third-party-notices.py" --vendor "$STAGE_ROOT" --layout linux-x86_64
 fi
 
 DESTINATION="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"

@@ -20,7 +20,9 @@ The Linux VT artifacts under `Vendor/GhosttyVt/linux-x86_64` contain a smaller
 dependency closure recorded independently in
 `ThirdPartyNotices/linux-vt-inventory.json`. They reuse the applicable notice
 texts below but do not contain the macOS combined image's libintl, z2d, fonts,
-or application/runtime dependencies.
+or application/runtime dependencies. The Android VT archive under
+`Vendor/GhosttyVt/android-arm64` has the same closure, recorded in
+`ThirdPartyNotices/android-vt-inventory.json`.
 
 ## Bundled software and data
 

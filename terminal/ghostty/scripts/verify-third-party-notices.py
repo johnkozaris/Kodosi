@@ -371,7 +371,7 @@ def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, bo
     all_vendored_archives = sorted(
         path
         for path in (ROOT / "Vendor").rglob("*.a")
-        if "linux-x86_64" not in path.parts
+        if "linux-x86_64" not in path.parts and "android-arm64" not in path.parts
     )
     declared_archives = {path.resolve() for path in archives} | {
         safe_file(slice_archive(slice_name)).resolve() for slice_name in slices

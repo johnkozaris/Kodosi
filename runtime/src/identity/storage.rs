@@ -54,7 +54,7 @@ impl CredentialLocation {
 
 impl Secrets {
     pub fn new(root: PathBuf, service: &str, isolated: bool) -> Self {
-        let place = if isolated {
+        let place = if isolated || cfg!(target_os = "android") {
             Some(Place::Files)
         } else if cfg!(target_os = "linux") {
             None

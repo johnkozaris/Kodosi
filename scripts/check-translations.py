@@ -181,6 +181,35 @@ def check_sign_in() -> None:
             report(folder, f"no messages_{language}.properties")
 
 
+ANDROID_QUALIFIERS = {"zh-Hans": "b+zh+Hans"}
+ANDROID_SPECIFIER = re.compile(r"%\d+\$[sd]")
+
+
+def android_strings(path: Path) -> dict[str, str]:
+    return {
+        element.get("name", ""): "".join(element.itertext())
+        for element in ElementTree.parse(path).getroot().iter("string")
+        if element.get("translatable") != "false"
+    }
+
+
+def check_android(res: Path) -> None:
+    english = android_strings(res / "values/strings.xml")
+    for language in LANGUAGES:
+        path = res / f"values-{ANDROID_QUALIFIERS.get(language, language)}/strings.xml"
+        if not path.exists():
+            report(path, f"no {language} words")
+            continue
+        table = android_strings(path)
+        for name in sorted(english.keys() - table.keys()):
+            report(path, f"no {language} words for {name}")
+        for name in sorted(table.keys() - english.keys()):
+            report(path, f"words for a text that the app does not have: {name}")
+        for name in sorted(table.keys() & english.keys()):
+            if sorted(ANDROID_SPECIFIER.findall(table[name])) != sorted(ANDROID_SPECIFIER.findall(english[name])):
+                report(path, f"{language} words for {name} have other values: {table[name]!r}")
+
+
 def check_backend_refusals() -> None:
     http = ROOT / "runtime/src/network/http.rs"
     code = http.read_text(encoding="utf-8")
@@ -209,6 +238,7 @@ def main() -> int:
         check_catalog(path)
     for path in sorted(ROOT.glob("clients/qt/i18n/kodosi_*.ts")):
         check_qt(path)
+    check_android(ROOT / "clients/android/app/src/main/res")
     check_sign_in()
     check_backend_refusals()
     for problem in problems:

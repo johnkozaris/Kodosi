@@ -184,14 +184,20 @@ pub(super) fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
     .then(|| PathBuf::from(path))
 }
 
+#[cfg(not(target_os = "android"))]
+const EFFECTIVE_IDS: AtFlags = AtFlags::EACCESS;
+// Bionic has no AT_EACCESS, and an Android app runs with its real IDs.
+#[cfg(target_os = "android")]
+const EFFECTIVE_IDS: AtFlags = AtFlags::empty();
+
 pub(super) fn can_read(path: &Path) -> bool {
-    accessat(CWD, path, Access::READ_OK, AtFlags::EACCESS).is_ok()
+    accessat(CWD, path, Access::READ_OK, EFFECTIVE_IDS).is_ok()
 }
 
 pub(super) fn can_write(path: &Path) -> bool {
-    accessat(CWD, path, Access::WRITE_OK, AtFlags::EACCESS).is_ok()
+    accessat(CWD, path, Access::WRITE_OK, EFFECTIVE_IDS).is_ok()
 }
 
 pub(super) fn is_executable(path: &Path) -> bool {
-    accessat(CWD, path, Access::EXEC_OK, AtFlags::EACCESS).is_ok()
+    accessat(CWD, path, Access::EXEC_OK, EFFECTIVE_IDS).is_ok()
 }

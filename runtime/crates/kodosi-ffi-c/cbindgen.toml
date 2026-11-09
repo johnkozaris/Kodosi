@@ -6,6 +6,7 @@ documentation = false
 
 [defines]
 "target_vendor = apple" = "__APPLE__"
+"target_os = android" = "__ANDROID__"
 
 [export]
 prefix = ""

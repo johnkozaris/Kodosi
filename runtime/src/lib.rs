@@ -5,6 +5,7 @@
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"),
     all(target_os = "ios", target_arch = "aarch64"),
+    all(target_os = "android", target_arch = "aarch64"),
     all(
         target_os = "windows",
         target_env = "msvc",
@@ -12,11 +13,11 @@
     )
 )))]
 compile_error!(
-    "Kodosi supports arm64 macOS, x86_64 Linux GNU, x86_64 or arm64 Windows MSVC and arm64 iOS"
+    "Kodosi supports arm64 macOS, x86_64 Linux GNU, x86_64 or arm64 Windows MSVC, and arm64 iOS and Android"
 );
 
-#[cfg(all(target_os = "ios", feature = "host"))]
-compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
+#[cfg(all(any(target_os = "ios", target_os = "android"), feature = "host"))]
+compile_error!("Phones view terminals hosted elsewhere; build it with --no-default-features");
 
 #[macro_use]
 pub mod text;

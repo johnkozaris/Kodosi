@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "ghosttyCommit": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+  "zig": {
+    "version": "0.17.0",
+    "target": "aarch64-macos",
+    "sha256": "b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a"
+  },
+  "artifacts": {
+    "static": "Vendor/GhosttyVt/android-arm64/lib/libghostty-vt.a"
+  },
+  "components": [
+    {
+      "id": "ghostty",
+      "identity": "commit 83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "spdx": "MIT",
+      "notices": ["LICENSE-GHOSTTY"]
+    },
+    {
+      "id": "highway",
+      "identity": "1.2.0 / 66486a10623fa0d72fe91260f96c892e41aceb06",
+      "spdx": "Apache-2.0 AND BSD-3-Clause",
+      "notices": ["highway-Apache-2.0.txt", "highway-BSD-3-Clause.txt"]
+    },
+    {
+      "id": "simdutf",
+      "identity": "9.0.0 / cpp:38dc5481dc4b7eef95cea8056b84d940419288100f317ecaff683bd89f163263 / h:d3501fc2143f0edc5c84e6bb013a7fdb8ccd95514f7fd0816669248e62676301",
+      "spdx": "MIT AND BSD-3-Clause",
+      "notices": [
+        "simdutf-MIT.txt",
+        "simdutf-PyTorch-BSD-3-Clause.txt",
+        "simdutf-Fuchsia-BSD-3-Clause.txt"
+      ]
+    },
+    {
+      "id": "uucode",
+      "identity": "0.2.0 / ea62149739404a73c202b48a33bf6dd2af4bd9b0",
+      "spdx": "MIT",
+      "notices": ["uucode.txt", "uucode-Bjoern-Hoehrmann.txt"]
+    },
+    {
+      "id": "unicode-data",
+      "identity": "uucode ea62149739404a73c202b48a33bf6dd2af4bd9b0 UCD",
+      "spdx": "Unicode-3.0",
+      "notices": ["unicode-data.txt"]
+    },
+    {
+      "id": "wuffs",
+      "identity": "7411f488fe2e2c205c3d3b3d28638b7356522930 / N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI",
+      "spdx": "MIT OR Apache-2.0",
+      "notices": ["wuffs.txt"]
+    },
+    {
+      "id": "zig-runtime",
+      "identity": "Zig 0.17.0 / b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a",
+      "spdx": "MIT",
+      "notices": ["zig-compiler-runtime.txt"]
+    },
+    {
+      "id": "compiler-rt-llvm-derived",
+      "identity": "Zig 0.17.0 toolchain sources",
+      "spdx": "Apache-2.0 WITH LLVM-exception AND NCSA AND MIT",
+      "notices": [
+        "compiler-rt-LLVM-derived.txt",
+        "zig-runtime-Apache-2.0-LLVM-exception.txt"
+      ]
+    },
+    {
+      "id": "compiler-rt-musl-derived",
+      "identity": "Zig 0.17.0 toolchain sources",
+      "spdx": "MIT AND permissive-source-notices",
+      "notices": [
+        "compiler-rt-musl-derived.txt",
+        "zig-runtime-MIT-derived.txt"
+      ]
+    }
+  ],
+  "archiveMembers": [
+    {"name": "abort.o", "owners": ["highway"]},
+    {"name": "base64.o", "owners": ["ghostty", "highway", "simdutf"]},
+    {"name": "codepoint_width.o", "owners": ["ghostty", "highway", "unicode-data", "uucode"]},
+    {"name": "compiler_rt.o", "owners": ["compiler-rt-llvm-derived", "compiler-rt-musl-derived", "zig-runtime"]},
+    {"name": "ghostty-vt-static_zcu.o", "owners": ["ghostty"]},
+    {"name": "highway_zcu.o", "owners": ["ghostty", "highway"]},
+    {"name": "index_of.o", "owners": ["ghostty", "highway"]},
+    {"name": "per_target.o", "owners": ["highway"]},
+    {"name": "simdutf.o", "owners": ["simdutf"]},
+    {"name": "targets.o", "owners": ["highway"]},
+    {"name": "vt.o", "owners": ["ghostty", "highway", "simdutf"]},
+    {"name": "wuffs-v0.4.o", "owners": ["wuffs"]}
+  ]
+}

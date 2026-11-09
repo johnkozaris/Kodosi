@@ -14,6 +14,10 @@ use apple as imp;
 mod windows;
 #[cfg(windows)]
 use windows as imp;
+#[cfg(target_os = "android")]
+mod android;
+#[cfg(target_os = "android")]
+use android as imp;
 
 pub fn system_store_available() -> bool {
     imp::available()

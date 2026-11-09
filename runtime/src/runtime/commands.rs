@@ -1649,7 +1649,7 @@ impl Runtime {
             self.auth_pending = false;
         }
         let current = self.in_scope(scope);
-        let own_retirement = changes_account
+        let own_retirement = (changes_account || matches!(command, Command::CancelLogin { .. }))
             && scope.network_generation.checked_add(1) == Some(generation)
             && generation == self.network.generation();
         if !current && !own_retirement {

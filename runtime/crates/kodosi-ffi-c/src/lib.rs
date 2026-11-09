@@ -17,6 +17,8 @@ use tokio::{runtime::Runtime as Executor, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+#[cfg(target_os = "android")]
+mod android;
 mod app;
 mod callbacks;
 mod instance;
@@ -56,6 +58,7 @@ pub const KODOSI_FFI_BUSY: i32 = 6;
 pub const KODOSI_FFI_SESSION_NOT_FOUND: i32 = 7;
 pub const KODOSI_FFI_STALE_SUBSCRIPTION: i32 = 8;
 pub const KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED: i32 = 9;
+pub const KODOSI_FFI_PLATFORM_FAILED: i32 = 10;
 pub const KODOSI_FFI_PANIC: i32 = -1;
 pub const KODOSI_START_INVALID_CALLBACKS: i32 = 1;
 pub const KODOSI_START_ALREADY_ACTIVE: i32 = 2;

@@ -6,10 +6,11 @@ cd "$(dirname "$0")/.."
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/build.sh [--source <path>] [--skip-tests]
+Usage: ./scripts/build.sh [--source <path>] [--skip-tests] [--android]
 
   --source <path>   Use an existing clean Ghostty checkout as the source cache.
   --skip-tests      Skip the checks and tests of the built artifacts.
+  --android         Build the Android VT artifact instead, on macOS or Linux.
 EOF
 }
 
@@ -37,6 +38,7 @@ trap cleanup EXIT
 SOURCE_CACHE="$ROOT_DIR/References/ghostty-upstream"
 SOURCE_SUPPLIED=0
 SKIP_TESTS=0
+ANDROID=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -48,6 +50,10 @@ while [ $# -gt 0 ]; do
             ;;
         --skip-tests)
             SKIP_TESTS=1
+            shift
+            ;;
+        --android)
+            ANDROID=1
             shift
             ;;
         -h | --help)
@@ -80,6 +86,14 @@ case "$(uname -s)-$(uname -m)" in
         exit 1
         ;;
 esac
+if [ "$ANDROID" -eq 1 ]; then
+    if [ "$PLATFORM_GROUP" = windows ]; then
+        echo "[!] the Android VT artifact builds on macOS or Linux" >&2
+        exit 1
+    fi
+    PLATFORM_GROUP=android
+    GHOSTTY_REF_FILE="$ROOT_DIR/AndroidGhostty.ref"
+fi
 GHOSTTY_REF=$(tr -d '[:space:]' < "$GHOSTTY_REF_FILE")
 
 if [ -e "$SOURCE_CACHE" ] || [ -L "$SOURCE_CACHE" ]; then
@@ -142,6 +156,15 @@ if [ "$PLATFORM_GROUP" = windows ]; then
     exit 0
 fi
 
+if [ "$PLATFORM_GROUP" = android ]; then
+    "$ROOT_DIR/scripts/build-android-vt-artifact.sh" \
+        "$SOURCE_DIR" \
+        "$PATCH_APPLICATION_DIGEST" \
+        "$ZIG_STORE_DIGEST" \
+        "$SKIP_TESTS"
+    exit 0
+fi
+
 if [ "$PLATFORM_GROUP" = linux ]; then
     "$ROOT_DIR/scripts/build-linux-vt-artifact.sh" \
         "$SOURCE_DIR" \
@@ -173,8 +196,8 @@ trap 'cleanup_vendor_stage; cleanup' EXIT
     "$VENDOR_STAGE/GhosttyVt/macos-arm64" \
     "$VENDOR_STAGE/symbols"
 
-# The new Vendor replaces the old one, so it keeps the Linux and Windows VT artifacts.
-for layout in linux-x86_64 windows-x86_64 windows-arm64; do
+# The new Vendor replaces the old one, so it keeps the Linux, Windows and Android VT artifacts.
+for layout in linux-x86_64 windows-x86_64 windows-arm64 android-arm64; do
     artifact="$ROOT_DIR/Vendor/GhosttyVt/$layout"
     if [ -e "$artifact" ] || [ -e "$artifact.version" ]; then
         if [ ! -d "$artifact" ] || [ ! -f "$artifact.version" ]; then

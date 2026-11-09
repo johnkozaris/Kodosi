@@ -45,6 +45,7 @@ bytes = { version = "1.12.1", features = ["serde"] }
 futures-util = "0.3.34"
 reqwest = { version = "0.13.5", default-features = false, features = ["form", "json", "rustls", "stream"] }
 rustix = "1.1.5"
+rustls-platform-verifier = "0.7.1"
 serde = "1.0.229"
 serde_json = "1.0.154"
 specta = "=2.0.0-rc.27"
@@ -89,7 +90,7 @@ futures-util = { workspace = true }
 reqwest = { workspace = true }
 rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "std"] }
-rustls-platform-verifier = "0.7.1"
+rustls-platform-verifier = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }

@@ -4,6 +4,7 @@ cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 cargo_deny_version := "0.20.2"
 cargo_machete_version := "0.9.2"
+cargo_ndk_version := "4.1.2"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 test_lints := "-D warnings -A clippy::unwrap_used -A clippy::expect_used"
 llvm_cov := "cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/'"
@@ -43,11 +44,13 @@ ghostty-check: ghostty-notices-check
 [macos]
 ghostty-notices-check:
     "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
+    "{{ ghostty_dir }}/scripts/verify-vt-third-party-notices.py" --layout android-arm64
 
 [private]
 [linux]
 ghostty-notices-check:
-    "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
+    "{{ ghostty_dir }}/scripts/verify-vt-third-party-notices.py" --layout linux-x86_64
+    "{{ ghostty_dir }}/scripts/verify-vt-third-party-notices.py" --layout android-arm64
 
 # Git Bash has no ar or nm for the notice checks.
 [private]
@@ -278,6 +281,47 @@ ios-rust-targets-install:
 [group('ios')]
 ios-rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --target aarch64-apple-ios --target aarch64-apple-ios-sim -- -D warnings
+
+# Install the Rust target for Android devices and cargo-ndk in .tools/rust.
+[group('android')]
+android-tools-install:
+    rustup target add aarch64-linux-android
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-ndk --version {{ cargo_ndk_version }}
+
+# Build the viewer runtime for Android as a shared library, for the dev or release profile.
+[group('android')]
+android-runtime-build profile="dev":
+    just --justfile clients/android/justfile runtime-build {{ profile }}
+
+# Lint the viewer runtime for Android devices.
+[group('android')]
+android-rust-lint:
+    just --justfile clients/android/justfile rust-lint
+
+# Build the Debug Android app.
+[group('android')]
+android-build:
+    just --justfile clients/android/justfile build
+
+# Install the Debug Android app on the device or emulator that adb sees, and open it.
+[group('android')]
+android-run:
+    just --justfile clients/android/justfile run
+
+# Check the Kotlin style and run Android lint on the Android app.
+[group('android')]
+android-lint:
+    just --justfile clients/android/justfile lint
+
+# Run the unit tests of the Android app.
+[group('android')]
+android-test:
+    just --justfile clients/android/justfile test
+
+# Lint the runtime for Android, lint and test the Android app, build it, then check its translations.
+[group('android')]
+android-check: android-rust-lint
+    just --justfile clients/android/justfile check
 
 # Build the Linux app.
 [group('linux')]

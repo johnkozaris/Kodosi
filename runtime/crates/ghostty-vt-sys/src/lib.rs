@@ -16,7 +16,7 @@
     rustdoc::invalid_html_tags
 )]
 mod bindings {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     include!("bindings_linux.rs");
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     include!("bindings_macos.rs");

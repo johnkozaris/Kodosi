@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -13,13 +12,40 @@ sys.dont_write_bytecode = True
 import digest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-INVENTORY_PATH = ROOT / "ThirdPartyNotices" / "linux-vt-inventory.json"
 NOTICE_INVENTORY_PATH = ROOT / "ThirdPartyNotices" / "inventory.json"
-LAYOUT = "linux-x86_64"
+LAYOUTS = {
+    "linux-x86_64": ("Linux", "linux-vt-inventory.json", "LinuxGhostty.ref"),
+    "android-arm64": ("Android", "android-vt-inventory.json", "AndroidGhostty.ref"),
+}
 
 
 def fail(message: str) -> None:
-    raise SystemExit(f"[!] Linux VT third-party compliance: {message}")
+    raise SystemExit(f"[!] VT third-party compliance: {message}")
+
+
+def archive_members(path: Path) -> list[str]:
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        fail(f"cannot read {path}: {error}")
+    if not data.startswith(b"!<arch>\n"):
+        fail(f"{path} is not an ar archive")
+    members: list[str] = []
+    long_names = b""
+    offset = 8
+    while offset + 60 <= len(data):
+        header = data[offset:offset + 60]
+        name, size = header[:16].rstrip(b" "), int(header[48:58])
+        body = data[offset + 60:offset + 60 + size]
+        if name == b"//":
+            long_names = body
+        elif name.startswith(b"/") and name[1:].isdigit():
+            start = int(name[1:])
+            members.append(long_names[start:long_names.index(b"/\n", start)].decode())
+        elif name not in (b"/", b"/SYM64/"):
+            members.append(name.removesuffix(b"/").decode())
+        offset += 60 + size + size % 2
+    return members
 
 
 def load_json(path: Path) -> dict:
@@ -37,7 +63,7 @@ def load_metadata(path: Path) -> dict[str, str]:
         fail(f"cannot read {path}: {error}")
     for line in lines:
         if "=" not in line:
-            fail("malformed Linux artifact metadata")
+            fail("malformed VT artifact metadata")
         key, value = line.split("=", 1)
         if key in values:
             fail(f"duplicate metadata key: {key}")
@@ -46,26 +72,29 @@ def load_metadata(path: Path) -> dict[str, str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify the notices of the Linux Ghostty VT artifact.")
+    parser = argparse.ArgumentParser(description="Verify the notices of a Linux or Android Ghostty VT artifact.")
     parser.add_argument(
         "--vendor",
         type=Path,
         default=ROOT / "Vendor",
         help="the folder of the vendored artifacts. The default is Vendor in the Ghostty folder.",
     )
-    vendor = parser.parse_args().vendor
-    artifact_root = vendor / "GhosttyVt" / LAYOUT
-    inventory = load_json(INVENTORY_PATH)
+    parser.add_argument("--layout", choices=sorted(LAYOUTS), default="linux-x86_64")
+    arguments = parser.parse_args()
+    vendor, layout = arguments.vendor, arguments.layout
+    platform, inventory_name, ref_name = LAYOUTS[layout]
+    artifact_root = vendor / "GhosttyVt" / layout
+    inventory = load_json(ROOT / "ThirdPartyNotices" / inventory_name)
     notice_inventory = load_json(NOTICE_INVENTORY_PATH)
-    metadata = load_metadata(vendor / "GhosttyVt" / f"{LAYOUT}.version")
+    metadata = load_metadata(vendor / "GhosttyVt" / f"{layout}.version")
     if inventory.get("schemaVersion") != 1:
         fail("unsupported inventory schema")
     try:
-        platform_ref = (ROOT / "LinuxGhostty.ref").read_text(encoding="ascii")
+        platform_ref = (ROOT / ref_name).read_text(encoding="ascii")
     except OSError as error:
-        fail(f"cannot read LinuxGhostty.ref: {error}")
+        fail(f"cannot read {ref_name}: {error}")
     if platform_ref != f"{inventory.get('ghosttyCommit')}\n":
-        fail("LinuxGhostty.ref differs from the notice inventory")
+        fail(f"{ref_name} differs from the notice inventory")
     zig = inventory.get("zig", {})
     if (
         metadata.get("zig_version") != zig.get("version")
@@ -75,9 +104,9 @@ def main() -> None:
         fail("Zig toolchain identity differs from artifact metadata")
 
     static_archive = artifact_root / "lib" / "libghostty-vt.a"
-    shared_library = artifact_root / "lib" / "libghostty-vt.so.0.1.0"
-    if not static_archive.is_file() or not shared_library.is_file():
-        fail("Linux VT static or shared artifact is missing")
+    for artifact in inventory.get("artifacts", {}).values():
+        if not (artifact_root / "lib" / Path(artifact).name).is_file():
+            fail(f"{platform} VT artifact is missing: {artifact}")
 
     component_rows = inventory.get("components")
     if not isinstance(component_rows, list) or not component_rows:
@@ -107,10 +136,7 @@ def main() -> None:
     if not isinstance(member_rows, list) or not member_rows:
         fail("archive member inventory is empty")
     expected_members = [row["name"] for row in member_rows]
-    actual_members = subprocess.check_output(
-        ["ar", "t", static_archive],
-        text=True,
-    ).splitlines()
+    actual_members = archive_members(static_archive)
     if actual_members != expected_members:
         fail(
             "archive member inventory changed "
@@ -131,7 +157,7 @@ def main() -> None:
         fail(f"components lack archive ownership: {sorted(component_ids - covered)}")
 
     print(
-        f"[*] verified Linux VT notices for {len(component_ids)} components "
+        f"[*] verified {platform} VT notices for {len(component_ids)} components "
         f"and {len(actual_members)} archive members"
     )
 
