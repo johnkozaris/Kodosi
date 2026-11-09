@@ -189,9 +189,15 @@ private struct FriendCard: View {
                     HStack(spacing: 8) {
                         Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
                         Spacer()
-                        Button("Trust") { deps.people.trust(friend) }
-                            .buttonStyle(.kodosi(.primary, size: .small))
-                            .accessibilityIdentifier("people.trust.\(friend.handle)")
+                        if friend.inviteNeeded {
+                            Button("Verify with their invite…") { verifying = true }
+                                .buttonStyle(.kodosi(.primary, size: .small))
+                                .accessibilityIdentifier("people.verify.\(friend.handle)")
+                        } else {
+                            Button("Trust") { deps.people.trust(friend) }
+                                .buttonStyle(.kodosi(.primary, size: .small))
+                                .accessibilityIdentifier("people.trust.\(friend.handle)")
+                        }
                     }
                 } else if shared.isEmpty {
                     HStack {

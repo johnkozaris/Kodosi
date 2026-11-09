@@ -295,6 +295,56 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
     assert!(!publication.cancel.is_cancelled());
 }
 
+#[cfg(feature = "host")]
+#[test]
+fn the_people_of_a_room_never_become_the_host_s_own_choice() {
+    let (id, incarnation, room) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    let member = Uuid::now_v7().to_string();
+    let mut info = LocalPublication {
+        session_id: id,
+        incarnation_id: incarnation,
+        name: "shell".into(),
+        mission_id: Some(room),
+        room_sequence: 5,
+        shared_with: BTreeSet::new(),
+        restored_from: None,
+    };
+    let mut dto = SessionDto {
+        id,
+        incarnation_id: incarnation,
+        name: "shell".into(),
+        owner_user_id: Uuid::now_v7().to_string(),
+        owner_name: "owner".into(),
+        host_device_id: "host".into(),
+        host_name: "host".into(),
+        mission_id: Some(room),
+        mission_name: None,
+        shared_with: vec![member.clone()],
+        authorization_revision: 1,
+        host_online: true,
+        status: None,
+        room_sequence: 5,
+        room_choice: None,
+        hidden: false,
+        close_request: None,
+        restored_from: None,
+    };
+    let (_, shown) = follow_sharing(&mut info, &dto, None);
+    assert_eq!(shown, BTreeSet::from([member.clone()]));
+    assert!(info.shared_with.is_empty());
+
+    dto.mission_id = None;
+    let (_, shown) = follow_sharing(&mut info, &dto, Some((None, 5)));
+    assert!(shown.is_empty());
+    assert!(info.shared_with.is_empty());
+
+    info.shared_with.insert(member);
+    dto.shared_with.clear();
+    let (removed, shown) = follow_sharing(&mut info, &dto, None);
+    assert!(removed);
+    assert!(shown.is_empty());
+}
+
 #[test]
 fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert_eq!(

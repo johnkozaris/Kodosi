@@ -65,6 +65,13 @@ impl FriendList {
             .find(|(_, friend)| friend.handle.eq_ignore_ascii_case(handle))
     }
 
+    /// The friend whose new identity a click can trust: one that has a record and was never
+    /// verified. A verified friend proves a new identity with a new invite.
+    pub(crate) fn trustable(&self, handle: &str) -> Option<(&String, &Friend)> {
+        self.by_handle(handle)
+            .filter(|(_, friend)| !friend.verified)
+    }
+
     pub(crate) fn sign(
         &mut self,
         revision: u64,
@@ -271,6 +278,25 @@ mod tests {
         assert_eq!(
             FriendLists::load(path).unwrap().get(USER).unwrap(),
             Some(list)
+        );
+    }
+
+    #[test]
+    fn a_click_trusts_only_a_recorded_friend_that_was_never_verified() {
+        let mut list = list();
+        assert!(list.trustable("bob").is_none());
+        assert!(list.trustable("carol").is_none());
+        list.friends.insert(
+            "33333333-3333-3333-3333-333333333333".into(),
+            Friend {
+                handle: "carol".into(),
+                root: Some(root_hex(&[7; 32])),
+                verified: false,
+            },
+        );
+        assert_eq!(
+            list.trustable("Carol").map(|(user, _)| user.as_str()),
+            Some("33333333-3333-3333-3333-333333333333")
         );
     }
 

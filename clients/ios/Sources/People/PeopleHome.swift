@@ -185,7 +185,7 @@ private struct FriendListItem: View {
             .tint(theme.colors.danger)
         }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            if friend.identityChanged {
+            if friend.identityChanged, !friend.inviteNeeded {
                 Button { people.trust(friend) } label: {
                     Label("Trust", systemImage: "checkmark.shield")
                 }
@@ -196,7 +196,7 @@ private struct FriendListItem: View {
             Button { UIPasteboard.general.string = friend.handle } label: {
                 Label("Copy username", systemImage: "doc.on.doc")
             }
-            if friend.identityChanged {
+            if friend.identityChanged, !friend.inviteNeeded {
                 Button { people.trust(friend) } label: {
                     Label("Trust new identity", systemImage: "checkmark.shield")
                 }

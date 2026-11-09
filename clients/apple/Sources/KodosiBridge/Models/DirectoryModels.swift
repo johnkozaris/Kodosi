@@ -6,6 +6,7 @@ public struct FriendEntry: Decodable, Equatable, Identifiable, Sendable {
     public let displayName: String
     public let verified: Bool
     public let identityState: String
+    public let inviteNeeded: Bool
     public var id: String {
         userId
     }

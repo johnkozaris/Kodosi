@@ -301,7 +301,9 @@ Item {
 
                                 PlainLabel {
                                     Layout.fillWidth: true
-                                    text: qsTr("Their devices changed. Trust them again to share.")
+                                    text: friend.modelData.inviteNeeded === true
+                                        ? qsTr("Their identity changed. Verify it with a new invite from them.")
+                                        : qsTr("Their identity changed. Trust it only if they told you so.")
                                     color: KodosiTheme.inkMuted
                                     font.pixelSize: KodosiTheme.fontFootnote
                                     wrapMode: Text.WordWrap
@@ -310,10 +312,21 @@ Item {
                                     Accessible.id: objectName
                                     compact: true
                                     variant: KButton.Tinted
+                                    visible: friend.modelData.inviteNeeded !== true
                                     objectName: "panel.people.trust." + friend.modelData.userId
                                     text: qsTr("Trust")
 
                                     onClicked: Models.People.trust(friend.modelData.handle)
+                                }
+                                KButton {
+                                    Accessible.id: objectName
+                                    compact: true
+                                    variant: KButton.Tinted
+                                    visible: friend.modelData.inviteNeeded === true && !friend.verifying
+                                    objectName: "panel.people.verify-changed." + friend.modelData.userId
+                                    text: qsTr("Verify…")
+
+                                    onClicked: friend.verifying = true
                                 }
                             }
                             RowLayout {

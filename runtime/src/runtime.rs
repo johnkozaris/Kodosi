@@ -511,7 +511,11 @@ impl Local {
                     .as_deref()
                     .and_then(|id| Uuid::parse_str(id).ok()),
                 room_sequence: self.room_sequence,
-                shared_with: self.entry.shared_with.iter().cloned().collect(),
+                shared_with: if self.entry.mission_id.is_some() {
+                    BTreeSet::new()
+                } else {
+                    self.entry.shared_with.iter().cloned().collect()
+                },
                 restored_from: self
                     .entry
                     .restored_from

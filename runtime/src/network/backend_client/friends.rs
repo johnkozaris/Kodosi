@@ -384,6 +384,7 @@ impl BackendClient {
                     "displayName": friend["displayName"],
                     "verified": !changed && record.is_some_and(|record| record.verified),
                     "identityState": if changed { "changed" } else { "fixed" },
+                    "inviteNeeded": changed && record.is_none_or(|record| record.verified),
                 }))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -548,12 +549,22 @@ impl BackendClient {
                 .await?;
             }
             "friends.identity.trust" => {
-                let user = self.friend_user(&credentials, typed).await?;
+                let (user, record) = self
+                    .sync_friends(&credentials)
+                    .await?
+                    .0
+                    .trustable(typed)
+                    .map(|(user, record)| (user.clone(), record.clone()))
+                    .ok_or_else(|| {
+                        Error::Trust(text!(
+                            "Ask this friend for a new invite, and verify their identity with it."
+                        ))
+                    })?;
                 let bundle = self.friend_bundle(&credentials, &user).await?;
                 let root = bundle.root()?;
                 self.change_friends(&credentials, |list| {
                     let next = Friend {
-                        handle: typed.to_ascii_lowercase(),
+                        handle: record.handle.clone(),
                         root: Some(root_hex(&root)),
                         verified: false,
                     };

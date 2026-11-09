@@ -89,6 +89,19 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
     })
 }
 
+/// A repository from room content links only the address that it names, so its requests and
+/// credentials go to one host. A link of another person needs HTTPS.
+pub(crate) fn linkable(repo: &Repository, own: bool) -> bool {
+    repository(&repo.url, Some(&repo.provider)).is_ok_and(|checked| {
+        checked.url == repo.url
+            && checked.host == repo.host
+            && checked.owner == repo.owner
+            && checked.repository == repo.repository
+            && checked.name == repo.name
+            && (own || repo.url.starts_with("https://"))
+    })
+}
+
 #[cfg(feature = "host")]
 async fn gh() -> Option<std::path::PathBuf> {
     crate::agents::executable(&kodosi_os::process::default_shell(), "gh").await
@@ -123,14 +136,17 @@ async fn gh_token(gh: &std::path::Path, host: &str) -> Result<Option<Zeroizing<S
 
 #[cfg(feature = "host")]
 async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
+    let url = Url::parse(&repo.url)
+        .map_err(|_| Error::Text(text!("This repository address is not valid.")))?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| Error::Text(text!("The repository address has no host.")))?;
     if repo.provider == "github"
         && let Some(gh) = gh().await
-        && let Some(token) = gh_token(&gh, &repo.host).await?
+        && let Some(token) = gh_token(&gh, host).await?
     {
         return Ok(Some(token));
     }
-    let url = Url::parse(&repo.url)
-        .map_err(|_| Error::Text(text!("This repository address is not valid.")))?;
     if repo.provider == "gitea"
         && let (Ok(origin), Ok(value)) = (
             std::env::var("KODOSI_GITEA_URL"),
@@ -145,7 +161,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
     }
     let host = url
         .port()
-        .map_or_else(|| repo.host.clone(), |port| format!("{}:{port}", repo.host));
+        .map_or_else(|| host.to_owned(), |port| format!("{host}:{port}"));
     let Ok(mut child) = tokio::process::Command::new("git")
         .args(["credential", "fill"])
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -515,6 +531,22 @@ mod tests {
         assert_eq!(gitea.url, "https://forge.example/team/project");
         assert_eq!(gitea.provider, "gitea");
         assert!(repository("https://token@github.com/team/project", None).is_err());
+    }
+
+    #[test]
+    fn a_room_repository_links_only_the_host_of_its_own_address() {
+        let linked = repository("https://github.com/team/project", None).unwrap();
+        assert!(linkable(&linked, false));
+        let elsewhere = Repository {
+            url: "https://collector.example/team/project".into(),
+            provider: "gitea".into(),
+            ..linked
+        };
+        assert!(!linkable(&elsewhere, false));
+        assert!(!linkable(&elsewhere, true));
+        let local = repository("http://127.0.0.1:3000/team/project", None).unwrap();
+        assert!(linkable(&local, true));
+        assert!(!linkable(&local, false));
     }
 
     #[cfg(not(feature = "host"))]

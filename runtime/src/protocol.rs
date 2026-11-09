@@ -1271,6 +1271,7 @@ pub struct FriendEntry {
     pub display_name: String,
     pub verified: bool,
     pub identity_state: FriendIdentityState,
+    pub invite_needed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]

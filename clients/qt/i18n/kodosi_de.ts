@@ -2202,8 +2202,12 @@
         <translation>Entfernen…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Die Geräte dieser Person haben sich geändert. Vertraue ihr erneut, um zu teilen.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Die Identität dieser Person hat sich geändert. Verifiziere sie mit einer neuen Einladung von ihr.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Die Identität dieser Person hat sich geändert. Vertraue ihr nur, wenn die Person es dir gesagt hat.</translation>
     </message>
     <message>
         <source>Trust</source>

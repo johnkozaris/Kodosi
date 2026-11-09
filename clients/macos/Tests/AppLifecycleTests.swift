@@ -303,7 +303,7 @@ import Testing
     try app.receive(runtimeEvent("friends.snapshot", fields: [
         "friends": .array([.object([
             "userId": .string("other"), "handle": .string("other"), "displayName": .string("Other"),
-            "verified": .bool(false), "identityState": .string("changed"),
+            "verified": .bool(false), "identityState": .string("changed"), "inviteNeeded": .bool(false),
         ])]),
         "incoming": .array([]), "outgoing": .array([]),
     ]))
@@ -324,11 +324,11 @@ import Testing
         "friends": .array([
             .object([
                 "userId": .string("a"), "handle": .string("ann"), "displayName": .string("Ann"),
-                "verified": .bool(true), "identityState": .string("fixed"),
+                "verified": .bool(true), "identityState": .string("fixed"), "inviteNeeded": .bool(false),
             ]),
             .object([
                 "userId": .string("b"), "handle": .string("ben"), "displayName": .string("Ben"),
-                "verified": .bool(false), "identityState": .string("changed"),
+                "verified": .bool(false), "identityState": .string("changed"), "inviteNeeded": .bool(false),
             ]),
         ]),
         "incoming": .array([]), "outgoing": .array([]),

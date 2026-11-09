@@ -76,8 +76,22 @@ impl BackendClient {
         } else {
             self.make_dosi(credentials).await?
         };
+        self.ensure_room_keys(credentials, room, None).await?;
         let mut cache = self.inner.rooms.lock().await;
         cache.current(credentials)?;
+        let alone = cache
+            .rooms
+            .get(&room)
+            .and_then(|cached| cached.states.last_key_value())
+            .is_some_and(|(_, current)| {
+                current.state.owner_user_id == credentials.user_id
+                    && current.state.members.keys().eq([&credentials.user_id])
+            });
+        if !alone {
+            return Err(Error::Text(text!(
+                "Someone else is in Dosi's conversation, so Dosi does not use it."
+            )));
+        }
         cache.dosi = Some(room);
         drop(cache);
         Ok(room)

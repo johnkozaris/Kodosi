@@ -437,6 +437,7 @@ fn plan_limit(limit: &str, most: u64) -> Option<Text> {
 fn backend_refusals() -> Vec<Text> {
     vec![
         text!("An existing trusted device must approve this device."),
+        text!("Another Kodosi account has this user name."),
         text!("Approve this device before you use shared terminals."),
         text!("Choose another person."),
         text!("Delete your account on the account page of the sign-in service."),
@@ -471,9 +472,9 @@ fn backend_refusals() -> Vec<Text> {
         text!("The room has reached its item limit."),
         text!("The room of this terminal changed; refresh before retrying."),
         text!("The server could not check this terminal; try again."),
-        text!("The server could not make the account. Sign in again."),
         text!("The server has reached its limit of terminal connections."),
         text!("The sharing of this terminal changed; refresh before retrying."),
+        text!("The sign-in service gave no user name that Kodosi can use."),
         text!("There are too many terminals to list."),
         text!("This Kodosi account was deleted."),
         text!("This account has no recovery key."),

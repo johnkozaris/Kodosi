@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using Kodosi.Data;
 using Microsoft.EntityFrameworkCore;
@@ -27,42 +26,32 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
             if (remembered && !(SignedInAt(context.User) > deleted.DeletedAt)) throw ApiException.Gone();
             db.DeletedAccounts.Remove(deleted);
         }
-        var rawName = context.User.FindFirstValue("preferred_username") ?? context.User.FindFirstValue("name") ?? "user";
-        var name = new string(rawName.Where(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-').Take(40).ToArray()).ToLowerInvariant();
-        if (name.Length < 3) name = "user";
-        var suffix = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuer + "\n" + subject)))[..10];
-        for (var attempt = 0; attempt < 8; attempt++)
+        var handle = context.User.FindFirstValue("preferred_username")?.ToLowerInvariant();
+        if (handle is null || handle.Length is < 3 or > 64 || !handle.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '_' or '-'))
+            throw ApiException.Forbidden("The sign-in service gave no user name that Kodosi can use.");
+        if (await db.Users.AnyAsync(x => x.Handle == handle, ct))
+            throw ApiException.Conflict("Another Kodosi account has this user name.");
+        var created = new User
         {
-            var handle = attempt switch
-            {
-                0 => name,
-                1 => $"{name}-{suffix}",
-                _ => $"{name}-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}"
-            };
-            if (await db.Users.AnyAsync(x => x.Handle == handle, ct)) continue;
-            var created = new User
-            {
-                Id = Guid.CreateVersion7(),
-                Issuer = issuer,
-                Subject = subject,
-                Handle = handle,
-                DisplayName = Truncate(context.User.FindFirstValue("name") ?? rawName, 128),
-            };
-            db.Users.Add(created);
-            try
-            {
-                await db.SaveChangesAsync(ct);
-                loaded = created;
-                return loaded;
-            }
-            catch (DbUpdateException error) when (error.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
-            {
-                db.Entry(created).State = EntityState.Detached;
-                loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
-                if (loaded is not null) return loaded;
-            }
+            Id = Guid.CreateVersion7(),
+            Issuer = issuer,
+            Subject = subject,
+            Handle = handle,
+            DisplayName = Truncate(context.User.FindFirstValue("name") ?? handle, 128),
+        };
+        db.Users.Add(created);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            loaded = created;
+            return loaded;
         }
-        throw ApiException.Conflict("The server could not make the account. Sign in again.");
+        catch (DbUpdateException error) when (error.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        {
+            db.Entry(created).State = EntityState.Detached;
+            loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
+            return loaded ?? throw ApiException.Conflict("Another Kodosi account has this user name.");
+        }
     }
 
     public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal) =>
