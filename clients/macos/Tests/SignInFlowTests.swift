@@ -141,7 +141,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     }
     try app.receive(devices(reset: .object([
         "resetId": .string(UUIDv7.generate()), "deviceLabel": .string("Mac"), "thisDevice": .bool(true),
-        "requestedAtMs": .int(1_000), "readyAtMs": .int(86_401_000),
+        "requestedAtMs": .int(1000), "readyAtMs": .int(86_401_000),
     ])))
     #expect(app.account.stage == .trustingDevice(.waiting(Date(timeIntervalSince1970: 86401))))
     app.account.stopReset()
