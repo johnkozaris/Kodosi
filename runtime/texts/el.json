@@ -152,6 +152,7 @@
 "The folder name is not text that Kodosi can show.": "Το όνομα του φακέλου δεν είναι κείμενο που μπορεί να εμφανίσει το Kodosi.",
 "The folder {name} is there already. Use another branch name.": "Ο φάκελος {name} υπάρχει ήδη. Χρησιμοποιήστε άλλο όνομα branch.",
 "The friend list changed on another device.": "Η λίστα φίλων άλλαξε σε άλλη συσκευή.",
+"The friend list on the server does not continue the friend list on this device. Remove this device from another approved device, then approve it again.": "Η λίστα φίλων στον διακομιστή δεν συνεχίζει τη λίστα φίλων σε αυτή τη συσκευή. Αφαιρέστε αυτή τη συσκευή από άλλη εγκεκριμένη συσκευή και, στη συνέχεια, εγκρίνετέ την ξανά.",
 "The host could not check this device. Try again.": "Ο host δεν μπόρεσε να ελέγξει αυτή τη συσκευή. Δοκιμάστε ξανά.",
 "The host did not answer.": "Ο host δεν απάντησε.",
 "The host did not confirm the operation, and Kodosi did not send it again.": "Ο host δεν επιβεβαίωσε την ενέργεια και το Kodosi δεν την έστειλε ξανά.",

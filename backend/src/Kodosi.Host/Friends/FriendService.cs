@@ -38,11 +38,21 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
     }
 
     private const int MaxFriendListBodyLength = 256 * 1024;
+    private const int FriendListPage = 32;
+    private const int KeptFriendListRevisions = 1024;
 
-    public async Task<object> SignedListAsync(Guid user, CancellationToken ct)
+    public async Task<object> SignedListAsync(Guid user, long? after, CancellationToken ct)
     {
-        var list = await db.FriendLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == user, ct) ?? throw ApiException.Missing();
-        return new { list.Revision, body = Convert.ToBase64String(list.Body), signature = Convert.ToBase64String(list.Signature) };
+        var stored = db.FriendLists.AsNoTracking().Where(x => x.UserId == user);
+        var latest = await stored.MaxAsync(x => (long?)x.Revision, ct) ?? throw ApiException.Missing();
+        var page = after is { } from
+            ? await stored.Where(x => x.Revision > from).OrderBy(x => x.Revision).Take(FriendListPage).ToListAsync(ct)
+            : (await stored.OrderByDescending(x => x.Revision).Take(FriendListPage).ToListAsync(ct)).AsEnumerable().Reverse().ToList();
+        return new
+        {
+            revision = latest,
+            lists = page.Select(x => new { body = Convert.ToBase64String(x.Body), signature = Convert.ToBase64String(x.Signature) }),
+        };
     }
 
     public async Task ReplaceSignedListAsync(Guid user, SignedFriendList request, CancellationToken ct)
@@ -51,11 +61,17 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         var signature = Limits.Base64(request.Signature, "Friend list signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (body.Length == 0 || signature.Length != IdentityWireFormat.MlDsa65SignatureLength || request.Revision <= request.ExpectedRevision)
             throw ApiException.Invalid("The friend list is not valid.");
-        var list = await db.FriendLists.SingleOrDefaultAsync(x => x.UserId == user, ct);
-        if ((list?.Revision ?? 0) != request.ExpectedRevision) throw ApiException.Conflict("The friend list changed on another device.");
-        if (list is null) db.FriendLists.Add(list = new FriendList { UserId = user });
-        list.Revision = request.Revision; list.Body = body; list.Signature = signature;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE \"Id\" = {user} FOR UPDATE").SingleAsync(ct);
+        var latest = await db.FriendLists.Where(x => x.UserId == user).MaxAsync(x => (long?)x.Revision, ct) ?? 0;
+        if (latest != request.ExpectedRevision) throw ApiException.Conflict("The friend list changed on another device.");
+        if (latest != 0 && request.Revision != latest + 1) throw ApiException.Invalid("The friend list is not valid.");
+        db.FriendLists.Add(new FriendList { UserId = user, Revision = request.Revision, Body = body, Signature = signature });
         await db.SaveChangesAsync(ct);
+        var oldest = await db.FriendLists.Where(x => x.UserId == user).OrderByDescending(x => x.Revision)
+            .Skip(KeptFriendListRevisions).Select(x => (long?)x.Revision).FirstOrDefaultAsync(ct);
+        if (oldest is { } dropped) await db.FriendLists.Where(x => x.UserId == user && x.Revision <= dropped).ExecuteDeleteAsync(ct);
+        await transaction.CommitAsync(ct);
         connections.Notify([user], "friends");
     }
 
@@ -163,8 +179,8 @@ internal static class FriendEndpoints
             return Results.NoContent();
         });
         var list = app.MapGroup("/api/me/friend-list").RequireAuthorization();
-        list.MapGet("/", async (DeviceCaller caller, FriendService friends, CancellationToken ct) =>
-            Results.Ok(await friends.SignedListAsync(caller.User.Id, ct)));
+        list.MapGet("/", async (long? after, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+            Results.Ok(await friends.SignedListAsync(caller.User.Id, after, ct)));
         list.MapPut("/", async (FriendService.SignedFriendList body, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
         {
             await friends.ReplaceSignedListAsync(caller.User.Id, body, ct);

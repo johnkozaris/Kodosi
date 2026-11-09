@@ -152,6 +152,7 @@
 "The folder name is not text that Kodosi can show.": "Il nome della cartella non è un testo che Kodosi può mostrare.",
 "The folder {name} is there already. Use another branch name.": "La cartella {name} esiste già. Usa un altro nome di branch.",
 "The friend list changed on another device.": "L'elenco degli amici è cambiato su un altro dispositivo.",
+"The friend list on the server does not continue the friend list on this device. Remove this device from another approved device, then approve it again.": "L'elenco degli amici sul server non continua l'elenco degli amici su questo dispositivo. Rimuovi questo dispositivo da un altro dispositivo approvato, poi approvalo di nuovo.",
 "The host could not check this device. Try again.": "L'host non è riuscito a verificare questo dispositivo. Riprova.",
 "The host did not answer.": "L'host non ha risposto.",
 "The host did not confirm the operation, and Kodosi did not send it again.": "L'host non ha confermato l'operazione e Kodosi non l'ha inviata di nuovo.",

@@ -63,7 +63,9 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, null, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow - CurrentUser.ReauthenticationWindow - TimeSpan.FromSeconds(1), ct));
         Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
+        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, "AQ==", Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength])), ct);
         await store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
+        Assert.False(await store.Db.FriendLists.AnyAsync(x => x.UserId == owner.User.Id, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
         Assert.True((await store.Db.Devices.AsNoTracking().SingleAsync(x => x.Id == owner.Device.Id, ct)).Revoked);

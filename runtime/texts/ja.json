@@ -152,6 +152,7 @@
 "The folder name is not text that Kodosi can show.": "フォルダ名に Kodosi が表示できない文字が含まれています。",
 "The folder {name} is there already. Use another branch name.": "フォルダ {name} はすでに存在します。別のブランチ名を使ってください。",
 "The friend list changed on another device.": "フレンド一覧が別のデバイスで変更されました。",
+"The friend list on the server does not continue the friend list on this device. Remove this device from another approved device, then approve it again.": "サーバー上のフレンド一覧は、このデバイスのフレンド一覧の続きではありません。承認済みの別のデバイスからこのデバイスを削除し、もう一度承認してください。",
 "The host could not check this device. Try again.": "ホストがこのデバイスを確認できませんでした。もう一度お試しください。",
 "The host did not answer.": "ホストが応答しませんでした。",
 "The host did not confirm the operation, and Kodosi did not send it again.": "ホストが操作を確認しなかったため、Kodosi は再送信しませんでした。",

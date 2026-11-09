@@ -76,7 +76,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         });
         model.Entity<FriendList>(e =>
         {
-            e.ToTable("friend_lists"); e.HasKey(x => x.UserId);
+            e.ToTable("friend_lists"); e.HasKey(x => new { x.UserId, x.Revision });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<Session>(e =>

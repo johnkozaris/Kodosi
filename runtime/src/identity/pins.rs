@@ -119,6 +119,14 @@ impl Pins {
         Ok(Self { path, pins })
     }
 
+    /// The devices of an account that this device saw removed.
+    pub(crate) fn revoked(&self, user_id: &str) -> BTreeSet<String> {
+        self.pins
+            .get(user_id)
+            .map(|pin| pin.revoked.clone())
+            .unwrap_or_default()
+    }
+
     pub(crate) fn is_revoked(&self, user_id: &str, device_id: &str) -> bool {
         self.pins
             .get(user_id)

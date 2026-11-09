@@ -156,6 +156,12 @@ impl BackendClient {
         );
         self.check_credentials(&credentials)?;
         credentials.enrolled = false;
+        self.inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .forget(&credentials.user_id)?;
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials.clone());
         Ok(credentials)
     }

@@ -935,3 +935,64 @@ async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer(
         assert_ne!(event.event["type"], "devices.link.selfResolved");
     }
 }
+
+#[tokio::test]
+async fn a_device_uploads_its_kept_friend_list_only_to_a_server_without_one() {
+    use crate::identity::friends::{FriendList, Head};
+    for (stored, uploads) in [
+        ((404, json!({"error": "No friend list."})), true),
+        ((200, json!({"revision": 1, "lists": []})), false),
+    ] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = format!("http://{}", listener.local_addr().unwrap());
+        let (_root, network, user) = signed_in_at(&address).await;
+        let credentials = network.credentials().unwrap();
+        let key = credentials.keys.signing_key().unwrap();
+        let mut list = FriendList::new(&user);
+        let (_, first) = list
+            .sign(&Head::default(), &credentials.keys.device_id, &key)
+            .unwrap();
+        let (kept, _) = list
+            .sign(&first, &credentials.keys.device_id, &key)
+            .unwrap();
+        network
+            .inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .put(&user, kept)
+            .unwrap();
+        let mut replies = vec![
+            compatible_server(),
+            (
+                200,
+                json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])}),
+            ),
+            (200, json!({"session": "fixture-session"})),
+            stored,
+        ];
+        if uploads {
+            replies.push((204, Value::Null));
+        }
+        let server = scripted_backend(listener, replies);
+        let synced = network.sync_friends(&credentials).await;
+        let requests = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap();
+        if uploads {
+            assert_eq!(synced.unwrap().1.revision, 3);
+            assert_eq!(requests.last().unwrap(), "PUT /api/me/friend-list HTTP/1.1");
+        } else {
+            assert!(
+                matches!(synced, Err(Error::Trust(_))),
+                "the server is behind this device"
+            );
+            assert_eq!(
+                requests.last().unwrap(),
+                "GET /api/me/friend-list?after=1 HTTP/1.1"
+            );
+        }
+    }
+}
