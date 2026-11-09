@@ -289,6 +289,41 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ABlockEndsTheFriendshipAndItsSharingAndRefusesFriendRequestsUntilTheUnblock()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend"); var stranger = await store.UserAsync("stranger");
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), ct);
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var revision = (await store.Db.Sessions.AsNoTracking().SingleAsync(x => x.Id == id, ct)).AuthorizationRevision;
+        await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, revision, [friend.User.Id]), ct);
+        await store.Friends.MutateAsync(stranger.User.Id, "owner", "send", ct);
+
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "block", ct);
+        await store.Friends.MutateAsync(owner.User.Id, "stranger", "block", ct);
+        store.Db.ChangeTracker.Clear();
+        Assert.False(await store.Friends.AreFriendsAsync(owner.User.Id, friend.User.Id, ct));
+        Assert.Empty(await store.Db.Friendships.AsNoTracking().ToListAsync(ct));
+        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, friend.Device.Id, ct));
+        var blocked = JsonSerializer.SerializeToElement(await store.Friends.BlockedAsync(owner.User.Id, ct), TestJson.Options);
+        Assert.Equal(["friend", "stranger"], blocked.EnumerateArray().Select(x => x.GetProperty("handle").GetString()));
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Friends.MutateAsync(friend.User.Id, "owner", "send", ct))).Status);
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Friends.MutateAsync(owner.User.Id, "stranger", "send", ct))).Status);
+        var (first, second) = Kodosi.Friends.FriendService.Pair(owner.User.Id, stranger.User.Id);
+        store.Db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = stranger.User.Id, CreatedAt = DateTimeOffset.UtcNow });
+        await store.Db.SaveChangesAsync(ct);
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Friends.MutateAsync(owner.User.Id, "stranger", "accept", ct))).Status);
+        store.Db.Friendships.RemoveRange(await store.Db.Friendships.ToListAsync(ct));
+        await store.Db.SaveChangesAsync(ct);
+
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "unblock", ct);
+        await store.Friends.MutateAsync(friend.User.Id, "owner", "send", ct);
+        Assert.Single(await store.Db.Friendships.AsNoTracking().ToListAsync(ct));
+    }
+
+    [Fact]
     public async Task AnUnfriendAtTheTimeOfAShareLeavesTheFormerFriendNoAccess()
     {
         var ct = TestContext.Current.CancellationToken;

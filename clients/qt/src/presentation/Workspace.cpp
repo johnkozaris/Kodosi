@@ -319,6 +319,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_people.m_friends = list(event, "friends");
         m_people.m_incoming = list(event, "incoming");
         m_people.m_outgoing = list(event, "outgoing");
+        m_people.m_blocked = list(event, "blocked");
         emit m_people.changed();
         return;
     }

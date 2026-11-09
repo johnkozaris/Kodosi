@@ -11,6 +11,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
     public DbSet<IdentityReset> IdentityResets => Set<IdentityReset>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<Block> Blocks => Set<Block>();
     public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
@@ -84,6 +85,13 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.ToTable("friendships"); e.HasKey(x => new { x.FirstUserId, x.SecondUserId });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.FirstUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.SecondUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<Block>(e =>
+        {
+            e.ToTable("blocks"); e.HasKey(x => new { x.BlockerId, x.BlockedId });
+            e.HasIndex(x => x.BlockedId);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.BlockerId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.BlockedId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<FriendList>(e =>
         {

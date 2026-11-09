@@ -450,6 +450,7 @@ fn friends(event: &Value) -> String {
     for (key, title, hint) in [
         ("incoming", "Requests to you", "kodosi friends accept"),
         ("outgoing", "Requests from you", "kodosi friends cancel"),
+        ("blocked", "Blocked", "kodosi friends unblock"),
     ] {
         let handles = list(key)
             .iter()

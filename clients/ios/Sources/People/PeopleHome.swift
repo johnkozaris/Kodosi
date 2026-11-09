@@ -19,9 +19,11 @@ struct PeopleHome: View {
                 loading
             } else if people.isEmpty, !people.sendingRequest {
                 empty
+                blocked
             } else {
                 requests
                 friends
+                blocked
             }
         }
         .listStyle(.plain)
@@ -59,6 +61,7 @@ struct PeopleHome: View {
         .animation(theme.motion.spring, value: people.friends.map(\.id))
         .animation(theme.motion.spring, value: people.incoming.map(\.id))
         .animation(theme.motion.spring, value: people.outgoing.map(\.id))
+        .animation(theme.motion.spring, value: people.blocked.map(\.id))
         .animation(theme.motion.soft, value: people.loaded)
         .animation(theme.motion.snappy, value: people.sendingRequest)
         .sensoryFeedback(trigger: FriendTally(loaded: people.loaded, count: people.friends.count)) { old, new in
@@ -157,6 +160,20 @@ struct PeopleHome: View {
             ForEach(people.friends) { friend in
                 FriendListItem(friend: friend, terminals: model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden })
                     .cardRow(top: 6, bottom: 6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var blocked: some View {
+        if !people.blocked.isEmpty {
+            ListHeader(title: "Blocked", count: people.blocked.count)
+                .cardRow(top: 14, bottom: 2)
+            ForEach(people.blocked) { person in
+                BlockedCard(person: person, busy: people.isBusy(person.handle), identifier: "people.unblock.\(person.handle)") {
+                    people.unblock(person)
+                }
+                .cardRow()
             }
         }
     }

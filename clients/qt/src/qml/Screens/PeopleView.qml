@@ -171,6 +171,14 @@ Item {
 
                             onClicked: Models.People.decline(incoming.modelData.handle)
                         }
+                        KButton {
+                            Accessible.id: objectName
+                            objectName: "panel.peopleView.block" + "." + incoming.modelData.userId
+                            text: qsTr("Block…")
+                            variant: KButton.Ghost
+
+                            onClicked: blockPerson.ask(incoming.modelData.handle, incoming.fullName)
+                        }
                     }
                 }
             }
@@ -291,6 +299,14 @@ Item {
                                                 removeFriend.open();
                                             }
                                         }
+                                        KMenuItem {
+                                            Accessible.id: objectName
+                                            objectName: "panel.people.block." + friend.modelData.userId
+                                            text: qsTr("Block…")
+                                            iconName: "hand"
+                                            destructive: true
+                                            onTriggered: blockPerson.ask(friend.modelData.handle, friend.fullName)
+                                        }
                                     }
                                 }
                             }
@@ -393,6 +409,39 @@ Item {
                     }
                 }
             }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.maximumWidth: 520
+                visible: Models.People.blocked.length > 0
+                spacing: 8
+
+                PlainLabel { text: qsTr("Blocked"); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontCallout; font.weight: Font.DemiBold }
+                Repeater {
+                    model: Models.People.blocked
+
+                    delegate: RowLayout {
+                        id: blocked
+
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        PersonAvatar { name: blocked.modelData.displayName || blocked.modelData.handle; key: blocked.modelData.userId; size: 28 }
+                        PlainLabel { text: blocked.modelData.displayName || blocked.modelData.handle; elide: Text.ElideRight }
+                        PlainLabel { Layout.fillWidth: true; text: "@" + blocked.modelData.handle; color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; elide: Text.ElideRight }
+                        KButton {
+                            Accessible.id: objectName
+                            compact: true
+                            objectName: "panel.peopleView.unblock" + "." + blocked.modelData.userId
+                            text: qsTr("Unblock")
+                            variant: KButton.Ghost
+
+                            onClicked: Models.People.unblock(blocked.modelData.handle)
+                        }
+                    }
+                }
+            }
             EmptyState {
                 Layout.fillWidth: true
                 Layout.topMargin: 30
@@ -406,6 +455,32 @@ Item {
     FriendTrustDialog {
         id: trust
         onAdded: handle.clear()
+    }
+    KDialog {
+        id: blockPerson
+
+        property string username: ""
+        property string fullName: ""
+
+        function ask(handle, name) {
+            username = handle;
+            fullName = name;
+            open();
+        }
+
+        destructive: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Block %1?").arg(fullName)
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Block")
+
+        onAccepted: Models.People.block(username)
+
+        PlainLabel {
+            width: 340
+            color: KodosiTheme.inkMuted
+            text: qsTr("They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.")
+            wrapMode: Text.WordWrap
+        }
     }
     KDialog {
         id: removeFriend

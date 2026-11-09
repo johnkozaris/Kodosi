@@ -110,7 +110,7 @@ public struct FriendCard<Trailing: View, Footer: View>: View {
     }
 }
 
-/// A person who asks to be your friend, with the keys to accept or not.
+/// A person who asks to be your friend, with the keys to accept or not, and to block them with `block`.
 public struct FriendRequestCard: View {
     @Environment(\.theme) private var theme
     let request: FriendRequestEntry
@@ -118,15 +118,18 @@ public struct FriendRequestCard: View {
     let identifier: String
     let decline: () -> Void
     let accept: () -> Void
+    let block: (() -> Void)?
 
     public init(
         request: FriendRequestEntry, busy: Bool = false, identifier: String, decline: @escaping () -> Void, accept: @escaping () -> Void,
+        block: (() -> Void)? = nil,
     ) {
         self.request = request
         self.busy = busy
         self.identifier = identifier
         self.decline = decline
         self.accept = accept
+        self.block = block
     }
 
     public var body: some View {
@@ -138,7 +141,9 @@ public struct FriendRequestCard: View {
             } else if stacked {
                 acceptKey(wide: true)
                 declineKey(wide: true)
+                blockKey(wide: true)
             } else {
+                blockKey(wide: false)
                 declineKey(wide: false)
                 acceptKey(wide: false)
             }
@@ -170,6 +175,52 @@ public struct FriendRequestCard: View {
         Button(action: accept) { Text("Accept…", bundle: .module).frame(maxWidth: wide ? .infinity : nil) }
             .buttonStyle(.kodosi(.primary))
             .accessibilityIdentifier("\(identifier).accept")
+    }
+
+    @ViewBuilder
+    private func blockKey(wide: Bool) -> some View {
+        if let block {
+            Button(action: block) { Text("Block…", bundle: .module).frame(maxWidth: wide ? .infinity : nil) }
+                .buttonStyle(.kodosi(.ghost))
+                .accessibilityIdentifier("\(identifier).block")
+        }
+    }
+}
+
+/// A person you blocked, with the key to unblock them.
+public struct BlockedCard: View {
+    @Environment(\.theme) private var theme
+    let person: BlockedEntry
+    let busy: Bool
+    let identifier: String
+    let unblock: () -> Void
+
+    public init(person: BlockedEntry, busy: Bool = false, identifier: String, unblock: @escaping () -> Void) {
+        self.person = person
+        self.busy = busy
+        self.identifier = identifier
+        self.unblock = unblock
+    }
+
+    public var body: some View {
+        HStack(spacing: 12) {
+            PersonAvatar(name: person.personName, key: person.userId, size: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(person.personName).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
+                Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            if busy {
+                Spinner(size: 14)
+            } else {
+                Button(action: unblock) { Text("Unblock", bundle: .module) }
+                    .buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityIdentifier(identifier)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 46).frame(maxWidth: 620)
+        .well(Radius.lg)
     }
 }
 

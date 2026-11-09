@@ -2223,6 +2223,10 @@
         <translation>거절</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>차단…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>%1 님에게 요청을 보냈어요</translation>
     </message>
@@ -2279,12 +2283,32 @@
         <translation>%1 열기</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>차단됨</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>차단 해제</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>아직 친구가 없어요</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>초대를 보내거나 위에 사용자 이름을 추가하세요.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1을(를) 차단할까요?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>차단</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>

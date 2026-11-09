@@ -2223,6 +2223,10 @@
         <translation>拒绝</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>屏蔽…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>已向 %1 发送请求</translation>
     </message>
@@ -2279,12 +2283,32 @@
         <translation>打开 %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>已屏蔽</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>解除屏蔽</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>还没有好友</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>发送你的邀请，或在上方添加用户名。</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>屏蔽 %1？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>屏蔽</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的房间。</translation>
     </message>
     <message>
         <source>Remove %1?</source>

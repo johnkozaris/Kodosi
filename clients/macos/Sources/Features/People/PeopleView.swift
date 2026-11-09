@@ -6,6 +6,7 @@ struct PeopleView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var pendingRemoval: FriendEntry?
+    @State private var blocking: BlockTarget?
     @State private var copied = false
     @FocusState private var adding: Bool
 
@@ -38,6 +39,8 @@ struct PeopleView: View {
                                     deps.people.decline(request)
                                 } accept: {
                                     deps.workbench.trusting = .accept(request)
+                                } block: {
+                                    blocking = BlockTarget(handle: request.handle, name: request.personName)
                                 }
                                 .transition(AnyTransition.rise)
                             }
@@ -57,11 +60,32 @@ struct PeopleView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
                             ForEach(Array(deps.people.friends.enumerated()), id: \.element.id) { index, friend in
-                                FriendItem(friend: friend) { pendingRemoval = friend }
-                                    .arrive(delay: 0.04 * Double(min(index, 8) + 2))
+                                FriendItem(friend: friend) { pendingRemoval = friend } block: {
+                                    blocking = BlockTarget(handle: friend.handle, name: friend.personName)
+                                }
+                                .arrive(delay: 0.04 * Double(min(index, 8) + 2))
                             }
                         }
                     }
+                    if !deps.people.blocked.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Blocked").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
+                            ForEach(deps.people.blocked) { person in
+                                BlockedCard(person: person, identifier: "people.unblock.\(person.handle)") { deps.people.unblock(person) }
+                                    .transition(AnyTransition.rise)
+                            }
+                        }
+                    }
+                }
+                .blockConfirmation(isPresented: Binding(get: { blocking != nil }, set: {
+                    if !$0 {
+                        blocking = nil
+                    }
+                }), name: blocking?.name ?? "") {
+                    if let target = blocking {
+                        deps.people.block(handle: target.handle)
+                    }
+                    blocking = nil
                 }
                 .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 36)
                 .frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity)
@@ -69,6 +93,7 @@ struct PeopleView: View {
             .animation(theme.motion.spring, value: deps.people.friends.map(\.id))
             .animation(theme.motion.spring, value: deps.people.incoming.map(\.id))
             .animation(theme.motion.spring, value: deps.people.outgoing.map(\.id))
+            .animation(theme.motion.spring, value: deps.people.blocked.map(\.id))
             .animation(theme.motion.snappy, value: copied)
             .confirmationDialog(
                 "Remove \(pendingRemoval?.personName ?? "")?",
@@ -122,6 +147,11 @@ struct PeopleView: View {
     }
 }
 
+private struct BlockTarget: Equatable {
+    let handle: String
+    let name: String
+}
+
 private struct FriendItem: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -129,6 +159,7 @@ private struct FriendItem: View {
     @State private var invite = ""
     let friend: FriendEntry
     let remove: () -> Void
+    let block: () -> Void
 
     var body: some View {
         let name = friend.personName
@@ -140,6 +171,7 @@ private struct FriendItem: View {
                     Button("Verify with their invite…") { verifying = true }
                 }
                 Button("Remove…", role: .destructive, action: remove)
+                Button("Block…", role: .destructive, action: block)
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                     .frame(width: 26, height: 26).contentShape(Circle())

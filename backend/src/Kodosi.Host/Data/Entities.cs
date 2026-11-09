@@ -57,6 +57,13 @@ public sealed class DeviceLink
     public string State { get; set; } = "pending";
 }
 
+public sealed class Block
+{
+    public Guid BlockerId { get; set; }
+    public Guid BlockedId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 public sealed class IdentityReset
 {
     public Guid UserId { get; set; }

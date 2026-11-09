@@ -14,7 +14,8 @@ auditée.
 Partager un terminal donne le contrôle total, avec les privilèges système de l'utilisateur de
 l'hôte. Un terminal dans un salon va aux amis de son propriétaire dans ce salon, y compris
 aux amis qui le rejoignent plus tard. Quand vous retirez un ami, il perd vos terminaux, et
-chacun de vous quitte les salons de l'autre. Un terminal partagé s'exécute en votre nom : les
+chacun de vous quitte les salons de l'autre. Bloquer une personne fait de même, et elle ne
+peut pas vous envoyer de demandes d'ami. Un terminal partagé s'exécute en votre nom : les
 personnes qui y ont accès peuvent aussi exécuter `kodosi` en votre nom et lire et modifier
 vos fichiers sur cet ordinateur ; ne le partagez donc qu'avec des personnes à qui vous
 confiez cet ordinateur. Kodosi fait confiance à toutes les personnes qui partagent un

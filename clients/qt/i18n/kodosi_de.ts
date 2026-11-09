@@ -2230,6 +2230,10 @@
         <translation>Ablehnen</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Blockieren…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Anfrage an %1 gesendet</translation>
     </message>
@@ -2286,12 +2290,32 @@
         <translation>%1 öffnen</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Blockiert</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Blockierung aufheben</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Noch keine Freunde</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Schick deine Einladung oder füge oben einen Benutzernamen hinzu.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 blockieren?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Blockieren</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
