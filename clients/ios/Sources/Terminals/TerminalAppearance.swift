@@ -21,13 +21,15 @@ enum TerminalAppearance {
         }
     }
 
+    static let fontFamily = "JetBrains Mono"
+
     static var textSize: TextSize {
         TextSize(rawValue: UserDefaults.standard.string(forKey: TextSize.storageKey) ?? "") ?? .standard
     }
 
     static var style: TerminalStyle {
         TerminalStyle(
-            fontFamily: "JetBrains Mono",
+            fontFamily: fontFamily,
             fontSize: textSize.points,
             lineHeightAdjustment: 10,
             cursorStyle: .block,

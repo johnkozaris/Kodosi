@@ -11,35 +11,26 @@ struct SettingsHome: View {
     }
 
     var body: some View {
-        List {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
                 AccountHeader()
-                    .bareRow()
-            }
-            DevicesSection()
-            if account.localDeviceEnrolled {
-                RecoverySection()
-            }
-            Section {
-                AppearancePicker()
-                    .raisedRows()
-            } header: {
-                GroupedListHeader(title: "Appearance")
-            }
-            TerminalSection()
-            DocumentsSection()
-            PrivacySection()
-            LanguageSection()
-            AboutSection()
-            AccountActionsSection()
-            Section {
+                DevicesSection()
+                if account.localDeviceEnrolled {
+                    RecoverySection()
+                }
+                TerminalSection()
+                DocumentsSection()
+                PrivacySection()
+                LanguageSection()
+                AboutSection()
+                AccountDeletion()
                 KodosiWordmark(size: 15, blinks: false)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .bareRow()
             }
+            .settingsPage()
         }
-        .groupedListChrome()
+        .background(theme.colors.surface)
         .navigationTitle("Settings")
         .animation(theme.motion.spring, value: account.devices)
         .animation(theme.motion.spring, value: account.deviceRequests)
@@ -47,5 +38,16 @@ struct SettingsHome: View {
         .animation(theme.motion.snappy, value: account.creatingRecoveryKey)
         .refreshable { await account.refreshDevices() }
         .task { await account.refreshDevices() }
+    }
+}
+
+extension View {
+    /// A page of settings: one column of groups, at most as wide as a line reads well.
+    func settingsPage() -> some View {
+        padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760)
+            .frame(maxWidth: .infinity)
     }
 }

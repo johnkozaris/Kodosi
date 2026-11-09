@@ -7,6 +7,7 @@ struct PeopleHome: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @State private var adding = false
+    @State private var trusting: FriendTrust?
 
     private var people: PeopleStore {
         model.people
@@ -15,31 +16,40 @@ struct PeopleHome: View {
     var body: some View {
         List {
             if !people.loaded {
-                loadingSection
+                loading
             } else if people.isEmpty, !people.sendingRequest {
-                emptySection
+                empty
             } else {
-                requestsSection
-                friendsSection
+                requests
+                friends
             }
         }
-        .groupedListChrome()
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(theme.colors.surface)
+        .readableWidth()
         .navigationTitle("Friends")
+        .pageFacts(facts)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 InviteShareButton(identifier: "people.shareInvite") {
-                    Label("Share my invite", systemImage: "square.and.arrow.up")
+                    IconButtonFace(symbol: "square.and.arrow.up", size: 32)
+                        .accessibilityLabel(Text("Share my invite"))
                 }
-                Button { adding = true } label: {
-                    Label("Add a friend", systemImage: "person.badge.plus")
-                }
-                .accessibilityIdentifier("people.add")
+                .buttonStyle(PressScaleStyle())
+                IconButton(title: "Add a friend", symbol: "person.badge.plus", identifier: "people.add", size: 32) { adding = true }
             }
+            .sharedBackgroundVisibility(.hidden)
         }
         .navigationDestination(for: FriendRoute.self) { FriendDetailView(userId: $0.userId) }
         .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
         .navigationDestination(for: RoomRoute.self) { RoomScreen(roomId: $0.roomId) }
         .sheet(isPresented: $adding) { AddFriendSheet() }
+        .friendTrust($trusting) { trust in
+            if case let .accept(request) = trust {
+                people.accept(request)
+            }
+        }
         .refreshable { await people.refresh() }
         .task {
             if people.ownInvite == nil {
@@ -59,26 +69,33 @@ struct PeopleHome: View {
         }
     }
 
-    private var loadingSection: some View {
-        Section {
-            ForEach(0 ..< 3, id: \.self) { index in
-                HStack(spacing: 12) {
-                    SkeletonBlock(width: 44, height: 44, radius: 22)
-                    VStack(alignment: .leading, spacing: 8) {
-                        SkeletonBlock(width: 140, height: 12)
-                        SkeletonBlock(width: 90, height: 10)
-                    }
+    private var facts: String {
+        guard people.loaded, !people.friends.isEmpty || !people.incoming.isEmpty else { return "" }
+        let waiting = people.incoming.count
+        let friends = Counted.friends(people.friends.count)
+        return waiting > 0 ? friends + " · " + String(localized: "\(waiting) waiting") : friends
+    }
+
+    private var loading: some View {
+        ForEach(0 ..< 3, id: \.self) { index in
+            HStack(spacing: 12) {
+                SkeletonBlock(width: 46, height: 46, radius: 23)
+                VStack(alignment: .leading, spacing: 8) {
+                    SkeletonBlock(width: 140, height: 12)
+                    SkeletonBlock(width: 90, height: 10)
                 }
-                .padding(.vertical, 6)
-                .raisedRows()
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text("Loading friends"))
-                .accessibilityHidden(index > 0)
+                Spacer(minLength: 0)
             }
+            .padding(16)
+            .raised(Radius.xl)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Loading friends"))
+            .accessibilityHidden(index > 0)
+            .cardRow(top: 6, bottom: 6)
         }
     }
 
-    private var emptySection: some View {
+    private var empty: some View {
         EmptyState(
             title: "No friends yet",
             message: """
@@ -86,13 +103,13 @@ struct PeopleHome: View {
             Friends can open the terminals you share, and you can open theirs.
             """,
         ) {
-            TogetherArt(size: 52, ring: theme.colors.ground)
+            TogetherArt(size: 52)
         } actions: {
             VStack(spacing: 10) { emptyActions }
                 .frame(maxWidth: 300)
         }
         .padding(.top, 24)
-        .bareRow()
+        .cardRow()
     }
 
     @ViewBuilder
@@ -111,38 +128,35 @@ struct PeopleHome: View {
     }
 
     @ViewBuilder
-    private var requestsSection: some View {
+    private var requests: some View {
         if !people.incoming.isEmpty || !people.outgoing.isEmpty || people.sendingRequest {
-            Section {
-                ForEach(people.incoming) { request in
-                    IncomingRequestRow(request: request)
-                        .raisedRows(fill: theme.colors.raised.mix(with: theme.colors.accent, by: theme.isDark ? 0.1 : 0.07))
-                }
-                ForEach(people.outgoing) { request in
-                    OutgoingRequestRow(request: request)
-                        .raisedRows()
-                }
-                if people.sendingRequest {
-                    ProgressCaption(text: String(localized: "Sending your request"))
-                        .padding(.vertical, 8)
-                        .raisedRows()
-                        .accessibilityIdentifier("people.sending")
-                }
-            } header: {
-                GroupedListHeader(title: "Requests", count: people.incoming.count)
+            ListHeader(title: "Requests", count: people.incoming.count)
+                .cardRow(top: 14, bottom: 2)
+            ForEach(people.incoming) { request in
+                IncomingRequestRow(request: request) { trusting = .accept(request) }
+                    .cardRow(top: 6, bottom: 6)
+            }
+            ForEach(people.outgoing) { request in
+                OutgoingRequestRow(request: request)
+                    .cardRow()
+            }
+            if people.sendingRequest {
+                ProgressCaption(text: String(localized: "Sending your request"))
+                    .padding(.vertical, 8)
+                    .cardRow()
+                    .accessibilityIdentifier("people.sending")
             }
         }
     }
 
     @ViewBuilder
-    private var friendsSection: some View {
+    private var friends: some View {
         if !people.friends.isEmpty {
-            Section {
-                ForEach(people.friends) { friend in
-                    FriendListItem(friend: friend, terminals: model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden })
-                }
-            } header: {
-                GroupedListHeader(title: "Friends", count: people.friends.count)
+            ListHeader(title: "Friends", count: people.friends.count)
+                .cardRow(top: 14, bottom: 2)
+            ForEach(people.friends) { friend in
+                FriendListItem(friend: friend, terminals: model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden })
+                    .cardRow(top: 6, bottom: 6)
             }
         }
     }
@@ -156,6 +170,7 @@ private struct FriendTally: Equatable {
 private struct FriendListItem: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @Environment(\.openRoute) private var openRoute
     @State private var confirmingRemoval = false
     let friend: FriendEntry
     let terminals: [RuntimeSession]
@@ -164,19 +179,20 @@ private struct FriendListItem: View {
         model.people
     }
 
+    private func open() {
+        openRoute(FriendRoute(userId: friend.userId))
+    }
+
     var body: some View {
-        NavigationLink(value: FriendRoute(userId: friend.userId)) {
-            FriendRow(friend: friend, terminals: terminals)
-                .overlay(alignment: .trailing) {
-                    if people.isBusy(friend.handle) {
-                        ProgressView()
-                            .padding(6)
-                            .background(theme.colors.raised, in: Circle())
-                            .transition(.opacity)
-                    }
-                }
+        FriendCard(friend: friend, shared: terminals, open: open) {
+            if people.isBusy(friend.handle) {
+                Spinner(size: 14).transition(.opacity)
+            } else {
+                Disclosure().padding(.top, 4)
+            }
+        } footer: {
+            EmptyView()
         }
-        .raisedRows()
         .accessibilityIdentifier("people.friend.\(friend.handle)")
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button { confirmingRemoval = true } label: {
@@ -236,7 +252,7 @@ struct InviteShareButton<Content: View>: View {
                     .opacity(people.fetchingInvite ? 0 : 1)
                     .overlay {
                         if people.fetchingInvite {
-                            ProgressView()
+                            Spinner(size: 14)
                         }
                     }
             }

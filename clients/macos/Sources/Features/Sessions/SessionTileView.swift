@@ -4,7 +4,6 @@ import KodosiTerminalSessions
 import SwiftUI
 
 struct SessionTileView: View {
-    static let radius: CGFloat = 12
     private static let terminalInsets = EdgeInsets(top: 3, leading: 5, bottom: 5, trailing: 5)
 
     /// The room that a tile of this size has for its terminal.
@@ -61,20 +60,7 @@ struct SessionTileView: View {
             .terminalDrag(session, when: !roomEmbedded)
             terminal.frame(maxWidth: .infinity, maxHeight: .infinity).padding(Self.terminalInsets)
         }
-        .background {
-            if !joinsCanvas {
-                shape.fill(theme.colors.terminal)
-                    .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
-            }
-        }
-        .overlay {
-            if !joinsCanvas {
-                let selected = lit && !roomEmbedded && !alone
-                shape.strokeBorder(selected ? theme.colors.accent.mix(with: theme.colors.hairline, by: 0.55) : theme.colors.hairline.opacity(0.7),
-                                   lineWidth: selected ? 1 : 0.5)
-                    .allowsHitTesting(false)
-            }
-        }
+        .terminalTile(radius: radius, selected: lit && !roomEmbedded && !alone, shown: !joinsCanvas)
         .overlay {
             shape.fill(theme.colors.accent)
                 .opacity(veil)

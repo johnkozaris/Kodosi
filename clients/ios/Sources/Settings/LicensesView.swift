@@ -6,46 +6,40 @@ struct LicensesView: View {
     @State private var files: [LicenseFile]?
 
     var body: some View {
-        List {
-            if let files {
-                if files.isEmpty {
-                    EmptyState(title: "No notices in this copy", message: "This copy of Kodosi has no license files.") {
-                        IconTile(symbol: "doc.text", tint: TileTint.graphite, size: 52)
-                    } actions: {
-                        EmptyView()
-                    }
-                    .bareRow()
-                    .accessibilityIdentifier("settings.licenses.empty")
-                } else {
-                    Section {
-                        ForEach(files) { file in
-                            NavigationLink {
-                                LicenseTextView(file: file)
-                            } label: {
-                                SettingRow(
-                                    symbol: "doc.text",
-                                    tint: TileTint.graphite,
-                                    title: Text(file.title),
-                                    subtitle: file.folder.map { Text($0) },
-                                )
-                            }
-                            .raisedRows()
-                            .accessibilityIdentifier("settings.licenses.\(file.url.lastPathComponent)")
+        ScrollView {
+            Group {
+                if let files {
+                    if files.isEmpty {
+                        EmptyState(title: "No notices in this copy", message: "This copy of Kodosi has no license files.") {
+                            IconTile(symbol: "doc.text", tint: TileTint.graphite, size: 52)
+                        } actions: {
+                            EmptyView()
                         }
-                    } footer: {
-                        Text("Kodosi uses these open-source projects.")
-                            .appTextStyle(.footnote)
-                            .foregroundStyle(theme.colors.inkFaint)
+                        .accessibilityIdentifier("settings.licenses.empty")
+                    } else {
+                        ListGroup(footer: "Kodosi uses these open-source projects.") {
+                            ForEach(files) { file in
+                                NavigationLink {
+                                    LicenseTextView(file: file)
+                                } label: {
+                                    ListRow(file.title, subtitle: file.folder, symbol: "doc.text", tint: TileTint.graphite) {
+                                        Disclosure()
+                                    }
+                                }
+                                .buttonStyle(ListRowButtonStyle())
+                                .accessibilityIdentifier("settings.licenses.\(file.url.lastPathComponent)")
+                            }
+                        }
                     }
+                } else {
+                    Spinner(size: 22)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
                 }
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                    .bareRow()
             }
+            .settingsPage()
         }
-        .groupedListChrome()
+        .background(theme.colors.surface)
         .navigationTitle("Open-source licenses")
         .navigationBarTitleDisplayMode(.inline)
         .animation(theme.motion.soft, value: files)
@@ -86,7 +80,7 @@ struct LicenseTextView: View {
                 } else if failed {
                     ErrorNote(message: String(localized: "Kodosi cannot read this file."))
                 } else {
-                    ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                    Spinner(size: 22).frame(maxWidth: .infinity).padding(.top, 40)
                 }
             }
             .frame(maxWidth: 680)
@@ -94,7 +88,7 @@ struct LicenseTextView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
-        .background { GroundBackdrop() }
+        .background(theme.colors.surface)
         .navigationTitle(file.title)
         .navigationBarTitleDisplayMode(.inline)
         .animation(theme.motion.fade, value: blocks)

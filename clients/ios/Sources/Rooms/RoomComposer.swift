@@ -22,17 +22,19 @@ struct RoomComposer: View {
                 suggestionList(suggestions, state: state)
             }
             HStack(alignment: .bottom, spacing: 4) {
-                IconButton(title: "Mention someone or a terminal", symbol: "at", identifier: "rooms.composer.mention", size: 36) {
+                IconButton(title: "Mention someone or a terminal", symbol: "at", identifier: "rooms.composer.mention", size: 34) {
                     dismissedQuery = nil
                     state.message = RoomMentions.start(state.message)
                     focused = true
                 }
                 TextField("Message the room", text: $state.message, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .tint(theme.colors.accent)
                     .lineLimit(1 ... 6)
                     .appTextStyle(.body)
                     .foregroundStyle(theme.colors.ink)
                     .focused($focused)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7)
                     .accessibilityLabel(Text("Message the room"))
                     .accessibilityIdentifier("rooms.composer.input")
                     .onKeyPress(.return, phases: .down) { press in
@@ -49,19 +51,11 @@ struct RoomComposer: View {
                         dismissedQuery = query
                         return .handled
                     }
-                sendButton(canSend: canSend, sending: state.sending)
+                SendKey(enabled: canSend, working: state.sending, size: 34, action: send)
+                    .accessibilityLabel(Text("Send message"))
+                    .accessibilityIdentifier("rooms.composer.send")
             }
-            .padding(5)
-            .background {
-                RaisedBackground(
-                    shape: RoundedRectangle(cornerRadius: 23, style: .continuous), fill: theme.colors.lifted,
-                    elevation: focused ? .lifted : .resting,
-                )
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 23, style: .continuous)
-                    .strokeBorder(theme.colors.accent.opacity(focused ? 0.5 : 0), lineWidth: 1.5)
-            }
+            .composerField(focused: focused)
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
@@ -75,79 +69,22 @@ struct RoomComposer: View {
         .sensoryFeedback(.impact(weight: .light), trigger: state.sent)
     }
 
-    private func sendButton(canSend: Bool, sending: Bool) -> some View {
-        Button(action: send) {
-            Image(systemName: "arrow.up")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(canSend ? theme.colors.onAccent : theme.colors.inkFaint)
-                .frame(width: 36, height: 36)
-                .background {
-                    if canSend {
-                        BezelBackground(shape: Circle(), fill: theme.colors.accent)
-                    } else {
-                        Circle().fill(theme.colors.ink.opacity(0.08))
-                    }
-                }
-                .overlay {
-                    if sending {
-                        LightRim(.working, lineWidth: 2).padding(-4)
-                    }
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!canSend)
-        .accessibilityLabel(Text("Send message"))
-        .accessibilityIdentifier("rooms.composer.send")
-    }
-
     private func failureNote(_ failure: String, state: RoomViewState) -> some View {
-        HStack(spacing: 8) {
-            Circle().fill(theme.colors.caution).frame(width: 6, height: 6).accessibilityHidden(true)
-            Text(failure)
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.ink)
-                .lineLimit(3)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        CautionNote(message: failure, lines: 3, identifier: "rooms.composer.failure") {
+            state.failure = nil
+        } actions: {
             Button("Try again", action: send)
                 .buttonStyle(.kodosi(.tinted, size: .small))
                 .accessibilityIdentifier("rooms.composer.retry")
-            IconButton(title: "Dismiss", symbol: "xmark", identifier: "rooms.composer.dismissFailure", size: 30) {
-                state.failure = nil
-            }
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
-        .padding(.vertical, 4)
-        .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .transition(AnyTransition.rise)
     }
 
     private func suggestionList(_ suggestions: [RoomMention], state: RoomViewState) -> some View {
-        VStack(spacing: 2) {
-            ForEach(suggestions) { target in
+        VStack(spacing: 1) {
+            ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, target in
                 Button { pick(target, state: state) } label: {
-                    HStack(spacing: 10) {
-                        switch target.kind {
-                        case .person: PersonAvatar(name: target.name, key: target.id, size: 28)
-                        case let .terminal(kind): AgentMark(kind: kind, size: 28)
-                        }
-                        Text(target.name)
-                            .appTextStyle(.body)
-                            .fontWeight(.medium)
-                            .foregroundStyle(theme.colors.ink)
-                            .lineLimit(1)
-                        if let detail = target.detail {
-                            Text(detail)
-                                .appTextStyle(.footnote)
-                                .foregroundStyle(theme.colors.inkFaint)
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 4)
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+                    suggestionRow(target, highlighted: index == 0)
                 }
                 .buttonStyle(PressScaleStyle(scale: 0.98))
                 .accessibilityIdentifier("rooms.mention.\(AccessibilityIdentifier.token(target.id))")
@@ -156,6 +93,27 @@ struct RoomComposer: View {
         .padding(5)
         .raised(Radius.lg, fill: theme.colors.lifted, elevation: .lifted)
         .transition(.scale(scale: 0.96, anchor: .bottomLeading).combined(with: .opacity))
+    }
+
+    private func suggestionRow(_ target: RoomMention, highlighted: Bool) -> some View {
+        HStack(spacing: 10) {
+            switch target.kind {
+            case .person: PersonAvatar(name: target.name, key: target.id, size: 26)
+            case let .terminal(kind): AgentMark(kind: kind, size: 26)
+            }
+            Text(target.name).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
+            if let detail = target.detail {
+                Text(detail).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if highlighted {
+                Image(systemName: "return").font(.system(size: 10, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(minHeight: 44)
+        .background(highlighted ? theme.colors.accentSoft : .clear, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+        .contentShape(Rectangle())
     }
 
     private func pick(_ target: RoomMention, state: RoomViewState) {

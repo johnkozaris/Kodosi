@@ -33,18 +33,18 @@ struct ApproveDeviceSheet: View {
                 .padding(.vertical, 20)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background { GroundBackdrop() }
+            .background(theme.colors.surface)
             .navigationTitle("Add a device")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                        .accessibilityIdentifier("settings.approve.close")
+                    IconButton(title: "Close", symbol: "xmark", identifier: "settings.approve.close", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .presentationDetents([.large])
-        .presentationBackground(theme.colors.ground)
+        .kodosiSheet()
         .animation(theme.motion.spring, value: account.approval)
         .animation(theme.motion.spring, value: account.deviceRequests)
         .sensoryFeedback(trigger: account.approval) { _, approval in
@@ -70,24 +70,16 @@ struct ApproveDeviceSheet: View {
                     .arrive(delay: 0.04)
             }
             if !account.deviceRequests.isEmpty {
-                VStack(spacing: 8) {
+                ListGroup {
                     ForEach(account.deviceRequests) { request in
-                        HStack(spacing: 10) {
-                            BreathingDot(color: theme.colors.accent)
-                            Image(systemName: DeviceGlyph.symbol(for: request.deviceLabel))
-                                .foregroundStyle(theme.colors.inkMuted)
-                                .accessibilityHidden(true)
-                            Text("\(request.deviceLabel) is waiting")
-                                .appTextStyle(.subhead)
-                                .foregroundStyle(theme.colors.ink)
-                            Spacer(minLength: 0)
+                        ListRow(request.deviceLabel, subtitle: String(localized: "Waiting for approval"),
+                                symbol: DeviceGlyph.symbol(for: request.deviceLabel), tint: TileTint.graphite)
+                        {
+                            StatusSign(form: .hand)
                         }
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .background(theme.colors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
-                        .transition(AnyTransition.rise)
                     }
                 }
+                .transition(AnyTransition.rise)
             }
             codeField
                 .arrive(delay: 0.08)
@@ -97,13 +89,9 @@ struct ApproveDeviceSheet: View {
                     .transition(AnyTransition.rise)
             }
             Button(action: approve) {
-                HStack(spacing: 10) {
-                    if approving {
-                        ProgressView().tint(theme.colors.onAccent)
-                    }
-                    Text(approving ? "Approving" : "Approve")
-                }
-                .frame(maxWidth: .infinity)
+                Text(approving ? "Approving" : "Approve")
+                    .shimmer(approving)
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.kodosi(.primary, size: .large))
             .disabled(!DeviceCode.isComplete(code) || approving)
@@ -127,6 +115,8 @@ struct ApproveDeviceSheet: View {
         .onSubmit(approve)
         .focused($codeFocused)
         .disabled(approving)
+        .textFieldStyle(.plain)
+        .tint(theme.colors.accent)
         .foregroundStyle(theme.colors.ink)
         .padding(.horizontal, 18)
         .frame(minHeight: 60)

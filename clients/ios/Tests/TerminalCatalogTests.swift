@@ -29,16 +29,23 @@ struct TerminalCatalogTests {
         #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed", "open"])
     }
 
-    @Test func `friends terminals are shared with you after your computers`() throws {
+    @Test func `friends terminals follow your computers, one group for each friend`() throws {
+        var another = terminalEntry("another", state: "idle", owner: false, host: "Box")
+        another["ownerUserId"] = "user-3"
+        another["ownerName"] = "Ana"
+        another["status"] = "offline"
         let all = try sessions([
             terminalEntry("theirs", state: "idle", owner: false, host: "Maria's Mac"),
             terminalEntry("mine", state: "idle", host: "Studio"),
             terminalEntry("room", state: "working", owner: false, host: "Lab", room: (id: "room-1", name: "Launch")),
+            another,
         ])
         let groups = TerminalCatalog.groups(all)
-        #expect(groups.map(\.place) == [.computer(id: "device-Studio", name: "Studio"), .shared])
+        #expect(groups.map(\.place) == [
+            .computer(id: "device-Studio", name: "Studio"), .friend(id: "user-3", name: "Ana"), .friend(id: "user-2", name: "Maria"),
+        ])
         #expect(groups.last?.sessions.map(\.id) == ["theirs", "room"])
-        #expect(groups.last?.sessions.last?.missionName == "Launch")
+        #expect(groups.map(\.away) == [false, true, false])
     }
 
     @Test func `search finds names computers rooms and agents`() throws {

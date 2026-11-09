@@ -61,3 +61,15 @@ public extension View {
         font(style.font).tracking(style.tracking)
     }
 }
+
+extension View {
+    /// The height of a control around text: exactly this on a Mac, and at least this on iPhone
+    /// and iPad, where the text grows with Dynamic Type.
+    func controlHeight(_ height: CGFloat) -> some View {
+        #if os(iOS)
+            frame(minHeight: height)
+        #else
+            frame(height: height)
+        #endif
+    }
+}

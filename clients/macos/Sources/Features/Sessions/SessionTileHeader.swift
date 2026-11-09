@@ -29,7 +29,7 @@ struct SessionTileHeader: View {
     var body: some View {
         HStack(spacing: 9) {
             if roomEmbedded {
-                Location(host: session.hostLabel, glyph: "folder", name: session.folderName)
+                TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
                     .help(session.workingDir ?? session.hostLabel)
                 if session.activity != nil || session.progress != nil {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
@@ -46,11 +46,11 @@ struct SessionTileHeader: View {
                     StatusSign(form: sign).transition(AnyTransition.pop)
                 }
                 if let place = session.place {
-                    Location(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
+                    TerminalLocation(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
                         .help(session.placeLabel ?? session.hostLabel)
                         .layoutPriority(1)
                 } else if session.kind == .remote {
-                    Location(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
+                    TerminalLocation(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
             Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap()
@@ -144,14 +144,7 @@ private struct TerminalName: View {
                 draft = session.name
                 renaming = true
             } label: {
-                name.padding(.horizontal, 6).frame(height: 24)
-                    .background {
-                        if hovered {
-                            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous).fill(theme.buttonFace(lit: true))
-                        }
-                    }
-                    .padding(.horizontal, -6)
-                    .contentShape(Rectangle())
+                GhostKeyFace(lit: hovered) { name }
             }
             .buttonStyle(.plain)
             .onHover { hovered = $0 }
@@ -170,46 +163,6 @@ private struct TerminalName: View {
     }
 }
 
-/// Where a terminal runs: its computer, then the folder or place in it.
-private struct Location: View {
-    @Environment(\.theme) private var theme
-    let host: String?
-    let glyph: String
-    let name: String?
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let host {
-                DeviceGlyph(label: host).font(.system(size: 9.5, weight: .semibold))
-                Text(host).lineLimit(1)
-            }
-            if host != nil, name != nil {
-                Image(systemName: "chevron.compact.right").font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 1)
-            }
-            if let name {
-                HStack(spacing: 4) {
-                    Image(systemName: glyph).font(.system(size: 9.5, weight: .semibold))
-                    Text(name).lineLimit(1).truncationMode(.middle)
-                }
-                .foregroundStyle(theme.colors.ink.mix(with: theme.colors.inkMuted, by: 0.35))
-            }
-        }
-        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(label))
-    }
-
-    private var label: String {
-        switch (host, name) {
-        case let (host?, name?): String(localized: "\(name) on \(host)")
-        case let (host?, nil): host
-        case let (nil, name?): name
-        case (nil, nil): ""
-        }
-    }
-}
-
 /// One accent key for what a person does with a terminal: start an agent, share it, open its
 /// browser, see its details, or take it out of the room.
 private struct TerminalActions: View {
@@ -224,15 +177,7 @@ private struct TerminalActions: View {
 
     var body: some View {
         Button { open.toggle() } label: {
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(theme.colors.accentStrong)
-                .frame(width: 26, height: 26)
-                .background {
-                    RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                        .fill(open || hovered ? theme.colors.accentSoft : .clear)
-                }
-                .contentShape(Rectangle())
+            ActionsKey(lit: open || hovered)
         }
         .buttonStyle(PressScaleStyle(scale: 0.9))
         .onHover { hovered = $0 }

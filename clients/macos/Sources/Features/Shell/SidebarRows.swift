@@ -245,15 +245,7 @@ struct SidebarComputerHeader: View {
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: 5) {
-                if let owner = group.owner {
-                    PersonAvatar(name: owner.name, key: owner.userId, size: 13)
-                } else {
-                    DeviceGlyph(label: group.title).font(.system(size: 9, weight: .semibold)).frame(width: 13)
-                }
-                Text(group.title).appTextStyle(.caption).lineLimit(1).layoutPriority(1)
-                if group.away {
-                    Image(systemName: "wifi.slash").font(.system(size: 8, weight: .bold))
-                }
+                ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away)
                 FoldTriangle(collapsed: collapsed, sessions: group.folders.flatMap(\.sessions))
                 Spacer(minLength: 0)
             }

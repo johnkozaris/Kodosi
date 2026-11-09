@@ -12,68 +12,45 @@ struct DevicesSection: View {
     }
 
     var body: some View {
-        Section {
-            ForEach(account.deviceRequests) { request in
-                Button { approving = true } label: {
-                    DeviceRequestLabel(request: request)
+        if !account.orderedDevices.isEmpty {
+            ListGroup(title: "Your devices") {
+                ForEach(account.orderedDevices) { device in
+                    DeviceRow(device: device)
                 }
-                .raisedRows(fill: theme.colors.accentSoft.opacity(theme.isDark ? 0.7 : 0.55))
-                .accessibilityIdentifier("settings.devices.request.\(request.requestId)")
             }
-            ForEach(account.orderedDevices) { device in
-                DeviceRow(device: device)
-                    .raisedRows()
-            }
-            if account.localDeviceEnrolled {
-                Button { approving = true } label: {
-                    SettingRow(
-                        symbol: "laptopcomputer.and.arrow.down",
-                        tint: theme.colors.accent,
-                        title: Text("Add a device"),
-                        subtitle: Text("Enter the code that the new device shows"),
-                    ) {
-                        if !account.deviceRequests.isEmpty {
-                            CountBadge(count: account.deviceRequests.count)
-                                .transition(AnyTransition.pop)
+        }
+        if account.localDeviceEnrolled {
+            ListGroup {
+                ForEach(account.deviceRequests) { request in
+                    Button { approving = true } label: {
+                        ListRow(request.deviceLabel, subtitle: String(localized: "Waiting for approval"),
+                                symbol: DeviceGlyph.symbol(for: request.deviceLabel), tint: TileTint.graphite)
+                        {
+                            StatusSign(form: .hand)
                         }
                     }
+                    .buttonStyle(ListRowButtonStyle())
+                    .accessibilityIdentifier("settings.devices.request.\(request.requestId)")
                 }
-                .raisedRows()
+                Button { approving = true } label: {
+                    ListRow(String(localized: "Add a device"), subtitle: String(localized: "Enter the code that the new device shows"),
+                            symbol: "laptopcomputer.and.arrow.down", tint: theme.colors.accent)
+                    {
+                        Disclosure()
+                    }
+                }
+                .buttonStyle(ListRowButtonStyle())
                 .accessibilityIdentifier("settings.devices.add")
-                .sheet(isPresented: $approving) {
-                    ApproveDeviceSheet()
-                }
             }
-        } header: {
-            GroupedListHeader(title: "Your devices", count: account.devices.count { !$0.recoveryKey })
+            .sheet(isPresented: $approving) {
+                ApproveDeviceSheet()
+            }
         }
-    }
-}
-
-private struct DeviceRequestLabel: View {
-    @Environment(\.theme) private var theme
-    let request: DeviceLinkRequest
-
-    var body: some View {
-        HStack(spacing: 14) {
-            BreathingDot(color: theme.colors.accent, size: 9)
-                .frame(width: 30)
-            Text("\(request.deviceLabel) is waiting. Enter its code.")
-                .appTextStyle(.body)
-                .foregroundStyle(theme.colors.ink)
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(theme.colors.inkFaint)
-        }
-        .padding(.vertical, 6)
     }
 }
 
 struct DeviceRow: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.theme) private var theme
     @State private var confirmingRemoval = false
     let device: MyDeviceEntry
 
@@ -89,44 +66,29 @@ struct DeviceRow: View {
         account.canRemove(device)
     }
 
-    private var title: String {
-        device.title
-    }
-
     private var addedAt: Date {
         Date(timeIntervalSince1970: TimeInterval(device.certIssuedAtMs) / 1000)
     }
 
-    private var subtitle: Text {
+    private var subtitle: String {
         if device.recoveryKey {
-            Text("Approves a new device when you have no other")
+            String(localized: "Approves a new device when you have no other")
         } else if isThisDevice {
-            Text(ThisDevice.title)
+            ThisDevice.title
         } else {
-            Text("Added \(addedAt, format: .dateTime.day().month().year())")
+            String(localized: "Added \(addedAt, format: .dateTime.day().month().year())")
         }
     }
 
     var body: some View {
-        SettingRow(
-            symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-            tint: isThisDevice ? TileTint.orange : TileTint.graphite,
-            title: Text(title),
-            subtitle: subtitle,
-        ) {
+        ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
+                tint: isThisDevice ? TileTint.orange : TileTint.graphite)
+        {
             if removable {
-                Button("Remove") { confirmingRemoval = true }
+                Button("Remove…") { confirmingRemoval = true }
                     .buttonStyle(.kodosi(.ghost, size: .small))
-                    .accessibilityLabel(Text("Remove \(title)"))
+                    .accessibilityLabel(Text("Remove \(device.title)"))
                     .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if removable {
-                Button { confirmingRemoval = true } label: {
-                    Label("Remove", systemImage: "minus.circle")
-                }
-                .tint(theme.colors.danger)
             }
         }
         .contextMenu {
@@ -136,7 +98,7 @@ struct DeviceRow: View {
                 }
             }
         }
-        .confirmationDialog(Text("Remove \(title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
+        .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
             Button("Remove", role: .destructive) { account.revokeDevice(device) }
                 .accessibilityIdentifier("settings.devices.confirmRemove")
         } message: {

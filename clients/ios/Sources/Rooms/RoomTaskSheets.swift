@@ -19,20 +19,25 @@ struct RoomTaskSheet: View {
                 if let task {
                     details(task)
                 } else {
-                    ContentUnavailableView("This task is not here anymore", systemImage: "checklist")
+                    EmptyState(title: "This task is not here anymore") {
+                        IconTile(symbol: "checklist", tint: TileTint.graphite, size: 52)
+                    } actions: {
+                        EmptyView()
+                    }
                 }
             }
+            .background(theme.colors.surface)
             .navigationTitle("Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier("rooms.task.sheet.done")
+                ToolbarItem(placement: .cancellationAction) {
+                    IconButton(title: "Done", symbol: "xmark", identifier: "rooms.task.sheet.done", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
         .sensoryFeedback(.success, trigger: saved)
     }
 
@@ -191,57 +196,75 @@ struct RoomTaskComposer: View {
     var body: some View {
         let linkable = model.rooms.snapshots[roomId]?.repositories ?? []
         NavigationStack {
-            List {
-                Section {
-                    TextField("Add a task", text: $title, axis: .vertical)
-                        .lineLimit(1 ... 3)
-                        .appTextStyle(.body)
-                        .focused($focused)
-                        .accessibilityIdentifier("rooms.task.title")
-                    TextField("Context for whoever picks it up", text: $details, axis: .vertical)
-                        .lineLimit(3 ... 8)
-                        .appTextStyle(.body)
-                        .accessibilityIdentifier("rooms.task.description")
-                }
-                .listRowBackground(theme.colors.raised)
-                if !linkable.isEmpty {
-                    Section("Repositories") {
-                        FlowLayout(spacing: 6) {
-                            ForEach(linkable) { repository in
-                                repositoryToggle(repository)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(focused ? theme.colors.accentStrong : theme.colors.inkFaint)
+                            TextField("Add a task", text: $title, axis: .vertical)
+                                .textFieldStyle(.plain)
+                                .tint(theme.colors.accent)
+                                .lineLimit(1 ... 3)
+                                .appTextStyle(.callout)
+                                .focused($focused)
+                                .accessibilityIdentifier("rooms.task.title")
+                        }
+                        TextField("Context for whoever picks it up", text: $details, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .tint(theme.colors.accent)
+                            .lineLimit(3 ... 8)
+                            .appTextStyle(.body)
+                            .accessibilityIdentifier("rooms.task.description")
+                        if !linkable.isEmpty {
+                            FlowLayout(spacing: 6) {
+                                ForEach(linkable) { repository in
+                                    repositoryToggle(repository)
+                                }
                             }
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listRowBackground(theme.colors.raised)
-                }
-                if let failure {
-                    Section {
-                        ErrorNote(message: failure)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
+                    .padding(14)
+                    .raised(Radius.xl, elevation: focused ? .lifted : .resting)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                            .strokeBorder(theme.colors.accent.opacity(focused ? 0.5 : 0), lineWidth: 1.5)
+                    }
+                    if let failure {
+                        ErrorNote(message: failure).transition(AnyTransition.rise)
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(theme.colors.surface)
             .navigationTitle("New task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .fixedSize()
                         .accessibilityIdentifier("rooms.task.cancel")
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(busy ? "Adding…" : "Add", action: create)
-                        .disabled(!valid || busy)
-                        .accessibilityIdentifier("rooms.task.create")
+                    Button(action: create) {
+                        Text(busy ? "Adding…" : "Add").shimmer(busy)
+                    }
+                    .buttonStyle(.kodosi(.primary, size: .small))
+                    .fixedSize()
+                    .disabled(!valid || busy)
+                    .accessibilityIdentifier("rooms.task.create")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
+            .animation(theme.motion.spring, value: failure)
+            .animation(theme.motion.hover, value: focused)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
         .interactiveDismissDisabled(busy)
         .sensoryFeedback(.success, trigger: added)
         .onAppear { focused = true }
@@ -257,6 +280,7 @@ struct RoomTaskComposer: View {
             }
         } label: {
             Tag(text: repository.name, symbol: on ? "checkmark" : "shippingbox", tone: on ? .accent : .neutral)
+                .touchTarget()
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityAddTraits(on ? .isSelected : [])

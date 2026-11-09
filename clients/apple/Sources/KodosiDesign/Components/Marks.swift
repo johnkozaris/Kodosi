@@ -63,6 +63,7 @@ public struct PersonAvatar: View {
 
 public struct AvatarStack: View {
     @Environment(\.theme) private var theme
+    @Environment(\.cardFill) private var cardFill
     public struct Person: Identifiable, Sendable {
         public let id: String
         public let name: String
@@ -88,9 +89,10 @@ public struct AvatarStack: View {
     }
 
     public var body: some View {
+        let ring = ring ?? cardFill ?? theme.colors.surface
         HStack(spacing: -size * 0.28) {
             ForEach(people.prefix(limit)) { person in
-                PersonAvatar(name: person.name, key: person.id, size: size, isSelf: person.isSelf, ring: ring ?? theme.colors.surface)
+                PersonAvatar(name: person.name, key: person.id, size: size, isSelf: person.isSelf, ring: ring)
                     .transition(AnyTransition.pop)
             }
             if people.count > limit {
@@ -99,7 +101,7 @@ public struct AvatarStack: View {
                     .foregroundStyle(theme.colors.inkMuted)
                     .frame(width: size, height: size)
                     .background(theme.colors.well, in: Circle())
-                    .overlay { Circle().stroke(ring ?? theme.colors.surface, lineWidth: 2).padding(-1) }
+                    .overlay { Circle().stroke(ring, lineWidth: 2).padding(-1) }
             }
         }
         .animation(theme.motion.snappy, value: people.map(\.id))

@@ -16,6 +16,9 @@ public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
         configuration
             .textFieldStyle(.plain)
             .appTextStyle(compact ? .footnote : .body)
+        #if os(iOS)
+            .tint(theme.colors.accent)
+        #endif
             .focused($focused)
             .padding(.horizontal, compact ? 10 : 12)
             .frame(minHeight: compact ? KodosiButtonStyle.Size.small.height : 34)
@@ -29,11 +32,18 @@ public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
 }
 
 public struct KodosiSwitchStyle: ToggleStyle {
+    #if os(iOS)
+        private static let track = CGSize(width: 46, height: 28)
+    #else
+        private static let track = CGSize(width: 36, height: 21)
+    #endif
+
     @Environment(\.theme) private var theme
 
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
+        let track = Self.track
         Button { configuration.isOn.toggle() } label: {
             HStack(spacing: 12) {
                 configuration.label.appTextStyle(.body).foregroundStyle(theme.colors.ink)
@@ -42,11 +52,11 @@ public struct KodosiSwitchStyle: ToggleStyle {
                     .fill((configuration.isOn ? theme.colors.accent : theme.colors.well).shadow(.inner(
                         color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.12), radius: 2, y: 1,
                     )))
-                    .frame(width: 36, height: 21)
+                    .frame(width: track.width, height: track.height)
                     .overlay(alignment: configuration.isOn ? .trailing : .leading) {
                         Circle().fill(.white)
                             .shadow(color: .black.opacity(0.25), radius: 1.5, y: 1)
-                            .frame(width: 17, height: 17).padding(2)
+                            .frame(width: track.height - 4, height: track.height - 4).padding(2)
                     }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,9 +143,13 @@ public struct MenuRow: View {
     }
 }
 
+/// A choice of one value: a key with the chosen value, which drops the list of values on a Mac and
+/// opens the system's menu on iPhone and iPad.
 public struct MenuPicker<Value: Hashable>: View {
     @Environment(\.theme) private var theme
-    @State private var expanded = false
+    #if os(macOS)
+        @State private var expanded = false
+    #endif
     public let title: LocalizedStringKey
     @Binding public var selection: Value
     public let values: [Value]
@@ -156,26 +170,45 @@ public struct MenuPicker<Value: Hashable>: View {
     }
 
     public var body: some View {
-        Button { expanded.toggle() } label: {
-            HStack(spacing: 8) {
-                Text(label(selection)).lineLimit(1)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
-            }
-        }
-        .buttonStyle(.kodosi(.secondary))
-        .accessibilityLabel(Text(title)).accessibilityValue(label(selection)).accessibilityIdentifier(identifier)
-        .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(values.enumerated()), id: \.offset) { _, value in
-                        Button { selection = value; expanded = false } label: {
-                            MenuRow(title: label(value), selected: value == selection)
-                        }.buttonStyle(.plain)
+        #if os(macOS)
+            Button { expanded.toggle() } label: { face }
+                .buttonStyle(.kodosi(.secondary))
+                .accessibilityLabel(Text(title)).accessibilityValue(label(selection)).accessibilityIdentifier(identifier)
+                .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 1) {
+                            ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                                Button { selection = value; expanded = false } label: {
+                                    MenuRow(title: label(value), selected: value == selection)
+                                }.buttonStyle(.plain)
+                            }
+                        }.padding(6)
                     }
-                }.padding(6)
+                    .frame(minWidth: 200, maxHeight: 352)
+                    .popoverSheet()
+                }
+        #else
+            Menu {
+                Picker(selection: $selection) {
+                    ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                        Text(verbatim: label(value)).tag(value)
+                    }
+                } label: {
+                    Text(title)
+                }
+            } label: {
+                face
             }
-            .frame(minWidth: 200, maxHeight: 352)
-            .popoverSheet()
+            .menuStyle(.button)
+            .buttonStyle(.kodosi(.secondary, size: .small))
+            .accessibilityLabel(Text(title)).accessibilityValue(label(selection)).accessibilityIdentifier(identifier)
+        #endif
+    }
+
+    private var face: some View {
+        HStack(spacing: 8) {
+            Text(label(selection)).lineLimit(1)
+            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
         }
     }
 }

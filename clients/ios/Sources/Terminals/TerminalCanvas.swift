@@ -3,8 +3,8 @@ import KodosiDesign
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The canvas key in the navigation bar: there when the canvas shows something, with a
-/// breathing dot for news.
+/// The canvas key in a terminal's bar: there when the canvas shows something, in a well, with a
+/// breathing dot for news and a hop when the news comes.
 struct CanvasKey: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -15,13 +15,19 @@ struct CanvasKey: View {
         let news = canvas.hasNews(session)
         Button(action: open) {
             Image(systemName: CanvasSymbol.canvas)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.colors.inkMuted)
+                .hop(when: news)
+                .frame(width: 36, height: 28)
                 .overlay(alignment: .topTrailing) {
                     if news {
-                        BreathingDot(color: theme.colors.glowOrange, size: 7).offset(x: 5, y: -4).transition(AnyTransition.pop)
+                        BreathingDot(color: theme.colors.glowOrange, size: 6).offset(x: -3, y: 3).transition(AnyTransition.pop)
                     }
                 }
-                .symbolEffect(.bounce, value: news)
+                .wellCapsule()
+                .touchTarget()
         }
+        .buttonStyle(PressScaleStyle())
         .accessibilityLabel(Text("Canvas"))
         .accessibilityValue(news ? Text("Something new") : Text(verbatim: ""))
         .accessibilityIdentifier("terminal.canvas")
@@ -103,7 +109,11 @@ struct CanvasScreen: View {
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
-                        ContentUnavailableView("The canvas shows nothing.", systemImage: CanvasSymbol.canvas)
+                        EmptyState(title: "The canvas shows nothing.") {
+                            IconTile(symbol: CanvasSymbol.canvas, tint: TileTint.graphite, size: 52)
+                        } actions: {
+                            EmptyView()
+                        }
                     }
                 }
                 .transaction(value: current?.key) { $0.animation = nil }
@@ -114,8 +124,9 @@ struct CanvasScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.accessibilityIdentifier("canvas.done")
+                    IconButton(title: "Done", symbol: "xmark", identifier: "canvas.done", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
                 if let session, session.canvas != nil {
                     ToolbarItem(placement: .principal) {
                         CanvasDock(session: session, store: store, chosen: current?.section, identifier: "canvas.key") { section in
@@ -135,14 +146,14 @@ struct CanvasScreen: View {
                             addingFile = true
                         }
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
                 if let session, let current, session.canControl, case .browser = current {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { typing.toggle() } label: {
-                            Label("Keyboard", systemImage: typing ? "keyboard.chevron.compact.down" : "keyboard")
-                        }
-                        .accessibilityIdentifier("canvas.keyboard")
+                        IconButton(title: "Keyboard", symbol: typing ? "keyboard.chevron.compact.down" : "keyboard",
+                                   identifier: "canvas.keyboard", size: 32, active: typing) { typing.toggle() }
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
             }
         }

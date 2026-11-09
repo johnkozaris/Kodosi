@@ -1,4 +1,3 @@
-import AppKit
 import CoreText
 import KodosiDesign
 import SwiftUI
@@ -23,7 +22,9 @@ struct TerminalSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            TerminalPreview(settings: draft).terminalScope()
+            TerminalPreview(family: draft.fontFamily, size: CGFloat(draft.fontSize), lineHeight: draft.lineHeight,
+                            cursor: draft.cursorStyle.preview, blinks: draft.cursorBlink)
+                .terminalScope()
             ListGroup {
                 ListRow(String(localized: "Appearance"), symbol: "circle.lefthalf.filled", tint: TileTint.graphite) {
                     SegmentedPill(selection: $themePreference, options: [
@@ -130,52 +131,12 @@ struct TerminalSettingsView: View {
     }
 }
 
-private struct TerminalPreview: View {
-    @Environment(\.theme) private var theme
-    let settings: DesktopSettings.TerminalSettings
-
-    private var font: Font {
-        let size = CGFloat(settings.fontSize)
-        return NSFont(name: settings.fontFamily, size: size) == nil
-            && NSFontManager.shared.font(withFamily: settings.fontFamily, traits: [], weight: 5, size: size) == nil
-            ? .system(size: size, design: .monospaced) : .custom(settings.fontFamily, size: size)
-    }
-
-    var body: some View {
-        let size = CGFloat(settings.fontSize)
-        let ink = hex(0xE8E1D9)
-        VStack(alignment: .leading, spacing: max(0, (settings.lineHeight - 1) * size)) {
-            HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
-                Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
-                Text(verbatim: "claude").foregroundStyle(ink)
-            }
-            Text(verbatim: "✳ Welcome back. What are we building?").foregroundStyle(hex(0xD97757))
-            HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
-                Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
-                cursor(size: size)
-            }
-        }
-        .font(font)
-        .lineLimit(1)
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
-        .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(theme.colors.hairline.opacity(0.7), lineWidth: 0.5) }
-        .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.14), radius: 12, x: 3, y: 8)
-        .animation(theme.motion.spring, value: settings)
-        .accessibilityElement(children: .ignore).accessibilityLabel(Text("Terminal preview"))
-    }
-
-    @ViewBuilder
-    private func cursor(size: CGFloat) -> some View {
-        switch settings.cursorStyle {
-        case .block: CursorBlock(width: size * 0.6, height: size * 1.15, blinks: settings.cursorBlink).id(settings.cursorBlink)
-        case .bar: CursorBlock(width: 2, height: size * 1.15, blinks: settings.cursorBlink).id(settings.cursorBlink)
-        case .underline:
-            CursorBlock(width: size * 0.6, height: 2, blinks: settings.cursorBlink).id(settings.cursorBlink)
-                .frame(height: size * 1.15, alignment: .bottom)
+private extension DesktopSettings.CursorStyle {
+    var preview: TerminalPreview.Cursor {
+        switch self {
+        case .block: .block
+        case .bar: .bar
+        case .underline: .underline
         }
     }
 }

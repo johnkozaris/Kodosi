@@ -11,9 +11,9 @@ computer.
 - Sign-in opens in a system sign-in window. You approve a new iPhone or iPad as you
   approve a computer: with a code that you enter on an approved device, with the recovery
   key, or by starting fresh.
-- The Terminals tab groups your terminals by computer, then friends' terminals, each
-  with the sign of its state, and counts the waiting terminals that you can answer: your
-  own, and others' while you have them open.
+- The Terminals tab groups your terminals by computer, then the terminals of each friend,
+  each with the sign of its state, and counts the waiting terminals that you can answer:
+  your own, and others' while you have them open.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
   its cursor when the cursor is above them.

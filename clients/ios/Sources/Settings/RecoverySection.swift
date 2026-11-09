@@ -23,43 +23,57 @@ struct RecoverySection: View {
     }
 
     var body: some View {
-        Section {
-            Button {
-                if account.hasRecoveryKey {
-                    confirmingReplacement = true
-                } else {
-                    account.createRecoveryKey()
+        VStack(alignment: .leading, spacing: 8) {
+            Text("If you lose all your devices").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    words
+                    Spacer(minLength: 8)
+                    key
                 }
-            } label: {
-                SettingRow(
-                    symbol: "key.fill",
-                    tint: TileTint.amber,
-                    title: Text(account.hasRecoveryKey ? "Make a new key…" : "Make a recovery key"),
-                ) {
-                    if account.creatingRecoveryKey {
-                        ProgressView()
-                            .transition(.opacity)
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    words
+                    key
                 }
             }
-            .disabled(account.creatingRecoveryKey)
-            .raisedRows()
-            .accessibilityIdentifier("settings.devices.recoveryKey")
-            .confirmationDialog("Make a new recovery key?", isPresented: $confirmingReplacement, titleVisibility: .visible) {
-                Button("Make a new key") { account.createRecoveryKey() }
-                    .accessibilityIdentifier("settings.devices.confirmRecoveryKey")
-            } message: {
-                Text("The recovery key that you have now stops working.")
-            }
-            .sheet(isPresented: keyPresented) {
-                RecoveryKeySheet(key: account.newRecoveryKey ?? "") { account.dismissRecoveryKey() }
-            }
-        } header: {
-            GroupedListHeader(title: "If you lose all your devices")
-        } footer: {
-            Text("A recovery key approves a new device when you have no other device.")
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.inkFaint)
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .raised(Radius.lg)
         }
+        .confirmationDialog("Make a new recovery key?", isPresented: $confirmingReplacement, titleVisibility: .visible) {
+            Button("Make a new key") { account.createRecoveryKey() }
+                .accessibilityIdentifier("settings.devices.confirmRecoveryKey")
+        } message: {
+            Text("The recovery key that you have now stops working.")
+        }
+        .sheet(isPresented: keyPresented) {
+            RecoveryKeySheet(key: account.newRecoveryKey ?? "") { account.dismissRecoveryKey() }
+        }
+    }
+
+    private var words: some View {
+        Text("A recovery key approves a new device when you have no other device.")
+            .appTextStyle(.footnote)
+            .foregroundStyle(theme.colors.inkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var key: some View {
+        Button {
+            if account.hasRecoveryKey {
+                confirmingReplacement = true
+            } else {
+                account.createRecoveryKey()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if account.creatingRecoveryKey {
+                    Spinner(size: 12)
+                }
+                Text(account.hasRecoveryKey ? "Make a new key…" : "Make a recovery key")
+            }
+        }
+        .disabled(account.creatingRecoveryKey)
+        .accessibilityIdentifier("settings.devices.recoveryKey")
     }
 }

@@ -20,8 +20,8 @@ struct RoomCreateSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
+            ScrollView {
+                VStack(spacing: 22) {
                     VStack(spacing: 18) {
                         RoomSigil(key: name.isEmpty ? "new" : name, size: 68)
                             .animation(theme.motion.spring, value: name)
@@ -32,70 +32,82 @@ struct RoomCreateSheet: View {
                             .onSubmit(create)
                             .accessibilityLabel(Text("Room name"))
                             .accessibilityIdentifier("rooms.create.name")
+                        Text("Everyone in the room shares its terminals and conversation.")
+                            .appTextStyle(.caption).fontWeight(.regular)
+                            .foregroundStyle(theme.colors.inkFaint)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
-                } footer: {
-                    Text("Everyone in the room shares its terminals and conversation.")
-                }
-                friendsSection
-                if let failure {
-                    Section {
-                        ErrorNote(message: failure)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
+                    friends
+                    if let failure {
+                        ErrorNote(message: failure).transition(AnyTransition.rise)
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(theme.colors.surface)
             .navigationTitle("New room")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .fixedSize()
                         .accessibilityIdentifier("rooms.create.cancel")
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: create) {
-                        Text(creating ? "Making…" : "Make room")
+                        Text(creating ? "Making…" : "Make room").shimmer(creating)
                     }
+                    .buttonStyle(.kodosi(.primary, size: .small))
+                    .fixedSize()
                     .disabled(!valid || creating)
                     .accessibilityIdentifier("rooms.create.confirm")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
             .animation(theme.motion.spring, value: failure)
+            .animation(theme.motion.snappy, value: invited)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
         .interactiveDismissDisabled(creating)
         .sensoryFeedback(.success, trigger: made)
+        .sensoryFeedback(.selection, trigger: invited)
         .onAppear { focused = true }
     }
 
-    @ViewBuilder
-    private var friendsSection: some View {
-        let friends = model.people.friends
-        Section {
-            if friends.isEmpty {
+    private var friends: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Invite friends").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
+            if model.people.friends.isEmpty {
                 Text("Add friends in the Friends tab to invite them.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
-                    .listRowBackground(theme.colors.raised)
+                    .padding(.leading, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 14) {
+                    FlowLayout(spacing: 10) {
+                        ForEach(model.people.friends) { friend in
+                            choice(friend)
+                        }
+                    }
+                    ForEach(model.people.friends.filter(\.identityChanged)) { friend in
+                        ChangedIdentityNote(name: friend.personName)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .raised(Radius.xl)
             }
-            ForEach(friends) { friend in
-                friendRow(friend)
-            }
-        } header: {
-            Text("Invite friends")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func friendRow(_ friend: FriendEntry) -> some View {
+    private func choice(_ friend: FriendEntry) -> some View {
         let selected = invited.contains(friend.userId)
-        let name = friend.personName
         return Button {
             if selected {
                 invited.remove(friend.userId)
@@ -103,35 +115,14 @@ struct RoomCreateSheet: View {
                 invited.insert(friend.userId)
             }
         } label: {
-            HStack(spacing: 12) {
-                PersonAvatar(name: name, key: friend.userId, size: 34)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .appTextStyle(.body)
-                        .foregroundStyle(theme.colors.ink)
-                        .lineLimit(1)
-                    if friend.identityChanged {
-                        Text("Their identity changed. Trust them in Friends first.")
-                            .appTextStyle(.caption)
-                            .foregroundStyle(theme.colors.caution)
-                    } else {
-                        Text(verbatim: "@\(friend.handle)")
-                            .appTextStyle(.caption)
-                            .foregroundStyle(theme.colors.inkFaint)
-                    }
-                }
-                Spacer(minLength: 8)
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(selected ? theme.colors.accent : theme.colors.inkFaint)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .contentShape(Rectangle())
+            FriendChoice(name: friend.personName, key: friend.userId, selected: selected, changed: friend.identityChanged,
+                         blocked: friend.identityChanged && !selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleStyle())
         .disabled(friend.identityChanged || creating)
-        .listRowBackground(theme.colors.raised)
-        .sensoryFeedback(.selection, trigger: selected)
+        .accessibilityLabel(Text(friend.personName))
+        .accessibilityValue(friend.identityChanged ? Text("New identity") : Text(verbatim: ""))
+        .accessibilityHint(friend.identityChanged ? Text("Their identity changed. Trust them in Friends first.") : Text(verbatim: ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("rooms.create.friend.\(AccessibilityIdentifier.token(friend.userId))")
     }
@@ -154,5 +145,25 @@ struct RoomCreateSheet: View {
                 failure = error.localizedDescription
             }
         }
+    }
+}
+
+/// Why a friend with the caution dot cannot be invited now.
+private struct ChangedIdentityNote: View {
+    @Environment(\.theme) private var theme
+    let name: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
+                Text(name).appTextStyle(.caption).foregroundStyle(theme.colors.ink)
+            }
+            Text("Their identity changed. Trust them in Friends first.")
+                .appTextStyle(.caption).fontWeight(.regular)
+                .foregroundStyle(theme.colors.inkMuted)
+                .padding(.leading, 12)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

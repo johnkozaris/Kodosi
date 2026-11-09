@@ -18,8 +18,26 @@ public struct SegmentOption<Value: Hashable>: Identifiable {
     }
 }
 
+/// The sizes of a segment: taller on iPhone and iPad, for a finger.
+private enum Segment {
+    #if os(iOS)
+        static let height: CGFloat = 34
+        static let compactHeight: CGFloat = 30
+        static let padding: CGFloat = 14
+        static let compactPadding: CGFloat = 12
+    #else
+        static let height: CGFloat = 28
+        static let compactHeight: CGFloat = 24
+        static let padding: CGFloat = 13
+        static let compactPadding: CGFloat = 10
+    #endif
+}
+
 public struct SegmentedPill<Value: Hashable>: View {
     @Environment(\.theme) private var theme
+    #if os(iOS)
+        @Environment(\.dynamicTypeSize) private var typeSize
+    #endif
     @Namespace private var thumb
     @Binding public var selection: Value
     public let options: [SegmentOption<Value>]
@@ -33,42 +51,72 @@ public struct SegmentedPill<Value: Hashable>: View {
         self.identifier = identifier
     }
 
+    /// At the accessibility text sizes of iPhone and iPad, the choices stand under each other.
+    private var stacked: Bool {
+        #if os(iOS)
+            typeSize.isAccessibilitySize
+        #else
+            false
+        #endif
+    }
+
     public var body: some View {
-        HStack(spacing: 2) {
-            ForEach(options) { option in
-                let selected = option.value == selection
-                Button {
-                    withAnimation(theme.motion.snappy) { selection = option.value }
-                } label: {
-                    HStack(spacing: 6) {
-                        if let symbol = option.symbol {
-                            Image(systemName: symbol).font(.system(size: compact ? 11 : 12, weight: .semibold))
-                        }
-                        Text(option.title)
-                        if let count = option.count, count > 0 {
-                            CountBadge(count: count, quiet: true)
-                        }
-                    }
-                    .appTextStyle(compact ? .footnote : .subhead)
-                    .fontWeight(.medium)
-                    .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-                    .padding(.horizontal, compact ? 10 : 13)
-                    .frame(height: compact ? 24 : 28)
-                    .background {
-                        if selected {
-                            RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                                .matchedGeometryEffect(id: "thumb", in: thumb)
-                        }
-                    }
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityIdentifier("\(identifier).\(String(describing: option.value))")
-            }
+        if stacked {
+            VStack(spacing: 2) { segments }
+                .padding(3)
+                .well(Radius.xl)
+        } else {
+            HStack(spacing: 2) { segments }
+                .padding(3)
+                .wellCapsule()
         }
-        .padding(3)
-        .wellCapsule()
+    }
+
+    private var segments: some View {
+        ForEach(options) { option in
+            let selected = option.value == selection
+            Button {
+                withAnimation(theme.motion.snappy) { selection = option.value }
+            } label: {
+                HStack(spacing: 6) {
+                    if let symbol = option.symbol {
+                        Image(systemName: symbol).font(.system(size: compact ? 11 : 12, weight: .semibold))
+                    }
+                    Text(option.title)
+                    #if os(iOS)
+                        .lineLimit(stacked ? nil : 1)
+                        .minimumScaleFactor(stacked ? 1 : 0.7)
+                    #endif
+                    if let count = option.count, count > 0 {
+                        CountBadge(count: count, quiet: true)
+                    }
+                }
+                .appTextStyle(compact ? .footnote : .subhead)
+                .fontWeight(.medium)
+                .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
+                .padding(.horizontal, compact ? Segment.compactPadding : Segment.padding)
+                .controlHeight(compact ? Segment.compactHeight : Segment.height)
+                .frame(maxWidth: stacked ? .infinity : nil)
+                .background {
+                    if selected {
+                        thumbFace.matchedGeometryEffect(id: "thumb", in: thumb)
+                    }
+                }
+                .touchTarget(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityIdentifier("\(identifier).\(String(describing: option.value))")
+        }
+    }
+
+    @ViewBuilder
+    private var thumbFace: some View {
+        if stacked {
+            RaisedBackground(shape: RoundedRectangle(cornerRadius: Radius.xl - 3, style: .continuous), fill: theme.colors.raised, elevation: .resting)
+        } else {
+            RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+        }
     }
 }
 
@@ -95,6 +143,14 @@ public struct DockItem: Identifiable, Sendable {
 }
 
 public struct SectionDock: View {
+    #if os(iOS)
+        private static let height: CGFloat = 34
+        private static let padding: CGFloat = 14
+    #else
+        private static let height: CGFloat = 28
+        private static let padding: CGFloat = 11
+    #endif
+
     @Environment(\.theme) private var theme
     @Namespace private var thumb
     public let items: [DockItem]
@@ -129,8 +185,8 @@ public struct SectionDock: View {
                     .appTextStyle(.footnote)
                     .fontWeight(.medium)
                     .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-                    .padding(.horizontal, 11)
-                    .frame(height: 28)
+                    .padding(.horizontal, Self.padding)
+                    .controlHeight(Self.height)
                     .background {
                         if selected {
                             RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
@@ -143,7 +199,7 @@ public struct SectionDock: View {
                                 .transition(AnyTransition.pop)
                         }
                     }
-                    .contentShape(Capsule())
+                    .touchTarget(Capsule())
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)

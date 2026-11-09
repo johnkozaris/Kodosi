@@ -13,6 +13,8 @@ struct RoomTasks: View {
     let roomId: String
     @State private var composing = false
     @State private var opened: RoomTaskSelection?
+    @ScaledMetric(relativeTo: .callout) private var plus: CGFloat = 12
+    @ScaledMetric(relativeTo: .subheadline) private var chevron: CGFloat = 8
 
     var body: some View {
         let rooms = model.rooms
@@ -37,10 +39,8 @@ struct RoomTasks: View {
         let scoped = snapshot.tasks.filter { task in state.repositoryFilter.map { task.repositoryIds.contains($0) } ?? true }
         let open = scoped.filter { !$0.closed }
         return List {
-            Section {
-                header(snapshot.repositories, state: state)
-                    .listRowBackground(theme.colors.raised)
-            }
+            header(snapshot.repositories, state: state)
+                .cardRow(top: 10, bottom: 6)
             if scoped.isEmpty {
                 EmptyState(title: "No tasks yet", message: "Put one up. People and agents can pick it up.") {
                     ProgressRing(value: 0, size: 44, lineWidth: 5)
@@ -48,14 +48,15 @@ struct RoomTasks: View {
                     EmptyView()
                 }
                 .frame(minHeight: 240)
-                .listRowBackground(Color.clear)
+                .cardRow()
             }
             lane("Up for grabs", tasks: open.filter { $0.assignedTo == nil })
             lane("In progress", tasks: open.filter { $0.assignedTo != nil })
             done(scoped.filter(\.closed), state: state)
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .refreshable { await model.rooms.read(roomId) }
         .animation(theme.motion.spring, value: scoped.map { "\($0.id):\($0.version)" })
         .animation(theme.motion.spring, value: state.showsDone)
@@ -65,11 +66,11 @@ struct RoomTasks: View {
         HStack(spacing: 10) {
             Button { composing = true } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(theme.colors.accentStrong)
-                    Text("Add a task").appTextStyle(.body).foregroundStyle(theme.colors.inkMuted)
+                    Image(systemName: "plus").font(.system(size: plus, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+                    Text("Add a task").appTextStyle(.callout).foregroundStyle(theme.colors.inkFaint)
                     Spacer(minLength: 0)
                 }
-                .frame(minHeight: 36)
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -87,28 +88,31 @@ struct RoomTasks: View {
                         repositories.first { $0.id == state.repositoryFilter }?.name ?? String(localized: "All"),
                         systemImage: "line.3.horizontal.decrease",
                     )
-                    .appTextStyle(.footnote)
                     .lineLimit(1)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.kodosi(.ghost, size: .small))
+                .fixedSize()
                 .accessibilityIdentifier("rooms.tasks.filter")
             }
         }
+        .padding(.leading, 14).padding(.trailing, 6)
+        .raised(Radius.xl)
     }
 
     @ViewBuilder
     private func lane(_ title: LocalizedStringKey, tasks: [RoomTask]) -> some View {
         if !tasks.isEmpty {
-            Section {
-                ForEach(tasks) { task in
-                    RoomTaskRow(roomId: roomId, task: task) { opened = RoomTaskSelection(id: task.id) }
-                }
-            } header: {
-                HStack(spacing: 6) {
-                    Text(title)
-                    Text(tasks.count, format: .number).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
-                        .contentTransition(.numericText())
-                }
-                .textCase(nil)
+            HStack(spacing: 6) {
+                Text(title).appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted)
+                Text(tasks.count, format: .number).appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
+                    .contentTransition(.numericText())
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            .cardRow(top: 16, bottom: 2)
+            ForEach(tasks) { task in
+                RoomTaskRow(roomId: roomId, task: task) { opened = RoomTaskSelection(id: task.id) }
             }
         }
     }
@@ -116,28 +120,27 @@ struct RoomTasks: View {
     @ViewBuilder
     private func done(_ tasks: [RoomTask], state: RoomViewState) -> some View {
         if !tasks.isEmpty {
-            Section {
-                if state.showsDone {
-                    ForEach(tasks) { task in
-                        RoomTaskRow(roomId: roomId, task: task) { opened = RoomTaskSelection(id: task.id) }
-                    }
+            Button { state.showsDone.toggle() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: chevron, weight: .bold))
+                        .rotationEffect(.degrees(state.showsDone ? 90 : 0))
+                    Text("Done").appTextStyle(.subhead)
+                    Text(tasks.count, format: .number).appTextStyle(.footnote).monospacedDigit()
+                    Spacer(minLength: 0)
                 }
-            } header: {
-                Button { state.showsDone.toggle() } label: {
-                    HStack(spacing: 6) {
-                        Text("Done")
-                        Text(tasks.count, format: .number).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
-                            .rotationEffect(.degrees(state.showsDone ? 90 : 0))
-                        Spacer(minLength: 0)
-                    }
-                    .contentShape(Rectangle())
+                .foregroundStyle(theme.colors.inkMuted)
+                .frame(minHeight: 32)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(state.showsDone ? Text("Shown") : Text("Hidden"))
+            .accessibilityIdentifier("rooms.tasks.done.toggle")
+            .cardRow(top: 12, bottom: 2)
+            if state.showsDone {
+                ForEach(tasks) { task in
+                    RoomTaskRow(roomId: roomId, task: task) { opened = RoomTaskSelection(id: task.id) }
                 }
-                .buttonStyle(.plain)
-                .textCase(nil)
-                .accessibilityValue(state.showsDone ? Text("Shown") : Text("Hidden"))
-                .accessibilityIdentifier("rooms.tasks.done.toggle")
             }
         }
     }
@@ -150,6 +153,7 @@ struct RoomTaskRow: View {
     let task: RoomTask
     let open: () -> Void
     @State private var pending: RoomTaskChange?
+    @ScaledMetric(relativeTo: .body) private var checkSize: CGFloat = 20
 
     private var token: String {
         AccessibilityIdentifier.token(task.id)
@@ -184,19 +188,22 @@ struct RoomTaskRow: View {
             .accessibilityIdentifier("rooms.task.\(token)")
             trailing
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .wash(trigger: task.version)
+        .raised(Radius.lg)
         .overlay(alignment: .leading) {
             if mine, !task.closed {
-                Capsule().fill(theme.colors.accent).frame(width: 3).padding(.vertical, 4).offset(x: -12)
+                Capsule().fill(theme.colors.accent).frame(width: 3).padding(.vertical, 12).padding(.leading, -1)
             }
         }
-        .listRowBackground(theme.colors.raised.overlay { Color.clear.wash(trigger: task.version, radius: 0) })
+        .cardRow()
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if !linked {
                 Button { change(task.closed ? .reopen : .close) } label: {
                     Label(task.closed ? "Reopen" : "Complete", systemImage: task.closed ? "arrow.uturn.backward" : "checkmark")
                 }
-                .tint(task.closed ? theme.colors.inkFaint : theme.colors.ready)
+                .tint(task.closed ? TileTint.graphite : theme.colors.ready)
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -206,7 +213,7 @@ struct RoomTaskRow: View {
                         .tint(theme.colors.accent)
                 } else {
                     Button { change(.release) } label: { Label("Release", systemImage: "arrow.uturn.left") }
-                        .tint(theme.colors.inkFaint)
+                        .tint(TileTint.graphite)
                 }
             }
         }
@@ -218,19 +225,16 @@ struct RoomTaskRow: View {
         let closed = pending.map { $0 == .close } ?? task.closed
         if linked {
             Image(systemName: task.closed ? "checkmark.circle.fill" : "smallcircle.filled.circle")
-                .font(.system(size: 22))
+                .font(.system(size: checkSize, weight: .regular))
                 .foregroundStyle(task.closed ? theme.colors.ready : theme.colors.inkFaint)
-                .frame(width: 30, height: 30)
                 .accessibilityLabel(task.closed ? Text("Done") : Text("Open"))
         } else {
             Button { change(task.closed ? .reopen : .close) } label: {
                 Image(systemName: closed ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(closed ? theme.colors.ready : theme.colors.inkFaint)
-                    .opacity(pending == nil ? 1 : 0.5)
+                    .font(.system(size: checkSize, weight: .regular))
+                    .foregroundStyle(closed && pending == nil ? theme.colors.ready : theme.colors.inkFaint)
                     .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 30, height: 30)
-                    .contentShape(Circle())
+                    .touchTarget()
             }
             .buttonStyle(PressScaleStyle())
             .disabled(pending != nil)
@@ -242,7 +246,7 @@ struct RoomTaskRow: View {
     @ViewBuilder
     private var trailing: some View {
         if let person = task.assignedName {
-            PersonAvatar(name: person, key: task.assignedTo, size: 26, isSelf: mine)
+            PersonAvatar(name: person, key: task.assignedTo, size: 24, isSelf: mine)
                 .accessibilityLabel(Text("Picked up by \(person)"))
         } else if !task.closed, !linked {
             Button { change(.claim) } label: {

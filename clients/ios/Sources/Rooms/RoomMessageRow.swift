@@ -13,6 +13,7 @@ struct RoomMessageRow: View {
     let next: RoomMessage?
     let targets: [RoomMention]
     @State private var madeTask = 0
+    @ScaledMetric(relativeTo: .caption) private var chipGlyph: CGFloat = 9
 
     private var date: Date? {
         RoomDates.parse(message.createdAt)
@@ -71,11 +72,7 @@ struct RoomMessageRow: View {
     }
 
     private var bubble: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            topLeadingRadius: 18, bottomLeadingRadius: 18,
-            bottomTrailingRadius: endsGroup ? 6 : 18, topTrailingRadius: startsGroup ? 18 : 8,
-            style: .continuous,
-        )
+        UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous)
     }
 
     private var mine: some View {
@@ -83,8 +80,8 @@ struct RoomMessageRow: View {
             Spacer(minLength: 56)
             VStack(alignment: .trailing, spacing: 3) {
                 messageText
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 9)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                     .background(bubble.fill(theme.colors.accentSoft))
                     .contentShape(.contextMenuPreview, bubble)
                     .contextMenu { actions }
@@ -103,7 +100,7 @@ struct RoomMessageRow: View {
         let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
         return HStack(alignment: .top, spacing: 10) {
             avatar
-                .frame(width: 30, height: startsGroup ? 30 : 1, alignment: .top)
+                .frame(width: 28, height: startsGroup ? 28 : 1, alignment: .top)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 if startsGroup {
@@ -129,11 +126,11 @@ struct RoomMessageRow: View {
             Color.clear
         } else if message.agent != nil {
             AgentMark(
-                kind: AgentKind(agentName: message.agent, program: terminal?.program), size: 30,
+                kind: AgentKind(agentName: message.agent, program: terminal?.program), size: 28,
                 activity: terminal?.mark(rested: .awake) ?? .awake,
             )
         } else {
-            PersonAvatar(name: message.authorName, key: message.authorId, size: 30, isSelf: message.authorId == model.rooms.userId)
+            PersonAvatar(name: message.authorName, key: message.authorId, size: 28, isSelf: message.authorId == model.rooms.userId)
         }
     }
 
@@ -160,7 +157,7 @@ struct RoomMessageRow: View {
             if let terminal {
                 NavigationLink(value: TerminalRoute(sessionId: terminal.id)) {
                     HStack(spacing: 5) {
-                        Image(systemName: "apple.terminal").font(.system(size: 9, weight: .bold))
+                        Image(systemName: "apple.terminal").font(.system(size: chipGlyph, weight: .bold))
                         Text(terminal.name).lineLimit(1)
                         if let sign = model.terminals.sign(of: terminal) {
                             StatusSign(form: sign, size: 9)
@@ -171,7 +168,7 @@ struct RoomMessageRow: View {
                     .padding(.horizontal, 8)
                     .frame(minHeight: 22)
                     .background(theme.colors.ink.opacity(0.08), in: Capsule())
-                    .contentShape(Capsule())
+                    .touchTarget(Capsule())
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel(Text("Open \(terminal.name)"))

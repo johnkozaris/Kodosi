@@ -1,12 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-enum TerminalInk {
-    static let body = hex(0x0D0B09)
-    static let band = hex(0x1A1512)
-    static let path = hex(0x5DAFA6)
-}
-
 struct LauncherCommandLine<Folder: View, Choices: View>: View {
     @Environment(\.theme) private var theme
     let info: AgentInfo?

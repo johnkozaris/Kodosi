@@ -21,6 +21,9 @@ public struct ProgressCaption: View {
 /// arrived.
 public struct PictureNotice: View {
     @Environment(\.theme) private var theme
+    #if os(iOS)
+        @Environment(\.dynamicTypeSize) private var typeSize
+    #endif
     public let computer: String
     public let fraction: Double
     public let arrived: Bool
@@ -43,11 +46,30 @@ public struct PictureNotice: View {
                     .animation(theme.motion.snappy, value: fraction)
             }
         }
-        .padding(.leading, 10).padding(.trailing, 14).frame(height: 34)
-        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("terminal.picture")
+        .padding(.leading, 10).padding(.trailing, 14).controlHeight(34)
+        #if os(iOS)
+            .padding(.vertical, wraps ? 8 : 0)
+            .background {
+                if wraps {
+                    RaisedBackground(shape: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous), fill: theme.colors.lifted,
+                                     elevation: .floating)
+                } else {
+                    RaisedBackground(shape: Capsule(), fill: theme.colors.lifted, elevation: .floating)
+                }
+            }
+        #else
+            .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+        #endif
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("terminal.picture")
     }
+
+    #if os(iOS)
+        /// At the accessibility text sizes, the words take more lines, on a rounded face.
+        private var wraps: Bool {
+            typeSize.isAccessibilitySize
+        }
+    #endif
 }
 
 public struct ErrorNote: View {
@@ -119,12 +141,17 @@ public struct NoticePill: View {
             IconButton(title: "Dismiss", bundle: .module, symbol: "xmark", identifier: "\(identifier).dismiss", size: 22, action: dismiss)
         }
         .foregroundStyle(theme.colors.ink)
-        .padding(.leading, sign == .caution ? 14 : 10).padding(.trailing, 6).frame(height: 36)
-        .frame(maxWidth: 520)
-        .fixedSize(horizontal: true, vertical: false)
-        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(identifier)
+        .padding(.leading, sign == .caution ? 14 : 10).padding(.trailing, 6).controlHeight(36)
+        #if os(macOS)
+            .frame(maxWidth: 520)
+            .fixedSize(horizontal: true, vertical: false)
+            .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+        #else
+            .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+            .frame(maxWidth: 520)
+        #endif
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(identifier)
     }
 }
 

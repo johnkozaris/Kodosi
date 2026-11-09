@@ -5,6 +5,7 @@ import SwiftUI
 struct RoomsHome: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @Environment(\.openRoute) private var openRoute
     @State private var query = ""
     @State private var showsNewRoom = false
     @State private var opened: RoomRoute?
@@ -28,20 +29,22 @@ struct RoomsHome: View {
             roomsSection(shown)
             placeholder
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background { GroundBackdrop() }
+        .background(theme.colors.surface)
+        .readableWidth()
         .overlay {
             if !query.isEmpty, shown.isEmpty {
-                ContentUnavailableView.search(text: query)
+                NothingMatches()
             }
         }
         .navigationTitle("Rooms")
+        .pageFacts(facts)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showsNewRoom = true } label: { Label("New room", systemImage: "plus") }
-                    .accessibilityIdentifier("rooms.new")
+                IconButton(title: "New room", symbol: "plus", identifier: "rooms.new", size: 32) { showsNewRoom = true }
             }
+            .sharedBackgroundVisibility(.hidden)
         }
         .searchable(text: $query, prompt: Text("Find a room"))
         .refreshable { await rooms.refreshList() }
@@ -76,69 +79,76 @@ struct RoomsHome: View {
     @ViewBuilder
     private var invitationsSection: some View {
         if query.isEmpty, !rooms.invitations.isEmpty {
-            Section("Invitations") {
-                ForEach(rooms.invitations) { invitation in
-                    RoomInvitationRow(invitation: invitation) { opened = RoomRoute(roomId: $0) }
-                        .listRowBackground(theme.colors.raised)
-                }
+            ForEach(rooms.invitations) { invitation in
+                RoomInvitationRow(invitation: invitation) { opened = RoomRoute(roomId: $0) }
+                    .cardRow(top: 6, bottom: 6)
             }
         }
     }
 
     @ViewBuilder
     private func roomsSection(_ shown: [MissionEntry]) -> some View {
-        if !shown.isEmpty {
-            Section {
-                ForEach(shown) { mission in
-                    roomLink(mission)
-                }
-            } header: {
-                if query.isEmpty, !rooms.invitations.isEmpty {
-                    Text("Rooms")
-                }
-            } footer: {
-                if rooms.listTruncated {
-                    Text("Some rooms are not shown.")
+        ForEach(shown) { mission in
+            roomCard(mission)
+        }
+        if query.isEmpty, rooms.listed, !rooms.missions.isEmpty {
+            Button { showsNewRoom = true } label: {
+                DashedSlot(radius: Radius.xl) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
+                        Text("New room").appTextStyle(.subhead)
+                    }
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 64)
                 }
             }
+            .buttonStyle(PressScaleStyle(scale: 0.98))
+            .accessibilityIdentifier("rooms.slot.new")
+            .cardRow(top: 6, bottom: 6)
+        }
+        if rooms.listTruncated {
+            Text("Some rooms are not shown.")
+                .appTextStyle(.caption).fontWeight(.regular)
+                .foregroundStyle(theme.colors.inkFaint)
+                .cardRow()
         }
     }
 
-    private func roomLink(_ mission: MissionEntry) -> some View {
+    private func roomCard(_ mission: MissionEntry) -> some View {
         let owner = rooms.isOwner(of: mission.id)
-        return NavigationLink(value: RoomRoute(roomId: mission.id)) {
-            RoomRow(mission: mission)
-        }
-        .listRowBackground(theme.colors.raised)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) { confirming = mission } label: {
-                if owner {
-                    Label("Delete", systemImage: "trash")
-                } else {
-                    Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+        return RoomListCard(mission: mission) { openRoute(RoomRoute(roomId: mission.id)) }
+            .cardRow(top: 6, bottom: 6)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) { confirming = mission } label: {
+                    if owner {
+                        Label("Delete", systemImage: "trash")
+                    } else {
+                        Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+                .tint(theme.colors.danger)
+            }
+            .contextMenu {
+                if mission.unread {
+                    Button { rooms.markRead(mission.id) } label: { Label("Mark as read", systemImage: "checkmark.message") }
+                }
+                Button(role: .destructive) { confirming = mission } label: {
+                    if owner {
+                        Label("Delete room…", systemImage: "trash")
+                    } else {
+                        Label("Leave room…", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
                 }
             }
-        }
-        .contextMenu {
-            if mission.unread {
-                Button { rooms.markRead(mission.id) } label: { Label("Mark as read", systemImage: "checkmark.message") }
-            }
-            Button(role: .destructive) { confirming = mission } label: {
-                if owner {
-                    Label("Delete room…", systemImage: "trash")
-                } else {
-                    Label("Leave room…", systemImage: "rectangle.portrait.and.arrow.right")
-                }
-            }
-        }
-        .accessibilityIdentifier("rooms.row.\(AccessibilityIdentifier.token(mission.id))")
+            .accessibilityIdentifier("rooms.row.\(AccessibilityIdentifier.token(mission.id))")
     }
 
     @ViewBuilder
     private var placeholder: some View {
         if !rooms.listed {
             RoomListSkeleton()
-                .listRowBackground(Color.clear)
+                .cardRow()
         } else if query.isEmpty, rooms.missions.isEmpty, rooms.invitations.isEmpty {
             EmptyState(title: "Make your first room", message: "A room keeps people, agents and terminals in one place.") {
                 RoomSigil(key: "kodosi", size: 64)
@@ -148,8 +158,14 @@ struct RoomsHome: View {
                     .accessibilityIdentifier("rooms.empty.new")
             }
             .frame(minHeight: 420)
-            .listRowBackground(Color.clear)
+            .cardRow()
         }
+    }
+
+    private var facts: String {
+        guard !rooms.missions.isEmpty else { return "" }
+        let shared = model.terminals.sessions.count { $0.missionId != nil && $0.status != .closing }
+        return "\(Counted.rooms(rooms.missions.count)) · " + String(localized: "\(shared) shared terminals")
     }
 
     private func openCreated() {
@@ -176,19 +192,18 @@ struct RoomsHome: View {
 
 private struct RoomListSkeleton: View {
     var body: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 12) {
             ForEach(0 ..< 3, id: \.self) { index in
-                HStack(alignment: .top, spacing: 12) {
-                    SkeletonBlock(width: 46, height: 46, radius: 14)
-                    VStack(alignment: .leading, spacing: 9) {
-                        SkeletonBlock(width: 120, height: 12)
-                        SkeletonBlock(height: 10)
-                        SkeletonBlock(width: index.isMultiple(of: 2) ? 150 : 210, height: 10)
-                    }
+                VStack(alignment: .leading, spacing: 10) {
+                    SkeletonBlock(width: 44, height: 44, radius: 13)
+                    SkeletonBlock(width: 120, height: 12)
+                    SkeletonBlock(width: index.isMultiple(of: 2) ? 150 : 210, height: 10)
                 }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .raised(Radius.xl)
             }
         }
-        .padding(.vertical, 8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Loading"))
     }

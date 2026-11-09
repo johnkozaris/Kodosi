@@ -5,6 +5,7 @@ import UIKit
 
 struct FriendDetailView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     let userId: String
 
@@ -22,7 +23,7 @@ struct FriendDetailView: View {
                 } actions: {
                     EmptyView()
                 }
-                .background { GroundBackdrop() }
+                .background(theme.colors.surface)
             }
         }
         .onChange(of: friend == nil) { _, gone in
@@ -36,6 +37,7 @@ struct FriendDetailView: View {
 private struct FriendDetailList: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @Environment(\.openRoute) private var openRoute
     @State private var confirmingRemoval = false
     let friend: FriendEntry
 
@@ -52,92 +54,66 @@ private struct FriendDetailList: View {
     }
 
     var body: some View {
-        List {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
                 FriendHero(friend: friend)
-                    .bareRow()
-            }
-            if friend.identityChanged {
-                Section {
+                if friend.identityChanged {
                     IdentityChangedCard(friend: friend)
-                        .raisedRows(fill: theme.colors.cautionSoft)
                 }
-            }
-            Section {
-                if friend.isVerified {
-                    SettingRow(
-                        symbol: "checkmark.seal.fill",
-                        tint: TileTint.green,
-                        title: Text("Verified"),
-                        subtitle: Text("The invite that \(friend.personName) sent you matches this identity."),
-                    )
-                    .raisedRows()
-                    .transition(.opacity)
-                } else {
-                    VerifyForm(friend: friend)
-                        .raisedRows()
+                ListGroup(title: "Verification", footer: friend.isVerified ? nil
+                    : "Ask \(friend.personName) for their invite in a place you trust, such as a call or a message.")
+                {
+                    if friend.isVerified {
+                        ListRow(String(localized: "Verified"),
+                                subtitle: String(localized: "The invite that \(friend.personName) sent you matches this identity."),
+                                symbol: "checkmark.seal.fill", tint: TileTint.green)
+                            .transition(.opacity)
+                    } else {
+                        VerifyForm(friend: friend)
+                    }
                 }
-            } header: {
-                GroupedListHeader(title: "Verification")
-            } footer: {
-                if !friend.isVerified {
-                    Text("Ask \(friend.personName) for their invite in a place you trust, such as a call or a message.")
-                        .appTextStyle(.footnote)
-                        .foregroundStyle(theme.colors.inkFaint)
-                }
-            }
-            Section {
-                if terminals.isEmpty {
-                    Text("Nothing shared with you yet")
-                        .appTextStyle(.footnote)
-                        .foregroundStyle(theme.colors.inkFaint)
-                        .padding(.vertical, 6)
-                        .raisedRows()
-                } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ListHeader(title: "Shared with you", count: terminals.count)
+                        .padding(.leading, 4)
+                    if terminals.isEmpty {
+                        Text("Nothing shared with you yet")
+                            .appTextStyle(.footnote)
+                            .foregroundStyle(theme.colors.inkFaint)
+                            .padding(.leading, 4)
+                    }
                     ForEach(terminals) { session in
-                        NavigationLink(value: TerminalRoute(sessionId: session.id)) {
-                            SharedTerminalRow(session: session)
+                        TerminalListCard(session: session, sign: model.terminals.sign(of: session), viewers: model.viewers(of: session),
+                                         showsOwner: false)
+                        {
+                            openRoute(TerminalRoute(sessionId: session.id))
                         }
-                        .raisedRows()
                         .accessibilityIdentifier("people.terminal.\(session.id)")
                     }
                 }
-            } header: {
-                GroupedListHeader(title: "Shared with you", count: terminals.count)
-            }
-            if !rooms.isEmpty {
-                Section {
-                    ForEach(rooms) { room in
-                        NavigationLink(value: RoomRoute(roomId: room.id)) {
-                            HStack(spacing: 12) {
-                                RoomSigil(key: room.id, size: 30)
-                                Text(room.name)
-                                    .appTextStyle(.body)
-                                    .foregroundStyle(theme.colors.ink)
-                                    .lineLimit(1)
+                if !rooms.isEmpty {
+                    ListGroup(title: "Their rooms") {
+                        ForEach(rooms) { room in
+                            Button { openRoute(RoomRoute(roomId: room.id)) } label: {
+                                ListRow(title: room.name) {
+                                    RoomSigil(key: room.id, size: 28)
+                                } trailing: {
+                                    Disclosure()
+                                }
                             }
-                            .padding(.vertical, 3)
+                            .buttonStyle(ListRowButtonStyle())
+                            .accessibilityIdentifier("people.detail.room.\(AccessibilityIdentifier.token(room.id))")
                         }
-                        .raisedRows()
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("people.detail.room.\(AccessibilityIdentifier.token(room.id))")
                     }
-                } header: {
-                    GroupedListHeader(title: "Their rooms", count: rooms.count)
                 }
-            }
-            Section {
-                Button(role: .destructive) { confirmingRemoval = true } label: {
-                    SettingRow(
-                        symbol: "person.badge.minus",
-                        tint: TileTint.red,
-                        title: Text("Remove friend"),
-                        titleColor: theme.colors.danger,
-                    )
+                ListGroup {
+                    Button { confirmingRemoval = true } label: {
+                        ListRow(String(localized: "Remove friend"), symbol: "person.badge.minus", tint: TileTint.red,
+                                titleColor: theme.colors.danger)
+                    }
+                    .buttonStyle(ListRowButtonStyle())
+                    .disabled(people.isBusy(friend.handle))
+                    .accessibilityIdentifier("people.detail.remove")
                 }
-                .disabled(people.isBusy(friend.handle))
-                .raisedRows()
-                .accessibilityIdentifier("people.detail.remove")
                 .confirmationDialog(Text("Remove \(friend.personName)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
                     Button("Remove", role: .destructive) { people.remove(friend) }
                         .accessibilityIdentifier("people.detail.confirmRemove")
@@ -145,14 +121,16 @@ private struct FriendDetailList: View {
                     Text("They lose the terminals you shared. Kodosi does not undo the commands that they already ran.")
                 }
             }
+            .settingsPage()
         }
-        .groupedListChrome()
+        .background(theme.colors.surface)
         .navigationTitle(friend.personName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 CopyUsernameButton(handle: friend.handle)
             }
+            .sharedBackgroundVisibility(.hidden)
         }
         .animation(theme.motion.spring, value: friend)
         .animation(theme.motion.spring, value: terminals.map(\.id))
@@ -172,7 +150,7 @@ private struct FriendHero: View {
                     if friend.isVerified {
                         VerifiedSeal(size: 24)
                             .padding(3)
-                            .background(theme.colors.ground, in: Circle())
+                            .background(theme.colors.surface, in: Circle())
                             .offset(x: 4, y: 4)
                             .transition(AnyTransition.pop)
                     }
@@ -231,7 +209,7 @@ private struct IdentityChangedCard: View {
             HStack {
                 Spacer()
                 if model.people.isBusy(friend.handle) {
-                    ProgressView()
+                    Spinner(size: 14)
                 } else {
                     Button("Trust") { model.people.trust(friend) }
                         .buttonStyle(.kodosi(.primary, size: .small))
@@ -239,7 +217,11 @@ private struct IdentityChangedCard: View {
                 }
             }
         }
-        .padding(.vertical, 6)
+        .padding(16)
+        .raised(Radius.xl)
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).strokeBorder(theme.colors.caution, lineWidth: 1.5)
+        }
     }
 }
 
@@ -285,7 +267,7 @@ private struct VerifyForm: View {
                 }
             }
         }
-        .padding(.vertical, 6)
+        .padding(14)
         .animation(theme.motion.snappy, value: invite.isEmpty)
     }
 
@@ -301,56 +283,17 @@ private struct CopyUsernameButton: View {
     let handle: String
 
     var body: some View {
-        Button {
+        IconButton(title: copied ? "Copied" : "Copy username", symbol: copied ? "checkmark" : "doc.on.doc",
+                   identifier: "people.detail.copyUsername", size: 32, active: copied)
+        {
             UIPasteboard.general.string = handle
             copied = true
-        } label: {
-            Label(copied ? String(localized: "Copied") : String(localized: "Copy username"), systemImage: copied ? "checkmark" : "doc.on.doc")
-                .contentTransition(.symbolEffect(.replace))
         }
-        .accessibilityIdentifier("people.detail.copyUsername")
         .sensoryFeedback(.success, trigger: copied) { _, copied in copied }
         .task(id: copied) {
             guard copied else { return }
             try? await Task.sleep(for: .seconds(1.6))
             copied = false
         }
-    }
-}
-
-private struct SharedTerminalRow: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.theme) private var theme
-    let session: RuntimeSession
-
-    private var detail: String {
-        if let activity = session.activity {
-            return activity
-        }
-        let place = [session.hostName, session.missionName].compactMap(\.self).joined(separator: " · ")
-        return place.isEmpty ? session.statusLabel : place
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AgentMark(session: session, size: 32, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.name)
-                    .appTextStyle(.headline)
-                    .foregroundStyle(theme.colors.ink)
-                    .lineLimit(1)
-                Text(detail)
-                    .appTextStyle(.footnote)
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            if let sign = model.terminals.sign(of: session) {
-                StatusSign(form: sign, size: 13)
-            }
-        }
-        .padding(.vertical, 4)
-        .opacity(session.canOpen ? 1 : 0.55)
-        .accessibilityElement(children: .combine)
     }
 }
