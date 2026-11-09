@@ -31,7 +31,6 @@ private struct TerminalPrompts: ViewModifier {
     @Environment(AppModel.self) private var model
     @Binding var prompt: TerminalPrompt?
     let onEnd: () -> Void
-    @State private var name = ""
 
     private func presenting(_ matches: @escaping (TerminalPrompt) -> Bool) -> Binding<Bool> {
         Binding(
@@ -44,14 +43,21 @@ private struct TerminalPrompts: ViewModifier {
         )
     }
 
-    private var renaming: Binding<Bool> {
-        presenting {
-            if case .rename = $0 {
-                true
-            } else {
-                false
-            }
-        }
+    private var renaming: Binding<RuntimeSession?> {
+        Binding(
+            get: {
+                if case let .rename(session) = prompt {
+                    session
+                } else {
+                    nil
+                }
+            },
+            set: { session in
+                if session == nil {
+                    prompt = nil
+                }
+            },
+        )
     }
 
     private var closing: Binding<Bool> {
@@ -86,19 +92,10 @@ private struct TerminalPrompts: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: prompt) { _, next in
-                if case let .rename(session) = next {
-                    name = session.name
+            .sheet(item: renaming) { session in
+                RenameSheet(title: "Rename terminal", field: "Name", name: session.name, identifier: "terminal.rename") { name in
+                    model.terminals.rename(session, to: name)
                 }
-            }
-            .alert("Rename terminal", isPresented: renaming, presenting: prompt) { current in
-                TextField("Name", text: $name)
-                    .accessibilityIdentifier("terminal.rename.field")
-                Button("Rename") {
-                    model.terminals.rename(current.session, to: name)
-                }
-                .accessibilityIdentifier("terminal.rename.save")
-                Button("Cancel", role: .cancel) {}
             }
             .confirmationDialog(
                 prompt.map { String(localized: "Close \($0.session.name)?") } ?? "",

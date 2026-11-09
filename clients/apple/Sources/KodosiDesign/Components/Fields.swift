@@ -1,12 +1,22 @@
 import SwiftUI
 
+/// A field that sinks into a well, with a copper ring while it has focus. On iPhone and iPad, it is
+/// as high and as round as a regular key, for a finger.
 public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
+    #if os(iOS)
+        private static let height = KodosiButtonStyle.Size.regular.height
+        public static let radius = KodosiButtonStyle.Size.regular.radius
+    #else
+        private static let height: CGFloat = 34
+        public static let radius = Radius.md
+    #endif
+
     @Environment(\.theme) private var theme
     @FocusState private var focused: Bool
-    public var radius: CGFloat = Radius.md
+    public var radius: CGFloat
     public var compact = false
 
-    public init(radius: CGFloat = Radius.md, compact: Bool = false) {
+    public init(radius: CGFloat = Self.radius, compact: Bool = false) {
         self.radius = radius
         self.compact = compact
     }
@@ -17,11 +27,13 @@ public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
             .textFieldStyle(.plain)
             .appTextStyle(compact ? .footnote : .body)
         #if os(iOS)
+            .foregroundStyle(theme.colors.ink)
             .tint(theme.colors.accent)
+            .padding(.vertical, compact ? 6 : 8)
         #endif
             .focused($focused)
             .padding(.horizontal, compact ? 10 : 12)
-            .frame(minHeight: compact ? KodosiButtonStyle.Size.small.height : 34)
+            .frame(minHeight: compact ? KodosiButtonStyle.Size.small.height : Self.height)
             .well(radius)
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)

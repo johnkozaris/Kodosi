@@ -89,7 +89,7 @@ struct RoomRepositoriesSection: View {
                         .onSubmit(connect)
                         .accessibilityIdentifier("rooms.repository.address")
                     Button(connecting ? "Connecting…" : "Connect", action: connect)
-                        .buttonStyle(.kodosi(.primary, size: .small))
+                        .buttonStyle(.kodosi(.primary))
                         .disabled(!ready)
                         .accessibilityIdentifier("rooms.repository.connect")
                 }
