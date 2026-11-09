@@ -33,7 +33,7 @@ struct TerminalControls: View {
                     .transition(.opacity)
             }
             if input.showsKeys {
-                TerminalKeyBar(enabled: controller.canType, answering: session.needsUser, press: controller.press, actions: actions, menu: menu)
+                TerminalKeyBar(enabled: controller.canType, compact: compact, press: controller.press, actions: actions, menu: menu)
                     .transition(.opacity)
             } else {
                 TerminalComposer(
@@ -43,12 +43,17 @@ struct TerminalControls: View {
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, compact ? 8 : 12)
+        .padding(.horizontal, Self.margin(compact: compact))
         .padding(.top, input == .reading ? 8 : 4)
         .padding(.bottom, input == .reading && !compact ? 8 : 4)
         .animation(theme.motion.spring, value: session.needsUser)
         .animation(theme.motion.soft, value: note)
         .animation(theme.motion.soft, value: input)
+    }
+
+    /// The room between the controls and the sides of the screen.
+    static func margin(compact: Bool) -> CGFloat {
+        compact ? 8 : 12
     }
 }
 
@@ -77,7 +82,7 @@ private struct TerminalAsk: View {
             Spacer(minLength: 0)
             if answers {
                 HStack(spacing: 6) {
-                    ForEach(TerminalKey.allCases.filter(TerminalKey.answers.contains)) { key in
+                    ForEach(TerminalKey.answers) { key in
                         TerminalKeyCap(key: key, highlighted: true) { press(key) }
                     }
                 }
@@ -92,81 +97,148 @@ private struct TerminalAsk: View {
     }
 }
 
+/// The keys that a phone lacks, all in view over the keyboard, then the keys that write a message
+/// instead and hide the keyboard.
 private struct TerminalKeyBar: View {
     let enabled: Bool
-    let answering: Bool
+    let compact: Bool
     let press: (TerminalKey) -> Void
     let actions: TerminalInputActions
     let menu: TerminalMenu?
 
     var body: some View {
-        HStack(spacing: 6) {
-            TerminalKeyRow(enabled: enabled, answering: answering, press: press)
-            TerminalActionCap(title: "Write a message", symbol: "square.and.pencil", action: actions.compose)
+        TerminalKeyRow(height: compact ? 40 : 42) {
+            ForEach(TerminalKey.groups, id: \.self) { group in
+                ForEach(group) { key in
+                    TerminalKeyCap(key: key, fills: true) { press(key) }
+                        .disabled(!enabled)
+                        .layoutValue(key: StartsKeyGroup.self, value: key == group.first)
+                }
+            }
+            TerminalActionCap(title: "Write a message", symbol: "square.and.pencil", fills: true, action: actions.compose)
                 .accessibilityIdentifier("terminal.keys.compose")
+                .layoutValue(key: StartsKeyGroup.self, value: true)
             if let menu {
                 menu
             }
-            TerminalActionCap(title: "Hide keyboard", symbol: "keyboard.chevron.compact.down", action: actions.hide)
+            TerminalActionCap(title: "Hide keyboard", symbol: "keyboard.chevron.compact.down", fills: true, action: actions.hide)
                 .accessibilityIdentifier("terminal.keys.hide")
         }
-    }
-}
-
-private struct TerminalKeyRow: View {
-    let enabled: Bool
-    let answering: Bool
-    let press: (TerminalKey) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(TerminalKey.allCases) { key in
-                    TerminalKeyCap(key: key, highlighted: answering && TerminalKey.answers.contains(key)) {
-                        press(key)
-                    }
-                }
-            }
-            .padding(2)
-        }
-        .disabled(!enabled)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Terminal keys"))
         .accessibilityIdentifier("terminal.keys")
     }
 }
 
-/// The face of a key on the key row: a quiet key, copper while it answers what an agent asks, with
-/// faint words while it does not type.
+/// Lays out the key row in one line: every key as wide as the others, in whole points, with a
+/// wider gap between groups. On a wide screen, the keys stop at the width of a keyboard's keys and
+/// the groups move apart.
+nonisolated struct TerminalKeyRow: Layout {
+    static let gap: CGFloat = 3
+    static let groupGap: CGFloat = 8
+    static let widestKey: CGFloat = 64
+    let height: CGFloat
+
+    /// The frames of the keys of `groups`, each the count of keys in a group, across `width`.
+    static func frames(groups: [Int], width: CGFloat, height: CGFloat) -> [CGRect] {
+        let count = groups.reduce(0, +)
+        guard count > 0 else { return [] }
+        let gaps = CGFloat(count - groups.count) * gap
+        let key = min(widestKey, max(0, ((width - gaps - CGFloat(groups.count - 1) * groupGap) / CGFloat(count)).rounded(.down)))
+        let spread = groups.count > 1 ? (width - CGFloat(count) * key - gaps) / CGFloat(groups.count - 1) : 0
+        var frames: [CGRect] = []
+        var x: CGFloat = 0
+        for (index, size) in groups.enumerated() {
+            if index > 0 {
+                x += spread - gap
+            }
+            for _ in 0 ..< size {
+                frames.append(CGRect(x: x, y: 0, width: key, height: height))
+                x += key + gap
+            }
+        }
+        return frames
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        CGSize(width: proposal.width ?? CGFloat(subviews.count) * Self.widestKey, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        let groups = subviews.reduce(into: [Int]()) { groups, subview in
+            if groups.isEmpty || subview[StartsKeyGroup.self] {
+                groups.append(1)
+            } else {
+                groups[groups.count - 1] += 1
+            }
+        }
+        for (subview, frame) in zip(subviews, Self.frames(groups: groups, width: bounds.width, height: bounds.height)) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY), proposal: ProposedViewSize(frame.size))
+        }
+    }
+}
+
+private nonisolated struct StartsKeyGroup: LayoutValueKey {
+    static let defaultValue = false
+}
+
+/// The place of a key on the key row to a finger: out to the middle of the gaps beside it, and at
+/// least 44 points high.
+private nonisolated struct KeySlot: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: -TerminalKeyRow.gap / 2, dy: min(0, (rect.height - 44) / 2)))
+    }
+}
+
+/// The face of a key: a quiet key, copper while it answers what an agent asks, with faint words
+/// while it does not type. With `fills`, it takes the place that the key row gives it.
 struct TerminalCapFace: ViewModifier {
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled
     let highlighted: Bool
+    var fills = false
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         let lit = highlighted && isEnabled
-        content
-            .foregroundStyle(isEnabled ? lit ? theme.colors.onAccent : theme.colors.ink : theme.colors.inkFaint)
-            .frame(minWidth: 42, minHeight: 36)
-            .padding(.horizontal, 4)
+        let face = sized(content.foregroundStyle(isEnabled ? lit ? theme.colors.onAccent : theme.colors.ink : theme.colors.inkFaint))
             .background {
                 BezelBackground(shape: shape, fill: lit ? theme.colors.accent : theme.buttonFace(), bezel: lit ? .solid : .quiet)
             }
-            .touchTarget()
+        if fills {
+            face.contentShape(KeySlot())
+        } else {
+            face.touchTarget()
+        }
+    }
+
+    @ViewBuilder
+    private func sized(_ label: some View) -> some View {
+        if fills {
+            label
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            label
+                .frame(minWidth: 42, minHeight: 36)
+                .padding(.horizontal, 4)
+        }
     }
 }
 
 private struct TerminalActionCap: View {
     let title: LocalizedStringKey
     let symbol: String
+    var fills = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
-                .modifier(TerminalCapFace(highlighted: false))
+                .modifier(TerminalCapFace(highlighted: false, fills: fills))
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(Text(title))
@@ -176,12 +248,13 @@ private struct TerminalActionCap: View {
 private struct TerminalKeyCap: View {
     @Environment(\.theme) private var theme
     let key: TerminalKey
-    let highlighted: Bool
+    var highlighted = false
+    var fills = false
     let action: () -> Void
 
     var body: some View {
         let button = Button(action: action) {
-            label.modifier(TerminalCapFace(highlighted: highlighted))
+            label.modifier(TerminalCapFace(highlighted: highlighted, fills: fills))
         }
         .buttonStyle(PressScaleStyle())
         .animation(theme.motion.spring, value: highlighted)
@@ -201,7 +274,7 @@ private struct TerminalKeyCap: View {
                 .font(.system(size: 14, weight: .semibold))
         } else if let cap = key.cap {
             Text(verbatim: cap)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
         }
     }
 }
