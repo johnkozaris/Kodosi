@@ -190,6 +190,8 @@ struct AppShell: View {
 private extension DeviceNotice {
     var message: String {
         switch self {
+        case let .reset(reset):
+            String(localized: "\(reset.deviceLabel) asked to start fresh. Stop it unless you asked for it.")
         case let .requests(requests) where requests.count == 1:
             String(localized: "\(requests[0].deviceLabel) wants to use your account.")
         case let .requests(requests):
@@ -203,6 +205,7 @@ private extension DeviceNotice {
 
     var actionTitle: LocalizedStringKey {
         switch self {
+        case .reset: "Review…"
         case .requests: "Approve…"
         case .approvalNeeded: "Open Settings"
         case .approvalWaiting: "Show code"

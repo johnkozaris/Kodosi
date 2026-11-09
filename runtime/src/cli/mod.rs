@@ -362,7 +362,11 @@ enum DeviceAction {
         device: String,
     },
     /// Start fresh on this device. Every other device loses access until you approve it again.
+    /// When your account has devices, this device waits a day; then run it again. With one of
+    /// those devices, approve this device instead: `kodosi devices link`.
     Reset,
+    /// Stop the device that asked to start fresh.
+    ResetStop,
     /// Make a recovery key and show it one time. An earlier recovery key stops working.
     RecoveryKey,
     /// Approve this device with your recovery key when you have no other approved device.
@@ -744,6 +748,16 @@ async fn device_id(
     let devices = list["devices"].as_array().into_iter().flatten();
     let matches = referred(devices, ("deviceId", "label"), reference);
     only(&matches, kind, reference, "kodosi devices list").map(str::to_owned)
+}
+
+async fn reset_id(client: &mut local_host::Client, context: &mut Context) -> Result<String> {
+    request(client, context, json!({"type":"devices.refresh"}), true).await?;
+    context
+        .latest
+        .get("devices.list")
+        .and_then(|list| list["reset"]["resetId"].as_str())
+        .map(str::to_owned)
+        .ok_or_else(|| Error::Invalid("No device asked to start fresh.".to_owned()))
 }
 
 async fn computer_id(
@@ -1139,6 +1153,9 @@ async fn device_command(
             json!({"type":"devices.revoke","deviceId":id})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
+        DeviceAction::ResetStop => {
+            json!({"type":"devices.reset.cancel","resetId":reset_id(client, context).await?})
+        }
         DeviceAction::RecoveryKey => json!({"type":"devices.recovery.create"}),
         DeviceAction::Recover => json!({"type":"devices.recovery.use","key":recovery_key()?}),
     })

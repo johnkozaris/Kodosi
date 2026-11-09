@@ -68,6 +68,18 @@ public struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
+public struct DeviceReset: Decodable, Equatable, Sendable {
+    public let resetId: String
+    public let deviceLabel: String
+    public let thisDevice: Bool
+    public let requestedAtMs: Int64
+    public let readyAtMs: Int64
+
+    public var readyAt: Date {
+        Date(timeIntervalSince1970: TimeInterval(readyAtMs) / 1000)
+    }
+}
+
 public struct FolderList: Decodable, Equatable, Sendable {
     public let path: String
     public let parent: String?

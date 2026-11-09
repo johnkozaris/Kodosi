@@ -642,12 +642,32 @@
         <translation>Νέα αρχή…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Να μη γίνει νέα αρχή</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Κλειδί ανάκτησης</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Έγκριση</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Αν κανείς δεν το σταματήσει, μπορεί να κάνει νέα αρχή από %1, και όλες οι συσκευές σας χάνουν την πρόσβαση. Σταματήστε το, εκτός αν το ζητήσατε εσείς.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Διακοπή</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Από %1 αυτός ο υπολογιστής μπορεί να κάνει νέα αρχή. Μέχρι τότε, οι άλλες συσκευές σας μπορούν να το σταματήσουν. Αν έχετε ακόμα μία από αυτές, χρησιμοποιήστε την για να εγκρίνετε αυτόν τον υπολογιστή και κρατήστε τους φίλους και τα δωμάτιά σας.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -742,8 +762,8 @@
         <translation>Νέα αρχή</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν έχετε κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε το: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν ο λογαριασμός σας έχει συσκευές, αυτός ο υπολογιστής περιμένει μία ημέρα. Αν έχετε άλλη συσκευή ή κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε τα: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1986,10 @@
         <translation>Το Kodosi ενημερώθηκε. Κάντε επανεκκίνηση για να χρησιμοποιήσετε τη νέα έκδοση.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή. Σταματήστε την, εκτός αν τη ζητήσατε εσείς.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>Η συσκευή %1 θέλει να χρησιμοποιήσει τον λογαριασμό σας.</translation>
     </message>
@@ -1996,6 +2020,10 @@
     <message>
         <source>Approve…</source>
         <translation>Έγκριση…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Έλεγχος…</translation>
     </message>
     <message>
         <source>Show code</source>

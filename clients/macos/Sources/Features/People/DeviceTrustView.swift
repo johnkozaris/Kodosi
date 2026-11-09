@@ -9,7 +9,8 @@ struct DeviceTrustView: View {
     var body: some View {
         DeviceTrustChoices(trust: trust, device: String(localized: "Mac"), actions: .init(
             request: deps.account.requestDeviceApproval, cancelRequest: deps.account.cancelDeviceApproval, recover: deps.account.useRecoveryKey,
-            startFresh: deps.account.startFresh, signInAgain: deps.restartSignIn, retry: deps.account.chooseTrust,
+            startFresh: deps.account.startFresh, stopStartingFresh: deps.account.stopReset,
+            signInAgain: deps.restartSignIn, retry: deps.account.chooseTrust,
         ))
         .frame(maxWidth: .infinity)
     }

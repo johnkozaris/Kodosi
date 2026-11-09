@@ -12,6 +12,12 @@ struct DevicesSection: View {
     }
 
     var body: some View {
+        if account.localDeviceEnrolled, let reset = account.otherDeviceReset {
+            StartFreshRequest(reset: reset, stop: account.stopReset)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .raised(Radius.xl, fill: theme.colors.dangerSoft.opacity(theme.isDark ? 0.7 : 0.55))
+        }
         if !account.orderedDevices.isEmpty {
             ListGroup(title: "Your devices") {
                 ForEach(account.orderedDevices) { device in

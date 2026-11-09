@@ -17,27 +17,42 @@ namespace Kodosi.HostTests;
 public sealed class IntegrationTests(PostgresFixture postgres)
 {
     [Fact]
-    public async Task IdentityResetRequiresARecentSignInAndClearsTheDeviceList()
+    public async Task StartingFreshNeedsARecentSignInAndWaitsADay()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        var connection = await postgres.CreateDatabaseAsync(ct);
+        await using var app = new BackendApplication(connection);
         using var owner = await app.EnrollAsync("owner");
+        var fresh = new DeviceFixture(owner.Fixture.UserId, "fresh-device");
+        var request = new { deviceId = fresh.DeviceId, deviceLabel = "Fresh", signingPublicKey = Convert.ToBase64String(fresh.SigningKey) };
         using var stale = app.CreateClient();
         stale.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner"));
-        using var refused = await stale.PostAsync("/api/me/identity/reset", null, ct);
+        using var refused = await stale.PostAsJsonAsync("/api/me/identity/reset", request, ct);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         using var old = app.CreateClient();
         old.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow.AddHours(-1)));
-        using var refusedOld = await old.PostAsync("/api/me/identity/reset", null, ct);
+        using var refusedOld = await old.PostAsJsonAsync("/api/me/identity/reset", request, ct);
         Assert.Equal(HttpStatusCode.Forbidden, refusedOld.StatusCode);
         using var recent = app.CreateClient();
         recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow));
-        using var accepted = await recent.PostAsync("/api/me/identity/reset", null, ct);
-        Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
-        using var identity = await owner.Client.GetAsync("/api/me/identity", ct);
-        Assert.Equal(HttpStatusCode.NotFound, identity.StatusCode);
-        using var again = await recent.PostAsync("/api/me/identity/reset", null, ct);
-        Assert.Equal(HttpStatusCode.NoContent, again.StatusCode);
+        using var asked = await recent.PostAsJsonAsync("/api/me/identity/reset", request, ct);
+        var pending = await asked.Content.ReadFromJsonAsync<JsonElement>(ct);
+        Assert.False(pending.GetProperty("ready").GetBoolean());
+        Assert.Equal("Fresh", (await owner.Client.GetFromJsonAsync<JsonElement>("/api/me/identity/reset", ct)).GetProperty("deviceLabel").GetString());
+        using (var early = await EnrollFirstAsync(recent, fresh)) Assert.Equal(HttpStatusCode.Forbidden, early.StatusCode);
+        await WaitADayAsync(connection);
+        using var enrolled = await EnrollFirstAsync(recent, fresh);
+        await SuccessAsync(enrolled);
+        var identity = await recent.GetFromJsonAsync<JsonElement>("/api/me/identity", ct);
+        Assert.Single(identity.GetProperty("devices").EnumerateArray());
+        using var gone = await owner.Client.GetAsync("/api/me/identity/reset", ct);
+        Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
+    }
+
+    private static async Task WaitADayAsync(string connection)
+    {
+        await using var db = PostgresFixture.Context(connection);
+        await db.IdentityResets.ExecuteUpdateAsync(set => set.SetProperty(x => x.ReadyAt, DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -58,8 +73,13 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var socket = await app.ConnectAsync(member);
         using var recent = app.CreateClient();
         recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow));
-        using var reset = await recent.PostAsync("/api/me/identity/reset", null, ct);
-        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        var fresh = new DeviceFixture(owner.Fixture.UserId, "fresh-device");
+        using var asked = await recent.PostAsJsonAsync("/api/me/identity/reset",
+            new { deviceId = fresh.DeviceId, deviceLabel = "Fresh", signingPublicKey = Convert.ToBase64String(fresh.SigningKey) }, ct);
+        Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
+        await WaitADayAsync(connection);
+        using var enrolled = await EnrollFirstAsync(recent, fresh);
+        await SuccessAsync(enrolled);
         var notice = await JsonAsync(socket);
         while (notice.GetProperty("surface").GetString() != "missions") notice = await JsonAsync(socket);
         Assert.Equal(room, notice.GetProperty("roomId").GetGuid());

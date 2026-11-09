@@ -9,11 +9,19 @@ ColumnLayout {
     id: root
 
     readonly property bool waiting: Models.Devices.approvalCode.length > 0
+    readonly property var reset: Models.Devices.pendingReset
+    readonly property bool resetWaits: reset.thisDevice === true
+    readonly property bool resetAsked: reset.resetId !== undefined && !resetWaits
     property bool recovering: false
     property bool copied: false
 
     function focusCode() {
         code.forceActiveFocus();
+    }
+
+    function readyAt() {
+        const ready = new Date(root.reset.readyAtMs);
+        return Qt.locale().dayName(ready.getDay(), Locale.LongFormat) + " " + ready.toLocaleTimeString(Qt.locale(), Locale.ShortFormat);
     }
 
     spacing: 18
@@ -73,7 +81,9 @@ ColumnLayout {
         EmptyState {
             Layout.fillWidth: true
             title: root.waiting ? qsTr("Type this code on a device that you use") : qsTr("Approve this computer")
-            message: root.waiting ? qsTr("Choose Approve on that device.") : qsTr("A device that you use must approve this computer one time.")
+            message: root.waiting ? qsTr("Choose Approve on that device.")
+                : root.resetWaits ? qsTr("This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.").arg(root.readyAt())
+                : qsTr("A device that you use must approve this computer one time.")
         }
         CodeKeys {
             Layout.alignment: Qt.AlignHCenter
@@ -92,6 +102,7 @@ ColumnLayout {
                 variant: root.waiting ? KButton.Ghost : KButton.Primary
                 objectName: "panel.settings.enrollment"
                 text: root.waiting ? qsTr("Cancel") : qsTr("Get a code")
+                visible: !root.resetWaits
 
                 onClicked: root.waiting ? Models.Devices.cancelApproval() : Models.Devices.requestApproval()
             }
@@ -99,18 +110,27 @@ ColumnLayout {
                 Accessible.id: objectName
                 objectName: "panel.settings.use-recovery-key"
                 text: qsTr("Use my recovery key")
-                visible: !root.waiting && !root.recovering
+                visible: !root.waiting && !root.recovering && !root.resetWaits
 
                 onClicked: root.recovering = true
             }
             KButton {
                 Accessible.id: objectName
                 objectName: "panel.settings.start-fresh"
-                text: qsTr("Start fresh…")
-                variant: KButton.Ghost
+                text: root.resetWaits ? qsTr("Start fresh") : qsTr("Start fresh…")
+                variant: root.resetWaits ? KButton.Primary : KButton.Ghost
                 visible: !root.waiting
 
-                onClicked: startFresh.open()
+                onClicked: root.resetWaits ? Models.Devices.startFresh() : startFresh.open()
+            }
+            KButton {
+                Accessible.id: objectName
+                objectName: "panel.settings.stop-reset"
+                text: qsTr("Do not start fresh")
+                variant: KButton.Ghost
+                visible: root.resetWaits
+
+                onClicked: Models.Devices.stopReset()
             }
         }
         RowLayout {
@@ -151,6 +171,28 @@ ColumnLayout {
             font.pixelSize: KodosiTheme.fontFootnote
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
+        }
+    }
+    ListGroup {
+        Layout.fillWidth: true
+        visible: Models.Account.signedIn && Models.Devices.localDeviceEnrolled && root.resetAsked
+        title: qsTr("%1 asked to start fresh").arg(root.reset.deviceLabel ?? "")
+        footer: qsTr("If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.").arg(root.resetAsked ? root.readyAt() : "")
+
+        ListRow {
+            iconName: "warning"
+            tint: KodosiTheme.danger
+            title: root.reset.deviceLabel ?? ""
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                variant: KButton.Primary
+                objectName: "panel.settingsView.reset.stop"
+                text: qsTr("Stop it")
+
+                onClicked: Models.Devices.stopReset()
+            }
         }
     }
     ListGroup {
@@ -356,7 +398,7 @@ ColumnLayout {
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.")
+            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.")
             width: 380
             wrapMode: Text.WordWrap
         }

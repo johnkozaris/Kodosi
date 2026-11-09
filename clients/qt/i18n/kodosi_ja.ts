@@ -641,12 +641,32 @@
         <translation>新しく始める…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>新しく始めない</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>リカバリーキー</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>承認</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 が新しく始めることを求めています</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>誰も止めなければ、%1 以降に新しく始められ、あなたのすべてのデバイスがアクセスできなくなります。自分で求めたのでなければ、止めてください。</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>止める</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>このコンピュータは %1 以降に新しく始められます。それまでは、ほかのデバイスで止めることができます。ほかのデバイスがまだ手元にある場合は、代わりにそのデバイスでこのコンピュータを承認してください。フレンドとルームをそのまま残せます。</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -741,8 +761,8 @@
         <translation>新しく始める</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、ルームも作り直しになります。リカバリーキーがある場合は、キャンセルしてキーを使ってください。フレンドとルームをそのまま残せます。</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、ルームも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとルームをそのまま残せます。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1963,6 +1983,10 @@
         <translation>Kodosi がアップデートされました。新しいバージョンを使うには再起動してください。</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 が新しく始めることを求めています。自分で求めたのでなければ、止めてください。</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 があなたのアカウントへのアクセスを求めています。</translation>
     </message>
@@ -1993,6 +2017,10 @@
     <message>
         <source>Approve…</source>
         <translation>承認…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>確認…</translation>
     </message>
     <message>
         <source>Show code</source>

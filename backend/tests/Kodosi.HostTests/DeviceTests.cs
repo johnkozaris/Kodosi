@@ -50,42 +50,81 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ReplaceListAsync(owner.User.Id, new(Convert.ToBase64String(readd), owner.Fixture.SignedList(readd)), TestContext.Current.CancellationToken));
     }
 
+    private static DeviceService.RegisterDevice FirstDevice(DeviceService devices, DeviceFixture device, DateTimeOffset at)
+    {
+        var challenge = JsonSerializer.SerializeToElement(devices.CreateChallenge(device.UserId), TestJson.Options);
+        var bytes = Convert.FromBase64String(challenge.GetProperty("challengeBytes").GetString()!);
+        var now = at.ToUnixTimeMilliseconds();
+        var cert = device.CertificateBody(device.DeviceId, now);
+        var list = DeviceFixture.ListBody(device.UserId, 1, [(device.DeviceId, device.DeviceId)], device.DeviceId, now);
+        return new(device.DeviceId, Convert.ToBase64String(device.SigningKey), challenge.GetProperty("challengeId").GetGuid(),
+            Convert.ToBase64String(device.Sign(Proofs.Tagged(DomainTags.DevicePopV1, bytes))),
+            Convert.ToBase64String(cert), device.SignedCertificate(cert), Convert.ToBase64String(list), device.SignedList(list));
+    }
+
+    private static DeviceService.ResetRequest Asking(DeviceFixture device) =>
+        new(device.DeviceId, device.DeviceId, Convert.ToBase64String(device.SigningKey));
+
     [Fact]
-    public async Task ResetRevokesEveryDeviceAndAllowsAFreshFirstDevice()
+    public async Task StartingFreshWaitsADayAndThenOnlyTheAskingDeviceReplacesTheIdentity()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var clock = new ManualClock();
+        var devices = new DeviceService(store.Db, store.Connections, store.DeviceSessions, clock, store.Plans);
+        var owner = await store.UserAsync("owner");
+        var second = new DeviceFixture(owner.User.Id, "second-device");
+        await devices.StartLinkAsync(owner.User.Id,
+            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct);
+        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, "AQ==", Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength])), ct);
+        var before = (await devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
+        var (fresh, other) = (new DeviceFixture(owner.User.Id, "fresh-device"), new DeviceFixture(owner.User.Id, "other-device"));
+        var signedIn = clock.GetUtcNow().AddMinutes(-1);
+        await Assert.ThrowsAsync<ApiException>(() => devices.RequestResetAsync(owner.User.Id, Asking(fresh), null, ct));
+        await Assert.ThrowsAsync<ApiException>(() => devices.RequestResetAsync(owner.User.Id, Asking(fresh), signedIn - CurrentUser.ReauthenticationWindow, ct));
+        var pending = JsonSerializer.SerializeToElement(await devices.RequestResetAsync(owner.User.Id, Asking(fresh), signedIn, ct), TestJson.Options);
+        Assert.False(pending.GetProperty("ready").GetBoolean());
+        var again = JsonSerializer.SerializeToElement(await devices.RequestResetAsync(owner.User.Id, Asking(fresh), signedIn, ct), TestJson.Options);
+        Assert.Equal(pending.GetProperty("requestId").GetGuid(), again.GetProperty("requestId").GetGuid());
+        await Assert.ThrowsAsync<ApiException>(() => devices.EnrollAsync(owner.User.Id, FirstDevice(devices, fresh, clock.GetUtcNow()), ct));
+        clock.Advance(DeviceService.ResetWait);
+        var ready = JsonSerializer.SerializeToElement(await devices.RequestResetAsync(owner.User.Id, Asking(fresh), signedIn, ct), TestJson.Options);
+        Assert.True(ready.GetProperty("ready").GetBoolean());
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => devices.RequestResetAsync(owner.User.Id, Asking(other), signedIn, ct))).Status);
+        await Assert.ThrowsAsync<ApiException>(() => devices.EnrollAsync(owner.User.Id, FirstDevice(devices, other, clock.GetUtcNow()), ct));
+        Assert.NotNull(await devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
+        await devices.EnrollAsync(owner.User.Id, FirstDevice(devices, fresh, clock.GetUtcNow()), ct);
+        var after = (await devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
+        Assert.NotEqual(before.IdentityIncarnationId, after.IdentityIncarnationId);
+        Assert.Single(after.Devices);
+        await Assert.ThrowsAsync<ApiException>(() => devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
+        Assert.Equal("cancelled", (await store.Db.DeviceLinks.AsNoTracking().SingleAsync(x => x.DeviceId == second.DeviceId, ct)).State);
+        Assert.False(await store.Db.FriendLists.AnyAsync(x => x.UserId == owner.User.Id, ct));
+        Assert.False(await store.Db.IdentityResets.AnyAsync(x => x.UserId == owner.User.Id, ct));
+    }
+
+    [Fact]
+    public async Task ADeviceStopsStartingFreshAndTheFirstDeviceOfAnAccountRegistersAtOnce()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
         var owner = await store.UserAsync("owner");
-        var second = new DeviceFixture(owner.User.Id, "second-device");
-        await store.Devices.StartLinkAsync(owner.User.Id,
-            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct);
-        var before = (await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, null, ct));
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow - CurrentUser.ReauthenticationWindow - TimeSpan.FromSeconds(1), ct));
-        Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
-        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, "AQ==", Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength])), ct);
-        await store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
-        Assert.False(await store.Db.FriendLists.AnyAsync(x => x.UserId == owner.User.Id, ct));
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct));
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
-        Assert.True((await store.Db.Devices.AsNoTracking().SingleAsync(x => x.Id == owner.Device.Id, ct)).Revoked);
-        Assert.Equal("cancelled", (await store.Db.DeviceLinks.AsNoTracking().SingleAsync(x => x.DeviceId == second.DeviceId, ct)).State);
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.StartLinkAsync(owner.User.Id,
-            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct));
         var fresh = new DeviceFixture(owner.User.Id, "fresh-device");
-        var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), TestJson.Options);
-        var challengeBytes = Convert.FromBase64String(challenge.GetProperty("challengeBytes").GetString()!);
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var cert = fresh.CertificateBody(fresh.DeviceId, now);
-        var list = DeviceFixture.ListBody(owner.User.Id, 1, [(fresh.DeviceId, fresh.DeviceId)], fresh.DeviceId, now);
-        await store.Devices.EnrollAsync(owner.User.Id, new(fresh.DeviceId, Convert.ToBase64String(fresh.SigningKey),
-            challenge.GetProperty("challengeId").GetGuid(), Convert.ToBase64String(fresh.Sign(Proofs.Tagged(DomainTags.DevicePopV1, challengeBytes))),
-            Convert.ToBase64String(cert), fresh.SignedCertificate(cert), Convert.ToBase64String(list), fresh.SignedList(list)), ct);
-        var after = (await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
-        Assert.NotEqual(before.IdentityIncarnationId, after.IdentityIncarnationId);
-        Assert.Single(after.Devices);
-        Assert.Equal(fresh.DeviceId, (await store.Devices.RequireDeviceAsync(owner.User.Id, fresh.DeviceId, ct)).Id);
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
+        var signedIn = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var pending = JsonSerializer.SerializeToElement(await store.Devices.RequestResetAsync(owner.User.Id, Asking(fresh), signedIn, ct), TestJson.Options);
+        var requestId = pending.GetProperty("requestId").GetGuid();
+        await store.Devices.CancelResetAsync(owner.User.Id, requestId, ct);
+        await Assert.ThrowsAsync<ApiException>(() => store.Devices.PendingResetAsync(owner.User.Id, ct));
+        await store.Db.Devices.Where(x => x.Id == owner.Device.Id).ExecuteUpdateAsync(set => set.SetProperty(x => x.Revoked, true), ct);
+        await store.Db.DeviceLists.Where(x => x.UserId == owner.User.Id).ExecuteDeleteAsync(ct);
+        Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequestResetAsync(owner.User.Id, Asking(owner.Fixture), signedIn, ct))).Status);
+        var newcomer = new User { Id = Guid.CreateVersion7(), Issuer = "https://test.example/", Subject = "newcomer", Handle = "newcomer", DisplayName = "newcomer" };
+        store.Db.Users.Add(newcomer);
+        await store.Db.SaveChangesAsync(ct);
+        var first = new DeviceFixture(newcomer.Id, "first-device");
+        Assert.Null(await store.Devices.RequestResetAsync(newcomer.Id, Asking(first), signedIn, ct));
+        await store.Devices.EnrollAsync(newcomer.Id, FirstDevice(store.Devices, first, DateTimeOffset.UtcNow), ct);
+        Assert.Equal(first.DeviceId, (await store.Devices.RequireDeviceAsync(newcomer.Id, first.DeviceId, ct)).Id);
     }
 
     [Fact]

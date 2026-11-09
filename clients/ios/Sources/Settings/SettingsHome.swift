@@ -34,6 +34,7 @@ struct SettingsHome: View {
         .navigationTitle("Settings")
         .animation(theme.motion.spring, value: account.devices)
         .animation(theme.motion.spring, value: account.deviceRequests)
+        .animation(theme.motion.spring, value: account.pendingReset)
         .animation(theme.motion.spring, value: account.deletion)
         .animation(theme.motion.snappy, value: account.creatingRecoveryKey)
         .refreshable { await account.refreshDevices() }

@@ -26,6 +26,7 @@ public final class AccountStore {
     public private(set) var devicesRevision = 0
     public private(set) var onlineHosts: Set<String> = []
     public private(set) var deviceRequests: [DeviceLinkRequest] = []
+    public private(set) var pendingReset: DeviceReset?
     public private(set) var approval: Approval?
     public private(set) var creatingRecoveryKey = false
     public private(set) var newRecoveryKey: String?
@@ -64,6 +65,11 @@ public final class AccountStore {
             + devices.filter(\.recoveryKey)
     }
 
+    /// A start fresh that another device of the account waits for.
+    public var otherDeviceReset: DeviceReset? {
+        pendingReset.flatMap { $0.thisDevice ? nil : $0 }
+    }
+
     public var hasRecoveryKey: Bool {
         devices.contains(where: \.recoveryKey)
     }
@@ -97,6 +103,7 @@ public final class AccountStore {
         devices = []
         onlineHosts = []
         deviceRequests = []
+        pendingReset = nil
         approval = nil
         creatingRecoveryKey = false
         newRecoveryKey = nil
@@ -198,9 +205,18 @@ public final class AccountStore {
         localDeviceEnrolled = try event.value("localDeviceEnrolled")
         identityMessage = localDeviceEnrolled ? nil : event.string("notice")
         devices = try event.value("devices")
+        pendingReset = try event.payload["reset"].map { try $0.decode(as: DeviceReset?.self) } ?? nil
         devicesRevision += 1
-        if localDeviceEnrolled, case .trustingDevice = stage {
+        guard case let .trustingDevice(trust) = stage else { return }
+        if localDeviceEnrolled {
             stage = .signedIn
+        } else if let reset = pendingReset, reset.thisDevice {
+            switch trust {
+            case .choose, .resetting, .waiting: stage = .trustingDevice(.waiting(reset.readyAt))
+            case .requesting, .pendingApproval, .recovering, .failed: break
+            }
+        } else if case .waiting = trust {
+            stage = .trustingDevice(.choose)
         }
     }
 
@@ -318,6 +334,11 @@ public final class AccountStore {
     public func startFresh() {
         stage = .trustingDevice(.resetting)
         commands.perform("devices.reset")
+    }
+
+    public func stopReset() {
+        guard let reset = pendingReset else { return }
+        commands.perform("devices.reset.cancel", ["resetId": .string(reset.resetId)])
     }
 
     public func chooseTrust() {

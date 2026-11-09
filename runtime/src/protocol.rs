@@ -125,6 +125,13 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "devices.reset.cancel")]
+    CancelReset {
+        #[serde(rename = "resetId")]
+        reset_id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "devices.recovery.create")]
     CreateRecoveryKey {
         #[serde(rename = "requestId")]
@@ -979,6 +986,8 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         notice: Option<Text>,
         devices: Vec<DeviceEntry>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reset: Option<DeviceReset>,
     },
     #[serde(rename = "devices.hosts")]
     DevicesHosts { device_ids: Vec<String> },
@@ -1326,6 +1335,17 @@ pub struct DeviceEntry {
     pub recovery_key: bool,
 }
 
+/// A device that asked to start fresh. It can start fresh after `ready_at_ms`.
+#[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeviceReset {
+    pub reset_id: String,
+    pub device_label: String,
+    pub this_device: bool,
+    pub requested_at_ms: i64,
+    pub ready_at_ms: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FolderList {
@@ -1631,6 +1651,7 @@ impl Command {
             Self::LinkDevice { .. } => "devices.link.startSelf",
             Self::CancelDeviceLink { .. } => "devices.link.cancelSelf",
             Self::ResetDevices { .. } => "devices.reset",
+            Self::CancelReset { .. } => "devices.reset.cancel",
             Self::CreateRecoveryKey { .. } => "devices.recovery.create",
             Self::UseRecoveryKey { .. } => "devices.recovery.use",
             Self::RefreshFriends { .. } => "friends.refresh",
@@ -1758,6 +1779,7 @@ impl Command {
             | Self::LinkDevice { request_id }
             | Self::CancelDeviceLink { request_id }
             | Self::ResetDevices { request_id }
+            | Self::CancelReset { request_id, .. }
             | Self::CreateRecoveryKey { request_id }
             | Self::UseRecoveryKey { request_id, .. }
             | Self::RefreshFriends { request_id }
@@ -2262,6 +2284,7 @@ impl Command {
         self.validate_canvas()?;
         match self {
             Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
             Self::ApproveDevice { code, .. } => text(code, "code", 64)?,
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
@@ -2647,6 +2670,7 @@ mod tests {
             json!({"type":"auth.login.start","requestId":ID,"browser":"app"}),
             json!({"type":"auth.login.finish","requestId":ID,"url":"com.kodosi:/auth?code=c&state=s"}),
             json!({"type":"devices.revoke","requestId":ID,"deviceId":"native-device-name"}),
+            json!({"type":"devices.reset.cancel","requestId":ID,"resetId":ID}),
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
@@ -2738,7 +2762,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 65);
+        assert_eq!(kinds.len(), 66);
     }
 
     #[test]

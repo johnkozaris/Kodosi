@@ -48,8 +48,10 @@ metadatos de salas y terminales, el agente y el estado de cada terminal (como tr
 esperando una aprobación, nunca su texto), los campos de enrutamiento, los tiempos y los
 tamaños del texto cifrado. El cifrado no oculta estos metadatos ni evita una caída del
 servicio. Un dispositivo que quitas pierde el acceso desde ese momento. Después de quitar un
-dispositivo perdido o robado, crea una clave de recuperación nueva para mantenerlo fuera. Las
-credenciales de GitHub y Gitea se quedan en tu ordenador.
+dispositivo perdido o robado, crea una clave de recuperación nueva para mantenerlo fuera.
+Cuando alguien empieza de cero en tu cuenta mientras tienes dispositivos, eso espera un día y
+tus dispositivos lo muestran, para que puedas detenerlo. Las credenciales de GitHub y Gitea
+se quedan en tu ordenador.
 
 Eliminar una cuenta quita sus dispositivos, sus datos de recuperación, sus amigos, lo que
 comparte y las salas que son suyas; los mensajes en salas de otras personas se quedan sin

@@ -19,7 +19,8 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     private static readonly HashSet<string> SignInOnly =
     [
         "GET /api/me", "DELETE /api/me", "POST /api/me/devices/challenge", "POST /api/me/device-sessions", "POST /api/me/devices",
-        "GET /api/me/identity", "POST /api/me/identity/reset", "POST /api/devices/link/init", "POST /api/devices/link/poll",
+        "GET /api/me/identity", "POST /api/me/identity/reset", "GET /api/me/identity/reset", "DELETE /api/me/identity/reset/{requestId}",
+        "POST /api/devices/link/init", "POST /api/devices/link/poll",
         "POST /api/devices/link/ack", "DELETE /api/devices/link/requests/{requestId}", "GET /api/me/recovery-key", "POST /api/me/devices/recover",
     ];
 

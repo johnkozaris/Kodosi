@@ -53,7 +53,7 @@ struct MainTabView: View {
                 NavigationStack { SettingsHome() }
                     .tint(theme.colors.ink)
             }
-            .badge(model.account.deviceRequests.count)
+            .badge(model.account.deviceRequests.count + (model.account.otherDeviceReset == nil ? 0 : 1))
             .accessibilityIdentifier("tab.settings")
         }
         .tabViewStyle(.sidebarAdaptable)

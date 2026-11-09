@@ -102,9 +102,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
     {
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         if (await NewDeviceKeyAsync(userId, request, certBytes, certSig, ct) is not { } signingKey) return;
-        if (await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct)
-            || await db.Devices.AnyAsync(x => x.UserId == userId && !x.Revoked, ct))
-            throw ApiException.Forbidden("An existing trusted device must approve this device.");
         var cert = DeviceCertificate.Parse(certBytes);
         var list = SignedDeviceList.Parse(listBytes);
         ValidateCertificate(userId, request.DeviceId, cert, signingKey);
@@ -117,12 +114,14 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         VerifySignature(signingKey, DomainTags.DeviceCertV3, certBytes, certSig);
         VerifySignature(signingKey, DomainTags.DeviceListV1, listBytes, listSig);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var user = await db.LockUserAsync(userId, ct);
+        var replaced = await HasIdentityAsync(userId, ct) ? await ReplaceIdentityAsync(userId, request.DeviceId, signingKey, ct) : null;
         db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
         db.DeviceLists.Add(ToList(userId, list, listBytes, listSig));
-        var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
         user.IdentityIncarnationId = Guid.CreateVersion7();
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        if (replaced is not null) await PublishReplacedAsync(userId, replaced, ct);
         connections.Notify([userId], "devices");
     }
 
@@ -151,30 +150,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         await transaction.CommitAsync(ct);
         foreach (var device in removed) { sessions.Remove(userId, device.Id); connections.RemoveDevice(userId, device.Id); }
         await PublishSessionChangesAsync(userId, affected, removed, ct);
-        connections.Notify([userId], "devices");
-        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
-    }
-
-    public async Task ResetIdentityAsync(Guid userId, DateTimeOffset? authenticatedAt, CancellationToken ct)
-    {
-        CurrentUser.RequireRecentSignIn(authenticatedAt, clock.GetUtcNow(), "Sign in again to start fresh on this device.");
-        var devices = await db.Devices.Where(x => x.UserId == userId && !x.Revoked).ToListAsync(ct);
-        var list = await db.DeviceLists.SingleOrDefaultAsync(x => x.UserId == userId, ct);
-        if (list is null && devices.Count == 0) return;
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        foreach (var device in devices) device.Revoked = true;
-        if (list is not null) db.DeviceLists.Remove(list);
-        await db.FriendLists.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
-        await db.DeviceLinks.Where(x => x.UserId == userId && x.State == "pending")
-            .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
-        var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
-        user.IdentityIncarnationId = null;
-        var affected = await InvalidateUserSessionsAsync(userId, devices, ct);
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        sessions.Remove(userId);
-        foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
-        await PublishSessionChangesAsync(userId, affected, devices, ct);
         connections.Notify([userId], "devices");
         await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }

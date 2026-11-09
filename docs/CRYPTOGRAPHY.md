@@ -36,7 +36,10 @@ each field carries its length.
 - **Identity root and device list.** The first device's self-signed certificate fixes
   the account's root. Approved devices certify new ones and sign a device list that they
   renew every 24 hours. Devices pin each account they verify: the root changes only when the
-  person accepts it, the list never goes back, and removed devices never return.
+  person accepts it, the list never goes back, and removed devices never return. Starting
+  fresh makes a new root. While the account has devices, the backend registers the new
+  root only for the device key that asked, a day later, so a sign-in alone does not
+  replace the root unseen.
 - **Friend list.** The friend list is a signed list of friends' roots, and invites carry
   it. Each list names the SHA-256 of the list before it, and a device takes only lists
   that continue the list it keeps and that an approved device validly signed. On a newest

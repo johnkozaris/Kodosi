@@ -33,11 +33,16 @@ internal static class DeviceEndpoints
             connections.Renew(caller.User.Id, caller.Device.Id, DateTimeOffset.FromUnixTimeSeconds(expires));
             return Results.NoContent();
         });
-        api.MapPost("/me/identity/reset", async (SignedIn me, HttpContext context, DeviceService devices, CancellationToken ct) =>
+        api.MapPost("/me/identity/reset", async (DeviceService.ResetRequest body, SignedIn me, HttpContext context, DeviceService devices, CancellationToken ct) =>
+            await devices.RequestResetAsync(me.User.Id, body, CurrentUser.SignedInAt(context.User), ct) is { } reset ? Results.Ok(reset) : Results.NoContent())
+            .RequireRateLimiting(RateLimits.Enrollment);
+        api.MapGet("/me/identity/reset", async (SignedIn me, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.PendingResetAsync(me.User.Id, ct)));
+        api.MapDelete("/me/identity/reset/{requestId:guid}", async (Guid requestId, SignedIn me, DeviceService devices, CancellationToken ct) =>
         {
-            await devices.ResetIdentityAsync(me.User.Id, CurrentUser.SignedInAt(context.User), ct);
+            await devices.CancelResetAsync(me.User.Id, requestId, ct);
             return Results.NoContent();
-        }).RequireRateLimiting(RateLimits.Enrollment);
+        });
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, SignedIn me, DeviceService devices, CancellationToken ct) =>
             Results.Ok(await devices.StartLinkAsync(me.User.Id, body, ct))).RequireRateLimiting(RateLimits.Enrollment);
         api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, DeviceCaller caller, DeviceService devices, CancellationToken ct) =>

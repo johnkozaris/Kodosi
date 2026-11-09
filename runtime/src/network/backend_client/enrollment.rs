@@ -34,6 +34,17 @@ pub(super) struct LinkRequest {
     proof: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PendingReset {
+    request_id: String,
+    device_id: String,
+    device_label: String,
+    requested_at_ms: i64,
+    ready_at_ms: i64,
+    ready: bool,
+}
+
 pub(super) struct LinkedDevice {
     request_id: Uuid,
     pub(super) device_id: String,
@@ -95,8 +106,9 @@ impl BackendClient {
         } else {
             Vec::new()
         };
+        let reset = self.pending_reset(&credentials).await?.map(|reset| json!({"resetId":reset.request_id,"deviceLabel":reset.device_label,"thisDevice":reset.device_id == credentials.keys.device_id,"requestedAtMs":reset.requested_at_ms,"readyAtMs":reset.ready_at_ms}));
         let mut result = vec![
-            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"notice":credentials.notice,"devices":devices}),
+            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"notice":credentials.notice,"devices":devices,"reset":reset}),
         ];
         if credentials.enrolled {
             let requests = self
@@ -167,22 +179,22 @@ impl BackendClient {
     }
 
     pub(super) async fn reset_devices(&self) -> Result<Vec<Value>> {
-        let credentials = self.credentials()?;
+        let mut credentials = self.credentials()?;
         if credentials.enrolled {
             return Err(Error::Text(text!(
                 "This device is already trusted. Remove other devices from Settings instead."
             )));
         }
-        let _response: Value = self
-            .inner
-            .http
-            .bearer(
-                Method::POST,
-                "api/me/identity/reset",
-                &credentials.token,
-                None,
-            )
-            .await?;
+        let reset = match self.request_reset(&credentials).await {
+            Err(Error::Backend { status: 409, .. }) => {
+                credentials = self.replace_local_keys(credentials).await?;
+                self.request_reset(&credentials).await?
+            }
+            result => result?,
+        };
+        if reset.is_some_and(|reset| !reset.ready) {
+            return self.device_events().await;
+        }
         let pins = {
             let mut state = self.inner.state.lock().await;
             state.link = None;
@@ -191,7 +203,7 @@ impl BackendClient {
         pins.lock()
             .map_err(|_| Error::Closed)?
             .forget(&credentials.user_id)?;
-        let credentials = self.replace_local_keys(credentials).await?;
+        self.enroll_fresh(&credentials).await?;
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
             return Err(Error::Text(text!(
@@ -202,6 +214,51 @@ impl BackendClient {
         events.extend(self.device_events().await?);
         events.push(self.session_event().await?);
         Ok(events)
+    }
+
+    async fn request_reset(&self, credentials: &Credentials) -> Result<Option<PendingReset>> {
+        self.inner
+            .http
+            .bearer(
+                Method::POST,
+                "api/me/identity/reset",
+                &credentials.token,
+                Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":host_label(),"signingPublicKey":BASE64.encode(credentials.keys.signing_public())})),
+            )
+            .await
+    }
+
+    async fn pending_reset(&self, credentials: &Credentials) -> Result<Option<PendingReset>> {
+        match self
+            .inner
+            .http
+            .bearer(
+                Method::GET,
+                "api/me/identity/reset",
+                &credentials.token,
+                None,
+            )
+            .await
+        {
+            Ok(reset) => Ok(Some(reset)),
+            Err(Error::Backend { status: 404, .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(super) async fn cancel_reset(&self, reset: &str) -> Result<()> {
+        let credentials = self.credentials()?;
+        let _response: Value = self
+            .inner
+            .http
+            .bearer(
+                Method::DELETE,
+                &format!("api/me/identity/reset/{}", path_segment(reset)?),
+                &credentials.token,
+                None,
+            )
+            .await?;
+        Ok(())
     }
 
     pub(super) async fn start_link(&self) -> Result<String> {

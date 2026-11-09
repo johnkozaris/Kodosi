@@ -52,7 +52,9 @@ cours ou en attente d'une approbation, jamais son texte), les champs de routage,
 et la taille des textes chiffrés. Le chiffrement ne cache pas ces métadonnées et n'empêche pas
 une panne. Un appareil que vous retirez perd l'accès dès ce moment. Après avoir retiré un
 appareil perdu ou volé, créez une nouvelle clé de récupération pour garder cet appareil
-dehors. Les identifiants GitHub et Gitea restent sur votre ordinateur.
+dehors. Quand quelqu'un repart de zéro sur votre compte alors que vous avez des appareils,
+cela attend un jour et vos appareils l'affichent, pour que vous puissiez l'arrêter. Les
+identifiants GitHub et Gitea restent sur votre ordinateur.
 
 Supprimer un compte retire ses appareils, ses données de récupération, ses amis, ses partages
 et les salons dont il est propriétaire ; les messages dans les salons des autres restent, sans

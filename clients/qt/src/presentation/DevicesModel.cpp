@@ -41,6 +41,20 @@ void DevicesModel::startFresh()
     m_workspace.sendUntracked(QStringLiteral("devices.reset"));
 }
 
+void DevicesModel::stopReset()
+{
+    m_workspace.sendUntracked(QStringLiteral("devices.reset.cancel"),
+        { { QStringLiteral("resetId"), m_pendingReset.value(QStringLiteral("resetId")).toString() } });
+}
+
+QVariantMap DevicesModel::waitingReset() const
+{
+    const auto id = m_pendingReset.value(QStringLiteral("resetId")).toString();
+    if (id.isEmpty() || id == m_dismissedReset || m_pendingReset.value(QStringLiteral("thisDevice")).toBool())
+        return {};
+    return m_pendingReset;
+}
+
 bool DevicesModel::hasRecoveryKey() const
 {
     for (const auto& device : m_devices) {
@@ -107,6 +121,7 @@ QVariantList DevicesModel::waitingRequests() const
 
 void DevicesModel::dismissRequests()
 {
+    m_dismissedReset = m_pendingReset.value(QStringLiteral("resetId")).toString();
     m_dismissedRequests.clear();
     for (const auto& request : m_requests)
         m_dismissedRequests.append(request.toMap().value(QStringLiteral("requestId")).toString());
@@ -124,6 +139,8 @@ void DevicesModel::reset()
     m_devices.clear();
     m_requests.clear();
     m_dismissedRequests.clear();
+    m_pendingReset.clear();
+    m_dismissedReset.clear();
     m_hosts.clear();
     m_approvalCode.clear();
     m_newRecoveryKey.clear();

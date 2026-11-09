@@ -51,7 +51,9 @@ Freigabe, nie seinen Text), Routing-Felder, Zeitpunkte und die Größen der Chif
 Verschlüsselung verbirgt diese Metadaten nicht und verhindert keinen Ausfall. Ein Gerät, das
 du entfernst, verliert ab dann den Zugriff. Nachdem du ein verlorenes oder gestohlenes Gerät
 entfernt hast, erstelle einen neuen Wiederherstellungsschlüssel, um dieses Gerät draußen zu
-halten. Zugangsdaten für GitHub und Gitea bleiben auf deinem Computer.
+halten. Wenn jemand auf deinem Konto neu beginnt, während du Geräte hast, wartet das einen
+Tag, und deine Geräte zeigen es an, damit du es stoppen kannst. Zugangsdaten für GitHub und
+Gitea bleiben auf deinem Computer.
 
 Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde, geteilten
 Terminals und eigenen Räume; Nachrichten in Räumen anderer bleiben ohne Konto stehen. 30 Tage lang behält

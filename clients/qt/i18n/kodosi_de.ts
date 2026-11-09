@@ -642,12 +642,32 @@
         <translation>Neu beginnen…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Nicht neu beginnen</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Wiederherstellungsschlüssel</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Freigeben</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 möchte neu beginnen</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Wenn niemand es stoppt, kann es ab %1 neu beginnen, und alle deine Geräte verlieren den Zugriff. Stoppe es, außer du hast selbst darum gebeten.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Stoppen</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Ab %1 kann dieser Computer neu beginnen. Bis dahin können deine anderen Geräte es stoppen. Wenn du noch eines davon hast, gib stattdessen damit diesen Computer frei und behalte deine Freunde und Räume.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -742,8 +762,8 @@
         <translation>Neu beginnen</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Räume neu. Wenn du einen Wiederherstellungsschlüssel hast, brich ab und verwende ihn: Dann behältst du deine Freunde und Räume.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Räume neu. Wenn dein Konto Geräte hat, wartet dieser Computer einen Tag. Wenn du ein anderes Gerät oder einen Wiederherstellungsschlüssel hast, brich ab und verwende es: Dann behältst du deine Freunde und Räume.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1986,10 @@
         <translation>Kodosi wurde aktualisiert. Starte es neu, um die neue Version zu nutzen.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 möchte neu beginnen. Stoppe es, außer du hast selbst darum gebeten.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 möchte dein Konto verwenden.</translation>
     </message>
@@ -1996,6 +2020,10 @@
     <message>
         <source>Approve…</source>
         <translation>Freigeben…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Prüfen…</translation>
     </message>
     <message>
         <source>Show code</source>

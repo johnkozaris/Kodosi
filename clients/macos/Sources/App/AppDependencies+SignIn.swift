@@ -2,6 +2,7 @@ import Foundation
 import KodosiBridge
 
 enum DeviceNotice: Equatable {
+    case reset(DeviceReset)
     case requests([DeviceLinkRequest])
     case approvalNeeded
     case approvalWaiting
@@ -19,6 +20,9 @@ extension AppDependencies {
     var deviceNotice: DeviceNotice? {
         guard !signInPresented, workbench.section != .settings || workbench.settingsSection != .devices else { return nil }
         if account.isReady {
+            if let reset = account.otherDeviceReset, workbench.dismissedReset != reset.resetId {
+                return .reset(reset)
+            }
             let waiting = account.deviceRequests.filter { !workbench.dismissedDeviceRequests.contains($0.id) }
             return waiting.isEmpty ? nil : .requests(waiting)
         }
@@ -35,6 +39,7 @@ extension AppDependencies {
 
     func dismissDeviceNotice() {
         if account.isReady {
+            workbench.dismissedReset = account.otherDeviceReset?.resetId
             workbench.dismissedDeviceRequests = Set(account.deviceRequests.map(\.id))
         } else {
             workbench.approvalNoticeDismissed = true

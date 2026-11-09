@@ -25,6 +25,9 @@ ApplicationWindow {
             || (Models.DesktopState.activeView === Models.DesktopState.Settings && (settingsLoader.item as SettingsView)?.section === 3))
             return "";
         if (accountReady) {
+            const reset = Models.Devices.waitingReset;
+            if (reset.resetId !== undefined)
+                return qsTr("%1 asked to start fresh. Stop it unless you asked for it.").arg(reset.deviceLabel);
             const requests = Models.Devices.waitingRequests;
             if (requests.length === 1)
                 return qsTr("%1 wants to use your account.").arg(requests[0].deviceLabel);
@@ -321,7 +324,7 @@ ApplicationWindow {
                     identifier: "window.devices"
                     sign: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
                     text: window.deviceNotice
-                    actionText: window.accountReady ? qsTr("Approve…")
+                    actionText: window.accountReady ? (Models.Devices.waitingReset.resetId !== undefined ? qsTr("Review…") : qsTr("Approve…"))
                         : Models.Devices.approvalCode.length > 0 ? qsTr("Show code") : qsTr("Open Settings")
 
                     Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }

@@ -57,6 +57,17 @@ public sealed class DeviceLink
     public string State { get; set; } = "pending";
 }
 
+public sealed class IdentityReset
+{
+    public Guid UserId { get; set; }
+    public Guid Id { get; set; }
+    public string DeviceId { get; set; } = "";
+    public string DeviceLabel { get; set; } = "";
+    public byte[] SigningPublicKey { get; set; } = [];
+    public DateTimeOffset RequestedAt { get; set; }
+    public DateTimeOffset ReadyAt { get; set; }
+}
+
 public sealed class FriendList
 {
     public Guid UserId { get; set; }

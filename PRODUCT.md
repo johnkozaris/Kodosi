@@ -197,7 +197,8 @@ terminal's agent and reported state, such as working or waiting for an approval.
 
 A recovery key approves a new device when no other device can, and keeps friends and
 rooms. Without it, a person who lost all devices starts fresh with a new identity, and
-friends trust that identity again.
+friends trust that identity again. Starting fresh on an account that has devices waits a
+day; those devices show it and can stop it.
 
 ## Experience
 

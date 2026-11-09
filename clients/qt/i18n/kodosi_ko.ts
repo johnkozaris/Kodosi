@@ -641,12 +641,32 @@
         <translation>새로 시작…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>새로 시작하지 않기</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>복구 키</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>승인</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1에서 새로 시작하려고 해요</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>아무도 중지하지 않으면 %1 이후에 새로 시작할 수 있고, 내 모든 기기가 접근할 수 없게 돼요. 직접 요청한 게 아니라면 중지하세요.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>중지</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>이 컴퓨터는 %1 이후에 새로 시작할 수 있어요. 그때까지 다른 기기에서 중지할 수 있어요. 다른 기기가 아직 있다면 대신 그 기기에서 이 컴퓨터를 승인하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -741,8 +761,8 @@
         <translation>새로 시작</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 방도 다시 만들어야 해요. 복구 키가 있다면 취소하고 키를 사용하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 방도 다시 만들어야 해요. 계정에 기기가 있으면 이 컴퓨터는 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1963,6 +1983,10 @@
         <translation>Kodosi가 업데이트됐어요. 새 버전을 쓰려면 다시 시작하세요.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1에서 새로 시작하려고 해요. 직접 요청한 게 아니라면 중지하세요.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1에서 내 계정에 접근하려고 해요.</translation>
     </message>
@@ -1993,6 +2017,10 @@
     <message>
         <source>Approve…</source>
         <translation>승인…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>확인…</translation>
     </message>
     <message>
         <source>Show code</source>
