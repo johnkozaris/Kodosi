@@ -41,6 +41,39 @@ struct Area {
     height: f64,
 }
 
+/// What the pictures need of a page: the browser's host page, or a page of a test.
+trait Page: Send {
+    fn run(&mut self, script: &str) -> impl Future<Output = Result<(), Text>> + Send;
+    fn message(&mut self) -> impl Future<Output = Option<String>> + Send;
+    fn hold(&mut self, width: f64, height: f64) -> impl Future<Output = Result<bool, Text>> + Send;
+    fn picture(&self, area: &Area) -> impl Future<Output = Result<Vec<u8>, Text>> + Send;
+}
+
+impl Page for HostPage {
+    async fn run(&mut self, script: &str) -> Result<(), Text> {
+        Self::run(self, script)
+            .await
+            .map(drop)
+            .map_err(|problem| Text::plain(problem.to_string()))
+    }
+
+    async fn message(&mut self) -> Option<String> {
+        Self::message(self).await
+    }
+
+    async fn hold(&mut self, width: f64, height: f64) -> Result<bool, Text> {
+        Self::hold(self, width, height)
+            .await
+            .map_err(|problem| Text::plain(problem.to_string()))
+    }
+
+    async fn picture(&self, area: &Area) -> Result<Vec<u8>, Text> {
+        Self::picture(self, area.x, area.y, area.width, area.height)
+            .await
+            .map_err(|problem| Text::plain(problem.to_string()))
+    }
+}
+
 /// The size of the page that a view draws in.
 const fn page_size(view: DocumentView) -> (u32, u32) {
     match view {
@@ -151,39 +184,12 @@ async fn draw(
         pipe: documents.open(file, viewer).await?,
     };
     bridge.answer("ready").await?;
-    let mut areas = bridge.areas().await?;
-    let width = areas.iter().map(|area| area.width).fold(0.0, f64::max);
-    let height = areas.iter().map(|area| area.height).fold(0.0, f64::max);
-    let grew = bridge
-        .page
-        .hold(width, height)
-        .await
-        .map_err(|problem| Text::plain(problem.to_string()))?;
-    if grew {
-        areas = bridge.areas().await?;
-    }
-    tokio::fs::create_dir_all(out)
-        .await
-        .map_err(|problem| Text::plain(problem.to_string()))?;
-    let mut saved = Vec::new();
-    for (area, name) in areas.iter().zip(picture_names(file, areas.len())) {
-        let picture = bridge
-            .page
-            .picture(area.x, area.y, area.width, area.height)
-            .await
-            .map_err(|problem| Text::plain(problem.to_string()))?;
-        let path = out.join(name);
-        tokio::fs::write(&path, picture)
-            .await
-            .map_err(|problem| Text::plain(problem.to_string()))?;
-        saved.push(path);
-    }
-    Ok(saved)
+    bridge.save(file, out).await
 }
 
 /// The page of the views on one side and the document on the other.
-struct Bridge<'a> {
-    page: &'a mut HostPage,
+struct Bridge<'a, P> {
+    page: &'a mut P,
     pipe: PipeEnds,
 }
 
@@ -192,31 +198,56 @@ enum Step {
     Sent(Option<Vec<u8>>),
 }
 
-impl Bridge<'_> {
-    /// Where each picture is, as the view lays the file out now.
-    async fn areas(&mut self) -> Result<Vec<Area>, Text> {
+impl<P: Page> Bridge<'_, P> {
+    /// Saves a picture of each page in `out`. A view may show one page at a time, as a
+    /// presentation shows one slide, so each picture follows the view's answer for its page.
+    async fn save(&mut self, file: &Path, out: &Path) -> Result<Vec<PathBuf>, Text> {
+        let mut count = self.count().await?;
+        let (mut width, mut height) = (0.0_f64, 0.0_f64);
+        for index in 0..count {
+            let area = self.area(index).await?;
+            width = width.max(area.width);
+            height = height.max(area.height);
+        }
+        if self.page.hold(width, height).await? {
+            count = self.count().await?;
+        }
+        tokio::fs::create_dir_all(out)
+            .await
+            .map_err(|problem| Text::plain(problem.to_string()))?;
+        let mut saved = Vec::new();
+        for (index, name) in picture_names(file, count).into_iter().enumerate() {
+            let area = self.area(index).await?;
+            let picture = self.page.picture(&area).await?;
+            let path = out.join(name);
+            tokio::fs::write(&path, picture)
+                .await
+                .map_err(|problem| Text::plain(problem.to_string()))?;
+            saved.push(path);
+        }
+        Ok(saved)
+    }
+
+    /// How many pictures the view has, as it lays the file out now.
+    async fn count(&mut self) -> Result<usize, Text> {
         self.ask("kodosiRender.pictures()").await?;
         let count: usize = self
             .answer("pictures")
             .await?
             .parse()
             .map_err(|_| Text::plain("The view gave no pictures."))?;
-        let mut areas = Vec::new();
-        for index in 0..count.min(MOST_PICTURES) {
-            self.ask(&format!("kodosiRender.picture({index})")).await?;
-            let area = serde_json::from_str(&self.answer("picture").await?)
-                .map_err(|_| Text::plain("The view gave no place for a picture."))?;
-            areas.push(area);
-        }
-        Ok(areas)
+        Ok(count.min(MOST_PICTURES))
     }
 
-    async fn ask(&self, script: &str) -> Result<(), Text> {
-        self.page
-            .run(script)
-            .await
-            .map(drop)
-            .map_err(|problem| Text::plain(problem.to_string()))
+    /// Where one picture is, once the view shows it.
+    async fn area(&mut self, index: usize) -> Result<Area, Text> {
+        self.ask(&format!("kodosiRender.picture({index})")).await?;
+        serde_json::from_str(&self.answer("picture").await?)
+            .map_err(|_| Text::plain("The view gave no place for a picture."))
+    }
+
+    async fn ask(&mut self, script: &str) -> Result<(), Text> {
+        self.page.run(script).await
     }
 
     /// Carries frames both ways until the page says a message that starts with `word`.
@@ -289,5 +320,65 @@ mod tests {
     #[test]
     fn the_script_names_the_view_as_text() {
         assert!(script("xlsx").contains(r#"kind: "xlsx""#));
+    }
+
+    /// A presentation of three slides that shows the slide that the host asked for last.
+    #[derive(Default)]
+    struct Slides {
+        shown: u8,
+        said: std::collections::VecDeque<String>,
+    }
+
+    impl Page for Slides {
+        fn run(&mut self, script: &str) -> impl Future<Output = Result<(), Text>> + Send {
+            if script == "kodosiRender.pictures()" {
+                self.said.push_back("pictures 3".to_owned());
+            } else if let Some(index) = script
+                .strip_prefix("kodosiRender.picture(")
+                .and_then(|rest| rest.strip_suffix(')'))
+            {
+                self.shown = index.parse().unwrap();
+                let area = r#"{"x":0,"y":0,"width":160,"height":90}"#;
+                self.said.push_back(format!("picture {area}"));
+            }
+            std::future::ready(Ok(()))
+        }
+
+        fn message(&mut self) -> impl Future<Output = Option<String>> + Send {
+            std::future::ready(self.said.pop_front())
+        }
+
+        fn hold(
+            &mut self,
+            _width: f64,
+            _height: f64,
+        ) -> impl Future<Output = Result<bool, Text>> + Send {
+            std::future::ready(Ok(false))
+        }
+
+        fn picture(&self, _area: &Area) -> impl Future<Output = Result<Vec<u8>, Text>> + Send {
+            std::future::ready(Ok(vec![self.shown]))
+        }
+    }
+
+    #[tokio::test]
+    async fn each_picture_shows_its_own_slide() {
+        let out = tempfile::tempdir().unwrap();
+        let (sender, _sent) = tokio::sync::mpsc::channel(1);
+        let (_document, receiver) = tokio::sync::mpsc::channel(1);
+        let mut slides = Slides::default();
+        let mut bridge = Bridge {
+            page: &mut slides,
+            pipe: PipeEnds { sender, receiver },
+        };
+        let saved = bridge
+            .save(Path::new("deck.pptx"), out.path())
+            .await
+            .unwrap();
+        let pictures: Vec<Vec<u8>> = saved
+            .iter()
+            .map(|path| std::fs::read(path).unwrap())
+            .collect();
+        assert_eq!(pictures, [[0], [1], [2]]);
     }
 }
