@@ -14,7 +14,9 @@
         "line": { "default": null },
         "indent": { "default": null },
         "props": { "default": null },
-        "pageBreak": { "default": false }
+        "pageBreak": { "default": false },
+        "inserted": { "default": null },
+        "deleted": { "default": null }
       }
     },
     {

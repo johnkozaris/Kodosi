@@ -102,10 +102,10 @@ fn set_fields(shape: &mut Shape, fields: &ShapeFields) {
     shape.height = height.unwrap_or(shape.height);
     shape.rotation = rotation.unwrap_or(shape.rotation);
     shape.order = order.unwrap_or(shape.order);
-    if fill.is_some() {
+    if let Some(fill) = fill {
         shape.fill.clone_from(fill);
     }
-    if line.is_some() {
+    if let Some(line) = line {
         shape.line.clone_from(line);
     }
 }
@@ -188,7 +188,32 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
     Ok(())
 }
 
+/// Whether a write kept the kind of shape under its id, so that fields and text steps carry what
+/// changed. Another kind, name, geometry, picture, link or look of its text makes it a shape of
+/// its own.
+fn same_shape(old: &Shape, new: &Shape) -> bool {
+    old.name == new.name
+        && old.kind == new.kind
+        && old.placeholder == new.placeholder
+        && old.geometry == new.geometry
+        && old.asset == new.asset
+        && old.link == new.link
+        && old.look == new.look
+        && old.text.is_some() == new.text.is_some()
+}
+
 fn shape_changes(slide: &str, old: &Shape, new: &Shape, out: &mut Vec<Change>) {
+    if !same_shape(old, new) {
+        out.push(Change::RemoveShape {
+            slide: slide.to_owned(),
+            shape: old.id.clone(),
+        });
+        out.push(Change::AddShape {
+            slide: slide.to_owned(),
+            shape: new.snapshot(),
+        });
+        return;
+    }
     let mut fields = ShapeFields::default();
     if (old.x, old.y) != (new.x, new.y) {
         fields.x = Some(new.x);
@@ -202,7 +227,13 @@ fn shape_changes(slide: &str, old: &Shape, new: &Shape, out: &mut Vec<Change>) {
         fields.rotation = Some(new.rotation);
     }
     if old.fill != new.fill {
-        fields.fill.clone_from(&new.fill);
+        fields.fill = Some(new.fill.clone());
+    }
+    if old.line != new.line {
+        fields.line = Some(new.line.clone());
+    }
+    if old.order != new.order {
+        fields.order = Some(new.order);
     }
     if fields != ShapeFields::default() {
         out.push(Change::Shape {

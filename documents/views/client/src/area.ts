@@ -6,7 +6,10 @@ export interface Area {
   height: number;
 }
 
-/** The pictures of a rendering: how many there are, then the area of each one. */
+/**
+ * The pictures of a rendering: how many there are, then the area of each one. A view may show
+ * only the page that it gave last, as a presentation shows one slide.
+ */
 export interface Pictures {
   pictures(): Promise<number>;
   picture(index: number): Promise<Area>;

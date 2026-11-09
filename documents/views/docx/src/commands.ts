@@ -281,23 +281,44 @@ interface Tracked {
   mark: Mark;
 }
 
+/** The attributes of a paragraph that say whether the mark that ends it is a tracked change. */
+const ENDS = ["inserted", "deleted"] as const;
+
+/** A paragraph whose ending mark is a tracked change, with the attribute that says so. */
+interface TrackedEnd {
+  pos: number;
+  name: (typeof ENDS)[number];
+}
+
 function isChange(mark: Mark): boolean {
   return mark.type.name === "insertion" || mark.type.name === "deletion";
 }
 
+function endsOf(node: ProseNode, pos: number): TrackedEnd[] {
+  return ENDS.filter((name) => node.attrs[name] != null).map((name) => ({ pos, name }));
+}
+
+function hasChangedEnd(node: ProseNode): boolean {
+  return ENDS.some((name) => node.attrs[name] != null);
+}
+
 /**
  * The runs of changed text of a textblock whose content starts at `start`, with neighbors
- * joined, so a replacement (a deletion next to an insertion) is one change.
+ * joined, so a replacement (a deletion next to an insertion) is one change. A changed mark at
+ * the end of the block is a run of no length there.
  */
 function changeRunsIn(block: ProseNode, start: number): { from: number; to: number }[] {
   const runs: { from: number; to: number }[] = [];
-  block.forEach((node, offset) => {
-    if (!node.marks.some(isChange)) return;
-    const from = start + offset;
+  const add = (from: number, to: number) => {
     const last = runs.at(-1);
-    if (last && last.to === from) last.to = from + node.nodeSize;
-    else runs.push({ from, to: from + node.nodeSize });
+    if (last && last.to === from) last.to = to;
+    else runs.push({ from, to });
+  };
+  block.forEach((node, offset) => {
+    if (node.marks.some(isChange)) add(start + offset, start + offset + node.nodeSize);
   });
+  const end = start + block.content.size;
+  if (hasChangedEnd(block)) add(end, end);
   return runs;
 }
 
@@ -318,7 +339,9 @@ export function changeNear(
     return false;
   });
   const { from, to } = state.selection;
-  return forward ? runs.find((run) => run.from >= to) : runs.findLast((run) => run.to <= from);
+  return forward
+    ? runs.find((run) => run.from > to || (run.from === to && run.to > to))
+    : runs.findLast((run) => run.to < from || (run.to === from && run.from < from));
 }
 
 /** Selects the next or the previous tracked change, and shows it. */
@@ -327,55 +350,91 @@ export function goToChange(editor: Editor, forward: boolean): void {
   if (run) editor.chain().focus().setTextSelection(run).scrollIntoView().run();
 }
 
-/** The tracked changes in the selection, or the changes that touch the caret. */
-function changesAt(state: EditorState, all: boolean): Tracked[] {
+/**
+ * The tracked changes in the selection, or the changes that touch the caret: the changed text,
+ * and the paragraphs whose changed ending mark lies in it.
+ */
+function changesAt(state: EditorState, all: boolean): { words: Tracked[]; ends: TrackedEnd[] } {
   let { from, to } = all ? { from: 0, to: state.doc.content.size } : state.selection;
+  const words: Tracked[] = [];
+  const ends: TrackedEnd[] = [];
   if (!all && from === to) {
     const run = changeRunAt(state.doc.resolve(from));
-    if (!run) return [];
+    if (!run) return { words, ends };
     ({ from, to } = run);
   }
-  const changes: Tracked[] = [];
   state.doc.nodesBetween(from, to, (node, position) => {
+    if (node.isTextblock) {
+      const end = position + 1 + node.content.size;
+      if (from <= end && end <= to) ends.push(...endsOf(node, position));
+      return true;
+    }
     if (!node.isInline) return;
     for (const mark of node.marks.filter(isChange)) {
-      changes.push({
+      words.push({
         from: Math.max(position, from),
         to: Math.min(position + node.nodeSize, to),
         mark,
       });
     }
   });
-  return changes;
+  return { words, ends };
 }
 
 export function hasChanges(doc: ProseNode): boolean {
   let found = false;
   doc.descendants((node) => {
-    if (!found && node.isInline && node.marks.some(isChange)) found = true;
+    if (!found && (node.marks.some(isChange) || hasChangedEnd(node))) found = true;
     return !found;
   });
   return found;
 }
 
 export function canDecide(state: EditorState): boolean {
-  return changesAt(state, false).length > 0;
+  const { words, ends } = changesAt(state, false);
+  return words.length > 0 || ends.length > 0;
+}
+
+/**
+ * Takes away the mark that ends the paragraph at `pos`: the paragraph goes when nothing is left
+ * of it, and else it joins the paragraph after it. The last block of the body or of a cell, and
+ * a paragraph before a table, keep their mark and lose only its change.
+ */
+function removeEnd(transaction: Transaction, pos: number, name: TrackedEnd["name"]): void {
+  const node = transaction.doc.nodeAt(pos);
+  if (!node) return;
+  const end = pos + node.nodeSize;
+  if (node.content.size === 0 && transaction.doc.resolve(pos).parent.childCount > 1) {
+    transaction.delete(pos, end);
+    return;
+  }
+  transaction.setNodeAttribute(pos, name, null);
+  if (node.content.size > 0 && transaction.doc.resolve(end).nodeAfter?.type.name === "paragraph") {
+    transaction.join(end);
+  }
 }
 
 /**
  * The one step that accepts or rejects tracked changes, which undo takes back. An accepted
- * insertion and a rejected deletion lose their mark, and the text of the others goes.
+ * insertion and a rejected deletion lose their mark. The text of the others goes, and then the
+ * marks that end paragraphs.
  */
 export function decision(state: EditorState, accept: boolean, all: boolean): Transaction | null {
-  const changes = changesAt(state, all);
-  if (changes.length === 0) return null;
-  const stays = (change: Tracked) => (change.mark.type.name === "insertion") === accept;
+  const { words, ends } = changesAt(state, all);
+  if (words.length === 0 && ends.length === 0) return null;
+  const stays = (name: string) => (name === "insertion" || name === "inserted") === accept;
   const transaction = state.tr;
-  for (const change of changes.filter(stays)) {
+  for (const change of words.filter((change) => stays(change.mark.type.name))) {
     transaction.removeMark(change.from, change.to, change.mark);
   }
-  for (const change of changes.filter((change) => !stays(change)).reverse()) {
+  for (const end of ends.filter((end) => stays(end.name))) {
+    transaction.setNodeAttribute(end.pos, end.name, null);
+  }
+  for (const change of words.filter((change) => !stays(change.mark.type.name)).reverse()) {
     transaction.delete(transaction.mapping.map(change.from), transaction.mapping.map(change.to));
+  }
+  for (const end of ends.filter((end) => !stays(end.name)).reverse()) {
+    removeEnd(transaction, transaction.mapping.map(end.pos), end.name);
   }
   return transaction;
 }

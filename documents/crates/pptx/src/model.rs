@@ -68,7 +68,8 @@ pub struct Model {
     pub(crate) theme: Value,
 }
 
-/// The fields of a shape that a key names. What a change does not name stays.
+/// The fields of a shape that a key names. What a change does not name stays. A fill or a line
+/// that a change names as null goes.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShapeFields {
@@ -82,12 +83,29 @@ pub struct ShapeFields {
     pub height: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub line: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "named"
+    )]
+    pub fill: Option<Option<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "named"
+    )]
+    pub line: Option<Option<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order: Option<u64>,
+}
+
+/// A field that a change names, with null as a value of its own.
+fn named<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 /// One change. Fields and orders name a key, so the last one wins. Text names positions in one

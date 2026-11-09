@@ -38,6 +38,40 @@ test("a decision at the caret takes the whole replacement there and nothing else
   expect(hasChanges(rejected.child(0))).toBe(false);
 });
 
+/** An agent's tracked paragraph between two of a person's, with the caret at its start. */
+function tracked(end: "inserted" | "deleted", text: string): EditorState {
+  const by = { author: "Agent", date: "" };
+  const mark = schema.mark(end === "inserted" ? "insertion" : "deletion", by);
+  const doc = schema.node("doc", null, [
+    schema.node("paragraph", null, [schema.text("Before")]),
+    schema.node("paragraph", { [end]: by }, text ? [schema.text(text, [mark])] : []),
+    schema.node("paragraph", null, [schema.text("After")]),
+  ]);
+  const caret = 1 + "Before".length + 2;
+  return EditorState.create({ doc, selection: TextSelection.create(doc, caret) });
+}
+
+test("a decision at a tracked paragraph takes its words and the mark that ends it", () => {
+  for (const text of ["Added", ""]) {
+    for (const end of ["inserted", "deleted"] as const) {
+      const state = tracked(end, text);
+      expect(hasChanges(state.doc)).toBe(true);
+      const gone = state.apply(decision(state, end === "deleted", false) ?? state.tr).doc;
+      expect(gone.childCount).toBe(2);
+      expect(hasChanges(gone)).toBe(false);
+      const kept = state.apply(decision(state, end === "inserted", false) ?? state.tr).doc;
+      expect(kept.child(1).textContent).toBe(text);
+      expect(hasChanges(kept)).toBe(false);
+    }
+  }
+});
+
+test("an empty tracked paragraph at the caret is no next or previous change", () => {
+  const state = tracked("inserted", "");
+  expect(changeNear(state, true)).toBeUndefined();
+  expect(changeNear(state, false)).toBeUndefined();
+});
+
 test("the next and the previous change step over the change at the caret", () => {
   const state = replaced();
   const second = changeNear(state, true);

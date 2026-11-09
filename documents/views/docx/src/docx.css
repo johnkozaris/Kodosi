@@ -70,6 +70,14 @@
   text-decoration: line-through;
 }
 
+.docx-page p[data-inserted] {
+  background: rgb(11 122 59 / 0.08);
+}
+
+.docx-page p[data-deleted] {
+  background: rgb(181 48 77 / 0.08);
+}
+
 .docx-page .page-space {
   display: block;
   user-select: none;

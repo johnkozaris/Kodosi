@@ -20,6 +20,15 @@ const LAYOUT_KIND: &str =
 const SLIDE_TYPE: &str = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml";
 const PRESENTATION_RELATIONS: &str = "ppt/_rels/presentation.xml.rels";
 const CONTENT_TYPES: &str = "[Content_Types].xml";
+/// The fills of a shape, of which its properties hold one at most.
+const FILLS: [&str; 6] = [
+    "noFill",
+    "solidFill",
+    "gradFill",
+    "blipFill",
+    "pattFill",
+    "grpFill",
+];
 
 fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
@@ -350,10 +359,14 @@ fn patch_shape(
         && let Some(properties) = properties
         && let Some(color) = &new.fill
     {
-        if let Some(solid) = local(properties, "solidFill") {
-            edits.push((solid.range(), fill_xml(color)));
-        } else if let Some(geometry) =
-            local(properties, "prstGeom").or_else(|| local(properties, "xfrm"))
+        let fill = properties
+            .children()
+            .find(|child| child.is_element() && FILLS.contains(&child.tag_name().name()));
+        if let Some(fill) = fill {
+            edits.push((fill.range(), fill_xml(color)));
+        } else if let Some(geometry) = local(properties, "prstGeom")
+            .or_else(|| local(properties, "custGeom"))
+            .or_else(|| local(properties, "xfrm"))
         {
             let at = geometry.range().end;
             edits.push((at..at, fill_xml(color)));

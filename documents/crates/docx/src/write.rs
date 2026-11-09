@@ -375,12 +375,13 @@ impl Out<'_> {
         Ok(read(parsed.root_element()))
     }
 
-    fn paragraph_props(&self, node: &Node) -> Result<String, String> {
+    fn paragraph_props(&mut self, node: &Node) -> Result<String, String> {
         let raw = match text_attr(node, "props") {
             Some(name) => self.raw(name)?.to_owned(),
             None => String::new(),
         };
         let wanted = |name: &str| text_attr(node, name).map(str::to_owned);
+        let change = |name: &str| node.attrs().get(name).cloned().unwrap_or(Value::Null);
         let wanted = ParagraphLook {
             style: wanted("style"),
             align: wanted("align"),
@@ -388,10 +389,14 @@ impl Out<'_> {
             level: wanted("ilvl"),
             line: wanted("line"),
             indent: wanted("indent"),
+            inserted: change("inserted"),
+            deleted: change("deleted"),
         };
+        let changes = self.mark_changes(&wanted);
         if raw.is_empty() {
             let mut children = Vec::new();
             add_paragraph_look(&wanted, &mut children);
+            add_mark_props(&changes, &mut children);
             return Ok(wrapped("pPr", children));
         }
         self.parse_piece(&raw, |properties| {
@@ -399,6 +404,8 @@ impl Out<'_> {
             if current == wanted {
                 return raw.clone();
             }
+            let mut marked =
+                (&current.inserted, &current.deleted) == (&wanted.inserted, &wanted.deleted);
             let mut missing = wanted;
             let mut children = Vec::new();
             for child in properties.children().filter(Xml::is_element) {
@@ -435,6 +442,9 @@ impl Out<'_> {
                         let gone = ["start", "left", "startChars", "leftChars"];
                         with_attributes(child, xml, &gone, &indent)
                     }
+                } else if is_word(child, "rPr") && !marked {
+                    marked = true;
+                    mark_props(child, xml, &changes)
                 } else {
                     Some(xml.to_owned())
                 };
@@ -443,8 +453,25 @@ impl Out<'_> {
                 }
             }
             add_paragraph_look(&missing, &mut children);
+            if !marked {
+                add_mark_props(&changes, &mut children);
+            }
             wrapped("pPr", children)
         })
+    }
+
+    /// The tracked changes of the mark that ends a paragraph, each with an id of its own.
+    fn mark_changes(&mut self, look: &ParagraphLook) -> String {
+        let mut xml = String::new();
+        for (tag, change) in [("ins", &look.inserted), ("del", &look.deleted)] {
+            if change.is_object() {
+                let text =
+                    |name: &str| change.get(name).and_then(Value::as_str).unwrap_or_default();
+                let attributes = self.change_attributes(text("author"), text("date"));
+                let _ = write!(xml, "<w:{tag}{attributes}/>");
+            }
+        }
+        xml
     }
 
     fn paragraph(&mut self, node: &Node) -> Result<String, String> {
@@ -486,13 +513,22 @@ impl Out<'_> {
     }
 
     fn change_open(&mut self, tag: &str, mark: &Mark) -> String {
+        let attributes = self.change_attributes(
+            mark_text(mark, "author").unwrap_or_default(),
+            mark_text(mark, "date").unwrap_or_default(),
+        );
+        format!("<w:{tag}{attributes}>")
+    }
+
+    /// A new id, the author and the date of a tracked change. A change with no date has none.
+    fn change_attributes(&mut self, author: &str, date: &str) -> String {
         let id = self.next_change;
         self.next_change += 1;
-        format!(
-            r#"<w:{tag} w:id="{id}" w:author="{}" w:date="{}">"#,
-            escape(mark_text(mark, "author").unwrap_or_default()),
-            escape(mark_text(mark, "date").unwrap_or_default()),
-        )
+        let mut attributes = format!(r#" w:id="{id}" w:author="{}""#, escape(author));
+        if !date.is_empty() {
+            let _ = write!(attributes, r#" w:date="{}""#, escape(date));
+        }
+        attributes
     }
 
     fn link_open(&mut self, link: &Mark) -> String {
@@ -996,6 +1032,27 @@ fn add_run_look(look: &RunLook, children: &mut Vec<(usize, String)>) {
             "vertAlign",
             r#"<w:vertAlign w:val="subscript"/>"#.to_owned(),
         );
+    }
+}
+
+/// The properties of the mark that ends a paragraph, with these tracked changes first in place of
+/// its own, or nothing when none are left.
+fn mark_props(properties: Xml<'_, '_>, xml: &str, changes: &str) -> Option<String> {
+    let kept: String = properties
+        .children()
+        .filter(|child| child.is_element() && !is_word(*child, "ins") && !is_word(*child, "del"))
+        .map(|child| &xml[shifted(properties, child)])
+        .collect();
+    let inner = format!("{changes}{kept}");
+    (!inner.is_empty()).then(|| format!("<w:rPr>{inner}</w:rPr>"))
+}
+
+fn add_mark_props(changes: &str, children: &mut Vec<(usize, String)>) {
+    if !changes.is_empty() {
+        children.push((
+            rank(PARAGRAPH_ORDER, "rPr"),
+            format!("<w:rPr>{changes}</w:rPr>"),
+        ));
     }
 }
 

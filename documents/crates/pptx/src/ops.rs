@@ -449,7 +449,7 @@ pub(crate) fn to_changes(model: &Model, ops: &[Op]) -> Result<Vec<Change>, Strin
                     slide: slide.clone(),
                     shape: shape.clone(),
                     fields: ShapeFields {
-                        fill: Some(color.clone()),
+                        fill: Some(Some(color.clone())),
                         ..ShapeFields::default()
                     },
                 });

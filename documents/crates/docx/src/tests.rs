@@ -365,40 +365,50 @@ fn tracked_edits_become_tracked_changes_in_the_file() {
     assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 2);
 }
 
+/// Applies ops as an agent does with `--track`.
+fn tracked(model: &mut Model, ops: Vec<Op>) -> Result<Change, Refused> {
+    let change = Change::Ops {
+        ops,
+        track: true,
+        author: "Agent".to_owned(),
+    };
+    applied(model, change)
+}
+
+/// A person accepts or rejects tracked changes, and the saved file reads with none left.
+fn decided(model: &Model, file: &[u8], op: Op) -> Model {
+    let mut model = model.clone();
+    let change = Change::Ops {
+        ops: vec![op],
+        track: false,
+        author: "Ana".to_owned(),
+    };
+    applied(&mut model, change).unwrap();
+    let again = read(&saved(&model, file));
+    assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 0);
+    again
+}
+
 #[test]
 fn a_decision_keeps_one_side_of_each_tracked_change() {
     let file = docx_file(THREE);
-    let tracked = |model: &mut Model| {
-        let change = Change::Ops {
-            ops: vec![Op::ReplaceText {
-                find: "Last".to_owned(),
-                with: "Final".to_owned(),
-                block: None,
-                all: false,
-            }],
-            track: true,
-            author: "Agent".to_owned(),
-        };
-        applied(model, change).unwrap();
-    };
-    let decided = |model: &mut Model, op: Op| {
-        let change = Change::Ops {
-            ops: vec![op],
-            track: false,
-            author: "Ana".to_owned(),
-        };
-        applied(model, change).unwrap();
-        let again = read(&saved(model, &file));
-        assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 0);
-        again.doc.text_content()
-    };
-    let mut accepted = read(&file);
-    tracked(&mut accepted);
-    let text = decided(&mut accepted, Op::AcceptChanges { block: None });
+    let mut model = read(&file);
+    tracked(
+        &mut model,
+        vec![Op::ReplaceText {
+            find: "Last".to_owned(),
+            with: "Final".to_owned(),
+            block: None,
+            all: false,
+        }],
+    )
+    .unwrap();
+    let text = decided(&model, &file, Op::AcceptChanges { block: None })
+        .doc
+        .text_content();
     assert!(text.contains("Final") && !text.contains("Last"));
-    let mut rejected = read(&file);
-    tracked(&mut rejected);
-    let text = decided(&mut rejected, Op::RejectChanges { block: None });
+    let mut rejected = decided(&model, &file, Op::RejectChanges { block: None });
+    let text = rejected.doc.text_content();
     assert!(text.contains("Last") && !text.contains("Final"));
     assert!(matches!(
         applied(
@@ -411,6 +421,124 @@ fn a_decision_keeps_one_side_of_each_tracked_change() {
         ),
         Err(Refused::Invalid(_))
     ));
+}
+
+#[test]
+fn a_tracked_paragraph_is_an_insertion_of_its_words_and_of_its_mark() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    let first = first_id(&model);
+    tracked(
+        &mut model,
+        vec![Op::InsertParagraph {
+            text: "Added".to_owned(),
+            after: Some(first),
+            style: Some("ListParagraph".to_owned()),
+        }],
+    )
+    .unwrap();
+    let new_file = saved(&model, &file);
+    assert!(part(&new_file, "word/document.xml").contains(concat!(
+        r#"<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:rPr><w:ins w:id="90000" w:author="Agent"/></w:rPr></w:pPr>"#,
+        r#"<w:ins w:id="90001" w:author="Agent"><w:r><w:t xml:space="preserve">Added</w:t></w:r></w:ins></w:p>"#,
+    )));
+    let again = read(&new_file);
+    assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 2);
+    let accepted = decided(&again, &new_file, Op::AcceptChanges { block: None });
+    assert_eq!(blocks(&accepted)[1]["text"], "Added");
+    assert_eq!(blocks(&accepted)[1]["style"], "ListParagraph");
+    let rejected = decided(&again, &new_file, Op::RejectChanges { block: None });
+    assert_eq!(blocks(&rejected), blocks(&read(&file)));
+}
+
+#[test]
+fn a_tracked_deletion_of_a_paragraph_strikes_its_words_and_its_mark() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    let last = blocks(&model)[2]["id"].as_str().unwrap().to_owned();
+    tracked(&mut model, vec![Op::DeleteBlock { block: last }]).unwrap();
+    let new_file = saved(&model, &file);
+    assert!(part(&new_file, "word/document.xml").contains(concat!(
+        r#"<w:p><w:pPr><w:rPr><w:del w:id="90000" w:author="Agent"/></w:rPr></w:pPr>"#,
+        r#"<w:del w:id="90001" w:author="Agent"><w:r><w:delText xml:space="preserve">Last</w:delText></w:r></w:del></w:p>"#,
+    )));
+    let again = read(&new_file);
+    let accepted = decided(&again, &new_file, Op::AcceptChanges { block: None });
+    assert_eq!(blocks(&accepted).len(), 2);
+    let rejected = decided(&again, &new_file, Op::RejectChanges { block: None });
+    assert_eq!(blocks(&rejected)[2]["text"], "Last");
+}
+
+#[test]
+fn a_tracked_cell_keeps_its_old_text_until_a_person_decides() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    steps_of(
+        &mut model,
+        vec![Op::InsertTable {
+            rows: vec![vec!["a".to_owned(), "b".to_owned()]],
+            after: None,
+        }],
+    );
+    let table = blocks(&model)[3]["id"].as_str().unwrap().to_owned();
+    tracked(
+        &mut model,
+        vec![Op::SetCell {
+            table,
+            row: 0,
+            column: 1,
+            text: "B".to_owned(),
+        }],
+    )
+    .unwrap();
+    let new_file = saved(&model, &file);
+    let again = read(&new_file);
+    assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 2);
+    let rows = |model: &Model| blocks(model)[3]["rows"].clone();
+    let accepted = decided(&again, &new_file, Op::AcceptChanges { block: None });
+    assert_eq!(rows(&accepted), json!([["a", "B"]]));
+    let rejected = decided(&again, &new_file, Op::RejectChanges { block: None });
+    assert_eq!(rows(&rejected), json!([["a", "b"]]));
+}
+
+#[test]
+fn a_look_or_a_table_changes_directly_under_track() {
+    let mut model = read(&docx_file(THREE));
+    let first = first_id(&model);
+    tracked(
+        &mut model,
+        vec![
+            Op::SetStyle {
+                block: first,
+                style: Some("Quote".to_owned()),
+            },
+            Op::InsertTable {
+                rows: vec![vec!["a".to_owned()]],
+                after: None,
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(blocks(&model)[0]["style"], "Quote");
+    let table = blocks(&model)[3]["id"].as_str().unwrap().to_owned();
+    tracked(&mut model, vec![Op::DeleteBlock { block: table }]).unwrap();
+    assert_eq!(blocks(&model).len(), 3);
+    assert_eq!(Docx::query(&model, Query::Check).0["trackedChanges"], 0);
+}
+
+#[test]
+fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragraphs() {
+    let file = docx_file(concat!(
+        r#"<w:p><w:pPr><w:rPr><w:ins w:id="1" w:author="Ana" w:date="2026-11-09T10:00:00Z"/></w:rPr></w:pPr>"#,
+        r#"<w:r><w:t xml:space="preserve">Hello </w:t></w:r></w:p><w:p><w:r><w:t>world</w:t></w:r></w:p>"#,
+    ));
+    let model = read(&file);
+    assert_eq!(saved(&model, &file), file);
+    assert_eq!(Docx::query(&model, Query::Check).0["trackedChanges"], 1);
+    let rejected = decided(&model, &file, Op::RejectChanges { block: None });
+    let all = blocks(&rejected);
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0]["text"], "Hello world");
 }
 
 #[test]
