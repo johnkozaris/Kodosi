@@ -10,11 +10,7 @@ use std::{
 use futures_util::{SinkExt as _, StreamExt as _};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::{
-    io::{AsyncReadExt as _, AsyncWriteExt as _},
-    net::TcpStream,
-    sync::{mpsc, oneshot},
-};
+use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::Error;
@@ -183,74 +179,4 @@ fn answer(
         drop(waiter.send(outcome));
     }
     true
-}
-
-/// The address of the browser's debug connection, once it answers on its port.
-pub(crate) async fn address_on(port: u16) -> Option<String> {
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).await.ok()?;
-    stream
-        .write_all(
-            format!("GET /json/version HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n").as_bytes(),
-        )
-        .await
-        .ok()?;
-    let mut answer = Vec::new();
-    let mut chunk = [0; 1024];
-    let body = loop {
-        if let Some(body) = whole_body(&answer) {
-            break body;
-        }
-        let read = tokio::time::timeout(CALL_LIMIT, stream.read(&mut chunk))
-            .await
-            .ok()?
-            .ok()?;
-        if read == 0 {
-            return None;
-        }
-        answer.extend_from_slice(&chunk[..read]);
-    };
-    let version: Value = serde_json::from_slice(body).ok()?;
-    version["webSocketDebuggerUrl"].as_str().map(str::to_owned)
-}
-
-/// The body of an HTTP answer, once all of it came. The debug port leaves the connection open
-/// after its answer.
-fn whole_body(answer: &[u8]) -> Option<&[u8]> {
-    let end = answer.windows(4).position(|end| end == b"\r\n\r\n")? + 4;
-    let header = std::str::from_utf8(&answer[..end]).ok()?;
-    let length: usize = header.lines().find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.eq_ignore_ascii_case("content-length")
-            .then(|| value.trim().parse().ok())?
-    })?;
-    answer.get(end..end + length)
-}
-
-#[cfg(test)]
-mod tests {
-    use tokio::net::TcpListener;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn the_address_comes_from_the_version_page() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let mut request = [0; 256];
-            let _read = stream.read(&mut request).await.unwrap();
-            stream
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 56\r\n\r\n{\"webSocketDebuggerUrl\":\"ws://127.0.0.1:1/devtools/b/1\"}",
-                )
-                .await
-                .unwrap();
-        });
-        assert_eq!(
-            address_on(port).await.as_deref(),
-            Some("ws://127.0.0.1:1/devtools/b/1")
-        );
-        server.await.unwrap();
-    }
 }
