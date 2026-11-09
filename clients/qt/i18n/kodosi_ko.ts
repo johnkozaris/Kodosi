@@ -641,12 +641,32 @@
         <translation>새로 시작…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>새로 시작하지 않기</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>복구 키</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>승인</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1에서 새로 시작하려고 해요</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>아무도 중지하지 않으면 %1 이후에 새로 시작할 수 있고, 내 모든 기기가 접근할 수 없게 돼요. 직접 요청한 게 아니라면 중지하세요.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>중지</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>이 컴퓨터는 %1 이후에 새로 시작할 수 있어요. 그때까지 다른 기기에서 중지할 수 있어요. 다른 기기가 아직 있다면 대신 그 기기에서 이 컴퓨터를 승인하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -701,6 +721,14 @@
         <translation>복구 키 만들기</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1을(를) 승인할까요?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>승인하면 그 기기가 내 모든 터미널, 방, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>새 복구 키를 만들까요?</translation>
     </message>
@@ -741,8 +769,8 @@
         <translation>새로 시작</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 방도 다시 만들어야 해요. 복구 키가 있다면 취소하고 키를 사용하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 방도 다시 만들어야 해요. 계정에 기기가 있으면 이 컴퓨터는 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1963,6 +1991,10 @@
         <translation>Kodosi가 업데이트됐어요. 새 버전을 쓰려면 다시 시작하세요.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1에서 새로 시작하려고 해요. 직접 요청한 게 아니라면 중지하세요.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1에서 내 계정에 접근하려고 해요.</translation>
     </message>
@@ -1993,6 +2025,10 @@
     <message>
         <source>Approve…</source>
         <translation>승인…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>확인…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2195,6 +2231,10 @@
         <translation>거절</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>차단…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>%1 님에게 요청을 보냈어요</translation>
     </message>
@@ -2223,8 +2263,12 @@
         <translation>제거…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>상대의 기기가 바뀌었어요. 공유하려면 다시 신뢰하세요.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>상대의 신원이 바뀌었어요. 상대가 보낸 새 초대로 확인하세요.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>상대의 신원이 바뀌었어요. 상대가 직접 알려 준 경우에만 신뢰하세요.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2247,12 +2291,32 @@
         <translation>%1 열기</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>차단됨</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>차단 해제</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>아직 친구가 없어요</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>초대를 보내거나 위에 사용자 이름을 추가하세요.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1을(를) 차단할까요?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>차단</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2263,8 +2327,8 @@
         <translation>제거</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요.</translation>
     </message>
 </context>
 <context>
@@ -2493,8 +2557,8 @@
         <translation>아직 여기에 터미널이 없어요</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>터미널을 추가해 보세요. 방에 있는 모두가 전체 권한을 가져요.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>터미널을 추가해 보세요. 방에 있는 친구들이 전체 권한을 가져요.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

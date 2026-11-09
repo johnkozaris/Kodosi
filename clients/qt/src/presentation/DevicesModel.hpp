@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 namespace kodosi {
 class Workspace;
@@ -20,6 +21,9 @@ class DevicesModel final : public QObject {
     Q_PROPERTY(QString newRecoveryKey READ newRecoveryKey NOTIFY changed)
     Q_PROPERTY(bool hasRecoveryKey READ hasRecoveryKey NOTIFY changed)
     Q_PROPERTY(QVariantList computers READ computers NOTIFY changed)
+    Q_PROPERTY(QString checkedLabel READ checkedLabel NOTIFY changed)
+    Q_PROPERTY(QVariantMap pendingReset READ pendingReset NOTIFY changed)
+    Q_PROPERTY(QVariantMap waitingReset READ waitingReset NOTIFY changed)
 
 public:
     explicit DevicesModel(Workspace& workspace);
@@ -35,12 +39,18 @@ public:
     QString newRecoveryKey() const { return m_newRecoveryKey; }
     bool hasRecoveryKey() const;
     QVariantList computers() const;
+    QString checkedLabel() const { return m_checkedLabel; }
+    QVariantMap pendingReset() const { return m_pendingReset; }
+    QVariantMap waitingReset() const;
 
     Q_INVOKABLE void revoke(const QString& deviceId);
     Q_INVOKABLE void approve(const QString& code);
+    Q_INVOKABLE void confirmApproval();
+    Q_INVOKABLE void dropApproval();
     Q_INVOKABLE void requestApproval();
     Q_INVOKABLE void cancelApproval();
     Q_INVOKABLE void startFresh();
+    Q_INVOKABLE void stopReset();
     Q_INVOKABLE void makeRecoveryKey();
     Q_INVOKABLE void useRecoveryKey(const QString& key);
     Q_INVOKABLE void copyNewRecoveryKey();
@@ -58,8 +68,13 @@ private:
     QVariantList m_devices;
     QVariantList m_requests;
     QStringList m_dismissedRequests;
+    QVariantMap m_pendingReset;
+    QString m_dismissedReset;
     QStringList m_hosts;
     QString m_approvalCode;
+    QString m_checkedCode;
+    QString m_checkedLabel;
+    QString m_checkRequest;
     QString m_notice;
     QString m_selfDeviceId;
     QString m_newRecoveryKey;

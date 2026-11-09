@@ -641,12 +641,32 @@
         <translation>重新开始…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>不重新开始</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>恢复密钥</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>批准</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 请求重新开始</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>如果没有人阻止，它可在 %1 之后重新开始，你的所有设备都将失去访问权限。除非是你自己请求的，否则请阻止它。</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>阻止</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>这台电脑可在 %1 之后重新开始。在此之前，你的其他设备可以阻止它。如果你还有其中一台设备，请改用它批准这台电脑，这样可以保留你的好友和房间。</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -701,6 +721,14 @@
         <translation>生成恢复密钥</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>批准 %1？</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>批准后，它可以使用你的所有终端、房间和好友。只有当那台设备在你手中时才批准。</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>生成新的恢复密钥？</translation>
     </message>
@@ -741,8 +769,8 @@
         <translation>重新开始</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建房间。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建房间。如果你的账号有设备，这台电脑需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1963,6 +1991,10 @@
         <translation>Kodosi 已更新。重启即可使用新版本。</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 请求重新开始。除非是你自己请求的，否则请阻止它。</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 想使用你的账号。</translation>
     </message>
@@ -1993,6 +2025,10 @@
     <message>
         <source>Approve…</source>
         <translation>批准…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>查看…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2195,6 +2231,10 @@
         <translation>拒绝</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>屏蔽…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>已向 %1 发送请求</translation>
     </message>
@@ -2223,8 +2263,12 @@
         <translation>移除…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>对方的设备已变更。重新信任对方后才能共享。</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>对方的身份已变更。请用对方发来的新邀请验证新身份。</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>对方的身份已变更。仅在对方告诉过你时才信任新身份。</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2247,12 +2291,32 @@
         <translation>打开 %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>已屏蔽</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>解除屏蔽</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>还没有好友</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>发送你的邀请，或在上方添加用户名。</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>屏蔽 %1？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>屏蔽</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的房间。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2263,8 +2327,8 @@
         <translation>移除</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>对方将无法再使用你共享的终端。</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。</translation>
     </message>
 </context>
 <context>
@@ -2493,8 +2557,8 @@
         <translation>这里还没有终端</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>添加一个。房间里的每个人都能完全控制它。</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>添加一个。房间里你的好友都能完全控制它。</translation>
     </message>
     <message>
         <source>Open a terminal</source>

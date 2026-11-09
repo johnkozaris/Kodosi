@@ -360,6 +360,10 @@ fn devices(event: &Value, hosts: &Value) -> String {
             "Run `kodosi devices link`, `kodosi devices recover`, or `kodosi devices reset` to start fresh.".to_owned(),
         );
     }
+    let now = i64::try_from(crate::identity::now_ms()).unwrap_or(i64::MAX);
+    if let Some(reset) = reset(event, now) {
+        lines.push(reset);
+    }
     let rows = event["devices"]
         .as_array()
         .into_iter()
@@ -388,13 +392,42 @@ fn devices(event: &Value, hosts: &Value) -> String {
     lines.join("\n")
 }
 
+fn reset(event: &Value, now: i64) -> Option<String> {
+    let reset = event.get("reset").filter(|reset| reset.is_object())?;
+    let left = reset["readyAtMs"]
+        .as_i64()
+        .unwrap_or_default()
+        .saturating_sub(now);
+    let minutes = left.saturating_add(59_999) / 60_000;
+    let when = match minutes {
+        ..=0 => "now".to_owned(),
+        1..60 => format!("in {minutes} min"),
+        _ => format!("in {} h", (minutes + 59) / 60),
+    };
+    Some(if reset["thisDevice"] == true {
+        format!(
+            "This device can start fresh {when}: run `kodosi devices reset` then. An approved device can stop it. With one of your devices, approve this device instead: run `kodosi devices link`."
+        )
+    } else {
+        format!(
+            "\"{}\" asked to start fresh. If nobody stops it, it can start fresh {when}, and every device of yours loses access.\nRun `kodosi devices reset-stop` to stop it.",
+            text(reset, "deviceLabel")
+        )
+    })
+}
+
 fn friends(event: &Value) -> String {
     let list = |key: &str| event[key].as_array().cloned().unwrap_or_default();
     let mut lines = Vec::new();
     let rows = list("friends")
         .iter()
         .map(|friend| {
-            let state = if friend["identityState"] == "changed" {
+            let state = if friend["inviteNeeded"] == true {
+                format!(
+                    "identity changed: kodosi friends verify {} <their invite>",
+                    text(friend, "handle")
+                )
+            } else if friend["identityState"] == "changed" {
                 format!(
                     "identity changed: kodosi friends trust {}",
                     text(friend, "handle")
@@ -417,6 +450,7 @@ fn friends(event: &Value) -> String {
     for (key, title, hint) in [
         ("incoming", "Requests to you", "kodosi friends accept"),
         ("outgoing", "Requests from you", "kodosi friends cancel"),
+        ("blocked", "Blocked", "kodosi friends unblock"),
     ] {
         let handles = list(key)
             .iter()
@@ -683,6 +717,24 @@ mod tests {
             "This device is not approved. Approve this device from one of your existing devices."
         ));
         assert!(listed.contains("kodosi devices link"));
+    }
+
+    #[test]
+    fn a_device_list_says_when_a_device_can_start_fresh_and_how_to_stop_it() {
+        let asked = |this: bool| json!({"reset":{"resetId":"r","deviceLabel":"Laptop","thisDevice":this,"requestedAtMs":0,"readyAtMs":3 * 60 * 60_000}});
+        assert_eq!(
+            reset(&asked(true), 60 * 60_000).as_deref(),
+            Some(
+                "This device can start fresh in 2 h: run `kodosi devices reset` then. An approved device can stop it. With one of your devices, approve this device instead: run `kodosi devices link`."
+            )
+        );
+        let other = reset(&asked(false), 3 * 60 * 60_000).unwrap();
+        assert!(other.starts_with(
+            "\"Laptop\" asked to start fresh. If nobody stops it, it can start fresh now,"
+        ));
+        assert!(other.contains("kodosi devices reset-stop"));
+        assert!(!other.contains("reset-allow"));
+        assert_eq!(reset(&json!({"reset":null}), 0), None);
     }
 
     #[test]

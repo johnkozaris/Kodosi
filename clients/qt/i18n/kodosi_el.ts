@@ -642,12 +642,32 @@
         <translation>Νέα αρχή…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Να μη γίνει νέα αρχή</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Κλειδί ανάκτησης</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Έγκριση</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Αν κανείς δεν το σταματήσει, μπορεί να κάνει νέα αρχή από %1, και όλες οι συσκευές σας χάνουν την πρόσβαση. Σταματήστε το, εκτός αν το ζητήσατε εσείς.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Διακοπή</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Από %1 αυτός ο υπολογιστής μπορεί να κάνει νέα αρχή. Μέχρι τότε, οι άλλες συσκευές σας μπορούν να το σταματήσουν. Αν έχετε ακόμα μία από αυτές, χρησιμοποιήστε την για να εγκρίνετε αυτόν τον υπολογιστή και κρατήστε τους φίλους και τα δωμάτιά σας.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -702,6 +722,14 @@
         <translation>Δημιουργία κλειδιού ανάκτησης</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>Έγκριση της συσκευής %1;</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Θα μπορεί έπειτα να χρησιμοποιεί όλα τα τερματικά, τα δωμάτια και τους φίλους σας. Εγκρίνετέ την μόνο αν κρατάτε αυτή τη συσκευή.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>Δημιουργία νέου κλειδιού ανάκτησης;</translation>
     </message>
@@ -742,8 +770,8 @@
         <translation>Νέα αρχή</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν έχετε κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε το: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα δωμάτιά σας. Αν ο λογαριασμός σας έχει συσκευές, αυτός ο υπολογιστής περιμένει μία ημέρα. Αν έχετε άλλη συσκευή ή κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε τα: κρατάτε τους φίλους και τα δωμάτιά σας.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1994,10 @@
         <translation>Το Kodosi ενημερώθηκε. Κάντε επανεκκίνηση για να χρησιμοποιήσετε τη νέα έκδοση.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>Η συσκευή %1 ζήτησε νέα αρχή. Σταματήστε την, εκτός αν τη ζητήσατε εσείς.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>Η συσκευή %1 θέλει να χρησιμοποιήσει τον λογαριασμό σας.</translation>
     </message>
@@ -1996,6 +2028,10 @@
     <message>
         <source>Approve…</source>
         <translation>Έγκριση…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Έλεγχος…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2202,6 +2238,10 @@
         <translation>Απόρριψη</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Αποκλεισμός…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Το αίτημα στάλθηκε στον χρήστη %1</translation>
     </message>
@@ -2230,8 +2270,12 @@
         <translation>Αφαίρεση…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Οι συσκευές του ατόμου άλλαξαν. Ορίστε το ξανά ως αξιόπιστο για να μοιραστείτε.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Η ταυτότητα του ατόμου άλλαξε. Επαληθεύστε την με μια νέα πρόσκληση από αυτό.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη μόνο αν σας το είπε το ίδιο.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2254,12 +2298,32 @@
         <translation>Άνοιγμα %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Αποκλεισμένοι</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Άρση αποκλεισμού</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Δεν έχετε φίλους ακόμη</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Στείλτε την πρόσκλησή σας ή προσθέστε ένα όνομα χρήστη παραπάνω.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>Αποκλεισμός %1;</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Αποκλεισμός</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Το άτομο δεν μπορεί να σας στέλνει αιτήματα φιλίας. Αν είστε φίλοι, σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2270,8 +2334,8 @@
         <translation>Αφαίρεση</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Χάνει τα τερματικά που μοιραστήκατε μαζί του.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει.</translation>
     </message>
 </context>
 <context>
@@ -2504,8 +2568,8 @@
         <translation>Δεν υπάρχουν ακόμη τερματικά εδώ</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Προσθέστε ένα. Όλοι στο δωμάτιο αποκτούν πλήρη έλεγχο.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Προσθέστε ένα. Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

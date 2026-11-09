@@ -10,9 +10,15 @@ public final class AccountStore {
     }
 
     public enum Approval: Equatable, Sendable {
+        case checking
+        case confirming(String)
         case approving
         case approved(String)
         case failed(String)
+
+        public var isBusy: Bool {
+            self == .checking || self == .approving
+        }
     }
 
     public private(set) var userId: String?
@@ -26,6 +32,7 @@ public final class AccountStore {
     public private(set) var devicesRevision = 0
     public private(set) var onlineHosts: Set<String> = []
     public private(set) var deviceRequests: [DeviceLinkRequest] = []
+    public private(set) var pendingReset: DeviceReset?
     public private(set) var approval: Approval?
     public private(set) var creatingRecoveryKey = false
     public private(set) var newRecoveryKey: String?
@@ -37,6 +44,8 @@ public final class AccountStore {
     public private(set) var credentialFolder: String?
 
     @ObservationIgnored public var notify: (String) -> Void = { _ in }
+    @ObservationIgnored private var checkedCode: String?
+    @ObservationIgnored private var checkRequest: String?
     @ObservationIgnored private let commands: CommandSink
     @ObservationIgnored private let browser: String
 
@@ -62,6 +71,11 @@ public final class AccountStore {
         devices.filter { $0.deviceId == selfDeviceId }
             + devices.filter { $0.deviceId != selfDeviceId && !$0.recoveryKey }
             + devices.filter(\.recoveryKey)
+    }
+
+    /// A start fresh that another device of the account waits for.
+    public var otherDeviceReset: DeviceReset? {
+        pendingReset.flatMap { $0.thisDevice ? nil : $0 }
     }
 
     public var hasRecoveryKey: Bool {
@@ -97,7 +111,10 @@ public final class AccountStore {
         devices = []
         onlineHosts = []
         deviceRequests = []
+        pendingReset = nil
         approval = nil
+        checkedCode = nil
+        checkRequest = nil
         creatingRecoveryKey = false
         newRecoveryKey = nil
         deletion = nil
@@ -151,6 +168,10 @@ public final class AccountStore {
                 stage = .trustingDevice(.choose)
             }
             commands.perform("devices.refresh")
+        case "devices.result" where event.string("operation") == "devices.link.check":
+            if approval == .checking, event.string("requestId") == checkRequest {
+                approval = .confirming(event.string("deviceLabel") ?? "")
+            }
         case "devices.link.resolved":
             if approval == .approving, event.string("outcome") == "approved" {
                 approval = .approved(event.string("deviceLabel") ?? "")
@@ -171,7 +192,8 @@ public final class AccountStore {
             deletion = nil
             deletionPage = nil
             return false
-        case "devices.link.approve" where approval == .approving:
+        case "devices.link.check" where approval == .checking && event.string("requestId") == checkRequest,
+             "devices.link.approve" where approval == .approving:
             approval = .failed(message)
             return true
         case "devices.recovery.create":
@@ -198,9 +220,18 @@ public final class AccountStore {
         localDeviceEnrolled = try event.value("localDeviceEnrolled")
         identityMessage = localDeviceEnrolled ? nil : event.string("notice")
         devices = try event.value("devices")
+        pendingReset = try event.payload["reset"].map { try $0.decode(as: DeviceReset?.self) } ?? nil
         devicesRevision += 1
-        if localDeviceEnrolled, case .trustingDevice = stage {
+        guard case let .trustingDevice(trust) = stage else { return }
+        if localDeviceEnrolled {
             stage = .signedIn
+        } else if let reset = pendingReset, reset.thisDevice {
+            switch trust {
+            case .choose, .resetting, .waiting: stage = .trustingDevice(.waiting(reset.readyAt))
+            case .requesting, .pendingApproval, .recovering, .failed: break
+            }
+        } else if case .waiting = trust {
+            stage = .trustingDevice(.choose)
         }
     }
 
@@ -320,6 +351,11 @@ public final class AccountStore {
         commands.perform("devices.reset")
     }
 
+    public func stopReset() {
+        guard let reset = pendingReset else { return }
+        commands.perform("devices.reset.cancel", ["resetId": .string(reset.resetId)])
+    }
+
     public func chooseTrust() {
         stage = .trustingDevice(.choose)
     }
@@ -334,15 +370,27 @@ public final class AccountStore {
         await RefreshWait.until { devicesRevision != revision }
     }
 
-    public func approveDevice(code: String) {
+    /// Asks which device shows the code, so that the person sees its name before approving it.
+    public func checkDevice(code: String) {
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty, approval != .approving else { return }
+        guard !code.isEmpty, approval?.isBusy != true else { return }
+        let request = UUIDv7.generate()
+        checkedCode = code
+        checkRequest = request
+        approval = .checking
+        commands.perform("devices.link.check", ["code": .string(code), "requestId": .string(request)])
+    }
+
+    public func confirmApproval() {
+        guard case .confirming = approval, let code = checkedCode else { return }
         approval = .approving
         commands.perform("devices.link.approve", ["code": .string(code)])
     }
 
     public func finishApproval() {
         approval = nil
+        checkedCode = nil
+        checkRequest = nil
     }
 
     public func revokeDevice(_ device: MyDeviceEntry) {

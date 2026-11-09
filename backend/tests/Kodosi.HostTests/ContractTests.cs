@@ -19,7 +19,8 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     private static readonly HashSet<string> SignInOnly =
     [
         "GET /api/me", "DELETE /api/me", "POST /api/me/devices/challenge", "POST /api/me/device-sessions", "POST /api/me/devices",
-        "GET /api/me/identity", "POST /api/me/identity/reset", "POST /api/devices/link/init", "POST /api/devices/link/poll",
+        "GET /api/me/identity", "POST /api/me/identity/reset", "GET /api/me/identity/reset", "DELETE /api/me/identity/reset/{requestId}",
+        "POST /api/devices/link/init", "POST /api/devices/link/poll",
         "POST /api/devices/link/ack", "DELETE /api/devices/link/requests/{requestId}", "GET /api/me/recovery-key", "POST /api/me/devices/recover",
     ];
 
@@ -72,10 +73,10 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     [Fact]
     public void TheTerminalRoomProofHasTheBytesOfTheSharedVector()
     {
-        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV1");
+        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV2");
         Guid Id(string name) => Guid.Parse(vector.GetProperty(name).GetString()!);
         var bytes = Proofs.TerminalRoom(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("roomId"),
-            vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
+            vector.GetProperty("history").GetString()!, vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
         Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
     }
 

@@ -642,12 +642,32 @@
         <translation>Empezar de cero…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>No empezar de cero</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Clave de recuperación</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Aprobar</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 pidió empezar de cero</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Si nadie lo detiene, puede empezar de cero a partir del %1, y todos tus dispositivos pierden el acceso. Detenlo, salvo que lo hayas pedido tú.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Detener</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Este ordenador puede empezar de cero a partir del %1. Hasta entonces, tus otros dispositivos pueden detenerlo. Si aún tienes uno de ellos, aprueba este ordenador con él y conserva tus amigos y salas.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -702,6 +722,14 @@
         <translation>Crear una clave de recuperación</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>¿Aprobar %1?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Luego podrá usar todos tus terminales, salas y amigos. Apruébalo solo si tienes ese dispositivo en tus manos.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>¿Crear una clave de recuperación nueva?</translation>
     </message>
@@ -742,8 +770,8 @@
         <translation>Empezar de cero</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este ordenador. Tus amigos tendrán que volver a confiar en ti y tendrás que crear tus salas de nuevo. Si tienes una clave de recuperación, cancela y úsala: así conservas tus amigos y salas.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este ordenador. Tus amigos tendrán que volver a confiar en ti y tendrás que crear tus salas de nuevo. Si tu cuenta tiene dispositivos, este ordenador espera un día. Si tienes otro dispositivo o una clave de recuperación, cancela y úsalo: así conservas tus amigos y salas.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1994,10 @@
         <translation>Kodosi se ha actualizado. Reinícialo para usar la nueva versión.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 pidió empezar de cero. Detenlo, salvo que lo hayas pedido tú.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 quiere usar tu cuenta.</translation>
     </message>
@@ -1996,6 +2028,10 @@
     <message>
         <source>Approve…</source>
         <translation>Aprobar…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Revisar…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2202,6 +2238,10 @@
         <translation>Rechazar</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Bloquear…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Solicitud enviada a %1</translation>
     </message>
@@ -2230,8 +2270,12 @@
         <translation>Quitar…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Sus dispositivos han cambiado. Vuelve a confiar en esta persona para compartir.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Su identidad ha cambiado. Verifícala con una invitación nueva de esta persona.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Su identidad ha cambiado. Confía en ella solo si esta persona te lo dijo.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2254,12 +2298,32 @@
         <translation>Abrir %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Bloqueados</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Desbloquear</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Aún no tienes amigos</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Envía tu invitación o añade un nombre de usuario arriba.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>¿Bloquear a %1?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Bloquear</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Esta persona no puede enviarte solicitudes de amistad. Si son amigos, se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2270,8 +2334,8 @@
         <translation>Quitar</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Pierde los terminales que has compartido con esta persona.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra. Kodosi no deshace los comandos que ya ha ejecutado.</translation>
     </message>
 </context>
 <context>
@@ -2504,8 +2568,8 @@
         <translation>Aún no hay terminales aquí</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Añade uno. Todos en la sala tendrán control total.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Añade uno. Tus amigos en la sala tendrán control total.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

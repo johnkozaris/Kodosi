@@ -1,4 +1,5 @@
 use super::*;
+use crate::identity::friends::{Friend, FriendList, Head, SignedFriendList};
 
 const REQUEST: &str = "11111111-1111-4111-8111-111111111111";
 
@@ -295,6 +296,56 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
     assert!(!publication.cancel.is_cancelled());
 }
 
+#[cfg(feature = "host")]
+#[test]
+fn the_people_of_a_room_never_become_the_host_s_own_choice() {
+    let (id, incarnation, room) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    let member = Uuid::now_v7().to_string();
+    let mut info = LocalPublication {
+        session_id: id,
+        incarnation_id: incarnation,
+        name: "shell".into(),
+        mission_id: Some(room),
+        room_sequence: 5,
+        shared_with: BTreeSet::new(),
+        restored_from: None,
+    };
+    let mut dto = SessionDto {
+        id,
+        incarnation_id: incarnation,
+        name: "shell".into(),
+        owner_user_id: Uuid::now_v7().to_string(),
+        owner_name: "owner".into(),
+        host_device_id: "host".into(),
+        host_name: "host".into(),
+        mission_id: Some(room),
+        mission_name: None,
+        shared_with: vec![member.clone()],
+        authorization_revision: 1,
+        host_online: true,
+        status: None,
+        room_sequence: 5,
+        room_choice: None,
+        hidden: false,
+        close_request: None,
+        restored_from: None,
+    };
+    let (_, shown) = follow_sharing(&mut info, &dto, None);
+    assert_eq!(shown, BTreeSet::from([member.clone()]));
+    assert!(info.shared_with.is_empty());
+
+    dto.mission_id = None;
+    let (_, shown) = follow_sharing(&mut info, &dto, Some((None, 5)));
+    assert!(shown.is_empty());
+    assert!(info.shared_with.is_empty());
+
+    info.shared_with.insert(member);
+    dto.shared_with.clear();
+    let (removed, shown) = follow_sharing(&mut info, &dto, None);
+    assert!(removed);
+    assert!(shown.is_empty());
+}
+
 #[test]
 fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert_eq!(
@@ -304,6 +355,18 @@ fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert!(normalize_host_label("  ").is_none());
     assert!(normalize_host_label("bad\nname").is_none());
     assert!(normalize_host_label(&"é".repeat(100)).unwrap().len() <= 128);
+    assert_eq!(
+        normalize_host_label("Studio\u{200B} \u{202E}Mac\u{FEFF}").as_deref(),
+        Some("Studio Mac")
+    );
+    assert_eq!(
+        normalize_host_label("a\u{200D}b").as_deref(),
+        Some("a\u{200D}b")
+    );
+    assert_eq!(
+        normalize_host_label(&format!("{} x", "a".repeat(127))).as_deref(),
+        Some("a".repeat(127).as_str())
+    );
 }
 
 #[tokio::test]
@@ -424,7 +487,7 @@ fn a_restarted_terminal_tells_the_server_which_terminal_it_replaces() {
     );
 }
 
-fn scripted_backend(
+pub(super) fn scripted_backend(
     listener: tokio::net::TcpListener,
     replies: Vec<(u16, Value)>,
 ) -> tokio::task::JoinHandle<Vec<String>> {
@@ -451,8 +514,14 @@ fn scripted_backend(
                         .and_then(|value| value.parse::<usize>().ok())
                 })
                 .unwrap_or(0);
-            reader.read_exact(&mut vec![0; length]).await.unwrap();
-            requests.push(head.lines().next().unwrap_or_default().to_owned());
+            let mut written = vec![0; length];
+            reader.read_exact(&mut written).await.unwrap();
+            let line = head.lines().next().unwrap_or_default();
+            requests.push(if written.is_empty() {
+                line.to_owned()
+            } else {
+                format!("{line} {}", String::from_utf8_lossy(&written))
+            });
             let body = if body.is_null() {
                 String::new()
             } else {
@@ -473,7 +542,7 @@ fn scripted_backend(
     })
 }
 
-async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, String) {
+pub(super) async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, String) {
     let root = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: format!("{address}/").parse().unwrap(),
@@ -503,8 +572,164 @@ async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, Strin
     (root, network, user)
 }
 
-fn compatible_server() -> (u16, Value) {
+pub(super) fn compatible_server() -> (u16, Value) {
     (200, crate::network::http::current_versions())
+}
+
+fn device_session_replies() -> [(u16, Value); 2] {
+    [
+        (
+            200,
+            json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])}),
+        ),
+        (200, json!({"session": "session"})),
+    ]
+}
+
+/// A signed-in device whose own identity is pinned and that keeps two friend lists: the
+/// first one, and a second one with Bob on top of it.
+async fn friends_kept_at(
+    address: &str,
+) -> (
+    tempfile::TempDir,
+    BackendClient,
+    Credentials,
+    IdentityBundle,
+    [SignedFriendList; 2],
+) {
+    let (keys, bundle) = crate::rooms::crypto_tests::person();
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.to_owned(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network
+        .verify_bundle(&bundle, Some(bundle.root().unwrap()))
+        .await
+        .unwrap();
+    let key = keys.signing_key().unwrap();
+    let mut list = FriendList::new(&bundle.user_id);
+    let (first, head) = list.sign(&Head::default(), &keys.device_id, &key).unwrap();
+    list.friends.insert(
+        Uuid::now_v7().to_string(),
+        Friend {
+            handle: "bob".into(),
+            root: None,
+            verified: false,
+        },
+    );
+    let (second, _) = list.sign(&head, &keys.device_id, &key).unwrap();
+    network
+        .inner
+        .state
+        .lock()
+        .await
+        .friend_lists
+        .put(&bundle.user_id, second.clone())
+        .unwrap();
+    let credentials = Credentials {
+        user_id: bundle.user_id.clone(),
+        display_name: "You".to_owned(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::new(keys),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    (root, network, credentials, bundle, [first, second])
+}
+
+#[tokio::test]
+async fn starting_fresh_on_an_account_with_devices_waits_and_keeps_the_identity() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, _) = signed_in_at(&address).await;
+    let device = network.credentials().unwrap().keys.device_id.clone();
+    network
+        .inner
+        .credentials
+        .write()
+        .unwrap()
+        .as_mut()
+        .unwrap()
+        .enrolled = false;
+    let pending = json!({"requestId": Uuid::now_v7(), "deviceId": device, "deviceLabel": "This computer",
+        "requestedAtMs": 1, "readyAtMs": 86_400_001, "ready": false});
+    let server = scripted_backend(
+        listener,
+        vec![compatible_server(), (200, pending.clone()), (200, pending)],
+    );
+    let reply = network.execute("devices.reset", request()).await.unwrap();
+    let list = reply
+        .events
+        .iter()
+        .find(|event| event["type"] == "devices.list")
+        .unwrap();
+    assert_eq!(list["localDeviceEnrolled"], false);
+    assert_eq!(list["reset"]["thisDevice"], true);
+    assert_eq!(list["reset"]["readyAtMs"], 86_400_001);
+    let requests = server.await.unwrap();
+    assert!(requests[1].starts_with("POST /api/me/identity/reset HTTP/1.1 "));
+    assert!(requests[1].contains(&device));
+    assert_eq!(requests[2], "GET /api/me/identity/reset HTTP/1.1");
+}
+
+#[tokio::test]
+async fn a_device_refuses_a_friend_list_that_does_not_continue_its_own() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, credentials, bundle, [first, kept]) = friends_kept_at(&address).await;
+    let (mut other, head) = FriendList::read(&first, &credentials.user_id).unwrap();
+    other.friends.insert(
+        Uuid::now_v7().to_string(),
+        Friend {
+            handle: "mallory".into(),
+            root: None,
+            verified: false,
+        },
+    );
+    let (fork, _) = other
+        .sign(
+            &head,
+            &credentials.keys.device_id,
+            &credentials.keys.signing_key().unwrap(),
+        )
+        .unwrap();
+    let mut replies = vec![compatible_server()];
+    replies.extend(device_session_replies());
+    replies.extend([
+        (200, json!({"revision": 2, "lists": [fork]})),
+        (200, serde_json::to_value(&bundle).unwrap()),
+    ]);
+    let server = scripted_backend(listener, replies);
+    assert!(matches!(
+        network.sync_friends(&credentials).await,
+        Err(Error::Trust(_))
+    ));
+    assert!(
+        server
+            .await
+            .unwrap()
+            .iter()
+            .all(|request| !request.starts_with("PUT"))
+    );
+    assert_eq!(
+        network
+            .inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .signed(&credentials.user_id),
+        Some(kept)
+    );
 }
 
 #[tokio::test]
@@ -883,5 +1108,73 @@ async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer(
     assert!(held);
     while let Ok(event) = events.try_recv() {
         assert_ne!(event.event["type"], "devices.link.selfResolved");
+    }
+}
+
+#[tokio::test]
+async fn a_device_uploads_its_kept_friend_list_only_to_a_server_without_one() {
+    use crate::identity::friends::{FriendList, Head};
+    for (stored, uploads) in [
+        ((404, json!({"error": "No friend list."})), true),
+        ((200, json!({"revision": 1, "lists": []})), false),
+    ] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = format!("http://{}", listener.local_addr().unwrap());
+        let (_root, network, user) = signed_in_at(&address).await;
+        let credentials = network.credentials().unwrap();
+        let key = credentials.keys.signing_key().unwrap();
+        let mut list = FriendList::new(&user);
+        let (_, first) = list
+            .sign(&Head::default(), &credentials.keys.device_id, &key)
+            .unwrap();
+        let (kept, _) = list
+            .sign(&first, &credentials.keys.device_id, &key)
+            .unwrap();
+        network
+            .inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .put(&user, kept)
+            .unwrap();
+        let mut replies = vec![
+            compatible_server(),
+            (
+                200,
+                json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])}),
+            ),
+            (200, json!({"session": "fixture-session"})),
+            stored,
+        ];
+        if uploads {
+            replies.push((204, Value::Null));
+        }
+        let server = scripted_backend(listener, replies);
+        let synced = network.sync_friends(&credentials).await;
+        let requests = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap();
+        if uploads {
+            assert_eq!(synced.unwrap().1.revision, 3);
+            assert!(
+                requests
+                    .last()
+                    .unwrap()
+                    .starts_with("PUT /api/me/friend-list HTTP/1.1")
+            );
+        } else {
+            assert!(
+                matches!(synced, Err(Error::Trust(_))),
+                "the server is behind this device"
+            );
+            assert!(
+                requests
+                    .last()
+                    .unwrap()
+                    .starts_with("GET /api/me/friend-list?after=1 HTTP/1.1")
+            );
+        }
     }
 }

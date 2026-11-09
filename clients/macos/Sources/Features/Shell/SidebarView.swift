@@ -342,13 +342,13 @@ struct AccountCapsule: View {
                     PersonAvatar(name: deps.account.selfName, size: 24, isSelf: true)
                     Text(deps.account.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Spacer(minLength: 0)
-                    if !deps.account.deviceRequests.isEmpty {
+                    if !deps.account.deviceRequests.isEmpty || deps.account.otherDeviceReset != nil {
                         StatusSign(form: .hand).transition(AnyTransition.pop)
                     }
                 }
                 .padding(.horizontal, 5).frame(height: 34)
                 .hoverRow()
-                .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty)
+                .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty && deps.account.otherDeviceReset == nil)
             }
             .buttonStyle(PressScaleStyle(scale: 0.98))
             .tip("Account").accessibilityLabel(Text("Account"))

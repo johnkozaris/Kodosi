@@ -7,16 +7,18 @@ use super::{
     invalid, json, path_segment, untrusted, wire,
 };
 use crate::identity::{
-    friends::{Friend, FriendList, SignedFriendList, invite, parse_invite, root_hex},
+    friends::{
+        Chain, Friend, FriendList, Head, Newest, SignedFriendList, broken, invite, parse_invite,
+        root_hex,
+    },
     pins::Root,
 };
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct StoredList {
+struct StoredLists {
     revision: u64,
-    body: String,
-    signature: String,
+    lists: Vec<SignedFriendList>,
 }
 
 impl BackendClient {
@@ -29,56 +31,107 @@ impl BackendClient {
             .get(&credentials.user_id)
     }
 
-    async fn sync_friends(&self, credentials: &Credentials) -> Result<(FriendList, u64)> {
-        let kept = self.kept_friends(credentials).await?;
-        let stored = match self
+    async fn stored_friends(
+        &self,
+        credentials: &Credentials,
+        after: Option<u64>,
+    ) -> Result<Option<StoredLists>> {
+        let path = after.map_or_else(
+            || "api/me/friend-list".to_owned(),
+            |after| format!("api/me/friend-list?after={after}"),
+        );
+        match self
             .inner
             .http
-            .device::<StoredList>(Method::GET, "api/me/friend-list", credentials, None)
+            .device(Method::GET, &path, credentials, None)
             .await
         {
-            Ok(stored) => Some(stored),
-            Err(Error::Backend { status: 404, .. }) => None,
-            Err(error) => return Err(error),
-        };
-        let kept_revision = kept.as_ref().map_or(0, |list| list.revision);
-        let Some(stored) = stored else {
-            let list = kept.unwrap_or_else(|| FriendList::new(&credentials.user_id));
-            if kept_revision == 0 {
-                return Ok((list, 0));
+            Ok(stored) => Ok(Some(stored)),
+            Err(Error::Backend { status: 404, .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(super) async fn sync_friends(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<(FriendList, Head)> {
+        for _ in 0..3 {
+            match self.follow_friends(credentials).await {
+                Err(Error::Backend { status: 409, .. }) => {}
+                result => return result,
             }
-            let list = self
-                .put_friends(credentials, list, kept_revision, 0)
-                .await?;
-            return Ok((list, kept_revision));
+        }
+        Err(Error::Busy)
+    }
+
+    async fn follow_friends(&self, credentials: &Credentials) -> Result<(FriendList, Head)> {
+        let user = &credentials.user_id;
+        let kept = self.inner.state.lock().await.friend_lists.signed(user);
+        let kept_head = kept
+            .as_ref()
+            .map(|kept| FriendList::read(kept, user))
+            .transpose()?;
+        let stored = self
+            .stored_friends(
+                credentials,
+                kept_head
+                    .as_ref()
+                    .map(|(_, head)| head.revision.saturating_sub(1)),
+            )
+            .await?;
+        let Some(mut stored) = stored else {
+            return match kept_head {
+                Some((list, head)) => self.put_friends(credentials, list, &head, 0).await,
+                None => Ok((FriendList::new(user), Head::default())),
+            };
         };
+        if kept_head
+            .as_ref()
+            .is_some_and(|(_, head)| stored.revision < head.revision)
+        {
+            return Err(broken());
+        }
         let bundle: IdentityBundle = self
             .inner
             .http
             .bearer(Method::GET, "api/me/identity", &credentials.token, None)
             .await?;
         let own = self.verify_bundle(&bundle, None).await?;
-        let signed = SignedFriendList {
-            body: stored.body,
-            signature: stored.signature,
-        };
-        match FriendList::open(&signed, &credentials.user_id, &own.devices) {
-            Ok(list) if list.revision >= kept_revision => {
-                self.inner
-                    .state
-                    .lock()
-                    .await
-                    .friend_lists
-                    .put(&credentials.user_id, signed)?;
-                Ok((list, stored.revision))
+        let pins = std::sync::Arc::clone(&self.inner.state.lock().await.pins);
+        let removed = pins.lock().map_err(|_| Error::Closed)?.revoked(user);
+        let mut chain = Chain::new(user, &own.devices, &removed);
+        if let Some(kept) = kept {
+            chain.anchor(kept)?;
+        }
+        loop {
+            let more = !stored.lists.is_empty();
+            for signed in stored.lists {
+                chain.follow(signed)?;
             }
-            Ok(_) | Err(_) => {
-                let list = kept.unwrap_or_else(|| FriendList::new(&credentials.user_id));
-                let revision = kept_revision.max(stored.revision) + 1;
-                let list = self
-                    .put_friends(credentials, list, revision, stored.revision)
-                    .await?;
-                Ok((list, revision))
+            if !more || chain.revision() >= stored.revision {
+                break;
+            }
+            stored = self
+                .stored_friends(credentials, Some(chain.revision()))
+                .await?
+                .ok_or(Error::Busy)?;
+        }
+        match chain.end()? {
+            Newest::Signed(list, head, signed) => {
+                if kept_head.is_none_or(|(_, kept)| kept != head) {
+                    self.inner
+                        .state
+                        .lock()
+                        .await
+                        .friend_lists
+                        .put(user, signed)?;
+                }
+                Ok((list, head))
+            }
+            Newest::Resign(list, head) => {
+                let expected = head.revision;
+                self.put_friends(credentials, list, &head, expected).await
             }
         }
     }
@@ -87,11 +140,11 @@ impl BackendClient {
         &self,
         credentials: &Credentials,
         mut list: FriendList,
-        revision: u64,
+        on: &Head,
         expected: u64,
-    ) -> Result<FriendList> {
-        let signed = list.sign(
-            revision,
+    ) -> Result<(FriendList, Head)> {
+        let (signed, head) = list.sign(
+            on,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
         )?;
@@ -102,7 +155,7 @@ impl BackendClient {
                 Method::PUT,
                 "api/me/friend-list",
                 credentials,
-                Some(json!({"expectedRevision":expected,"revision":revision,"body":signed.body,"signature":signed.signature})),
+                Some(json!({"expectedRevision":expected,"revision":head.revision,"body":signed.body,"signature":signed.signature})),
             )
             .await?;
         self.inner
@@ -111,7 +164,7 @@ impl BackendClient {
             .await
             .friend_lists
             .put(&credentials.user_id, signed)?;
-        Ok(list)
+        Ok((list, head))
     }
 
     async fn change_friends(
@@ -120,24 +173,24 @@ impl BackendClient {
         change: impl Fn(&mut FriendList) -> bool,
     ) -> Result<FriendList> {
         for _ in 0..3 {
-            let (mut list, stored) = self.sync_friends(credentials).await?;
+            let (mut list, head) = self.sync_friends(credentials).await?;
             if !change(&mut list) {
                 return Ok(list);
             }
-            let revision = list.revision.max(stored) + 1;
-            match self.put_friends(credentials, list, revision, stored).await {
+            let expected = head.revision;
+            match self.put_friends(credentials, list, &head, expected).await {
                 Err(Error::Backend { status: 409, .. }) => {}
-                result => return result,
+                result => return result.map(|(list, _)| list),
             }
         }
         Err(Error::Busy)
     }
 
     pub(super) async fn resign_friends(&self, credentials: &Credentials) -> Result<()> {
-        let (list, stored) = self.sync_friends(credentials).await?;
-        if stored > 0 {
-            self.put_friends(credentials, list, stored + 1, stored)
-                .await?;
+        let (list, head) = self.sync_friends(credentials).await?;
+        if head.revision > 0 {
+            let expected = head.revision;
+            self.put_friends(credentials, list, &head, expected).await?;
         }
         Ok(())
     }
@@ -180,18 +233,6 @@ impl BackendClient {
             ));
         }
         Ok(fresh)
-    }
-
-    pub(super) async fn friend_record_root(
-        &self,
-        credentials: &Credentials,
-        user_id: &str,
-    ) -> Result<Option<Root>> {
-        let list = match self.kept_friends(credentials).await? {
-            Some(list) => list,
-            None => self.sync_friends(credentials).await?.0,
-        };
-        Ok(list.friends.get(user_id).and_then(Friend::root))
     }
 
     async fn recorded_root(
@@ -338,9 +379,16 @@ impl BackendClient {
     pub(super) async fn friend_event(&self) -> Result<Value> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
-            return Ok(json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[]}));
+            return Ok(
+                json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[],"blocked":[]}),
+            );
         }
         let (friends, requests) = self.friend_directory(&credentials).await?;
+        let blocked: Value = self
+            .inner
+            .http
+            .device(Method::GET, "api/friends/blocked", &credentials, None)
+            .await?;
         let (list, _) = self.sync_friends(&credentials).await?;
         for friend in &friends {
             let user = wire::text(friend, "userId")?;
@@ -384,12 +432,13 @@ impl BackendClient {
                     "displayName": friend["displayName"],
                     "verified": !changed && record.is_some_and(|record| record.verified),
                     "identityState": if changed { "changed" } else { "fixed" },
+                    "inviteNeeded": changed && record.is_none_or(|record| record.verified),
                 }))
             })
             .collect::<Result<Vec<_>>>()?;
         drop(state);
         Ok(
-            json!({"type":"friends.snapshot","friends":friends,"incoming":requests["incoming"],"outgoing":requests["outgoing"]}),
+            json!({"type":"friends.snapshot","friends":friends,"incoming":requests["incoming"],"outgoing":requests["outgoing"],"blocked":blocked}),
         )
     }
 
@@ -407,7 +456,37 @@ impl BackendClient {
         Ok((friends, requests))
     }
 
+    /// The person whom a removal or a block parts from: the friend that the signed list names
+    /// with this user name, or else the person that the server names, unless the signed list
+    /// knows that person by another name.
+    async fn parting_user(
+        &self,
+        credentials: &Credentials,
+        handle: &str,
+    ) -> Result<Option<String>> {
+        let list = self.sync_friends(credentials).await?.0;
+        if let Some((user, _)) = list.by_handle(handle) {
+            return Ok(Some(user.clone()));
+        }
+        let user = self.known_user(credentials, handle).await?;
+        if user
+            .as_ref()
+            .is_some_and(|user| list.friends.contains_key(user))
+        {
+            return Err(untrusted(
+                "The server named another friend for this user name.",
+            ));
+        }
+        Ok(user)
+    }
+
     async fn friend_user(&self, credentials: &Credentials, handle: &str) -> Result<String> {
+        self.known_user(credentials, handle)
+            .await?
+            .ok_or_else(|| Error::Text(text!("This person is not in your friends or requests.")))
+    }
+
+    async fn known_user(&self, credentials: &Credentials, handle: &str) -> Result<Option<String>> {
         let (friends, requests) = self.friend_directory(credentials).await?;
         let listed = |people: Option<&Vec<Value>>| {
             people.into_iter().flatten().find_map(|person| {
@@ -419,10 +498,9 @@ impl BackendClient {
                     .map(str::to_owned)
             })
         };
-        listed(Some(&friends))
+        Ok(listed(Some(&friends))
             .or_else(|| listed(requests["outgoing"].as_array()))
-            .or_else(|| listed(requests["incoming"].as_array()))
-            .ok_or_else(|| Error::Text(text!("This person is not in your friends or requests.")))
+            .or_else(|| listed(requests["incoming"].as_array())))
     }
 
     async fn friend_request(
@@ -440,6 +518,16 @@ impl BackendClient {
             "remove" => (
                 Method::DELETE,
                 format!("api/friends/{}", path_segment(handle)?),
+                None,
+            ),
+            "block" => (
+                Method::PUT,
+                format!("api/friends/blocked/{}", path_segment(handle)?),
+                None,
+            ),
+            "unblock" => (
+                Method::DELETE,
+                format!("api/friends/blocked/{}", path_segment(handle)?),
                 None,
             ),
             action => (
@@ -534,10 +622,31 @@ impl BackendClient {
                 self.friend_request(&credentials, "accept", typed).await?;
             }
             "friends.request.reject" => self.friend_request(&credentials, "reject", typed).await?,
+            "friends.block" => {
+                if let Some(other) = self.parting_user(&credentials, typed).await? {
+                    #[cfg(feature = "host")]
+                    self.exclude_friend(&other).await;
+                    self.end_rooms_with(&credentials, &other).await?;
+                }
+                self.friend_request(&credentials, "block", typed).await?;
+                self.change_friends(&credentials, |list| {
+                    let user = list.by_handle(typed).map(|(user, _)| user.clone());
+                    user.is_some_and(|user| list.friends.remove(&user).is_some())
+                })
+                .await?;
+            }
+            "friends.unblock" => self.friend_request(&credentials, "unblock", typed).await?,
             "friends.request.cancel" | "friends.remove" => {
-                #[cfg(feature = "host")]
                 if operation == "friends.remove" {
-                    self.exclude_friend(&credentials, typed).await?;
+                    let other = self
+                        .parting_user(&credentials, typed)
+                        .await?
+                        .ok_or_else(|| {
+                            Error::Text(text!("This person is not in your friends or requests."))
+                        })?;
+                    #[cfg(feature = "host")]
+                    self.exclude_friend(&other).await;
+                    self.end_rooms_with(&credentials, &other).await?;
                 }
                 let action = operation.rsplit('.').next().unwrap_or_default();
                 self.friend_request(&credentials, action, typed).await?;
@@ -548,12 +657,22 @@ impl BackendClient {
                 .await?;
             }
             "friends.identity.trust" => {
-                let user = self.friend_user(&credentials, typed).await?;
+                let (user, record) = self
+                    .sync_friends(&credentials)
+                    .await?
+                    .0
+                    .trustable(typed)
+                    .map(|(user, record)| (user.clone(), record.clone()))
+                    .ok_or_else(|| {
+                        Error::Trust(text!(
+                            "Ask this friend for a new invite, and verify their identity with it."
+                        ))
+                    })?;
                 let bundle = self.friend_bundle(&credentials, &user).await?;
                 let root = bundle.root()?;
                 self.change_friends(&credentials, |list| {
                     let next = Friend {
-                        handle: typed.to_ascii_lowercase(),
+                        handle: record.handle.clone(),
                         root: Some(root_hex(&root)),
                         verified: false,
                     };
@@ -596,7 +715,7 @@ impl BackendClient {
         #[cfg(feature = "host")]
         if matches!(
             operation,
-            "friends.remove" | "friends.identity.trust" | "friends.verify"
+            "friends.remove" | "friends.block" | "friends.identity.trust" | "friends.verify"
         ) {
             self.review_access().await?;
         }

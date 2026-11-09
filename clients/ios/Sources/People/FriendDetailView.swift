@@ -39,6 +39,7 @@ private struct FriendDetailList: View {
     @Environment(\.theme) private var theme
     @Environment(\.openRoute) private var openRoute
     @State private var confirmingRemoval = false
+    @State private var blocking = false
     let friend: FriendEntry
 
     private var people: PeopleStore {
@@ -113,13 +114,20 @@ private struct FriendDetailList: View {
                     .buttonStyle(ListRowButtonStyle())
                     .disabled(people.isBusy(friend.handle))
                     .accessibilityIdentifier("people.detail.remove")
+                    Button { blocking = true } label: {
+                        ListRow(String(localized: "Block"), symbol: "hand.raised", tint: TileTint.red, titleColor: theme.colors.danger)
+                    }
+                    .buttonStyle(ListRowButtonStyle())
+                    .disabled(people.isBusy(friend.handle))
+                    .accessibilityIdentifier("people.detail.block")
                 }
                 .confirmationDialog(Text("Remove \(friend.personName)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
                     Button("Remove", role: .destructive) { people.remove(friend) }
                         .accessibilityIdentifier("people.detail.confirmRemove")
                 } message: {
-                    Text("They lose the terminals you shared. Kodosi does not undo the commands that they already ran.")
+                    Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
                 }
+                .blockConfirmation(isPresented: $blocking, name: friend.personName) { people.block(handle: friend.handle) }
             }
             .settingsPage()
         }
@@ -200,20 +208,28 @@ private struct IdentityChangedCard: View {
                     Text("New identity")
                         .appTextStyle(.headline)
                         .foregroundStyle(theme.colors.ink)
-                    Text("Their identity changed. Trust it to share with them again.")
-                        .appTextStyle(.footnote)
-                        .foregroundStyle(theme.colors.inkMuted)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Group {
+                        if friend.inviteNeeded {
+                            Text("Their identity changed. Verify it with a new invite from them.")
+                        } else {
+                            Text("Their identity changed. Trust it only if they told you so.")
+                        }
+                    }
+                    .appTextStyle(.footnote)
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            HStack {
-                Spacer()
-                if model.people.isBusy(friend.handle) {
-                    Spinner(size: 14)
-                } else {
-                    Button("Trust") { model.people.trust(friend) }
-                        .buttonStyle(.kodosi(.primary, size: .small))
-                        .accessibilityIdentifier("people.trust.\(friend.handle)")
+            if !friend.inviteNeeded {
+                HStack {
+                    Spacer()
+                    if model.people.isBusy(friend.handle) {
+                        Spinner(size: 14)
+                    } else {
+                        Button("Trust") { model.people.trust(friend) }
+                            .buttonStyle(.kodosi(.primary, size: .small))
+                            .accessibilityIdentifier("people.trust.\(friend.handle)")
+                    }
                 }
             }
         }

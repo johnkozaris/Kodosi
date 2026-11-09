@@ -19,9 +19,11 @@ struct PeopleHome: View {
                 loading
             } else if people.isEmpty, !people.sendingRequest {
                 empty
+                blocked
             } else {
                 requests
                 friends
+                blocked
             }
         }
         .listStyle(.plain)
@@ -59,6 +61,7 @@ struct PeopleHome: View {
         .animation(theme.motion.spring, value: people.friends.map(\.id))
         .animation(theme.motion.spring, value: people.incoming.map(\.id))
         .animation(theme.motion.spring, value: people.outgoing.map(\.id))
+        .animation(theme.motion.spring, value: people.blocked.map(\.id))
         .animation(theme.motion.soft, value: people.loaded)
         .animation(theme.motion.snappy, value: people.sendingRequest)
         .sensoryFeedback(trigger: FriendTally(loaded: people.loaded, count: people.friends.count)) { old, new in
@@ -160,6 +163,20 @@ struct PeopleHome: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var blocked: some View {
+        if !people.blocked.isEmpty {
+            ListHeader(title: "Blocked", count: people.blocked.count)
+                .cardRow(top: 14, bottom: 2)
+            ForEach(people.blocked) { person in
+                BlockedCard(person: person, busy: people.isBusy(person.handle), identifier: "people.unblock.\(person.handle)") {
+                    people.unblock(person)
+                }
+                .cardRow()
+            }
+        }
+    }
 }
 
 private struct FriendTally: Equatable {
@@ -201,7 +218,7 @@ private struct FriendListItem: View {
             .tint(theme.colors.danger)
         }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            if friend.identityChanged {
+            if friend.identityChanged, !friend.inviteNeeded {
                 Button { people.trust(friend) } label: {
                     Label("Trust", systemImage: "checkmark.shield")
                 }
@@ -212,7 +229,7 @@ private struct FriendListItem: View {
             Button { UIPasteboard.general.string = friend.handle } label: {
                 Label("Copy username", systemImage: "doc.on.doc")
             }
-            if friend.identityChanged {
+            if friend.identityChanged, !friend.inviteNeeded {
                 Button { people.trust(friend) } label: {
                     Label("Trust new identity", systemImage: "checkmark.shield")
                 }
@@ -226,7 +243,7 @@ private struct FriendListItem: View {
             Button("Remove", role: .destructive) { people.remove(friend) }
                 .accessibilityIdentifier("people.confirmRemove")
         } message: {
-            Text("They lose the terminals you shared. Kodosi does not undo the commands that they already ran.")
+            Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
         }
     }
 }

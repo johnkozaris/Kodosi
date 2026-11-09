@@ -10,6 +10,7 @@ struct FriendRoute: Hashable {
 struct IncomingRequestRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @State private var blocking = false
     let request: FriendRequestEntry
     let accept: () -> Void
 
@@ -34,6 +35,10 @@ struct IncomingRequestRow: View {
                 Label("Not now", systemImage: "xmark")
             }
             .tint(TileTint.graphite)
+            Button { blocking = true } label: {
+                Label("Block", systemImage: "hand.raised")
+            }
+            .tint(theme.colors.danger)
         }
         .contextMenu {
             Button(action: accept) {
@@ -42,7 +47,11 @@ struct IncomingRequestRow: View {
             Button { people.decline(request) } label: {
                 Label("Not now", systemImage: "xmark")
             }
+            Button(role: .destructive) { blocking = true } label: {
+                Label("Block…", systemImage: "hand.raised")
+            }
         }
+        .blockConfirmation(isPresented: $blocking, name: request.personName) { people.block(handle: request.handle) }
     }
 }
 

@@ -34,6 +34,17 @@ pub(super) struct LinkRequest {
     proof: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PendingReset {
+    request_id: String,
+    device_id: String,
+    device_label: String,
+    requested_at_ms: i64,
+    ready_at_ms: i64,
+    ready: bool,
+}
+
 pub(super) struct LinkedDevice {
     request_id: Uuid,
     pub(super) device_id: String,
@@ -95,8 +106,9 @@ impl BackendClient {
         } else {
             Vec::new()
         };
+        let reset = self.pending_reset(&credentials).await?.map(|reset| json!({"resetId":reset.request_id,"deviceLabel":reset.device_label,"thisDevice":reset.device_id == credentials.keys.device_id,"requestedAtMs":reset.requested_at_ms,"readyAtMs":reset.ready_at_ms}));
         let mut result = vec![
-            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"notice":credentials.notice,"devices":devices}),
+            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"notice":credentials.notice,"devices":devices,"reset":reset}),
         ];
         if credentials.enrolled {
             let requests = self
@@ -156,27 +168,33 @@ impl BackendClient {
         );
         self.check_credentials(&credentials)?;
         credentials.enrolled = false;
+        self.inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .forget(&credentials.user_id)?;
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials.clone());
         Ok(credentials)
     }
 
     pub(super) async fn reset_devices(&self) -> Result<Vec<Value>> {
-        let credentials = self.credentials()?;
+        let mut credentials = self.credentials()?;
         if credentials.enrolled {
             return Err(Error::Text(text!(
                 "This device is already trusted. Remove other devices from Settings instead."
             )));
         }
-        let _response: Value = self
-            .inner
-            .http
-            .bearer(
-                Method::POST,
-                "api/me/identity/reset",
-                &credentials.token,
-                None,
-            )
-            .await?;
+        let reset = match self.request_reset(&credentials).await {
+            Err(Error::Backend { status: 409, .. }) => {
+                credentials = self.replace_local_keys(credentials).await?;
+                self.request_reset(&credentials).await?
+            }
+            result => result?,
+        };
+        if reset.is_some_and(|reset| !reset.ready) {
+            return self.device_events().await;
+        }
         let pins = {
             let mut state = self.inner.state.lock().await;
             state.link = None;
@@ -185,7 +203,7 @@ impl BackendClient {
         pins.lock()
             .map_err(|_| Error::Closed)?
             .forget(&credentials.user_id)?;
-        let credentials = self.replace_local_keys(credentials).await?;
+        self.enroll_fresh(&credentials).await?;
         self.ensure_enrolled().await?;
         if !self.identity().is_some_and(|identity| identity.enrolled) {
             return Err(Error::Text(text!(
@@ -196,6 +214,51 @@ impl BackendClient {
         events.extend(self.device_events().await?);
         events.push(self.session_event().await?);
         Ok(events)
+    }
+
+    async fn request_reset(&self, credentials: &Credentials) -> Result<Option<PendingReset>> {
+        self.inner
+            .http
+            .bearer(
+                Method::POST,
+                "api/me/identity/reset",
+                &credentials.token,
+                Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":host_label(),"signingPublicKey":BASE64.encode(credentials.keys.signing_public())})),
+            )
+            .await
+    }
+
+    async fn pending_reset(&self, credentials: &Credentials) -> Result<Option<PendingReset>> {
+        match self
+            .inner
+            .http
+            .bearer(
+                Method::GET,
+                "api/me/identity/reset",
+                &credentials.token,
+                None,
+            )
+            .await
+        {
+            Ok(reset) => Ok(Some(reset)),
+            Err(Error::Backend { status: 404, .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(super) async fn cancel_reset(&self, reset: &str) -> Result<()> {
+        let credentials = self.credentials()?;
+        let _response: Value = self
+            .inner
+            .http
+            .bearer(
+                Method::DELETE,
+                &format!("api/me/identity/reset/{}", path_segment(reset)?),
+                &credentials.token,
+                None,
+            )
+            .await?;
+        Ok(())
     }
 
     pub(super) async fn start_link(&self) -> Result<String> {
@@ -425,22 +488,31 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
+    async fn linked_device(&self, credentials: &Credentials, typed: &str) -> Result<LinkedDevice> {
         let code = typed_code(typed).ok_or_else(|| {
             Error::Text(text!(
                 "Type the 12 characters of the code that the new device shows."
             ))
         })?;
-        let credentials = self.credentials()?;
-        let requests = self.link_requests(&credentials).await?;
+        let requests = self.link_requests(credentials).await?;
         let user = credentials.user_id.clone();
-        let pending =
-            tokio::task::spawn_blocking(move || request_with_code(&user, requests, &code))
-                .await
-                .map_err(|_| Error::Closed)??
-                .ok_or_else(|| {
-                    Error::Trust(text!("No device that waits for approval has this code. Compare it with the code on the new device."))
-                })?;
+        tokio::task::spawn_blocking(move || request_with_code(&user, requests, &code))
+            .await
+            .map_err(|_| Error::Closed)??
+            .ok_or_else(|| {
+                Error::Trust(text!("No device that waits for approval has this code. Compare it with the code on the new device."))
+            })
+    }
+
+    /// The name of the device that shows this code, so that the person sees it before approving.
+    pub(super) async fn link_label(&self, typed: &str) -> Result<String> {
+        let credentials = self.credentials()?;
+        Ok(self.linked_device(&credentials, typed).await?.label)
+    }
+
+    pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
+        let credentials = self.credentials()?;
+        let pending = self.linked_device(&credentials, typed).await?;
         let verified = self.fetch_identity(&credentials.user_id).await?;
         let new_device = pending.device_id.as_str();
         let approval =

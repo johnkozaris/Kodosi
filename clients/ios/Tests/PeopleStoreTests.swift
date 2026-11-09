@@ -23,6 +23,7 @@ struct PeopleStoreTests {
         #expect(!store.friends[1].isVerified)
         #expect(store.incoming.map(\.handle) == ["cy"])
         #expect(store.outgoing.map(\.handle) == ["di"])
+        #expect(store.blocked.map(\.handle) == ["ed"])
         #expect(store.name(of: "id-ana") == "Ana")
         #expect(store.name(of: "id-bo") == "bo")
         #expect(store.revision == 1)
@@ -66,10 +67,13 @@ struct PeopleStoreTests {
         try deliverSnapshot()
         let ana = try #require(store.friend("id-ana"))
         let bo = try #require(store.friend("id-bo"))
+        let ed = try #require(store.blocked.first)
         store.trust(bo)
         store.remove(ana)
-        #expect(outbox.types == ["friends.identity.trust", "friends.remove"])
-        #expect(outbox.sent.map { $0["username"] } == [.string("bo"), .string("ana")])
+        store.block(handle: "cy")
+        store.unblock(ed)
+        #expect(outbox.types == ["friends.identity.trust", "friends.remove", "friends.block", "friends.unblock"])
+        #expect(outbox.sent.map { $0["username"] } == [.string("bo"), .string("ana"), .string("cy"), .string("ed")])
     }
 
     @Test func `verify sends the trimmed invite`() throws {
@@ -128,11 +132,12 @@ struct PeopleStoreTests {
     private func deliverSnapshot() throws {
         try store.receive(event("friends.snapshot", [
             "friends": [
-                ["userId": "id-ana", "handle": "ana", "displayName": "Ana", "verified": true, "identityState": "fixed"],
-                ["userId": "id-bo", "handle": "bo", "displayName": "", "verified": true, "identityState": "changed"],
+                ["userId": "id-ana", "handle": "ana", "displayName": "Ana", "verified": true, "identityState": "fixed", "inviteNeeded": false],
+                ["userId": "id-bo", "handle": "bo", "displayName": "", "verified": true, "identityState": "changed", "inviteNeeded": false],
             ],
             "incoming": [["userId": "id-cy", "handle": "cy", "displayName": "Cy", "createdAt": "2026-10-11T10:00:00Z"]],
             "outgoing": [["userId": "id-di", "handle": "di", "displayName": "Di", "createdAt": "2026-10-11T11:00:00Z"]],
+            "blocked": [["userId": "id-ed", "handle": "ed", "displayName": "Ed"]],
         ]))
     }
 }

@@ -128,12 +128,12 @@ private struct RailAccount: View {
             Button { deps.workbench.showAccount() } label: {
                 PersonAvatar(name: deps.account.selfName, size: 26, isSelf: true)
                     .overlay(alignment: .topTrailing) {
-                        if !deps.account.deviceRequests.isEmpty {
+                        if !deps.account.deviceRequests.isEmpty || deps.account.otherDeviceReset != nil {
                             StatusSign(form: .hand, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
                                 .transition(AnyTransition.pop)
                         }
                     }
-                    .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty)
+                    .animation(theme.motion.snappy, value: deps.account.deviceRequests.isEmpty && deps.account.otherDeviceReset == nil)
                     .frame(width: 40, height: 40)
                     .hoverRow(radius: Radius.lg)
             }

@@ -36,12 +36,25 @@ struct AccountStoreTests {
         #expect(outbox.sent.last?["deviceId"] == .string("mac"))
     }
 
-    @Test func `approving a device shows which device was approved`() throws {
-        store.approveDevice(code: "   ")
+    @Test func `approving a device names it first and shows which device was approved`() throws {
+        store.checkDevice(code: "   ")
         #expect(outbox.sent.isEmpty)
-        store.approveDevice(code: " abcd-efgh-jkmn \n")
-        store.approveDevice(code: "WXYZ-WXYZ-WXYZ")
-        #expect(outbox.types == ["devices.link.approve"])
+        store.checkDevice(code: " abcd-efgh-jkmn \n")
+        store.checkDevice(code: "WXYZ-WXYZ-WXYZ")
+        #expect(outbox.types == ["devices.link.check"])
+        #expect(outbox.sent.last?["code"] == .string("abcd-efgh-jkmn"))
+        #expect(store.approval == .checking)
+        let checked = try #require(outbox.sent.last?["requestId"]?.stringValue)
+        try store.receiveDevices(event("devices.result", [
+            "operation": "devices.link.check", "requestId": "an-earlier-check", "deviceLabel": "Other Mac",
+        ]))
+        #expect(store.approval == .checking)
+        try store.receiveDevices(event("devices.result", [
+            "operation": "devices.link.check", "requestId": checked, "deviceLabel": "MacBook Pro",
+        ]))
+        #expect(store.approval == .confirming("MacBook Pro"))
+        store.confirmApproval()
+        #expect(outbox.types == ["devices.link.check", "devices.link.approve"])
         #expect(outbox.sent.last?["code"] == .string("abcd-efgh-jkmn"))
         #expect(store.approval == .approving)
         try store.receiveDevices(event("devices.link.resolved", ["deviceLabel": "MacBook Pro", "outcome": "approved"]))
@@ -52,10 +65,15 @@ struct AccountStoreTests {
     }
 
     @Test func `failed approval stays in the sheet only while approving`() throws {
-        let failure = try event("devices.error", ["operation": "devices.link.approve", "message": "No device has this code."])
+        let failure = try event("devices.error", ["operation": "devices.link.check", "message": "No device has this code."])
         #expect(!store.absorb(error: failure, message: "No device has this code."))
-        store.approveDevice(code: "ABCD-EFGH-JKMN")
-        #expect(store.absorb(error: failure, message: "No device has this code."))
+        store.checkDevice(code: "ABCD-EFGH-JKMN")
+        #expect(!store.absorb(error: failure, message: "No device has this code."))
+        let checked = try #require(outbox.sent.last?["requestId"]?.stringValue)
+        let answer = try event("devices.error", [
+            "operation": "devices.link.check", "requestId": checked, "message": "No device has this code.",
+        ])
+        #expect(store.absorb(error: answer, message: "No device has this code."))
         #expect(store.approval == .failed("No device has this code."))
     }
 
@@ -158,7 +176,7 @@ struct AccountStoreTests {
 
     @Test func `reset forgets devices and pending work`() throws {
         try deliverDevices()
-        store.approveDevice(code: "ABCD-EFGH-JKMN")
+        store.checkDevice(code: "ABCD-EFGH-JKMN")
         store.createRecoveryKey()
         store.deleteAccount()
         store.reset(userId: "user-2")

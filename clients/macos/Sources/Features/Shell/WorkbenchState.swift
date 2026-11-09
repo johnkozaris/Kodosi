@@ -59,6 +59,7 @@ final class WorkbenchState {
     var launcherFocus = 0
     var selectedMissionId: String?
     var dismissedDeviceRequests: Set<String> = []
+    var dismissedReset: String?
     var approvalNoticeDismissed = false
     var focusesDeviceCode = false
     var sidebarCollapsed = false {
@@ -330,6 +331,7 @@ final class WorkbenchState {
         launcher = nil
         launcherDraft = LauncherDraft()
         dismissedDeviceRequests = []
+        dismissedReset = nil
         approvalNoticeDismissed = false
         focusesDeviceCode = false
     }

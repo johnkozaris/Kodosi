@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Kodosi.Accounts;
@@ -15,30 +13,41 @@ namespace Kodosi.HostTests;
 public sealed class AccountTests(PostgresFixture postgres)
 {
     private const string Issuer = "https://accounts.test.invalid/";
-    private static DefaultHttpContext Context(string subject, string name) => new()
+    private static DefaultHttpContext Context(string subject, string name, string? displayName = null) => new()
     {
         User = new ClaimsPrincipal(new ClaimsIdentity([
-            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name)
+            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name),
+            .. displayName is null ? Array.Empty<Claim>() : [new Claim("name", displayName)],
         ], "test"))
     };
 
     [Fact]
-    public async Task RepeatedHandleCollisionsKeepOneCanonicalAccount()
+    public async Task NamesAndDeviceLabelsLoseTheInvisibleCharactersThatReorderOrHideLetters()
     {
+        var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
-        const string subject = "new-alice";
-        var suffix = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Issuer + "\n" + subject)))[..10];
-        foreach (var handle in new[] { "alice", $"alice-{suffix}" })
-            store.Db.Users.Add(new User { Id = Guid.CreateVersion7(), Issuer = Issuer, Subject = handle, Handle = handle, DisplayName = handle });
-        await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context(subject, "Alice"), TestContext.Current.CancellationToken);
-        Assert.StartsWith("alice-", account.Handle);
-        Assert.NotEqual($"alice-{suffix}", account.Handle);
-        Assert.InRange(account.Handle.Length, 3, 64);
-        var again = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context(subject, "Changed name"), TestContext.Current.CancellationToken);
-        Assert.Equal(account.Id, again.Id);
-        Assert.Equal(account.Handle, again.Handle);
-        Assert.Equal(3, await store.Db.Users.CountAsync(TestContext.Current.CancellationToken));
+        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("bob-subject", "bob", "Al\u200Bice \u202Eecila\u202C 👨\u200D💻"), ct);
+        Assert.Equal("Alice ecila 👨\u200D💻", account.DisplayName);
+        Assert.Equal("Laptop", Limits.Text("\u2066Lap\uFEFFtop\u2069", "Device label", 128));
+    }
+
+    [Fact]
+    public async Task AUserNameIsTheHandleOfOneAccountOnly()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("alice-subject", "Alice"), ct);
+        Assert.Equal("alice", account.Handle);
+        var again = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("alice-subject", "renamed"), ct);
+        Assert.Equal((account.Id, "alice"), (again.Id, again.Handle));
+        var taken = await Assert.ThrowsAsync<ApiException>(() => new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("other-subject", "alice"), ct));
+        Assert.Equal(409, taken.Status);
+        foreach (var name in new[] { "", "al", "alice smith", "älice", new string('a', 65) })
+        {
+            var refused = await Assert.ThrowsAsync<ApiException>(() => new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context($"subject-{name.Length}", name), ct));
+            Assert.Equal(403, refused.Status);
+        }
+        Assert.Equal(1, await store.Db.Users.CountAsync(ct));
     }
 
     [Fact]

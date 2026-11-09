@@ -119,6 +119,14 @@ impl Pins {
         Ok(Self { path, pins })
     }
 
+    /// The devices of an account that this device saw removed.
+    pub(crate) fn revoked(&self, user_id: &str) -> BTreeSet<String> {
+        self.pins
+            .get(user_id)
+            .map(|pin| pin.revoked.clone())
+            .unwrap_or_default()
+    }
+
     pub(crate) fn is_revoked(&self, user_id: &str, device_id: &str) -> bool {
         self.pins
             .get(user_id)
@@ -339,30 +347,38 @@ impl Pins {
                 return Err(untrusted("A removed device cannot become trusted again."));
             }
             if list.generation > pin.generation {
-                let mut signer = list.signer_device_id.as_str();
-                let mut seen = BTreeSet::new();
-                loop {
-                    if !seen.insert(signer) || pin.revoked.contains(signer) {
-                        return Err(untrusted("Device update has no currently trusted signer."));
-                    }
-                    let candidate = &bodies
-                        .get(signer)
-                        .ok_or_else(|| invalid("Device signer is absent."))?
-                        .0;
-                    if let Some(trusted) = prior.get(signer) {
-                        if trusted != candidate {
+                let endorsed = |start: &str| -> Result<()> {
+                    let mut signer = start;
+                    let mut seen = BTreeSet::new();
+                    loop {
+                        if !seen.insert(signer) || pin.revoked.contains(signer) {
                             return Err(untrusted(
-                                "A previously trusted signer changed its certificate.",
+                                "Device update has no currently trusted signer.",
                             ));
                         }
-                        break;
+                        let candidate = &bodies
+                            .get(signer)
+                            .ok_or_else(|| invalid("Device signer is absent."))?
+                            .0;
+                        if let Some(trusted) = prior.get(signer) {
+                            if trusted != candidate {
+                                return Err(untrusted(
+                                    "A previously trusted signer changed its certificate.",
+                                ));
+                            }
+                            return Ok(());
+                        }
+                        if candidate.is_self_signed() {
+                            return Err(untrusted(
+                                "Device update is not endorsed by an already trusted device.",
+                            ));
+                        }
+                        signer = &candidate.signer_device_id;
                     }
-                    if candidate.is_self_signed() {
-                        return Err(untrusted(
-                            "Device update is not endorsed by an already trusted device.",
-                        ));
-                    }
-                    signer = &candidate.signer_device_id;
+                };
+                endorsed(&list.signer_device_id)?;
+                for added in entries.iter().filter(|id| !prior.contains_key(*id)) {
+                    endorsed(added)?;
                 }
             }
             for (id, envelope) in &incoming {

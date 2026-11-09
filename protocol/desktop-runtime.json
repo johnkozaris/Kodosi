@@ -448,6 +448,52 @@
             "type": "string"
           },
           "type": {
+            "const": "devices.link.check"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "code",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
             "const": "devices.link.approve"
           }
         },
@@ -582,6 +628,52 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "resetId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "devices.reset.cancel"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "resetId",
           "requestId"
         ],
         "type": "object"
@@ -932,6 +1024,98 @@
           },
           "type": {
             "const": "friends.remove"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "username",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "friends.block"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "username",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "friends.unblock"
           },
           "username": {
             "type": "string"
@@ -6055,6 +6239,29 @@
               }
             ]
           },
+          "blocked": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                },
+                "handle": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "userId",
+                "handle",
+                "displayName"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "friends": {
             "items": {
               "additionalProperties": false,
@@ -6075,6 +6282,9 @@
                     }
                   ]
                 },
+                "inviteNeeded": {
+                  "type": "boolean"
+                },
                 "userId": {
                   "type": "string"
                 },
@@ -6087,7 +6297,8 @@
                 "handle",
                 "displayName",
                 "verified",
-                "identityState"
+                "identityState",
+                "inviteNeeded"
               ],
               "type": "object"
             },
@@ -6157,7 +6368,8 @@
           "type",
           "friends",
           "incoming",
-          "outgoing"
+          "outgoing",
+          "blocked"
         ],
         "type": "object"
       },
@@ -6299,6 +6511,43 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "deviceLabel": {
+                    "type": "string"
+                  },
+                  "readyAtMs": {
+                    "format": "i64",
+                    "type": "integer"
+                  },
+                  "requestedAtMs": {
+                    "format": "i64",
+                    "type": "integer"
+                  },
+                  "resetId": {
+                    "type": "string"
+                  },
+                  "thisDevice": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "resetId",
+                  "deviceLabel",
+                  "thisDevice",
+                  "requestedAtMs",
+                  "readyAtMs"
+                ],
+                "type": "object"
               },
               {
                 "type": "null"
@@ -6511,6 +6760,16 @@
             ]
           },
           "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deviceLabel": {
             "anyOf": [
               {
                 "type": "string"
@@ -8217,6 +8476,9 @@
                 "inviterName": {
                   "type": "string"
                 },
+                "inviterUserId": {
+                  "type": "string"
+                },
                 "missionId": {
                   "type": "string"
                 },
@@ -8228,6 +8490,7 @@
                 "id",
                 "missionId",
                 "missionName",
+                "inviterUserId",
                 "inviterName",
                 "createdAt"
               ],

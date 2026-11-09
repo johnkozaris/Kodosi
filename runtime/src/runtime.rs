@@ -507,7 +507,11 @@ impl Local {
                     .as_deref()
                     .and_then(|id| Uuid::parse_str(id).ok()),
                 room_sequence: self.room_sequence,
-                shared_with: self.entry.shared_with.iter().cloned().collect(),
+                shared_with: if self.entry.mission_id.is_some() {
+                    BTreeSet::new()
+                } else {
+                    self.entry.shared_with.iter().cloned().collect()
+                },
                 restored_from: self
                     .entry
                     .restored_from
@@ -624,6 +628,11 @@ enum Completion {
         id: Uuid,
         mentions: Vec<messages::Mention>,
         result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Mentioned {
+        mentions: Vec<(Uuid, messages::Mention)>,
+        later: Vec<messages::Unchecked>,
     },
     Unpublished {
         id: Uuid,
@@ -1678,7 +1687,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
             }
         }
         requests.close();
@@ -1915,35 +1924,96 @@ impl Runtime {
                 None => messages::Sender::Person(person),
             };
             let text = message["text"].as_str().unwrap_or_default();
+            let author = message["authorId"].as_str().unwrap_or_default();
             for terminal in messages::named(text, &terminals).into_iter().flatten() {
-                if Some(terminal) != from {
+                let allowed = Some(author) == self.scope.user.as_deref()
+                    || self.local.get(&terminal).is_some_and(|local| {
+                        local.entry.shared_with.iter().any(|user| user == author)
+                    });
+                if Some(terminal) != from && allowed {
                     kept.push((
                         terminal,
                         sender.clone(),
                         text.to_owned(),
                         message["sequence"].as_u64().unwrap_or_default(),
+                        author.to_owned(),
                     ));
                 }
             }
         }
-        for (terminal, from, text, sequence) in kept {
-            let room = self.local[&terminal]
+        let room = Uuid::parse_str(id).ok();
+        let now = tokio::time::Instant::now();
+        for (terminal, from, text, sequence, author) in kept {
+            let name = self.local[&terminal]
                 .entry
                 .mission_name
                 .clone()
                 .or_else(|| self.room_name(id))
                 .unwrap_or_else(|| "room".to_owned());
-            self.mentions.keep(
-                terminal,
-                messages::Mention {
+            let mention = messages::Mention {
+                room: name,
+                from,
+                text,
+                sequence,
+            };
+            if Some(author.as_str()) == self.scope.user.as_deref() {
+                self.mentions.keep(terminal, mention);
+            } else if let Some(room) = room {
+                self.mentions.wait_for_check(messages::Unchecked {
                     room,
-                    from,
-                    text,
-                    sequence,
-                },
-            );
+                    author,
+                    terminal,
+                    mention,
+                    since: now,
+                });
+            }
         }
+        self.check_mentions();
         self.tell_mentions();
+    }
+
+    /// The mention of another person reaches an agent only when the signed room and friend
+    /// records admit that person, as they admit a viewer of the terminal. A mention whose check
+    /// gets no answer waits for a later check.
+    #[cfg(feature = "host")]
+    fn check_mentions(&mut self) {
+        if self.mentions.unchecked.is_empty() || self.job_capacity().is_err() {
+            return;
+        }
+        let checks = self.mentions.take_unchecked(tokio::time::Instant::now());
+        if checks.is_empty() {
+            return;
+        }
+        let network = self.network.clone();
+        self.spawn(async move {
+            let mut answers = HashMap::new();
+            let (mut mentions, mut later) = (Vec::new(), Vec::new());
+            if let Ok(credentials) = network.credentials() {
+                for check in checks {
+                    let asked = (check.room, check.author.clone());
+                    let answer = if let Some(answer) = answers.get(&asked).copied() {
+                        answer
+                    } else {
+                        let answer = match network
+                            .room_identity(&credentials, check.room, &check.author)
+                            .await
+                        {
+                            Ok(_) => Some(true),
+                            Err(error) if error.unanswered() => None,
+                            Err(_) => Some(false),
+                        };
+                        answers.insert(asked, answer);
+                        answer
+                    };
+                    match answer {
+                        Some(true) => mentions.push((check.terminal, check.mention)),
+                        Some(false) => {}
+                        None => later.push(check),
+                    }
+                }
+            }
+            Completion::Mentioned { mentions, later }
+        });
     }
 
     #[cfg(feature = "host")]

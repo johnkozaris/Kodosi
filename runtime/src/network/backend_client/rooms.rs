@@ -137,7 +137,7 @@ impl RoomCache {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         items
             .iter()
-            .try_for_each(|item| content.take(cached, room, item))
+            .try_for_each(|item| content.take(cached, room, item, &credentials.user_id))
     }
 
     fn merge(
@@ -155,7 +155,7 @@ impl RoomCache {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
         let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
         for item in items {
-            content.take(cached, room, item)?;
+            content.take(cached, room, item, &credentials.user_id)?;
         }
         content.sequence = content.sequence.max(sequence);
         content.history_trimmed |= trimmed;
@@ -168,7 +168,9 @@ impl RoomCache {
             && let (Some(cached), Some(content)) =
                 (self.rooms.get(&room), self.contents.get_mut(&room))
             && item.sequence == content.sequence + 1
-            && content.take(cached, room, item).is_ok()
+            && content
+                .take(cached, room, item, &credentials.user_id)
+                .is_ok()
         {
             content.sequence = item.sequence;
         }
@@ -213,7 +215,7 @@ impl RoomCache {
 }
 
 impl Content {
-    fn take(&mut self, cached: &CachedRoom, room: Uuid, item: &Item) -> Result<()> {
+    fn take(&mut self, cached: &CachedRoom, room: Uuid, item: &Item, own: &str) -> Result<()> {
         match BackendClient::room_payload(cached, room, item)? {
             Payload::Message {
                 text,
@@ -248,7 +250,11 @@ impl Content {
             }
             Payload::Repository { mut repository } if item.kind == "repository" => {
                 repository.id = item.id.to_string();
-                self.repositories.insert(repository.id.clone(), repository);
+                if rooms::providers::linkable(&repository, item.user_id == own) {
+                    self.repositories.insert(repository.id.clone(), repository);
+                } else {
+                    tracing::warn!(item = %item.id, "a room repository names another address than its own, so Kodosi leaves it out");
+                }
             }
             Payload::Dosi { .. } | Payload::DosiInstructions { .. } => {}
             _ => return Err(invalid("Room content has a different type.")),
@@ -316,7 +322,102 @@ pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<
     )
 }
 
+/// The rooms that two people end when they stop being friends: rooms of this person that the
+/// other may be in, rooms of the other that this person leaves, and invitations of the other.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Parting {
+    own: Vec<Uuid>,
+    leave: Vec<Uuid>,
+    reject: Vec<Uuid>,
+}
+
+fn parting(list: &Value, own: &str, other: &str) -> Result<Parting> {
+    let mut parting = Parting::default();
+    for room in list["missions"].as_array().into_iter().flatten() {
+        let owner = wire::text(room, "ownerUserId")?;
+        if owner == own {
+            parting.own.push(wire::id(room, "id")?);
+        } else if owner == other {
+            parting.leave.push(wire::id(room, "id")?);
+        }
+    }
+    for invitation in list["invitations"].as_array().into_iter().flatten() {
+        if wire::text(invitation, "inviterUserId")? == other {
+            parting.reject.push(wire::id(invitation, "id")?);
+        }
+    }
+    Ok(parting)
+}
+
 impl BackendClient {
+    /// Each of two people who stop being friends leaves the rooms that the other owns.
+    pub(super) async fn end_rooms_with(
+        &self,
+        credentials: &Credentials,
+        other: &str,
+    ) -> Result<()> {
+        let parting = parting(&self.mission_list().await?, &credentials.user_id, other)?;
+        for room in parting.own {
+            let member = match self.room_keys(credentials, room).await {
+                Ok(cached) => cached
+                    .states
+                    .last_key_value()
+                    .is_some_and(|(_, current)| current.state.members.contains_key(other)),
+                Err(error) if self.listed_member(credentials, room, other).await? => {
+                    return Err(error);
+                }
+                Err(_) => false,
+            };
+            if member {
+                self.mission_mutation(
+                    "mission.removeMember",
+                    &json!({"requestId": Uuid::now_v7(), "missionId": room, "userId": other}),
+                )
+                .await?;
+            }
+        }
+        for room in parting.leave {
+            self.mission_mutation(
+                "mission.leave",
+                &json!({"requestId": Uuid::now_v7(), "missionId": room}),
+            )
+            .await?;
+        }
+        for invitation in parting.reject {
+            self.mission_mutation(
+                "mission.invitation.reject",
+                &json!({"requestId": Uuid::now_v7(), "invitationId": invitation}),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// Whether the server lists a person as a member of a room, for a room whose keys this
+    /// device cannot read.
+    async fn listed_member(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        user: &str,
+    ) -> Result<bool> {
+        let detail: Value = self
+            .inner
+            .http
+            .device(
+                Method::GET,
+                &format!("api/missions/{room}"),
+                credentials,
+                None,
+            )
+            .await?;
+        Ok(detail["members"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|member| member["userId"] == user))
+    }
+
     pub(super) async fn register_room_key(&self, credentials: &Credentials) -> Result<()> {
         {
             let mut cache = self.inner.rooms.lock().await;
@@ -787,6 +888,50 @@ impl BackendClient {
         .ok_or_else(|| invalid("The room membership did not change."))
     }
 
+    /// Takes the room state that this device signed and the server accepted, so the server
+    /// cannot keep serving the state before it.
+    pub(super) async fn apply_own_state(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        written: &Value,
+    ) -> Result<()> {
+        let body = wire::text(written, "body")?;
+        let state: KeyState =
+            serde_json::from_slice(&identity::pins::decode(body, 3 * 1024 * 1024)?)?;
+        let mut cached = self
+            .inner
+            .rooms
+            .lock()
+            .await
+            .rooms
+            .get(&room)
+            .cloned()
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+        let anchor = self
+            .room_anchor(credentials, room, &cached, &state.owner_user_id)
+            .await?;
+        let verified = room_crypto::verify_state(
+            &SignedState {
+                version: state.version,
+                body: body.to_owned(),
+                signature: wire::text(written, "signature")?.to_owned(),
+            },
+            room,
+            &state.owner_user_id,
+            &anchor,
+            cached.states.last_key_value().map(|(_, previous)| previous),
+        )?;
+        if let Ok(key) =
+            room_crypto::unwrap(&verified.state, &credentials.user_id, &credentials.keys)
+        {
+            cached.keys.insert(verified.state.epoch, key);
+        }
+        cached.states.insert(state.version, verified);
+        self.remember_room(credentials, room, cached).await?;
+        Ok(())
+    }
+
     async fn next_room_state(
         &self,
         credentials: &Credentials,
@@ -975,6 +1120,37 @@ impl BackendClient {
         self.room_keys(credentials, room).await.map(|_| ())
     }
 
+    /// The hash of the newest key state of a room that this device read. A choice of a
+    /// terminal's room signs it, and each key state before it is in its hash chain.
+    pub(super) async fn room_history(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+    ) -> Result<String> {
+        self.room_keys(credentials, room)
+            .await?
+            .states
+            .last_key_value()
+            .map(|(_, newest)| newest.hash.clone())
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))
+    }
+
+    /// Whether the key states of a room that this device reads hold the state with this hash.
+    #[cfg(feature = "host")]
+    pub(super) async fn room_holds(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        hash: &str,
+    ) -> Result<bool> {
+        Ok(self
+            .room_keys(credentials, room)
+            .await?
+            .states
+            .values()
+            .any(|state| state.hash == hash))
+    }
+
     pub(crate) async fn room_identity(
         &self,
         credentials: &Credentials,
@@ -988,20 +1164,22 @@ impl BackendClient {
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1
             .state;
+        if !state.members.contains_key(&credentials.user_id) {
+            return Err(invalid("This device's person is no longer in the room."));
+        }
         let anchor = state
             .members
             .get(user)
             .ok_or_else(|| Error::Text(text!("This person is no longer in the room.")))?
             .root()?;
-        if user != credentials.user_id
-            && self
-                .friend_record_root(credentials, user)
-                .await?
-                .is_some_and(|recorded| recorded != anchor)
-        {
-            return Err(Error::Trust(text!(
-                "This friend has a new identity. Trust it in Friends before you share or connect."
-            )));
+        if user != credentials.user_id {
+            let friend = self.fetch_identity_with(credentials, user).await?;
+            if friend.root != anchor {
+                return Err(Error::Trust(text!(
+                    "This friend has a new identity. Trust it in Friends before you share or connect."
+                )));
+            }
+            return Ok(friend);
         }
         let bundle = self.member_bundle(credentials, user).await?;
         self.verify_bundle(&bundle, Some(anchor)).await

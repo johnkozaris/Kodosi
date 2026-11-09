@@ -15,8 +15,11 @@ The issuer's discovery document must give its authorization, device authorizatio
 token endpoints on the issuer's origin, over HTTPS (loopback HTTP for development).
 Access tokens must be RS256 or ES256, name the issuer and the audience `kodosi-app`, and
 carry `sub`, an expiry and `auth_time`; deleting an account or starting fresh needs a
-sign-in at most 15 minutes old. The backend keys accounts by issuer and subject, and
-`preferred_username` and `name` give display names.
+sign-in at most 15 minutes old. The backend keys accounts by issuer and subject. Each
+account must also have a `preferred_username` of 3 to 64 characters from `a` to `z`, `0` to
+`9`, `_` and `-` (capital letters become small) that belongs to that account only and never
+changes: it is the person's user name in Kodosi. The backend refuses a sign-in without such
+a name, or with a name that another account has. `name` gives the display name.
 
 ## Backend
 

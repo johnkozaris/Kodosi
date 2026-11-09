@@ -22,8 +22,29 @@ void DevicesModel::revoke(const QString& deviceId)
 
 void DevicesModel::approve(const QString& code)
 {
+    if (!m_checkRequest.isEmpty() && m_checkedLabel.isEmpty())
+        return;
+    m_checkedCode = code;
+    m_checkedLabel.clear();
+    m_checkRequest = m_workspace.sendRequest(
+        QStringLiteral("devices.link.check"), { { QStringLiteral("code"), code } });
+}
+
+void DevicesModel::confirmApproval()
+{
+    if (m_checkedCode.isEmpty())
+        return;
     m_workspace.sendUntracked(
-        QStringLiteral("devices.link.approve"), { { QStringLiteral("code"), code } });
+        QStringLiteral("devices.link.approve"), { { QStringLiteral("code"), m_checkedCode } });
+    dropApproval();
+}
+
+void DevicesModel::dropApproval()
+{
+    m_checkedCode.clear();
+    m_checkedLabel.clear();
+    m_checkRequest.clear();
+    emit changed();
 }
 
 void DevicesModel::requestApproval()
@@ -39,6 +60,20 @@ void DevicesModel::cancelApproval()
 void DevicesModel::startFresh()
 {
     m_workspace.sendUntracked(QStringLiteral("devices.reset"));
+}
+
+void DevicesModel::stopReset()
+{
+    m_workspace.sendUntracked(QStringLiteral("devices.reset.cancel"),
+        { { QStringLiteral("resetId"), m_pendingReset.value(QStringLiteral("resetId")).toString() } });
+}
+
+QVariantMap DevicesModel::waitingReset() const
+{
+    const auto id = m_pendingReset.value(QStringLiteral("resetId")).toString();
+    if (id.isEmpty() || id == m_dismissedReset || m_pendingReset.value(QStringLiteral("thisDevice")).toBool())
+        return {};
+    return m_pendingReset;
 }
 
 bool DevicesModel::hasRecoveryKey() const
@@ -107,6 +142,7 @@ QVariantList DevicesModel::waitingRequests() const
 
 void DevicesModel::dismissRequests()
 {
+    m_dismissedReset = m_pendingReset.value(QStringLiteral("resetId")).toString();
     m_dismissedRequests.clear();
     for (const auto& request : m_requests)
         m_dismissedRequests.append(request.toMap().value(QStringLiteral("requestId")).toString());
@@ -124,8 +160,13 @@ void DevicesModel::reset()
     m_devices.clear();
     m_requests.clear();
     m_dismissedRequests.clear();
+    m_pendingReset.clear();
+    m_dismissedReset.clear();
     m_hosts.clear();
     m_approvalCode.clear();
+    m_checkedCode.clear();
+    m_checkedLabel.clear();
+    m_checkRequest.clear();
     m_newRecoveryKey.clear();
     m_notice.clear();
     m_selfDeviceId.clear();

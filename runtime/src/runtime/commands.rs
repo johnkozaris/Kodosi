@@ -1377,6 +1377,22 @@ impl Runtime {
                 mentions,
                 result,
             } => self.told(id, mentions, result, current),
+            #[cfg(feature = "host")]
+            Completion::Mentioned { mentions, later } => {
+                if current {
+                    for (terminal, mention) in mentions {
+                        if self.local.contains_key(&terminal) {
+                            self.mentions.keep(terminal, mention);
+                        }
+                    }
+                    for unchecked in later {
+                        if self.local.contains_key(&unchecked.terminal) {
+                            self.mentions.wait_for_check(unchecked);
+                        }
+                    }
+                    self.tell_mentions();
+                }
+            }
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {

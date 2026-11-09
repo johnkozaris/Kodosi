@@ -105,6 +105,36 @@ fn received_content_requires_the_signed_identity_metadata_and_matching_room_key(
 }
 
 #[test]
+fn friends_who_part_end_only_the_rooms_that_one_of_them_owns() {
+    let (mine, theirs, others, invited) = (
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+    );
+    let invitation = |id: Uuid, inviter: &str| {
+        json!({"id": id, "missionId": Uuid::now_v7(), "missionName": "Next", "inviterUserId": inviter,
+            "inviterName": inviter, "createdAt": "now"})
+    };
+    let list = json!({
+        "missions": [
+            {"id": mine, "name": "Mine", "ownerUserId": "me"},
+            {"id": theirs, "name": "Theirs", "ownerUserId": "ex"},
+            {"id": others, "name": "Others", "ownerUserId": "someone"},
+        ],
+        "invitations": [invitation(invited, "ex"), invitation(Uuid::now_v7(), "someone")],
+    });
+    assert_eq!(
+        parting(&list, "me", "ex").unwrap(),
+        Parting {
+            own: vec![mine],
+            leave: vec![theirs],
+            reject: vec![invited],
+        }
+    );
+}
+
+#[test]
 fn provider_changes_refresh_task_state_and_preserve_room_context() {
     let repository = rooms::providers::repository("https://github.com/team/project", None).unwrap();
     let mut task: rooms::Task = serde_json::from_value(json!({
@@ -376,6 +406,107 @@ async fn a_key_made_by_someone_who_left_is_replaced_before_anyone_writes_with_it
     assert_eq!(
         cache.writing_key(&credentials, room).unwrap().2.as_ref(),
         new_key.as_ref()
+    );
+}
+
+#[tokio::test]
+async fn a_device_keeps_the_room_state_that_it_signed_when_the_server_withholds_it() {
+    let (alice, alice_identity) = person();
+    let alice = Arc::new(alice);
+    let (_, bob_identity) = person();
+    let (owner, member) = (alice_identity.user_id.clone(), bob_identity.user_id.clone());
+    let room = Uuid::now_v7();
+    let key = room_crypto::secret().unwrap();
+    let mut first = KeyState {
+        room_id: room,
+        owner_user_id: owner.clone(),
+        author_id: owner.clone(),
+        device_id: alice.device_id.clone(),
+        version: 1,
+        epoch: 1,
+        created_at_ms: 2000,
+        previous_hash: String::new(),
+        members: BTreeMap::from([
+            (owner.clone(), alice_identity),
+            (member.clone(), bob_identity),
+        ]),
+        recipients: vec![],
+        previous_key: None,
+    };
+    first.recipients = vec![
+        room_crypto::wrap(&first, &owner, &alice.device_id, alice.room_public(), &key).unwrap(),
+    ];
+    let first = state_signed(&first, &alice, None);
+    let next_key = room_crypto::secret().unwrap();
+    let mut removed = first.state.clone();
+    removed.version = 2;
+    removed.epoch = 2;
+    removed.previous_hash.clone_from(&first.hash);
+    removed.members.remove(&member);
+    removed.previous_key = Some(room_crypto::seal_previous(room, 2, &next_key, &key).unwrap());
+    removed.recipients = vec![
+        room_crypto::wrap(
+            &removed,
+            &owner,
+            &alice.device_id,
+            alice.room_public(),
+            &next_key,
+        )
+        .unwrap(),
+    ];
+    let (body, signature) = room_crypto::sign(room_crypto::STATE_DOMAIN, &alice, &removed).unwrap();
+
+    let storage = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(storage.path().join("network")).unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let credentials = Credentials {
+        user_id: owner.clone(),
+        display_name: "You".to_owned(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::clone(&alice),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    let withheld = CachedRoom {
+        states: BTreeMap::from([(1, first)]),
+        keys: BTreeMap::from([(1, key)]),
+        ..CachedRoom::default()
+    };
+    *network.inner.rooms.lock().await = RoomCache {
+        generation: credentials.generation,
+        rooms: BTreeMap::from([(room, withheld.clone())]),
+        ..RoomCache::default()
+    };
+
+    network
+        .apply_own_state(
+            &credentials,
+            room,
+            &json!({"body": body, "signature": signature}),
+        )
+        .await
+        .unwrap();
+    let kept = network.inner.rooms.lock().await.rooms[&room]
+        .states
+        .last_key_value()
+        .map(|(version, state)| (*version, state.state.members.contains_key(&member)));
+    assert_eq!(kept, Some((2, false)));
+    assert!(
+        network
+            .remember_room(&credentials, room, withheld)
+            .await
+            .is_err()
     );
 }
 
@@ -858,4 +989,61 @@ async fn dosi_uses_no_room_that_someone_else_can_read() {
     ));
     assert_eq!(fake.items.lock().unwrap().len(), 1);
     assert_eq!(network.pinned_dosi(&credentials).unwrap(), None);
+}
+
+#[tokio::test]
+async fn a_room_that_this_device_cannot_read_stops_a_parting_only_when_the_other_is_in_it() {
+    use super::super::tests::{compatible_server, scripted_backend, signed_in_at};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, user) = signed_in_at(&address).await;
+    let credentials = network.credentials().unwrap();
+    *network.inner.rooms.lock().await = RoomCache {
+        generation: credentials.generation,
+        registered: Some(credentials.keys.device_id.clone()),
+        ..RoomCache::default()
+    };
+    let (without, with) = (Uuid::now_v7(), Uuid::now_v7());
+    let other = Uuid::now_v7().to_string();
+    let missing = (404, json!({"error": "Room keys are missing."}));
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (
+                200,
+                json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])}),
+            ),
+            (200, json!({"session": "fixture-session"})),
+            (
+                200,
+                json!({"missions": [{"id": without, "ownerUserId": user}, {"id": with, "ownerUserId": user}], "invitations": []}),
+            ),
+            missing.clone(),
+            (200, json!({"members": [{"userId": user}]})),
+            missing,
+            (
+                200,
+                json!({"members": [{"userId": user}, {"userId": other}]}),
+            ),
+        ],
+    );
+    assert!(matches!(
+        network.end_rooms_with(&credentials, &other).await,
+        Err(Error::Backend { status: 404, .. })
+    ));
+    let requests = tokio::time::timeout(Duration::from_secs(5), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        requests[3..],
+        [
+            "GET /api/missions HTTP/1.1".to_owned(),
+            format!("GET /api/missions/{without}/keys?afterVersion=0 HTTP/1.1"),
+            format!("GET /api/missions/{without} HTTP/1.1"),
+            format!("GET /api/missions/{with}/keys?afterVersion=0 HTTP/1.1"),
+            format!("GET /api/missions/{with} HTTP/1.1"),
+        ]
+    );
 }

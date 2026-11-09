@@ -36,10 +36,15 @@ each field carries its length.
 - **Identity root and device list.** The first device's self-signed certificate fixes
   the account's root. Approved devices certify new ones and sign a device list that they
   renew every 24 hours. Devices pin each account they verify: the root changes only when the
-  person accepts it, the list never goes back, and removed devices never return.
+  person accepts it, the list never goes back, and removed devices never return. Starting
+  fresh makes a new root. While the account has devices, the backend registers the new
+  root only for the device key that asked, a day later, so a sign-in alone does not
+  replace the root unseen.
 - **Friend list.** The friend list is a signed list of friends' roots, and invites carry
-  it. Sharing with a friend whose root changed stops until the person accepts the new
-  root.
+  it. Each list names the SHA-256 of the list before it, and a device takes only lists
+  that continue the list it keeps and that an approved device validly signed. On a newest
+  list of a device that it saw removed, it signs its own list again. Sharing with a friend
+  whose root changed stops until the person accepts the new root.
 - **Link code.** The link code has 60 bits, stretched with PBKDF2-HMAC-SHA512 (2^20
   rounds), with HMAC-SHA256 proofs of the request, the approval and the identity root.
 - **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound to the account and its root,
@@ -52,16 +57,19 @@ each field carries its length.
   2^24 frames or an hour, and resumption makes a new key exchange. The viewer accepts
   only the host device's approved key. The host admits only verified, non-recovery
   devices of accounts that may use the terminal, and checks again when sharing or
-  devices change. The edits of live documents and the video and input of the shared
-  browser travel in this channel, so the backend sees only their sizes and timing.
+  devices change. In a room, it admits only friends of the terminal's owner whose friend
+  record and the room's key state give the same identity. The edits of live documents and
+  the video and input of the shared browser travel in this channel, so the backend sees
+  only their sizes and timing.
 - **Calls.** A device opens the same channel to another computer of its own account to
   list that computer's agents and folders and start a terminal there. The caller accepts
   only that device's approved key; the host admits only verified, non-recovery devices of
   its own account and answers only those requests.
 - **Terminal rooms.** The device that puts a terminal into a room, or takes it out, signs
-  the change with a sequence. The host takes a room for its terminal only with the
-  signature of an approved device of its owner and a sequence newer than the last one
-  that it took.
+  the change with a sequence and the hash of the newest key state of the room that it read.
+  The host takes a room for its terminal only with the signature of an approved device of
+  its owner, a sequence newer than the last one that it took, and a room history that holds
+  that key state.
 - **Room key states.** The room key states form a hash chain that member devices sign.
   Only the owner adds members
   or removes others; a member can leave. Devices remember the newest state they
@@ -89,8 +97,9 @@ each field carries its length.
 5. The link code is not a PAKE. The backend can guess it with about 2^80 work in its 10
    minutes.
 6. The backend can withhold or reorder room items, whose order is unsigned, withhold or
-   change terminal status, withhold a change of a terminal's room, and name another
-   terminal of the same computer as the one that a restarted terminal replaces.
+   change terminal status, withhold a change of a terminal's room or the key states that
+   are newer than the ones a device read, and name another terminal of the same computer
+   as the one that a restarted terminal replaces.
 7. Room keys do not change with use; one key should encrypt fewer than 2^32 records.
 8. A key state's time comes from its author; devices refuse only future times.
 9. A recovery key plus the account's sign-in approves a device. A device removed before
@@ -101,3 +110,13 @@ each field carries its length.
     or stolen device.
 11. An owner who starts fresh cannot open the rooms they made.
 12. The backend sees the metadata listed in [Security](SECURITY.md).
+13. A removed device keeps its signing key. A device or friend that has not yet received
+    the list without it still trusts it, so the backend can show them device lists that it
+    signs. A device that received the removal refuses each device that the removed device
+    approves.
+14. The backend can withhold a newer friend list from a device. A device without a friend
+    list takes the newest one that an approved device signed, so the backend can give it
+    an older one.
+15. The backend keeps the newest 1024 friend lists. A device that missed more changes, or
+    whose list the backend does not continue, cannot follow the list. Removed and approved
+    again, it starts without a list, as limit 14 says.

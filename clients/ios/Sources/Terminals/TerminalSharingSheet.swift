@@ -70,6 +70,9 @@ struct TerminalSharingSheet: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Everyone you share with can type, resize and close this terminal.")
+                    if room != nil {
+                        Text("Your friends in the room get full control, including friends who join later.")
+                    }
                     if session.isOwner {
                         Text("To share it with people, open Kodosi on \(session.hostLabel).")
                     }

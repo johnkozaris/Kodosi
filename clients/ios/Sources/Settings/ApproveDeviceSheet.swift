@@ -14,7 +14,11 @@ struct ApproveDeviceSheet: View {
     }
 
     private var approving: Bool {
-        account.approval == .approving
+        account.approval?.isBusy == true
+    }
+
+    private var confirmingLabel: String? {
+        if case let .confirming(label) = account.approval { label } else { nil }
     }
 
     var body: some View {
@@ -51,8 +55,16 @@ struct ApproveDeviceSheet: View {
             switch approval {
             case .approved: .success
             case .failed: .error
-            case .approving, nil: nil
+            case .checking, .confirming, .approving, nil: nil
             }
+        }
+        .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
+                            titleVisibility: .visible) {
+            Button("Approve") { account.confirmApproval() }
+                .accessibilityIdentifier("settings.devices.confirmApprove")
+            Button("Cancel", role: .cancel) { account.finishApproval() }
+        } message: {
+            Text("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.")
         }
         .onDisappear { account.finishApproval() }
     }
@@ -159,6 +171,6 @@ struct ApproveDeviceSheet: View {
     private func approve() {
         guard DeviceCode.isComplete(code), !approving else { return }
         codeFocused = false
-        account.approveDevice(code: code)
+        account.checkDevice(code: code)
     }
 }

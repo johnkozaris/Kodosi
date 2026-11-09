@@ -27,7 +27,7 @@ struct DeviceTrustCard: View {
             let account = model.account
             DeviceTrustChoices(trust: trust, device: ThisDevice.name, actions: .init(
                 request: account.requestDeviceApproval, cancelRequest: account.cancelDeviceApproval,
-                recover: account.useRecoveryKey, startFresh: account.startFresh,
+                recover: account.useRecoveryKey, startFresh: account.startFresh, stopStartingFresh: account.stopReset,
                 signInAgain: account.restartSignIn, retry: account.chooseTrust,
             ))
         }

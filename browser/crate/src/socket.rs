@@ -5,7 +5,7 @@ use tokio::{net::TcpListener, sync::mpsc};
 use tokio_tungstenite::tungstenite::{
     Message,
     handshake::server::{Callback, ErrorResponse, Request, Response},
-    http::StatusCode,
+    http::{StatusCode, header::ORIGIN},
 };
 
 use crate::{
@@ -104,13 +104,15 @@ impl Socket {
     }
 }
 
-struct Admission {
-    path: String,
+/// Admits only the path with the token. A web page cannot connect, because a browser always
+/// names the page's origin.
+pub(crate) struct Admission {
+    pub(crate) path: String,
 }
 
 impl Callback for Admission {
     fn on_request(self, request: &Request, response: Response) -> Result<Response, ErrorResponse> {
-        if request.uri().path() == self.path {
+        if request.uri().path() == self.path && !request.headers().contains_key(ORIGIN) {
             Ok(response)
         } else {
             let mut refused = ErrorResponse::new(None);
@@ -120,7 +122,7 @@ impl Callback for Admission {
     }
 }
 
-fn token() -> io::Result<String> {
+pub(crate) fn token() -> io::Result<String> {
     let mut bytes = [0_u8; 32];
     getrandom::fill(&mut bytes).map_err(io::Error::other)?;
     let mut text = String::with_capacity(64);
@@ -178,6 +180,30 @@ mod tests {
         assert_eq!(said, Message::text(r#"{"type":"quit"}"#));
         drop(commands);
         assert!(accepted.await.unwrap().is_ok());
+    }
+
+    #[test]
+    fn a_web_page_does_not_pass_even_with_the_token() {
+        let request = |path: &str, origin: Option<&str>| {
+            let mut request = Request::builder().uri(path);
+            if let Some(origin) = origin {
+                request = request.header(ORIGIN, origin);
+            }
+            request.body(()).unwrap()
+        };
+        let admitted = |request: &Request| {
+            Admission {
+                path: "/devtools/browser/token".into(),
+            }
+            .on_request(request, Response::default())
+            .is_ok()
+        };
+        assert!(admitted(&request("/devtools/browser/token", None)));
+        assert!(!admitted(&request(
+            "/devtools/browser/token",
+            Some("http://site.example")
+        )));
+        assert!(!admitted(&request("/devtools/browser/1", None)));
     }
 
     #[tokio::test]

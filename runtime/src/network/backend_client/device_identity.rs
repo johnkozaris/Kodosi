@@ -63,6 +63,15 @@ impl BackendClient {
         Ok((bundle, root))
     }
 
+    /// Registers this device as the first device of a new identity of the account, and
+    /// keeps the root that it made.
+    pub(super) async fn enroll_fresh(&self, credentials: &Credentials) -> Result<()> {
+        let (bundle, root) = self.bootstrap_identity(credentials).await?;
+        let pins = Arc::clone(&self.inner.state.lock().await.pins);
+        own_identity(pins, bundle, Some(root), identity::now_ms()).await?;
+        Ok(())
+    }
+
     pub(super) async fn prove_possession(
         &self,
         credentials: &Credentials,

@@ -641,12 +641,32 @@
         <translation>新しく始める…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>新しく始めない</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>リカバリーキー</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>承認</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 が新しく始めることを求めています</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>誰も止めなければ、%1 以降に新しく始められ、あなたのすべてのデバイスがアクセスできなくなります。自分で求めたのでなければ、止めてください。</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>止める</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>このコンピュータは %1 以降に新しく始められます。それまでは、ほかのデバイスで止めることができます。ほかのデバイスがまだ手元にある場合は、代わりにそのデバイスでこのコンピュータを承認してください。フレンドとルームをそのまま残せます。</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -701,6 +721,14 @@
         <translation>リカバリーキーを作成</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1 を承認しますか？</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>承認すると、そのデバイスはあなたのすべてのターミナル、ルーム、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>新しいリカバリーキーを作成しますか？</translation>
     </message>
@@ -741,8 +769,8 @@
         <translation>新しく始める</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、ルームも作り直しになります。リカバリーキーがある場合は、キャンセルしてキーを使ってください。フレンドとルームをそのまま残せます。</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、ルームも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとルームをそのまま残せます。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1963,6 +1991,10 @@
         <translation>Kodosi がアップデートされました。新しいバージョンを使うには再起動してください。</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 が新しく始めることを求めています。自分で求めたのでなければ、止めてください。</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 があなたのアカウントへのアクセスを求めています。</translation>
     </message>
@@ -1993,6 +2025,10 @@
     <message>
         <source>Approve…</source>
         <translation>承認…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>確認…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2195,6 +2231,10 @@
         <translation>辞退</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>ブロック…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>%1 さんにリクエストを送信しました</translation>
     </message>
@@ -2223,8 +2263,12 @@
         <translation>削除…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>相手のデバイスが変わりました。共有するには再度信頼してください。</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>相手の ID が変わりました。相手からの新しい招待で確認してください。</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>相手の ID が変わりました。相手から知らされた場合だけ信頼してください。</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2247,12 +2291,32 @@
         <translation>%1 を開く</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>ブロック中</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>ブロックを解除</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>まだフレンドはいません</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>招待を送るか、上でユーザー名を追加してください。</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 をブロックしますか？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>ブロック</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2263,8 +2327,8 @@
         <translation>削除</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>共有したターミナルは相手から使えなくなります。</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。</translation>
     </message>
 </context>
 <context>
@@ -2493,8 +2557,8 @@
         <translation>ここにはまだターミナルがありません</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>追加しましょう。ルームの全員がフル操作できます。</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>追加しましょう。ルームにいるフレンドがフル操作できます。</translation>
     </message>
     <message>
         <source>Open a terminal</source>

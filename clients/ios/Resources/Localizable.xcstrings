@@ -2272,6 +2272,58 @@
         }
       }
     },
+    "Approve %@?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ freigeben?"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Έγκριση της συσκευής %@;"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Aprobar %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approuver %@ ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approvare %@?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を承認しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 승인할까요?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "批准 %@？"
+          }
+        }
+      }
+    },
     "Approves a new device when you have no other" : {
       "localizations" : {
         "de" : {
@@ -2684,6 +2736,162 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "返回终端"
+          }
+        }
+      }
+    },
+    "Block" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockieren"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμός"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocca"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロック"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽"
+          }
+        }
+      }
+    },
+    "Blocked" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockiert"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμένοι"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqués"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloccati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロック中"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已屏蔽"
+          }
+        }
+      }
+    },
+    "Block…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockieren…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμός…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquer…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocca…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロック…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽…"
           }
         }
       }
@@ -5080,106 +5288,54 @@
         }
       }
     },
-    "Everyone in the room can type, resize and close these terminals." : {
+    "Everyone in the room shares its conversation. Your terminals in it go to your friends." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alle im Raum können in diesen Terminals tippen, ihre Größe ändern und sie schließen."
+            "value" : "Alle im Raum teilen seine Unterhaltung. Deine Terminals darin gehen an deine Freunde."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Όλοι στο δωμάτιο μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθος και να κλείνουν αυτά τα τερματικά."
+            "value" : "Όλοι στο δωμάτιο μοιράζονται τη συζήτησή του. Τα τερματικά σας σε αυτό πηγαίνουν στους φίλους σας."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Todos en la sala pueden escribir, cambiar el tamaño y cerrar estos terminales."
+            "value" : "Todos en la sala comparten su conversación. Tus terminales en ella son para tus amigos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout le monde dans le salon peut taper, redimensionner et fermer ces terminaux."
+            "value" : "Tout le monde dans le salon partage sa conversation. Vos terminaux qui s'y trouvent vont à vos amis."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tutti nella stanza possono scrivere, ridimensionare e chiudere questi terminali."
+            "value" : "Tutti nella stanza condividono la sua conversazione. I tuoi terminali al suo interno vanno ai tuoi amici."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームの全員が、これらのターミナルに入力、サイズ変更、終了ができます。"
+            "value" : "ルームの全員が会話を共有します。ルームに置いたターミナルはフレンドに共有されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에 있는 모두가 이 터미널에 입력하고, 크기를 바꾸고, 닫을 수 있어요."
+            "value" : "방에 있는 모두가 대화를 공유해요. 방에 둔 내 터미널은 내 친구들에게 공유돼요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "房间里的每个人都可以在这些终端中输入、调整大小和关闭它们。"
-          }
-        }
-      }
-    },
-    "Everyone in the room shares its terminals and conversation." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle im Raum teilen seine Terminals und seine Unterhaltung."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Όλοι στο δωμάτιο μοιράζονται τα τερματικά και τη συζήτησή του."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todos en la sala comparten sus terminales y su conversación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout le monde dans le salon partage ses terminaux et sa conversation."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tutti nella stanza condividono i suoi terminali e la sua conversazione."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルームの全員が、そのターミナルと会話を共有します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방에 있는 모두가 방의 터미널과 대화를 공유해요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间里的每个人都共享其终端和对话。"
+            "value" : "房间里的每个人都共享其对话。你放在其中的终端会共享给你的好友。"
           }
         }
       }
@@ -5964,6 +6120,58 @@
         }
       }
     },
+    "In a room, each terminal goes to the friends of its owner. They can type, resize and close it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In einem Raum geht jedes Terminal an die Freunde seines Eigentümers. Sie können darin tippen, seine Größe ändern und es schließen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σε ένα δωμάτιο, κάθε τερματικό πηγαίνει στους φίλους του κατόχου του. Μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθός του και να το κλείνουν."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En una sala, cada terminal es para los amigos de su dueño. Pueden escribir, cambiar el tamaño y cerrarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans un salon, chaque terminal va aux amis de son propriétaire. Ils peuvent taper, le redimensionner et le fermer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In una stanza, ogni terminale va agli amici del suo proprietario. Possono scrivere, ridimensionarlo e chiuderlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ルームでは、各ターミナルは持ち主のフレンドに共有されます。フレンドは入力、サイズ変更、終了ができます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "방에서 각 터미널은 주인의 친구들에게 공유돼요. 친구들은 입력하고, 크기를 바꾸고, 닫을 수 있어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在房间中，每个终端都共享给其所有者的好友。他们可以在其中输入、调整大小并关闭它。"
+          }
+        }
+      }
+    },
     "In progress" : {
       "localizations" : {
         "de" : {
@@ -6272,6 +6480,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已邀请"
+          }
+        }
+      }
+    },
+    "It can then use all your terminals, rooms and friends. Approve it only if you hold that device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es kann dann alle deine Terminals, Räume und Freunde nutzen. Gib es nur frei, wenn du dieses Gerät in der Hand hast."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Θα μπορεί έπειτα να χρησιμοποιεί όλα τα τερματικά, τα δωμάτια και τους φίλους σας. Εγκρίνετέ την μόνο αν κρατάτε αυτή τη συσκευή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luego podrá usar todos tus terminales, salas y amigos. Apruébalo solo si tienes ese dispositivo en tus manos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il pourra alors utiliser tous vos terminaux, salons et amis. Approuvez-le seulement si vous avez cet appareil en main."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Potrà poi usare tutti i tuoi terminali, stanze e amici. Approvalo solo se hai in mano quel dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認すると、そのデバイスはあなたのすべてのターミナル、ルーム、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "승인하면 그 기기가 내 모든 터미널, 방, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "批准后，它可以使用你的所有终端、房间和好友。只有当那台设备在你手中时才批准。"
           }
         }
       }
@@ -13868,54 +14128,54 @@
         }
       }
     },
-    "Share one of your terminals with this room. Everyone in the room gets full control." : {
+    "Share one of your terminals with this room. Your friends in the room get full control." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Teile eines deiner Terminals mit diesem Raum. Alle im Raum bekommen die volle Kontrolle."
+            "value" : "Teile eines deiner Terminals mit diesem Raum. Deine Freunde im Raum bekommen die volle Kontrolle."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μοιραστείτε ένα από τα τερματικά σας με αυτό το δωμάτιο. Όλοι στο δωμάτιο αποκτούν πλήρη έλεγχο."
+            "value" : "Μοιραστείτε ένα από τα τερματικά σας με αυτό το δωμάτιο. Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comparte uno de tus terminales con esta sala. Todos en la sala tendrán control total."
+            "value" : "Comparte uno de tus terminales con esta sala. Tus amigos en la sala tendrán control total."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partagez l'un de vos terminaux avec ce salon. Tout le monde dans le salon en aura le contrôle total."
+            "value" : "Partagez l'un de vos terminaux avec ce salon. Vos amis dans le salon en auront le contrôle total."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Condividi uno dei tuoi terminali con questa stanza. Tutti nella stanza ne avranno il pieno controllo."
+            "value" : "Condividi uno dei tuoi terminali con questa stanza. I tuoi amici nella stanza ne avranno il pieno controllo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自分のターミナルをこのルームと共有します。ルームの全員がフル操作できます。"
+            "value" : "ターミナルをこのルームと共有しましょう。ルームにいるフレンドがフル操作できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내 터미널 하나를 이 방과 공유하세요. 방에 있는 모두가 전체 권한을 가져요."
+            "value" : "내 터미널 하나를 이 방과 공유해 보세요. 방에 있는 친구들이 전체 권한을 가져요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "与此房间共享你的一个终端。房间里的每个人都能完全控制它。"
+            "value" : "与此房间共享你的一个终端。房间里你的好友都能完全控制它。"
           }
         }
       }
@@ -16474,54 +16734,54 @@
         }
       }
     },
-    "Their identity changed. Trust it to share with them again." : {
+    "Their identity changed. Trust it only if they told you so." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Identität dieser Person hat sich geändert. Vertraue ihr, um wieder mit ihr zu teilen."
+            "value" : "Die Identität dieser Person hat sich geändert. Vertraue ihr nur, wenn die Person es dir gesagt hat."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη για να μοιραστείτε ξανά μαζί του."
+            "value" : "Η ταυτότητα του ατόμου άλλαξε. Ορίστε την ως αξιόπιστη μόνο αν σας το είπε το ίδιο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Su identidad ha cambiado. Confía en ella para volver a compartir con esta persona."
+            "value" : "Su identidad ha cambiado. Confía en ella solo si esta persona te lo dijo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Son identité a changé. Faites confiance à sa nouvelle identité pour partager à nouveau avec cette personne."
+            "value" : "Son identité a changé. Faites-lui confiance seulement si cette personne vous l'a dit."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sua identità è cambiata. Considerala attendibile per condividere di nuovo con questa persona."
+            "value" : "La sua identità è cambiata. Considerala attendibile solo se questa persona te lo ha detto."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相手の ID が変わりました。再び共有するには、その ID を信頼してください。"
+            "value" : "相手の ID が変わりました。相手から知らされた場合だけ信頼してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "상대의 신원이 바뀌었어요. 다시 공유하려면 신원을 신뢰하세요."
+            "value" : "상대의 신원이 바뀌었어요. 상대가 직접 알려 준 경우에만 신뢰하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "对方的身份已变更。信任新身份后才能再次与其共享。"
+            "value" : "对方的身份已变更。仅在对方告诉过你时才信任新身份。"
           }
         }
       }
@@ -16574,6 +16834,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "对方的身份已变更。请先在“好友”中信任对方。"
+          }
+        }
+      }
+    },
+    "Their identity changed. Verify it with a new invite from them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Identität dieser Person hat sich geändert. Verifiziere sie mit einer neuen Einladung von ihr."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η ταυτότητα του ατόμου άλλαξε. Επαληθεύστε την με μια νέα πρόσκληση από αυτό."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su identidad ha cambiado. Verifícala con una invitación nueva de esta persona."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son identité a changé. Vérifiez-la avec une nouvelle invitation de cette personne."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sua identità è cambiata. Verificala con un nuovo invito di questa persona."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の ID が変わりました。相手からの新しい招待で確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대의 신원이 바뀌었어요. 상대가 보낸 새 초대로 확인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对方的身份已变更。请用对方发来的新邀请验证新身份。"
           }
         }
       }
@@ -16730,58 +17042,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在你再次邀请之前，对方将无法使用其中的终端和对话。"
-          }
-        }
-      }
-    },
-    "They lose the terminals you shared. Kodosi does not undo the commands that they already ran." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Person verliert die Terminals, die du geteilt hast. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Χάνει τα τερματικά που μοιραστήκατε. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pierde los terminales que has compartido. Kodosi no deshace los comandos que ya ha ejecutado."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette personne perd les terminaux que vous avez partagés. Kodosi n'annule pas les commandes qu'elle a déjà exécutées."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perde i terminali che hai condiviso. Kodosi non annulla i comandi che ha già eseguito."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有したターミナルは相手から使えなくなります。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "对方将失去你共享的终端。Kodosi 不会撤销对方已执行的命令。"
           }
         }
       }
@@ -19022,6 +19282,58 @@
         }
       }
     },
+    "You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr teilt keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra. Kodosi no deshace los comandos que ya ha ejecutado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l'autre. Kodosi n'annule pas les commandes que cette personne a déjà exécutées."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smettete di condividere terminali tra voi e ciascuno lascia le stanze dell'altro. Kodosi non annulla i comandi che ha già eseguito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。"
+          }
+        }
+      }
+    },
     "Your devices" : {
       "localizations" : {
         "de" : {
@@ -19070,6 +19382,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的设备"
+          }
+        }
+      }
+    },
+    "Your friends in the room get full control, including friends who join later." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Freunde im Raum bekommen die volle Kontrolle, auch Freunde, die später beitreten."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο, ακόμη και όσοι μπουν αργότερα."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus amigos en la sala tienen control total, incluso los que se unan más tarde."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos amis dans le salon en ont le contrôle total, y compris ceux qui le rejoindront plus tard."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I tuoi amici nella stanza ne hanno il pieno controllo, anche quelli che si uniranno più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "後から参加するフレンドも含め、ルームにいるフレンドがフル操作できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중에 들어오는 친구를 포함해 방에 있는 친구들이 전체 권한을 가져요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房间里你的好友（包括之后加入的好友）都能完全控制。"
           }
         }
       }

@@ -642,12 +642,32 @@
         <translation>Repartir de zéro…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Ne pas repartir de zéro</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Clé de récupération</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Approuver</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 a demandé à repartir de zéro</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Si personne ne l&apos;arrête, il peut repartir de zéro à partir de %1, et tous vos appareils perdent l&apos;accès. Arrêtez-le, sauf si vous l&apos;avez demandé vous-même.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Arrêter</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Cet ordinateur peut repartir de zéro à partir de %1. D&apos;ici là, vos autres appareils peuvent l&apos;arrêter. Si vous avez encore l&apos;un d&apos;eux, approuvez plutôt cet ordinateur avec lui et gardez vos amis et vos salons.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -702,6 +722,14 @@
         <translation>Créer une clé de récupération</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>Approuver %1&#xa0;?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Il pourra alors utiliser tous vos terminaux, salons et amis. Approuvez-le seulement si vous avez cet appareil en main.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>Créer une nouvelle clé de récupération&#xa0;?</translation>
     </message>
@@ -742,8 +770,8 @@
         <translation>Repartir de zéro</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Vos autres appareils perdent l&apos;accès jusqu&apos;à ce que vous les approuviez à nouveau depuis cet ordinateur. Vos amis doivent vous refaire confiance, et vous recréez vos salons. Si vous avez une clé de récupération, annulez et utilisez-la&#xa0;: vous gardez vos amis et vos salons.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Vos autres appareils perdent l&apos;accès jusqu&apos;à ce que vous les approuviez à nouveau depuis cet ordinateur. Vos amis doivent vous refaire confiance, et vous recréez vos salons. Si votre compte a des appareils, cet ordinateur attend un jour. Si vous avez un autre appareil ou une clé de récupération, annulez et utilisez-le&#xa0;: vous gardez vos amis et vos salons.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1994,10 @@
         <translation>Kodosi a été mis à jour. Redémarrez-le pour utiliser la nouvelle version.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 a demandé à repartir de zéro. Arrêtez-le, sauf si vous l&apos;avez demandé vous-même.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 veut utiliser votre compte.</translation>
     </message>
@@ -1996,6 +2028,10 @@
     <message>
         <source>Approve…</source>
         <translation>Approuver…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Examiner…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2202,6 +2238,10 @@
         <translation>Refuser</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Bloquer…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Demande envoyée à %1</translation>
     </message>
@@ -2230,8 +2270,12 @@
         <translation>Retirer…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Ses appareils ont changé. Refaites-lui confiance pour partager.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Son identité a changé. Vérifiez-la avec une nouvelle invitation de cette personne.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Son identité a changé. Faites-lui confiance seulement si cette personne vous l&apos;a dit.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2254,12 +2298,32 @@
         <translation>Ouvrir %1</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Bloqués</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Débloquer</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Pas encore d&apos;amis</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Envoyez votre invitation, ou ajoutez un nom d&apos;utilisateur ci-dessus.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>Bloquer %1&#xa0;?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Bloquer</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Cette personne ne peut plus vous envoyer de demandes d&apos;ami. Si vous êtes amis, vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l&apos;autre.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2270,8 +2334,8 @@
         <translation>Retirer</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Cette personne perd les terminaux que vous avez partagés avec elle.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l&apos;autre. Kodosi n&apos;annule pas les commandes que cette personne a déjà exécutées.</translation>
     </message>
 </context>
 <context>
@@ -2504,8 +2568,8 @@
         <translation>Pas encore de terminaux ici</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Ajoutez-en un. Tout le monde dans le salon en aura le contrôle total.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Ajoutez-en un. Vos amis dans le salon en auront le contrôle total.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

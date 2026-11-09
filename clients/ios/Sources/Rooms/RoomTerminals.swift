@@ -18,7 +18,7 @@ struct RoomTerminals: View {
             if sessions.isEmpty {
                 EmptyState(
                     title: "No terminals here yet",
-                    message: "Share one of your terminals with this room. Everyone in the room gets full control.",
+                    message: "Share one of your terminals with this room. Your friends in the room get full control.",
                 ) {
                     TerminalGhost()
                 } actions: {
@@ -37,7 +37,7 @@ struct RoomTerminals: View {
                             HStack(spacing: 10) { slots(mine) }
                             VStack(spacing: 10) { slots(mine) }
                         }
-                        Text("Everyone in the room can type, resize and close these terminals.")
+                        Text("In a room, each terminal goes to the friends of its owner. They can type, resize and close it.")
                             .appTextStyle(.caption).fontWeight(.regular)
                             .foregroundStyle(theme.colors.inkFaint)
                             .padding(.leading, 4)

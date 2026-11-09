@@ -104,6 +104,12 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "devices.link.check")]
+    CheckDevice {
+        code: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "devices.link.approve")]
     ApproveDevice {
         code: String,
@@ -122,6 +128,13 @@ pub enum Command {
     },
     #[serde(rename = "devices.reset")]
     ResetDevices {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "devices.reset.cancel")]
+    CancelReset {
+        #[serde(rename = "resetId")]
+        reset_id: String,
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -167,6 +180,18 @@ pub enum Command {
     },
     #[serde(rename = "friends.remove")]
     RemoveFriend {
+        username: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "friends.block")]
+    BlockFriend {
+        username: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "friends.unblock")]
+    UnblockFriend {
         username: String,
         #[serde(rename = "requestId")]
         request_id: String,
@@ -958,6 +983,7 @@ pub enum EventBody {
         friends: Vec<FriendEntry>,
         incoming: Vec<FriendRequestEntry>,
         outgoing: Vec<FriendRequestEntry>,
+        blocked: Vec<BlockedEntry>,
     },
     #[serde(rename = "friends.result")]
     FriendsResult {
@@ -979,6 +1005,8 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         notice: Option<Text>,
         devices: Vec<DeviceEntry>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reset: Option<DeviceReset>,
     },
     #[serde(rename = "devices.hosts")]
     DevicesHosts { device_ids: Vec<String> },
@@ -999,6 +1027,8 @@ pub enum EventBody {
         code: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         key: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_label: Option<String>,
     },
     #[serde(rename = "devices.error")]
     DevicesError {
@@ -1298,6 +1328,7 @@ pub struct FriendEntry {
     pub display_name: String,
     pub verified: bool,
     pub identity_state: FriendIdentityState,
+    pub invite_needed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
@@ -1316,6 +1347,15 @@ pub struct FriendRequestEntry {
     pub created_at: String,
 }
 
+/// A person whom the user blocked: they cannot send the user friend requests.
+#[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockedEntry {
+    pub user_id: String,
+    pub handle: String,
+    pub display_name: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceEntry {
@@ -1323,6 +1363,17 @@ pub struct DeviceEntry {
     pub label: String,
     pub cert_issued_at_ms: i64,
     pub recovery_key: bool,
+}
+
+/// A device that asked to start fresh. It can start fresh after `ready_at_ms`.
+#[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeviceReset {
+    pub reset_id: String,
+    pub device_label: String,
+    pub this_device: bool,
+    pub requested_at_ms: i64,
+    pub ready_at_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
@@ -1383,6 +1434,7 @@ pub struct MissionInvitationEntry {
     pub id: String,
     pub mission_id: String,
     pub mission_name: String,
+    pub inviter_user_id: String,
     pub inviter_name: String,
     pub created_at: String,
 }
@@ -1625,10 +1677,12 @@ impl Command {
             Self::RefreshAuth { .. } => "auth.refresh",
             Self::RefreshDevices { .. } => "devices.refresh",
             Self::RevokeDevice { .. } => "devices.revoke",
+            Self::CheckDevice { .. } => "devices.link.check",
             Self::ApproveDevice { .. } => "devices.link.approve",
             Self::LinkDevice { .. } => "devices.link.startSelf",
             Self::CancelDeviceLink { .. } => "devices.link.cancelSelf",
             Self::ResetDevices { .. } => "devices.reset",
+            Self::CancelReset { .. } => "devices.reset.cancel",
             Self::CreateRecoveryKey { .. } => "devices.recovery.create",
             Self::UseRecoveryKey { .. } => "devices.recovery.use",
             Self::RefreshFriends { .. } => "friends.refresh",
@@ -1637,6 +1691,8 @@ impl Command {
             Self::RejectFriend { .. } => "friends.request.reject",
             Self::CancelFriend { .. } => "friends.request.cancel",
             Self::RemoveFriend { .. } => "friends.remove",
+            Self::BlockFriend { .. } => "friends.block",
+            Self::UnblockFriend { .. } => "friends.unblock",
             Self::TrustFriend { .. } => "friends.identity.trust",
             Self::VerifyFriend { .. } => "friends.verify",
             Self::FriendInvite { .. } => "friends.invite",
@@ -1752,10 +1808,12 @@ impl Command {
             | Self::RefreshAuth { request_id }
             | Self::RefreshDevices { request_id }
             | Self::RevokeDevice { request_id, .. }
+            | Self::CheckDevice { request_id, .. }
             | Self::ApproveDevice { request_id, .. }
             | Self::LinkDevice { request_id }
             | Self::CancelDeviceLink { request_id }
             | Self::ResetDevices { request_id }
+            | Self::CancelReset { request_id, .. }
             | Self::CreateRecoveryKey { request_id }
             | Self::UseRecoveryKey { request_id, .. }
             | Self::RefreshFriends { request_id }
@@ -1764,6 +1822,8 @@ impl Command {
             | Self::RejectFriend { request_id, .. }
             | Self::CancelFriend { request_id, .. }
             | Self::RemoveFriend { request_id, .. }
+            | Self::BlockFriend { request_id, .. }
+            | Self::UnblockFriend { request_id, .. }
             | Self::TrustFriend { request_id, .. }
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
@@ -2260,14 +2320,19 @@ impl Command {
         self.validate_canvas()?;
         match self {
             Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
-            Self::ApproveDevice { code, .. } => text(code, "code", 64)?,
+            Self::CheckDevice { code, .. } | Self::ApproveDevice { code, .. } => {
+                text(code, "code", 64)?;
+            }
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
             | Self::AcceptFriend { username, .. }
             | Self::RejectFriend { username, .. }
             | Self::CancelFriend { username, .. }
             | Self::RemoveFriend { username, .. }
+            | Self::BlockFriend { username, .. }
+            | Self::UnblockFriend { username, .. }
             | Self::TrustFriend { username, .. }
             | Self::VerifyFriend { username, .. } => {
                 let username = username.trim();
@@ -2645,9 +2710,13 @@ mod tests {
             json!({"type":"auth.login.start","requestId":ID,"browser":"app"}),
             json!({"type":"auth.login.finish","requestId":ID,"url":"com.kodosi:/auth?code=c&state=s"}),
             json!({"type":"devices.revoke","requestId":ID,"deviceId":"native-device-name"}),
+            json!({"type":"devices.reset.cancel","requestId":ID,"resetId":ID}),
+            json!({"type":"devices.link.check","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
+            json!({"type":"friends.block","username":"example","requestId":ID}),
+            json!({"type":"friends.unblock","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":DIRECTORY,"resume":{"provider":"claude","nativeConversationId":ID}}),
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
@@ -2736,7 +2805,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 65);
+        assert_eq!(kinds.len(), 69);
     }
 
     #[test]

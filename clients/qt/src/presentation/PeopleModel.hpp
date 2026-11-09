@@ -12,6 +12,7 @@ class PeopleModel final : public QObject {
     Q_PROPERTY(QVariantList friends READ friends NOTIFY changed)
     Q_PROPERTY(QVariantList incoming READ incoming NOTIFY changed)
     Q_PROPERTY(QVariantList outgoing READ outgoing NOTIFY changed)
+    Q_PROPERTY(QVariantList blocked READ blocked NOTIFY changed)
 
 public:
     explicit PeopleModel(Workspace& workspace);
@@ -19,12 +20,15 @@ public:
     QVariantList friends() const { return m_friends; }
     QVariantList incoming() const { return m_incoming; }
     QVariantList outgoing() const { return m_outgoing; }
+    QVariantList blocked() const { return m_blocked; }
 
     Q_INVOKABLE void request(const QString& username);
     Q_INVOKABLE void accept(const QString& username);
     Q_INVOKABLE void decline(const QString& username);
     Q_INVOKABLE void cancel(const QString& username);
     Q_INVOKABLE void remove(const QString& username);
+    Q_INVOKABLE void block(const QString& username);
+    Q_INVOKABLE void unblock(const QString& username);
     Q_INVOKABLE void trust(const QString& username);
     Q_INVOKABLE void verify(const QString& username, const QString& invite);
     Q_INVOKABLE void copyInvite();
@@ -41,6 +45,7 @@ private:
     QVariantList m_friends;
     QVariantList m_incoming;
     QVariantList m_outgoing;
+    QVariantList m_blocked;
     QElapsedTimer m_inviteRequested;
 
     void reset();

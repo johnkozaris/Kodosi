@@ -33,5 +33,6 @@ public enum DeviceTrust: Equatable, Sendable {
     case pendingApproval(code: String)
     case recovering
     case resetting
+    case waiting(Date)
     case failed(String)
 }

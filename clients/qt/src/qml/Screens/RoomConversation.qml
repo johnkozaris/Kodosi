@@ -264,6 +264,13 @@ Item {
                                     visible: !entry.own && !entry.grouped
                                     spacing: 6
                                     PlainLabel { text: entry.isAgent ? entry.modelData.agent : entry.modelData.authorName; font.weight: Font.DemiBold }
+                                    PlainLabel {
+                                        readonly property var author: Models.Missions.members.find(member => member.userId === entry.modelData.authorId)
+                                        visible: !entry.isAgent && !!author
+                                        text: author ? "@" + author.handle : ""
+                                        color: KodosiTheme.inkFaint
+                                        font.pixelSize: KodosiTheme.fontCaption
+                                    }
                                     PlainLabel { visible: entry.isAgent; text: qsTr("for %1").arg(entry.modelData.authorName); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption }
                                     AbstractButton {
                                         id: chip

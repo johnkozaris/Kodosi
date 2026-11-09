@@ -9,7 +9,9 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceList> DeviceLists => Set<DeviceList>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
+    public DbSet<IdentityReset> IdentityResets => Set<IdentityReset>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<Block> Blocks => Set<Block>();
     public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
@@ -21,6 +23,9 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<RoomRecipientKey> RoomRecipientKeys => Set<RoomRecipientKey>();
     public DbSet<MissionKeyState> MissionKeyStates => Set<MissionKeyState>();
     public DbSet<MissionItem> MissionItems => Set<MissionItem>();
+
+    public Task<User> LockUserAsync(Guid id, CancellationToken ct) =>
+        Users.FromSqlInterpolated($"SELECT * FROM users WHERE \"Id\" = {id} FOR UPDATE").SingleAsync(ct);
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -68,15 +73,29 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.HasIndex(x => x.ExpiresAt);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
+        model.Entity<IdentityReset>(e =>
+        {
+            e.ToTable("identity_resets"); e.HasKey(x => x.UserId);
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.Property(x => x.DeviceLabel).HasMaxLength(128);
+            e.HasOne<User>().WithOne().HasForeignKey<IdentityReset>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<Friendship>(e =>
         {
             e.ToTable("friendships"); e.HasKey(x => new { x.FirstUserId, x.SecondUserId });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.FirstUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.SecondUserId).OnDelete(DeleteBehavior.Restrict);
         });
+        model.Entity<Block>(e =>
+        {
+            e.ToTable("blocks"); e.HasKey(x => new { x.BlockerId, x.BlockedId });
+            e.HasIndex(x => x.BlockedId);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.BlockerId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.BlockedId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<FriendList>(e =>
         {
-            e.ToTable("friend_lists"); e.HasKey(x => x.UserId);
+            e.ToTable("friend_lists"); e.HasKey(x => new { x.UserId, x.Revision });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<Session>(e =>
@@ -86,6 +105,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.HostName).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(128);
             e.Property(x => x.RoomDeviceId).HasMaxLength(256);
+            e.Property(x => x.RoomHistory).HasMaxLength(64);
             e.Property(x => x.CloseDeviceId).HasMaxLength(256);
             e.Property(x => x.AuthorizationRevision).IsConcurrencyToken();
             e.HasIndex(x => x.IncarnationId).IsUnique();

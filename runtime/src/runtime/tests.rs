@@ -2728,6 +2728,10 @@ fn stand_in_canvas() -> crate::canvas::CanvasHandle {
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one room message from its mention to the line that the agent gets"
+)]
 async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
     use crate::terminal::{ProgramState, ProgramStatus};
     let (mut runtime, storage) = registry_fixture();
@@ -2755,7 +2759,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     let mut entry: SessionEntry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": [], "missionId": room, "missionName": "Launch",
+        "repository": false, "sharedWith": ["ana"], "missionId": room, "missionName": "Launch",
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());
@@ -2775,12 +2779,45 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     );
     let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});
     runtime.note_mentions(&snapshot(
-        json!([{"sequence": 1, "text": "hello", "authorName": "Ana"}]),
+        json!([{"sequence": 1, "text": "hello", "authorId": "ana", "authorName": "Ana"}]),
     ));
     runtime.note_mentions(&snapshot(json!([
-        {"sequence": 2, "text": "@Build please print came-through", "authorName": "Ana"},
-        {"sequence": 3, "text": "@Build from itself", "authorName": "Ana", "terminalId": id},
+        {"sequence": 2, "text": "@Build please print came-through", "authorId": "ana", "authorName": "Ana"},
+        {"sequence": 3, "text": "@Build from itself", "authorId": "ana", "authorName": "Ana", "terminalId": id},
+        {"sequence": 4, "text": "@Build from someone who is not a friend", "authorId": "bo", "authorName": "Bo"},
     ])));
+    assert!(
+        runtime.mentions.waiting.is_empty(),
+        "a mention waits for the signed records of its author"
+    );
+    {
+        let checked = timeout(Duration::from_secs(10), runtime.jobs.join_next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(
+            matches!(&checked.completion, Completion::Mentioned { mentions, later } if mentions.is_empty() && later.is_empty()),
+            "without the signed records, the agent gets nothing"
+        );
+        runtime.complete(checked);
+    }
+    assert!(runtime.mentions.waiting.is_empty());
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Mentioned {
+            mentions: vec![(
+                id,
+                messages::Mention {
+                    room: "Launch".to_owned(),
+                    from: messages::Sender::Person("Ana".to_owned()),
+                    text: "@Build please print came-through".to_owned(),
+                    sequence: 2,
+                },
+            )],
+            later: Vec::new(),
+        },
+    });
     assert_eq!(runtime.mentions.waiting[&id].len(), 1);
     assert!(
         runtime.jobs.is_empty(),
@@ -2830,6 +2867,66 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     );
     terminal.close().await.unwrap();
     drop(terminal);
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn a_mention_whose_check_gets_no_answer_waits_a_while_for_a_later_check() {
+    let (mut runtime, _root) = registry_fixture();
+    let unanswered = tempfile::tempdir().unwrap();
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = closed.local_addr().unwrap();
+    drop(closed);
+    runtime.network = BackendClient::new(BackendConfig {
+        api_url: format!("http://{address}/").parse().unwrap(),
+        issuer: format!("http://{address}"),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: unanswered.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    runtime.scope.network_generation = runtime.network.generation();
+    runtime.network.assume_identity(crate::network::Identity {
+        user_id: "owner".to_owned(),
+        device_id: "this-device".to_owned(),
+        display_name: "You".to_owned(),
+        enrolled: true,
+    });
+    let unchecked = messages::Unchecked {
+        room: Uuid::now_v7(),
+        author: "ana".to_owned(),
+        terminal: Uuid::now_v7(),
+        mention: messages::Mention {
+            room: "Launch".to_owned(),
+            from: messages::Sender::Person("Ana".to_owned()),
+            text: "@Build hello".to_owned(),
+            sequence: 2,
+        },
+        since: Instant::now(),
+    };
+    runtime.mentions.wait_for_check(unchecked.clone());
+    runtime.check_mentions();
+    assert_eq!(runtime.mentions.unchecked, Vec::new());
+    let checked = timeout(Duration::from_secs(30), runtime.jobs.join_next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(
+        matches!(&checked.completion, Completion::Mentioned { mentions, later }
+            if mentions.is_empty() && later.as_slice() == [unchecked.clone()]),
+        "a mention whose check gets no answer comes back for a later check"
+    );
+    runtime.mentions.wait_for_check(unchecked.clone());
+    assert!(
+        runtime
+            .mentions
+            .take_unchecked(unchecked.since + messages::CHECK_PATIENCE)
+            .is_empty(),
+        "a mention waits only a while"
+    );
 }
 
 #[cfg(all(unix, feature = "host"))]

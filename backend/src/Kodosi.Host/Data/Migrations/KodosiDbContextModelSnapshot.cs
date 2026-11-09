@@ -22,6 +22,24 @@ namespace Kodosi.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kodosi.Data.Block", b =>
+                {
+                    b.Property<Guid>("BlockerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlockedId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("BlockerId", "BlockedId");
+
+                    b.HasIndex("BlockedId");
+
+                    b.ToTable("blocks", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.DeletedAccount", b =>
                 {
                     b.Property<string>("Issuer")
@@ -179,18 +197,18 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint");
+
                     b.Property<byte[]>("Body")
                         .IsRequired()
                         .HasColumnType("bytea");
-
-                    b.Property<long>("Revision")
-                        .HasColumnType("bigint");
 
                     b.Property<byte[]>("Signature")
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.HasKey("UserId");
+                    b.HasKey("UserId", "Revision");
 
                     b.ToTable("friend_lists", (string)null);
                 });
@@ -232,6 +250,39 @@ namespace Kodosi.Data.Migrations
                     b.HasIndex("SessionId");
 
                     b.ToTable("hidden_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Kodosi.Data.IdentityReset", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("DeviceLabel")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ReadyAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("SigningPublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("identity_resets", (string)null);
                 });
 
             modelBuilder.Entity("Kodosi.Data.Mission", b =>
@@ -477,6 +528,10 @@ namespace Kodosi.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("RoomHistory")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<long>("RoomSequence")
                         .HasColumnType("bigint");
 
@@ -558,6 +613,21 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.Block", b =>
+                {
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("BlockerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Kodosi.Data.Device", b =>
                 {
                     b.HasOne("Kodosi.Data.User", null)
@@ -620,6 +690,15 @@ namespace Kodosi.Data.Migrations
                     b.HasOne("Kodosi.Data.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.IdentityReset", b =>
+                {
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.IdentityReset", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

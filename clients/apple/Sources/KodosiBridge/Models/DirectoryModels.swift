@@ -6,6 +6,7 @@ public struct FriendEntry: Decodable, Equatable, Identifiable, Sendable {
     public let displayName: String
     public let verified: Bool
     public let identityState: String
+    public let inviteNeeded: Bool
     public var id: String {
         userId
     }
@@ -24,6 +25,24 @@ public struct FriendEntry: Decodable, Equatable, Identifiable, Sendable {
 }
 
 public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let userId: String
+    public let handle: String
+    public let displayName: String
+    public var id: String {
+        userId
+    }
+
+    public var personName: String {
+        displayName.isEmpty ? handle : displayName
+    }
+
+    /// The name with the user name, which only this account has.
+    public var nameWithHandle: String {
+        displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"
+    }
+}
+
+public struct BlockedEntry: Decodable, Equatable, Identifiable, Sendable {
     public let userId: String
     public let handle: String
     public let displayName: String
@@ -64,6 +83,18 @@ public struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
     public let deviceLabel: String
     public var id: String {
         requestId
+    }
+}
+
+public struct DeviceReset: Decodable, Equatable, Sendable {
+    public let resetId: String
+    public let deviceLabel: String
+    public let thisDevice: Bool
+    public let requestedAtMs: Int64
+    public let readyAtMs: Int64
+
+    public var readyAt: Date {
+        Date(timeIntervalSince1970: TimeInterval(readyAtMs) / 1000)
     }
 }
 

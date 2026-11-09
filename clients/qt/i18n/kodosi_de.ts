@@ -642,12 +642,32 @@
         <translation>Neu beginnen…</translation>
     </message>
     <message>
+        <source>Do not start fresh</source>
+        <translation>Nicht neu beginnen</translation>
+    </message>
+    <message>
         <source>Recovery key</source>
         <translation>Wiederherstellungsschlüssel</translation>
     </message>
     <message>
         <source>Approve</source>
         <translation>Freigeben</translation>
+    </message>
+    <message>
+        <source>%1 asked to start fresh</source>
+        <translation>%1 möchte neu beginnen</translation>
+    </message>
+    <message>
+        <source>If nobody stops it, it can start fresh after %1, and all your devices lose access. Stop it unless you asked for it.</source>
+        <translation>Wenn niemand es stoppt, kann es ab %1 neu beginnen, und alle deine Geräte verlieren den Zugriff. Stoppe es, außer du hast selbst darum gebeten.</translation>
+    </message>
+    <message>
+        <source>Stop it</source>
+        <translation>Stoppen</translation>
+    </message>
+    <message>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
+        <translation>Ab %1 kann dieser Computer neu beginnen. Bis dahin können deine anderen Geräte es stoppen. Wenn du noch eines davon hast, gib stattdessen damit diesen Computer frei und behalte deine Freunde und Räume.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -702,6 +722,14 @@
         <translation>Wiederherstellungsschlüssel erstellen</translation>
     </message>
     <message>
+        <source>Approve %1?</source>
+        <translation>%1 freigeben?</translation>
+    </message>
+    <message>
+        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
+        <translation>Es kann dann alle deine Terminals, Räume und Freunde nutzen. Gib es nur frei, wenn du dieses Gerät in der Hand hast.</translation>
+    </message>
+    <message>
         <source>Make a new recovery key?</source>
         <translation>Neuen Wiederherstellungsschlüssel erstellen?</translation>
     </message>
@@ -742,8 +770,8 @@
         <translation>Neu beginnen</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Räume neu. Wenn du einen Wiederherstellungsschlüssel hast, brich ab und verwende ihn: Dann behältst du deine Freunde und Räume.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
+        <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Räume neu. Wenn dein Konto Geräte hat, wartet dieser Computer einen Tag. Wenn du ein anderes Gerät oder einen Wiederherstellungsschlüssel hast, brich ab und verwende es: Dann behältst du deine Freunde und Räume.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1966,6 +1994,10 @@
         <translation>Kodosi wurde aktualisiert. Starte es neu, um die neue Version zu nutzen.</translation>
     </message>
     <message>
+        <source>%1 asked to start fresh. Stop it unless you asked for it.</source>
+        <translation>%1 möchte neu beginnen. Stoppe es, außer du hast selbst darum gebeten.</translation>
+    </message>
+    <message>
         <source>%1 wants to use your account.</source>
         <translation>%1 möchte dein Konto verwenden.</translation>
     </message>
@@ -1996,6 +2028,10 @@
     <message>
         <source>Approve…</source>
         <translation>Freigeben…</translation>
+    </message>
+    <message>
+        <source>Review…</source>
+        <translation>Prüfen…</translation>
     </message>
     <message>
         <source>Show code</source>
@@ -2202,6 +2238,10 @@
         <translation>Ablehnen</translation>
     </message>
     <message>
+        <source>Block…</source>
+        <translation>Blockieren…</translation>
+    </message>
+    <message>
         <source>Request sent to %1</source>
         <translation>Anfrage an %1 gesendet</translation>
     </message>
@@ -2230,8 +2270,12 @@
         <translation>Entfernen…</translation>
     </message>
     <message>
-        <source>Their devices changed. Trust them again to share.</source>
-        <translation>Die Geräte dieser Person haben sich geändert. Vertraue ihr erneut, um zu teilen.</translation>
+        <source>Their identity changed. Verify it with a new invite from them.</source>
+        <translation>Die Identität dieser Person hat sich geändert. Verifiziere sie mit einer neuen Einladung von ihr.</translation>
+    </message>
+    <message>
+        <source>Their identity changed. Trust it only if they told you so.</source>
+        <translation>Die Identität dieser Person hat sich geändert. Vertraue ihr nur, wenn die Person es dir gesagt hat.</translation>
     </message>
     <message>
         <source>Trust</source>
@@ -2254,12 +2298,32 @@
         <translation>%1 öffnen</translation>
     </message>
     <message>
+        <source>Blocked</source>
+        <translation>Blockiert</translation>
+    </message>
+    <message>
+        <source>Unblock</source>
+        <translation>Blockierung aufheben</translation>
+    </message>
+    <message>
         <source>No friends yet</source>
         <translation>Noch keine Freunde</translation>
     </message>
     <message>
         <source>Send your invite, or add a username above.</source>
         <translation>Schick deine Einladung oder füge oben einen Benutzernamen hinzu.</translation>
+    </message>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 blockieren?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Blockieren</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
+        <translation>Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2270,8 +2334,8 @@
         <translation>Entfernen</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Diese Person verliert die Terminals, die du mit ihr geteilt hast.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Ihr teilt keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören. Kodosi macht bereits ausgeführte Befehle nicht rückgängig.</translation>
     </message>
 </context>
 <context>
@@ -2504,8 +2568,8 @@
         <translation>Hier gibt es noch keine Terminals</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Füge eins hinzu. Alle im Raum bekommen die volle Kontrolle.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Füge eins hinzu. Deine Freunde im Raum bekommen die volle Kontrolle.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

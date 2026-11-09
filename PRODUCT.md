@@ -12,8 +12,12 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
   resizing, interrupting and closing, with the host user's operating-system privileges.
 - A person's approved devices can use all of that person's terminals.
 - A person can share a terminal with friends or with a room, and everyone it is shared
-  with gets full control. Room sharing follows the room's membership, including people invited
-  later. Sharing a terminal shares nothing else of its computer.
+  with gets full control. A terminal in a room goes to the members who are friends of its
+  owner, including friends invited later. A shared terminal runs as its owner, with the
+  owner's `kodosi` command and files on that computer.
+- Removing a friend ends what the two share: each loses the terminals of the other and
+  leaves the rooms that the other owns. Blocking a person also does this, and the blocked
+  person cannot send friend requests until the block ends.
 - A room holds a conversation, tasks, repositories and terminals from many computers,
   folders and repositories. Every member can share their own terminals into it, and new
   members get the full history.
@@ -150,7 +154,7 @@ from another device with a note that Dosi is off there.
   use it. Settings › Browser shows and gets the computer's Kodosi Browser, copies the
   sign-ins of another browser on that computer, says for how many sites, and removes what
   it copied or all browsing data of the private terminals. A shared terminal has a
-  browser profile of its own, so sharing a terminal shares no kept sign-in.
+  browser profile of its own, so its shared browser has no kept sign-in.
 - Ask about this types the item and the selected words into the terminal, and the person
   writes the question.
 - Everyone who can open the terminal sees its canvas, edits its files and uses its
@@ -194,7 +198,8 @@ terminal's agent and reported state, such as working or waiting for an approval.
 
 A recovery key approves a new device when no other device can, and keeps friends and
 rooms. Without it, a person who lost all devices starts fresh with a new identity, and
-friends trust that identity again.
+friends trust that identity again. Starting fresh on an account that has devices waits a
+day; those devices show it and can stop it.
 
 ## Experience
 

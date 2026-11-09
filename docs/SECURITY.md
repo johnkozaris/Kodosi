@@ -10,34 +10,36 @@ threat model, mechanisms and known limits; no independent party has audited it y
 ## What sharing grants
 
 Sharing a terminal grants full control with the host user's operating-system privileges.
-Everyone in a room can use the room's shared terminals, including members invited
-later. Sharing one terminal shares nothing else. Kodosi trusts everyone who shares a
-terminal or a room, and the programs and agents in their terminals, and does not limit
-what they do. Each of your approved devices controls
-all your terminals and can start new ones on your other computers that run Kodosi.
-From any of your devices you can write to Dosi on your computers, and Dosi acts there as
-it does when you write to it at the computer. A device that you remove can no longer
-write to Dosi.
+A terminal in a room goes to the friends of its owner in that room, including friends
+who join later. When you remove a friend, they lose your terminals, and each of you
+leaves the rooms that the other owns. Blocking a person does the same, and they cannot
+send you friend requests. A shared terminal runs as you: the people in it can also run
+`kodosi` as you and read and change your files on that computer, so share it only with
+people whom you trust with that computer. Kodosi trusts everyone who shares a terminal
+or a room, and the programs and agents in their terminals, and does not limit what they
+do. Each of your approved devices controls all your terminals and can start new ones on
+your other computers that run Kodosi. From any of your devices you can write to Dosi on
+your computers, and Dosi acts there as it does when you write to it at the computer. A
+device that you remove can no longer write to Dosi.
 
 Everyone who can open a terminal also sees the files on its canvas and uses its shared
-browser, so sign in there only where all of them may act. A shared terminal never has
-your kept sign-ins. The files on a canvas are normal files, and everyone who can open the
-terminal can edit them. A page on the canvas and a live document run in a closed frame
-with no network, no files and no storage that stays. While a shared browser is awake, its
-debug port and the driver port of each window listen on `127.0.0.1`, where other accounts
-of that computer can reach them. A site in the shared browser saves one download into the
-terminal's folder for each action of a person or an agent, and it reaches your clipboard
-only when you copy.
-When a device opens the browser of a terminal on another computer, that computer listens
-on a TCP port for a few seconds, so that the two can connect straight. Only that device
-gets through, with the encryption of the terminal. The Linux app shows pages only where
-Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process
-and Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the
-shared browser does not run as root on Linux.
-The apps do not contain Kodosi Browser. When a computer opens its first shared browser,
-its host gets the browser from the feed on `updates.kodosi.com`, and it looks there for a
-new version each day. The host uses a download only when the feed has the signature of the
-key of Kodosi's updates and the download has the SHA-256 that the feed gives.
+browser, so sign in there only where all of them may act. The shared browser of a shared
+terminal never uses your kept sign-ins. The files on a canvas are normal files, and
+everyone who can open the terminal can edit them. A page on the canvas and a live document
+run in a closed frame with no network, no files and no storage that stays. While a shared
+browser is awake, its debug port and the driver port of each window listen on `127.0.0.1`,
+where other accounts of that computer can reach them. A site in the shared browser saves
+one download into the terminal's folder for each action of a person or an agent, and it
+reaches your clipboard only when you copy. When a device opens the browser of a terminal on
+another computer, that computer listens on a TCP port for a few seconds, so that the two
+can connect straight. Only that device gets through, with the encryption of the terminal.
+The Linux app shows pages only where Chromium can sandbox them; on Ubuntu its AppArmor
+profile lets the app, its page process and Kodosi Browser make the user namespaces that the
+sandbox needs. For the same reason the shared browser does not run as root on Linux. The
+apps do not contain Kodosi Browser. When a computer opens its first shared browser, its
+host gets the browser from the feed on `updates.kodosi.com`, and it looks there for a new
+version each day. The host uses a download only when the feed has the signature of the key
+of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 ## What the service sees
 
@@ -46,8 +48,9 @@ metadata, each terminal's agent and state (such as working or waiting for an app
 never its text), routing fields, timing and ciphertext sizes. Encryption does not hide
 this metadata or prevent an outage. A device that you remove loses access from then on.
 After you remove a lost or stolen device, make a new recovery key to keep that device
-out. GitHub and Gitea credentials stay
-on your computer.
+out. When someone starts fresh on your account while you have devices, it waits a day
+and your devices show it, so that you can stop it. GitHub and Gitea credentials stay on
+your computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
 rooms; messages in other people's rooms stay without an account. For 30 days the service

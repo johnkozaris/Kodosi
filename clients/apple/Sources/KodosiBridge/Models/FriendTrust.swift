@@ -15,7 +15,7 @@ public enum FriendTrust: Equatable, Sendable {
 
     public var name: String? {
         switch self {
-        case let .accept(request): request.personName
+        case let .accept(request): request.nameWithHandle
         case .add: handle.map { "@\($0)" }
         }
     }

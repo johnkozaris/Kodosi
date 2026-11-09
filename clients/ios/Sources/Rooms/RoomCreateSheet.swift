@@ -32,7 +32,7 @@ struct RoomCreateSheet: View {
                             .onSubmit(create)
                             .accessibilityLabel(Text("Room name"))
                             .accessibilityIdentifier("rooms.create.name")
-                        Text("Everyone in the room shares its terminals and conversation.")
+                        Text("Everyone in the room shares its conversation. Your terminals in it go to your friends.")
                             .appTextStyle(.caption).fontWeight(.regular)
                             .foregroundStyle(theme.colors.inkFaint)
                             .multilineTextAlignment(.center)

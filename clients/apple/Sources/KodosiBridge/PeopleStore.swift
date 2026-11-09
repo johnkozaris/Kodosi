@@ -7,6 +7,7 @@ public final class PeopleStore {
     public private(set) var friends: [FriendEntry] = []
     public private(set) var incoming: [FriendRequestEntry] = []
     public private(set) var outgoing: [FriendRequestEntry] = []
+    public private(set) var blocked: [BlockedEntry] = []
     public private(set) var ownInvite: String?
     public private(set) var userId: String?
     public private(set) var loaded = false
@@ -31,6 +32,7 @@ public final class PeopleStore {
         friends = []
         incoming = []
         outgoing = []
+        blocked = []
         ownInvite = nil
         loaded = false
         settle()
@@ -42,6 +44,7 @@ public final class PeopleStore {
             friends = try event.value("friends")
             incoming = try event.value("incoming")
             outgoing = try event.value("outgoing")
+            blocked = try event.value("blocked")
             loaded = true
             revision += 1
             settle()
@@ -116,6 +119,14 @@ public final class PeopleStore {
 
     public func remove(_ friend: FriendEntry) {
         act("friends.remove", on: friend.handle)
+    }
+
+    public func block(handle: String) {
+        act("friends.block", on: handle)
+    }
+
+    public func unblock(_ person: BlockedEntry) {
+        act("friends.unblock", on: person.handle)
     }
 
     public func trust(_ friend: FriendEntry) {

@@ -1,6 +1,58 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ asked to start fresh" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ möchte neu beginnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η συσκευή %@ ζήτησε νέα αρχή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pidió empezar de cero"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a demandé à repartir de zéro"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha chiesto di ricominciare da zero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ が新しく始めることを求めています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 새로 시작하려고 해요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 请求重新开始"
+          }
+        }
+      }
+    },
     "%@ invited you" : {
       "localizations" : {
         "de" : {
@@ -1186,6 +1238,162 @@
         }
       }
     },
+    "Block" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockieren"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμός"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocca"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロック"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽"
+          }
+        }
+      }
+    },
+    "Block %@?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ blockieren?"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμός %@;"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Bloquear a %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquer %@ ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloccare %@?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をブロックしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 차단할까요?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽 %@？"
+          }
+        }
+      }
+    },
+    "Block…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockieren…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αποκλεισμός…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquer…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocca…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロック…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏蔽…"
+          }
+        }
+      }
+    },
     "Browser" : {
       "localizations" : {
         "de" : {
@@ -1962,6 +2170,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不发送"
+          }
+        }
+      }
+    },
+    "Do not start fresh" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht neu beginnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Να μη γίνει νέα αρχή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No empezar de cero"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne pas repartir de zéro"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non ricominciare da zero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しく始めない"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새로 시작하지 않기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不重新开始"
           }
         }
       }
@@ -2846,6 +3106,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我信任此人"
+          }
+        }
+      }
+    },
+    "If nobody stops it, it can start fresh after %@, and all your devices lose access. Stop it unless you asked for it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn niemand es stoppt, kann es ab %@ neu beginnen, und alle deine Geräte verlieren den Zugriff. Stoppe es, außer du hast selbst darum gebeten."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αν κανείς δεν το σταματήσει, μπορεί να κάνει νέα αρχή από %@, και όλες οι συσκευές σας χάνουν την πρόσβαση. Σταματήστε το, εκτός αν το ζητήσατε εσείς."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si nadie lo detiene, puede empezar de cero a partir del %@, y todos tus dispositivos pierden el acceso. Detenlo, salvo que lo hayas pedido tú."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si personne ne l'arrête, il peut repartir de zéro à partir de %@, et tous vos appareils perdent l'accès. Arrêtez-le, sauf si vous l'avez demandé vous-même."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se nessuno lo ferma, può ricominciare da zero da %@ e tutti i tuoi dispositivi perdono l'accesso. Fermalo, a meno che non l'abbia chiesto tu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰も止めなければ、%@ 以降に新しく始められ、あなたのすべてのデバイスがアクセスできなくなります。自分で求めたのでなければ、止めてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아무도 중지하지 않으면 %@ 이후에 새로 시작할 수 있고, 내 모든 기기가 접근할 수 없게 돼요. 직접 요청한 게 아니라면 중지하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果没有人阻止，它可在 %@ 之后重新开始，你的所有设备都将失去访问权限。除非是你自己请求的，否则请阻止它。"
           }
         }
       }
@@ -5918,6 +6230,58 @@
         }
       }
     },
+    "Stop it" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stoppen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Διακοπή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ferma"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "止める"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중지"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阻止"
+          }
+        }
+      }
+    },
     "Stopped" : {
       "localizations" : {
         "de" : {
@@ -6334,6 +6698,58 @@
         }
       }
     },
+    "They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το άτομο δεν μπορεί να σας στέλνει αιτήματα φιλίας. Αν είστε φίλοι, σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta persona no puede enviarte solicitudes de amistad. Si son amigos, se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette personne ne peut plus vous envoyer de demandes d'ami. Si vous êtes amis, vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l'autre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa persona non può inviarti richieste di amicizia. Se siete amici, smettete di condividere terminali tra voi e ciascuno lascia le stanze dell'altro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的房间。"
+          }
+        }
+      }
+    },
     "Thinking" : {
       "localizations" : {
         "de" : {
@@ -6382,6 +6798,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考中"
+          }
+        }
+      }
+    },
+    "This %@ can start fresh after %@. Until then, your other devices can stop it. If you still have one of them, approve this device with it instead, and keep your friends and rooms." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ab %2$@ kannst du auf diesem %1$@ neu beginnen. Bis dahin können deine anderen Geräte es stoppen. Wenn du noch eines davon hast, gib stattdessen damit dieses Gerät frei und behalte deine Freunde und Räume."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Από %2$@ μπορείτε να κάνετε νέα αρχή σε αυτό το %1$@. Μέχρι τότε, οι άλλες συσκευές σας μπορούν να το σταματήσουν. Αν έχετε ακόμα μία από αυτές, χρησιμοποιήστε την για να εγκρίνετε αυτή τη συσκευή και κρατήστε τους φίλους και τα δωμάτιά σας."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este %1$@ puede empezar de cero a partir del %2$@. Hasta entonces, tus otros dispositivos pueden detenerlo. Si aún tienes uno de ellos, aprueba este dispositivo con él y conserva tus amigos y salas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil (%1$@) peut repartir de zéro à partir de %2$@. D'ici là, vos autres appareils peuvent l'arrêter. Si vous avez encore l'un d'eux, approuvez plutôt cet appareil avec lui et gardez vos amis et vos salons."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo %1$@ può ricominciare da zero da %2$@. Fino ad allora, gli altri tuoi dispositivi possono fermarlo. Se hai ancora uno di essi, approva invece questo dispositivo con quello e mantieni amici e stanze."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この %1$@ は %2$@ 以降に新しく始められます。それまでは、ほかのデバイスで止めることができます。ほかのデバイスがまだ手元にある場合は、代わりにそのデバイスでこのデバイスを承認してください。フレンドとルームをそのまま残せます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 %1$@에서 %2$@ 이후에 새로 시작할 수 있어요. 그때까지 다른 기기에서 중지할 수 있어요. 다른 기기가 아직 있다면 대신 그 기기에서 이 기기를 승인하세요. 친구와 방을 그대로 유지할 수 있어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 %1$@ 可在 %2$@ 之后重新开始。在此之前，你的其他设备可以阻止它。如果你还有其中一台设备，请改用它批准此设备，这样可以保留你的好友和房间。"
           }
         }
       }
@@ -6646,6 +7114,58 @@
         }
       }
     },
+    "Unblock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blockierung aufheben"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άρση αποκλεισμού"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desbloquear"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Débloquer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sblocca"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブロックを解除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단 해제"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解除屏蔽"
+          }
+        }
+      }
+    },
     "Use my recovery key" : {
       "localizations" : {
         "de" : {
@@ -6850,6 +7370,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "验证"
+          }
+        }
+      }
+    },
+    "Verify with their invite…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit ihrer Einladung verifizieren…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Επαλήθευση με την πρόσκλησή του…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificar con su invitación…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifier avec son invitation…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica con il suo invito…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の招待で確認…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대의 초대로 확인…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用对方的邀请验证…"
           }
         }
       }
@@ -7426,54 +7998,54 @@
         }
       }
     },
-    "Your other devices lose access until you approve them again from this %@. Friends confirm your identity again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms." : {
+    "Your other devices lose access until you approve them again from this %@. Friends confirm your identity again, and you make your rooms again. When your account has devices, this %@ waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem %@ aus erneut freigibst. Freunde bestätigen deine Identität erneut, und du erstellst deine Räume neu. Wenn du einen Wiederherstellungsschlüssel hast, brich ab und verwende ihn: Dann behältst du deine Freunde und Räume."
+            "value" : "Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem %1$@ aus erneut freigibst. Freunde bestätigen deine Identität erneut, und du erstellst deine Räume neu. Wenn dein Konto Geräte hat, wartet Kodosi auf diesem %2$@ einen Tag. Wenn du ein anderes Gerät oder einen Wiederherstellungsschlüssel hast, brich ab und verwende es: Dann behältst du deine Freunde und Räume."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτό το %@. Οι φίλοι επιβεβαιώνουν ξανά την ταυτότητά σας και δημιουργείτε ξανά τα δωμάτιά σας. Αν έχετε κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε το: κρατάτε τους φίλους και τα δωμάτιά σας."
+            "value" : "Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτό το %1$@. Οι φίλοι επιβεβαιώνουν ξανά την ταυτότητά σας και δημιουργείτε ξανά τα δωμάτιά σας. Αν ο λογαριασμός σας έχει συσκευές, αυτό το %2$@ περιμένει μία ημέρα. Αν έχετε άλλη συσκευή ή κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε τα: κρατάτε τους φίλους και τα δωμάτιά σας."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este %@. Tus amigos vuelven a confirmar tu identidad y tendrás que crear tus salas de nuevo. Si tienes una clave de recuperación, cancela y úsala: así conservas tus amigos y salas."
+            "value" : "Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este %1$@. Tus amigos vuelven a confirmar tu identidad y tendrás que crear tus salas de nuevo. Si tu cuenta tiene dispositivos, este %2$@ espera un día. Si tienes otro dispositivo o una clave de recuperación, cancela y úsalo: así conservas tus amigos y salas."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos autres appareils perdent l'accès jusqu'à ce que vous les approuviez à nouveau depuis cet appareil (%@). Vos amis confirment à nouveau votre identité, et vous recréez vos salons. Si vous avez une clé de récupération, annulez et utilisez-la : vous gardez vos amis et vos salons."
+            "value" : "Vos autres appareils perdent l'accès jusqu'à ce que vous les approuviez à nouveau depuis cet appareil (%1$@). Vos amis confirment à nouveau votre identité, et vous recréez vos salons. Si votre compte a des appareils, cet appareil (%2$@) attend un jour. Si vous avez un autre appareil ou une clé de récupération, annulez et utilisez-le : vous gardez vos amis et vos salons."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gli altri tuoi dispositivi perdono l'accesso finché non li approvi di nuovo da questo %@. Gli amici confermano di nuovo la tua identità e dovrai ricreare le tue stanze. Se hai una chiave di recupero, annulla e usala: così mantieni amici e stanze."
+            "value" : "Gli altri tuoi dispositivi perdono l'accesso finché non li approvi di nuovo da questo %1$@. Gli amici confermano di nuovo la tua identità e dovrai ricreare le tue stanze. Se il tuo account ha dispositivi, questo %2$@ aspetta un giorno. Se hai un altro dispositivo o una chiave di recupero, annulla e usalo: così mantieni amici e stanze."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ほかのデバイスは、この %@ から再び承認するまでアクセスできなくなります。フレンドにはあなたの ID を確認し直してもらい、ルームも作り直しになります。リカバリーキーがある場合は、キャンセルしてキーを使ってください。フレンドとルームをそのまま残せます。"
+            "value" : "ほかのデバイスは、この %1$@ から再び承認するまでアクセスできなくなります。フレンドにはあなたの ID を確認し直してもらい、ルームも作り直しになります。アカウントにデバイスがある場合、この %2$@ は1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとルームをそのまま残せます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다른 기기는 이 %@에서 다시 승인할 때까지 접근할 수 없어요. 친구가 내 신원을 다시 확인해야 하고, 방도 다시 만들어야 해요. 복구 키가 있다면 취소하고 키를 사용하세요. 친구와 방을 그대로 유지할 수 있어요."
+            "value" : "다른 기기는 이 %1$@에서 다시 승인할 때까지 접근할 수 없어요. 친구가 내 신원을 다시 확인해야 하고, 방도 다시 만들어야 해요. 계정에 기기가 있으면 이 %2$@에서 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 방을 그대로 유지할 수 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在你从这台 %@ 重新批准之前，你的其他设备将无法访问。好友需要重新确认你的身份，你也需要重新创建房间。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和房间。"
+            "value" : "在你从这台 %1$@ 重新批准之前，你的其他设备将无法访问。好友需要重新确认你的身份，你也需要重新创建房间。如果你的账号有设备，这台 %2$@ 需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和房间。"
           }
         }
       }
