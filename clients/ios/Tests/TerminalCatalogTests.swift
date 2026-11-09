@@ -15,9 +15,9 @@ struct TerminalCatalogTests {
             terminalEntry("notes", state: "idle", host: "Air"),
         ])
         #expect(TerminalCatalog.needsYou(all).map(\.id) == ["review"])
-        let groups = TerminalCatalog.groups(all)
-        #expect(groups.map(\.title) == ["Air", "Studio"])
-        #expect(groups.flatMap(\.sessions).map(\.id) == ["notes", "build", "review"])
+        let computers = SessionComputerGroup.groups(all)
+        #expect(computers.map(\.title) == ["Air", "Studio"])
+        #expect(computers.flatMap(\.sessions).map(\.id) == ["notes", "build", "review"])
     }
 
     @Test func `a friends terminal that waits counts only while you have it open`() throws {
@@ -26,26 +26,49 @@ struct TerminalCatalogTests {
             terminalEntry("open", state: "blocked", owner: false, host: "Lab"),
         ])
         #expect(TerminalCatalog.needsYou(all).map(\.id) == ["open"])
-        #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed", "open"])
     }
 
-    @Test func `friends terminals follow your computers, one group for each friend`() throws {
-        var another = terminalEntry("another", state: "idle", owner: false, host: "Box")
-        another["ownerUserId"] = "user-3"
-        another["ownerName"] = "Ana"
-        another["status"] = "offline"
-        let all = try sessions([
-            terminalEntry("theirs", state: "idle", owner: false, host: "Maria's Mac"),
-            terminalEntry("mine", state: "idle", host: "Studio"),
-            terminalEntry("room", state: "working", owner: false, host: "Lab", room: (id: "room-1", name: "Launch")),
-            another,
-        ])
-        let groups = TerminalCatalog.groups(all)
-        #expect(groups.map(\.place) == [
-            .computer(id: "device-Studio", name: "Studio"), .friend(id: "user-3", name: "Ana"), .friend(id: "user-2", name: "Maria"),
-        ])
-        #expect(groups.last?.sessions.map(\.id) == ["theirs", "room"])
-        #expect(groups.map(\.away) == [false, true, false])
+    @Test func `friends computers follow yours, each in folders, and a terminal that you have not opened has none`() throws {
+        var website = terminalEntry("website", state: "idle", host: "Studio")
+        website["workingDir"] = "/Users/ana/website"
+        var kodosi = terminalEntry("kodosi", state: "working", host: "Studio")
+        kodosi["workingDir"] = "/Users/ana/kodosi"
+        var opened = terminalEntry("opened", state: "idle", owner: false, host: "Lab")
+        opened["workingDir"] = "/home/maria/api"
+        var away = terminalEntry("away", state: "idle", owner: false, host: "Box", connection: "offline")
+        away["ownerUserId"] = "user-3"
+        away["ownerName"] = "Ana"
+        away["status"] = "offline"
+        let computers = try SessionComputerGroup.groups(sessions([
+            terminalEntry("unopened", state: "idle", owner: false, host: "Lab", connection: "offline"), opened, website, kodosi, away,
+        ]))
+        #expect(computers.map(\.title) == ["Studio", "Ana", "Maria"])
+        #expect(computers.map(\.away) == [false, true, false])
+        #expect(computers[0].folders.map(\.name) == ["kodosi", "website"])
+        #expect(computers[2].folders.map(\.directory) == ["/home/maria/api", nil])
+        #expect(computers[2].folders.map { $0.sessions.map(\.id) } == [["opened"], ["unopened"]])
+    }
+
+    @Test func `the plus of a folder starts a terminal in it while its computer is online`() throws {
+        var mine = terminalEntry("mine", state: "idle", host: "Studio")
+        mine["workingDir"] = "/Users/ana/kodosi"
+        var theirs = terminalEntry("theirs", state: "idle", owner: false, host: "Lab")
+        theirs["workingDir"] = "/home/maria/api"
+        let computers = try SessionComputerGroup.groups(sessions([mine, terminalEntry("loose", state: "idle", host: "Studio"), theirs]))
+        let studio = try #require(computers.first { $0.title == "Studio" })
+        let lab = try #require(computers.first { $0.owner != nil })
+        let online = ["device-Studio", "device-Lab"]
+
+        let request = try #require(TerminalCatalog.newTerminal(in: studio.folders[0], online: online))
+        #expect(request.computer == "device-Studio")
+        #expect(request.folder == "/Users/ana/kodosi")
+        #expect(TerminalCatalog.newTerminal(in: studio.folders[0], online: []) == nil)
+        #expect(studio.folders[1].directory == nil)
+        #expect(TerminalCatalog.newTerminal(in: studio.folders[1], online: online) == nil)
+        #expect(TerminalCatalog.newTerminal(in: lab.folders[0], online: online) == nil)
+        #expect(TerminalCatalog.newTerminal(on: studio, online: online)?.computer == "device-Studio")
+        #expect(TerminalCatalog.newTerminal(on: studio, online: online)?.folder == nil)
+        #expect(TerminalCatalog.newTerminal(on: lab, online: online) == nil)
     }
 
     @Test func `search finds names computers rooms and agents`() throws {

@@ -16,22 +16,30 @@ struct TerminalsHome: View {
 
     var body: some View {
         let sessions = TerminalCatalog.matching(store.sessions.filter { !$0.hidden }, query: query)
-        let groups = TerminalCatalog.groups(sessions)
+        let computers = SessionComputerGroup.groups(sessions)
+        let online = model.account.computers.map(\.deviceId)
         List {
-            ForEach(groups) { group in
-                GroupHeader(group: group, computer: startable(group)) { newTerminal = NewTerminalRequest(computer: $0) }
-                    .cardRow(top: 16, bottom: 2)
-                ForEach(group.sessions) { session in
-                    row(session)
+            ForEach(computers) { computer in
+                ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)))
+                    .cardRow(top: computer.id == computers.first?.id ? 4 : 18, bottom: 0)
+                ForEach(computer.folders) { folder in
+                    if folder.directory != nil {
+                        FolderHeader(folder: folder, newTerminal: starting(TerminalCatalog.newTerminal(in: folder, online: online)))
+                            .cardRow(top: folder.id == computer.folders.first?.id ? 0 : 6, bottom: 0, indent: Self.folderIndent)
+                    }
+                    ForEach(folder.sessions) { session in
+                        row(session, indent: folder.directory == nil ? 0 : Self.folderIndent)
+                    }
                 }
             }
         }
         .listStyle(.plain)
+        .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
         .background(theme.colors.surface)
         .readableWidth()
         .overlay { emptyContent(isEmpty: sessions.isEmpty) }
-        .animation(theme.motion.soft, value: groups.map(\.id))
+        .animation(theme.motion.soft, value: computers.flatMap { $0.folders.map(\.id) })
         .navigationTitle("Terminals")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -57,10 +65,11 @@ struct TerminalsHome: View {
         .accessibilityIdentifier("terminals.home")
     }
 
-    /// The computer of a group when it is one of yours that is online, so it can start a terminal.
-    private func startable(_ group: TerminalGroup) -> String? {
-        guard case let .computer(id, _) = group.place, model.account.computers.contains(where: { $0.deviceId == id }) else { return nil }
-        return id
+    /// The terminals of a folder step in by a hair from their computer.
+    private static let folderIndent: CGFloat = 8
+
+    private func starting(_ request: NewTerminalRequest?) -> (() -> Void)? {
+        request.map { request in { newTerminal = request } }
     }
 
     private func arrived(_ old: [String]?, _ new: [String]?) -> Bool {
@@ -72,12 +81,14 @@ struct TerminalsHome: View {
         store.sessions.filter { $0.waitState == .done && $0.attention }.map(\.id)
     }
 
-    private func row(_ session: RuntimeSession) -> some View {
+    private func row(_ session: RuntimeSession, indent: CGFloat) -> some View {
         let identifier = "terminals.row.\(AccessibilityIdentifier.token(session.id))"
-        return TerminalListCard(session: session, sign: store.sign(of: session), viewers: model.viewers(of: session), showsOwner: false) {
+        return TerminalListCard(
+            session: session, sign: store.sign(of: session), viewers: model.viewers(of: session), showsOwner: false, showsFolder: false,
+        ) {
             openRoute(TerminalRoute(sessionId: session.id))
         }
-        .cardRow()
+        .cardRow(indent: indent)
         .swipeActions(edge: .leading) {
             if session.isOwner {
                 Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
@@ -129,37 +140,77 @@ struct TerminalsHome: View {
     }
 }
 
-/// The name of a computer over its terminals, or the face and name of the friend who shares them.
+/// The name of a computer over its folders, or the face and name of the friend who shares them.
 /// One of your computers that is online has the key that starts a terminal on it.
-private struct GroupHeader: View {
+private struct ComputerHeader: View {
     @Environment(\.theme) private var theme
-    let group: TerminalGroup
-    let computer: String?
-    let newTerminal: (String) -> Void
+    let group: SessionComputerGroup
+    let newTerminal: (() -> Void)?
 
     var body: some View {
+        let count = group.sessions.count
         HStack(spacing: 7) {
             HStack(spacing: 7) {
-                ComputerCaption(title: group.title, ownerName: group.friend.map { _ in group.title }, ownerKey: group.friend,
-                                away: group.away, size: 18, style: .subhead)
-                Text(group.sessions.count, format: .number)
+                ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away, size: 18,
+                                style: .subhead)
+                Text(count, format: .number)
                     .appTextStyle(.caption)
                     .monospacedDigit()
                     .foregroundStyle(theme.colors.inkFaint)
-                    .contentTransition(.numericText(value: Double(group.sessions.count)))
+                    .contentTransition(.numericText(value: Double(count)))
                     .fixedSize()
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("terminals.computer.\(AccessibilityIdentifier.token(group.id))")
             Spacer(minLength: 0)
-            if let computer {
+            if let newTerminal {
                 IconButton(
-                    title: "New terminal", symbol: "plus", identifier: "terminals.group.new.\(AccessibilityIdentifier.token(computer))", size: 28,
-                ) { newTerminal(computer) }
-                    .accessibilityValue(Text(verbatim: group.title))
+                    title: "New terminal", symbol: "plus", identifier: "terminals.group.new.\(AccessibilityIdentifier.token(group.id))", size: 28,
+                    action: newTerminal,
+                )
+                .accessibilityValue(Text(verbatim: group.title))
             }
         }
         .foregroundStyle(theme.colors.inkMuted)
+        .frame(minHeight: 44)
+    }
+}
+
+/// The name of a folder over its terminals. Touching and holding a folder on one of your
+/// computers that is online starts a terminal in it.
+private struct FolderHeader: View {
+    @Environment(\.theme) private var theme
+    let folder: SessionFolderGroup
+    let newTerminal: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "folder.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(theme.colors.inkFaint)
+            Text(folder.name)
+                .appTextStyle(.footnote)
+                .fontWeight(.medium)
+                .foregroundStyle(theme.colors.inkMuted)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 30)
+        .contentShape(Rectangle())
+        .contextMenu {
+            if let newTerminal {
+                Button("New terminal here", systemImage: "plus", action: newTerminal)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityActions {
+            if let newTerminal {
+                Button("New terminal here", action: newTerminal)
+            }
+        }
+        .accessibilityIdentifier("terminals.folder.\(AccessibilityIdentifier.token(folder.id))")
     }
 }
 
@@ -177,9 +228,10 @@ struct NothingMatches: View {
 }
 
 extension View {
-    /// A card in a list: on the list's ground, with room for its shadow and no separator.
-    func cardRow(top: CGFloat = 5, bottom: CGFloat = 5) -> some View {
-        listRowInsets(EdgeInsets(top: top, leading: 16, bottom: bottom, trailing: 16))
+    /// A card in a list: on the list's ground, with room for its shadow and no separator. An
+    /// `indent` steps it in from the list's edge.
+    func cardRow(top: CGFloat = 5, bottom: CGFloat = 5, indent: CGFloat = 0) -> some View {
+        listRowInsets(EdgeInsets(top: top, leading: 16 + indent, bottom: bottom, trailing: 16))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
     }
