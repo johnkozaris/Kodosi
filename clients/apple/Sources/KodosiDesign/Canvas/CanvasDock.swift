@@ -126,7 +126,7 @@ public struct CanvasDock: View {
             }
             .appTextStyle(.footnote).fontWeight(.medium)
             .padding(.leading, words == nil ? 7 : 9).padding(.trailing, (words == nil ? 7 : 11) + (closing ? 16 : 0))
-            .frame(minWidth: 26).frame(height: 24)
+            .frame(minWidth: 26).controlHeight(24)
             .background {
                 if selected {
                     RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
@@ -145,7 +145,7 @@ public struct CanvasDock: View {
                         .allowsHitTesting(false).transition(AnyTransition.pop)
                 }
             }
-            .contentShape(Capsule())
+            .touchTarget(Capsule())
         }
         .buttonStyle(.plain)
         .help(section.title)
@@ -179,7 +179,7 @@ public struct CanvasDock: View {
     @ViewBuilder
     private func adder(_ closed: [CanvasSection], open: @escaping (CanvasSection) -> Void) -> some View {
         let plus = Image(systemName: "plus").font(.system(size: 10.5, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
-            .frame(width: 24, height: 24).contentShape(Circle())
+            .frame(width: 24, height: 24).touchTarget(Circle())
         #if os(macOS)
             Button { adding.toggle() } label: { plus }
                 .buttonStyle(PressScaleStyle(scale: 0.88))

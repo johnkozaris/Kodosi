@@ -28,7 +28,7 @@ struct RoomScreen: View {
         @Bindable var state = rooms.view(roomId)
         content(state)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background { GroundBackdrop() }
+            .background(wide || state.section != .conversation ? theme.colors.surface : theme.colors.sheet)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .navigationTitle(rooms.mission(roomId)?.name ?? "")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,6 +37,7 @@ struct RoomScreen: View {
             .safeAreaBar(edge: .top) {
                 if present, !wide {
                     dock(state, sections: [.conversation, .tasks, .terminals], selection: state.section) { state.section = $0 }
+                        .background(state.section == .conversation ? theme.colors.sheet : theme.colors.surface)
                 }
             }
             .task(id: roomId) { await rooms.open(roomId) }
@@ -65,7 +66,7 @@ struct RoomScreen: View {
             Color.clear
         } else if rooms.departed.contains(roomId) {
             EmptyState(title: "You are no longer in this room", message: "It ended, or someone removed you.") {
-                RoomSigil(key: roomId, size: 56).opacity(0.55)
+                RoomSigil(key: roomId, size: 56)
             } actions: {
                 Button("Back to rooms") { dismiss() }
                     .buttonStyle(.kodosi(.primary))
@@ -87,7 +88,7 @@ struct RoomScreen: View {
                 RoomConversation(roomId: roomId)
                     .frame(width: min(480, max(340, width * 0.4)))
                     .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
-                    .raised(Radius.xl, fill: theme.colors.raised.mix(with: theme.colors.surface, by: 0.45))
+                    .raised(Radius.xl, fill: theme.colors.sheet)
                     .padding(.bottom, 12)
             }
             .padding(.trailing, 12)
@@ -145,9 +146,10 @@ struct RoomScreen: View {
                     .accessibilityHint(Text("Shows the people and settings of this room"))
                     .accessibilityIdentifier("rooms.header")
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { state.showsInfo = true } label: {
-                    AvatarStack(people: members, size: 28, limit: 3, ring: theme.colors.surface)
+                    AvatarStack(people: members, size: 26, limit: 3)
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel(Text("Room members"))
@@ -183,6 +185,7 @@ struct RoomScreen: View {
 private struct RoomHeader: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @ScaledMetric(relativeTo: .caption) private var lock: CGFloat = 8
     let mission: MissionEntry
 
     var body: some View {
@@ -190,18 +193,19 @@ private struct RoomHeader: View {
         let terminals = model.terminals.sessions.filter { $0.missionId == mission.id }.count
         HStack(spacing: 9) {
             RoomSigil(key: mission.id, size: 28)
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(mission.name)
                     .appTextStyle(.headline)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(1)
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.fill").font(.system(size: 8, weight: .semibold))
+                HStack(spacing: 5) {
+                    Image(systemName: "lock.fill").font(.system(size: lock, weight: .semibold))
                     Text(verbatim: [people.map(Counted.people), Counted.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
                         .contentTransition(.numericText())
                 }
-                .appTextStyle(.caption2)
-                .foregroundStyle(theme.colors.inkMuted)
+                .appTextStyle(.caption)
+                .fontWeight(.regular)
+                .foregroundStyle(theme.colors.inkFaint)
                 .lineLimit(1)
             }
         }

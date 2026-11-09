@@ -182,13 +182,9 @@ private struct WelcomeCard: View {
             Button {
                 model.account.signIn()
             } label: {
-                HStack(spacing: 10) {
-                    if starting {
-                        ProgressView().tint(theme.colors.onAccent)
-                    }
-                    Text(starting ? "Opening sign-in" : "Sign in")
-                }
-                .frame(maxWidth: .infinity)
+                Text(starting ? "Opening sign-in" : "Sign in")
+                    .shimmer(starting)
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.kodosi(.primary, size: .large))
             .disabled(starting)

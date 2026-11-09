@@ -7,11 +7,18 @@ struct KodosiMobileApp: App {
     @State private var model = AppModel()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        BarAppearance.apply()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
                 .environment(model.notices)
+                .buttonStyle(.kodosi(.secondary))
+                .textFieldStyle(WellTextFieldStyle())
+                .toggleStyle(KodosiSwitchStyle())
                 .kodosiTheme()
                 .task { model.start() }
                 .onOpenURL { url in

@@ -32,9 +32,10 @@ public struct RecoveryKeySheet: View {
                     .padding(.bottom, 24)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background { GroundBackdrop() }
+            .background(theme.colors.surface)
             .presentationDetents([.large])
-            .presentationBackground(theme.colors.ground)
+            .presentationBackground(theme.colors.surface)
+            .presentationCornerRadius(Radius.sheet)
             .interactiveDismissDisabled()
         #else
             content.padding(28).frame(width: 420)

@@ -29,7 +29,7 @@ struct TerminalControls: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if let note {
-                TerminalInputNote(message: note, dismiss: controller.dismissInputNotes)
+                CautionNote(message: note, identifier: "terminal.inputNote", dismiss: controller.dismissInputNotes)
                     .transition(.opacity)
             }
             if input.showsKeys {
@@ -92,35 +92,6 @@ private struct TerminalAsk: View {
     }
 }
 
-private struct TerminalInputNote: View {
-    @Environment(\.theme) private var theme
-    let message: String
-    let dismiss: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(theme.colors.caution)
-                .frame(width: 6, height: 6)
-                .accessibilityHidden(true)
-            Text(message)
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.ink)
-                .lineLimit(2)
-            Spacer(minLength: 4)
-            Button("Dismiss", action: dismiss)
-                .buttonStyle(.kodosi(.ghost, size: .small))
-                .accessibilityIdentifier("terminal.inputNote.dismiss")
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
-        .padding(.vertical, 4)
-        .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("terminal.inputNote")
-    }
-}
-
 private struct TerminalKeyBar: View {
     let enabled: Bool
     let answering: Bool
@@ -135,9 +106,6 @@ private struct TerminalKeyBar: View {
                 .accessibilityIdentifier("terminal.keys.compose")
             if let menu {
                 menu
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 14, weight: .semibold))
-                    .modifier(TerminalCapFace(highlighted: false))
             }
             TerminalActionCap(title: "Hide keyboard", symbol: "keyboard.chevron.compact.down", action: actions.hide)
                 .accessibilityIdentifier("terminal.keys.hide")
@@ -162,30 +130,30 @@ private struct TerminalKeyRow: View {
             .padding(2)
         }
         .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.45)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Terminal keys"))
         .accessibilityIdentifier("terminal.keys")
     }
 }
 
-private struct TerminalCapFace: ViewModifier {
+/// The face of a key on the key row: a quiet key, copper while it answers what an agent asks, with
+/// faint words while it does not type.
+struct TerminalCapFace: ViewModifier {
     @Environment(\.theme) private var theme
+    @Environment(\.isEnabled) private var isEnabled
     let highlighted: Bool
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+        let lit = highlighted && isEnabled
         content
-            .foregroundStyle(highlighted ? theme.colors.onAccent : theme.colors.ink)
+            .foregroundStyle(isEnabled ? lit ? theme.colors.onAccent : theme.colors.ink : theme.colors.inkFaint)
             .frame(minWidth: 42, minHeight: 36)
             .padding(.horizontal, 4)
             .background {
-                BezelBackground(
-                    shape: shape, fill: highlighted ? theme.colors.accent : theme.colors.lifted,
-                    bezel: highlighted ? .solid : .quiet,
-                )
+                BezelBackground(shape: shape, fill: lit ? theme.colors.accent : theme.buttonFace(), bezel: lit ? .solid : .quiet)
             }
-            .contentShape(shape)
+            .touchTarget()
     }
 }
 
@@ -256,48 +224,29 @@ private struct TerminalComposer: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         let focused = composing.wrappedValue
         HStack(alignment: .bottom, spacing: 8) {
             leadingKey(focused: focused)
                 .padding(.bottom, 4)
             HStack(alignment: .bottom, spacing: 6) {
                 TextField(placeholder, text: $controller.draft, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .tint(theme.colors.accent)
                     .lineLimit(1 ... (compact ? 2 : 5))
                     .focused(composing)
                     .textInputAutocapitalization(session.agent.isAgent ? .sentences : .never)
                     .autocorrectionDisabled(!session.agent.isAgent)
                     .appTextStyle(.body)
                     .foregroundStyle(theme.colors.ink)
-                    .padding(.leading, 16)
-                    .padding(.vertical, 11)
+                    .padding(.leading, 11)
+                    .padding(.vertical, 7)
                     .accessibilityIdentifier("terminal.composer.field")
-                Button(action: send) {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(canSend ? theme.colors.onAccent : theme.colors.inkFaint)
-                        .frame(width: 34, height: 34)
-                        .background {
-                            if canSend {
-                                BezelBackground(shape: Circle(), fill: theme.colors.accent)
-                            } else {
-                                Circle().fill(theme.colors.ink.opacity(0.08))
-                            }
-                        }
-                        .contentShape(Circle())
-                }
-                .buttonStyle(PressScaleStyle())
-                .disabled(!canSend)
-                .keyboardShortcut(.return, modifiers: .command)
-                .padding(5)
-                .accessibilityLabel(Text("Send"))
-                .accessibilityIdentifier("terminal.composer.send")
+                SendKey(enabled: canSend, size: 32, action: send)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .accessibilityLabel(Text("Send"))
+                    .accessibilityIdentifier("terminal.composer.send")
             }
-            .background { RaisedBackground(shape: shape, fill: theme.colors.lifted, elevation: .lifted) }
-            .overlay {
-                shape.strokeBorder(theme.colors.accent.opacity(focused ? 0.65 : 0), lineWidth: 1.5)
-                    .allowsHitTesting(false)
-            }
+            .composerField(focused: focused)
         }
         .animation(theme.motion.hover, value: focused)
         .animation(theme.motion.snappy, value: canSend)

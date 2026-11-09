@@ -32,6 +32,9 @@ public struct ListGroup<Content: View>: View {
                     }
                 }
             }
+            #if os(iOS)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+            #endif
             .raised(Radius.xl)
             if let footer {
                 Text(footer).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
@@ -43,9 +46,13 @@ public struct ListGroup<Content: View>: View {
 
 public struct ListRow<Leading: View, Trailing: View>: View {
     @Environment(\.theme) private var theme
+    #if os(iOS)
+        @Environment(\.dynamicTypeSize) private var typeSize
+    #endif
     public let title: String
     public var subtitle: String?
     public var monoSubtitle = false
+    public var titleColor: Color?
 
     @ViewBuilder public let leading: () -> Leading
     @ViewBuilder public let trailing: () -> Trailing
@@ -54,47 +61,156 @@ public struct ListRow<Leading: View, Trailing: View>: View {
         title: String,
         subtitle: String? = nil,
         monoSubtitle: Bool = false,
+        titleColor: Color? = nil,
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
         self.title = title
         self.subtitle = subtitle
         self.monoSubtitle = monoSubtitle
+        self.titleColor = titleColor
         self.leading = leading
         self.trailing = trailing
     }
 
     public var body: some View {
-        HStack(spacing: 12) {
-            leading().frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
-                if let subtitle {
-                    Text(subtitle).appTextStyle(monoSubtitle ? .monoCaption : .footnote).foregroundStyle(theme.colors.inkMuted)
-                        .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+        #if os(iOS)
+            ViewThatFits(in: .horizontal) {
+                if !typeSize.isAccessibilitySize {
+                    HStack(spacing: 12) {
+                        leading().frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(title).appTextStyle(.body).foregroundStyle(titleColor ?? theme.colors.ink).lineLimit(1)
+                            if let subtitle {
+                                subtitleText(subtitle).lineLimit(2).frame(idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        trailing().fixedSize()
+                    }
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    leading().frame(width: 28)
+                    VStack(alignment: .leading, spacing: 10) {
+                        titles(lines: nil)
+                        trailing()
+                    }
+                    Spacer(minLength: 0)
                 }
             }
-            Spacer(minLength: 12)
-            trailing()
+            .padding(.horizontal, 14).padding(.vertical, 8).frame(minHeight: 52)
+        #else
+            HStack(spacing: 12) {
+                leading().frame(width: 28)
+                titles(lines: 1)
+                Spacer(minLength: 12)
+                trailing()
+            }
+            .padding(.horizontal, 14).frame(minHeight: 52)
+        #endif
+    }
+
+    private func titles(lines: Int?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).appTextStyle(.body).foregroundStyle(titleColor ?? theme.colors.ink).lineLimit(lines)
+            if let subtitle {
+                subtitleText(subtitle).lineLimit(lines)
+            }
         }
-        .padding(.horizontal, 14).frame(minHeight: 52)
+    }
+
+    private func subtitleText(_ subtitle: String) -> some View {
+        Text(subtitle).appTextStyle(monoSubtitle ? .monoCaption : .footnote).foregroundStyle(theme.colors.inkMuted)
+            .truncationMode(.middle).textSelection(.enabled)
     }
 }
 
 public extension ListRow where Leading == IconTile {
     init(
-        _ title: String, subtitle: String? = nil, monoSubtitle: Bool = false, symbol: String, tint: Color? = nil,
+        _ title: String, subtitle: String? = nil, monoSubtitle: Bool = false, symbol: String, tint: Color? = nil, titleColor: Color? = nil,
         @ViewBuilder trailing: @escaping () -> Trailing,
     ) {
-        self.init(title: title, subtitle: subtitle, monoSubtitle: monoSubtitle,
+        self.init(title: title, subtitle: subtitle, monoSubtitle: monoSubtitle, titleColor: titleColor,
                   leading: { IconTile(symbol: symbol, tint: tint, size: 28) }, trailing: trailing)
     }
 }
 
 public extension ListRow where Leading == IconTile, Trailing == EmptyView {
-    init(_ title: String, subtitle: String? = nil, monoSubtitle: Bool = false, symbol: String, tint: Color? = nil) {
-        self.init(title: title, subtitle: subtitle, monoSubtitle: monoSubtitle,
+    init(_ title: String, subtitle: String? = nil, monoSubtitle: Bool = false, symbol: String, tint: Color? = nil, titleColor: Color? = nil) {
+        self.init(title: title, subtitle: subtitle, monoSubtitle: monoSubtitle, titleColor: titleColor,
                   leading: { IconTile(symbol: symbol, tint: tint, size: 28) }, trailing: { EmptyView() })
+    }
+}
+
+/// A switch in a list: its symbol, its name and what it does.
+public struct SwitchRow: View {
+    @Environment(\.theme) private var theme
+    public let title: String
+    public var subtitle: String?
+    public let symbol: String
+    public var tint: Color?
+    @Binding public var isOn: Bool
+
+    public init(_ title: String, subtitle: String? = nil, symbol: String, tint: Color? = nil, isOn: Binding<Bool>) {
+        self.title = title
+        self.subtitle = subtitle
+        self.symbol = symbol
+        self.tint = tint
+        _isOn = isOn
+    }
+
+    public var body: some View {
+        Toggle(isOn: $isOn) {
+            HStack(spacing: 12) {
+                IconTile(symbol: symbol, tint: tint, size: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    if let subtitle {
+                        Text(subtitle).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                    }
+                }
+            }
+        }
+        .toggleStyle(KodosiSwitchStyle())
+        .padding(.horizontal, 14)
+        #if os(iOS)
+            .padding(.vertical, 8)
+        #endif
+            .frame(minHeight: 52)
+    }
+}
+
+/// A row of a list that is a key. It lights with the lifted face while a finger presses it.
+public struct ListRowButtonStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        RowFace(label: configuration.label, pressed: configuration.isPressed)
+    }
+}
+
+private struct RowFace<Label: View>: View {
+    @Environment(\.theme) private var theme
+    let label: Label
+    let pressed: Bool
+
+    var body: some View {
+        label
+            .background { theme.colors.lifted.opacity(pressed ? 1 : 0) }
+            .contentShape(Rectangle())
+            .animation(theme.motion.hover, value: pressed)
+    }
+}
+
+/// The chevron at the end of a row that opens a page.
+public struct Disclosure: View {
+    @Environment(\.theme) private var theme
+
+    public init() {}
+
+    public var body: some View {
+        Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+            .accessibilityHidden(true)
     }
 }
 

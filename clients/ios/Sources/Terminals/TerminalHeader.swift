@@ -2,28 +2,56 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+/// The title of a terminal in its bar: its mark, its name with the sign of what it needs, and
+/// where it runs or what it does. The title of your own terminal is a key that renames it.
 struct TerminalTitle: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
+    let sign: StatusSign.Form?
+    let rename: (() -> Void)?
 
     var body: some View {
+        if let rename {
+            Button(action: rename) { label.frame(minHeight: 44).contentShape(Rectangle()) }
+                .buttonStyle(PressScaleStyle(scale: 0.97))
+                .accessibilityHint(Text("Renames the terminal"))
+                .accessibilityIdentifier("terminal.header")
+        } else {
+            label
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("terminal.header")
+        }
+    }
+
+    private var label: some View {
         HStack(spacing: 9) {
-            AgentMark(session: session, size: 26, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
-                .padding(2)
+            AgentMark(session: session, size: 22, activity: session.mark(rested: .awake))
             VStack(alignment: .leading, spacing: 0) {
-                Text(session.name)
-                    .appTextStyle(.subhead)
-                    .foregroundStyle(theme.colors.ink)
-                    .lineLimit(1)
-                    .contentTransition(.interpolate)
+                HStack(spacing: 5) {
+                    if rename != nil {
+                        GhostKeyFace { name }
+                    } else {
+                        name
+                    }
+                    if let sign {
+                        StatusSign(form: sign).transition(AnyTransition.pop)
+                    }
+                }
                 caption
-                    .appTextStyle(.caption2)
+                    .appTextStyle(.caption)
                     .lineLimit(1)
             }
         }
         .animation(theme.motion.soft, value: session.name)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("terminal.header")
+        .animation(theme.motion.snappy, value: sign)
+    }
+
+    private var name: some View {
+        Text(session.name)
+            .appTextStyle(.subhead)
+            .foregroundStyle(theme.colors.ink)
+            .lineLimit(1)
+            .contentTransition(.interpolate)
     }
 
     @ViewBuilder
@@ -42,24 +70,24 @@ struct TerminalTitle: View {
             Text(session.statusLabel)
                 .foregroundStyle(session.isTroubled ? theme.colors.caution : theme.colors.inkFaint)
         } else if session.activity != nil || session.progress != nil {
-            TerminalCaption(session: session)
-        } else if let runsIn = session.place {
-            SessionPlace(place: runsIn)
+            SessionActivityText(session: session)
                 .foregroundStyle(theme.colors.inkMuted)
+        } else if let place = session.place {
+            TerminalLocation(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
         } else {
-            HStack(spacing: 4) {
-                DeviceGlyph(label: session.hostLabel)
-                Text(session.hostLabel)
-            }
-            .foregroundStyle(theme.colors.inkMuted)
+            TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
         }
     }
 }
 
+/// The actions of a terminal, in the system's menu: copper sliders in its bar, or a key cap in
+/// the key row.
 struct TerminalMenu: View {
+    @Environment(\.theme) private var theme
     let session: RuntimeSession
     @Binding var prompt: TerminalPrompt?
     @Binding var showsSharing: Bool
+    var capped = false
     let interrupt: () -> Void
     let openBrowser: () -> Void
     let addFile: () -> Void
@@ -69,7 +97,7 @@ struct TerminalMenu: View {
             if session.isOwner {
                 Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
                     .accessibilityIdentifier("terminal.menu.rename")
-                Button("Share with a room", systemImage: "person.2") { showsSharing = true }
+                Button("Share with a room", systemImage: "person.badge.plus") { showsSharing = true }
                     .accessibilityIdentifier("terminal.menu.sharing")
             } else {
                 Button("Sharing", systemImage: "person.2") { showsSharing = true }
@@ -95,8 +123,18 @@ struct TerminalMenu: View {
                     .accessibilityIdentifier("terminal.menu.close")
             }
         } label: {
-            Label("Terminal actions", systemImage: "ellipsis")
+            if capped {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.colors.accentStrong)
+                    .modifier(TerminalCapFace(highlighted: false))
+            } else {
+                ActionsKey(lit: false).touchTarget()
+            }
         }
+        .menuStyle(.button)
+        .buttonStyle(PressScaleStyle(scale: 0.9))
+        .accessibilityLabel(Text("Terminal actions"))
         .accessibilityIdentifier("terminal.menu")
     }
 }

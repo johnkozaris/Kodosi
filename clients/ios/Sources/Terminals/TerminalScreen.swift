@@ -90,7 +90,9 @@ private struct TerminalScreenContent: View {
                     actions: inputActions,
                     menu: input.showsHeader(compact: compact)
                         ? nil
-                        : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
+                        : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, capped: true,
+                                       interrupt: controller.interrupt)
+                        {
                             openBrowser(of: session)
                         } addFile: {
                             addingFile = true
@@ -98,24 +100,21 @@ private struct TerminalScreenContent: View {
                 )
             }
         }
-        .background { GroundBackdrop() }
+        .background(theme.colors.surface)
         .toolbar(input.showsHeader(compact: compact) ? .visible : .hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                if let session, session.isOwner {
-                    TerminalTitle(session: session)
-                        .onTapGesture { prompt = .rename(session) }
-                        .accessibilityAction(named: Text("Rename")) { prompt = .rename(session) }
-                } else if let session {
-                    TerminalTitle(session: session)
+                if let session {
+                    TerminalTitle(session: session, sign: model.terminals.sign(of: session), rename: session.isOwner ? { prompt = .rename(session) } : nil)
                 }
             }
+            .sharedBackgroundVisibility(.hidden)
             if let session {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     let viewers = model.viewers(of: session)
                     if !viewers.isEmpty {
-                        AvatarStack(people: viewers, size: 24, limit: 3, ring: theme.colors.surface)
+                        AvatarStack(people: viewers, size: 22, limit: 3)
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel(Text("Here now: \(viewers.map(\.name).joined(separator: ", "))"))
                     }
@@ -128,12 +127,19 @@ private struct TerminalScreenContent: View {
                         addingFile = true
                     }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .toolbar(.hidden, for: .tabBar)
         .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
-        .onAppear { controller.appear(active: scenePhase == .active) }
-        .onDisappear { controller.disappear() }
+        .onAppear {
+            controller.appear(active: scenePhase == .active)
+            ScreenAwake.terminalShown()
+        }
+        .onDisappear {
+            controller.disappear()
+            ScreenAwake.terminalGone()
+        }
         .onChange(of: scenePhase) { _, phase in controller.setActive(phase == .active) }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
@@ -174,14 +180,12 @@ private struct TerminalScreenContent: View {
     }
 
     private func stage(_ session: RuntimeSession?) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-        return stageContent(session)
+        stageContent(session)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background { shape.fill(theme.colors.terminal) }
-            .overlay { shape.strokeBorder(theme.colors.hairline.opacity(0.7), lineWidth: 0.5).allowsHitTesting(false) }
+            .terminalTile()
             .overlay(alignment: .top) {
                 if let note = controller.sizeNote, session?.isConnected == true {
-                    TerminalSizeNote(note: note, resize: controller.focusTerminal)
+                    TerminalSizeNote(note: note, resize: controller.resizeHere)
                         .padding(8)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
@@ -227,7 +231,7 @@ private struct TerminalScreenContent: View {
                 .padding(5)
                 .overlay {
                     TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
                 }
                 .id(surface.token.subscriptionId)
             } else {

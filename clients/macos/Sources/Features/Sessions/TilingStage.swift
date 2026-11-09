@@ -61,7 +61,7 @@ struct TilingStage: View {
                         .environment(\.terminalAlone, alone)
                         .terminalScope()
                         .overlay {
-                            RoundedRectangle(cornerRadius: SessionTileView.radius, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.tile, style: .continuous)
                                 .strokeBorder(theme.colors.accent, lineWidth: 2)
                                 .opacity(dropTarget == id ? 1 : 0)
                                 .allowsHitTesting(false)

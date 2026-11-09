@@ -65,13 +65,6 @@ struct CanvasBody: View, Animatable {
     }
 }
 
-extension AppTheme.Colors {
-    /// The header bar of a terminal's body, in the copper of a raised surface.
-    var band: Color {
-        hex(0x221A16)
-    }
-}
-
 /// The hairline around a body and the neck to its tab, which stops where the tab begins.
 private struct Outline: Shape {
     let lobes: Lobes

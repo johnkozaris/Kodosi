@@ -84,7 +84,7 @@ public struct KodosiButtonStyle: ButtonStyle {
             .padding(.horizontal, size.padding)
             .frame(minHeight: size.height)
             .background { background(shape, pressed: pressed).environment(\.bezelPressed, pressed) }
-            .contentShape(shape)
+            .touchTarget(shape)
             .scaleEffect(pressed ? 0.97 : 1)
             .onHover { hovered = $0 }
             .animation(theme.motion.hover, value: hovered)
@@ -140,7 +140,6 @@ public extension AppTheme {
 
 public struct IconButton: View {
     @Environment(\.theme) private var theme
-    @Environment(\.isEnabled) private var isEnabled
     @State private var hovered = false
     public let title: LocalizedStringKey
     public let bundle: Bundle?
@@ -175,21 +174,8 @@ public struct IconButton: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: min(Radius.md, size * 0.32), style: .continuous)
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.43, weight: .semibold))
-                .contentTransition(.symbolEffect(.replace))
-                .foregroundStyle(foreground)
-                .frame(width: size, height: size)
-                .background {
-                    if active || open {
-                        RaisedBackground(shape: shape, fill: theme.colors.raised, elevation: .resting).transition(.opacity)
-                    } else if let face {
-                        BezelBackground(shape: shape, fill: face, bezel: .quiet).transition(.opacity)
-                    }
-                }
-                .contentShape(shape)
+            IconButtonFace(symbol: symbol, size: size, hovered: hovered, destructive: destructive, active: active, open: open)
         }
         .buttonStyle(PressScaleStyle())
         .onHover { hovered = $0 }
@@ -198,9 +184,59 @@ public struct IconButton: View {
         .tip(Text(title, bundle: bundle)).accessibilityLabel(Text(title, bundle: bundle)).accessibilityIdentifier(identifier)
         .accessibilityAddTraits(active ? .isSelected : [])
     }
+}
+
+/// The face of a symbol-only button: quiet while the pointer is on it, or on iPhone and iPad while
+/// a finger presses it, and raised while its popover is open or it is on. A button with
+/// `PressScaleStyle` lights it while it is pressed.
+public struct IconButtonFace: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.bezelPressed) private var pressed
+    let symbol: String
+    let size: CGFloat
+    let hovered: Bool
+    let destructive: Bool
+    let active: Bool
+    let open: Bool
+
+    public init(symbol: String, size: CGFloat = 28, hovered: Bool = false, destructive: Bool = false, active: Bool = false,
+                open: Bool = false)
+    {
+        self.symbol = symbol
+        self.size = size
+        self.hovered = hovered
+        self.destructive = destructive
+        self.active = active
+        self.open = open
+    }
+
+    public var body: some View {
+        let shape = RoundedRectangle(cornerRadius: min(Radius.md, size * 0.32), style: .continuous)
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.43, weight: .semibold))
+            .contentTransition(.symbolEffect(.replace))
+            .foregroundStyle(foreground)
+            .frame(width: size, height: size)
+            .background {
+                if active || open {
+                    RaisedBackground(shape: shape, fill: theme.colors.raised, elevation: .resting).transition(.opacity)
+                } else if let face {
+                    BezelBackground(shape: shape, fill: face, bezel: .quiet).transition(.opacity)
+                }
+            }
+            .touchTarget(shape)
+        #if os(iOS)
+            .animation(theme.motion.hover, value: pressed)
+        #endif
+    }
 
     private var lit: Bool {
-        hovered && isEnabled
+        #if os(iOS)
+            (hovered || pressed) && isEnabled
+        #else
+            hovered && isEnabled
+        #endif
     }
 
     private var foreground: Color {

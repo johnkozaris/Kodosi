@@ -33,8 +33,20 @@ struct PeopleView: View {
                     addCapsule.arrive(delay: 0.04)
                     if !deps.people.incoming.isEmpty || !deps.people.outgoing.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            ForEach(deps.people.incoming) { request in incoming(request).transition(AnyTransition.rise) }
-                            ForEach(deps.people.outgoing) { request in outgoing(request).transition(AnyTransition.rise) }
+                            ForEach(deps.people.incoming) { request in
+                                FriendRequestCard(request: request, identifier: "people.request.\(request.handle)") {
+                                    deps.people.decline(request)
+                                } accept: {
+                                    deps.workbench.trusting = .accept(request)
+                                }
+                                .transition(AnyTransition.rise)
+                            }
+                            ForEach(deps.people.outgoing) { request in
+                                OutgoingRequestCard(request: request, identifier: "people.request.cancel.\(request.handle)") {
+                                    deps.people.cancel(request)
+                                }
+                                .transition(AnyTransition.rise)
+                            }
                         }
                     }
                     if deps.people.friends.isEmpty {
@@ -45,7 +57,7 @@ struct PeopleView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
                             ForEach(Array(deps.people.friends.enumerated()), id: \.element.id) { index, friend in
-                                FriendCard(friend: friend) { pendingRemoval = friend }
+                                FriendItem(friend: friend) { pendingRemoval = friend }
                                     .arrive(delay: 0.04 * Double(min(index, 8) + 2))
                             }
                         }
@@ -108,114 +120,33 @@ struct PeopleView: View {
         guard !name.isEmpty else { return }
         deps.workbench.trusting = .add(name)
     }
-
-    private func incoming(_ person: FriendRequestEntry) -> some View {
-        let name = person.personName
-        return HStack(spacing: 14) {
-            PersonAvatar(name: name, key: person.userId, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(name) wants to be friends").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
-                Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-            }
-            Spacer()
-            Button("Not now") { deps.people.decline(person) }.buttonStyle(.kodosi(.ghost))
-            Button("Accept…") { deps.workbench.trusting = .accept(person) }.buttonStyle(.kodosi(.primary))
-        }
-        .padding(14).frame(maxWidth: 620)
-        .raised(Radius.xl)
-        .overlay { RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.6), lineWidth: 1.5) }
-    }
-
-    private func outgoing(_ person: FriendRequestEntry) -> some View {
-        let name = person.personName
-        return HStack(spacing: 12) {
-            PersonAvatar(name: name, key: person.userId, size: 28)
-            Text(name).appTextStyle(.body).foregroundStyle(theme.colors.ink)
-            Tag(text: String(localized: "Waiting for them"))
-            Spacer()
-            Button("Cancel") { deps.people.cancel(person) }
-                .buttonStyle(.kodosi(.ghost, size: .small))
-        }
-        .padding(.horizontal, 12).frame(height: 46).frame(maxWidth: 620)
-        .well(Radius.lg)
-    }
 }
 
-private struct FriendCard: View {
+private struct FriendItem: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @State private var hovered = false
     @State private var verifying = false
     @State private var invite = ""
     let friend: FriendEntry
     let remove: () -> Void
 
-    private var name: String {
-        friend.personName
-    }
-
-    private var shared: [RuntimeSession] {
-        deps.listedSessions.filter { $0.ownerUserId == friend.userId }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                PersonAvatar(name: name, key: friend.userId, size: 46)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
-                        Text(name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
-                        if friend.isVerified {
-                            VerifiedSeal(size: 12).help("Verified")
-                        }
-                    }
-                    Text(verbatim: "@\(friend.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+        let name = friend.personName
+        FriendCard(friend: friend, shared: deps.listedSessions.filter { $0.ownerUserId == friend.userId }, openTerminal: open,
+                   trust: trust, verify: toggleVerify)
+        {
+            Menu {
+                if !friend.isVerified {
+                    Button("Verify with their invite…") { verifying = true }
                 }
-                Spacer(minLength: 4)
-                Menu {
-                    if !friend.isVerified {
-                        Button("Verify with their invite…") { verifying = true }
-                    }
-                    Button("Remove…", role: .destructive, action: remove)
-                } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
-                        .frame(width: 26, height: 26).contentShape(Circle())
-                }
-                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                .accessibilityLabel(Text("Options for \(name)"))
+                Button("Remove…", role: .destructive, action: remove)
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                    .frame(width: 26, height: 26).contentShape(Circle())
             }
-            Group {
-                if friend.identityChanged {
-                    HStack(spacing: 8) {
-                        Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
-                        Spacer()
-                        Button("Trust") { deps.people.trust(friend) }
-                            .buttonStyle(.kodosi(.primary, size: .small))
-                            .accessibilityIdentifier("people.trust.\(friend.handle)")
-                    }
-                } else if shared.isEmpty {
-                    HStack {
-                        Text("Nothing shared with you yet").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
-                        Spacer()
-                        if !friend.verified {
-                            Button("Verify") { verifying.toggle() }.buttonStyle(.kodosi(.ghost, size: .small))
-                                .accessibilityIdentifier("people.verify.\(friend.handle)")
-                        }
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        ForEach(shared.prefix(4)) { session in
-                            Button { deps.activateSession(session.id) } label: {
-                                AgentMark(session: session, size: 24, activity: session.mark(rested: .awake))
-                            }
-                            .buttonStyle(PressScaleStyle()).help(session.name)
-                        }
-                        Text("\(shared.count) shared with you").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                        Spacer()
-                    }
-                }
-            }
-            .frame(minHeight: KodosiButtonStyle.Size.small.height)
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .accessibilityLabel(Text("Options for \(name)"))
+        } footer: {
             if verifying {
                 HStack(spacing: 6) {
                     TextField("Paste the invite \(name) sent you", text: $invite)
@@ -230,10 +161,18 @@ private struct FriendCard: View {
                 .transition(AnyTransition.unfold)
             }
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .raised(Radius.xl, fill: hovered ? theme.colors.lifted : theme.colors.raised, elevation: hovered ? .lifted : .resting)
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.spring, value: verifying)
+    }
+
+    private func open(_ session: RuntimeSession) {
+        deps.activateSession(session.id)
+    }
+
+    private func trust() {
+        deps.people.trust(friend)
+    }
+
+    private func toggleVerify() {
+        verifying.toggle()
     }
 }

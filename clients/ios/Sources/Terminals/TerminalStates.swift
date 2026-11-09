@@ -80,13 +80,14 @@ struct TerminalEnded: View {
 
 struct TerminalSizeNote: View {
     @Environment(\.theme) private var theme
+    @ScaledMetric(relativeTo: .footnote) private var glyph: CGFloat = 12
     let note: String
     let resize: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: glyph, weight: .semibold))
                 .foregroundStyle(theme.colors.caution)
             Text(note)
                 .appTextStyle(.footnote)

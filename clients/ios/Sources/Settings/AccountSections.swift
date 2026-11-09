@@ -5,36 +5,57 @@ import SwiftUI
 struct AccountHeader: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
+    @State private var confirmingSignOut = false
 
     private var account: AccountStore {
         model.account
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            PersonAvatar(name: account.selfName, size: 62, isSelf: true)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                identity
+                Spacer(minLength: 0)
+                signOut
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                identity
+                signOut
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .raised(Radius.xl)
+        .confirmationDialog("Sign out?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { account.signOut() }
+                .accessibilityIdentifier("settings.account.confirmSignOut")
+        } message: {
+            Text("Terminals on your computers keep running. Sign in again to use them here.")
+        }
+    }
+
+    private var identity: some View {
+        HStack(spacing: 14) {
+            PersonAvatar(name: account.selfName, size: 52, isSelf: true)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(account.selfName)
                     .appTextStyle(.title)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(2)
-                HStack(spacing: 5) {
-                    Image(systemName: "lock.fill")
-                        .imageScale(.small)
-                    Text("Encrypted end to end")
-                }
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.inkMuted)
+                Label("Encrypted end to end", systemImage: "lock.fill")
+                    .appTextStyle(.footnote)
+                    .foregroundStyle(theme.colors.inkMuted)
             }
-            Spacer(minLength: 0)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .raised(Radius.xl)
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("settings.account")
+    }
+
+    private var signOut: some View {
+        Button("Sign out…") { confirmingSignOut = true }
+            .buttonStyle(.kodosi(.secondary, size: .small))
+            .accessibilityIdentifier("settings.account.signOut")
     }
 }
 
@@ -49,41 +70,41 @@ struct AboutSection: View {
     }
 
     var body: some View {
-        Section {
-            SettingRow(symbol: "info.circle.fill", tint: TileTint.blue, title: Text("Version")) {
+        ListGroup(title: "About") {
+            ListRow(String(localized: "Version"), symbol: "app.badge", tint: TileTint.blue) {
                 Text(verbatim: version)
                     .appTextStyle(.body)
                     .monospacedDigit()
                     .foregroundStyle(theme.colors.inkMuted)
                     .textSelection(.enabled)
             }
-            .raisedRows()
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("settings.about.version")
             NavigationLink {
                 LicensesView()
             } label: {
-                SettingRow(symbol: "doc.text.fill", tint: TileTint.graphite, title: Text("Open-source licenses"))
+                ListRow(String(localized: "Open-source licenses"), symbol: "doc.text.fill", tint: TileTint.graphite) {
+                    Disclosure()
+                }
             }
-            .raisedRows()
+            .buttonStyle(ListRowButtonStyle())
             .accessibilityIdentifier("settings.about.licenses")
-        } header: {
-            GroupedListHeader(title: "About")
         }
     }
 }
 
-struct AccountActionsSection: View {
+/// Deleting the account: a key in danger's color, then the page of the sign-in service where the
+/// person confirms it.
+struct AccountDeletion: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
-    @State private var confirmingSignOut = false
-    @State private var confirmingDeletion = false
+    @State private var confirming = false
 
     private var account: AccountStore {
         model.account
     }
 
-    private var deletionPagePresented: Binding<Bool> {
+    private var pagePresented: Binding<Bool> {
         Binding(
             get: { account.deletionPage != nil },
             set: { presented in
@@ -95,73 +116,59 @@ struct AccountActionsSection: View {
     }
 
     var body: some View {
-        Section {
-            Button { confirmingSignOut = true } label: {
-                SettingRow(symbol: "rectangle.portrait.and.arrow.right", tint: TileTint.graphite, title: Text("Sign out"))
-            }
-            .raisedRows()
-            .accessibilityIdentifier("settings.account.signOut")
-            .confirmationDialog("Sign out?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
-                Button("Sign out", role: .destructive) { account.signOut() }
-                    .accessibilityIdentifier("settings.account.confirmSignOut")
-            } message: {
-                Text("Terminals on your computers keep running. Sign in again to use them here.")
-            }
-            deletionRow
-                .raisedRows()
-                .sheet(isPresented: deletionPagePresented) {
-                    if let page = account.deletionPage {
-                        SafariView(url: page).ignoresSafeArea()
+        Group {
+            switch account.deletion {
+            case nil:
+                Button { confirming = true } label: {
+                    Text("Delete my account…").foregroundStyle(theme.colors.danger)
+                }
+                .buttonStyle(.kodosi(.ghost, size: .small))
+                .accessibilityIdentifier("settings.account.delete")
+                .confirmationDialog("Delete your Kodosi account?", isPresented: $confirming, titleVisibility: .visible) {
+                    Button("Delete Account", role: .destructive) { account.deleteAccount() }
+                        .accessibilityIdentifier("settings.account.confirmDelete")
+                } message: {
+                    Text(summary)
+                }
+            case .requested:
+                HStack(spacing: 10) {
+                    Spinner(size: 14)
+                    Text("Opening the account page").appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                }
+                .padding(.horizontal, 16).frame(minHeight: 46)
+                .raised(Radius.lg)
+                .accessibilityIdentifier("settings.account.deletionRequested")
+            case let .confirming(page):
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        BreathingDot(color: theme.colors.danger)
+                        Text("Confirm the deletion on the account page.").appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                    }
+                    HStack(spacing: 8) {
+                        Spacer()
+                        if page != nil {
+                            Button("Open page") { account.reopenDeletionPage() }
+                                .buttonStyle(.kodosi(.secondary, size: .small))
+                                .accessibilityIdentifier("settings.account.deletionPage")
+                        }
+                        Button("Cancel") { account.cancelAccountDeletion() }
+                            .buttonStyle(.kodosi(.ghost, size: .small))
+                            .accessibilityIdentifier("settings.account.deletionCancel")
                     }
                 }
+                .padding(16)
+                .raised(Radius.lg)
+            }
+        }
+        .transition(AnyTransition.rise)
+        .sheet(isPresented: pagePresented) {
+            if let page = account.deletionPage {
+                SafariView(url: page).ignoresSafeArea()
+            }
         }
     }
 
-    @ViewBuilder
-    private var deletionRow: some View {
-        switch account.deletion {
-        case nil:
-            Button { confirmingDeletion = true } label: {
-                SettingRow(symbol: "trash.fill", tint: TileTint.red, title: Text("Delete my account…"), titleColor: theme.colors.danger)
-            }
-            .accessibilityIdentifier("settings.account.delete")
-            .confirmationDialog("Delete your Kodosi account?", isPresented: $confirmingDeletion, titleVisibility: .visible) {
-                Button("Delete Account", role: .destructive) { account.deleteAccount() }
-                    .accessibilityIdentifier("settings.account.confirmDelete")
-            } message: {
-                Text(deletionSummary)
-            }
-        case .requested:
-            SettingRow(symbol: "trash.fill", tint: TileTint.red, title: Text("Opening the account page")) {
-                ProgressView()
-            }
-            .accessibilityIdentifier("settings.account.deletionRequested")
-        case let .confirming(page):
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    BreathingDot(color: theme.colors.danger, size: 9)
-                        .frame(width: 30)
-                    Text("Confirm the deletion on the account page.")
-                        .appTextStyle(.body)
-                        .foregroundStyle(theme.colors.ink)
-                }
-                HStack(spacing: 8) {
-                    if page != nil {
-                        Button("Open page") { account.reopenDeletionPage() }
-                            .buttonStyle(.kodosi(.secondary, size: .small))
-                            .accessibilityIdentifier("settings.account.deletionPage")
-                    }
-                    Button("Cancel") { account.cancelAccountDeletion() }
-                        .buttonStyle(.kodosi(.ghost, size: .small))
-                        .accessibilityIdentifier("settings.account.deletionCancel")
-                }
-                .padding(.leading, 44)
-            }
-            .padding(.vertical, 6)
-        }
-    }
-
-    private var deletionSummary: String {
+    private var summary: String {
         account.deletionSummary(
             rooms: model.rooms.missions,
             terminals: String(localized: "Terminals on your computers keep running. You cannot undo this."),

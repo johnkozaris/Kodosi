@@ -13,7 +13,7 @@ extension EnvironmentValues {
     /// The terminal's canvas is joined to its right edge: one tile with two panes.
     @Entry var terminalJoined: Bool = false
     /// The corner radius of the terminal's tile.
-    @Entry var tileRadius: CGFloat = 12
+    @Entry var tileRadius: CGFloat = Radius.tile
 }
 
 struct TerminalSurfaceWrapper: View {

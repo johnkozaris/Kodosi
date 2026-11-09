@@ -7,7 +7,8 @@ struct TerminalSharingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     let sessionId: String
-    @State private var saving: String?
+    @State private var room: String?
+    @State private var saving = false
     @State private var failure: String?
 
     var body: some View {
@@ -16,73 +17,120 @@ struct TerminalSharingSheet: View {
                 if let session = model.terminals.session(sessionId) {
                     content(session)
                 } else {
-                    ContentUnavailableView("This terminal has ended.", systemImage: "moon.zzz")
+                    TerminalStateCard(symbol: "moon.zzz", title: String(localized: "This terminal has ended."), message: nil, working: false) {
+                        EmptyView()
+                    }
                 }
             }
+            .background(theme.colors.surface)
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier("terminal.sharing.done")
+                ToolbarItem(placement: .cancellationAction) {
+                    IconButton(title: "Done", symbol: "xmark", identifier: "terminal.sharing.done", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
+        .onAppear { room = model.terminals.session(sessionId)?.missionId }
     }
 
     private func content(_ session: RuntimeSession) -> some View {
         let here = model.viewers(of: session)
-        return List {
-            Section {
-                HStack(spacing: 12) {
-                    AgentMark(session: session, size: 36, activity: session.mark(rested: .awake))
-                        .padding(3)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(session.name)
-                            .appTextStyle(.headline)
-                            .foregroundStyle(theme.colors.ink)
-                        Label("Encrypted end to end", systemImage: "lock.fill")
-                            .appTextStyle(.caption)
-                            .foregroundStyle(theme.colors.inkMuted)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 11) {
+                    AgentMark(session: session, size: 34, activity: session.mark(rested: .awake))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.isOwner ? String(localized: "Share \(session.name)") : session.name)
+                            .appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
+                        Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
                     }
                 }
-            }
-            if !here.isEmpty {
-                Section("Here now") {
-                    HStack(spacing: 10) {
-                        AvatarStack(people: here, size: 28, limit: 5, ring: theme.colors.raised)
-                        Text(here.map(\.name).joined(separator: ", "))
-                            .appTextStyle(.footnote)
-                            .foregroundStyle(theme.colors.inkMuted)
-                            .lineLimit(2)
+                if !here.isEmpty {
+                    HStack(spacing: 8) {
+                        AvatarStack(people: here, size: 22)
+                        Text("Here now").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                     }
                 }
+                ListGroup {
+                    ListRow(session.hostLabel, subtitle: hostState(session), symbol: DeviceGlyph.symbol(for: session.hostLabel),
+                            tint: TileTint.graphite)
+                    if let path = session.workingDir {
+                        ListRow(HostPath.folderName(path), subtitle: path, monoSubtitle: true, symbol: "folder.fill", tint: TileTint.amber)
+                    }
+                    ListRow(access(session), symbol: "person.2.fill", tint: TileTint.blue)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("terminal.sharing.access")
+                }
+                if session.isOwner {
+                    rooms(session)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Everyone you share with can type, resize and close this terminal.")
+                    if session.isOwner {
+                        Text("To share it with people, open Kodosi on \(session.hostLabel).")
+                    }
+                }
+                .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
             }
-            Section {
-                Label(access(session), systemImage: "person.2.fill")
-                    .appTextStyle(.body)
-                    .foregroundStyle(theme.colors.ink)
-                    .accessibilityIdentifier("terminal.sharing.access")
-            } footer: {
-                Text("Everyone you share with can type, resize and close this terminal.")
+            .padding(20)
+            .frame(maxWidth: 640, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .animation(theme.motion.snappy, value: room)
+        .animation(theme.motion.spring, value: failure)
+    }
+
+    @ViewBuilder
+    private func rooms(_ session: RuntimeSession) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("A room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+            if model.rooms.missions.isEmpty {
+                Text("You have no rooms yet.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
-            if session.isOwner {
-                rooms(session)
-            }
-            Section {
-                Text("To share it with people, open Kodosi on \(session.hostLabel).")
-                    .appTextStyle(.footnote)
-                    .foregroundStyle(theme.colors.inkMuted)
-            }
-            if let failure {
-                Section {
-                    ErrorNote(message: failure)
+            FlowLayout(spacing: 6) {
+                ForEach(model.rooms.missions) { mission in
+                    let selected = room == mission.id
+                    Button {
+                        room = selected ? nil : mission.id
+                    } label: {
+                        RoomChoice(name: mission.name, key: mission.id, selected: selected)
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .disabled(saving)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("terminal.sharing.room.\(AccessibilityIdentifier.token(mission.id))")
                 }
             }
         }
-        .scrollContentBackground(.hidden)
+        if let failure {
+            ErrorNote(message: failure).transition(AnyTransition.rise)
+        }
+        Button { save(session) } label: {
+            Text(saving ? String(localized: "Sharing…") : actionTitle(session)).frame(maxWidth: .infinity).shimmer(saving)
+        }
+        .buttonStyle(.kodosi(.primary, size: .large))
+        .disabled(saving || room == session.missionId)
+        .accessibilityIdentifier("terminal.sharing.save")
+    }
+
+    private func actionTitle(_ session: RuntimeSession) -> String {
+        guard room != session.missionId else {
+            return session.missionId == nil ? String(localized: "Share") : String(localized: "Shared")
+        }
+        guard let room, let name = model.rooms.mission(room)?.name else { return String(localized: "Stop sharing") }
+        return String(localized: "Share with \(name)")
+    }
+
+    private func hostState(_ session: RuntimeSession) -> String? {
+        if session.status == .offline {
+            return session.statusLabel
+        }
+        return session.isConnected ? nil : session.message ?? session.statusLabel
     }
 
     private func access(_ session: RuntimeSession) -> String {
@@ -97,65 +145,18 @@ struct TerminalSharingSheet: View {
         return names.isEmpty ? String(localized: "Only you and your devices") : names.joined(separator: ", ")
     }
 
-    private func rooms(_ session: RuntimeSession) -> some View {
-        Section {
-            if model.rooms.missions.isEmpty {
-                Text("You have no rooms yet.")
-                    .appTextStyle(.footnote)
-                    .foregroundStyle(theme.colors.inkMuted)
-            }
-            ForEach(model.rooms.missions) { room in
-                Button {
-                    attach(session, to: room.id)
-                } label: {
-                    HStack(spacing: 10) {
-                        RoomSigil(key: room.id, size: 26)
-                        Text(room.name)
-                            .appTextStyle(.body)
-                            .foregroundStyle(theme.colors.ink)
-                            .lineLimit(1)
-                        Spacer(minLength: 8)
-                        if saving == room.id {
-                            ProgressView()
-                        } else if session.missionId == room.id {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(theme.colors.accent)
-                                .transition(AnyTransition.pop)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .disabled(saving != nil || session.missionId == room.id)
-                .accessibilityAddTraits(session.missionId == room.id ? .isSelected : [])
-                .accessibilityIdentifier("terminal.sharing.room.\(AccessibilityIdentifier.token(room.id))")
-            }
-            if let room = session.missionName {
-                Button("Stop sharing with \(room)", role: .destructive) {
-                    attach(session, to: nil)
-                }
-                .disabled(saving != nil)
-                .accessibilityIdentifier("terminal.sharing.stop")
-            }
-        } header: {
-            Text("Share with a room")
-        } footer: {
-            Text("Everyone in the room gets full control, including people who join later.")
-        }
-        .animation(theme.motion.snappy, value: session.missionId)
-    }
-
-    private func attach(_ session: RuntimeSession, to roomId: String?) {
-        guard session.missionId != roomId else { return }
-        saving = roomId ?? ""
+    private func save(_ session: RuntimeSession) {
+        guard room != session.missionId else { return }
+        saving = true
         failure = nil
         Task {
             do {
-                try await model.terminals.share(session, inRoom: roomId)
+                try await model.terminals.share(session, inRoom: room)
+                dismiss()
             } catch {
                 failure = error.localizedDescription
             }
-            saving = nil
+            saving = false
         }
     }
 }

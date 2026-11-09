@@ -279,6 +279,23 @@ public final class TerminalSessionManager {
         }
     }
 
+    /// Sends the size of this view again, so that the terminal takes it.
+    public func takeSize(for sessionId: String) {
+        guard let managed = sessions[sessionId], let viewport = managed.renderer.currentViewport else { return }
+        managed.resizeDelivery.reset()
+        resizeViewport(viewport, sessionId: sessionId, surfaceGeneration: managed.renderer.nativeSurfaceGeneration)
+    }
+
+    /// A terminal that has the size of this view needs no note that another view sizes it.
+    func noteHostSize(_ host: TerminalViewport, sessionId: String, token: TerminalConnectionToken) {
+        guard resizeNotesBySession[sessionId] != nil,
+              let managed = sessions[sessionId], managed.token === token,
+              let asked = managed.renderer.currentViewport,
+              asked.columns == host.columns, asked.rows == host.rows
+        else { return }
+        resizeNotesBySession.removeValue(forKey: sessionId)
+    }
+
     private func resizeViewport(_ viewport: TerminalViewport, sessionId: String, surfaceGeneration: UInt64) {
         guard let managed = sessions[sessionId], managed.token.isActive,
               renderStateBySession[sessionId] == .rendered else { return }

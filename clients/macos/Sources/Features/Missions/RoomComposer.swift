@@ -24,15 +24,8 @@ struct RoomComposer: View {
         let suggestions = query.map { RoomMentions.suggestions(for: $0, in: targets) } ?? []
         VStack(spacing: 6) {
             if let failure = state.failure {
-                HStack(spacing: 8) {
-                    Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                    Text(failure).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
-                    Spacer(minLength: 4)
-                    IconButton(title: "Dismiss", symbol: "xmark", identifier: "room.failure.dismiss", size: 22) { state.failure = nil }
-                }
-                .padding(.leading, 12).padding(.trailing, 4).padding(.vertical, 6)
-                .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
-                .transition(AnyTransition.rise)
+                CautionNote(message: failure, identifier: "room.failure") { state.failure = nil }
+                    .transition(AnyTransition.rise)
             }
             if !suggestions.isEmpty {
                 VStack(spacing: 1) {
@@ -84,36 +77,10 @@ struct RoomComposer: View {
                         dismissedQuery = query
                         return .handled
                     }
-                Button(action: send) {
-                    Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(canSend ? theme.colors.onAccent : theme.colors.inkFaint)
-                        .frame(width: 30, height: 30)
-                        .background {
-                            if canSend {
-                                BezelBackground(shape: Circle(), fill: theme.colors.accent)
-                            } else {
-                                Circle().fill(theme.colors.lifted.mix(with: theme.colors.ink, by: 0.08))
-                            }
-                        }
-                        .overlay {
-                            if state.busy {
-                                LightRim(.working, lineWidth: 2).padding(-4)
-                            }
-                        }
-                }
-                .buttonStyle(PressScaleStyle()).disabled(!canSend)
-                .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send")
+                SendKey(enabled: canSend, working: state.busy, action: send)
+                    .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send")
             }
-            .padding(5)
-            .background {
-                RaisedBackground(shape: RoundedRectangle(cornerRadius: 20, style: .continuous), fill: theme.colors.lifted,
-                                 elevation: focused ? .lifted : .resting)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(theme.colors.accent.mix(with: theme.colors.lifted, by: 0.5), lineWidth: 1.5)
-                    .opacity(focused ? 1 : 0)
-            }
+            .composerField(focused: focused)
         }
         .padding(.horizontal, 10).padding(.bottom, 10).padding(.top, 4)
         .animation(theme.motion.snappy, value: suggestions)

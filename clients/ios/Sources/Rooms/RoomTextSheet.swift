@@ -15,14 +15,14 @@ struct RoomTextSheet: View {
                 .navigationTitle("Select text")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
-                            .accessibilityIdentifier("rooms.text.done")
+                    ToolbarItem(placement: .cancellationAction) {
+                        IconButton(title: "Done", symbol: "xmark", identifier: "rooms.text.done", size: 32) { dismiss() }
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
     }
 }
 

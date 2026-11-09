@@ -36,12 +36,24 @@ struct RoomsLobby: View {
                 }.arrive()
                 if !deps.invitations.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        ForEach(deps.invitations) { invitation in InvitationCard(invitation: invitation) }
+                        ForEach(deps.invitations) { invitation in
+                            InvitationCard(invitation: invitation, identifier: "missions.invitation.\(AccessibilityIdentifier.token(invitation.missionId))") {
+                                deps.respond(to: invitation, accept: false)
+                            } join: {
+                                deps.respond(to: invitation, accept: true)
+                            }
+                        }
                     }.arrive(delay: 0.04)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 250, maximum: 340), spacing: 14)], alignment: .leading, spacing: 14) {
                     ForEach(Array(deps.missions.enumerated()), id: \.element.id) { index, mission in
-                        RoomCard(mission: mission).arrive(delay: 0.04 * Double(min(index, 8) + 1))
+                        RoomCard(mission: mission, sessions: deps.roomSessions(mission.id), yours: mission.ownerUserId == deps.account.userId) {
+                            deps.openMission(mission)
+                        } detail: {
+                            EmptyView()
+                        }
+                        .accessibilityIdentifier("missions.card.\(AccessibilityIdentifier.token(mission.id))")
+                        .arrive(delay: 0.04 * Double(min(index, 8) + 1))
                     }
                     Button { deps.workbench.showsNewRoom = true } label: {
                         DashedSlot(radius: Radius.xl) {
@@ -66,79 +78,6 @@ struct RoomsLobby: View {
         guard !deps.missions.isEmpty else { return String(localized: "A room keeps people, agents and terminals in one place.") }
         let shared = deps.sessions.count { $0.missionId != nil && $0.status != .closing }
         return "\(Counted.rooms(deps.missions.count)) · " + String(localized: "\(shared) shared terminals")
-    }
-}
-
-private struct RoomCard: View {
-    @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let mission: MissionEntry
-
-    private var sessions: [RuntimeSession] {
-        deps.roomSessions(mission.id)
-    }
-
-    var body: some View {
-        Button { deps.openMission(mission) } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    RoomSigil(key: mission.id, size: 44)
-                    Spacer()
-                    if mission.unread {
-                        NewDot().padding(4)
-                    } else if mission.ownerUserId == deps.account.userId {
-                        Tag(text: String(localized: "Yours"))
-                    }
-                }
-                Spacer(minLength: 14)
-                Text(mission.name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
-                HStack(spacing: 6) {
-                    if sessions.isEmpty {
-                        Text("No terminals yet").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
-                    } else {
-                        HStack(spacing: -4) {
-                            ForEach(sessions.prefix(5)) { session in
-                                AgentMark(session: session, size: 18, activity: session.mark(rested: .awake))
-                            }
-                        }
-                        Text(sessions.contains(where: \.isWorking) ? String(localized: "Working") : Counted.terminals(sessions.count))
-                            .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                    }
-                }
-                .padding(.top, 6).frame(height: 24)
-            }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading).frame(height: 132)
-            .raised(Radius.xl, fill: hovered ? theme.colors.lifted : theme.colors.raised, elevation: hovered ? .lifted : .resting)
-            .offset(y: hovered ? -2 : 0)
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.98))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .accessibilityValue(mission.unread ? Text("New messages") : Text(verbatim: ""))
-        .accessibilityIdentifier("missions.card.\(AccessibilityIdentifier.token(mission.id))")
-    }
-}
-
-private struct InvitationCard: View {
-    @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    let invitation: MissionInvitationEntry
-
-    var body: some View {
-        HStack(spacing: 14) {
-            RoomSigil(key: invitation.missionId, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(invitation.missionName).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
-                Text("\(invitation.inviterName) invited you").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-            }
-            Spacer()
-            Button("Not now") { deps.respond(to: invitation, accept: false) }.buttonStyle(.kodosi(.ghost))
-            Button("Join") { deps.respond(to: invitation, accept: true) }.buttonStyle(.kodosi(.primary))
-        }
-        .padding(14)
-        .raised(Radius.xl)
-        .overlay { RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).strokeBorder(theme.colors.accent.opacity(0.6), lineWidth: 1.5) }
     }
 }
 

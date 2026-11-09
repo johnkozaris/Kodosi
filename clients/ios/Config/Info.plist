@@ -35,6 +35,8 @@
 	<string>$(KODOSI_DEBUG_BACKEND_HOST)</string>
 	<key>KodosiDebugBackendPort</key>
 	<string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Kodosi asks for Face ID before it shows your terminals, when you lock it in Settings.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Kodosi connects straight to your computer on this network, so that a shared browser answers at once.</string>
 	<key>LSRequiresIPhoneOS</key>

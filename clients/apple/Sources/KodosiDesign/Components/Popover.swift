@@ -72,7 +72,9 @@ public extension View {
 
         func body(content: Content) -> some View {
             content.popover(isPresented: $isPresented, arrowEdge: edge) {
-                popover().environment(\.closePanel, ClosePanelAction(panel: id) { isPresented = false })
+                popover()
+                    .environment(\.closePanel, ClosePanelAction(panel: id) { isPresented = false })
+                    .presentationCompactAdaptation(.popover)
             }
         }
     }

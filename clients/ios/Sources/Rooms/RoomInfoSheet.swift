@@ -31,8 +31,8 @@ struct RoomInfoSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
                     VStack(spacing: 12) {
                         RoomSigil(key: roomId, size: 64)
                         Text(name)
@@ -44,53 +44,48 @@ struct RoomInfoSheet: View {
                             .foregroundStyle(theme.colors.inkMuted)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .listRowBackground(Color.clear)
-                }
-                RoomMembersSection(roomId: roomId, owner: owner) { removing = $0 }
-                if owner {
-                    inviteSection
-                }
-                RoomRepositoriesSection(roomId: roomId)
-                if let failure {
-                    Section {
-                        ErrorNote(message: failure)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                    }
-                }
-                Section {
+                    .padding(.top, 6)
+                    RoomMembersSection(roomId: roomId, owner: owner) { removing = $0 }
                     if owner {
-                        Button {
-                            newName = name
-                            renaming = true
-                        } label: {
-                            Label("Rename", systemImage: "pencil")
-                        }
-                        .accessibilityIdentifier("rooms.rename")
+                        inviteSection
                     }
-                    Button(role: .destructive) { confirmingEnd = true } label: {
+                    RoomRepositoriesSection(roomId: roomId)
+                    if let failure {
+                        ErrorNote(message: failure).transition(AnyTransition.rise)
+                    }
+                    ListGroup {
                         if owner {
-                            Label("Delete room…", systemImage: "trash")
-                        } else {
-                            Label("Leave room…", systemImage: "rectangle.portrait.and.arrow.right")
+                            Button {
+                                newName = name
+                                renaming = true
+                            } label: {
+                                ListRow(String(localized: "Rename"), symbol: "pencil", tint: TileTint.graphite)
+                            }
+                            .buttonStyle(ListRowButtonStyle())
+                            .accessibilityIdentifier("rooms.rename")
                         }
+                        Button { confirmingEnd = true } label: {
+                            ListRow(owner ? String(localized: "Delete room…") : String(localized: "Leave room…"),
+                                    symbol: owner ? "trash.fill" : "rectangle.portrait.and.arrow.right", tint: TileTint.red,
+                                    titleColor: theme.colors.danger)
+                        }
+                        .buttonStyle(ListRowButtonStyle())
+                        .accessibilityIdentifier(owner ? "rooms.delete" : "rooms.leave")
                     }
-                    .accessibilityIdentifier(owner ? "rooms.delete" : "rooms.leave")
+                    .disabled(busy)
                 }
-                .disabled(busy)
-                .listRowBackground(theme.colors.raised)
+                .padding(20)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(theme.colors.surface)
             .navigationTitle("Room")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier("rooms.info.done")
+                ToolbarItem(placement: .cancellationAction) {
+                    IconButton(title: "Done", symbol: "xmark", identifier: "rooms.info.done", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
             .alert("Rename room", isPresented: $renaming) {
                 TextField("Room name", text: $newName)
@@ -128,7 +123,7 @@ struct RoomInfoSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(theme.colors.surface)
+        .kodosiSheet()
         .sensoryFeedback(.success, trigger: done)
         .animation(theme.motion.spring, value: failure)
     }
@@ -137,42 +132,27 @@ struct RoomInfoSheet: View {
     private var inviteSection: some View {
         let members = Set((rooms.details[roomId]?.members ?? []).map(\.userId))
         let candidates = model.people.friends.filter { !members.contains($0.userId) }
-        Section {
+        ListGroup(title: "Invite friends") {
             if candidates.isEmpty {
                 Text(model.people.friends.isEmpty ? "Add friends in the Friends tab to invite them." : "All your friends are here.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             ForEach(candidates) { friend in
                 inviteRow(friend)
             }
-        } header: {
-            Text("Invite friends")
         }
-        .listRowBackground(theme.colors.raised)
     }
 
     private func inviteRow(_ friend: FriendEntry) -> some View {
-        let name = friend.personName
         let sent = invited.contains(friend.userId)
-        return HStack(spacing: 12) {
-            PersonAvatar(name: name, key: friend.userId, size: 34)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .appTextStyle(.body)
-                    .foregroundStyle(theme.colors.ink)
-                    .lineLimit(1)
-                if friend.identityChanged {
-                    Text("Their identity changed. Trust them in Friends first.")
-                        .appTextStyle(.caption)
-                        .foregroundStyle(theme.colors.caution)
-                } else {
-                    Text(verbatim: "@\(friend.handle)")
-                        .appTextStyle(.caption)
-                        .foregroundStyle(theme.colors.inkFaint)
-                }
-            }
-            Spacer(minLength: 8)
+        return ListRow(title: friend.personName,
+                       subtitle: friend.identityChanged ? String(localized: "Their identity changed. Trust them in Friends first.") : "@\(friend.handle)")
+        {
+            PersonAvatar(name: friend.personName, key: friend.userId, size: 28)
+        } trailing: {
             Button {
                 invite(friend)
             } label: {

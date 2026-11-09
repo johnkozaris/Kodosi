@@ -7,8 +7,9 @@ struct AddFriendSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    @State private var trusting = false
+    @State private var trusting: FriendTrust?
     @FocusState private var focused: Bool
+    @ScaledMetric(relativeTo: .body) private var glyph: CGFloat = 15
 
     private var trimmed: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -19,7 +20,7 @@ struct AddFriendSheet: View {
             ScrollView {
                 VStack(spacing: 26) {
                     VStack(spacing: 14) {
-                        TogetherArt(size: 52, ring: theme.colors.ground)
+                        TogetherArt(size: 52)
                             .scaleEffect(0.8)
                             .arrive()
                         Text("Friends can open the terminals you share, and you can open theirs.")
@@ -62,19 +63,19 @@ struct AddFriendSheet: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
-            .background { GroundBackdrop() }
+            .background(theme.colors.surface)
             .navigationTitle("Add a friend")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                        .accessibilityIdentifier("people.addFriend.close")
+                    IconButton(title: "Close", symbol: "xmark", identifier: "people.addFriend.close", size: 32) { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .presentationDetents([.large])
-        .presentationBackground(theme.colors.ground)
-        .friendTrustAlert(isPresented: $trusting, name: PeopleStore.handle(in: trimmed).map { "@\($0)" }, confirm: confirm)
+        .kodosiSheet()
+        .friendTrust($trusting) { _ in confirm() }
         .task {
             if model.people.ownInvite == nil {
                 model.people.requestInvite()
@@ -85,10 +86,12 @@ struct AddFriendSheet: View {
     private var field: some View {
         HStack(spacing: 10) {
             Image(systemName: "person.badge.plus")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: glyph, weight: .semibold))
                 .foregroundStyle(focused ? theme.colors.accentStrong : theme.colors.inkFaint)
                 .accessibilityHidden(true)
             TextField("Their invite or username", text: $text)
+                .textFieldStyle(.plain)
+                .tint(theme.colors.accent)
                 .appTextStyle(.body)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -106,16 +109,7 @@ struct AddFriendSheet: View {
                 .tint(theme.colors.accent)
                 .accessibilityIdentifier("people.paste")
             } else {
-                Button { text = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 17))
-                        .foregroundStyle(theme.colors.inkFaint)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Clear"))
-                .accessibilityIdentifier("people.username.clear")
+                IconButton(title: "Clear", symbol: "xmark", identifier: "people.username.clear", size: 30) { text = "" }
             }
         }
         .padding(.leading, 18)
@@ -144,7 +138,7 @@ struct AddFriendSheet: View {
 
     private func add() {
         guard !trimmed.isEmpty else { return }
-        trusting = true
+        trusting = .add(trimmed)
     }
 
     private func confirm() {

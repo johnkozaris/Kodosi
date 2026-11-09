@@ -13,6 +13,7 @@ final class AppModel {
 
     private(set) var phase: Phase = .launching
     let notices = NoticeCenter()
+    let lock = AppLock()
     let commands: CommandSink
     let account: AccountStore
     let terminals: TerminalStore
@@ -87,12 +88,13 @@ final class AppModel {
     }
 
     func sceneChanged(to scenePhase: ScenePhase) {
+        lock.sceneChanged(to: scenePhase)
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
     }
 
     func refresh() {
-        commands.perform("session.list")
+        terminals.list()
         guard account.userId != nil else { return }
         commands.perform("auth.refresh")
         commands.perform("friends.refresh")
@@ -179,18 +181,19 @@ final class AppModel {
         try account.receiveAuth(event)
         switch event.type {
         case "auth.ready":
-            commands.perform("session.list")
+            terminals.list()
             commands.perform("friends.refresh")
             commands.perform("devices.refresh")
             commands.perform("mission.list")
         case "auth.required":
-            commands.perform("session.list")
+            terminals.list()
         default:
             break
         }
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
+        terminals.absorb(error: event)
         guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)

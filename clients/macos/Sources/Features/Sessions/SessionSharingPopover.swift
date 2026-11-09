@@ -102,23 +102,7 @@ struct SessionSharingPopover: View {
                                 people = originalPeople
                             }
                         } label: {
-                            HStack(spacing: 7) {
-                                RoomSigil(key: mission.id, size: 18)
-                                Text(mission.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
-                                if selected {
-                                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(theme.colors.accentStrong).transition(AnyTransition.pop)
-                                }
-                            }
-                            .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-                            .padding(.leading, 5).padding(.trailing, 10).frame(height: 28)
-                            .background {
-                                if selected {
-                                    RaisedBackground(shape: Capsule(), fill: theme.colors.lifted, elevation: .resting)
-                                } else {
-                                    WellBackground(shape: Capsule())
-                                }
-                            }
+                            RoomChoice(name: mission.name, key: mission.id, selected: selected)
                         }
                         .buttonStyle(PressScaleStyle()).disabled(saving)
                         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -157,24 +141,7 @@ struct SessionSharingPopover: View {
                 people.insert(friend.userId)
             }
         } label: {
-            VStack(spacing: 5) {
-                PersonAvatar(name: name, key: friend.userId, size: 40)
-                    .overlay { Circle().strokeBorder(theme.colors.accent, lineWidth: selected ? 2.5 : 0).padding(-4) }
-                    .overlay(alignment: .bottomTrailing) {
-                        if selected {
-                            Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(theme.colors.onAccent)
-                                .frame(width: 16, height: 16).background(theme.colors.accent, in: Circle())
-                                .overlay { Circle().stroke(theme.colors.raised, lineWidth: 2) }
-                                .offset(x: 5, y: 5).transition(AnyTransition.pop)
-                        } else if friend.identityChanged {
-                            Circle().fill(theme.colors.caution).frame(width: 12, height: 12)
-                                .overlay { Circle().stroke(theme.colors.raised, lineWidth: 2) }.offset(x: 3, y: 3)
-                        }
-                    }
-                Text(name.split(separator: " ").first.map(String.init) ?? name)
-                    .appTextStyle(.caption).foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
-            }
-            .frame(width: 60).padding(.top, 4).opacity(blocked ? 0.45 : 1)
+            FriendChoice(name: name, key: friend.userId, selected: selected, changed: friend.identityChanged, blocked: blocked)
         }
         .buttonStyle(PressScaleStyle()).disabled(saving || blocked)
         .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : name)

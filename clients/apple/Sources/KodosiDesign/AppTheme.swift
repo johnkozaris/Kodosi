@@ -131,6 +131,11 @@ public extension AppTheme.Colors {
     var sheet: Color {
         raised.mix(with: surface, by: 0.45)
     }
+
+    /// The header bar of a terminal's body, in the copper of a raised surface.
+    var band: Color {
+        hex(0x221A16)
+    }
 }
 
 public extension AppTheme {
@@ -177,6 +182,7 @@ public enum Radius {
     public static let lg: CGFloat = 14
     public static let xl: CGFloat = 18
     public static let sheet: CGFloat = 22
+    public static let tile: CGFloat = 12
 }
 
 public func hex(_ value: UInt32) -> Color {

@@ -11,9 +11,9 @@ computer.
 - Sign-in opens in a system sign-in window. You approve a new iPhone or iPad as you
   approve a computer: with a code that you enter on an approved device, with the recovery
   key, or by starting fresh.
-- The Terminals tab groups your terminals by computer, then friends' terminals, each
-  with the sign of its state, and counts the waiting terminals that you can answer: your
-  own, and others' while you have them open.
+- The Terminals tab groups your terminals by computer, then the terminals of each friend,
+  each with the sign of its state, and counts the waiting terminals that you can answer:
+  your own, and others' while you have them open.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
   its cursor when the cursor is above them.
@@ -24,7 +24,8 @@ computer.
   the header hides while you type. A hardware keyboard types into the terminal, without
   the composer.
 - A tap on a link opens it by the shared link rules, except in a program that uses the
-  mouse. A tap on the name of your own terminal in its bar renames it.
+  mouse. A drag scrolls the terminal, or the program when it uses the mouse. A tap on the
+  name of your own terminal in its bar renames it.
 - The canvas key in a terminal's bar opens the canvas full screen with the keys of its
   parts in the bar. A long press on a key closes its part, and the plus key opens a closed
   part or the browser, or adds a file. The files are tabs over the file, each with the key
@@ -37,4 +38,9 @@ computer.
 - Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,
-  appearance, licenses and account deletion.
+  appearance, the size of terminal text on this device, whether the screen stays on while
+  a terminal is open, the document viewers, the lock, the language, licenses and account
+  deletion.
+- With the lock on, Kodosi asks for Face ID, Touch ID or the passcode when it opens and
+  after a minute away, and covers what it shows while it is not in front, also in the app
+  switcher.

@@ -112,6 +112,10 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
         switch gesture.state {
         case .began:
             stopMomentumScrolling()
+            // A program that uses the mouse gets the wheel at the pointer, so the pointer
+            // goes under the finger while it scrolls.
+            let point = gesture.location(in: self)
+            surface?.sendMousePos(x: point.x, y: point.y, mods: ghostty_input_mods_e(rawValue: 0))
 
         case .changed:
             let translation = gesture.translation(in: self)
@@ -120,10 +124,18 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
 
         case .ended:
             startMomentumScrolling(velocity: gesture.velocity(in: self))
+            if momentumDisplayLink == nil {
+                takePointerAway()
+            }
 
         default:
             stopMomentumScrolling()
+            takePointerAway()
         }
+    }
+
+    private func takePointerAway() {
+        surface?.sendMousePos(x: -1, y: -1, mods: ghostty_input_mods_e(rawValue: 0))
     }
 
     @objc private func handlePointerScroll(_ gesture: UIPanGestureRecognizer) {
@@ -177,6 +189,7 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
         )
         guard hypot(momentumVelocity.x, momentumVelocity.y) > Self.minimumMomentumVelocity else {
             stopMomentumScrolling()
+            takePointerAway()
             return
         }
         sendScroll(

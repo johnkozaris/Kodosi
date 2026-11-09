@@ -9,6 +9,8 @@ final class TerminalStore {
     private(set) var sessions: [RuntimeSession] = []
     private(set) var userId: String?
     private(set) var loaded = false
+    private(set) var listed = false
+    @ObservationIgnored private var listing: String?
     private(set) var revision = 0
     private(set) var bells: [String: Int] = [:]
     var watchingSessionId: String? {
@@ -53,6 +55,8 @@ final class TerminalStore {
         canvas.observe([])
         bells = [:]
         loaded = false
+        listed = false
+        listing = nil
         watchingSessionId = nil
     }
 
@@ -88,6 +92,8 @@ final class TerminalStore {
         switch event.type {
         case "sessions.snapshot":
             try receiveSnapshot(event)
+        case "session.result":
+            settleList(event)
         case "term.bell":
             guard let id = event.string("sessionId"), watchingSessionId == id else { return }
             bells[id, default: 0] += 1
@@ -122,6 +128,24 @@ final class TerminalStore {
             focus.releaseSession(sessionId: id)
         }
         live.reconcile(with: received)
+    }
+
+    /// Asks for the account's terminals. Until the answer comes, the list is not known to be
+    /// empty, so the empty state waits for it.
+    func list() {
+        let request = UUIDv7.generate()
+        listing = request
+        commands.perform("session.list", ["requestId": .string(request)])
+    }
+
+    func absorb(error event: RuntimeEvent) {
+        settleList(event)
+    }
+
+    private func settleList(_ event: RuntimeEvent) {
+        guard let listing, event.string("requestId") == listing else { return }
+        self.listing = nil
+        listed = true
     }
 
     func refresh() async {
