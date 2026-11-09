@@ -35,6 +35,16 @@ internal sealed class TestStore : IAsyncDisposable
     public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
         new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
             .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options)) { Plans = Plans };
+    /// Gives a room a key state, as its owner's device does before a terminal joins it, and
+    /// returns the history that a room choice signs while it is the newest.
+    public async Task<string> KeyRoomAsync(Guid room, long version = 1)
+    {
+        var body = System.Text.Encoding.UTF8.GetBytes($"key state {version} of {room}");
+        Db.MissionKeyStates.Add(new MissionKeyState { MissionId = room, Version = version, Epoch = 1, Body = body, Signature = new byte[IdentityWireFormat.MlDsa65SignatureLength] });
+        await Db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(body));
+    }
+
     public async Task<TestUser> UserAsync(string handle)
     {
         var user = new User
@@ -80,8 +90,8 @@ internal sealed record TestUser(User User, DeviceFixture Fixture, Device Device)
 {
     public ApprovedDevice Approved => ApprovedDevice.From(Device);
 
-    public SessionService.RoomChoiceWrite RoomChoice(Guid terminal, Guid incarnation, Guid? room, long sequence) =>
-        new(Device.Id, sequence, Convert.ToBase64String(Fixture.Sign(Proofs.TerminalRoom(User.Id, terminal, incarnation, room, sequence, Device.Id))));
+    public SessionService.RoomChoiceWrite RoomChoice(Guid terminal, Guid incarnation, Guid? room, long sequence, string history = "") =>
+        new(Device.Id, sequence, Convert.ToBase64String(Fixture.Sign(Proofs.TerminalRoom(User.Id, terminal, incarnation, room, history, sequence, Device.Id))), history);
 }
 
 internal sealed class ManualClock : TimeProvider

@@ -1120,6 +1120,37 @@ impl BackendClient {
         self.room_keys(credentials, room).await.map(|_| ())
     }
 
+    /// The hash of the newest key state of a room that this device read. A choice of a
+    /// terminal's room signs it, and each key state before it is in its hash chain.
+    pub(super) async fn room_history(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+    ) -> Result<String> {
+        self.room_keys(credentials, room)
+            .await?
+            .states
+            .last_key_value()
+            .map(|(_, newest)| newest.hash.clone())
+            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))
+    }
+
+    /// Whether the key states of a room that this device reads hold the state with this hash.
+    #[cfg(feature = "host")]
+    pub(super) async fn room_holds(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        hash: &str,
+    ) -> Result<bool> {
+        Ok(self
+            .room_keys(credentials, room)
+            .await?
+            .states
+            .values()
+            .any(|state| state.hash == hash))
+    }
+
     pub(crate) async fn room_identity(
         &self,
         credentials: &Credentials,

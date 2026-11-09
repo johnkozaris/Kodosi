@@ -72,10 +72,10 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     [Fact]
     public void TheTerminalRoomProofHasTheBytesOfTheSharedVector()
     {
-        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV1");
+        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV2");
         Guid Id(string name) => Guid.Parse(vector.GetProperty(name).GetString()!);
         var bytes = Proofs.TerminalRoom(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("roomId"),
-            vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
+            vector.GetProperty("history").GetString()!, vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
         Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
     }
 

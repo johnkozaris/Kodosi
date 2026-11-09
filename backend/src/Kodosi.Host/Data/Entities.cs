@@ -87,6 +87,7 @@ public sealed class Session
     public long RoomSequence { get; set; }
     public string? RoomDeviceId { get; set; }
     public byte[]? RoomSignature { get; set; }
+    public string? RoomHistory { get; set; }
     public Guid? CloseUserId { get; set; }
     public string? CloseDeviceId { get; set; }
     public byte[]? CloseSignature { get; set; }

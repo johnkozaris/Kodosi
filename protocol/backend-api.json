@@ -69,10 +69,10 @@
     "restoredFrom": "POST /api/sessions takes the ID of the terminal that the host started again as this one, or null, and GET /api/sessions and GET /api/sessions/{id} give it; a viewer moves an open view to it only when the owner and the hosting device are the same"
   },
   "terminalRoom": {
-    "choice": "PUT /api/sessions/{id}/mission takes {incarnationId, missionId, choice: {deviceId, sequence, signature}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v1 and the length-prefixed owner account id, terminal id, incarnation id, room id (empty for no room), 8-byte big-endian sequence and its own device id",
+    "choice": "PUT /api/sessions/{id}/mission takes {incarnationId, missionId, choice: {deviceId, sequence, signature, history}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v2 and the length-prefixed owner account id, terminal id, incarnation id, room id (empty for no room), history (the lowercase hex SHA-256 of the body of the newest key state of the room that the device read, empty for no room), 8-byte big-endian sequence and its own device id; the server refuses a history that is not the one of its newest key state of the room",
     "sequence": "greater than the roomSequence of the terminal; a device signs the larger of roomSequence + 1 and the Unix time in milliseconds",
-    "read": "GET /api/sessions and GET /api/sessions/{id} give roomSequence and roomChoice {deviceId, signature}: the last signed choice, or null when the terminal got its room at its start or the server took it out of its room",
-    "host": "the hosting device takes a room for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took; it takes the terminal out of a room without one"
+    "read": "GET /api/sessions and GET /api/sessions/{id} give roomSequence and roomChoice {deviceId, signature, history}: the last signed choice, or null when the terminal got its room at its start or the server took it out of its room",
+    "host": "the hosting device takes a room for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took and whose history is the hash of a key state in the history of the room that it reads; it takes the terminal out of a room without one"
   },
   "offlineTerminal": {
     "hide": "PUT /api/sessions/{id}/hidden takes {incarnationId}; while the host is not connected, the lists of that person give the terminal with hidden: true; the server does nothing while the host is connected, and removes the marks of a terminal when its host connects again",

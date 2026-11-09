@@ -699,7 +699,7 @@ impl BackendClient {
                             Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))
                         })
                         .transpose()?;
-                    if let Some(room) = room {
+                    let history = if let Some(room) = room {
                         self.refresh_room_keys(
                             &credentials,
                             room,
@@ -707,8 +707,11 @@ impl BackendClient {
                             &mut rooms::Lookups::default(),
                         )
                         .await?;
-                    }
-                    let choice = Self::room_choice(&credentials, &current, room)?;
+                        self.room_history(&credentials, room).await?
+                    } else {
+                        String::new()
+                    };
+                    let choice = Self::room_choice(&credentials, &current, room, &history)?;
                     let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":room,"choice":choice}))).await?;
                 }
                 events.push(self.session_event().await?);

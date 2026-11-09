@@ -120,6 +120,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob");
         var room = Guid.CreateVersion7(); var terminal = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Missions.CreateAsync(alice.User.Id,new(room,"Workspace"),ct);
+        var history = await store.KeyRoomAsync(room);
         store.Db.MissionMembers.Add(new MissionMember { MissionId=room,UserId=bob.User.Id });
         await store.Db.SaveChangesAsync(ct);
         await store.Sessions.CreateAsync(bob.User.Id,bob.Approved,new(terminal,incarnation,"Bob's terminal",bob.Device.Id,"Bob",null),ct);
@@ -128,7 +129,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         var removing = removal.Missions.RemoveMemberAsync(room,alice.User.Id,bob.User.Id,ct);
         await pause.Reached.Task.WaitAsync(TimeSpan.FromSeconds(5),ct);
         var attaching = attachment.Sessions.AttachAsync(terminal, bob.User.Id, bob.Approved,
-            new(incarnation, room, bob.RoomChoice(terminal, incarnation, room, 1)), ct);
+            new(incarnation, room, bob.RoomChoice(terminal, incarnation, room, 1, history)), ct);
         try {
             Assert.NotSame(attaching,await Task.WhenAny(attaching,Task.Delay(150,ct)));
         } finally { pause.Resume.TrySetResult(); }

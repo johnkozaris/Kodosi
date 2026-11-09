@@ -61,9 +61,10 @@ each field carries its length.
   only that device's approved key; the host admits only verified, non-recovery devices of
   its own account and answers only those requests.
 - **Terminal rooms.** The device that puts a terminal into a room, or takes it out, signs
-  the change with a sequence. The host takes a room for its terminal only with the
-  signature of an approved device of its owner and a sequence newer than the last one
-  that it took.
+  the change with a sequence and the hash of the newest key state of the room that it read.
+  The host takes a room for its terminal only with the signature of an approved device of
+  its owner, a sequence newer than the last one that it took, and a room history that holds
+  that key state.
 - **Room key states.** The room key states form a hash chain that member devices sign.
   Only the owner adds members
   or removes others; a member can leave. Devices remember the newest state they
@@ -91,8 +92,9 @@ each field carries its length.
 5. The link code is not a PAKE. The backend can guess it with about 2^80 work in its 10
    minutes.
 6. The backend can withhold or reorder room items, whose order is unsigned, withhold or
-   change terminal status, withhold a change of a terminal's room, and name another
-   terminal of the same computer as the one that a restarted terminal replaces.
+   change terminal status, withhold a change of a terminal's room or the key states that
+   are newer than the ones a device read, and name another terminal of the same computer
+   as the one that a restarted terminal replaces.
 7. Room keys do not change with use; one key should encrypt fewer than 2^32 records.
 8. A key state's time comes from its author; devices refuse only future times.
 9. A recovery key plus the account's sign-in approves a device. A device removed before
@@ -103,3 +105,7 @@ each field carries its length.
     or stolen device.
 11. An owner who starts fresh cannot open the rooms they made.
 12. The backend sees the metadata listed in [Security](SECURITY.md).
+13. A removed device keeps its signing key. A device or friend that has not yet received
+    the list without it still trusts it, so the backend can show them device lists that it
+    signs. A device that received the removal refuses each device that the removed device
+    approves.
