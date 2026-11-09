@@ -37,7 +37,7 @@ struct RoomCreateSheet: View {
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
                 } footer: {
-                    Text("Everyone in the room shares its terminals and conversation.")
+                    Text("Everyone in the room shares its conversation. Your terminals in it go to your friends.")
                 }
                 friendsSection
                 if let failure {

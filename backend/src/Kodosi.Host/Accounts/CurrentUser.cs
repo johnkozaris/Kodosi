@@ -30,7 +30,10 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
         if (handle is null || handle.Length is < 3 or > 64 || !handle.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '_' or '-'))
             throw ApiException.Forbidden("The sign-in service gave no user name that Kodosi can use.");
         if (await db.Users.AnyAsync(x => x.Handle == handle, ct))
-            throw ApiException.Conflict("Another Kodosi account has this user name.");
+        {
+            loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
+            return loaded ?? throw ApiException.Conflict("Another Kodosi account has this user name.");
+        }
         var created = new User
         {
             Id = Guid.CreateVersion7(),

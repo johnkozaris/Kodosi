@@ -66,7 +66,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task RoomMembersHearTheStatusOfATerminalAndWhenItsHostGoesOffline()
+    public async Task FriendsInARoomHearTheStatusOfATerminalAndWhenItsHostGoesOffline()
     {
         var ct = TestContext.Current.CancellationToken;
         var connection = await postgres.CreateDatabaseAsync(ct);
@@ -79,6 +79,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await using (var db = PostgresFixture.Context(connection))
         {
             db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            var (first, second) = Kodosi.Friends.FriendService.Pair(owner.Fixture.UserId, member.Fixture.UserId);
+            db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = owner.Fixture.UserId, Accepted = true, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync(ct);
         }
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();

@@ -423,7 +423,7 @@ Item {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("They lose the terminals that you shared with them.")
+            text: qsTr("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
             wrapMode: Text.WordWrap
         }
     }

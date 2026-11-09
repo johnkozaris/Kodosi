@@ -2239,8 +2239,8 @@
         <translation>移除</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>对方将无法再使用你共享的终端。</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。</translation>
     </message>
 </context>
 <context>
@@ -2469,8 +2469,8 @@
         <translation>这里还没有终端</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>添加一个。房间里的每个人都能完全控制它。</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>添加一个。房间里你的好友都能完全控制它。</translation>
     </message>
     <message>
         <source>Open a terminal</source>

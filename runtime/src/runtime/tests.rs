@@ -2563,6 +2563,10 @@ fn stand_in_canvas() -> crate::canvas::CanvasHandle {
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one room message from its mention to the line that the agent gets"
+)]
 async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
     use crate::terminal::{ProgramState, ProgramStatus};
     let (mut runtime, storage) = registry_fixture();
@@ -2590,7 +2594,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     let mut entry: SessionEntry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": [], "missionId": room, "missionName": "Launch",
+        "repository": false, "sharedWith": ["ana"], "missionId": room, "missionName": "Launch",
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());
@@ -2610,11 +2614,12 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     );
     let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});
     runtime.note_mentions(&snapshot(
-        json!([{"sequence": 1, "text": "hello", "authorName": "Ana"}]),
+        json!([{"sequence": 1, "text": "hello", "authorId": "ana", "authorName": "Ana"}]),
     ));
     runtime.note_mentions(&snapshot(json!([
-        {"sequence": 2, "text": "@Build please print came-through", "authorName": "Ana"},
-        {"sequence": 3, "text": "@Build from itself", "authorName": "Ana", "terminalId": id},
+        {"sequence": 2, "text": "@Build please print came-through", "authorId": "ana", "authorName": "Ana"},
+        {"sequence": 3, "text": "@Build from itself", "authorId": "ana", "authorName": "Ana", "terminalId": id},
+        {"sequence": 4, "text": "@Build from someone who is not a friend", "authorId": "bo", "authorName": "Bo"},
     ])));
     assert_eq!(runtime.mentions.waiting[&id].len(), 1);
     assert!(

@@ -1,6 +1,6 @@
 {
-  "apiContractVersion": 31,
-  "oldestApiContractVersion": 31,
+  "apiContractVersion": 32,
+  "oldestApiContractVersion": 32,
   "authContractVersion": 1,
   "compatibility": {
     "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
@@ -50,7 +50,7 @@
     "administration": "owner; membership updates require the hosting device",
     "friendshipGrantsSessions": false,
     "missionMembershipGrantsSessions": true,
-    "rooms": "all current members of the room to which the terminal was shared, including later members"
+    "rooms": "the current members of the room to which the terminal was shared who are accepted friends of its owner, including later members; the end of the friendship ends the access"
   },
   "sessionPublication": {
     "identity": [

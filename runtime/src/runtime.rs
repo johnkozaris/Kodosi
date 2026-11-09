@@ -1929,8 +1929,13 @@ impl Runtime {
                 None => messages::Sender::Person(person),
             };
             let text = message["text"].as_str().unwrap_or_default();
+            let author = message["authorId"].as_str().unwrap_or_default();
             for terminal in messages::named(text, &terminals).into_iter().flatten() {
-                if Some(terminal) != from {
+                let allowed = Some(author) == self.scope.user.as_deref()
+                    || self.local.get(&terminal).is_some_and(|local| {
+                        local.entry.shared_with.iter().any(|user| user == author)
+                    });
+                if Some(terminal) != from && allowed {
                     kept.push((
                         terminal,
                         sender.clone(),

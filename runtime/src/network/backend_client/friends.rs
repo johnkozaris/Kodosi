@@ -182,18 +182,6 @@ impl BackendClient {
         Ok(fresh)
     }
 
-    pub(super) async fn friend_record_root(
-        &self,
-        credentials: &Credentials,
-        user_id: &str,
-    ) -> Result<Option<Root>> {
-        let list = match self.kept_friends(credentials).await? {
-            Some(list) => list,
-            None => self.sync_friends(credentials).await?.0,
-        };
-        Ok(list.friends.get(user_id).and_then(Friend::root))
-    }
-
     async fn recorded_root(
         &self,
         credentials: &Credentials,
@@ -536,9 +524,11 @@ impl BackendClient {
             }
             "friends.request.reject" => self.friend_request(&credentials, "reject", typed).await?,
             "friends.request.cancel" | "friends.remove" => {
-                #[cfg(feature = "host")]
                 if operation == "friends.remove" {
+                    #[cfg(feature = "host")]
                     self.exclude_friend(&credentials, typed).await?;
+                    let other = self.friend_user(&credentials, typed).await?;
+                    self.end_rooms_with(&credentials, &other).await?;
                 }
                 let action = operation.rsplit('.').next().unwrap_or_default();
                 self.friend_request(&credentials, action, typed).await?;

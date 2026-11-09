@@ -140,7 +140,7 @@ struct TerminalSharingSheet: View {
         } header: {
             Text("Share with a room")
         } footer: {
-            Text("Everyone in the room gets full control, including people who join later.")
+            Text("Your friends in the room get full control, including friends who join later.")
         }
         .animation(theme.motion.snappy, value: session.missionId)
     }

@@ -105,6 +105,36 @@ fn received_content_requires_the_signed_identity_metadata_and_matching_room_key(
 }
 
 #[test]
+fn friends_who_part_end_only_the_rooms_that_one_of_them_owns() {
+    let (mine, theirs, others, invited) = (
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+    );
+    let invitation = |id: Uuid, inviter: &str| {
+        json!({"id": id, "missionId": Uuid::now_v7(), "missionName": "Next", "inviterUserId": inviter,
+            "inviterName": inviter, "createdAt": "now"})
+    };
+    let list = json!({
+        "missions": [
+            {"id": mine, "name": "Mine", "ownerUserId": "me"},
+            {"id": theirs, "name": "Theirs", "ownerUserId": "ex"},
+            {"id": others, "name": "Others", "ownerUserId": "someone"},
+        ],
+        "invitations": [invitation(invited, "ex"), invitation(Uuid::now_v7(), "someone")],
+    });
+    assert_eq!(
+        parting(&list, "me", "ex").unwrap(),
+        Parting {
+            own: vec![mine],
+            leave: vec![theirs],
+            reject: vec![invited],
+        }
+    );
+}
+
+#[test]
 fn provider_changes_refresh_task_state_and_preserve_room_context() {
     let repository = rooms::providers::repository("https://github.com/team/project", None).unwrap();
     let mut task: rooms::Task = serde_json::from_value(json!({

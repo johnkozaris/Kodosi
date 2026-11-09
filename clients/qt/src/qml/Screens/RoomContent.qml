@@ -587,7 +587,7 @@ Item {
                                 width: Math.min(360, parent.width - 40)
                                 visible: !terminal.active && root.sessionIds.length === 0
                                 title: qsTr("No terminals here yet")
-                                message: qsTr("Add one. Everyone in the room gets full control.")
+                                message: qsTr("Add one. Your friends in the room get full control.")
                                 art: Item {
                                     implicitWidth: 190
                                     implicitHeight: 96

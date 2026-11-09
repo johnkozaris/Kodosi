@@ -2239,8 +2239,8 @@
         <translation>제거</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요.</translation>
     </message>
 </context>
 <context>
@@ -2469,8 +2469,8 @@
         <translation>아직 여기에 터미널이 없어요</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>터미널을 추가해 보세요. 방에 있는 모두가 전체 권한을 가져요.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>터미널을 추가해 보세요. 방에 있는 친구들이 전체 권한을 가져요.</translation>
     </message>
     <message>
         <source>Open a terminal</source>
