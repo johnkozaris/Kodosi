@@ -2274,8 +2274,8 @@
         <translation>Rimuovi</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Non avrà più accesso ai terminali che hai condiviso.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Smettete di condividere terminali tra voi e ciascuno lascia le stanze dell&apos;altro. Kodosi non annulla i comandi che ha già eseguito.</translation>
     </message>
 </context>
 <context>
@@ -2508,8 +2508,8 @@
         <translation>Ancora nessun terminale qui</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Aggiungine uno. Tutti nella stanza ne avranno il pieno controllo.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Aggiungine uno. I tuoi amici nella stanza ne avranno il pieno controllo.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

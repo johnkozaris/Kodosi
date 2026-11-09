@@ -2274,8 +2274,8 @@
         <translation>Αφαίρεση</translation>
     </message>
     <message>
-        <source>They lose the terminals that you shared with them.</source>
-        <translation>Χάνει τα τερματικά που μοιραστήκατε μαζί του.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει.</translation>
     </message>
 </context>
 <context>
@@ -2508,8 +2508,8 @@
         <translation>Δεν υπάρχουν ακόμη τερματικά εδώ</translation>
     </message>
     <message>
-        <source>Add one. Everyone in the room gets full control.</source>
-        <translation>Προσθέστε ένα. Όλοι στο δωμάτιο αποκτούν πλήρη έλεγχο.</translation>
+        <source>Add one. Your friends in the room get full control.</source>
+        <translation>Προσθέστε ένα. Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο.</translation>
     </message>
     <message>
         <source>Open a terminal</source>

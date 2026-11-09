@@ -105,6 +105,36 @@ fn received_content_requires_the_signed_identity_metadata_and_matching_room_key(
 }
 
 #[test]
+fn friends_who_part_end_only_the_rooms_that_one_of_them_owns() {
+    let (mine, theirs, others, invited) = (
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+    );
+    let invitation = |id: Uuid, inviter: &str| {
+        json!({"id": id, "missionId": Uuid::now_v7(), "missionName": "Next", "inviterUserId": inviter,
+            "inviterName": inviter, "createdAt": "now"})
+    };
+    let list = json!({
+        "missions": [
+            {"id": mine, "name": "Mine", "ownerUserId": "me"},
+            {"id": theirs, "name": "Theirs", "ownerUserId": "ex"},
+            {"id": others, "name": "Others", "ownerUserId": "someone"},
+        ],
+        "invitations": [invitation(invited, "ex"), invitation(Uuid::now_v7(), "someone")],
+    });
+    assert_eq!(
+        parting(&list, "me", "ex").unwrap(),
+        Parting {
+            own: vec![mine],
+            leave: vec![theirs],
+            reject: vec![invited],
+        }
+    );
+}
+
+#[test]
 fn provider_changes_refresh_task_state_and_preserve_room_context() {
     let repository = rooms::providers::repository("https://github.com/team/project", None).unwrap();
     let mut task: rooms::Task = serde_json::from_value(json!({
@@ -959,4 +989,61 @@ async fn dosi_uses_no_room_that_someone_else_can_read() {
     ));
     assert_eq!(fake.items.lock().unwrap().len(), 1);
     assert_eq!(network.pinned_dosi(&credentials).unwrap(), None);
+}
+
+#[tokio::test]
+async fn a_room_that_this_device_cannot_read_stops_a_parting_only_when_the_other_is_in_it() {
+    use super::super::tests::{compatible_server, scripted_backend, signed_in_at};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, user) = signed_in_at(&address).await;
+    let credentials = network.credentials().unwrap();
+    *network.inner.rooms.lock().await = RoomCache {
+        generation: credentials.generation,
+        registered: Some(credentials.keys.device_id.clone()),
+        ..RoomCache::default()
+    };
+    let (without, with) = (Uuid::now_v7(), Uuid::now_v7());
+    let other = Uuid::now_v7().to_string();
+    let missing = (404, json!({"error": "Room keys are missing."}));
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (
+                200,
+                json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])}),
+            ),
+            (200, json!({"session": "fixture-session"})),
+            (
+                200,
+                json!({"missions": [{"id": without, "ownerUserId": user}, {"id": with, "ownerUserId": user}], "invitations": []}),
+            ),
+            missing.clone(),
+            (200, json!({"members": [{"userId": user}]})),
+            missing,
+            (
+                200,
+                json!({"members": [{"userId": user}, {"userId": other}]}),
+            ),
+        ],
+    );
+    assert!(matches!(
+        network.end_rooms_with(&credentials, &other).await,
+        Err(Error::Backend { status: 404, .. })
+    ));
+    let requests = tokio::time::timeout(Duration::from_secs(5), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        requests[3..],
+        [
+            "GET /api/missions HTTP/1.1".to_owned(),
+            format!("GET /api/missions/{without}/keys?afterVersion=0 HTTP/1.1"),
+            format!("GET /api/missions/{without} HTTP/1.1"),
+            format!("GET /api/missions/{with}/keys?afterVersion=0 HTTP/1.1"),
+            format!("GET /api/missions/{with} HTTP/1.1"),
+        ]
+    );
 }

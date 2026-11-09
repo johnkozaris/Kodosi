@@ -165,6 +165,43 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ARoomTerminalGoesOnlyToTheFriendsOfItsOwnerInTheRoom()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob");
+        async Task BefriendAsync(TestUser one, TestUser other)
+        {
+            await store.Friends.MutateAsync(one.User.Id, other.User.Handle, "send", ct);
+            await store.Friends.MutateAsync(other.User.Id, one.User.Handle, "accept", ct);
+        }
+        await BefriendAsync(owner, alice); await BefriendAsync(owner, bob);
+        var room = new Mission { Id = Guid.CreateVersion7(), Name = "Project", OwnerUserId = owner.User.Id };
+        store.Db.Missions.Add(room);
+        store.Db.MissionMembers.AddRange(new MissionMember { MissionId = room.Id, UserId = alice.User.Id }, new MissionMember { MissionId = room.Id, UserId = bob.User.Id });
+        await store.Db.SaveChangesAsync(ct);
+        var terminal = Guid.CreateVersion7();
+        await store.Sessions.CreateAsync(alice.User.Id, alice.Approved, new(terminal, Guid.CreateVersion7(), "Terminal", alice.Device.Id, "Host", room.Id), ct);
+        async Task<bool> UsesAsync(TestUser person)
+        {
+            try { await store.Sessions.AuthorizedAsync(terminal, person.User.Id, ct); return true; }
+            catch (ApiException) { return false; }
+        }
+        Task<long> RevisionAsync() => store.Db.Sessions.AsNoTracking().Where(x => x.Id == terminal).Select(x => x.AuthorizationRevision).SingleAsync(ct);
+        Assert.True(await UsesAsync(owner));
+        Assert.False(await UsesAsync(bob));
+        Assert.Empty(await store.Sessions.ListAsync(bob.User.Id, bob.Device.Id, ct));
+        var before = await RevisionAsync();
+        await BefriendAsync(alice, bob);
+        Assert.True(await UsesAsync(bob));
+        Assert.True(await RevisionAsync() > before);
+        before = await RevisionAsync();
+        await store.Friends.MutateAsync(bob.User.Id, alice.User.Handle, "remove", ct);
+        Assert.False(await UsesAsync(bob));
+        Assert.True(await RevisionAsync() > before);
+    }
+
+    [Fact]
     public async Task RevocationIsCurrentStateAndOldGrantCannotResurrectIt()
     {
         await using var store = await TestStore.CreateAsync(postgres);

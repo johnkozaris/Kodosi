@@ -876,29 +876,15 @@ impl BackendClient {
     }
 
     #[cfg(feature = "host")]
-    async fn exclude_friend(&self, credentials: &Credentials, username: &str) -> Result<()> {
-        let friends: Vec<Value> = self
-            .inner
-            .http
-            .device(Method::GET, "api/friends", credentials, None)
-            .await?;
-        if let Some(friend) = friends.iter().find(|friend| {
-            friend
-                .get("handle")
-                .and_then(Value::as_str)
-                .is_some_and(|handle| handle.eq_ignore_ascii_case(username))
-        }) {
-            let user = wire::text(friend, "userId")?;
-            for publication in self.inner.publications.lock().await.values() {
-                let mut info = publication.info.write().await;
-                if info.mission_id.is_none() && info.shared_with.remove(user) {
-                    *publication.pending_shares.lock().await = Some(info.shared_with.clone());
-                    drop(info);
-                    publication.invalidate();
-                }
+    async fn exclude_friend(&self, user: &str) {
+        for publication in self.inner.publications.lock().await.values() {
+            let mut info = publication.info.write().await;
+            if info.mission_id.is_none() && info.shared_with.remove(user) {
+                *publication.pending_shares.lock().await = Some(info.shared_with.clone());
+                drop(info);
+                publication.invalidate();
             }
         }
-        Ok(())
     }
 
     async fn mission_list(&self) -> Result<Value> {

@@ -1384,6 +1384,7 @@ pub struct MissionInvitationEntry {
     pub id: String,
     pub mission_id: String,
     pub mission_name: String,
+    pub inviter_user_id: String,
     pub inviter_name: String,
     pub created_at: String,
 }

@@ -21,7 +21,20 @@ internal static class TerminalAccess
                     select new TerminalPerson { SessionId = session.Id, UserId = member.UserId })
             .Concat(from session in db.Sessions
                     join person in RoomMembership.People(db) on session.MissionId equals (Guid?)person.MissionId
+                    where db.Friendships.Any(x => x.Accepted
+                        && ((x.FirstUserId == session.OwnerUserId && x.SecondUserId == person.UserId)
+                            || (x.FirstUserId == person.UserId && x.SecondUserId == session.OwnerUserId)))
                     select new TerminalPerson { SessionId = session.Id, UserId = person.UserId });
+
+    /// The live terminals that one of the two people put into a room that the other is in.
+    public static IQueryable<Session> InRoomsBetween(KodosiDbContext db, Guid one, Guid other)
+    {
+        var roomsOfOne = RoomMembership.RoomsOf(db, one);
+        var roomsOfOther = RoomMembership.RoomsOf(db, other);
+        return db.Sessions.Where(x => !x.Ended && x.MissionId != null
+            && ((x.OwnerUserId == one && roomsOfOther.Contains(x.MissionId.Value))
+                || (x.OwnerUserId == other && roomsOfOne.Contains(x.MissionId.Value))));
+    }
 
     public static IQueryable<Session> UsableBy(this IQueryable<Session> sessions, KodosiDbContext db, Guid userId)
     {

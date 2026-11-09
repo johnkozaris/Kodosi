@@ -52,8 +52,10 @@ each field carries its length.
   2^24 frames or an hour, and resumption makes a new key exchange. The viewer accepts
   only the host device's approved key. The host admits only verified, non-recovery
   devices of accounts that may use the terminal, and checks again when sharing or
-  devices change. The edits of live documents and the video and input of the shared
-  browser travel in this channel, so the backend sees only their sizes and timing.
+  devices change. In a room, it admits only friends of the terminal's owner whose friend
+  record and the room's key state give the same identity. The edits of live documents and
+  the video and input of the shared browser travel in this channel, so the backend sees
+  only their sizes and timing.
 - **Calls.** A device opens the same channel to another computer of its own account to
   list that computer's agents and folders and start a terminal there. The caller accepts
   only that device's approved key; the host admits only verified, non-recovery devices of

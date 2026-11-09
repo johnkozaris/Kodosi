@@ -11,32 +11,35 @@ mecanismos y los límites conocidos; todavía no lo ha auditado ninguna parte in
 ## Qué permite compartir
 
 Compartir un terminal da el control total, con los privilegios del sistema operativo del
-usuario del host. Todas las personas de una sala pueden usar los terminales compartidos de la
-sala, también los miembros invitados más tarde. Compartir un terminal no comparte nada más.
-Kodosi confía en todas las personas que comparten un terminal o una sala, y en los programas y
-agentes de sus terminales, y no limita lo que hacen. Cada uno de tus dispositivos aprobados
-controla todos tus terminales y puede iniciar otros nuevos en tus demás ordenadores que
-ejecutan Kodosi. Desde cualquiera de tus dispositivos puedes escribir a Dosi en tus ordenadores, y Dosi actúa allí igual que cuando le escribes en el propio ordenador. Un dispositivo que quitas ya no puede escribir a Dosi.
+usuario del host. Un terminal en una sala es para los amigos de su dueño en esa sala, también
+los amigos que se unan más tarde. Cuando eliminas a un amigo, pierde tus terminales, y cada
+uno sale de las salas del otro. Un terminal compartido se ejecuta como tú: las personas en él
+también pueden ejecutar `kodosi` como tú y leer y cambiar tus archivos en ese ordenador, así
+que compártelo solo con personas a quienes confíes ese ordenador. Kodosi confía en todas las
+personas que comparten un terminal o una sala, y en los programas y agentes de sus terminales,
+y no limita lo que hacen. Cada uno de tus dispositivos aprobados controla todos tus terminales
+y puede iniciar otros nuevos en tus demás ordenadores que ejecutan Kodosi. Desde cualquiera de tus dispositivos puedes escribir a Dosi en tus ordenadores, y Dosi actúa allí igual que cuando le escribes en el propio ordenador. Un dispositivo que quitas ya no puede escribir a Dosi.
 
 Todas las personas que pueden abrir un terminal también ven los archivos de su lienzo y usan su
-navegador compartido, así que inicia sesión allí solo donde todas puedan actuar. Un terminal
-compartido nunca tiene tus sesiones guardadas. Los archivos de un lienzo son archivos normales,
-y todas las personas que pueden abrir el terminal pueden editarlos. Una página en el lienzo y
-un documento en directo se ejecutan en un marco cerrado, sin red, sin archivos y sin
-almacenamiento que perdure. Mientras un navegador compartido está despierto, su puerto de
-depuración y el puerto de driver de cada ventana escuchan en `127.0.0.1`, donde pueden
-alcanzarlos otras cuentas de ese ordenador. Un sitio en el navegador compartido guarda una
-descarga en la carpeta del terminal por cada acción de una persona o de un agente, y solo llega
-a tu portapapeles cuando copias. Cuando un dispositivo abre el navegador de un terminal de otro
-ordenador, ese ordenador escucha en un puerto TCP durante unos segundos para que los dos se
-conecten directamente. Solo pasa ese dispositivo, con el cifrado del terminal. La app de Linux
-muestra páginas solo donde Chromium puede aislarlas en un sandbox; en Ubuntu, su perfil de
-AppArmor permite a la app, a su proceso de páginas y a Kodosi Browser crear los user namespaces
-que necesita el sandbox. Por la misma razón, el navegador compartido no se ejecuta como root en
-Linux. Las apps no incluyen Kodosi Browser. Cuando un ordenador abre su primer navegador
-compartido, su host descarga el navegador del feed de `updates.kodosi.com` y busca allí una
-versión nueva cada día. El host solo usa una descarga cuando el feed lleva la firma de la clave
-de las actualizaciones de Kodosi y la descarga tiene el SHA-256 que indica el feed.
+navegador compartido, así que inicia sesión allí solo donde todas puedan actuar. El navegador
+compartido de un terminal compartido nunca usa tus sesiones guardadas. Los archivos de un
+lienzo son archivos normales, y todas las personas que pueden abrir el terminal pueden
+editarlos. Una página en el lienzo y un documento en directo se ejecutan en un marco cerrado,
+sin red, sin archivos y sin almacenamiento que perdure. Mientras un navegador compartido está
+despierto, su puerto de depuración y el puerto de driver de cada ventana escuchan en
+`127.0.0.1`, donde pueden alcanzarlos otras cuentas de ese ordenador. Un sitio en el navegador
+compartido guarda una descarga en la carpeta del terminal por cada acción de una persona o de
+un agente, y solo llega a tu portapapeles cuando copias. Cuando un dispositivo abre el
+navegador de un terminal de otro ordenador, ese ordenador escucha en un puerto TCP durante unos
+segundos para que los dos se conecten directamente. Solo pasa ese dispositivo, con el cifrado
+del terminal. La app de Linux muestra páginas solo donde Chromium puede aislarlas en un
+sandbox; en Ubuntu, su perfil de AppArmor permite a la app, a su proceso de páginas y a Kodosi
+Browser crear los user namespaces que necesita el sandbox. Por la misma razón, el navegador
+compartido no se ejecuta como root en Linux. Las apps no incluyen Kodosi Browser. Cuando un
+ordenador abre su primer navegador compartido, su host descarga el navegador del feed de
+`updates.kodosi.com` y busca allí una versión nueva cada día. El host solo usa una descarga
+cuando el feed lleva la firma de la clave de las actualizaciones de Kodosi y la descarga tiene
+el SHA-256 que indica el feed.
 
 ## Qué ve el servicio
 

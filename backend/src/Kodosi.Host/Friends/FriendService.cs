@@ -103,6 +103,8 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 if (link.Accepted) return;
                 await RequireFriendSpaceAsync(userId, other.Id, ct);
                 link.Accepted = true;
+                shared = await TerminalAccess.InRoomsBetween(db, userId, other.Id).ToListAsync(ct);
+                foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                 break;
             case "reject":
             case "cancel":
@@ -118,7 +120,8 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                     (m.UserId == userId && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == other.Id))).ToListAsync(ct);
                 db.SessionMembers.RemoveRange(grants);
                 var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
-                shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended).ToListAsync(ct);
+                shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended)
+                    .Union(TerminalAccess.InRoomsBetween(db, userId, other.Id)).ToListAsync(ct);
                 foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");

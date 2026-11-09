@@ -322,7 +322,102 @@ pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<
     )
 }
 
+/// The rooms that two people end when they stop being friends: rooms of this person that the
+/// other may be in, rooms of the other that this person leaves, and invitations of the other.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Parting {
+    own: Vec<Uuid>,
+    leave: Vec<Uuid>,
+    reject: Vec<Uuid>,
+}
+
+fn parting(list: &Value, own: &str, other: &str) -> Result<Parting> {
+    let mut parting = Parting::default();
+    for room in list["missions"].as_array().into_iter().flatten() {
+        let owner = wire::text(room, "ownerUserId")?;
+        if owner == own {
+            parting.own.push(wire::id(room, "id")?);
+        } else if owner == other {
+            parting.leave.push(wire::id(room, "id")?);
+        }
+    }
+    for invitation in list["invitations"].as_array().into_iter().flatten() {
+        if wire::text(invitation, "inviterUserId")? == other {
+            parting.reject.push(wire::id(invitation, "id")?);
+        }
+    }
+    Ok(parting)
+}
+
 impl BackendClient {
+    /// Each of two people who stop being friends leaves the rooms that the other owns.
+    pub(super) async fn end_rooms_with(
+        &self,
+        credentials: &Credentials,
+        other: &str,
+    ) -> Result<()> {
+        let parting = parting(&self.mission_list().await?, &credentials.user_id, other)?;
+        for room in parting.own {
+            let member = match self.room_keys(credentials, room).await {
+                Ok(cached) => cached
+                    .states
+                    .last_key_value()
+                    .is_some_and(|(_, current)| current.state.members.contains_key(other)),
+                Err(error) if self.listed_member(credentials, room, other).await? => {
+                    return Err(error);
+                }
+                Err(_) => false,
+            };
+            if member {
+                self.mission_mutation(
+                    "mission.removeMember",
+                    &json!({"requestId": Uuid::now_v7(), "missionId": room, "userId": other}),
+                )
+                .await?;
+            }
+        }
+        for room in parting.leave {
+            self.mission_mutation(
+                "mission.leave",
+                &json!({"requestId": Uuid::now_v7(), "missionId": room}),
+            )
+            .await?;
+        }
+        for invitation in parting.reject {
+            self.mission_mutation(
+                "mission.invitation.reject",
+                &json!({"requestId": Uuid::now_v7(), "invitationId": invitation}),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// Whether the server lists a person as a member of a room, for a room whose keys this
+    /// device cannot read.
+    async fn listed_member(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        user: &str,
+    ) -> Result<bool> {
+        let detail: Value = self
+            .inner
+            .http
+            .device(
+                Method::GET,
+                &format!("api/missions/{room}"),
+                credentials,
+                None,
+            )
+            .await?;
+        Ok(detail["members"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|member| member["userId"] == user))
+    }
+
     pub(super) async fn register_room_key(&self, credentials: &Credentials) -> Result<()> {
         {
             let mut cache = self.inner.rooms.lock().await;
@@ -1046,15 +1141,14 @@ impl BackendClient {
             .get(user)
             .ok_or_else(|| Error::Text(text!("This person is no longer in the room.")))?
             .root()?;
-        if user != credentials.user_id
-            && self
-                .friend_record_root(credentials, user)
-                .await?
-                .is_some_and(|recorded| recorded != anchor)
-        {
-            return Err(Error::Trust(text!(
-                "This friend has a new identity. Trust it in Friends before you share or connect."
-            )));
+        if user != credentials.user_id {
+            let friend = self.fetch_identity_with(credentials, user).await?;
+            if friend.root != anchor {
+                return Err(Error::Trust(text!(
+                    "This friend has a new identity. Trust it in Friends before you share or connect."
+                )));
+            }
+            return Ok(friend);
         }
         let bundle = self.member_bundle(credentials, user).await?;
         self.verify_bundle(&bundle, Some(anchor)).await

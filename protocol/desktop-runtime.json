@@ -8221,6 +8221,9 @@
                 "inviterName": {
                   "type": "string"
                 },
+                "inviterUserId": {
+                  "type": "string"
+                },
                 "missionId": {
                   "type": "string"
                 },
@@ -8232,6 +8235,7 @@
                 "id",
                 "missionId",
                 "missionName",
+                "inviterUserId",
                 "inviterName",
                 "createdAt"
               ],

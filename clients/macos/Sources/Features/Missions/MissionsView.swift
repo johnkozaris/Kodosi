@@ -99,7 +99,7 @@ struct NewRoomSheet: View {
                 .animation(theme.motion.spring, value: name)
             VStack(spacing: 6) {
                 Text("Name your room").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                Text("Invite people after. Everyone in the room shares its terminals.")
+                Text("Invite friends after. Your terminals in the room go to your friends.")
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).multilineTextAlignment(.center)
             }
             TextField("Launch week", text: $name)

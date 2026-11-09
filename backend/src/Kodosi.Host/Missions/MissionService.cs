@@ -56,7 +56,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
                                  join u in db.Users on i.InviterUserId equals u.Id
                                  where i.UserId == userId
                                  orderby i.CreatedAt descending
-                                 select new { i.Id, i.MissionId, missionName = r.Name, inviterName = u.DisplayName, i.CreatedAt }).Take(Limits.MaxPendingMissionInvitations + 1).ToListAsync(ct);
+                                 select new { i.Id, i.MissionId, missionName = r.Name, inviterUserId = i.InviterUserId, inviterName = u.DisplayName, i.CreatedAt }).Take(Limits.MaxPendingMissionInvitations + 1).ToListAsync(ct);
         return new
         {
             missions = missions.Take(Limits.MaxVisibleMissions).ToArray(),

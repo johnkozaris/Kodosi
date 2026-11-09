@@ -182,18 +182,6 @@ impl BackendClient {
         Ok(fresh)
     }
 
-    pub(super) async fn friend_record_root(
-        &self,
-        credentials: &Credentials,
-        user_id: &str,
-    ) -> Result<Option<Root>> {
-        let list = match self.kept_friends(credentials).await? {
-            Some(list) => list,
-            None => self.sync_friends(credentials).await?.0,
-        };
-        Ok(list.friends.get(user_id).and_then(Friend::root))
-    }
-
     async fn recorded_root(
         &self,
         credentials: &Credentials,
@@ -408,6 +396,23 @@ impl BackendClient {
         Ok((friends, requests))
     }
 
+    /// The person whom a removal parts from: the friend that the signed list names with this
+    /// user name, or else the person that the server names, unless the signed list knows that
+    /// person by another name.
+    async fn parting_user(&self, credentials: &Credentials, handle: &str) -> Result<String> {
+        let list = self.sync_friends(credentials).await?.0;
+        if let Some((user, _)) = list.by_handle(handle) {
+            return Ok(user.clone());
+        }
+        let user = self.friend_user(credentials, handle).await?;
+        if list.friends.contains_key(&user) {
+            return Err(untrusted(
+                "The server named another friend for this user name.",
+            ));
+        }
+        Ok(user)
+    }
+
     async fn friend_user(&self, credentials: &Credentials, handle: &str) -> Result<String> {
         let (friends, requests) = self.friend_directory(credentials).await?;
         let listed = |people: Option<&Vec<Value>>| {
@@ -536,9 +541,11 @@ impl BackendClient {
             }
             "friends.request.reject" => self.friend_request(&credentials, "reject", typed).await?,
             "friends.request.cancel" | "friends.remove" => {
-                #[cfg(feature = "host")]
                 if operation == "friends.remove" {
-                    self.exclude_friend(&credentials, typed).await?;
+                    let other = self.parting_user(&credentials, typed).await?;
+                    #[cfg(feature = "host")]
+                    self.exclude_friend(&other).await;
+                    self.end_rooms_with(&credentials, &other).await?;
                 }
                 let action = operation.rsplit('.').next().unwrap_or_default();
                 self.friend_request(&credentials, action, typed).await?;

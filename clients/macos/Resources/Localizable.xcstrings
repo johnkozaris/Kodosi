@@ -2983,54 +2983,54 @@
         }
       }
     },
-    "Add one. Everyone in the room gets full control." : {
+    "Add one. Your friends in the room get full control." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Füge eins hinzu. Alle im Raum bekommen die volle Kontrolle."
+            "value" : "Füge eins hinzu. Deine Freunde im Raum bekommen die volle Kontrolle."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Προσθέστε ένα. Όλοι στο δωμάτιο αποκτούν πλήρη έλεγχο."
+            "value" : "Προσθέστε ένα. Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Añade uno. Todos en la sala tendrán control total."
+            "value" : "Añade uno. Tus amigos en la sala tendrán control total."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez-en un. Tout le monde dans le salon en aura le contrôle total."
+            "value" : "Ajoutez-en un. Vos amis dans le salon en auront le contrôle total."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aggiungine uno. Tutti nella stanza ne avranno il pieno controllo."
+            "value" : "Aggiungine uno. I tuoi amici nella stanza ne avranno il pieno controllo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "追加しましょう。ルームの全員がフル操作できます。"
+            "value" : "追加しましょう。ルームにいるフレンドがフル操作できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "터미널을 추가해 보세요. 방에 있는 모두가 전체 권한을 가져요."
+            "value" : "터미널을 추가해 보세요. 방에 있는 친구들이 전체 권한을 가져요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加一个。房间里的每个人都能完全控制它。"
+            "value" : "添加一个。房间里你的好友都能完全控制它。"
           }
         }
       }
@@ -11771,6 +11771,58 @@
         }
       }
     },
+    "Invite friends after. Your terminals in the room go to your friends." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lade danach Freunde ein. Deine Terminals im Raum gehen an deine Freunde."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Προσκαλέστε φίλους μετά. Τα τερματικά σας στο δωμάτιο πηγαίνουν στους φίλους σας."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invita a amigos después. Tus terminales en la sala son para tus amigos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pourrez inviter des amis ensuite. Vos terminaux dans le salon vont à vos amis."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Potrai invitare gli amici dopo. I tuoi terminali nella stanza vanno ai tuoi amici."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フレンドは後から招待できます。ルームに置いたターミナルはフレンドに共有されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "친구는 나중에 초대해도 돼요. 방에 둔 내 터미널은 내 친구들에게 공유돼요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以稍后再邀请好友。你放在房间里的终端会共享给你的好友。"
+          }
+        }
+      }
+    },
     "Invite people" : {
       "localizations" : {
         "de" : {
@@ -11819,58 +11871,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "邀请他人"
-          }
-        }
-      }
-    },
-    "Invite people after. Everyone in the room shares its terminals." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lade danach Personen ein. Alle im Raum teilen seine Terminals."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Προσκαλέστε άτομα μετά. Όλοι στο δωμάτιο μοιράζονται τα τερματικά του."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invita a personas después. Todos en la sala comparten sus terminales."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous pourrez inviter des personnes ensuite. Tout le monde dans le salon partage ses terminaux."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Potrai invitare le persone dopo. Tutti nella stanza condividono i suoi terminali."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "メンバーは後から招待できます。ルームの全員がそのターミナルを共有します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "멤버는 나중에 초대해도 돼요. 방에 있는 모두가 터미널을 공유해요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可以稍后再邀请他人。房间里的每个人都共享房间的终端。"
           }
         }
       }
@@ -26759,58 +26759,6 @@
         }
       }
     },
-    "They lose the terminals you shared. Kodosi does not undo the commands that they already ran." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Person verliert die Terminals, die du geteilt hast. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Χάνει τα τερματικά που μοιραστήκατε. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pierde los terminales que has compartido. Kodosi no deshace los comandos que ya ha ejecutado."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette personne perd les terminaux que vous avez partagés. Kodosi n'annule pas les commandes qu'elle a déjà exécutées."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perde i terminali che hai condiviso. Kodosi non annulla i comandi che ha già eseguito."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有したターミナルは相手から使えなくなります。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "상대는 내가 공유한 터미널에 더 이상 접근할 수 없어요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "对方将失去你共享的终端。Kodosi 不会撤销对方已执行的命令。"
-          }
-        }
-      }
-    },
     "This Mac" : {
       "localizations" : {
         "de" : {
@@ -29199,6 +29147,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "继续之前，你可以先在这里查看。"
+          }
+        }
+      }
+    },
+    "You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr teilt keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra. Kodosi no deshace los comandos que ya ha ejecutado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l'autre. Kodosi n'annule pas les commandes que cette personne a déjà exécutées."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smettete di condividere terminali tra voi e ciascuno lascia le stanze dell'altro. Kodosi non annulla i comandi che ha già eseguito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。"
           }
         }
       }

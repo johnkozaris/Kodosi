@@ -474,7 +474,7 @@ fn a_restarted_terminal_tells_the_server_which_terminal_it_replaces() {
     );
 }
 
-fn scripted_backend(
+pub(super) fn scripted_backend(
     listener: tokio::net::TcpListener,
     replies: Vec<(u16, Value)>,
 ) -> tokio::task::JoinHandle<Vec<String>> {
@@ -523,7 +523,7 @@ fn scripted_backend(
     })
 }
 
-async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, String) {
+pub(super) async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, String) {
     let root = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: format!("{address}/").parse().unwrap(),
@@ -553,7 +553,7 @@ async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, Strin
     (root, network, user)
 }
 
-fn compatible_server() -> (u16, Value) {
+pub(super) fn compatible_server() -> (u16, Value) {
     (200, crate::network::http::current_versions())
 }
 
