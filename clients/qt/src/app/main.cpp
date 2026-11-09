@@ -196,6 +196,7 @@ int main(int argc, char* argv[])
     kodosi::DesktopSettings desktopSettings(settings(), QSystemTrayIcon::isSystemTrayAvailable());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::CanvasModel canvas(runtime, sessions);
+    workspace.attachCanvas(canvas);
     kodosi::CanvasDocuments documents(runtime, sessions);
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);

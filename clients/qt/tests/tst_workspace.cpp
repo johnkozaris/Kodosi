@@ -1,8 +1,10 @@
 #include "SessionFixture.hpp"
+#include "presentation/CanvasModel.hpp"
 #include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "runtime/RuntimeBridge.hpp"
+#include <QCoreApplication>
 #include <QJsonArray>
 #include <algorithm>
 #include <QJsonDocument>
@@ -82,6 +84,17 @@ QJsonObject openFailure(const QJsonObject& open)
         { QStringLiteral("requestId"), open.value(QStringLiteral("requestId")) },
         { QStringLiteral("message"), QStringLiteral("Kodosi could not reach the terminal connection service.") } };
 }
+QJsonObject showing(int value, int at)
+{
+    auto entry = test::session(value);
+    entry.insert(QStringLiteral("canvas"), QJsonObject { { QStringLiteral("sequence"), at },
+        { QStringLiteral("items"), QJsonArray { QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.md") },
+            { QStringLiteral("name"), QStringLiteral("plan.md") }, { QStringLiteral("kind"), QStringLiteral("page") },
+            { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), 1 } } } },
+        { QStringLiteral("open"), QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.md") },
+            { QStringLiteral("at"), at } } } });
+    return entry;
+}
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
@@ -142,6 +155,76 @@ private slots:
         f.workspace.missions().setPresentation(QStringLiteral("showsCanvas"), true);
         QVERIFY(f.workspace.sessionActions().activateInRoom(test::id(1)));
         QVERIFY(f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool());
+    }
+
+    void theCanvasOfTheTerminalInFrontOpensOnceAtWhatItsAgentShows()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions);
+        f.workspace.attachCanvas(canvas);
+        const auto first = test::id(1);
+        const auto second = test::id(2);
+        const auto show = [&](int firstAt, int secondAt) {
+            auto one = showing(1, firstAt);
+            auto two = showing(2, secondAt);
+            one.insert(QStringLiteral("missionId"), test::id(10));
+            two.insert(QStringLiteral("missionId"), test::id(10));
+            f.workspace.apply(test::snapshot({ one, two }), 0);
+            QCoreApplication::sendPostedEvents();
+        };
+        const auto roomShowsCanvas = [&] {
+            return f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool();
+        };
+        show(2, 2);
+        QVERIFY(f.desktop.selectSession(first));
+        QVERIFY(f.desktop.selectSession(second));
+        f.sessions.setVisible(first, true);
+        QVERIFY(f.workspace.frontSessionId().isEmpty());
+        f.sessions.setVisible(second, true);
+        QCOMPARE(f.workspace.frontSessionId(), second);
+
+        show(3, 2);
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        QVERIFY(f.desktop.selectSession(first));
+        QTRY_COMPARE(f.desktop.canvasSessionId(), first);
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
+        QCOMPARE(canvas.current(first), QStringLiteral("/work/plan.md"));
+
+        f.desktop.hideCanvas();
+        f.sessions.setVisible(first, false);
+        show(4, 2);
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        f.sessions.setVisible(first, true);
+        QTRY_COMPARE(f.desktop.canvasSessionId(), first);
+
+        f.workspace.missions().open(test::id(10));
+        QVERIFY(f.workspace.sessionActions().activateInRoom(second));
+        QCOMPARE(f.workspace.frontSessionId(), second);
+        show(5, 2);
+        QVERIFY(!roomShowsCanvas());
+        show(5, 6);
+        QVERIFY(roomShowsCanvas());
+    }
+
+    void theOnlyTerminalLeftOnTheStageComesToTheFrontAndOpensAtWhatItsAgentShowed()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions);
+        f.workspace.attachCanvas(canvas);
+        const auto first = test::id(1);
+        f.workspace.apply(test::snapshot({ showing(1, 2), test::session(2) }), 0);
+        QVERIFY(f.desktop.selectSession(first));
+        QVERIFY(f.desktop.selectSession(test::id(2)));
+        f.sessions.setVisible(first, true);
+        f.sessions.setVisible(test::id(2), true);
+        f.workspace.apply(test::snapshot({ showing(1, 3), test::session(2) }), 0);
+        QCoreApplication::sendPostedEvents();
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        f.workspace.apply(test::snapshot({ showing(1, 3) }), 0);
+        QVERIFY(f.desktop.selectedSessionId().isEmpty());
+        QCOMPARE(f.workspace.frontSessionId(), first);
+        QTRY_COMPARE(f.desktop.canvasSessionId(), first);
+        QCOMPARE(f.desktop.selectedSessionId(), first);
     }
 
     void updatingRoomTasksPreservesTheirVisibleOrder()
@@ -558,6 +641,33 @@ private slots:
         QCOMPARE(place(2), -1);
         auto invalid = test::session(3);
         invalid.insert(QStringLiteral("programAccount"), 256);
+        f.workspace.apply(test::snapshot({ invalid }), 0);
+        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
+    void aLocalTerminalSaysThatItsAgentStartedByHandDoesNotSeeKodosiUntilThePersonDismissesIt()
+    {
+        Fixture f;
+        auto outside = test::session(1);
+        outside.insert(QStringLiteral("program"), QStringLiteral("codex"));
+        outside.insert(QStringLiteral("programOutside"), true);
+        auto remote = test::session(2, true);
+        remote.insert(QStringLiteral("program"), QStringLiteral("codex"));
+        remote.insert(QStringLiteral("programOutside"), true);
+        f.workspace.apply(test::snapshot({ outside, remote, test::session(3) }), 0);
+        const auto noted = [&](const int number) {
+            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("programOutside")).toBool();
+        };
+        QVERIFY(noted(1));
+        QVERIFY(!noted(2));
+        QVERIFY(!noted(3));
+        f.desktop.noteOutside(test::id(1));
+        QCOMPARE(f.desktop.notedOutside(), QStringList { test::id(1) });
+        f.workspace.apply(test::snapshot({ outside, remote }), 0);
+        QCOMPARE(f.desktop.notedOutside(), QStringList { test::id(1) });
+        f.workspace.apply(test::snapshot({ remote }), 0);
+        QVERIFY(f.desktop.notedOutside().isEmpty());
+        auto invalid = test::session(4);
+        invalid.insert(QStringLiteral("programOutside"), QStringLiteral("yes"));
         f.workspace.apply(test::snapshot({ invalid }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
     }

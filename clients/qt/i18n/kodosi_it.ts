@@ -3671,6 +3671,10 @@
         <translation>Il terminale non è riuscito a riconnettersi.</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>%1 avviato a mano non vede Kodosi. La prossima volta avvialo da Kodosi.</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 si è unito</translation>
     </message>

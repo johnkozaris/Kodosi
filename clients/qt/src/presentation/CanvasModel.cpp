@@ -90,6 +90,15 @@ QList<CanvasModel::Shown> CanvasModel::shown(const QString& sessionId) const
     return result;
 }
 
+std::optional<CanvasModel::Show> CanvasModel::lastShow(const QString& sessionId) const
+{
+    const auto session = m_sessions.session(sessionId);
+    const auto open = session ? session->canvas.value(QStringLiteral("open")).toMap() : QVariantMap {};
+    if (open.isEmpty())
+        return std::nullopt;
+    return Show { open.value(QStringLiteral("key")).toString(), number(open.value(QStringLiteral("at"))) };
+}
+
 QVariantMap CanvasModel::item(const QString& sessionId, const QString& key) const
 {
     const auto session = m_sessions.session(sessionId);
@@ -122,6 +131,8 @@ void CanvasModel::observe()
                 newest = std::max(newest, entry.changed);
             m_firstSeen.insert(id, newest);
         }
+        if (!m_opened.contains(id))
+            m_opened.insert(id, lastShow(id).value_or(Show {}).at);
         const auto canvas = m_sessions.session(id).value_or(SessionCatalogModel::Session {}).canvas;
         const auto sequence = number(canvas.value(QStringLiteral("sequence")));
         if (!m_sequences.contains(id) || m_sequences.value(id) != sequence) {
@@ -141,6 +152,7 @@ void CanvasModel::observe()
     }
     const auto gone = [&ids](const QString& id) { return !ids.contains(id); };
     m_firstSeen.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    m_opened.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_marks.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_sequences.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_picks.removeIf([&](const auto& entry) { return gone(entry.key()); });
@@ -235,6 +247,7 @@ QStringList CanvasModel::closedSections(const QString& sessionId) const
 
 void CanvasModel::close(const QString& sessionId, const QString& section)
 {
+    settle(sessionId);
     m_closed[sessionId].insert(section, changedOf(sessionId, section));
     if (const auto pick = m_picks.value(sessionId); !pick.isEmpty() && sectionOf(pick) == section)
         m_picks.remove(sessionId);
@@ -245,6 +258,7 @@ void CanvasModel::close(const QString& sessionId, const QString& section)
 
 void CanvasModel::show(const QString& sessionId, const QString& section)
 {
+    settle(sessionId);
     m_closed[sessionId].remove(section);
     if (section == browserItem) {
         m_picks.insert(sessionId, browserItem);
@@ -320,6 +334,32 @@ void CanvasModel::saw(const QString& sessionId, const QString& key)
     const auto entries = shown(sessionId);
     m_marks[sessionId].insert(key, std::ranges::find(entries, key, &Shown::key)->changed);
     touch();
+}
+
+bool CanvasModel::showsNew(const QString& sessionId) const
+{
+    const auto show = lastShow(sessionId);
+    if (!show || !m_opened.contains(sessionId) || show->at <= m_opened.value(sessionId))
+        return false;
+    const auto entries = shown(sessionId);
+    return std::ranges::find(entries, show->key, &Shown::key) != entries.end();
+}
+
+bool CanvasModel::openShown(const QString& sessionId)
+{
+    if (!showsNew(sessionId))
+        return false;
+    const auto show = *lastShow(sessionId);
+    m_opened.insert(sessionId, show.at);
+    m_closed[sessionId].remove(sectionOf(show.key));
+    pick(sessionId, show.key);
+    return true;
+}
+
+void CanvasModel::settle(const QString& sessionId)
+{
+    if (const auto show = lastShow(sessionId))
+        m_opened.insert(sessionId, std::max(m_opened.value(sessionId), show->at));
 }
 
 void CanvasModel::remove(const QString& sessionId, const QString& key)
@@ -875,6 +915,7 @@ void CanvasModel::reset()
 {
     m_marks.clear();
     m_firstSeen.clear();
+    m_opened.clear();
     m_sequences.clear();
     m_picks.clear();
     m_lastFiles.clear();

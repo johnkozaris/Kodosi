@@ -29,6 +29,9 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(bool modalOpen READ modalOpen NOTIFY modalOpenChanged)
+    // The terminals where the person dismissed the note that their agent, started by hand, does
+    // not see Kodosi.
+    Q_PROPERTY(QStringList notedOutside READ notedOutside NOTIFY notedOutsideChanged)
     Q_PROPERTY(QString launcherPrompt READ launcherPrompt WRITE setLauncherPrompt NOTIFY launcherDraftChanged)
     Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged)
     Q_PROPERTY(QVariantMap launcherRemoteFolders READ launcherRemoteFolders NOTIFY launcherDraftChanged)
@@ -76,6 +79,8 @@ public:
     bool watching() const;
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
     Q_INVOKABLE void clearError();
+    QStringList notedOutside() const { return m_notedOutside; }
+    Q_INVOKABLE void noteOutside(const QString& id);
     void switchAccount(const QString& userId);
     void noteClosing(const QString& id);
     QString launcherPrompt() const { return m_launcherPrompt; }
@@ -99,6 +104,7 @@ signals:
     void stageLayoutModeChanged();
     void lastErrorChanged();
     void modalOpenChanged();
+    void notedOutsideChanged();
     void launcherDraftChanged();
     void restored(const QStringList& sessionIds);
 
@@ -138,6 +144,7 @@ private:
     QHash<QString, Computer> m_computers;
     QList<Departure> m_departures;
     QSet<QString> m_closing;
+    QStringList m_notedOutside;
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;

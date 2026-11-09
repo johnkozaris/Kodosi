@@ -387,6 +387,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("program"), s->program }, { QStringLiteral("programAccount"), s->programAccount },
+        { QStringLiteral("programOutside"), local && s->programOutside },
         { QStringLiteral("connectedUsers"), s->connectedUsers },
         { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
@@ -440,6 +441,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             return std::nullopt;
         s.programAccount = place;
     }
+    const auto outside = o.value(QStringLiteral("programOutside"));
+    if (!outside.isUndefined() && !outside.isBool())
+        return std::nullopt;
+    s.programOutside = outside.toBool();
     const auto prompt = o.value(QStringLiteral("prompt"));
     if (!prompt.isUndefined() && !prompt.isBool())
         return std::nullopt;
@@ -542,6 +547,11 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
             || !count(item.value(QStringLiteral("changed"))) || (!missing.isUndefined() && !missing.isBool()))
             return std::nullopt;
     }
+    const auto open = canvas.value(QStringLiteral("open"));
+    if (!open.isUndefined() && !open.isNull()
+        && (!open.isObject() || !text(open.toObject().value(QStringLiteral("key")), 1024)
+            || !count(open.toObject().value(QStringLiteral("at")))))
+        return std::nullopt;
     const auto browserValue = canvas.value(QStringLiteral("browser"));
     if (!browserValue.isUndefined() && !browserValue.isNull()) {
         const auto browser = browserValue.toObject();

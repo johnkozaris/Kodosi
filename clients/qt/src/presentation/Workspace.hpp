@@ -11,11 +11,13 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 
 #include <optional>
 
 namespace kodosi {
+class CanvasModel;
 class CommandDispatcher;
 class DesktopSettings;
 class DesktopStateModel;
@@ -42,6 +44,11 @@ public:
     void reset();
     void route(const DeepLinkDestination& destination);
     void setError(QString error);
+    // Opens the canvas of the terminal in front at what its agent showed, once for each show.
+    void attachCanvas(CanvasModel& canvas);
+    // The terminal that the person looks at while its view shows: the one in single view, the
+    // selected one on the stage or the only one there, or the one that a room shows.
+    [[nodiscard]] QString frontSessionId() const;
 
 signals:
     void errorChanged();
@@ -69,6 +76,7 @@ private:
     CommandDispatcher& m_commands;
     SessionCatalogModel& m_sessions;
     DesktopStateModel& m_desktop;
+    QPointer<CanvasModel> m_canvas;
     QHash<QString, Pending> m_pending;
     std::optional<std::pair<QStringList, bool>> m_reportedVisible;
     bool m_hostReady = false;
@@ -88,6 +96,7 @@ private:
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();
+    void openShownCanvas();
     void askRestore();
     void receiveResult(const QString& type, const QJsonObject& event);
     void clearAccountData(bool clearLinks, const QString& userId);

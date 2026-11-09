@@ -78,6 +78,11 @@ public:
     Q_INVOKABLE [[nodiscard]] bool hasNews(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
+    // Whether the agent of a terminal showed something that this device did not open yet.
+    [[nodiscard]] bool showsNew(const QString& sessionId) const;
+    // Opens the canvas of a terminal at what its agent showed, once for each show, and says
+    // whether there was something to open.
+    bool openShown(const QString& sessionId);
     Q_INVOKABLE void remove(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString question(const QString& sessionId, const QString& key, const QString& words) const;
     Q_INVOKABLE void follow(const QString& sessionId, const QUrl& link);
@@ -118,6 +123,11 @@ private:
     struct Shown {
         QString key;
         quint64 changed = 0;
+    };
+    // What the agent showed last with `kodosi show`, and the stamp of the canvas then.
+    struct Show {
+        QString key;
+        quint64 at = 0;
     };
     struct Reading {
         QString sessionId;
@@ -167,6 +177,9 @@ private:
     QHash<QString, QString> m_picks;
     QHash<QString, QString> m_lastFiles;
     QHash<QString, QHash<QString, quint64>> m_closed;
+    // The stamp of the newest show of each terminal's agent that this device opened, or that came
+    // before this device saw the terminal.
+    QHash<QString, quint64> m_opened;
     QSet<QString> m_opening;
     QSet<QString> m_shelves;
     QHash<QString, Stored> m_stored;
@@ -191,12 +204,14 @@ private:
     int m_publishedCount = 0;
 
     [[nodiscard]] QList<Shown> shown(const QString& sessionId) const;
+    [[nodiscard]] std::optional<Show> lastShow(const QString& sessionId) const;
     [[nodiscard]] QStringList present(const QString& sessionId) const;
     [[nodiscard]] quint64 changedOf(const QString& sessionId, const QString& section) const;
     [[nodiscard]] static QString sectionOf(const QString& key);
     [[nodiscard]] QVariantMap item(const QString& sessionId, const QString& key) const;
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();
+    void settle(const QString& sessionId);
     void touch();
     bool upload(const QString& sessionId, const QUrl& file, bool forPage);
     bool sendPart(const QString& upload);

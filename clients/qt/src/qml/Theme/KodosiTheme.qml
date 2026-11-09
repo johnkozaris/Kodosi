@@ -39,6 +39,7 @@ QtObject {
     readonly property color terminal: "#0d0b09"
     readonly property color terminalBand: "#1a1512"
     readonly property color terminalBandSelected: "#221a16"
+    readonly property color terminalRaised: "#251d19"
     readonly property color terminalLifted: "#2e241f"
     readonly property color terminalShadow: "#000000"
     readonly property color terminalHighlight: Qt.rgba(1, 0.945, 0.863, 0.11)

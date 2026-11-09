@@ -3671,6 +3671,10 @@
         <translation>Le terminal n&apos;a pas pu se reconnecter.</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>%1 lancé à la main ne voit pas Kodosi. La prochaine fois, lancez-le depuis Kodosi.</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 a rejoint</translation>
     </message>
