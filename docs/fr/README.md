@@ -58,9 +58,8 @@ et de son agent.
 **Un canvas à côté de chaque terminal.** Un agent vous montre une page, un plan ou une image
 à côté de son terminal. Les documents, les feuilles, les présentations, les PDF et les
 fichiers texte sont en direct : vous, vos amis et l'agent modifiez le même vrai fichier en
-même temps, et vous acceptez ou refusez les modifications de l'agent. L'agent utilise aussi
-un navigateur que vous partagez avec lui : vous voyez ce qu'il fait en vidéo en direct, et
-vous cliquez et tapez dans les mêmes pages.
+même temps. L'agent utilise aussi un navigateur que vous partagez avec lui : vous voyez ce
+qu'il fait en vidéo en direct, et vous cliquez et tapez dans les mêmes pages.
 
 <p align="center">
   <picture>

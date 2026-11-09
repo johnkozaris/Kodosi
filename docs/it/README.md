@@ -57,9 +57,8 @@ esecuzione e del suo agente.
 **Un canvas accanto a ogni terminale.** Un agente ti mostra una pagina, un piano o
 un'immagine accanto al suo terminale. Documenti, fogli, presentazioni, PDF e file di testo
 sono dal vivo: tu, i tuoi amici e l'agente modificate lo stesso file reale nello stesso
-momento, e tu accetti o rifiuti le modifiche dell'agente. L'agente usa anche un browser
-che condividi con lui: vedi cosa fa in un video dal vivo, e clicchi e scrivi nelle stesse
-pagine.
+momento. L'agente usa anche un browser che condividi con lui: vedi cosa fa in un video dal
+vivo, e clicchi e scrivi nelle stesse pagine.
 
 <p align="center">
   <picture>

@@ -53,9 +53,9 @@ and closes what is done. Your conversation with Dosi follows you to every comput
 
 **A canvas next to each terminal.** An agent shows you a page, a plan or a picture beside
 its terminal. Documents, sheets, presentations, PDFs and text files are live: you, your
-friends and the agent edit the same real file at once, and you accept or reject the agent's
-changes. The agent also uses a browser that you share with it: you see what it does as live
-video, and you click and type in the same pages.
+friends and the agent edit the same real file at once. The agent also uses a browser that
+you share with it: you see what it does as live video, and you click and type in the same
+pages.
 
 <p align="center">
   <picture>
