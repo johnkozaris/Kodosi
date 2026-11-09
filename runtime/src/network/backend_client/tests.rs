@@ -872,7 +872,14 @@ async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer(
     let mut events = network.events();
     let error = network.poll_link().await.unwrap_err();
     assert!(error.unanswered(), "{error}");
-    let held = network.inner.state.lock().await.link.as_ref().is_some_and(|link| link.accepted);
+    let held = network
+        .inner
+        .state
+        .lock()
+        .await
+        .link
+        .as_ref()
+        .is_some_and(|link| link.accepted);
     assert!(held);
     while let Ok(event) = events.try_recv() {
         assert_ne!(event.event["type"], "devices.link.selfResolved");
