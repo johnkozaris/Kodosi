@@ -71,6 +71,8 @@ pub(crate) struct BrowserStatus {
 #[derive(Clone)]
 pub(crate) struct BrowserHost {
     folder: PathBuf,
+    /// The data root is isolated, so the browsers must not touch the person's keychain.
+    isolated: bool,
     browsers: Arc<OnceCell<Browsers>>,
     updating: Arc<Once>,
     /// One download at a time, so no two write the same engine and no start removes one that
@@ -80,9 +82,10 @@ pub(crate) struct BrowserHost {
 }
 
 impl BrowserHost {
-    pub(crate) fn new(data_root: &Path) -> Self {
+    pub(crate) fn new(data_root: &Path, isolated: bool) -> Self {
         Self {
             folder: data_root.join("browser"),
+            isolated,
             browsers: Arc::default(),
             updating: Arc::new(Once::new()),
             installing: Arc::default(),
@@ -102,6 +105,7 @@ impl BrowserHost {
                 Ok::<_, Text>(Browsers::new(Settings {
                     engine,
                     profiles: self.profiles(),
+                    system_keychain: !self.isolated,
                 }))
             })
             .await?;

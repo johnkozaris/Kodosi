@@ -153,6 +153,7 @@ impl Engine {
         program: &Path,
         profiles: &Path,
         profile: &str,
+        system_keychain: bool,
     ) -> Result<Arc<Self>, Error> {
         let folder = profiles.join(profile);
         tokio::fs::create_dir_all(&folder).await?;
@@ -160,7 +161,7 @@ impl Engine {
         let link = folder.join(LINK_FILE);
         socket.write_address(&link).await?;
         let port = free_port().await?;
-        let mut process = launch(program, &arguments(&folder, &link, port))?;
+        let mut process = launch(program, &arguments(&folder, &link, port, system_keychain))?;
         let address = wait_for_address(port, &mut process).await?;
         let (kept, released) = oneshot::channel();
         keep(process, released);
@@ -679,12 +680,19 @@ async fn follow(
     engine.stopped.send_replace(true);
 }
 
-fn arguments(profile: &Path, link: &Path, port: u16) -> Vec<String> {
-    vec![
+fn arguments(profile: &Path, link: &Path, port: u16, system_keychain: bool) -> Vec<String> {
+    let mut arguments = vec![
         format!("--kodosi-profile={}", profile.display()),
         format!("--kodosi-link={}", link.display()),
         format!("--kodosi-debug-port={port}"),
-    ]
+    ];
+    if !system_keychain {
+        arguments.extend([
+            "--use-mock-keychain".to_owned(),
+            "--password-store=basic".to_owned(),
+        ]);
+    }
+    arguments
 }
 
 /// A debug port that the host picks keeps `navigator.webdriver` false.
@@ -805,7 +813,7 @@ mod tests {
 
     #[test]
     fn the_engine_gets_its_profile_link_and_debug_port_and_no_token() {
-        let options = arguments(Path::new("/p"), Path::new("/p/link.json"), 9000);
+        let options = arguments(Path::new("/p"), Path::new("/p/link.json"), 9000, true);
         assert_eq!(
             options,
             [
@@ -813,6 +821,15 @@ mod tests {
                 "--kodosi-link=/p/link.json",
                 "--kodosi-debug-port=9000"
             ]
+        );
+    }
+
+    #[test]
+    fn a_profile_that_is_thrown_away_keeps_its_key_out_of_the_system_keychain() {
+        let options = arguments(Path::new("/p"), Path::new("/p/link.json"), 9000, false);
+        assert_eq!(
+            options[3..],
+            ["--use-mock-keychain", "--password-store=basic"]
         );
     }
 }

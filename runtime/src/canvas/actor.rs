@@ -33,10 +33,10 @@ pub(crate) struct CanvasServices {
 }
 
 impl CanvasServices {
-    pub(crate) fn new(data_root: &Path) -> Self {
+    pub(crate) fn new(data_root: &Path, isolated: bool) -> Self {
         Self {
             documents: DocumentHost::new(data_root),
-            browsers: BrowserHost::new(data_root),
+            browsers: BrowserHost::new(data_root, isolated),
         }
     }
 

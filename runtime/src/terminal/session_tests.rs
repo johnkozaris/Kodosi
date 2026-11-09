@@ -38,7 +38,7 @@ async fn shell_at(
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         directory.join("pictures"),
         changes,
@@ -724,7 +724,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let canvas = CanvasHandle::spawn(
         Uuid::now_v7(),
         &std::env::temp_dir(),
-        crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+        crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
     );
     let mut actor = LocalActor {
         id: Uuid::now_v7(),
@@ -1054,7 +1054,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
@@ -1108,7 +1108,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
@@ -1153,7 +1153,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
@@ -1390,7 +1390,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir()),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
