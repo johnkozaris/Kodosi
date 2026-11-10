@@ -177,26 +177,6 @@ impl BackendClient {
         self.inner.generation.load(Ordering::Acquire)
     }
 
-    fn seen_rooms(&self) -> (std::path::PathBuf, BTreeMap<String, BTreeMap<String, u64>>) {
-        let path = self.inner.config.data_root.join("network/room-seen.json");
-        let seen = std::fs::read(&path)
-            .ok()
-            .filter(|bytes| bytes.len() <= 1024 * 1024)
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-            .unwrap_or_default();
-        (path, seen)
-    }
-
-    pub(crate) fn rooms_seen(&self, user: &str) -> BTreeMap<String, u64> {
-        self.seen_rooms().1.remove(user).unwrap_or_default()
-    }
-
-    pub(crate) fn remember_seen(&self, user: &str, rooms: &BTreeMap<String, u64>) -> Result<()> {
-        let (path, mut seen) = self.seen_rooms();
-        seen.insert(user.to_owned(), rooms.clone());
-        kodosi_os::fs::write_private(&path, &serde_json::to_vec(&seen)?)?;
-        Ok(())
-    }
     pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
         let display_name = self.inner.credentials.read().ok().and_then(|credentials| {
             credentials

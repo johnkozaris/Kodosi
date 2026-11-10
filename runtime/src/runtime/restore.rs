@@ -7,7 +7,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{Error, agents::Agent, terminal::TerminalSession, worktree::Worktree};
+use crate::{agents::Agent, terminal::TerminalSession, worktree::Worktree};
+
+use super::saver::Saver;
 
 const FILE: &str = "terminals.json";
 const MOST_BYTES: usize = 1024 * 1024;
@@ -60,11 +62,11 @@ impl Sharing {
 }
 
 pub(super) struct Restore {
-    file: PathBuf,
     screens: PathBuf,
     pending: Vec<Saved>,
     pub starting: BTreeMap<Uuid, Saved>,
     written: Vec<Saved>,
+    saver: Saver,
 }
 
 impl Restore {
@@ -76,11 +78,11 @@ impl Restore {
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
         Self {
-            file,
             screens: data_root.join(SCREENS),
             written: pending.clone(),
             pending,
             starting: BTreeMap::new(),
+            saver: Saver::file(file, "the terminals that come back"),
         }
     }
 
@@ -93,6 +95,8 @@ impl Restore {
         self.pending.iter().map(|terminal| terminal.id).collect()
     }
 
+    /// Saves the terminals that come back, away from the runtime's task. A list that is saved
+    /// already is saved again only after its write failed.
     pub(super) fn save(&mut self, live: Vec<Saved>) {
         let terminals = self
             .pending
@@ -101,16 +105,21 @@ impl Restore {
             .cloned()
             .chain(live)
             .collect::<Vec<_>>();
-        if terminals == self.written {
+        if terminals == self.written && !self.saver.failed() {
             return;
         }
-        let saved = serde_json::to_vec(&terminals)
-            .map_err(Error::from)
-            .and_then(|bytes| Ok(kodosi_os::fs::write_private(&self.file, &bytes)?));
-        match saved {
-            Ok(()) => self.written = terminals,
+        match serde_json::to_vec(&terminals) {
+            Ok(bytes) => {
+                self.saver.save(bytes);
+                self.written = terminals;
+            }
             Err(error) => tracing::warn!(%error, "could not save the terminals that come back"),
         }
+    }
+
+    /// Returns when the newest list of the terminals that come back is on disk.
+    pub(super) async fn saved(&self) {
+        self.saver.saved().await;
     }
 
     pub(super) fn screen_file(&self, id: Uuid) -> PathBuf {

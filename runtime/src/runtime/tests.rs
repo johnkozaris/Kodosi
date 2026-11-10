@@ -611,6 +611,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
     let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
+    let room_seen = room_seen::RoomSeen::load(&config.data_root);
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),
@@ -700,7 +701,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             attention: BTreeSet::new(),
             activity: HashMap::new(),
             room_latest: HashMap::new(),
-            room_seen: None,
+            room_seen,
         },
         root,
     )
@@ -2067,7 +2068,8 @@ async fn a_room_stays_unread_until_its_person_sees_what_others_wrote() {
     assert!(unread(&runtime));
     runtime.see_room(&room, 3).unwrap();
     assert!(!unread(&runtime));
-    runtime.room_seen = None;
+    runtime.room_seen.saved().await;
+    runtime.room_seen = room_seen::RoomSeen::load(&runtime.network.inner.config.data_root);
     assert_eq!(runtime.seen_rooms().unwrap()[&room], 3);
 }
 
@@ -2558,8 +2560,8 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
 }
 
 #[cfg(feature = "host")]
-#[test]
-fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
+#[tokio::test]
+async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
     let root = tempfile::tempdir().unwrap();
     let saved = |name: &str| restore::Saved {
         id: Uuid::now_v7(),
@@ -2572,16 +2574,19 @@ fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         browser: None,
     };
     let (first, second) = (saved("first"), saved("second"));
-    restore::Restore::load(root.path()).save(vec![first.clone()]);
-    restore::Restore::load(root.path()).save(vec![second.clone()]);
+    for live in [first.clone(), second.clone()] {
+        let mut host = restore::Restore::load(root.path());
+        host.save(vec![live]);
+        host.saved().await;
+    }
     let mut opened_by_an_app = restore::Restore::load(root.path());
     assert_eq!(opened_by_an_app.take(), vec![first, second]);
     assert_eq!(opened_by_an_app.take(), Vec::new());
 }
 
 #[cfg(feature = "host")]
-#[test]
-fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
+#[tokio::test]
+async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
     assert_eq!(restore::newest_lines(b"one\r\ntwo\r\nthree", 9), b"three");
     assert_eq!(restore::newest_lines(b"one\r\ntwo", 8), b"one\r\ntwo");
     assert_eq!(restore::newest_lines(b"one long line", 4), b"");
@@ -2599,6 +2604,7 @@ fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
+    restore.saved().await;
     let ended = restore.screen_file(Uuid::now_v7());
     std::fs::create_dir_all(ended.parent().unwrap()).unwrap();
     std::fs::write(&ended, b"ended").unwrap();
