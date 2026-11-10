@@ -560,10 +560,7 @@ async fn activations_from_another_version_or_of_another_shape_are_refused() {
         let mut stream = kodosi_os::ipc::connect(&endpoint).await.unwrap();
         write_json(&mut stream, &request).await.unwrap();
         let reply: Value = read_json(&mut FrameReader::new(stream)).await.unwrap();
-        assert_eq!(
-            reply,
-            json!({ "version": 1, "accepted": false, "appVersion": env!("KODOSI_VERSION") })
-        );
+        assert_eq!(reply, json!({ "version": 1, "accepted": false }));
     }
     for activation in [
         json!("kodosi://room/abc"),
