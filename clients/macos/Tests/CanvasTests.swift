@@ -303,6 +303,27 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == files.id)
 }
 
+@Test @MainActor func `a file added to a canvas closed on this device opens it at the file when it comes, and the browser stays closed`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasAddFile"))
+    let store = CanvasStore(commands: CommandSink())
+    let workbench = WorkbenchState(defaults: defaults, canvas: store)
+    workbench.switchAccount(nil)
+    let asleep = try terminal(canvas: ["sequence": .uint(1), "browser": asleepBrowser(changed: 1)])
+    store.observe([asleep])
+    _ = workbench.reconcile([asleep])
+    workbench.showSession(asleep.id)
+    store.close(.browser, in: asleep)
+    workbench.openCanvas(asleep.id, at: .files)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == asleep.id)
+    let added = try terminal(canvas: [
+        "sequence": .uint(2), "items": .array([item("plan.md", changed: 2)]), "browser": asleepBrowser(changed: 1),
+    ])
+    store.observe([added])
+    _ = workbench.reconcile([added])
+    #expect(workbench.canvasSessionId == added.id && store.current(added)?.key == "/tmp/work/plan.md")
+    #expect(store.closedSections(added) == [.browser])
+}
+
 @Test @MainActor func `the stage opens a canvas that comes later only at a show from after the start`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasShown"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

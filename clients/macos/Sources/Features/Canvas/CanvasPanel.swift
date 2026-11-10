@@ -335,7 +335,7 @@ extension AppDependencies {
     }
 
     func add(_ files: [URL], to session: RuntimeSession) {
-        workbench.openCanvas(session.id)
+        workbench.openCanvas(session.id, at: .files)
         Task { @MainActor in
             do {
                 for file in files {
