@@ -99,7 +99,8 @@ public:
     Q_INVOKABLE [[nodiscard]] QString pageAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pictureAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE void saveCopy(const QString& sessionId, const QString& key);
-    Q_INVOKABLE void attach(const QString& sessionId, const QUrl& file);
+    // Puts a file on the canvas of a terminal, and says whether it started to go up.
+    bool attach(const QString& sessionId, const QUrl& file);
     void giveFiles(const QString& sessionId, const QList<QUrl>& files);
     [[nodiscard]] std::optional<std::pair<QByteArray, QByteArray>> published(const QUrl& address) const;
     [[nodiscard]] std::optional<QByteArray> published(int number) const;

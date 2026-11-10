@@ -599,9 +599,9 @@ void CanvasModel::saveCopy(const QString& sessionId, const QString& key)
         read(sessionId, key, true);
 }
 
-void CanvasModel::attach(const QString& sessionId, const QUrl& file)
+bool CanvasModel::attach(const QString& sessionId, const QUrl& file)
 {
-    upload(sessionId, file, false);
+    return upload(sessionId, file, false);
 }
 
 // The files of a page go into the folder of the terminal first, because the browser runs on the

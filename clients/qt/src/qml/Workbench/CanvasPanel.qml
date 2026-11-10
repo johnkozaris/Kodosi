@@ -166,8 +166,7 @@ Item {
         anchors.fill: parent
         keys: ["text/uri-list"]
         onDropped: drop => {
-            for (const file of drop.urls)
-                Models.Canvas.attach(root.sessionId, file);
+            Models.AppState.addFiles(root.sessionId, drop.urls);
             drop.accept(Qt.CopyAction);
         }
     }

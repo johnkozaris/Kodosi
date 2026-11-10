@@ -97,6 +97,27 @@ QJsonObject showing(int value, int at)
             { QStringLiteral("at"), at } } } });
     return entry;
 }
+QJsonObject planItem(int changed)
+{
+    return { { QStringLiteral("key"), QStringLiteral("/work/plan.md") }, { QStringLiteral("name"), QStringLiteral("plan.md") },
+        { QStringLiteral("kind"), QStringLiteral("page") }, { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 6 },
+        { QStringLiteral("changed"), changed } };
+}
+QJsonObject asleep(int sequence, const QJsonArray& items = {})
+{
+    auto entry = test::session(1);
+    entry.insert(QStringLiteral("canvas"), QJsonObject { { QStringLiteral("sequence"), sequence }, { QStringLiteral("items"), items },
+        { QStringLiteral("browser"), QJsonObject { { QStringLiteral("state"), QStringLiteral("asleep") },
+            { QStringLiteral("changed"), 1 }, { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } } } });
+    return entry;
+}
+QUrl planFile(const QTemporaryDir& dir)
+{
+    QFile file(dir.filePath(QStringLiteral("plan.md")));
+    if (!file.open(QIODevice::WriteOnly) || file.write("# Plan") != 6)
+        return {};
+    return QUrl::fromLocalFile(file.fileName());
+}
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
@@ -257,6 +278,52 @@ private slots:
         f.workspace.apply(test::snapshot({ terminal }), 1);
         QTRY_COMPARE(f.desktop.canvasSessionId(), id);
         QCOMPARE(canvas.current(id), QStringLiteral("browser"));
+    }
+
+    void aFileAddedToACanvasClosedHereOpensItAtTheFileWhenItComesAndTheBrowserStaysClosed()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
+        f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
+        const auto id = test::id(1);
+        const QStringList closed { QStringLiteral("browser") };
+        f.workspace.apply(test::snapshot({ asleep(1) }), 0);
+        QVERIFY(f.desktop.selectSession(id));
+        canvas.close(id, QStringLiteral("browser"));
+        f.workspace.addFiles(id, { planFile(f.dir) });
+        const auto upload = f.commands.values.last();
+        QCOMPARE(upload.value(QStringLiteral("request")).toObject().value(QStringLiteral("type")).toString(), QStringLiteral("attach"));
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        QCOMPARE(canvas.closedSections(id), closed);
+        f.workspace.apply(test::snapshot({ asleep(2, { planItem(2) }) }), 0);
+        canvas.apply({ { QStringLiteral("type"), QStringLiteral("canvas.result") },
+            { QStringLiteral("requestId"), upload.value(QStringLiteral("requestId")) },
+            { QStringLiteral("answer"), QJsonObject { { QStringLiteral("answer"), QStringLiteral("attached") },
+                { QStringLiteral("key"), QStringLiteral("/work/plan.md") } } } });
+        QCOMPARE(f.desktop.canvasSessionId(), id);
+        QCOMPARE(canvas.current(id), QStringLiteral("/work/plan.md"));
+        QCOMPARE(canvas.closedSections(id), closed);
+    }
+
+    void aFileAddedInARoomOpensTheRoomsCanvasAtItsFilesAndLeavesTheStage()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
+        f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
+        const auto id = test::id(1);
+        f.workspace.apply(test::snapshot({ asleep(1) }), 0);
+        f.workspace.missions().open(test::id(10));
+        QVERIFY(f.workspace.sessionActions().activateInRoom(id));
+        canvas.close(id, QStringLiteral("browser"));
+        f.workspace.addFiles(id, { planFile(f.dir) });
+        QVERIFY(f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool());
+        f.workspace.apply(test::snapshot({ asleep(2, { planItem(2) }) }), 0);
+        QVERIFY(canvas.showsSomething(id));
+        QCOMPARE(canvas.closedSections(id), QStringList { QStringLiteral("browser") });
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
     }
 
     void updatingRoomTasksPreservesTheirVisibleOrder()
