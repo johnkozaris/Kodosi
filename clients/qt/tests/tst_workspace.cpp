@@ -1752,6 +1752,19 @@ private slots:
         QVERIFY(window.isVisible());
         QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowNoState));
     }
+    void aRoomThatTheCommandShowsOpensInFront()
+    {
+        Fixture f;
+        QWindow window;
+        f.desktop.attachWindow(&window);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("mission.show") },
+            { QStringLiteral("missionId"), test::id(10) } }, 0);
+        QVERIFY(window.isVisible());
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Missions);
+        QCOMPARE(f.workspace.missions().selectedMissionId(), test::id(10));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.open"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("missionId")).toString(), test::id(10));
+    }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {
         Fixture f;
