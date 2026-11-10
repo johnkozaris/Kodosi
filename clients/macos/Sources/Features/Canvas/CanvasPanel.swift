@@ -179,8 +179,10 @@ struct CanvasPanel: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .top) { progress(current) }
                 .dropDestination(for: URL.self) { files, _ in
+                    guard !files.isEmpty else { return false }
                     deps.add(files, to: session)
-                    return !files.isEmpty
+                    place.show(session, .files)
+                    return true
                 }
             }
             .background(CanvasContentGround())
@@ -218,7 +220,9 @@ struct CanvasPanel: View {
                     deps.canvas.show(section, in: session)
                 }
             } add: {
-                deps.addFile(to: session)
+                if deps.addFile(to: session) {
+                    place.show(session, .files)
+                }
             }
             Color.clear.frame(minWidth: 6, maxWidth: .infinity).titleBarGap()
             HStack(spacing: 0) {
@@ -325,17 +329,17 @@ extension AppDependencies {
         }
     }
 
-    /// Lets a person pick files for the canvas of a terminal.
-    func addFile(to session: RuntimeSession) {
+    /// Lets a person pick files for the canvas of a terminal, and says whether they picked any.
+    func addFile(to session: RuntimeSession) -> Bool {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        guard panel.runModal() == .OK else { return }
+        guard panel.runModal() == .OK else { return false }
         add(panel.urls, to: session)
+        return true
     }
 
     func add(_ files: [URL], to session: RuntimeSession) {
-        workbench.openCanvas(session.id, at: .files)
         Task { @MainActor in
             do {
                 for file in files {

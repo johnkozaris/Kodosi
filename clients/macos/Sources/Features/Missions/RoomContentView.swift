@@ -197,8 +197,10 @@ private struct RoomTerminals: View {
                 }
                 Button("Add a File…") {
                     open(session)
-                    workspace.showsCanvas = true
-                    deps.addFile(to: session)
+                    if deps.addFile(to: session) {
+                        deps.canvas.show(.files, in: session)
+                        workspace.showsCanvas = true
+                    }
                 }
             }
             if deps.workbench.stagedSessionIds.contains(session.id) {

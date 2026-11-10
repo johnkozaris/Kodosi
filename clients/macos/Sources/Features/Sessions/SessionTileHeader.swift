@@ -219,7 +219,9 @@ private struct TerminalActions: View {
                     canvasPlace.show(session, .browser)
                 }
                 PanelMenuRow(Text("Add a File…"), icon: .symbol(CanvasSymbol.addFile), identifier: "\(stageId).addFile") {
-                    deps.addFile(to: session)
+                    if deps.addFile(to: session) {
+                        canvasPlace.show(session, .files)
+                    }
                 }
             }
             PanelMenuRow(Text("Details"), icon: .symbol("info.circle"), identifier: "\(stageId).details") {
