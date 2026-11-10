@@ -4,6 +4,7 @@ import SwiftUI
 
 @main
 struct KodosiMobileApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -20,7 +21,11 @@ struct KodosiMobileApp: App {
                 .textFieldStyle(WellTextFieldStyle())
                 .toggleStyle(KodosiSwitchStyle())
                 .kodosiTheme()
-                .task { model.start() }
+                .task {
+                    AppDelegate.push = model.push
+                    model.start()
+                }
+                .onChange(of: model.account.isReady, initial: true) { _, ready in model.push.accountChanged(ready: ready) }
                 .onOpenURL { url in
                     if url.scheme == "com.kodosi" {
                         model.account.finishSignIn(with: url)

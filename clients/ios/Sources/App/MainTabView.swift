@@ -59,6 +59,19 @@ struct MainTabView: View {
         .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(theme.colors.accentStrong)
+        .onChange(of: model.terminals.sessions, initial: true) { _, sessions in model.push.remember(sessions) }
+        .onChange(of: model.terminals.needsYou.count, initial: true) { _, count in model.push.showWaiting(count) }
+        .onChange(of: model.terminals.watchingSessionId) { _, terminal in
+            if let terminal {
+                model.push.seen(terminal)
+            }
+        }
+        .onChange(of: model.push.opened, initial: true) { _, terminal in
+            guard let terminal else { return }
+            model.push.opened = nil
+            tab = .terminals
+            terminals = NavigationPath([TerminalRoute(sessionId: terminal)])
+        }
     }
 
     /// Dosi's open questions, or one for an answer that the person did not see.

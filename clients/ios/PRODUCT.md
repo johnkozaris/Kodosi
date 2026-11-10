@@ -46,8 +46,8 @@ provider conversations stay on the computer.
   Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
   then friends and their terminals. Settings holds the account, devices, recovery key,
   appearance, the size of terminal text on this device, whether the screen stays on while
-  a terminal is open, the document viewers, the lock, the language, licenses and account
-  deletion.
+  a terminal is open, the document viewers, notifications, the lock, the language,
+  licenses and account deletion.
 - The Dosi tab holds the conversation with Dosi. Above the composer, you choose the
   computer that answers: one that runs Kodosi, or the one that answered last, also while it
   is offline. Without either, the tab asks you to open Kodosi on a computer. The stop key

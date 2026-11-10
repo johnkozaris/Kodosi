@@ -77,6 +77,8 @@ targets:
     sources:
       - path: Sources
       - path: Resources
+      - path: Notifications/TerminalAlert.swift
+      - path: Notifications/TerminalNames.swift
     postBuildScripts:
       - name: Install Notices
         basedOnDependencyAnalysis: false
@@ -91,6 +93,7 @@ targets:
         script: |
           "$PROJECT_DIR/../apple/scripts/verify-final-ghostty-image.sh" "$PLATFORM_NAME" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "$LD_MAP_FILE_PATH"
     dependencies:
+      - target: KodosiNotifications
       - target: RuntimeLibrary
         link: false
         embed: false
@@ -104,6 +107,25 @@ targets:
         product: KodosiTerminal
       - package: KodosiApple
         product: KodosiTerminalSessions
+
+  KodosiNotifications:
+    type: app-extension
+    platform: iOS
+    settings:
+      groups:
+        - appBase
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.mobile.notifications
+        PRODUCT_NAME: KodosiNotifications
+        INFOPLIST_FILE: Notifications/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Notifications/KodosiNotifications.entitlements
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        SKIP_INSTALL: YES
+    sources:
+      - path: Notifications
+        excludes:
+          - Info.plist
+          - KodosiNotifications.entitlements
 
   KodosiMobileTests:
     type: bundle.unit-test

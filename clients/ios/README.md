@@ -17,7 +17,10 @@ Then run the `KodosiMobile` scheme in Xcode. Debug builds use a
 simulator can reach and a device cannot.
 
 `just ios-check` lints, runs the unit tests on the `Kodosi iPhone 17 Pro` simulator
-(`KODOSI_IOS_SIMULATOR` names another) and builds Release for devices. Update
+(`KODOSI_IOS_SIMULATOR` names another) and builds Release for devices. A device build
+needs the App IDs `com.kodosi.mobile` and `com.kodosi.mobile.notifications` with Push
+Notifications, Time Sensitive Notifications and the App Group `group.com.kodosi.mobile`;
+with Xcode signed in to the team, the device build registers them. Update
 [PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) when the app starts to use
 another
 [required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)

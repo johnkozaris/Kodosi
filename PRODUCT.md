@@ -66,7 +66,9 @@ from another device with a note that Dosi is off there.
 - Terminals show the state that their programs report: working, waiting for a person,
   done or failed. Everyone who can open a terminal sees its state and who has it open.
   While the app is in the background, a terminal that the person owns or has open sends a
-  notification when it starts to wait, finishes or fails.
+  notification when it starts to wait, finishes or fails. On an iPhone or iPad, the
+  person's own terminals send it also while Kodosi does not run, when the terminal still
+  waits, finished or failed 15 seconds later, and a tap on it opens the terminal.
 - Minimize hides a view and keeps its terminal running. Close ends the terminal and its
   programs. Closing the window leaves the app and the host running, with Kodosi's icon in
   the menu bar or the system tray; on a desktop without a system tray, it quits. Settings

@@ -20,6 +20,7 @@ struct SettingsHome: View {
                 }
                 TerminalSection()
                 DocumentsSection()
+                NotificationsSection()
                 PrivacySection()
                 LanguageSection()
                 AboutSection()
