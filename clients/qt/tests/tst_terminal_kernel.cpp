@@ -392,6 +392,16 @@ QString frameText(const kodosi::TerminalFrame& frame)
     return text;
 }
 
+kodosi::GhosttyTerminalKernel::Result applyData(
+    kodosi::GhosttyTerminalKernel& kernel,
+    const kodosi::TerminalData& data)
+{
+    if (const auto written = kernel.writeData(data); !written) {
+        return std::unexpected(written.error());
+    }
+    return kernel.latestFrame();
+}
+
 QByteArray markedPrompts(const int count)
 {
     QByteArray output;
@@ -506,6 +516,7 @@ private slots:
     void aHistoryKeyReleasedElsewhereDoesNotHideALaterRelease();
     void terminalViewCancelsSelectionAgainstStaleDisplayedViewport();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
+    void terminalViewMailboxQueuesOneDrainForWaitingOutput();
     void terminalLinksWithHiddenCharactersOrNoAddressDoNotOpen();
     void terminalLinksOpenByGhosttysRules();
     void terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLocalAddresses();
@@ -517,6 +528,7 @@ private slots:
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
+    void terminalViewLeavesWithoutWaitingForABusyBlur();
     void terminalViewSendsItsSizeOnlyWhileItMayResize();
     void terminalViewWaitsQuietlyForItsConnection();
     void terminalViewDefersResizeWhileEffectivelyHidden();
@@ -530,6 +542,7 @@ private slots:
     void registryRetiresAbandonedSeedCapacity();
     void registryRoutesMultiSurfaceControlExactly();
     void registryRestoresOpenSurfacesFromMovedSnapshot();
+    void registryBuildsOneFrameForAllOutputThatWaits();
 };
 
 void TerminalKernelTest::terminalViewPreservesControlAndEscapeKeys()
@@ -801,7 +814,7 @@ void TerminalKernelTest::checkpointPrecedesContiguousRawData()
         7,
     };
     kodosi::GhosttyTerminalKernel kernel;
-    const auto beforeCheckpoint = kernel.applyData({
+    const auto beforeCheckpoint = applyData(kernel, {
         subscription,
         12,
         QByteArrayLiteral("rejected"),
@@ -821,7 +834,7 @@ void TerminalKernelTest::checkpointPrecedesContiguousRawData()
     QVERIFY(restored);
     QVERIFY(frameText(**restored).contains(QStringLiteral("checkpoint")));
 
-    const auto continued = kernel.applyData({
+    const auto continued = applyData(kernel, {
         subscription,
         12,
         QByteArrayLiteral(" + raw"),
@@ -830,7 +843,7 @@ void TerminalKernelTest::checkpointPrecedesContiguousRawData()
     QCOMPARE((*continued)->nextSequence, 13);
     QVERIFY(frameText(**continued).contains(QStringLiteral("checkpoint + raw")));
 
-    const auto duplicate = kernel.applyData({
+    const auto duplicate = applyData(kernel, {
         subscription,
         12,
         QByteArrayLiteral("duplicate"),
@@ -1288,7 +1301,7 @@ void TerminalKernelTest::kernelAppliesNativeCursorDefaultsAndScrollback()
         *byteLimit,
         kodosi::terminalScrollbackByteBudget(12'000));
 
-    const auto bar = kernel.applyData({
+    const auto bar = applyData(kernel, {
         subscription,
         1,
         QByteArrayLiteral("\x1b[0 q"),
@@ -1311,7 +1324,7 @@ void TerminalKernelTest::kernelAppliesNativeCursorDefaultsAndScrollback()
     QCOMPARE(
         *updatedByteLimit,
         kodosi::terminalScrollbackByteBudget(25'000));
-    const auto underline = kernel.applyData({
+    const auto underline = applyData(kernel, {
         subscription,
         2,
         QByteArrayLiteral("\x1b[0 q"),
@@ -1390,6 +1403,21 @@ void TerminalKernelTest::scrollbackReconfigurationPublishesReplacementFrame()
 
     QVERIFY(registry.configure(kodosi::TerminalSurfaceIdentity {subscription, 1}, reduced));
     QCOMPARE(frames.size(), publishedBeforeConfigure + 1);
+}
+
+void TerminalKernelTest::terminalViewMailboxQueuesOneDrainForWaitingOutput()
+{
+    kodosi::detail::TerminalFrameMailbox mailbox;
+    mailbox.reset(7);
+    QVERIFY(mailbox.markOutput(7));
+    QVERIFY(!mailbox.markOutput(7));
+    QVERIFY(!mailbox.markOutput(6));
+    QVERIFY(mailbox.takeOutput(7));
+    QVERIFY(!mailbox.takeOutput(7));
+    QVERIFY(mailbox.markOutput(7));
+    mailbox.reset(8);
+    QVERIFY(!mailbox.takeOutput(8));
+    QVERIFY(mailbox.markOutput(8));
 }
 
 void TerminalKernelTest::terminalViewMailboxRejectsReversedDisplayRevisions()
@@ -1696,7 +1724,7 @@ void TerminalKernelTest::pasteEncodingUsesRestoredTerminalModes()
         *bracketed,
         QByteArrayLiteral("\x1b[200~first\nsecond\x1b[201~"));
 
-    QVERIFY(kernel.applyData({
+    QVERIFY(applyData(kernel, {
         subscription,
         3,
         QByteArrayLiteral("\x1b[?2004l"),
@@ -1978,7 +2006,7 @@ void TerminalKernelTest::selectionEndpointsTrackIncomingOutput()
     QVERIFY(anchorText.startsWith(QStringLiteral("row-")));
     QVERIFY(kernel.pressSelection(subscription, (*initial)->viewportRevision, pressAt(0, 0)));
 
-    const auto advanced = kernel.applyData({
+    const auto advanced = applyData(kernel, {
         subscription,
         1,
         QByteArrayLiteral("row-20\r\n"),
@@ -3524,6 +3552,41 @@ void TerminalKernelTest::terminalViewRetriesRevocationBlurBeforeRefocus()
         }));
 }
 
+void TerminalKernelTest::terminalViewLeavesWithoutWaitingForABusyBlur()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("leaving"),
+        QStringLiteral("leaving-subscription"),
+        9,
+    };
+    view.setWidth(800);
+    view.setHeight(400);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    QFocusEvent focus(QEvent::FocusIn);
+    QCoreApplication::sendEvent(&view, &focus);
+    QCOMPARE(dispatcher.terminalCommands.size(), 1);
+
+    dispatcher.busyTerminalCommands = 6;
+    view.detach();
+    QCOMPARE(dispatcher.terminalCommands.size(), 2);
+    QCOMPARE(
+        dispatcher.terminalCommands.constLast()
+            .value(QStringLiteral("type")).toString(),
+        QStringLiteral("session.blur"));
+    QCOMPARE(dispatcher.disconnectCount, 1);
+    QTest::qWait(40);
+    QCOMPARE(dispatcher.terminalCommands.size(), 2);
+}
+
 void TerminalKernelTest::terminalViewWaitsQuietlyForItsConnection()
 {
     kodosi::TerminalSessionRegistry registry;
@@ -4218,6 +4281,7 @@ void TerminalKernelTest::registryRoutesMultiSurfaceControlExactly()
         1,
         QByteArrayLiteral(" active"),
     });
+    QVERIFY(registry.latestFrame(second));
     QCOMPARE(firstFrames, 1);
     QCOMPARE(secondFrames, 2);
     QVERIFY(registry.unregisterSurface(second));
@@ -4265,6 +4329,7 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
         checkpointFor(QByteArrayLiteral("first"), 24, 3),
     }));
     registry.receiveData({subscription, 1, QByteArrayLiteral(" view")});
+    QVERIFY(registry.latestFrame(first));
     QCOMPARE(firstFrames, 2);
 
     const auto secondRegistration = registry.registerSurface(
@@ -4291,6 +4356,8 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
     QVERIFY(frameText(*firstFrame).startsWith(QStringLiteral("moved")));
 
     registry.receiveData({subscription, 5, QByteArrayLiteral(" on")});
+    QVERIFY(registry.latestFrame(first));
+    QVERIFY(registry.latestFrame(second));
     QCOMPARE(failures, 0);
     QCOMPARE(firstFrames, 4);
     QVERIFY(frameText(*firstFrame).startsWith(QStringLiteral("moved on")));
@@ -4318,6 +4385,49 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
     QVERIFY(!registry.unregisterSurface(first));
     QVERIFY(!registry.unregisterSurface(second));
     QVERIFY(registry.unregisterSurface(third));
+}
+
+void TerminalKernelTest::registryBuildsOneFrameForAllOutputThatWaits()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("coalesced"),
+        QStringLiteral("coalesced-subscription"),
+        3,
+    };
+    const kodosi::TerminalSurfaceIdentity surface {
+        .subscription = subscription,
+        .surfaceGeneration = 1,
+    };
+    QVector<kodosi::GhosttyTerminalKernel::Frame> frames;
+    int outputs = 0;
+    kodosi::TerminalSessionRegistry registry;
+    QVERIFY(registry.registerSurface(
+        surface,
+        {
+            .frameChanged = [&](auto frame) { frames.append(std::move(frame)); },
+            .outputChanged = [&] { ++outputs; },
+        }));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        3,
+        24,
+        checkpointFor(QByteArrayLiteral("ready"), 24, 3),
+    }));
+    QCOMPARE(frames.size(), 1);
+
+    for (std::uint64_t sequence = 1; sequence <= 100; ++sequence) {
+        registry.receiveData({subscription, sequence, "\r\nline-" + QByteArray::number(sequence)});
+    }
+    QCOMPARE(outputs, 100);
+    QCOMPARE(frames.size(), 1);
+
+    QVERIFY(registry.latestFrame(surface));
+    QCOMPARE(frames.size(), 2);
+    QCOMPARE(frames.constLast()->nextSequence, std::uint64_t {101});
+    QVERIFY(frameText(*frames.constLast()).contains(QStringLiteral("line-100")));
+    QVERIFY(registry.latestFrame(surface));
+    QCOMPARE(frames.size(), 2);
 }
 
 void TerminalKernelTest::registryConsumesNormativeControlWireWithoutLosingU64Precision()
@@ -4493,7 +4603,7 @@ void TerminalKernelTest::synchronizedOutputShowsOnlyFinishedFrames()
         checkpointFor(QByteArrayLiteral("finished"), 20, 2),
     }));
 
-    const auto begun = kernel.applyData({
+    const auto begun = applyData(kernel, {
         subscription,
         1,
         QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hhalf"),
@@ -4502,17 +4612,17 @@ void TerminalKernelTest::synchronizedOutputShowsOnlyFinishedFrames()
     QVERIFY(frameText(**begun).contains(QStringLiteral("finished")));
     QVERIFY(!frameText(**begun).contains(QStringLiteral("half")));
 
-    const auto during = kernel.applyData({subscription, 2, QByteArrayLiteral(" drawn")});
+    const auto during = applyData(kernel, {subscription, 2, QByteArrayLiteral(" drawn")});
     QVERIFY(during);
     QCOMPARE(*during, *begun);
     QCOMPARE(kernel.nextSequence(), std::optional<std::uint64_t> {3});
 
-    const auto ended = kernel.applyData({subscription, 3, QByteArrayLiteral("\x1b[?2026l")});
+    const auto ended = applyData(kernel, {subscription, 3, QByteArrayLiteral("\x1b[?2026l")});
     QVERIFY(ended);
     QVERIFY(frameText(**ended).contains(QStringLiteral("half drawn")));
     QVERIFY(!frameText(**ended).contains(QStringLiteral("finished")));
 
-    const auto whole = kernel.applyData({
+    const auto whole = applyData(kernel, {
         subscription,
         4,
         QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hone write\x1b[?2026l"),
@@ -4542,7 +4652,7 @@ void TerminalKernelTest::kittyImagesCoverTheHostsCells()
         red += QByteArray::fromHex("ff0000");
     }
 
-    const auto placed = kernel.applyData({
+    const auto placed = applyData(kernel, {
         subscription,
         1,
         "\x1b[2;4H\x1b_Ga=T,f=24,s=4,v=8,i=7,q=2;" + red.toBase64()
@@ -4559,7 +4669,7 @@ void TerminalKernelTest::kittyImagesCoverTheHostsCells()
     QCOMPARE(images[1].pixels.pixelColor(1, 1), QColor(Qt::red));
     QCOMPARE(images[0].pixels.cacheKey(), images[1].pixels.cacheKey());
 
-    const auto scrolled = kernel.applyData({subscription, 2, QByteArrayLiteral("\x1b[4;1H\n\n\n\n")});
+    const auto scrolled = applyData(kernel, {subscription, 2, QByteArrayLiteral("\x1b[4;1H\n\n\n\n")});
     QVERIFY(scrolled);
     QVERIFY((*scrolled)->images.isEmpty());
 }
@@ -4588,7 +4698,7 @@ void TerminalKernelTest::kittyAnimationsPlayTheirFrames()
         return color.toBase64();
     };
 
-    const auto playing = kernel.applyData({
+    const auto playing = applyData(kernel, {
         subscription,
         1,
         "\x1b_Ga=T,f=24,s=4,v=8,i=7,q=2;" + pixels("ff0000") + "\x1b\\"
@@ -4664,7 +4774,7 @@ void TerminalKernelTest::placeholderCellsShowTheirPartOfTheImage()
     const auto cells = [](const char32_t* text) {
         return QString::fromUcs4(text).toUtf8();
     };
-    const auto shown = kernel.applyData({
+    const auto shown = applyData(kernel, {
         subscription,
         1,
         "\x1b_Ga=T,U=1,f=24,s=8,v=8,i=16777223,p=3,c=2,r=1,q=2;" + pixels.toBase64() + "\x1b\\"
@@ -4713,18 +4823,18 @@ void TerminalKernelTest::synchronizedOutputThatNeverEndsShowsAfterOneSecond()
         20,
         checkpointFor(QByteArrayLiteral("finished"), 20, 2),
     }));
-    QVERIFY(kernel.applyData({
+    QVERIFY(applyData(kernel, {
         subscription,
         1,
         QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hstuck"),
     }));
 
     QThread::msleep(1'050);
-    const auto later = kernel.applyData({subscription, 2, QByteArrayLiteral(" later")});
+    const auto later = applyData(kernel, {subscription, 2, QByteArrayLiteral(" later")});
     QVERIFY(later);
     QVERIFY(frameText(**later).contains(QStringLiteral("stuck later")));
 
-    const auto next = kernel.applyData({subscription, 3, QByteArrayLiteral("!")});
+    const auto next = applyData(kernel, {subscription, 3, QByteArrayLiteral("!")});
     QVERIFY(next);
     QVERIFY(frameText(**next).contains(QStringLiteral("stuck later!")));
 }
@@ -4748,7 +4858,7 @@ void TerminalKernelTest::promptJumpsMoveBetweenMarkedPrompts()
     for (int line = 0; line < 20; ++line) {
         plain += "plain-" + QByteArray::number(line) + "\r\n";
     }
-    const auto plainFrame = unmarked.applyData({subscription, 1, plain});
+    const auto plainFrame = applyData(unmarked, {subscription, 1, plain});
     QVERIFY(plainFrame);
     const auto unmoved = unmarked.jumpToPrompt(subscription, -1);
     QVERIFY(unmoved);
@@ -4762,7 +4872,7 @@ void TerminalKernelTest::promptJumpsMoveBetweenMarkedPrompts()
         20,
         checkpointFor(QByteArrayLiteral("start"), 20, 4),
     }));
-    const auto bottom = kernel.applyData({subscription, 1, markedPrompts(6)});
+    const auto bottom = applyData(kernel, {subscription, 1, markedPrompts(6)});
     QVERIFY(bottom);
     QVERIFY(frameText(**bottom).startsWith(QStringLiteral("$ cmd-5")));
 
@@ -4844,7 +4954,7 @@ void TerminalKernelTest::historyCompressesAndKeepsItsText()
     for (int line = 0; line < 3'000; ++line) {
         live += "live-" + QByteArray::number(line).rightJustified(4, '0') + "\r\n";
     }
-    QVERIFY(kernel.applyData({subscription, 1, live}));
+    QVERIFY(applyData(kernel, {subscription, 1, live}));
     const auto beforeIdle = kernel.historyMemory();
     while (kernel.compressHistory()) {
     }
