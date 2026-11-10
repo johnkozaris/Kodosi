@@ -38,9 +38,9 @@ struct RootView: View {
         }
         .animation(theme.motion.soft, value: screen)
         .overlay(alignment: .top) { NoticeBanner() }
-        .overlay {
-            if screen == .main, model.lock.covers(scenePhase) {
-                LockCover()
+        .background {
+            LockWindow(covers: screen == .main && model.lock.covers(scenePhase), locked: model.lock.locked) {
+                LockCover().environment(model).kodosiTheme()
             }
         }
     }

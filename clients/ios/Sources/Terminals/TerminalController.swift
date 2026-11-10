@@ -51,12 +51,14 @@ final class TerminalController {
     private(set) var presses = 0
 
     @ObservationIgnored let store: TerminalStore
+    @ObservationIgnored let lock: AppLock
     @ObservationIgnored private var openTask: Task<Void, Never>?
     @ObservationIgnored private var listed: RuntimeSession?
 
-    init(sessionId: String, store: TerminalStore) {
+    init(sessionId: String, store: TerminalStore, lock: AppLock) {
         self.sessionId = sessionId
         self.store = store
+        self.lock = lock
     }
 
     var session: RuntimeSession? {
@@ -90,11 +92,11 @@ final class TerminalController {
     }
 
     var canType: Bool {
-        presence.focused
+        presence.focused && !lock.locked
     }
 
     var allowsKeyboard: Bool {
-        presence.visible && presence.rendered && presence.canControl
+        presence.visible && presence.rendered && presence.canControl && !lock.locked
     }
 
     var bells: Int {
@@ -144,7 +146,7 @@ final class TerminalController {
             releaseFocus()
             return
         }
-        let focused = presence.focused
+        let focused = canType
         surface.token.setInputAllowed(focused, by: surfaceId)
         guard focused, !focusDeclined, let session else {
             if !focused {
@@ -171,6 +173,13 @@ final class TerminalController {
     func resizeHere() {
         focusTerminal()
         store.live.takeSize(for: sessionId)
+    }
+
+    /// Opens the canvas at what the terminal's agent showed, once for each show, while Kodosi is
+    /// in front and unlocked, and says whether there was something to open.
+    func openShownCanvas() -> Bool {
+        guard presence.active, !lock.locked, let session else { return false }
+        return store.canvas.openShown(session)
     }
 
     func open() {

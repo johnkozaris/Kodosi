@@ -58,11 +58,11 @@ struct TerminalKeyboard {
         hardware = connected
     }
 
-    mutating func terminalFocused(_ focused: Bool) {
-        typing = focused
-        if !focused, !writing {
+    mutating func terminalFocused(_ focused: Bool, allowed: Bool = true) {
+        if typing, !focused, allowed, !writing {
             wanted = false
         }
+        typing = focused
     }
 
     mutating func terminalGone() {

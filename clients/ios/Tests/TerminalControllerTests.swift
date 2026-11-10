@@ -23,7 +23,7 @@ struct TerminalControllerTests {
     }
 
     @Test func `opening announces the view and leaving disconnects it`() async {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         await log.waitFor("session.openRemote")
         #expect(log.fields(of: "session.openRemote").map { $0["sessionId"] as? String } == ["s1"])
@@ -36,7 +36,7 @@ struct TerminalControllerTests {
 
     @Test func `a terminal without access is not opened`() async throws {
         try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "blocked")]])
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         for _ in 0 ..< 20 {
             await Task.yield()
@@ -46,7 +46,7 @@ struct TerminalControllerTests {
     }
 
     @Test func `an open terminal moves to the terminal that its computer started again`() async throws {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         await log.waitFor("session.openRemote")
         try deliver("sessions.snapshot", ["sessions": []])
@@ -64,7 +64,7 @@ struct TerminalControllerTests {
     }
 
     @Test func `a terminal moves only to a restart of itself on the same computer of the same person`() throws {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         try deliver("sessions.snapshot", ["sessions": [
             terminalEntry("elsewhere", state: "working", host: "Air", restoredFrom: "s1"),
@@ -81,7 +81,7 @@ struct TerminalControllerTests {
     }
 
     @Test func `background stops watching and tells the host`() throws {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         try deliver("term.bell", ["sessionId": "s1"])
         #expect(controller.bells == 1)
@@ -138,12 +138,42 @@ struct TerminalControllerTests {
     }
 
     @Test func `a message waits while the terminal cannot take it`() {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals)
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
         controller.draft = "Plan the release\nThen ship it"
         #expect(!controller.send())
         #expect(controller.draft == "Plan the release\nThen ship it")
         #expect(controller.sent == 0)
+        controller.disappear()
+    }
+
+    @Test func `what the agent shows opens the canvas only after Kodosi is unlocked`() async throws {
+        let suite = "TerminalControllerTests.lock"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: AppLock.storageKey)
+        let lock = AppLock(defaults: defaults, canProve: { true }, ask: { .proved })
+        let at = UInt64(Date.now.timeIntervalSince1970 * 1000) + 60000
+        var entry = terminalEntry("s1", state: "working")
+        entry["canvas"] = [
+            "sequence": at,
+            "items": [["key": "/work/report.pdf", "name": "report.pdf", "kind": "pdf", "revision": 1, "bytes": 120, "changed": at]],
+            "open": ["key": "/work/report.pdf", "at": at],
+        ]
+        try deliver("sessions.snapshot", ["sessions": [entry]])
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: lock)
+        controller.appear(active: true)
+        #expect(!controller.openShownCanvas())
+        lock.unlock()
+        for _ in 0 ..< 20 where lock.locked {
+            await Task.yield()
+        }
+        #expect(!lock.locked)
+        controller.setActive(false)
+        #expect(!controller.openShownCanvas())
+        controller.setActive(true)
+        #expect(controller.openShownCanvas())
+        #expect(!controller.openShownCanvas())
         controller.disappear()
     }
 

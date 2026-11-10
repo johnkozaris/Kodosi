@@ -11,7 +11,7 @@ struct TerminalScreen: View {
     let sessionId: String
 
     var body: some View {
-        TerminalScreenContent(store: model.terminals, sessionId: sessionId)
+        TerminalScreenContent(store: model.terminals, lock: model.lock, sessionId: sessionId)
     }
 }
 
@@ -37,12 +37,16 @@ private struct TerminalScreenContent: View {
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
 
-    init(store: TerminalStore, sessionId: String) {
-        _controller = State(initialValue: TerminalController(sessionId: sessionId, store: store))
+    init(store: TerminalStore, lock: AppLock, sessionId: String) {
+        _controller = State(initialValue: TerminalController(sessionId: sessionId, store: store, lock: lock))
     }
 
     private var compact: Bool {
         verticalSizeClass == .compact
+    }
+
+    private var keyboardAllowed: Bool {
+        controller.allowsKeyboard && !canvasOpen
     }
 
     private var input: TerminalInput {
@@ -134,6 +138,7 @@ private struct TerminalScreenContent: View {
         .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
         .onAppear {
             controller.appear(active: scenePhase == .active)
+            openShownCanvas()
             ScreenAwake.terminalShown()
         }
         .onDisappear {
@@ -144,7 +149,11 @@ private struct TerminalScreenContent: View {
             controller.setActive(phase == .active)
             openShownCanvas()
         }
-        .onChange(of: session?.canvas?.open, initial: true) { _, _ in openShownCanvas() }
+        .onChange(of: model.lock.locked) { _, _ in
+            controller.refresh()
+            openShownCanvas()
+        }
+        .onChange(of: session?.canvas?.open) { _, _ in openShownCanvas() }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: composing) { _, focused in
@@ -176,8 +185,9 @@ private struct TerminalScreenContent: View {
 
     /// Opens the canvas at what the terminal's agent showed, once for each show.
     private func openShownCanvas() {
-        guard scenePhase == .active, let session = controller.session, model.terminals.canvas.openShown(session) else { return }
-        canvasOpen = true
+        if controller.openShownCanvas() {
+            canvasOpen = true
+        }
     }
 
     private func openBrowser(of session: RuntimeSession) {
@@ -223,14 +233,14 @@ private struct TerminalScreenContent: View {
                         session: surface.renderer,
                         sessionName: session.name,
                         accessibilityIdentifier: "terminal.surface",
-                        shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType,
-                        allowsFocus: controller.allowsKeyboard && !canvasOpen,
+                        shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType && keyboardAllowed,
+                        allowsFocus: keyboardAllowed,
                         allowsInput: controller.canType,
                         asksBeforeClipboardRead: !session.isOwner,
                         otherComputer: session.otherComputer,
                         isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                         onFocusChange: { focused in
-                            keyboard.terminalFocused(focused)
+                            keyboard.terminalFocused(focused, allowed: keyboardAllowed)
                             if focused {
                                 controller.focusTerminal()
                             }

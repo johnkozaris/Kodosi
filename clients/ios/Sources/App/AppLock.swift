@@ -1,6 +1,7 @@
 import KodosiDesign
 import LocalAuthentication
 import SwiftUI
+import UIKit
 
 /// Kodosi's lock on this device. When the person turns it on, Kodosi asks for Face ID, Touch ID
 /// or the passcode when it opens and after a minute away, and covers what it shows while it is
@@ -159,5 +160,85 @@ struct LockCover: View {
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("lock.cover")
         .onAppear { model.lock.unlock() }
+    }
+}
+
+/// Shows the lock cover in a window of its own, over the sheets, alerts and canvas that Kodosi
+/// presents. While Kodosi is locked, the cover's window takes the keys.
+struct LockWindow<Cover: View>: UIViewRepresentable {
+    let covers: Bool
+    let locked: Bool
+    let cover: () -> Cover
+
+    func makeUIView(context _: Context) -> LockAnchor {
+        LockAnchor()
+    }
+
+    func updateUIView(_ anchor: LockAnchor, context _: Context) {
+        anchor.show(covers ? { UIHostingController(rootView: cover()) } : nil, locked: locked)
+    }
+
+    static func dismantleUIView(_ anchor: LockAnchor, coordinator _: ()) {
+        anchor.show(nil, locked: false)
+    }
+}
+
+final class LockAnchor: UIView {
+    private var cover: (() -> UIViewController)?
+    private var locked = false
+    private(set) var shown: UIWindow?
+
+    init() {
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        accessibilityElementsHidden = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        nil
+    }
+
+    func show(_ cover: (() -> UIViewController)?, locked: Bool) {
+        self.cover = cover
+        self.locked = locked
+        update()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        update()
+    }
+
+    private func update() {
+        guard let cover else {
+            hide()
+            return
+        }
+        guard let main = window, let scene = main.windowScene else { return }
+        let shown = shown ?? {
+            let made = UIWindow(windowScene: scene)
+            made.windowLevel = .alert + 1
+            made.rootViewController = cover()
+            self.shown = made
+            return made
+        }()
+        shown.isHidden = false
+        if locked, !shown.isKeyWindow {
+            main.endEditing(true)
+            shown.makeKey()
+        } else if !locked, shown.isKeyWindow {
+            main.makeKey()
+        }
+    }
+
+    private func hide() {
+        guard let shown else { return }
+        self.shown = nil
+        let key = shown.isKeyWindow
+        shown.isHidden = true
+        if key {
+            window?.makeKey()
+        }
     }
 }
