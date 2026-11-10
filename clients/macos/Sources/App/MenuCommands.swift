@@ -7,7 +7,7 @@ struct KodosiCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .appInfo) {
             Button("Check for Updates…") { dependencies.updater.check() }
-                .disabled(!dependencies.updater.configured)
+                .disabled(!dependencies.updater.started)
         }
         CommandGroup(replacing: .newItem) {
             item("New Terminal", .newTerminal)

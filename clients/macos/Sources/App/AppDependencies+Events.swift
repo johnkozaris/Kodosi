@@ -138,6 +138,7 @@ extension AppDependencies {
     private func receiveSystem(_ event: RuntimeEvent) throws {
         if event.type == "system.updateRequired" {
             updateRequired = true
+            updater.checkInBackground()
             return
         }
         guard event.type == "system.ready" else { return }

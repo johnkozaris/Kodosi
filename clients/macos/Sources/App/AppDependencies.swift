@@ -45,6 +45,7 @@ final class AppDependencies {
     var errorMessage: String?
     let updater = AppUpdater()
     var updateRequired = false
+    var updateNoticeDismissed = false
     var commandLink: String?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {

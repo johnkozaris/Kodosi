@@ -49,7 +49,7 @@ struct GeneralSettingsView: View {
             ListGroup(footer: updatesFooter) {
                 ListRow(String(localized: "Version"), subtitle: version, symbol: "app.badge", tint: TileTint.blue) {
                     Button("Check for Updates…") { updater.check() }
-                        .disabled(!updater.configured)
+                        .disabled(!updater.started)
                         .accessibilityIdentifier("settings.updates.check")
                 }
                 Toggle(isOn: $updater.automatic) {
