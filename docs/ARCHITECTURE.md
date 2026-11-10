@@ -32,19 +32,18 @@ The host saves its terminals in `terminals.json` in its data folder while they c
 again as it stops, with the command that continues the conversation that each agent shows.
 The host looks for that conversation while the agent runs and keeps the last one that it
 found, so the command still names it when the agent stops with the host or the host ends
-without a last look; an agent that ended more than a few seconds earlier does not come back.
-It finds the conversation in the agent's own records: Claude Code's record of each Claude
-process, the lock that Copilot CLI keeps in the folder of a session while a process uses
-it, and the rollout that a Codex process holds open, or else the one live Codex
+without a last look; an agent that ended more than a few seconds earlier does not come
+back. It finds the conversation in the agent's own records: Claude Code's record of each
+Claude process, the lock that Copilot CLI keeps in the folder of a session while a process
+uses it, and the rollout that a Codex process holds open, or else the one live Codex
 conversation of the terminal's folder. The command keeps the account, model, effort,
 permissions and output of the agent's environment and arguments, which Windows does not
-show. When the host finds no
-conversation, the command opens the agent's own list of conversations. A new host keeps
-the saved terminals until an app sends `session.restore`; then it starts each one again
-with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.
-The host also gives `restoredFrom` to the backend, so that views on other devices can
-follow the terminal. A restored terminal joins its project or its people again when the
-account that chose them is signed in.
+show. When the host finds no conversation, the command opens the agent's own list of
+conversations. A new host keeps the saved terminals until an app sends `session.restore`;
+then it starts each one again with a new terminal ID, and the terminal's `restoredFrom`
+names the ID that it replaces. The host also gives `restoredFrom` to the backend, so that
+views on other devices can follow the terminal. A restored terminal joins its project or
+its people again when the account that chose them is signed in.
 
 As it stops, the host also saves the primary screen and history of each terminal that
 comes back. It writes them as VT text to a file in `screens/` in its data folder. The file
@@ -83,11 +82,11 @@ terminal's host saves it in a private folder of the terminal, which goes when th
 ends, and pastes the path of the file as input of the view.
 
 A client asks for the grid of the view that will show a new terminal, so its program
-starts at its final width. The view in focus sets the size of its terminal. When that
-view leaves, the focused view whose size the terminal had before sets it again. Input from a view is a person's;
-input from the `kodosi` command stops with a message while a person types in the
-terminal. When a terminal stops working or starts to wait while no client shows it, the
-host marks it until a client shows it.
+starts at its final width. The view in focus sets the size of its terminal. When that view
+leaves, the focused view whose size the terminal had before sets it again. Input from a
+view is a person's; input from the `kodosi` command stops with a message while a person
+types in the terminal. When a terminal stops working or starts to wait while no client
+shows it, the host marks it until a client shows it.
 
 A terminal starts with its host's environment and Kodosi's terminal variables. A host
 that a client starts gets the user session's environment from Windows or the systemd
@@ -102,9 +101,9 @@ The iPhone, iPad and Android apps give the backend a push token of their device.
 state that a host reports for a terminal turns into waiting, done or failed, and the
 terminal still has that state 15 seconds later, the backend sends a push through Apple's or
 Google's push service to each device of the terminal's owner that gave a token. The first
-state that a host reports after it connects sends none. A push carries only the IDs of the
-terminal and its computer, the agent, the place of the agent's account and the state, so
-Apple and Google see no more, and the app shows the names that it knows.
+state that a host reports after it connects sends none. A push carries only the ID of the
+terminal, its agent and its state, so Apple and Google see no more, and the app shows the
+names that it knows.
 
 A device can call another computer of the same person whose host is connected. The call
 is an end-to-end encrypted channel like a view, but to the host itself. The caller sends
@@ -119,10 +118,10 @@ One ASP.NET Core process serves the API and the WebSockets, holds the live conne
 under a PostgreSQL lease, and stores its records in PostgreSQL. It relays terminal
 traffic without storing it.
 
-Devices encrypt and sign project messages, tasks and repository links. The backend stores the ciphertext, numbers the items and tells members' devices that a project
-changed; each device fetches the newer items. Issue actions run on the participant's
-computer with its own credentials. See [Security](SECURITY.md) and the
-[encryption design](CRYPTOGRAPHY.md).
+Devices encrypt and sign project messages, tasks and repository links. The backend stores
+the ciphertext, numbers the items and tells members' devices that a project changed; each
+device fetches the newer items. Issue actions run on the participant's computer with its
+own credentials. See [Security](SECURITY.md) and the [encryption design](CRYPTOGRAPHY.md).
 
 ## Agents
 
@@ -143,28 +142,28 @@ The host also writes a plugin folder in its `agents` folder at each start, with 
 the note at the start of each session with `kodosi skill context`. Claude Code finds the
 plugin through `CLAUDE_CODE_PLUGIN_DIRS`, and Copilot CLI finds its skills through
 `COPILOT_SKILLS_DIRS` and the note, an instructions file for every path in the `agents`
-folder, through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`, each after the person's own folders. Other agents can
-read a skill with `kodosi skill`. Kodosi writes nothing into an agent's own folders, so an
-agent outside a Kodosi terminal does not change.
+folder, through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`, each after the person's own folders.
+Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
+own folders, so an agent outside a Kodosi terminal does not change.
 
 ## Canvas
 
 The host keeps the canvas of each terminal: the files that an agent showed with
-`kodosi show <file>`, by path, each with a revision: the canvas's stamp when the file came or
-last changed, so a path never gets the same revision twice. Once a second, while the canvas
-has files, it compares their size and change time, and a change gives a new revision. Each
-show also names what it showed, a file or the browser, with the time on the terminal's
-computer, later than the one before. So do, after a minute without one, the agent's
-`kodosi browser <command>`, its `kodosi doc apply` to a file of the canvas, and a new
-revision of a file that is not open as a live document. An app opens its canvas there once
-for each such time after the app started, while the terminal is in front or when it comes to
-the front.
-`kodosi show <address>`, and an HTML page that loads from the network, open in the shared
-browser with agent-browser's `open`. Markdown, text and data files become pages with the
-style of the skill's page template. The list goes with the terminal's state to each client
-and to each device on the terminal's encrypted channel. An app asks for the content of one
-revision with `canvas.request` and gets it in parts of 256 KiB, so a device of another
-computer reads it over the same channel. Each app keeps what it read by revision.
+`kodosi show <file>`, by path, each with a revision: the canvas's stamp when the file came
+or last changed, so a path never gets the same revision twice. Once a second, while the
+canvas has files, it compares their size and change time, and a change gives a new
+revision. Each show also names what it showed, a file or the browser, with the time on the
+terminal's computer, later than the one before. So do, after a minute without one, the
+agent's `kodosi browser <command>`, its `kodosi doc apply` to a file of the canvas, and a
+new revision of a file that is not open as a live document. An app opens its canvas there
+once for each such time after the app started, while the terminal is in front or when it
+comes to the front. `kodosi show <address>`, and an HTML page that loads from the network,
+open in the shared browser with agent-browser's `open`. Markdown, text and data files
+become pages with the style of the skill's page template. The list goes with the
+terminal's state to each client and to each device on the terminal's encrypted channel. An
+app asks for the content of one revision with `canvas.request` and gets it in parts of
+256 KiB, so a device of another computer reads it over the same channel. Each app keeps
+what it read by revision.
 
 A person adds a file with `canvas.request` in parts too. The host writes the parts beside
 the file's place in the terminal's folder, so an agent never sees a part of it, and a new
@@ -198,9 +197,9 @@ with one viewer for each window. It is a separate build with its own workspace a
 [browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
 each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a ready-built CEF:
 Chromium that draws each page off screen, with no window, no icon and no display, and a
-debug port on `127.0.0.1`. The host takes the port's address only from the line that the
-engine prints when the port listens, so a program that holds the port first gets nothing
-from the host. It talks with its host on one local WebSocket, which it opens
+debug port on `127.0.0.1`, or on `::1` when that port is taken. The host takes the port's
+address only from the line that the engine prints when the port listens, so a program that
+holds the port first gets nothing from the host. It talks with its host on one local WebSocket, which it opens
 with a one-time token, and it ends when that link ends. Its tabs cancel the requests that
 EasyList and EasyPrivacy name; each engine build takes the lists of that day. The first
 window, or a person in Settings, gets the engine from a signed feed, one download at a time.
@@ -211,16 +210,16 @@ search.
 
 While a device looks, the engine encodes the window's tab as H.264, with VideoToolbox on
 the Mac and OpenH264 on Linux and Windows, and sends the frames on its link. A viewer's
-pipe carries these frames, and the viewer sends back an ack for each one. One encoder serves all viewers of a
-window, and the host steers its bitrate from the round trip, so no queue forms. A viewer
-that falls behind gets nothing until the next key frame, which comes once the floor of a
-second between key frames passes, also on a still page. A picture that the encoder or the
-link drops makes the page draw again, so a page that stops changing still reaches the viewers
-as it is. The Mac and iPhone apps show frames
-on a display layer. The Linux and Windows app decodes with OpenH264 in the runtime library.
-Clicks, keys and text come back on the pipe, and the host gives them to the page on the
-debug port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as
-state, and the app draws them.
+pipe carries these frames, and the viewer sends back an ack for each one. One encoder
+serves all viewers of a window, and the host steers its bitrate from the round trip, so no
+queue forms. A viewer that falls behind gets nothing until the next key frame, which comes
+once the floor of a second between key frames passes, also on a still page. A picture that
+the encoder or the link drops makes the page draw again, so a page that stops changing
+still reaches the viewers as it is. The Mac and iPhone apps show frames on a display
+layer. The Linux and Windows app decodes with OpenH264 in the runtime library. Clicks,
+keys and text come back on the pipe, and the host gives them to the page on the debug
+port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as state,
+and the app draws them.
 
 A viewer on another device asks on the terminal's channel for a straight connection. The
 host opens a port from 47360 to 47379 for a few seconds, and answers with its addresses.

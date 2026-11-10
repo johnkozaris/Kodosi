@@ -49,20 +49,20 @@ each field carries its length.
   lists the account's friends again, not verified.
 - **Link code.** The link code has 60 bits, stretched with PBKDF2-HMAC-SHA512 (2^20
   rounds), with HMAC-SHA256 proofs of the request, the approval and the identity root.
-- **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound to the account and its root,
-  derives the signing key and ID of a device-list entry that cannot open a device
-  session or view a terminal, and an AES key that seals the entry's project key pair. A
-  recovering device signs its certificate and the next list with it and uses that pair
-  until it has its own keys in every project.
-- **Terminal channels.** A terminal channel is TLS 1.3 from viewer to host through the backend, with ML-DSA-65
-  raw public keys, X25519MLKEM768 and TLS_AES_256_GCM_SHA384. Traffic keys change after
-  2^24 frames or an hour, and resumption makes a new key exchange. The viewer accepts
-  only the host device's approved key. The host admits only verified, non-recovery
-  devices of accounts that may use the terminal, and checks again when sharing or
-  devices change. In a project, it admits only friends of the terminal's owner whose friend
-  record and the project's key state give the same identity. The edits of live documents and
-  the video and input of the shared browser travel in this channel, so the backend sees
-  only their sizes and timing.
+- **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound
+  to the account and its root, derives the signing key and ID of a device-list entry that
+  cannot open a device session or view a terminal, and an AES key that seals the entry's
+  project key pair. A recovering device signs its certificate and the next list with it
+  and uses that pair until it has its own keys in every project.
+- **Terminal channels.** A terminal channel is TLS 1.3 from viewer to host through the
+  backend, with ML-DSA-65 raw public keys, X25519MLKEM768 and TLS_AES_256_GCM_SHA384.
+  Traffic keys change after 2^24 frames or an hour, and resumption makes a new key
+  exchange. The viewer accepts only the host device's approved key. The host admits only
+  verified, non-recovery devices of accounts that may use the terminal, and checks again
+  when sharing or devices change. In a project, it admits only friends of the terminal's
+  owner whose friend record and the project's key state give the same identity. The edits
+  of live documents and the video and input of the shared browser travel in this channel,
+  so the backend sees only their sizes and timing.
 - **Calls.** A device opens the same channel to another computer of its own account to
   list that computer's agents, its folders and the folders of its terminals, and to start
   a terminal there. The caller accepts only that device's approved key; the host admits
@@ -72,10 +72,9 @@ each field carries its length.
   it read. The host takes a project for its terminal only with the signature of an approved
   device of its owner, a sequence newer than the last one that it took, and a project
   history that holds that key state.
-- **Project key states.** The project key states form a hash chain that member devices sign.
-  Only the owner adds members
-  or removes others; a member can leave. Devices remember the newest state they
-  accepted, to detect an older or forked history.
+- **Project key states.** The project key states form a hash chain that member devices
+  sign. Only the owner adds members or removes others; a member can leave. Devices
+  remember the newest state they accepted, to detect an older or forked history.
 - **Project keys.** Each epoch has a random 32-byte project key. The device that makes it
   wraps it for each member device with AES-256-GCM under a key that HKDF derives from a new
   ML-KEM-768 encapsulation and X25519 agreement with that device's signed project
