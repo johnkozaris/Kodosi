@@ -1752,6 +1752,37 @@ private slots:
         QVERIFY(window.isVisible());
         QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowNoState));
     }
+    void theWindowPlaceIsSavedWhenTheWindowRestsClosesOrQuits()
+    {
+        QTemporaryDir dir;
+        const auto saved = [&dir] {
+            return QSettings(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
+                .value(QStringLiteral("window/geometry"))
+                .toRect()
+                .topLeft();
+        };
+        QWindow window;
+        {
+            Fixture f(dir.path());
+            f.desktop.attachWindow(&window);
+            window.show();
+            for (int x = 10; x <= 50; x += 10) {
+                window.setPosition(x, 20);
+                QCoreApplication::processEvents();
+            }
+            QCOMPARE_NE(saved(), QPoint(50, 20));
+            QTRY_COMPARE(saved(), QPoint(50, 20));
+            window.setPosition(60, 20);
+            QCoreApplication::processEvents();
+        }
+        QCOMPARE(saved(), QPoint(60, 20));
+        Fixture f(dir.path());
+        f.desktop.attachWindow(&window);
+        window.setPosition(70, 20);
+        QCoreApplication::processEvents();
+        window.close();
+        QCOMPARE(saved(), QPoint(70, 20));
+    }
     void aRoomThatTheCommandShowsOpensInFront()
     {
         Fixture f;

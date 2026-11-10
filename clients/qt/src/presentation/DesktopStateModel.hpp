@@ -1,11 +1,13 @@
 #pragma once
 #include <QObject>
 #include <QPointer>
+#include <QRect>
 #include <QSettings>
 #include <QHash>
 #include <QSet>
 #include <QSize>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantMap>
 #include <memory>
 #include <optional>
@@ -127,6 +129,10 @@ private:
     std::unique_ptr<QSettings> m_settings;
     QPointer<SessionCatalogModel> m_sessions;
     QPointer<QWindow> m_window;
+    QTimer m_windowSave;
+    QRect m_windowGeometry;
+    bool m_windowMaximized = false;
+    bool m_windowUnsaved = false;
     QHash<QObject*, QMetaObject::Connection> m_modals;
     QString m_selected;
     QStringList m_looked;

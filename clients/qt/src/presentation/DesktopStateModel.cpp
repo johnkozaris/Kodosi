@@ -6,6 +6,7 @@
 #include <QScreen>
 #include <QWindow>
 #include <algorithm>
+#include <utility>
 
 namespace kodosi {
 DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObject* parent)
@@ -16,6 +17,9 @@ DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObjec
     m_dosiOpen = m_settings->value(QStringLiteral("window/dosi"), false).toBool();
     m_listWidth = std::clamp(m_settings->value(QStringLiteral("window/sidebarWidth"), 252.0).toDouble(), 220.0, 380.0);
     m_dosiWidth = std::clamp(m_settings->value(QStringLiteral("window/dosiWidth"), 420.0).toDouble(), 340.0, 640.0);
+    m_windowSave.setSingleShot(true);
+    m_windowSave.setInterval(500);
+    connect(&m_windowSave, &QTimer::timeout, this, &DesktopStateModel::saveWindow);
     connect(this, &DesktopStateModel::selectedSessionIdChanged, this, [this] {
         if (m_selected.isEmpty())
             return;
@@ -567,11 +571,12 @@ void DesktopStateModel::bringToFront(const QString& activationToken)
 }
 void DesktopStateModel::saveWindow()
 {
-    if (!m_window)
+    m_windowSave.stop();
+    if (!std::exchange(m_windowUnsaved, false))
         return;
-    m_settings->setValue(QStringLiteral("window/maximized"), m_window->windowState() == Qt::WindowMaximized);
-    if (m_window->windowState() == Qt::WindowNoState)
-        m_settings->setValue(QStringLiteral("window/geometry"), m_window->geometry());
+    m_settings->setValue(QStringLiteral("window/maximized"), m_windowMaximized);
+    if (m_windowGeometry.isValid())
+        m_settings->setValue(QStringLiteral("window/geometry"), m_windowGeometry);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Kodosi could not save the window preferences.");
@@ -580,10 +585,19 @@ void DesktopStateModel::saveWindow()
 }
 bool DesktopStateModel::eventFilter(QObject* object, QEvent* event)
 {
+    const auto type = event->type();
     if (object == m_window
-        && (event->type() == QEvent::Move || event->type() == QEvent::Resize
-            || event->type() == QEvent::WindowStateChange || event->type() == QEvent::Close))
-        saveWindow();
+        && (type == QEvent::Move || type == QEvent::Resize || type == QEvent::WindowStateChange
+            || type == QEvent::Close)) {
+        m_windowMaximized = m_window->windowState() == Qt::WindowMaximized;
+        if (m_window->windowState() == Qt::WindowNoState)
+            m_windowGeometry = m_window->geometry();
+        m_windowUnsaved = true;
+        if (type == QEvent::Close)
+            saveWindow();
+        else
+            m_windowSave.start();
+    }
     return QObject::eventFilter(object, event);
 }
 }
