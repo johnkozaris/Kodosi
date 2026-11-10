@@ -169,7 +169,7 @@ public sealed class TerminalConnectionTests
         var budget = new RelayBudget(1024 * 1024);
         var first = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "first", budget);
         await using var second = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "second", budget);
-        var frame = new byte[64 * 1024];
+        var frame = new byte[64 * 1024 - DeviceConnection.FrameOverhead];
         var sent = 0;
         while (first.Relay(frame) == Relayed.Sent) sent++;
         Assert.Equal(16, sent);
@@ -177,6 +177,24 @@ public sealed class TerminalConnectionTests
         await first.DisposeAsync();
         Assert.Equal(0, budget.Used);
         Assert.Equal(Relayed.Sent, second.Relay(frame));
+    }
+
+    [Fact]
+    public async Task APersonHoldsOnlyTheirShareOfTheRelayQueuesAndAFrameCountsTheMemoryThatItTakes()
+    {
+        var budget = new RelayBudget(4 * 1024 * 1024, 1024 * 1024);
+        var person = Guid.CreateVersion7();
+        var phone = Connection(new FakeSocket(blockWrites: true), person, "phone", budget);
+        await using var laptop = Connection(new FakeSocket(blockWrites: true), person, "laptop", budget);
+        await using var other = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "other", budget);
+        var allocated = GC.GetAllocatedBytesForCurrentThread();
+        while (phone.Relay(new byte[17]) == Relayed.Sent) { }
+        allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        Assert.InRange(budget.Used, allocated, 1024 * 1024);
+        Assert.Equal(Relayed.Slow, laptop.Relay(new byte[17]));
+        Assert.Equal(Relayed.Sent, other.Relay(new byte[17]));
+        await phone.DisposeAsync();
+        Assert.Equal(Relayed.Sent, laptop.Relay(new byte[17]));
     }
 
     [Fact]
@@ -264,6 +282,35 @@ public sealed class TerminalConnectionTests
         clock.Advance(ConnectionWatchdog.Silence - ConnectionWatchdog.SendLimit); talking.Heard();
         await watchdog.RunAsync(ct);
         Assert.False(quiet.IsOpen); Assert.True(talking.IsOpen);
+    }
+
+    [Fact]
+    public async Task TheWatchdogEndsAConnectionWhoseRelayQueueStaysNearlyFull()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new SteppedClock(); var directory = new ConnectionDirectory(); var reader = new GatedSocket();
+        await using var slow = new DeviceConnection(reader, Guid.CreateVersion7(), "slow", directory.Relays, clock);
+        directory.Register(slow);
+        var watchdog = new ConnectionWatchdog(directory, clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ConnectionWatchdog>.Instance);
+        var frame = new byte[256 * 1024];
+        void Fill()
+        {
+            while (slow.Relay(frame) == Relayed.Sent) { }
+        }
+        async Task<bool> PassAsync(int frames)
+        {
+            await reader.PassAsync(frames);
+            clock.Advance(TimeSpan.FromSeconds(20)); slow.Heard();
+            await watchdog.RunAsync(ct);
+            return slow.IsOpen;
+        }
+
+        Fill();
+        Assert.True(await PassAsync(1));
+        Assert.True(await PassAsync(20));
+        Fill();
+        Assert.True(await PassAsync(1));
+        Assert.False(await PassAsync(1));
     }
 
     [Fact]
@@ -371,6 +418,30 @@ public sealed class TerminalConnectionTests
         public TaskCompletionSource Sending { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
         { Sending.TrySetResult(); return Task.Delay(Timeout.Infinite, ct); }
+    }
+
+    private sealed class GatedSocket : FakeSocket
+    {
+        private readonly SemaphoreSlim started = new(0), gate = new(0);
+        private bool sending;
+
+        public override async Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
+        {
+            started.Release();
+            await gate.WaitAsync(ct);
+        }
+
+        public async Task PassAsync(int frames)
+        {
+            var ct = TestContext.Current.CancellationToken;
+            if (!sending) Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(5), ct));
+            sending = true;
+            for (var passed = 0; passed < frames; passed++)
+            {
+                gate.Release();
+                Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(5), ct));
+            }
+        }
     }
 
     private sealed class ClosingSocket : FakeSocket

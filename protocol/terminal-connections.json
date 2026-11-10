@@ -46,7 +46,7 @@
       "pong": "the answer to ping"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered; call: a device of the same person, to another of its devices that hosts",
-    "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds or that did not take one message in 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
+    "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds, that did not take one message in 30 seconds, or that kept more than 12582912 bytes waiting for 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
     "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view",
     "restart": "when the server stops, it closes each device connection with WebSocket status 1012 (service restart) and drops the messages that wait; the device connects again"
   },
@@ -60,7 +60,7 @@
     "messageMaxBytes": 262160,
     "relay": "the server copies each frame to the other device of the pipe and reads none of the channel data",
     "order": "frames of one pipe keep their order",
-    "backpressure": "the server holds at most 16777216 bytes for one device and 268435456 bytes for all devices together; when a frame does not fit, the server closes that pipe with status 503 (\"The connection is too slow.\" for one device, \"The Kodosi server is busy.\" for all devices) and the device connection stays open",
+    "backpressure": "the server counts each message with 80 bytes more than its length, and holds at most 16777216 bytes for one device, 33554432 bytes for all devices of one person and 268435456 bytes for all devices together; when a frame does not fit, the server closes that pipe with status 503 (\"The connection is too slow.\" for one device or person, \"The Kodosi server is busy.\" for all devices) and the device connection stays open",
     "viewersMax": 64,
     "deviceMax": 256,
     "callsMax": 16,

@@ -25,11 +25,12 @@ internal sealed class ConnectionWatchdog(ConnectionDirectory directory, TimeProv
 {
     internal static readonly TimeSpan Silence = TimeSpan.FromSeconds(90);
     internal static readonly TimeSpan SendLimit = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan BacklogLimit = TimeSpan.FromSeconds(30);
 
     protected internal override Task RunAsync(CancellationToken ct)
     {
         foreach (var connection in directory.Online())
-            if (connection.Silence > Silence || connection.Sending > SendLimit) connection.Abort();
+            if (connection.Silence > Silence || connection.Sending > SendLimit || connection.Backlog > BacklogLimit) connection.Abort();
         return Task.CompletedTask;
     }
 }
