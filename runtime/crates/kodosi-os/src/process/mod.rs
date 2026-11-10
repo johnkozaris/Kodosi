@@ -68,10 +68,6 @@ pub fn end_group(leader: u32, force: bool) {
     imp::end_group(leader, force);
 }
 
-pub fn end_process(pid: u32) {
-    imp::end_process(pid);
-}
-
 pub fn is_running(pid: u32) -> bool {
     pid != 0 && imp::is_running(pid)
 }

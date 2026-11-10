@@ -133,10 +133,12 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                     at_sequence: number(&value, "atSequence")?,
                 }),
                 Some("closed") => Ok(TerminalFrame::Closed {
-                    reason: value
-                        .get("reason")
-                        .and_then(|reason| serde_json::from_value(reason.clone()).ok())
-                        .unwrap_or_else(|| text!("The terminal closed.")),
+                    reason: serde_json::from_value(
+                        value
+                            .get("reason")
+                            .cloned()
+                            .ok_or_else(|| Error::Invalid("invalid terminal close".into()))?,
+                    )?,
                     final_sequence: number(&value, "finalSequence")?,
                 }),
                 Some(kind) if kind.starts_with("term.") => Ok(TerminalFrame::Answer(value)),

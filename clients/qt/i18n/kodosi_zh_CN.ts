@@ -2025,8 +2025,8 @@
         <translation>该链接包含可能改变其显示效果的隐藏字符。</translation>
     </message>
     <message>
-        <source>The web link has no host.</source>
-        <translation>该网页链接缺少主机名。</translation>
+        <source>The web link has no server name.</source>
+        <translation>该网页链接缺少服务器名称。</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -4538,22 +4538,6 @@
     <message>
         <source>Kodosi could not start.</source>
         <translation>Kodosi 无法启动。</translation>
-    </message>
-    <message>
-        <source>An earlier version of Kodosi is still open.</source>
-        <translation>旧版 Kodosi 仍处于打开状态。</translation>
-    </message>
-    <message>
-        <source>Close it to use Kodosi %1. Its terminals keep running until you restart them.</source>
-        <translation>关闭它即可使用 Kodosi %1。它的终端会继续运行，直到你重启它们。</translation>
-    </message>
-    <message>
-        <source>Use Kodosi %1</source>
-        <translation>使用 Kodosi %1</translation>
-    </message>
-    <message>
-        <source>Keep the earlier one</source>
-        <translation>保留旧版</translation>
     </message>
 </context>
 </TS>

@@ -490,51 +490,11 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
         let forwarded = forward_activation(root.path(), &activation, Duration::from_secs(5))
             .await
             .unwrap();
-        let Forwarded::Delivered(running) = forwarded else {
-            panic!("the launch claimed a folder that an app owns");
-        };
-        assert_eq!(running.version.as_deref(), Some(env!("KODOSI_VERSION")));
-        assert_eq!(running.pid, Some(std::process::id()));
+        assert!(matches!(forwarded, Forwarded::Delivered));
         assert_eq!(received.recv().await.unwrap(), delivered);
     }
-    assert_eq!(app_owner(root.path()).await, Some(std::process::id()));
     server.shutdown().await;
     assert!(claim_released(root.path()).await);
-    assert_eq!(app_owner(root.path()).await, None);
-}
-
-#[tokio::test]
-async fn a_launch_learns_that_the_running_app_is_an_earlier_one() {
-    let root = tempfile::tempdir().unwrap();
-    let claim = claim_app(root.path()).unwrap().unwrap();
-    let endpoint =
-        role_endpoint(&kodosi_os::fs::canonicalize(root.path()).unwrap(), "app").unwrap();
-    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint).await.unwrap();
-    let earlier = tokio::spawn(async move {
-        let stream = listener.accept().await.unwrap();
-        let mut reader = FrameReader::new(stream);
-        let request: Value = read_json(&mut reader).await.unwrap();
-        write_json(
-            &mut reader.input,
-            &json!({ "version": 1, "accepted": true }),
-        )
-        .await
-        .unwrap();
-        request
-    });
-    let forwarded = forward_activation(root.path(), &json!({}), Duration::from_secs(5))
-        .await
-        .unwrap();
-    let Forwarded::Delivered(running) = forwarded else {
-        panic!("the launch claimed a folder that an app owns");
-    };
-    assert_eq!(running.version, None);
-    assert_eq!(running.pid, Some(std::process::id()));
-    assert_eq!(
-        earlier.await.unwrap()["activation"]["appVersion"],
-        env!("KODOSI_VERSION")
-    );
-    drop(claim);
 }
 
 #[tokio::test]

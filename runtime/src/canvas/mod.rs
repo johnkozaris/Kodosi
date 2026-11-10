@@ -211,7 +211,6 @@ pub enum CanvasRequest {
         offset: u64,
     },
     Remove {
-        #[serde(default)]
         keys: Vec<String>,
     },
     /// One part of a file that a person adds. The file goes into the folder of the terminal.
@@ -223,7 +222,6 @@ pub enum CanvasRequest {
         last: bool,
         /// A file for a page of the browser goes into the folder of the terminal, of any kind,
         /// and not on the canvas.
-        #[serde(default)]
         page: bool,
     },
     Act {

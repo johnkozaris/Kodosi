@@ -530,7 +530,7 @@ fn state(session: &Value) -> String {
             session["connectionState"].as_str().unwrap_or_default(),
             session["status"].as_str().unwrap_or_default(),
         ) {
-            (_, "offline") => "host offline".to_owned(),
+            (_, "offline") => "computer offline".to_owned(),
             ("connected", "reconnecting") => "reconnecting".to_owned(),
             ("connected", _) => "open".to_owned(),
             ("offline", _) => "not open".to_owned(),
@@ -698,14 +698,14 @@ mod tests {
         assert_eq!(
             status(&context),
             "Signed in as alice.\n\
-             NAME    WHERE          STATE           SHARED WITH     ID\n\
-             work    this computer  running         bob and 1 more  5d05ae\n\
-             build   carol, Studio  working                         000002\n\
-             agent   this computer  needs approval                  000003\n\
-             deploy  Studio         working 40%                     000004\n\
-             shell   this computer  running                         000005\n\
-             away    carol, Studio  host offline                    000006\n\
-             tv      Studio         host offline                    000007"
+             NAME    WHERE          STATE             SHARED WITH     ID\n\
+             work    this computer  running           bob and 1 more  5d05ae\n\
+             build   carol, Studio  working                           000002\n\
+             agent   this computer  needs approval                    000003\n\
+             deploy  Studio         working 40%                       000004\n\
+             shell   this computer  running                           000005\n\
+             away    carol, Studio  computer offline                  000006\n\
+             tv      Studio         computer offline                  000007"
         );
         assert!(
             session(&context.sessions[2], &context)

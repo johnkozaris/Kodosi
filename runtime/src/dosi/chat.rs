@@ -108,7 +108,6 @@ enum Log {
 pub(super) struct Remote {
     turn: String,
     computer: String,
-    since: i64,
     last: i64,
     stopping: Option<Instant>,
 }
@@ -401,7 +400,6 @@ impl Chat {
     pub(super) fn remote_snapshot(&self) -> Option<DosiRemote> {
         self.remote().map(|remote| DosiRemote {
             computer: remote.computer.clone(),
-            since: remote.since,
         })
     }
 
@@ -1166,7 +1164,6 @@ impl Chat {
             Some(remote) => remote.last = remote.last.max(at),
             None => {
                 self.remote = Some(Remote {
-                    since: conversation::time_of(&turn).unwrap_or(at),
                     turn: turn.clone(),
                     computer,
                     last: at,

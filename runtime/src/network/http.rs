@@ -476,7 +476,7 @@ fn backend_refusals() -> Vec<Text> {
         text!("The device challenge expired or was already used."),
         text!("The device connection closed."),
         text!("The friend list changed on another device."),
-        text!("The host is offline."),
+        text!("The terminal's computer is offline."),
         text!("The owner cannot leave the project. Delete it instead."),
         text!("The requested change conflicts with current state."),
         text!("The project has reached its item limit."),

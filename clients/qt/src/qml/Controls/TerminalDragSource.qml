@@ -4,7 +4,6 @@ Item {
     id: root
 
     property string sessionId: ""
-    readonly property bool dragging: handler.active
 
     z: -1
     Drag.dragType: Drag.Automatic

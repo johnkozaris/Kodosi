@@ -71,7 +71,6 @@ public:
     };
     enum Role {
         SessionIdRole = Qt::UserRole + 1,
-        MissionIdRole,
     };
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;

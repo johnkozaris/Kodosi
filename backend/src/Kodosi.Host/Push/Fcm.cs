@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -62,9 +61,7 @@ internal sealed class Fcm(FcmSettings settings, IHttpClientFactory http, TimePro
             json.WriteString("token", token);
             json.WriteStartObject("data");
             json.WriteString("terminal", notice.TerminalId);
-            json.WriteString("computer", notice.ComputerId);
             if (status.Program is { } agent) json.WriteString("agent", agent);
-            if (status.Account is { } account) json.WriteString("account", account.ToString(CultureInfo.InvariantCulture));
             json.WriteString("state", status.State);
             if (status.Kind is { } kind) json.WriteString("kind", kind);
             json.WriteEndObject();

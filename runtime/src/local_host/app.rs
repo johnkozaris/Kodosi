@@ -34,12 +34,6 @@ struct ActivationRequest {
 struct ActivationReply {
     version: u32,
     accepted: bool,
-    #[serde(
-        default,
-        rename = "appVersion",
-        skip_serializing_if = "Option::is_none"
-    )]
-    app_version: Option<String>,
 }
 
 pub async fn serve_activations(
@@ -117,19 +111,13 @@ async fn receive(
         &ActivationReply {
             version: ACTIVATION_VERSION,
             accepted,
-            app_version: Some(env!("KODOSI_VERSION").to_owned()),
         },
     )
     .await
 }
 
-pub struct RunningApp {
-    pub pid: Option<u32>,
-    pub version: Option<String>,
-}
-
 pub enum Forwarded {
-    Delivered(RunningApp),
+    Delivered,
     Claimed(AppClaim),
 }
 
@@ -154,8 +142,8 @@ pub async fn forward_activation(
             return Ok(Forwarded::Claimed(claim));
         }
         match tokio::time::timeout(HELLO_TIMEOUT, send(&endpoint, activation)).await {
-            Ok(Ok(Some(running))) => return Ok(Forwarded::Delivered(running)),
-            Ok(Ok(None)) => {
+            Ok(Ok(true)) => return Ok(Forwarded::Delivered),
+            Ok(Ok(false)) => {
                 return Err(Error::Refused(text!(
                     "Another version of Kodosi is running. Quit it, then open Kodosi again."
                 )));
@@ -172,25 +160,11 @@ pub async fn forward_activation(
     }
 }
 
-pub async fn app_owner(root: &Path) -> Option<u32> {
-    let root = kodosi_os::fs::canonicalize(root).ok()?;
-    let endpoint = role_endpoint(&root, "app").ok()?;
-    tokio::time::timeout(HELLO_TIMEOUT, kodosi_os::ipc::connect(&endpoint))
-        .await
-        .ok()?
-        .ok()?
-        .peer_pid()
-}
-
-async fn send(
-    endpoint: &kodosi_os::ipc::Endpoint,
-    activation: &Value,
-) -> Result<Option<RunningApp>> {
+async fn send(endpoint: &kodosi_os::ipc::Endpoint, activation: &Value) -> Result<bool> {
     let mut stream = kodosi_os::ipc::connect(endpoint)
         .await
         .map_err(local_error)?;
-    let pid = stream.peer_pid();
-    if let Some(pid) = pid {
+    if let Some(pid) = stream.peer_pid() {
         kodosi_os::process::allow_foreground(pid);
     }
     write_json(
@@ -201,8 +175,5 @@ async fn send(
     let mut reader = FrameReader::new(stream);
     reader.maximum = 256;
     let reply: ActivationReply = read_json(&mut reader).await?;
-    Ok(reply.accepted.then_some(RunningApp {
-        pid,
-        version: reply.app_version,
-    }))
+    Ok(reply.accepted)
 }

@@ -15,7 +15,7 @@ public sealed class PushServiceTests
     private static readonly Guid TerminalId = Guid.Parse("0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d");
     private static readonly string AppleToken = new('a', 64);
 
-    private static PushNotice Notice(TerminalStatus status, int blocked = 0) => new(TerminalId, "laptop-device", Guid.CreateVersion7(), status, blocked);
+    private static PushNotice Notice(TerminalStatus status, int blocked = 0) => new(TerminalId, Guid.CreateVersion7(), status, blocked);
 
     private static string Part(string jwt, int index) => Encoding.UTF8.GetString(System.Buffers.Text.Base64Url.DecodeFromChars(jwt.Split('.')[index]));
 
@@ -49,10 +49,10 @@ public sealed class PushServiceTests
         Assert.Equal(TerminalId.ToString(), blocked.Headers["apns-collapse-id"]);
         Assert.Equal((now + 3600).ToString(System.Globalization.CultureInfo.InvariantCulture), blocked.Headers["apns-expiration"]);
         Assert.Equal(
-            """{"aps":{"alert":{"loc-key":"%@ asks for permission","loc-args":["Claude Code"]},"sound":"default","mutable-content":1,"thread-id":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","interruption-level":"time-sensitive","relevance-score":1.0,"category":"kodosi.terminal","badge":2},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","computer":"laptop-device","agent":"claude","account":2,"state":"blocked","kind":"permission"}}""",
+            """{"aps":{"alert":{"loc-key":"%@ asks for permission","loc-args":["Claude Code"]},"sound":"default","mutable-content":1,"thread-id":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","interruption-level":"time-sensitive","relevance-score":1.0,"category":"kodosi.terminal","badge":2},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","agent":"claude","state":"blocked","kind":"permission"}}""",
             blocked.Body);
         Assert.Equal(
-            """{"aps":{"alert":{"loc-key":"A terminal finished"},"sound":"default","mutable-content":1,"thread-id":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","interruption-level":"active","relevance-score":0.5,"category":"kodosi.terminal","badge":0},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","computer":"laptop-device","agent":"aider","account":null,"state":"done","kind":null}}""",
+            """{"aps":{"alert":{"loc-key":"A terminal finished"},"sound":"default","mutable-content":1,"thread-id":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","interruption-level":"active","relevance-score":0.5,"category":"kodosi.terminal","badge":0},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","agent":"aider","state":"done","kind":null}}""",
             done.Body);
 
         var bearer = blocked.Headers["Authorization"];
@@ -110,10 +110,10 @@ public sealed class PushServiceTests
         Assert.Equal("https://fcm.googleapis.com/v1/projects/kodosi-test/messages:send", blocked.Uri.ToString());
         Assert.All(new[] { blocked, done }, sent => Assert.Equal("Bearer google-access", sent.Headers["Authorization"]));
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","computer":"laptop-device","agent":"claude","account":"2","state":"blocked","kind":"permission"},"android":{"priority":"HIGH","collapse_key":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","ttl":"3600s"}}}""",
+            """{"message":{"token":"fcm:token-1","data":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","agent":"claude","state":"blocked","kind":"permission"},"android":{"priority":"HIGH","collapse_key":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","ttl":"3600s"}}}""",
             blocked.Body);
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","computer":"laptop-device","state":"done"},"android":{"priority":"NORMAL","collapse_key":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","ttl":"3600s"}}}""",
+            """{"message":{"token":"fcm:token-1","data":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","state":"done"},"android":{"priority":"NORMAL","collapse_key":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","ttl":"3600s"}}}""",
             done.Body);
 
         clock.Advance(TimeSpan.FromSeconds(3599) - TimeSpan.FromMinutes(5));

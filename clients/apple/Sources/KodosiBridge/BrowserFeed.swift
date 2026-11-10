@@ -234,7 +234,6 @@ private struct BrowserSize: Encodable, Equatable {
 
 /// Makes sample buffers from H.264 in Annex B form.
 struct H264Samples {
-    private static let startCode: [UInt8] = [0, 0, 1]
     private static let sequenceParameters: UInt8 = 7
     private static let pictureParameters: UInt8 = 8
     private static let pictures: Set<UInt8> = [1, 5]

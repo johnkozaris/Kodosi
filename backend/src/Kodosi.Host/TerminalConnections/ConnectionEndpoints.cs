@@ -94,7 +94,7 @@ internal static partial class ConnectionEndpoints
                 WebSocketMessageType.Text, true, ct);
             throw ApiException.Invalid("Unsupported terminal connection protocol.");
         }
-        var hosts = root.TryGetProperty("hosts", out var flag) && flag.GetBoolean();
+        var hosts = root.GetProperty("hosts").GetBoolean();
         return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString(), hosts);
     }
 

@@ -6,7 +6,7 @@ struct TerminalsEmpty: View {
         EmptyState(
             title: "Your terminals run on your computers",
             message: """
-            Start a terminal in Kodosi on your Mac, or ask a friend to share one. \
+            Start a terminal in Kodosi on your computer, or ask a friend to share one. \
             It shows up here, so you can follow its work and answer its agents.
             """,
         ) {

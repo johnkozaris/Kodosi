@@ -2025,8 +2025,8 @@
         <translation>このリンクには、見た目を変えられる隠し文字が含まれています。</translation>
     </message>
     <message>
-        <source>The web link has no host.</source>
-        <translation>この Web リンクにはホストがありません。</translation>
+        <source>The web link has no server name.</source>
+        <translation>この Web リンクにはサーバー名がありません。</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -4538,22 +4538,6 @@
     <message>
         <source>Kodosi could not start.</source>
         <translation>Kodosi を起動できませんでした。</translation>
-    </message>
-    <message>
-        <source>An earlier version of Kodosi is still open.</source>
-        <translation>以前のバージョンの Kodosi がまだ開いています。</translation>
-    </message>
-    <message>
-        <source>Close it to use Kodosi %1. Its terminals keep running until you restart them.</source>
-        <translation>Kodosi %1 を使うには、以前のバージョンを閉じてください。そのターミナルは、再起動するまで動き続けます。</translation>
-    </message>
-    <message>
-        <source>Use Kodosi %1</source>
-        <translation>Kodosi %1 を使う</translation>
-    </message>
-    <message>
-        <source>Keep the earlier one</source>
-        <translation>以前のバージョンを使い続ける</translation>
     </message>
 </context>
 </TS>

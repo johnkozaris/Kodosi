@@ -30,7 +30,7 @@ public struct ClickedLink: Equatable, Sendable {
             case .hiddenCharacters:
                 String(localized: "The link has hidden characters that can change how it looks.", bundle: .module)
             case .noWebHost:
-                String(localized: "The web link has no host.", bundle: .module)
+                String(localized: "The web link has no server name.", bundle: .module)
             case .missingFile:
                 String(localized: "The file or folder is not on this device.", bundle: .module)
             case .program:

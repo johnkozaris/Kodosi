@@ -4,7 +4,6 @@ import Foundation
 /// no terminal and no computer, so the words come from this device.
 nonisolated struct TerminalAlert: Equatable {
     let terminal: String
-    let computer: String?
     let agent: String?
     let state: String
     let kind: String?
@@ -14,7 +13,6 @@ nonisolated struct TerminalAlert: Equatable {
               let state = fields["state"] as? String
         else { return nil }
         self.terminal = terminal
-        computer = fields["computer"] as? String
         agent = fields["agent"] as? String
         self.state = state
         kind = fields["kind"] as? String

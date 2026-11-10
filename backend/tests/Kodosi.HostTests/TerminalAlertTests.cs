@@ -49,7 +49,7 @@ public sealed class TerminalAlertTests
         Report(host, terminal, "blocked", "question");
         clock.Advance(TimeSpan.FromSeconds(1));
         var notice = Assert.Single(alerts.TakeDue());
-        Assert.Equal((terminal.Id, "computer", owner, 2), (notice.TerminalId, notice.ComputerId, notice.OwnerId, notice.Blocked));
+        Assert.Equal((terminal.Id, owner, 2), (notice.TerminalId, notice.OwnerId, notice.Blocked));
         Assert.Equal(new TerminalStatus("claude", "blocked", "question", 1), notice.Status);
         clock.Advance(TerminalAlerts.Delay);
         Assert.Empty(alerts.TakeDue());

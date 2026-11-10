@@ -22,7 +22,7 @@
       "deviceSession",
       "hosts"
     ],
-    "hosts": "true when the device hosts terminals and takes calls from the other devices of its person; a viewer leaves it out",
+    "hosts": "true when the device hosts terminals and takes calls from the other devices of its person, and false for a viewer",
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
     "text": "JSON control messages; maximum 16384 bytes; the server takes 4096 control messages and then 128 each second from one device connection, where host and open count two, and closes a connection that sends more",
@@ -271,10 +271,12 @@
     "actions": [
       "resize",
       "focus",
+      "message",
       "interrupt",
-      "close"
+      "close",
+      "canvas"
     ],
-    "result": "controlResult for each requestId; a refused control closes no channel",
+    "result": "controlResult for each requestId, or controlValue for a canvas request that the host answers; a refused control closes no channel",
     "timeoutSeconds": 12
   },
   "freshness": {

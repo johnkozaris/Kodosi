@@ -28,8 +28,6 @@
 #include "terminal/TerminalView.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
-#include <QMessageBox>
-#include <QPushButton>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -77,24 +75,6 @@ QString startFailure()
     kodosi_start_failure_t failure {};
     return kodosi_last_start_failure(&failure) == 1 ? QString::fromUtf8(failure.message)
                                                     : QCoreApplication::translate("main", "Kodosi could not start.");
-}
-
-bool replacesEarlierApp()
-{
-    const auto version = QStringLiteral(KODOSI_VERSION);
-    QMessageBox box;
-    box.setIcon(QMessageBox::Question);
-    box.setWindowTitle(QStringLiteral("Kodosi"));
-    box.setText(QCoreApplication::translate("main", "An earlier version of Kodosi is still open."));
-    box.setInformativeText(QCoreApplication::translate(
-        "main", "Close it to use Kodosi %1. Its terminals keep running until you restart them.")
-                               .arg(version));
-    QPushButton* replace
-        = box.addButton(QCoreApplication::translate("main", "Use Kodosi %1").arg(version), QMessageBox::AcceptRole);
-    box.addButton(QCoreApplication::translate("main", "Keep the earlier one"), QMessageBox::RejectRole);
-    box.setDefaultButton(replace);
-    box.exec();
-    return box.clickedButton() == static_cast<QAbstractButton*>(replace);
 }
 
 }
@@ -159,15 +139,6 @@ int main(int argc, char* argv[])
         const auto json = launch.toJson();
         role = kodosi_forward_activation(
             reinterpret_cast<const uint8_t*>(json.constData()), static_cast<uintptr_t>(json.size()));
-        if (role == KODOSI_APP_FORWARDED_TO_EARLIER) {
-            if (!replacesEarlierApp())
-                return EXIT_SUCCESS;
-            role = kodosi_replace_earlier_app();
-            if (role != KODOSI_APP_OWNER) {
-                QMessageBox::warning(nullptr, QStringLiteral("Kodosi"), startFailure());
-                return EXIT_FAILURE;
-            }
-        }
         if (role == KODOSI_APP_FORWARDED)
             return EXIT_SUCCESS;
     }

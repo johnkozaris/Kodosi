@@ -1,7 +1,6 @@
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
-import Kodosi.Models 1.0 as Models
 
 KPopover {
     id: root

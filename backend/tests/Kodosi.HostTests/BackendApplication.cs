@@ -131,7 +131,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     {
         var client = Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + actor.Token;
         var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/device"), TestContext.Current.CancellationToken);
-        await SendAsync(socket, new { type = "hello", protocolVersion = ContractVersions.TerminalConnection, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session });
+        await SendAsync(socket, new { type = "hello", protocolVersion = ContractVersions.TerminalConnection, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session, hosts = false });
         Assert.Equal("ready", (await JsonAsync(socket)).GetProperty("type").GetString());
         Assert.Equal("hosts", (await JsonAsync(socket)).GetProperty("type").GetString());
         return socket;
