@@ -874,8 +874,11 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_it_asks() {
         r#"claude --permission-mode auto --settings '{"viewMode":"focus"}'"#
     );
     assert_eq!(
-        line(Agent::Codex, Some(skip), None, None).unwrap().0,
-        "codex --dangerously-bypass-approvals-and-sandbox"
+        line(Agent::Codex, Some(skip), None, Some(Output::Quiet))
+            .unwrap()
+            .0,
+        "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
+         -c model_reasoning_summary=none -c tui.auto_recap=false"
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),

@@ -139,7 +139,14 @@ impl Agent {
             (_, Output::Standard) => Some(&[]),
             (Self::Claude, Output::Quiet) => Some(&["--settings", r#"{"viewMode":"focus"}"#]),
             (Self::Claude, Output::Detailed) => Some(&["--settings", r#"{"viewMode":"verbose"}"#]),
-            (Self::Codex, Output::Quiet) => Some(&["-c", "hide_agent_reasoning=true"]),
+            (Self::Codex, Output::Quiet) => Some(&[
+                "-c",
+                "hide_agent_reasoning=true",
+                "-c",
+                "model_reasoning_summary=none",
+                "-c",
+                "tui.auto_recap=false",
+            ]),
             (Self::Codex, Output::Detailed) => Some(&["-c", "model_reasoning_summary=detailed"]),
             (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
         }
@@ -188,6 +195,7 @@ impl Agent {
                 ("--full-auto", None),
                 ("-c", Some("hide_agent_reasoning=")),
                 ("-c", Some("model_reasoning_summary=")),
+                ("-c", Some("tui.auto_recap=")),
             ],
             Self::Copilot => &[
                 ("--yolo", None),
