@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>%1: ζητά σύνδεση την πρώτη φορά.</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>Ερώτηση</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Αυτόματα</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Λιτή</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Κανονική</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Αναλυτική</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Άδειες</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Έξοδος</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>Άδειες και έξοδος</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>Ρωτά πριν αλλάξει αρχεία ή εκτελέσει εντολές.</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>Δεν ρωτά ποτέ και εκτελεί κάθε εντολή με τα δικαιώματά σας.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>Ένας έλεγχος ασφαλείας εγκρίνει ό,τι είναι ασφαλές και σας ρωτά για τα υπόλοιπα. Ο έλεγχος καταναλώνει tokens.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>Εγκρίνει τις ενέργειές του, εκτός από όσα έχετε απαγορεύσει.</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>Δείχνει λιγότερα από τη δουλειά του.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>Δείχνει τη δουλειά του όπως είναι ρυθμισμένος ο agent.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>Δείχνει αναλυτικά κάθε βήμα της δουλειάς του.</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

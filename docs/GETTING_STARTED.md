@@ -28,6 +28,9 @@ the shell of the new terminal.
   Windows), ⌥⌘ with an arrow selects the one beside it (Ctrl+Alt with an arrow), and ⌘W
   closes the selected terminal. Settings › Shortcuts lists every key and changes it.
 - If an agent is missing, the launcher shows its install command.
+- Agents start unrestricted: they change files and run commands without asking you. For an
+  agent that asks first, choose Ask on the button after the model. There you also choose
+  how much of their work Claude Code and Codex show; they start at Quiet.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -57,9 +60,10 @@ Kodosi, your terminals stop. Kodosi saves what they show on your computer and no
 else. When you open Kodosi again, they start again in their folders, rooms and places on
 the stage, with their earlier screen and history above a new prompt (on Windows, scroll
 up to see it). Claude Code, Codex and Copilot CLI continue their conversations, and on a
-Mac or on Linux they keep the model and effort that you chose. When Kodosi cannot tell
-which conversation an agent showed, the agent lists its conversations so that you can
-continue one. In Settings, you can choose what closing the window does.
+Mac or on Linux they keep the model, effort, permissions and output that you chose.
+When Kodosi cannot tell which conversation an agent showed, the agent lists its
+conversations so that you can continue one. In Settings, you can choose what closing
+the window does.
 
 On a Mac, the programs in your terminals have the permissions that you give Kodosi, as in
 any terminal app. When macOS says that Kodosi was prevented from modifying apps, a program
@@ -206,7 +210,7 @@ does.
 
 | Command | What it does |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model` and `--effort` change it. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model`, `--effort`, `--permissions` and `--output` change it. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |

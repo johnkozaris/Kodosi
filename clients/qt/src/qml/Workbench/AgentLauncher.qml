@@ -40,6 +40,11 @@ ColumnLayout {
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
+    readonly property var outputs: info ? info.outputs || [] : []
+    readonly property string defaultPermissions: info && (info.permissions || []).includes("unrestricted") ? "unrestricted" : "ask"
+    readonly property string defaultOutput: outputs.includes("quiet") ? "quiet" : "standard"
+    readonly property string permissions: plan ? plan.permissions || defaultPermissions : defaultPermissions
+    readonly property string output: plan ? plan.output || defaultOutput : defaultOutput
     readonly property string directory: computer.length > 0 ? Models.DesktopState.launcherRemoteFolders[computer] || (places.recent || [])[0] || ""
         : folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
@@ -128,6 +133,36 @@ ColumnLayout {
                 detail: entry.label.toLowerCase() === entry.id.toLowerCase() ? "" : entry.id })
         return rows
     }
+    function permissionLabel(id) {
+        return id === "unrestricted" ? qsTr("Unrestricted") : id === "auto" ? qsTr("Auto") : qsTr("Ask")
+    }
+    function permissionDetail(id) {
+        if (id === "unrestricted")
+            return qsTr("Never asks, and runs every command as you.")
+        if (id !== "auto")
+            return qsTr("Asks before it changes files or runs commands.")
+        if (agentId === "claude" || agentId === "copilot")
+            return qsTr("A safety check approves what is safe and asks you for the rest. The check uses tokens.")
+        if (agentId === "codex")
+            return qsTr("Works in this folder on its own and asks you for the rest.")
+        if (agentId === "gemini")
+            return qsTr("Edits files on its own and asks before it runs commands.")
+        return qsTr("Accepts its own actions, except what you denied.")
+    }
+    function outputLabel(id) {
+        return id === "quiet" ? qsTr("Quiet") : id === "detailed" ? qsTr("Detailed") : qsTr("Standard")
+    }
+    function outputDetail(id) {
+        return id === "quiet" ? qsTr("Shows less of its work.") : id === "detailed" ? qsTr("Shows each step of its work in full.")
+            : qsTr("Shows its work as the agent is set up.")
+    }
+    function permissionOptions() {
+        return (info ? info.permissions || [] : []).map(id => ({ id: id, label: permissionLabel(id), detail: permissionDetail(id),
+            caution: id === "unrestricted" }))
+    }
+    function outputOptions() {
+        return outputs.map(id => ({ id: id, label: outputLabel(id), detail: outputDetail(id), caution: false }))
+    }
     function effortLevels() {
         return efforts.map(entry => ({ id: entry.id, label: Models.DesktopSettings.effortLabel(entry.id) }))
     }
@@ -169,7 +204,8 @@ ColumnLayout {
                 current: entry.deviceId === computer })))
     }
     function popover(kind) {
-        return kind === "computer" ? computerPopover : kind === "folder" ? folderPopover : kind === "account" ? accountPopover : modelPopover
+        return kind === "computer" ? computerPopover : kind === "folder" ? folderPopover : kind === "account" ? accountPopover
+            : kind === "modes" ? modesPopover : modelPopover
     }
     function toggleMenu(kind) {
         if (menuKind === kind) {
@@ -185,7 +221,7 @@ ColumnLayout {
     function closeMenu() {
         menuKind = ""
         adding = false
-        for (const item of [computerPopover, folderPopover, accountPopover, modelPopover]) {
+        for (const item of [computerPopover, folderPopover, accountPopover, modelPopover, modesPopover]) {
             if (item.visible)
                 item.close()
         }
@@ -230,6 +266,9 @@ ColumnLayout {
             root.launcher.choose("model", info.agent, id === "menu.default" ? "" : id)
         } else if (kind === "effort") {
             root.launcher.choose("effort", info.agent, id)
+        } else if (kind === "permissions" || kind === "output") {
+            root.launcher.choose(kind, info.agent, id)
+            return
         }
         closeMenu()
     }
@@ -749,6 +788,28 @@ ColumnLayout {
                         }
                         onClicked: root.toggleMenu("model")
                     }
+                    PickerKey {
+                        id: modesKey
+
+                        visible: root.info !== null && root.info.installed
+                            && ((root.info.permissions || []).length > 1 || root.outputs.length > 0)
+                        title: [root.permissionLabel(root.permissions)]
+                            .concat(root.output === root.defaultOutput || root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(" · ")
+                        quiet: root.permissions === root.defaultPermissions && root.output === root.defaultOutput
+                        open: root.menuKind === "modes"
+                        objectName: "launcher.modes"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Permissions and output")
+                        glyph: KIcon {
+                            width: 11
+                            height: 11
+                            name: root.permissions === "unrestricted" ? "warning" : root.permissions === "auto" ? "check" : "hand"
+                            filled: true
+                            strokeWidth: 1
+                            color: root.permissions === "unrestricted" ? KodosiTheme.caution : Identity.kindTint(root.agentId)
+                        }
+                        onClicked: root.toggleMenu("modes")
+                    }
                     CommandWord {
                         visible: root.info !== null && !root.info.installed
                         height: 26
@@ -952,6 +1013,44 @@ ColumnLayout {
                     font.pixelSize: KodosiTheme.fontFootnote
                     wrapMode: Text.WordWrap
                 }
+            }
+        }
+    }
+    LauncherDropdown {
+        id: modesPopover
+
+        parent: modesKey
+        onClosed: {
+            if (root.menuKind === "modes")
+                root.closeMenu()
+        }
+        contentItem: Column {
+            width: 300
+
+            ModeRow {
+                width: parent.width
+                title: qsTr("Permissions")
+                options: root.permissionOptions()
+                current: root.permissions
+                objectName: "launcher.permissions"
+                Accessible.id: objectName
+                onPicked: id => root.pick("permissions", id)
+            }
+            Rectangle {
+                visible: root.outputs.length > 0
+                width: parent.width
+                height: 1
+                color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+            }
+            ModeRow {
+                visible: root.outputs.length > 0
+                width: parent.width
+                title: qsTr("Output")
+                options: root.outputOptions()
+                current: root.output
+                objectName: "launcher.output"
+                Accessible.id: objectName
+                onPicked: id => root.pick("output", id)
             }
         }
     }

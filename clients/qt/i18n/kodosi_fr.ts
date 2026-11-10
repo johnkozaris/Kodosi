@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>%1 vous demande de vous connecter la première fois.</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>Demander</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Accès total</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Discrète</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Détaillée</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Autorisations</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Sortie</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>Autorisations et sortie</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>Demande avant de modifier des fichiers ou d&apos;exécuter des commandes.</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>Ne demande jamais et exécute chaque commande avec vos droits.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>Un contrôle de sécurité approuve ce qui est sûr et vous demande pour le reste. Le contrôle consomme des jetons.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>Travaille seul dans ce dossier et vous demande pour le reste.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>Accepte ses propres actions, sauf ce que vous avez refusé.</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>Montre moins de son travail.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>Montre son travail selon la configuration de l&apos;agent.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>Montre chaque étape de son travail en entier.</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

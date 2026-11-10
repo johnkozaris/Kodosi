@@ -143,14 +143,27 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
     auto effortId = saved.value(QStringLiteral("effort")).toString();
     if (listed && std::ranges::find(efforts, effortId, id) == efforts.end())
         effortId.clear();
+    const auto offered = info.value(QStringLiteral("permissions")).toStringList();
+    auto permissions = saved.value(QStringLiteral("permissions")).toString();
+    if (!offered.contains(permissions))
+        permissions = offered.contains(QStringLiteral("unrestricted")) ? QStringLiteral("unrestricted") : QStringLiteral("ask");
+    const auto outputs = info.value(QStringLiteral("outputs")).toStringList();
+    auto output = saved.value(QStringLiteral("output")).toString();
+    if (!outputs.contains(output))
+        output = outputs.contains(QStringLiteral("quiet")) ? QStringLiteral("quiet") : QStringLiteral("standard");
     QVariant start;
     if (info.value(QStringLiteral("installed")).toBool() && account.isValid()) {
-        start = QVariantMap { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },
-            { QStringLiteral("model"), modelId }, { QStringLiteral("effort"), effortId } };
+        QVariantMap starting { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },
+            { QStringLiteral("model"), modelId }, { QStringLiteral("effort"), effortId },
+            { QStringLiteral("permissions"), permissions } };
+        if (!outputs.isEmpty())
+            starting.insert(QStringLiteral("output"), output);
+        start = starting;
     }
     return { { QStringLiteral("account"), account }, { QStringLiteral("modelId"), modelId },
         { QStringLiteral("model"), model == models.end() ? QVariant() : *model },
         { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortId"), effortId },
+        { QStringLiteral("permissions"), permissions }, { QStringLiteral("output"), output },
         { QStringLiteral("start"), start } };
 }
 
@@ -298,15 +311,18 @@ void AgentLauncherModel::chooseAgent(const QString& agent)
 
 void AgentLauncherModel::choose(const QString& kind, const QString& agent, const QString& value)
 {
+    static const QStringList kinds { QStringLiteral("account"), QStringLiteral("model"), QStringLiteral("effort"),
+        QStringLiteral("permissions"), QStringLiteral("output") };
     const auto info = std::ranges::find(m_agents, agent, [](const QVariant& entry) { return field(entry, "agent"); });
-    if (info == m_agents.end()
-        || (kind != QStringLiteral("account") && kind != QStringLiteral("model") && kind != QStringLiteral("effort")))
+    if (info == m_agents.end() || !kinds.contains(kind))
         return;
     const auto shown = plan(info->toMap());
     QJsonObject pick { { QStringLiteral("agent"), agent },
         { QStringLiteral("account"), nullable(field(shown.value(QStringLiteral("account")), "name")) },
         { QStringLiteral("model"), nullable(shown.value(QStringLiteral("modelId")).toString()) },
-        { QStringLiteral("effort"), nullable(shown.value(QStringLiteral("effortId")).toString()) } };
+        { QStringLiteral("effort"), nullable(shown.value(QStringLiteral("effortId")).toString()) },
+        { QStringLiteral("permissions"), shown.value(QStringLiteral("permissions")).toString() },
+        { QStringLiteral("output"), shown.value(QStringLiteral("output")).toString() } };
     pick.insert(kind, nullable(value));
     auto picks = m_choice.value(QStringLiteral("picks")).toList();
     const auto saved = std::ranges::find(picks, agent, [](const QVariant& entry) { return field(entry, "agent"); });

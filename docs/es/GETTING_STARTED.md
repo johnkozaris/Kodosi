@@ -28,6 +28,10 @@ la shell del terminal nuevo.
   Windows), ⌥⌘ con una flecha selecciona el de al lado (Ctrl+Alt con una flecha) y ⌘W cierra
   el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
 - Si falta un agente, el lanzador muestra su comando de instalación.
+- Los agentes empiezan con Acceso total: cambian archivos y ejecutan comandos sin
+  preguntarte. Para que un agente pregunte antes, elige Preguntar en el botón que sigue al
+  modelo. Ahí también eliges cuánto de su trabajo muestran Claude Code y Codex; empiezan en
+  Breve.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -59,9 +63,10 @@ Kodosi. Cuando sales de Kodosi, tus terminales se detienen. Kodosi guarda lo que
 tu ordenador y en ningún otro sitio. Cuando vuelves a abrir Kodosi, se inician de nuevo en sus
 carpetas, salas y posiciones en el escenario, con su pantalla y su historial anteriores sobre
 un prompt nuevo (en Windows, desplázate hacia arriba para verlos). Claude Code, Codex y Copilot
-CLI continúan sus conversaciones, y en un Mac o en Linux mantienen el modelo y el esfuerzo que
-elegiste. Cuando Kodosi no puede saber qué conversación mostraba un agente, el agente muestra
-sus conversaciones para que continúes una. En Ajustes eliges qué hace cerrar la ventana.
+CLI continúan sus conversaciones, y en un Mac o en Linux mantienen el modelo, el esfuerzo, los
+permisos y la salida que elegiste. Cuando Kodosi no puede saber qué conversación mostraba un
+agente, el agente muestra sus conversaciones para que continúes una. En Ajustes eliges qué
+hace cerrar la ventana.
 
 En un Mac, los programas de tus terminales tienen los permisos que le das a Kodosi, como en
 cualquier app de terminal. Cuando macOS dice que impidió que Kodosi modificara apps, un
@@ -211,7 +216,7 @@ El comando `kodosi` trabaja con los mismos terminales que la app, y la app muest
 
 | Comando | Qué hace |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Inicia un agente con tu última elección. `--account`, `--model` y `--effort` la cambian. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Inicia un agente con tu última elección. `--account`, `--model`, `--effort`, `--permissions` y `--output` la cambian. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Inicia un terminal en una rama nueva, en su propio worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Inicia un terminal en otro de tus ordenadores. Una carpeta relativa, o una que empieza por `~`, está en tu directorio personal de allí. `kodosi devices list` muestra qué ordenadores están en línea. |
 | `kodosi agent list` | Muestra los agentes, sus cuentas y tu última elección. |

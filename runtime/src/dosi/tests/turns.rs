@@ -551,6 +551,8 @@ async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
             account: None,
             model: Some("sonnet".to_owned()),
             effort: Some("high".to_owned()),
+            permissions: None,
+            output: None,
         }),
         AgentChoiceChange::Tab {
             agent: Some(Agent::Codex),

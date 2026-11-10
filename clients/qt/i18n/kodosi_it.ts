@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>%1 ti chiede di accedere la prima volta.</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>Chiedi</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Accesso totale</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Essenziale</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Dettagliata</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Autorizzazioni</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Output</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>Autorizzazioni e output</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>Chiede prima di modificare file o eseguire comandi.</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>Non chiede mai ed esegue ogni comando con i tuoi permessi.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>Un controllo di sicurezza approva ciò che è sicuro e ti chiede il resto. Il controllo consuma token.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>Lavora da solo in questa cartella e ti chiede il resto.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>Modifica i file da solo e chiede prima di eseguire comandi.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>Accetta le proprie azioni, tranne ciò che hai negato.</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>Mostra meno del suo lavoro.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>Mostra il suo lavoro come è configurato l&apos;agente.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>Mostra ogni passo del suo lavoro per intero.</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

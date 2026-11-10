@@ -1583,6 +1583,46 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "output": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "quiet"
+                          },
+                          {
+                            "const": "standard"
+                          },
+                          {
+                            "const": "detailed"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "ask"
+                          },
+                          {
+                            "const": "auto"
+                          },
+                          {
+                            "const": "unrestricted"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -1971,6 +2011,46 @@
                     "anyOf": [
                       {
                         "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "output": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "quiet"
+                          },
+                          {
+                            "const": "standard"
+                          },
+                          {
+                            "const": "detailed"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "ask"
+                          },
+                          {
+                            "const": "auto"
+                          },
+                          {
+                            "const": "unrestricted"
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -4819,6 +4899,46 @@
                       }
                     ]
                   },
+                  "output": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "quiet"
+                          },
+                          {
+                            "const": "standard"
+                          },
+                          {
+                            "const": "detailed"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "ask"
+                          },
+                          {
+                            "const": "auto"
+                          },
+                          {
+                            "const": "unrestricted"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "type": {
                     "const": "pick"
                   }
@@ -5465,6 +5585,46 @@
                     "anyOf": [
                       {
                         "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "output": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "quiet"
+                          },
+                          {
+                            "const": "standard"
+                          },
+                          {
+                            "const": "detailed"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "ask"
+                          },
+                          {
+                            "const": "auto"
+                          },
+                          {
+                            "const": "unrestricted"
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -9986,6 +10146,38 @@
                         "installed": {
                           "type": "boolean"
                         },
+                        "outputs": {
+                          "items": {
+                            "oneOf": [
+                              {
+                                "const": "quiet"
+                              },
+                              {
+                                "const": "standard"
+                              },
+                              {
+                                "const": "detailed"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        },
+                        "permissions": {
+                          "items": {
+                            "oneOf": [
+                              {
+                                "const": "ask"
+                              },
+                              {
+                                "const": "auto"
+                              },
+                              {
+                                "const": "unrestricted"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        },
                         "program": {
                           "type": "string"
                         },
@@ -10000,7 +10192,9 @@
                         "accounts",
                         "install",
                         "addsAccounts",
-                        "reportsUsage"
+                        "reportsUsage",
+                        "permissions",
+                        "outputs"
                       ],
                       "type": "object"
                     },
@@ -10093,13 +10287,55 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "output": {
+                              "anyOf": [
+                                {
+                                  "oneOf": [
+                                    {
+                                      "const": "quiet"
+                                    },
+                                    {
+                                      "const": "standard"
+                                    },
+                                    {
+                                      "const": "detailed"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "permissions": {
+                              "anyOf": [
+                                {
+                                  "oneOf": [
+                                    {
+                                      "const": "ask"
+                                    },
+                                    {
+                                      "const": "auto"
+                                    },
+                                    {
+                                      "const": "unrestricted"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "agent",
                             "account",
                             "model",
-                            "effort"
+                            "effort",
+                            "permissions",
+                            "output"
                           ],
                           "type": "object"
                         },
@@ -10257,13 +10493,55 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "output": {
+                              "anyOf": [
+                                {
+                                  "oneOf": [
+                                    {
+                                      "const": "quiet"
+                                    },
+                                    {
+                                      "const": "standard"
+                                    },
+                                    {
+                                      "const": "detailed"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "permissions": {
+                              "anyOf": [
+                                {
+                                  "oneOf": [
+                                    {
+                                      "const": "ask"
+                                    },
+                                    {
+                                      "const": "auto"
+                                    },
+                                    {
+                                      "const": "unrestricted"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "agent",
                             "account",
                             "model",
-                            "effort"
+                            "effort",
+                            "permissions",
+                            "output"
                           ],
                           "type": "object"
                         },
@@ -10679,13 +10957,55 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "output": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "quiet"
+                                },
+                                {
+                                  "const": "standard"
+                                },
+                                {
+                                  "const": "detailed"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "permissions": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "ask"
+                                },
+                                {
+                                  "const": "auto"
+                                },
+                                {
+                                  "const": "unrestricted"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "agent",
                         "account",
                         "model",
-                        "effort"
+                        "effort",
+                        "permissions",
+                        "output"
                       ],
                       "type": "object"
                     },
@@ -11689,13 +12009,55 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "output": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "quiet"
+                                },
+                                {
+                                  "const": "standard"
+                                },
+                                {
+                                  "const": "detailed"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "permissions": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "ask"
+                                },
+                                {
+                                  "const": "auto"
+                                },
+                                {
+                                  "const": "unrestricted"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "agent",
                         "account",
                         "model",
-                        "effort"
+                        "effort",
+                        "permissions",
+                        "output"
                       ],
                       "type": "object"
                     },

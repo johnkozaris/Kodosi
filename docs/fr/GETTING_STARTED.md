@@ -29,6 +29,10 @@ commande dans le shell du nouveau terminal.
   ferme le terminal sélectionné. Réglages › Raccourcis liste chaque touche et permet de la
   changer.
 - S'il manque un agent, le lanceur affiche sa commande d'installation.
+- Les agents démarrent en Accès total. Ils modifient des fichiers et lancent des commandes
+  sans vous demander. Pour qu'un agent demande d'abord, choisissez Demander sur le bouton
+  après le modèle. Vous y choisissez aussi ce que Claude Code et Codex montrent de leur
+  travail ; ils commencent en Discrète.
 - Un nouveau compte a son propre dossier de connexion, par exemple `~/.claude-work`. Kodosi
   trouve aussi les comptes que votre shell configure, comme
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -62,10 +66,10 @@ affichent sur votre ordinateur et nulle part ailleurs. Quand vous rouvrez Kodosi
 redémarrent dans leurs dossiers, leurs salons et leurs places sur la scène, avec leur écran et
 leur historique précédents au-dessus d'un nouveau prompt (sous Windows, faites défiler vers le
 haut pour les voir). Claude Code, Codex et Copilot CLI reprennent leurs conversations et, sur
-un Mac ou sous Linux, gardent le modèle et l'effort que vous avez choisis. Quand Kodosi ne peut
-pas savoir quelle conversation un agent affichait, l'agent affiche ses conversations pour que
-vous en repreniez une. Dans les Réglages, vous choisissez ce que fait la fermeture de la
-fenêtre.
+un Mac ou sous Linux, gardent le modèle, l'effort, les autorisations et la sortie que vous avez
+choisis. Quand Kodosi ne peut pas savoir quelle conversation un agent affichait, l'agent
+affiche ses conversations pour que vous en repreniez une. Dans les Réglages, vous choisissez ce
+que fait la fermeture de la fenêtre.
 
 Sur un Mac, les programmes de vos terminaux ont les autorisations que vous donnez à Kodosi,
 comme dans toute app de terminal. Quand macOS indique avoir empêché Kodosi de modifier des
@@ -220,7 +224,7 @@ La commande `kodosi` agit sur les mêmes terminaux que l'app, et l'app montre ce
 
 | Commande | Ce qu'elle fait |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Lance un agent avec votre dernier choix. `--account`, `--model` et `--effort` le modifient. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Lance un agent avec votre dernier choix. `--account`, `--model`, `--effort`, `--permissions` et `--output` le modifient. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Lance un terminal sur une nouvelle branche, dans son propre worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Lance un terminal sur un autre de vos ordinateurs. Un dossier relatif, ou qui commence par `~`, se trouve dans votre dossier personnel là-bas. `kodosi devices list` montre quels ordinateurs sont en ligne. |
 | `kodosi agent list` | Affiche les agents, leurs comptes et votre dernier choix. |

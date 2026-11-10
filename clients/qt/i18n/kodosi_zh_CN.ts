@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>%1 首次使用时会要求你登录。</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>询问</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>简洁</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>详细</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>权限</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>输出</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>权限和输出</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>在修改文件或运行命令之前询问。</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>从不询问，以你的权限运行每条命令。</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>安全检查会批准安全的操作，其余的会询问你。检查会消耗 token。</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>在此文件夹中自行工作，其余的会询问你。</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>自行编辑文件，运行命令前会询问。</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>接受自己的操作，你拒绝的除外。</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>少显示一些工作过程。</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>按 Agent 的设置显示工作过程。</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>完整显示每一步工作过程。</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

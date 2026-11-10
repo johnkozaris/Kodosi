@@ -17,9 +17,9 @@ provider conversations stay on the computer.
   terminals that you can answer: your own, and others' while you have them open.
 - The + of the Terminals tab, or of one of your computers in it, starts a terminal on one
   of your computers where Kodosi runs: a shell, or one of that computer's agents with its
-  account, model, effort and a first prompt, in a recent folder or a folder that you browse
-  to. Touching and holding one of its folders starts it in that folder. A room's terminals
-  start one in the room. The terminal opens when it starts.
+  account, model, effort, permissions, output and a first prompt, in a recent folder or a
+  folder that you browse to. Touching and holding one of its folders starts it in that
+  folder. A room's terminals start one in the room. The terminal opens when it starts.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
   its cursor when the cursor is above them.

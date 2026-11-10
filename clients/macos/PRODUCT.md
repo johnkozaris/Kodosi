@@ -7,8 +7,9 @@ visual system. The Linux and Windows app follows this app.
 
 - New Terminal (⌘N) opens the launcher, the terminal about to open: a tab for each agent
   after the plain terminal, then one line with the folder, the account, the model with
-  its effort, and the first prompt. With nothing open it is in the middle of the main
-  area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
+  its effort, the permissions with the output, and the first prompt. With nothing open it
+  is in the middle of the main area; otherwise it is a sheet. Return on the Terminal tab
+  opens a plain shell.
 - Quick Terminal is ⌘T, or ⌘D and ⇧⌘D as in Ghostty.
 - When another of your computers runs Kodosi, the launcher's band names the computer.
   Another computer shows its own agents, choices, recent folders and home folders. The

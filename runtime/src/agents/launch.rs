@@ -10,7 +10,8 @@ use std::{
 
 use super::{
     Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo, AgentModel,
-    AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, usage,
+    AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, Output,
+    Permissions, typed, usage,
 };
 
 const FILE: &str = "launcher.json";
@@ -162,7 +163,7 @@ impl Launcher {
         } else {
             None
         };
-        let (line, pick) = plan(info, models.as_ref(), &saved, start)?;
+        let (line, pick) = plan(info, models.as_ref(), &saved, start, &self.shell)?;
         {
             let mut state = self.state();
             state.saved.agent = Some(start.agent);
@@ -220,6 +221,8 @@ impl AgentChoice {
                 account: None,
                 model: None,
                 effort: None,
+                permissions: None,
+                output: None,
             })
     }
 
@@ -254,7 +257,9 @@ impl State {
     }
 
     fn resolved_pick(&self, agent: Agent) -> AgentPick {
-        let saved = self.saved.pick(agent);
+        let mut saved = self.saved.pick(agent);
+        saved.permissions = Some(permissions_of(agent, saved.permissions));
+        saved.output = Some(output_of(agent, saved.output));
         let account = match self
             .catalog
             .as_ref()
@@ -266,7 +271,7 @@ impl State {
                 .and_then(|name| info.accounts.iter().find(|account| &account.name == name))
                 .or_else(|| info.accounts.first())
                 .map(|account| account.name.clone()),
-            None => saved.account,
+            None => saved.account.clone(),
         };
         let Some(models) = self.models.get(&agent) else {
             return AgentPick { account, ..saved };
@@ -284,8 +289,29 @@ impl State {
             account,
             model: model.map(|model| model.id.clone()),
             effort: effort.map(|effort| effort.id.clone()),
+            ..saved
         }
     }
+}
+
+/// The permissions that an agent starts with: the last choice that it has, else unrestricted,
+/// else asking.
+fn permissions_of(agent: Agent, saved: Option<Permissions>) -> Permissions {
+    [saved, Some(Permissions::Unrestricted)]
+        .into_iter()
+        .flatten()
+        .find(|permissions| agent.permission_words(*permissions).is_some())
+        .unwrap_or(Permissions::Ask)
+}
+
+/// The output that an agent starts with: the last choice that it has, else quiet, else its
+/// standard one.
+fn output_of(agent: Agent, saved: Option<Output>) -> Output {
+    [saved, Some(Output::Quiet)]
+        .into_iter()
+        .flatten()
+        .find(|output| agent.output_words(*output).is_some())
+        .unwrap_or(Output::Standard)
 }
 
 fn agent_info(catalog: &AgentCatalog, agent: Agent) -> Option<&AgentInfo> {
@@ -319,6 +345,7 @@ pub(super) fn plan(
     models: Option<&AgentModels>,
     saved: &AgentPick,
     start: &AgentStart,
+    shell: &Path,
 ) -> Result<(String, AgentPick), String> {
     let label = info.agent.label();
     let account = match start.account.as_deref() {
@@ -380,13 +407,15 @@ pub(super) fn plan(
             .as_deref()
             .and_then(|id| efforts(models, model).find(|effort| effort.id == id)),
     };
+    let (permissions, output, words) = modes(info.agent, saved, start)?;
     let line = [
-        Some(account.command.as_str()),
-        model.map(|model| model.argument.as_str()),
-        effort.map(|effort| effort.argument.as_str()),
+        Some(account.command.clone()),
+        model.map(|model| model.argument.clone()),
+        effort.map(|effort| effort.argument.clone()),
     ]
     .into_iter()
     .flatten()
+    .chain(words.map(|word| typed(shell, word)))
     .collect::<Vec<_>>()
     .join(" ");
     Ok((
@@ -396,6 +425,42 @@ pub(super) fn plan(
             account: Some(account.name.clone()),
             model: model.map(|model| model.id.clone()),
             effort: effort.map(|effort| effort.id.clone()),
+            permissions: Some(permissions),
+            output: Some(output),
         },
+    ))
+}
+
+/// The permissions and the output that an agent starts with, and their words.
+fn modes(
+    agent: Agent,
+    saved: &AgentPick,
+    start: &AgentStart,
+) -> Result<(Permissions, Output, impl Iterator<Item = &'static str>), String> {
+    let label = agent.label();
+    let permissions = start
+        .permissions
+        .unwrap_or_else(|| permissions_of(agent, saved.permissions));
+    let permission_words = agent.permission_words(permissions).ok_or_else(|| {
+        format!(
+            "{label} has no permissions {}. Permissions: {}.",
+            permissions.name(),
+            listed(agent.permissions().into_iter().map(Permissions::name))
+        )
+    })?;
+    let output = start
+        .output
+        .unwrap_or_else(|| output_of(agent, saved.output));
+    let output_words = agent.output_words(output).ok_or_else(|| {
+        format!(
+            "{label} has no output {}. Outputs: {}.",
+            output.name(),
+            listed(agent.outputs().into_iter().map(Output::name))
+        )
+    })?;
+    Ok((
+        permissions,
+        output,
+        permission_words.iter().chain(output_words).copied(),
     ))
 }

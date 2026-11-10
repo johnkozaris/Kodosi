@@ -34,6 +34,8 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     install: install(agent).to_owned(),
                     adds_accounts: cfg!(unix) && agent.home().is_some(),
                     reports_usage: usage::reports(agent),
+                    permissions: agent.permissions(),
+                    outputs: agent.outputs(),
                 }
             })
             .collect(),
