@@ -135,9 +135,6 @@ impl Pending {
             self.refuse(state, &request, entry.operation, &json!(late()));
         }
     }
-    fn system_error(&self, state: &State, message: &Value) {
-        state.event(self.scoped(json!({"type":"system.error","message":message})));
-    }
 }
 
 impl Link {
@@ -209,12 +206,11 @@ impl Link {
     ) -> bool {
         let root = self.root.clone();
         let state = Arc::clone(&instance.state);
-        let pending = Arc::clone(&self.pending);
         instance.spawn(async move {
             tokio::select! {
                 biased;
                 () = subscription.cancel.cancelled() => {}
-                () = stream_terminal(&root, &state, &pending, session, &subscription) => {}
+                () = stream_terminal(&root, &state, session, &subscription) => {}
             }
             subscription.retire();
             lock(&subscription.connected).take();
@@ -315,12 +311,7 @@ impl Runner {
                 return;
             }
             pending.fail_all(state, &json!(lost()));
-            pending.system_error(
-                state,
-                &json!(kodosi_runtime::text!(
-                    "The Kodosi host stopped, and its terminals ended. Kodosi starts it again."
-                )),
-            );
+            tracing::warn!("the Kodosi host stopped, so Kodosi starts it again");
         }
     }
 }
@@ -404,7 +395,6 @@ async fn reconnect(
     state: &State,
 ) -> Option<local_host::Client> {
     let mut delay = RECONNECT_FIRST;
-    let mut reported = false;
     loop {
         let attempt = local_host::connect_or_start(root);
         tokio::pin!(attempt);
@@ -418,16 +408,6 @@ async fn reconnect(
             Ok(client) => return Some(client),
             Err(error) => {
                 tracing::warn!(%error, "could not start the Kodosi host again");
-                if !reported {
-                    reported = true;
-                    pending.system_error(
-                        state,
-                        &json!(kodosi_runtime::text!(
-                            "Kodosi could not start its host ({error}).",
-                            error = error.text()
-                        )),
-                    );
-                }
             }
         }
         let pause = tokio::time::sleep(delay);
@@ -448,13 +428,7 @@ fn refuse(command: &Value, pending: &Pending, state: &State) {
     }
 }
 
-async fn stream_terminal(
-    root: &Path,
-    state: &State,
-    pending: &Pending,
-    session: Uuid,
-    token: &SubscriptionState,
-) {
+async fn stream_terminal(root: &Path, state: &State, session: Uuid, token: &SubscriptionState) {
     let mut client = match local_host::TerminalClient::connect(root, session).await {
         Ok(client) => client,
         Err(error) => {
@@ -489,7 +463,7 @@ async fn stream_terminal(
         ..
     } = client;
     let (reason, final_sequence) = tokio::select! {
-        closed = read_frames(&mut reader, state, pending, token, &next, &unacknowledged) => closed,
+        closed = read_frames(&mut reader, state, token, &next, &unacknowledged) => closed,
         () = write_frames(&mut writer, session, token, &mut outgoing) => (kodosi_runtime::text!("The connection to the terminal ended."), next.load(Ordering::Acquire)),
     };
     state.control(
@@ -501,7 +475,6 @@ async fn stream_terminal(
 async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
     reader: &mut local_host::FrameReader<R>,
     state: &State,
-    pending: &Pending,
     token: &SubscriptionState,
     next: &AtomicU64,
     unacknowledged: &Mutex<Unacknowledged>,
@@ -557,13 +530,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                     }
                 }
                 if !accepted && !ended && !shown {
-                    pending.system_error(
-                        state,
-                        &json!(kodosi_runtime::text!(
-                            "The terminal did not confirm the input, and Kodosi did not send it again ({error}).",
-                            error = message.unwrap_or_else(|| Text::plain("the host refused it"))
-                        )),
-                    );
+                    tracing::warn!(?message, "the terminal did not take the input");
                 }
             }
         }
@@ -675,7 +642,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn input_that_reaches_a_terminal_that_is_gone_shows_no_error() {
+    async fn input_that_a_terminal_does_not_take_shows_no_error() {
         let events = Mutex::new(Vec::<Value>::new());
         let state = State {
             callbacks: KodosiCallbacks {
@@ -710,14 +677,12 @@ mod tests {
         read_frames(
             &mut reader,
             &state,
-            &Pending::default(),
             &token,
             &AtomicU64::new(0),
             &Mutex::new(Unacknowledged::default()),
         )
         .await;
         let heard = lock(&events).clone();
-        assert_eq!(heard.len(), 1, "{heard:?}");
-        assert_eq!(heard[0]["type"], "system.error");
+        assert!(heard.is_empty(), "{heard:?}");
     }
 }

@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     identity::{
-        friends::{FriendList, Head, broken},
+        friends::{FriendList, Head},
         keys::DeviceKeys,
     },
     network::{
@@ -190,7 +190,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
 }
 
 #[tokio::test]
-async fn a_friend_list_that_fails_its_check_is_told_and_the_other_changes_still_arrive() {
+async fn a_friend_list_that_fails_its_check_waits_and_the_other_changes_still_arrive() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());
     let (_root, network, user) = signed_in_at(&address).await;
@@ -249,9 +249,8 @@ async fn a_friend_list_that_fails_its_check_is_told_and_the_other_changes_still_
         told.iter()
             .map(|event| event["type"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        ["system.error", "network.sessions"]
+        ["network.sessions"]
     );
-    assert_eq!(told[0]["message"], json!(broken().text()));
 }
 
 #[test]

@@ -970,8 +970,6 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         host: Option<crate::HostKind>,
     },
-    #[serde(rename = "system.error")]
-    SystemError { message: Text },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
     /// Whether the account reaches the server. A short drop, such as when the computer wakes,
@@ -1653,7 +1651,6 @@ impl EventBody {
     pub const fn kind(&self) -> &'static str {
         match self {
             Self::SystemReady { .. } => "system.ready",
-            Self::SystemError { .. } => "system.error",
             Self::SystemUpdateRequired {} => "system.updateRequired",
             Self::Connection { .. } => "connection.state",
             Self::ConnectionResult { .. } => "connection.result",

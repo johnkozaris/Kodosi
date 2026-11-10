@@ -267,7 +267,7 @@ impl Runtime {
                     result: input.await,
                 }
             }),
-            Err(error) => self.emit(json!({"type":"system.error","message":text!("Kodosi did not type the answer in {reference} ({error}).", reference = &reference, error = error.text())})),
+            Err(error) => tracing::warn!(%error, "an answer of Dosi did not reach its terminal"),
         }
     }
 

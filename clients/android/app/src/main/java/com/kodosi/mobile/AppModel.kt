@@ -144,9 +144,7 @@ class AppModel(private val application: Application) {
             terminals.absorb(event)
             if (delivery != CommandSink.Delivery.APP) return
             val message = event.string("message") ?: words.didNotWork
-            if (event.type == "system.error" && !account.state.value.authResolved) {
-                fail(message)
-            } else if (!account.absorb(event, message) && !event.failedRefresh) {
+            if (!account.absorb(event, message) && !event.failedRefresh) {
                 notify(message)
             }
             return

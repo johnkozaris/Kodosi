@@ -241,7 +241,10 @@ fault stay English.
 
 A terminal opened in a project keeps the conversation beside it. Tasks and repositories
 share that workspace. Drafts and reading position survive moving between them. Show
-progress where work happens and give each failure a clear recovery action.
+progress where work happens.
+
+Kodosi handles what it can by itself. It shows a failure only where the person can act on
+it, in plain words and with one way to recover, and keeps the details in the log.
 
 ## The apps
 

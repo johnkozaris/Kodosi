@@ -224,7 +224,9 @@ async fn current_publication(
                 .device(Method::POST, "api/sessions", credentials, Some(body))
                 .await?;
             *publication.dto.write().await = dto.clone();
-            network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":text!("The server no longer had this terminal. Choose friends again.")}));
+            tracing::info!(
+                "the server no longer had a terminal, so it has it again without its sharing"
+            );
             Ok(dto)
         }
         Err(error) => Err(error),

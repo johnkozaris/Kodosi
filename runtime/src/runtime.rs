@@ -1751,7 +1751,6 @@ impl Runtime {
                         Some(Ok(job)) => self.complete(job),
                         Some(Err(error)) => {
                             tracing::error!(%error, "runtime operation failed");
-                            self.emit(json!({"type":"system.error", "message":crate::text::Text::plain(format!("Runtime operation failed: {error}"))}));
                         }
                         None => {},
                     }
@@ -2354,7 +2353,7 @@ impl Runtime {
                         error,
                         Error::Stopped | Error::NotFound | Error::Unsent(_)
                     ) => {}
-                    None => self.emit(json!({"type":"system.error", "message":error.text()})),
+                    None => tracing::warn!(%error, "input did not reach its terminal"),
                 }
             }
         }

@@ -323,7 +323,7 @@ impl BackendClient {
                     again.get_or_insert(error);
                     continue;
                 }
-                Err(error) => self.surface_failed(admitted, waiting, surface, error)?,
+                Err(error) => Self::surface_failed(waiting, surface, error)?,
             }
             waiting.surfaces.remove(surface);
         }
@@ -341,7 +341,7 @@ impl BackendClient {
                 Err(error) if retried(&error) => {
                     again.get_or_insert(error);
                 }
-                Err(error) => self.surface_failed(admitted, waiting, "missions", error)?,
+                Err(error) => Self::surface_failed(waiting, "missions", error)?,
             }
         }
         let rooms = std::mem::take(&mut waiting.rooms);
@@ -368,27 +368,14 @@ impl BackendClient {
 
     /// Takes the failure of one part of a refresh that the server answered. An error that ends
     /// the account's connection ends the refresh; any other failure waits for the next change of
-    /// its part, and a failed trust check reaches the person.
-    fn surface_failed(
-        &self,
-        admitted: &Credentials,
-        waiting: &mut Waiting,
-        surface: &'static str,
-        error: Error,
-    ) -> Result<()> {
+    /// its part.
+    fn surface_failed(waiting: &mut Waiting, surface: &'static str, error: Error) -> Result<()> {
         if ends_connection(&error) {
             return Err(error);
         }
         let reason = error.to_string();
         if waiting.reported.get(surface) != Some(&reason) {
             tracing::warn!(%error, surface, "the refresh waits for the next change");
-            if matches!(error, Error::Trust(_)) {
-                self.emit_for(
-                    admitted.generation,
-                    Some(admitted.user_id.clone()),
-                    json!({"type":"system.error","message":error.text()}),
-                );
-            }
             waiting.reported.insert(surface, reason);
         }
         Ok(())
