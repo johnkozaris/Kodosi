@@ -639,6 +639,22 @@ fn a_paragraph_a_table_and_a_cell_can_be_added() {
 }
 
 #[test]
+fn text_with_characters_that_xml_cannot_hold_saves_a_file_that_opens() {
+    let file = docx_file(THREE);
+    let mut model = read(&file);
+    steps_of(
+        &mut model,
+        vec![Op::InsertParagraph {
+            text: "End of page 1\u{c}Page 2 \u{1b}[1mbold\u{1b}[0m\u{b}".to_owned(),
+            after: None,
+            style: None,
+        }],
+    );
+    let again = read(&saved(&model, &file));
+    assert_eq!(blocks(&again)[3]["text"], "End of page 1Page 2 [1mbold[0m");
+}
+
+#[test]
 fn a_compare_finds_only_what_a_write_changed() {
     let file = docx_file(THREE);
     let base = read(&file);
