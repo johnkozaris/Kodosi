@@ -141,6 +141,16 @@ impl BrowserHost {
         self.download(|_| {}).await
     }
 
+    /// Holds back each download of Kodosi Browser while the guard lives; none when the engine is
+    /// on disk.
+    #[cfg(test)]
+    pub(super) async fn hold_downloads(&self) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+        if on_disk().is_some() {
+            return None;
+        }
+        Some(Arc::clone(&self.installing).lock_owned().await)
+    }
+
     fn tell(&self, part: Option<u8>) {
         *self
             .getting

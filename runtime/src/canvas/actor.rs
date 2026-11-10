@@ -706,7 +706,7 @@ impl Actor {
             if remove {
                 browser.remove().await;
             } else {
-                browser.sleep().await;
+                browser.end().await;
             }
         } else if remove {
             let profile = browser::own_profile(&self.data_root, self.id);

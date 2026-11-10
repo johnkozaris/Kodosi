@@ -4,8 +4,10 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserDoingKind, BrowserPoint, CanvasAnswer, CanvasHandle, CanvasKind,
-    CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES, browser,
+    BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, CanvasAnswer, CanvasHandle,
+    CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
+    browser::{self, Browser, Places, Terminal},
+    engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
     is_address, kind_of, page,
 };
@@ -522,6 +524,41 @@ fn the_browser_keeps_its_session_and_hides_what_an_agent_types() {
     );
     assert_eq!(words(&["fill", "@e3", "secret"]), "fill");
     assert_eq!(words(&["click", "@e2", "--new-tab"]), "click @e2");
+}
+
+#[tokio::test]
+async fn a_browser_ends_at_once_while_kodosi_browser_comes() {
+    let folder = tempfile::tempdir().unwrap();
+    let host = BrowserHost::new(folder.path(), true);
+    let Some(download) = host.hold_downloads().await else {
+        return;
+    };
+    let browser = Browser::start(
+        Terminal {
+            id: uuid::Uuid::now_v7(),
+            folder: tokio::sync::watch::channel(folder.path().to_owned()).1,
+            shared: tokio::sync::watch::channel(false).1,
+            show: Box::new(|_| {}),
+        },
+        Places::of(folder.path()),
+        host,
+        Stamp::default(),
+    );
+    let mut state = browser.state();
+    let waking = tokio::spawn({
+        let browser = std::sync::Arc::clone(&browser);
+        async move { browser.act(BrowserAct::Wake).await }
+    });
+    state
+        .wait_for(|state| state.state == BrowserState::Starting)
+        .await
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), browser.end())
+        .await
+        .expect("the browser ended while Kodosi Browser came");
+    waking.abort();
+    assert!(waking.await.unwrap_err().is_cancelled());
+    drop(download);
 }
 
 #[test]
