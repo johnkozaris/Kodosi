@@ -575,10 +575,6 @@
         <translation>El enlace es demasiado largo para abrirlo con seguridad.</translation>
     </message>
     <message>
-        <source>The link contains malformed text encoding.</source>
-        <translation>El enlace contiene texto mal codificado.</translation>
-    </message>
-    <message>
         <source>The link contains unsafe text.</source>
         <translation>El enlace contiene texto no seguro.</translation>
     </message>

@@ -65,8 +65,10 @@ public:
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void setViewer(const QString& name, bool on);
     Q_INVOKABLE void resetTerminal();
-    Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);
-    Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& text);
+    Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& program);
+    // The agent that a name such as Claude Code or GitHub Copilot names.
+    Q_INVOKABLE [[nodiscard]] static QString agentNamed(const QString& name);
+    Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& agent);
 signals:
     void settingsChanged();
     void settingsErrorChanged();

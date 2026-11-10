@@ -164,7 +164,8 @@ void FreedesktopNotificationDriverTest::pendingPostsRemainBoundedAfterWithdrawal
     QSignalSpy closed(&driver, &kodosi::DesktopNotificationDriver::notificationClosed);
     for (int i = 0; i < 1000; ++i) {
         const auto key = QString::number(i);
-        driver.post({key, QStringLiteral("Terminal"), QStringLiteral("Complete"), {QStringLiteral("session")}});
+        driver.post({key, QStringLiteral("Terminal"), QStringLiteral("Complete"),
+            {QStringLiteral("0198aaaa-0000-7000-8000-000000000001")}});
         driver.withdraw(key);
     }
     QCOMPARE(closed.count(), 968);

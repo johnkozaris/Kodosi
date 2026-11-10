@@ -96,13 +96,14 @@ private slots:
         kodosi::CanvasModel model(commands, sessions);
         const auto id = test::id(1);
         sessions.apply(test::snapshot({ terminal(canvas(4, { item(QStringLiteral("compare.html"), 4) })) }));
-        QVERIFY(!model.hasNews(id));
+        QVERIFY(!model.isNew(id, QStringLiteral("/work/compare.html")));
         sessions.apply(test::snapshot({ terminal(
             canvas(6, { item(QStringLiteral("plan.md"), 6), item(QStringLiteral("compare.html"), 4) })) }));
-        QVERIFY(model.hasNews(id));
+        QVERIFY(model.isNew(id, QStringLiteral("/work/plan.md")));
+        QVERIFY(!model.isNew(id, QStringLiteral("/work/compare.html")));
         QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
         model.saw(id, QStringLiteral("/work/plan.md"));
-        QVERIFY(!model.hasNews(id));
+        QVERIFY(!model.isNew(id, QStringLiteral("/work/plan.md")));
         model.pick(id, QStringLiteral("/work/compare.html"));
         sessions.apply(test::snapshot({ terminal(
             canvas(8, { item(QStringLiteral("plan.md"), 8, 2), item(QStringLiteral("compare.html"), 4) })) }));

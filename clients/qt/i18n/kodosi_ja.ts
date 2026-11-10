@@ -574,10 +574,6 @@
         <translation>リンクが長すぎて安全に開けません。</translation>
     </message>
     <message>
-        <source>The link contains malformed text encoding.</source>
-        <translation>リンクに不正な文字エンコーディングが含まれています。</translation>
-    </message>
-    <message>
         <source>The link contains unsafe text.</source>
         <translation>リンクに安全でない文字列が含まれています。</translation>
     </message>

@@ -574,10 +574,6 @@
         <translation>链接太长，无法安全打开。</translation>
     </message>
     <message>
-        <source>The link contains malformed text encoding.</source>
-        <translation>链接中包含格式错误的文本编码。</translation>
-    </message>
-    <message>
         <source>The link contains unsafe text.</source>
         <translation>链接中包含不安全的文本。</translation>
     </message>

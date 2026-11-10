@@ -20,7 +20,6 @@ constexpr qsizetype maximumWaiting = 16;
 constexpr std::array forwardedErrors {
     DeepLinkParseError::Oversized,
     DeepLinkParseError::UnsupportedRoute,
-    DeepLinkParseError::MalformedEncoding,
     DeepLinkParseError::UnsafeText,
     DeepLinkParseError::InvalidQuery,
 };
@@ -60,9 +59,8 @@ AppActivation AppActivation::fromJson(const QByteArray& json)
                 || character == QLatin1Char('+');
         }))
         activation.appVersion = version;
-    const auto session = object.value(sessionKey).toString();
-    if (DeepLinkRouter::isSafeIdentity(session))
-        activation.route = DeepLinkParseResult { .destination = DeepLinkDestination { session }, .error = {} };
+    if (auto session = DeepLinkRouter::sessionId(object.value(sessionKey).toString()))
+        activation.route = DeepLinkParseResult { .destination = DeepLinkDestination { std::move(*session) }, .error = {} };
     else if (const auto error = routeError(object.value(routeErrorKey)))
         activation.route = DeepLinkParseResult { .destination = std::nullopt, .error = *error };
     return activation;

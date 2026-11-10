@@ -575,10 +575,6 @@
         <translation>Ο σύνδεσμος είναι πολύ μεγάλος για να ανοίξει με ασφάλεια.</translation>
     </message>
     <message>
-        <source>The link contains malformed text encoding.</source>
-        <translation>Ο σύνδεσμος περιέχει κείμενο με λανθασμένη κωδικοποίηση.</translation>
-    </message>
-    <message>
         <source>The link contains unsafe text.</source>
         <translation>Ο σύνδεσμος περιέχει μη ασφαλές κείμενο.</translation>
     </message>

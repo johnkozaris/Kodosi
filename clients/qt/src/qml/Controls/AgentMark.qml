@@ -18,7 +18,7 @@ Item {
     readonly property bool asRoot: session ? session.root === true : false
     readonly property bool measured: working && progress >= 0
     readonly property bool dimmed: asleep && !working
-    readonly property string kind: Models.DesktopSettings.agentOf(program)
+    property string kind: Models.DesktopSettings.agentOf(program)
     readonly property color tint: Identity.accountTint(kind, account)
     readonly property real edge: Math.max(1.5, size * 0.07)
 

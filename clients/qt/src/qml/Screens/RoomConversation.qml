@@ -251,7 +251,7 @@ Item {
                                 Layout.preferredHeight: entry.grouped ? 1 : 28
                                 visible: !entry.own
 
-                                AgentMark { visible: entry.isAgent && !entry.grouped; program: entry.modelData.agent || ""; size: 28 }
+                                AgentMark { visible: entry.isAgent && !entry.grouped; kind: Models.DesktopSettings.agentNamed(entry.modelData.agent || ""); size: 28 }
                                 PersonAvatar { visible: !entry.isAgent && !entry.grouped; name: entry.modelData.authorName; key: entry.modelData.authorId; size: 28 }
                             }
                             Item { visible: entry.own; Layout.fillWidth: true; Layout.minimumWidth: 44 }

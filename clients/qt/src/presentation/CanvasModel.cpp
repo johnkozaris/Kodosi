@@ -321,12 +321,6 @@ bool CanvasModel::isNew(const QString& sessionId, const QString& key) const
     return entry->changed > (marks.contains(key) ? marks.value(key) : m_firstSeen.value(sessionId));
 }
 
-bool CanvasModel::hasNews(const QString& sessionId) const
-{
-    const auto entries = shown(sessionId);
-    return std::ranges::any_of(entries, [&](const Shown& entry) { return isNew(sessionId, entry.key); });
-}
-
 void CanvasModel::saw(const QString& sessionId, const QString& key)
 {
     if (!isNew(sessionId, key))

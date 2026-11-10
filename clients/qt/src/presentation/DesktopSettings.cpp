@@ -87,22 +87,21 @@ void DesktopSettings::setViewer(const QString& name, bool on)
     persist();
     emit settingsChanged();
 }
-QString DesktopSettings::agentOf(const QString& text)
+QString DesktopSettings::agentOf(const QString& program)
 {
-    for (const auto& word : text.split(QChar::Space, Qt::SkipEmptyParts)) {
-        if (word == QStringLiteral("env") || word.contains(QLatin1Char('=')))
-            continue;
-        for (const auto& agent : knownAgents()) {
-            if (word.contains(agent.id, Qt::CaseInsensitive))
-                return agent.id;
-        }
-    }
-    return QStringLiteral("shell");
+    const auto agent = std::ranges::find(knownAgents(), program, &KnownAgent::id);
+    return agent == knownAgents().end() ? QStringLiteral("shell") : agent->id;
 }
-QString DesktopSettings::agentLabel(const QString& text)
+QString DesktopSettings::agentNamed(const QString& name)
 {
-    const auto agent = std::ranges::find(knownAgents(), agentOf(text), &KnownAgent::id);
-    return agent == knownAgents().end() ? tr("Shell") : agent->label;
+    const auto agent = std::ranges::find_if(
+        knownAgents(), [&](const KnownAgent& known) { return name.contains(known.id, Qt::CaseInsensitive); });
+    return agent == knownAgents().end() ? QStringLiteral("shell") : agent->id;
+}
+QString DesktopSettings::agentLabel(const QString& agent)
+{
+    const auto known = std::ranges::find(knownAgents(), agent, &KnownAgent::id);
+    return known == knownAgents().end() ? tr("Shell") : known->label;
 }
 QString DesktopSettings::homeDirectory() const
 {
