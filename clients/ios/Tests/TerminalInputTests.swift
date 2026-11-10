@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 @testable import Kodosi
 import KodosiKit
@@ -19,6 +20,21 @@ struct TerminalInputTests {
         #expect(TerminalInput.reading.showsHeader(compact: true))
         #expect(!TerminalInput.typing.showsHeader(compact: true) && TerminalInput.typing.showsHeader(compact: false))
         #expect(!TerminalInput.composing.showsHeader(compact: true) && TerminalInput.composing.showsHeader(compact: false))
+    }
+
+    @Test func `the key row shows each key at once, as wide as the keys of a keyboard`() throws {
+        let keys = TerminalKey.groups.map(\.count)
+        for (screen, compact, actions) in [(375.0, false, 2), (393.0, false, 2), (667.0, true, 3), (1024.0, false, 2)] {
+            let width = screen - 2 * TerminalControls.margin(compact: compact)
+            let frames = TerminalKeyRow.frames(groups: keys + [actions], width: width, height: 42)
+            let gaps = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
+            #expect(frames.count == keys.reduce(actions, +))
+            #expect(Set(frames.map(\.width)).count == 1)
+            #expect(try (31 ... TerminalKeyRow.widestKey).contains(#require(frames.first).width))
+            #expect(try abs(#require(frames.last).maxX - width) < 0.01)
+            #expect(gaps.allSatisfy { $0 > TerminalKeyRow.gap - 0.01 })
+            #expect(gaps.count { $0 > TerminalKeyRow.gap + 0.01 } == 2)
+        }
     }
 
     @Test func `the terminal keeps the keyboard until it loses focus`() {

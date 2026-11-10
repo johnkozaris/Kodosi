@@ -70,6 +70,21 @@ struct NewTerminalTests {
         #expect(defaults.string(forKey: NewTerminal.lastComputerKey) == nil)
     }
 
+    @Test func `the plus of a folder starts the terminal in that folder of its computer`() async throws {
+        let studio = model.launcher(for: "studio")
+        let draft = NewTerminal(request: NewTerminalRequest(computer: "studio", folder: "/home/maya/atlas"), online: ["mini", "studio"],
+                                defaults: defaults)
+        #expect(draft.computer == "studio")
+        #expect(draft.folder(in: studio) == "/home/maya/atlas")
+        #expect(draft.folder(in: model.launcher(for: "mini")) == nil)
+        let starting = Task { await draft.start(in: studio, on: model.terminals) }
+        let create = try await request("session.create")
+        #expect(create["computer"] as? String == "studio")
+        #expect(create["workingDir"] as? String == "/home/maya/atlas")
+        try deliver("session.result", ["requestId": create["requestId"] ?? "", "operation": "session.create", "sessionId": "s1"])
+        #expect(await starting.value == "s1")
+    }
+
     @Test func `the folders of another computer come from that computer`() async throws {
         let browser = FolderBrowser(launcher: model.launcher(for: "studio"))
         let opening = Task { await browser.open("/home/maya") }

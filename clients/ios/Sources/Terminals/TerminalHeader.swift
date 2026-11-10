@@ -127,7 +127,7 @@ struct TerminalMenu: View {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.colors.accentStrong)
-                    .modifier(TerminalCapFace(highlighted: false))
+                    .modifier(TerminalCapFace(highlighted: false, fills: true))
             } else {
                 ActionsKey(lit: false).touchTarget()
             }

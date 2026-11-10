@@ -3,19 +3,21 @@ import KodosiDesign
 import SwiftUI
 
 /// A terminal in a list: its card, with the people who have it open, and what it needs or that it
-/// is in trouble.
+/// is in trouble. Without `showsFolder`, for a list in folders, its line names its agent rather
+/// than its folder.
 struct TerminalListCard: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     let sign: StatusSign.Form?
     let viewers: [AvatarStack.Person]
     var showsOwner = true
+    var showsFolder = true
     var badged = true
     let open: () -> Void
 
     var body: some View {
         TerminalCard(session: session, rested: session.canOpen ? .awake : .asleep, badged: badged, muted: !session.canOpen, open: open) {
-            TerminalCaption(session: session, fallback: session.folderName ?? session.agent.label)
+            TerminalCaption(session: session, fallback: (showsFolder ? session.folderName : nil) ?? session.agent.label)
         } accessory: {
             HStack(spacing: 8) {
                 if !viewers.isEmpty {

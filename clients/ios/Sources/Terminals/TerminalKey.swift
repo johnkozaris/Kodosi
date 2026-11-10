@@ -1,21 +1,22 @@
 import SwiftUI
 import UIKit
 
-enum TerminalKey: String, CaseIterable, Identifiable {
+enum TerminalKey: String, Identifiable {
     case escape
     case tab
     case backtab
+    case interrupt
     case left
     case up
     case down
     case right
-    case interrupt
     case one
     case two
     case three
-    case enter
 
-    static let answers: Set<TerminalKey> = [.one, .two, .three]
+    /// The keys that a phone's keyboard lacks, in the groups of the key row.
+    static let groups: [[TerminalKey]] = [[.escape, .tab, .backtab, .interrupt], [.left, .up, .down, .right]]
+    static let answers: [TerminalKey] = [.one, .two, .three]
 
     var id: String {
         rawValue
@@ -33,7 +34,6 @@ enum TerminalKey: String, CaseIterable, Identifiable {
         case .one: .keyboard1
         case .two: .keyboard2
         case .three: .keyboard3
-        case .enter: .keyboardReturnOrEnter
         }
     }
 
@@ -54,7 +54,7 @@ enum TerminalKey: String, CaseIterable, Identifiable {
         case .one: "1"
         case .two: "2"
         case .three: "3"
-        case .left, .up, .down, .right, .enter: nil
+        case .left, .up, .down, .right: nil
         }
     }
 
@@ -64,7 +64,6 @@ enum TerminalKey: String, CaseIterable, Identifiable {
         case .up: "arrow.up"
         case .down: "arrow.down"
         case .right: "arrow.right"
-        case .enter: "return"
         default: nil
         }
     }
@@ -82,7 +81,6 @@ enum TerminalKey: String, CaseIterable, Identifiable {
         case .one: "Answer 1"
         case .two: "Answer 2"
         case .three: "Answer 3"
-        case .enter: "Return"
         }
     }
 }

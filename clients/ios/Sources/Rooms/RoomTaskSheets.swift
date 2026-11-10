@@ -118,7 +118,6 @@ struct RoomTaskSheet: View {
         return VStack(alignment: .leading, spacing: 12) {
             TextField("Result or pull request link", text: note, axis: .vertical)
                 .lineLimit(1 ... 4)
-                .textFieldStyle(WellTextFieldStyle(radius: Radius.lg))
                 .accessibilityIdentifier("rooms.task.note")
             HStack(spacing: 8) {
                 if task.closed {
@@ -199,7 +198,7 @@ struct RoomTaskComposer: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        HStack(spacing: 10) {
                             Image(systemName: "plus").font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(focused ? theme.colors.accentStrong : theme.colors.inkFaint)
                             TextField("Add a task", text: $title, axis: .vertical)

@@ -2,10 +2,12 @@ import Foundation
 import KodosiBridge
 import Observation
 
-/// A new terminal to start from this device: on a computer of the list, or in a room.
+/// A new terminal to start from this device: on a computer of the list, in one of its folders,
+/// or in a room.
 struct NewTerminalRequest: Identifiable {
     let id = UUID()
     var computer: String?
+    var folder: String?
     var roomId: String?
 }
 
@@ -26,6 +28,9 @@ final class NewTerminal {
         roomId = request.roomId
         self.defaults = defaults
         computer = Self.computer(section: request.computer, last: defaults.string(forKey: Self.lastComputerKey), online: online)
+        if let section = request.computer, let folder = request.folder {
+            folders[section] = folder
+        }
     }
 
     /// The computer of the list's section, else the one that started a terminal last, else the

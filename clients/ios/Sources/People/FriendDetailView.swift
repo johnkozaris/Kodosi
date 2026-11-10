@@ -255,7 +255,6 @@ private struct VerifyForm: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 TextField("Paste the invite \(friend.personName) sent you", text: $invite)
-                    .textFieldStyle(WellTextFieldStyle(radius: Radius.lg))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)

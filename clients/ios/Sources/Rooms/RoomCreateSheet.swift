@@ -26,7 +26,6 @@ struct RoomCreateSheet: View {
                         RoomSigil(key: name.isEmpty ? "new" : name, size: 68)
                             .animation(theme.motion.spring, value: name)
                         TextField("Launch week", text: $name)
-                            .textFieldStyle(WellTextFieldStyle(radius: Radius.lg))
                             .focused($focused)
                             .submitLabel(.done)
                             .onSubmit(create)

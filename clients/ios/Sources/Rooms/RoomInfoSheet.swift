@@ -10,7 +10,6 @@ struct RoomInfoSheet: View {
     let left: () -> Void
     @State private var invited: Set<String> = []
     @State private var renaming = false
-    @State private var newName = ""
     @State private var confirmingEnd = false
     @State private var removing: MissionMemberEntry?
     @State private var busy = false
@@ -55,10 +54,7 @@ struct RoomInfoSheet: View {
                     }
                     ListGroup {
                         if owner {
-                            Button {
-                                newName = name
-                                renaming = true
-                            } label: {
+                            Button { renaming = true } label: {
                                 ListRow(String(localized: "Rename"), symbol: "pencil", tint: TileTint.graphite)
                             }
                             .buttonStyle(ListRowButtonStyle())
@@ -87,12 +83,10 @@ struct RoomInfoSheet: View {
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
-            .alert("Rename room", isPresented: $renaming) {
-                TextField("Room name", text: $newName)
-                    .accessibilityIdentifier("rooms.rename.name")
-                Button("Cancel", role: .cancel) {}
-                Button("Rename") { perform { try await rooms.rename(roomId, to: newName) } }
-                    .disabled(!ProductInput.validName(newName))
+            .sheet(isPresented: $renaming) {
+                RenameSheet(title: "Rename room", field: "Room name", name: name, identifier: "rooms.rename") { newName in
+                    perform { try await rooms.rename(roomId, to: newName) }
+                }
             }
             .confirmationDialog(
                 owner ? String(localized: "Delete \(name)?") : String(localized: "Leave \(name)?"),
