@@ -191,7 +191,7 @@
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
-        <translation>Demande avant de modifier des fichiers ou d'exécuter des commandes.</translation>
+        <translation>Demande avant de modifier des fichiers ou d&apos;exécuter des commandes.</translation>
     </message>
     <message>
         <source>Never asks, and runs every command as you.</source>
@@ -207,7 +207,7 @@
     </message>
     <message>
         <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Modifie les fichiers seul et demande avant d'exécuter des commandes.</translation>
+        <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -219,7 +219,7 @@
     </message>
     <message>
         <source>Shows its work as the agent is set up.</source>
-        <translation>Montre son travail selon la configuration de l'agent.</translation>
+        <translation>Montre son travail selon la configuration de l&apos;agent.</translation>
     </message>
     <message>
         <source>Shows each step of its work in full.</source>

@@ -219,7 +219,7 @@
     </message>
     <message>
         <source>Shows its work as the agent is set up.</source>
-        <translation>Mostra il suo lavoro come è configurato l'agente.</translation>
+        <translation>Mostra il suo lavoro come è configurato l&apos;agente.</translation>
     </message>
     <message>
         <source>Shows each step of its work in full.</source>
