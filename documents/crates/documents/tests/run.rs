@@ -5,8 +5,8 @@ use std::{
 };
 
 use document::{
-    Answer, Assets, CONTRACT, ClosedReason, Format, Frame, Guide, Ordered, Refused, Snapshot,
-    ToClient, ToDocument, Unreadable, Unwritable, Viewer, contract,
+    Answer, Assets, CONTRACT, Catchup, ClosedReason, Format, Frame, Guide, Ordered, Refused,
+    Snapshot, ToClient, ToDocument, Unreadable, Unwritable, Viewer, contract,
 };
 use documents::{Documents, Formats, OpenError, Pipe, format};
 use serde_json::{Value, json};
@@ -271,6 +271,41 @@ async fn a_write_of_another_program_merges_in() {
     std::fs::write(&rig.file, r#"{"b1":"from script"}"#).unwrap();
     match message(&mut ana).await {
         ToClient::Changed(changed) => assert_eq!(changed.author, "Another program"),
+        other => panic!("{other:?}"),
+    }
+    rig.documents.close().await;
+    assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("from ana"));
+    assert_eq!(file_value(&rig.file, "b1").as_deref(), Some("from script"));
+}
+
+#[tokio::test]
+async fn a_file_made_again_after_its_removal_opens_with_the_edits_that_waited() {
+    let rig = rig();
+    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
+    change(&ana, 1, 0, "a1", "from ana").await;
+    assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
+    std::fs::remove_file(&rig.file).unwrap();
+    assert!(matches!(
+        message(&mut ana).await,
+        ToClient::Closed {
+            reason: ClosedReason::Removed
+        }
+    ));
+    while ana.receive().await.is_some() {}
+    std::fs::write(&rig.file, r#"{"b1":"from script"}"#).unwrap();
+    let mut ben = rig.documents.open(&rig.file, viewer("ben")).await.unwrap();
+    let join = ToDocument::Join {
+        contract: CONTRACT,
+        client: "ben".to_owned(),
+        epoch: 0,
+        rev: 0,
+    };
+    ben.send(contract::encode_message(&join)).await.unwrap();
+    match message(&mut ben).await {
+        ToClient::Joined {
+            catchup: Catchup::Snapshot { snapshot },
+            ..
+        } => assert_eq!(snapshot, json!({ "a1": "from ana", "b1": "from script" })),
         other => panic!("{other:?}"),
     }
     rig.documents.close().await;

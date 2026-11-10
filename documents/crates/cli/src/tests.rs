@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 
+use document::{Frame, ToClient};
 use documents::{Documents, Viewer};
 use serde_json::{Value, json};
 
 use crate::{
     Agents, ApplyArguments, Command, Failed, FileArguments, GuideArguments, NewArguments,
-    ReadArguments, formats,
+    ReadArguments, SEAT_KEPT, formats,
 };
 
 struct Rig {
@@ -306,6 +307,50 @@ async fn the_guide_prints_ops_with_their_fields() {
             .contains(r#"{"op": "setCell", "sheet": …, "cell": …}"#)
     );
     assert!(!one.as_str().unwrap().contains("insertRows"));
+}
+
+#[tokio::test]
+async fn an_agent_that_stops_leaves_the_document_by_itself() {
+    let rig = rig();
+    let file = rig.path("notes.txt");
+    std::fs::write(&file, "one\n").unwrap();
+    rig.read(&file).await;
+    let mut person = rig
+        .documents
+        .open(
+            &file,
+            Viewer {
+                id: "ana".to_owned(),
+                name: "Ana".to_owned(),
+                can_edit: true,
+            },
+        )
+        .await
+        .unwrap();
+    let join = document::ToDocument::Join {
+        contract: document::CONTRACT,
+        client: "ana".to_owned(),
+        epoch: 0,
+        rev: 0,
+    };
+    person
+        .send(document::contract::encode_message(&join))
+        .await
+        .unwrap();
+    let mut agent = None;
+    tokio::time::pause();
+    let left = tokio::time::timeout(SEAT_KEPT * 2, async {
+        loop {
+            let frame = person.receive().await.unwrap();
+            match document::contract::decode(&frame).unwrap() {
+                Frame::Message(ToClient::Joined { peers, .. }) => agent = Some(peers[0].id.clone()),
+                Frame::Message(ToClient::Left { id }) => return id,
+                _ => {}
+            }
+        }
+    })
+    .await;
+    assert_eq!(left.ok(), agent);
 }
 
 #[tokio::test]

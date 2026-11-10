@@ -7,12 +7,13 @@ import {
   opensLink,
   type Person,
   type Pictures,
+  type Sent,
   Status,
   settled,
   type Editor as ViewEditor,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
-import { peersPlugin, showPeers } from "@documents/peers";
+import { peersPlugin, showPeers, Waiting } from "@documents/peers";
 import { Editor, Extension } from "@tiptap/core";
 import { history, redo, undo } from "@tiptap/pm/history";
 import { keymap } from "@tiptap/pm/keymap";
@@ -89,6 +90,7 @@ class DocxEditor implements ViewEditor, Pictures {
   private readonly zoom: Zoom;
   private readonly look = document.createElement("style");
   private readonly clientKey = crypto.randomUUID();
+  private readonly waiting = new Waiting();
   private readonly choosing: MutationObserver;
   private sizing: ResizeObserver | undefined;
   private scale = 1;
@@ -152,8 +154,9 @@ class DocxEditor implements ViewEditor, Pictures {
     };
   }
 
-  load(raw: unknown, person: Person): void {
+  load(raw: unknown, person: Person, sent: Sent): void {
     const snapshot = raw as Snapshot;
+    const before = this.editor?.state;
     this.editor?.destroy();
     this.view = snapshot.view;
     this.look.textContent = styleSheet(snapshot.view);
@@ -203,6 +206,13 @@ class DocxEditor implements ViewEditor, Pictures {
     this.sizing = new ResizeObserver(() => this.sizeSheet());
     this.sizing.observe(this.editor.view.dom);
     this.zoom.refit();
+    const carried = this.waiting.loaded(this.editor.state.doc, before, sent);
+    if (carried.steps.length > 0) {
+      const transaction = this.editor.state.tr.setMeta("addToHistory", false);
+      for (const step of carried.steps) transaction.maybeStep(step);
+      this.editor.view.dispatch(transaction);
+    }
+    if (carried.lost !== undefined) this.status.kept(carried.lost);
   }
 
   /**
@@ -287,6 +297,7 @@ class DocxEditor implements ViewEditor, Pictures {
     const state = this.editor?.state;
     const sendable = state && sendableSteps(state);
     if (!sendable) return null;
+    this.waiting.sending(sendable.steps.length);
     return { kind: "steps", steps: sendable.steps.map((step) => step.toJSON()) };
   }
 
@@ -295,6 +306,7 @@ class DocxEditor implements ViewEditor, Pictures {
     if (!editor) return;
     const body = changed.body as { steps?: unknown[] };
     const steps = (body.steps ?? []).map((json: unknown) => Step.fromJSON(editor.schema, json));
+    this.waiting.changed(steps, own);
     const ids = steps.map(() => (own ? this.clientKey : changed.client));
     const transaction = receiveTransaction(editor.state, steps, ids, {
       mapSelectionBackward: true,

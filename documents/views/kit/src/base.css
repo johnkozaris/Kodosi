@@ -96,8 +96,31 @@ body {
 }
 
 .document-closed,
-.document-away {
+.document-away,
+.document-kept {
   padding: 8px 12px;
   background: var(--surface);
   border-top: 1px solid var(--line);
+}
+
+.document-kept p {
+  margin: 0 0 6px;
+}
+
+.document-kept-text {
+  max-height: 30vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.document-kept button {
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: default;
 }

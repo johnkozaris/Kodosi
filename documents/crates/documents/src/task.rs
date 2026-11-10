@@ -109,9 +109,10 @@ pub(crate) async fn start(
     folder: PathBuf,
     format: Arc<dyn Opener>,
 ) -> Result<mpsc::Sender<Command>, OpenError> {
-    let disk = tokio::fs::read(&path).await?;
+    let file = tokio::fs::read(&path).await?;
     let stamp = stamp_of(&tokio::fs::metadata(&path).await?);
-    let (document, journal, outside) = open_or_restore(&path, &folder, &disk, format.as_ref())?;
+    let (document, journal, journaled) = open_or_restore(&path, &folder, &file, format.as_ref())?;
+    let (disk, stamp) = journaled.map_or((file, Some(stamp)), |original| (original, None));
     let unsaved = (document.rev() != document.saved_rev()).then(Instant::now);
     let (commands, incoming) = mpsc::channel(COMMANDS);
     let task = Task {
@@ -128,16 +129,19 @@ pub(crate) async fn start(
         close_at: Some(Instant::now() + CLOSE_AFTER),
         sealing: false,
     };
-    tokio::spawn(task.run(incoming, outside));
+    tokio::spawn(task.run(incoming));
     Ok(commands)
 }
 
+/// Opens a file, or builds its document again from the journal of an earlier run. When another
+/// program changed the file since the journal's last save, it also gives the file that the
+/// journal holds, so the task takes the file on disk as a write of that program.
 fn open_or_restore(
     path: &Path,
     folder: &Path,
     disk: &[u8],
     format: &dyn Opener,
-) -> Result<(Box<dyn Live>, Journal, bool), OpenError> {
+) -> Result<(Box<dyn Live>, Journal, Option<Vec<u8>>), OpenError> {
     if let Some((mut journal, found)) = Journal::find(folder, path) {
         let Found {
             original,
@@ -147,11 +151,9 @@ fn open_or_restore(
             saved_hash,
         } = found;
         let known = saved_hash.unwrap_or_else(|| hash_of(&original));
+        let journaled = (hash_of(disk) != known).then(|| original.clone());
         match format.restore(original, restored, &records, assets) {
-            Ok(document) => {
-                let outside = hash_of(disk) != known;
-                return Ok((document, journal, outside));
-            }
+            Ok(document) => return Ok((document, journal, journaled)),
             Err(problem) => {
                 tracing::warn!(%problem, "the journal is not usable, so the file opens as it is");
                 journal.remove();
@@ -161,7 +163,7 @@ fn open_or_restore(
     let epoch = new_epoch()?;
     let document = format.open(disk.to_vec(), epoch)?;
     let journal = Journal::start(folder, path, disk, epoch, 0, HashMap::new())?;
-    Ok((document, journal, false))
+    Ok((document, journal, None))
 }
 
 struct Task {
@@ -170,7 +172,8 @@ struct Task {
     path: PathBuf,
     folder: PathBuf,
     disk: Vec<u8>,
-    stamp: Stamp,
+    /// The size and time of the file when the task last read or wrote it.
+    stamp: Option<Stamp>,
     pipes: HashMap<PipeId, Outgoing>,
     first_unsaved: Option<Instant>,
     last_unsaved: Option<Instant>,
@@ -180,9 +183,9 @@ struct Task {
 }
 
 impl Task {
-    async fn run(mut self, mut commands: mpsc::Receiver<Command>, outside: bool) {
-        if outside {
-            self.look_at_file().await;
+    async fn run(mut self, mut commands: mpsc::Receiver<Command>) {
+        if self.look_at_file().await {
+            return;
         }
         let mut watch = tokio::time::interval_at(Instant::now() + WATCH_EVERY, WATCH_EVERY);
         watch.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -384,7 +387,7 @@ impl Task {
     async fn write(&mut self, rev: Rev, file: Vec<u8>) {
         match write_whole(&self.path, &file).await {
             Ok(metadata) => {
-                self.stamp = stamp_of(&metadata);
+                self.stamp = Some(stamp_of(&metadata));
                 if let Err(problem) = self.journal.saved(rev, &hash_of(&file)) {
                     tracing::warn!(%problem, "the journal missed a save");
                 }
@@ -435,7 +438,7 @@ impl Task {
             }
             Err(_) => return false,
         };
-        let stamp = stamp_of(&metadata);
+        let stamp = Some(stamp_of(&metadata));
         if stamp == self.stamp {
             return false;
         }

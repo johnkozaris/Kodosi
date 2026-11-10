@@ -64,4 +64,23 @@ export class Status {
     notice.textContent =
       reason === "removed" ? say("Someone removed this file.") : say("This document closed.");
   }
+
+  /** Shows that edits no longer fit the file, with their words, so the person can write them again. */
+  kept(text: string): void {
+    const notice = this.root.appendChild(document.createElement("div"));
+    notice.className = "document-kept";
+    const words = notice.appendChild(document.createElement("p"));
+    words.textContent = text
+      ? say("Some of your edits no longer fit the file. Here is what you wrote:")
+      : say("Some of your edits no longer fit the file.");
+    if (text) {
+      const kept = notice.appendChild(document.createElement("div"));
+      kept.className = "document-kept-text";
+      kept.textContent = text;
+    }
+    const close = notice.appendChild(document.createElement("button"));
+    close.type = "button";
+    close.textContent = say("Close");
+    close.addEventListener("click", () => notice.remove());
+  }
 }

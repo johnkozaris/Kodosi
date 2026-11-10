@@ -6,6 +6,8 @@ import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { sendableSteps } from "prosemirror-collab";
 import "./peers.css";
 
+export { Waiting } from "./waiting";
+
 /** A selection: two positions in the document. */
 export interface Place {
   from: number;

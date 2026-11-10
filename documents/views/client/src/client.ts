@@ -22,9 +22,17 @@ export interface Person {
   canEdit: boolean;
 }
 
+/**
+ * What became of the batch that was on its way when a client joined again: none was on its way,
+ * the document took it, it never got there, the document refused it, or the document opened again
+ * since and no longer knows.
+ */
+export type Sent = "none" | "taken" | "lost" | "refused" | "unknown";
+
 /** What an editor does for its client. */
 export interface Editor {
-  load(snapshot: unknown, person: Person): void;
+  /** Shows the document of a snapshot. `sent` says what became of the batch on its way. */
+  load(snapshot: unknown, person: Person, sent: Sent): void;
   apply(changed: Changed, own: boolean): void;
   /** The next batch of edits, or null when none waits. */
   batch(): unknown | null;
@@ -35,8 +43,8 @@ export interface Editor {
 }
 
 /**
- * Join, unanswered edits and connecting again. A client sends one batch at a time, and an
- * editor's own edit never waits for it.
+ * Join, unanswered edits and connecting again. Once the document took a client in, the client
+ * sends one batch at a time, and an editor's own edit never waits for it.
  */
 export class Client {
   private readonly id = crypto.randomUUID();
@@ -46,6 +54,8 @@ export class Client {
   private rev = 0;
   private lastSeq = 0;
   private waitingSeq: number | null = null;
+  private joining = false;
+  private refused = false;
   private readonly peers = new Map<string, Peer>();
   private readonly assets = new Map<string, Uint8Array>();
   private readonly assetWaiters = new Map<string, ((bytes: Uint8Array) => void)[]>();
@@ -64,7 +74,7 @@ export class Client {
   /** Takes a new pipe, at the start and after each lost link. */
   attach(pipe: Pipe): void {
     this.pipe = pipe;
-    this.waitingSeq = null;
+    this.joining = true;
     pipe.onMessage((frame) => {
       this.incoming = this.incoming.then(() => this.receive(frame)).catch(console.error);
     });
@@ -101,18 +111,19 @@ export class Client {
     const editor = this.editor;
     switch (message.type) {
       case "joined": {
+        const sent = this.sentOf(message.seq);
+        this.waitingSeq = null;
         this.epoch = message.epoch;
         this.lastSeq = message.seq;
         if (message.catchup.kind === "snapshot") {
           this.rev = message.rev;
-          editor?.load(message.catchup.snapshot, {
-            id: message.id,
-            name: message.name,
-            canEdit: message.canEdit,
-          });
+          const person = { id: message.id, name: message.name, canEdit: message.canEdit };
+          editor?.load(message.catchup.snapshot, person, sent);
         } else {
           for (const changed of message.catchup.changes) this.applied(changed);
         }
+        this.refused = false;
+        this.joining = false;
         this.peers.clear();
         for (const peer of message.peers) this.peers.set(peer.id, peer);
         editor?.peers([...this.peers.values()]);
@@ -156,10 +167,24 @@ export class Client {
     this.editor?.apply(changed, own);
   }
 
+  /**
+   * What became of the batch on its way, by the last number of this client that the document
+   * took. A document that opened again knows no number of this client.
+   */
+  private sentOf(seq: number): Sent {
+    const waiting = this.waitingSeq;
+    if (this.refused) return "refused";
+    if (waiting === null) return "none";
+    if (seq >= waiting) return "taken";
+    return seq > 0 && seq === waiting - 1 ? "lost" : "unknown";
+  }
+
   /** A batch that the document calls invalid means that this copy went wrong: load again. */
   private reload(): void {
     this.rev = 0;
     this.epoch = 0;
+    this.refused = true;
+    this.joining = true;
     this.send({
       type: "join",
       contract: CONTRACT,
@@ -171,7 +196,7 @@ export class Client {
 
   /** Sends the next batch, when none waits for its answer. */
   pull(): void {
-    if (this.waitingSeq !== null || !this.pipe) return;
+    if (this.joining || this.waitingSeq !== null || !this.pipe) return;
     const body = this.editor?.batch();
     if (body === null || body === undefined) return;
     this.waitingSeq = this.lastSeq + 1;
