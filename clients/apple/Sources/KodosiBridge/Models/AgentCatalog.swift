@@ -99,7 +99,13 @@ public struct AgentOption: Decodable, Equatable, Identifiable, Sendable {
 
     public var label: String {
         switch id {
-        case "xhigh": "Extra high"
+        case "none": String(localized: "None", bundle: .module)
+        case "minimal": String(localized: "Minimal", bundle: .module)
+        case "low": String(localized: "Low", bundle: .module)
+        case "medium": String(localized: "Medium", bundle: .module)
+        case "high": String(localized: "High", bundle: .module)
+        case "xhigh": String(localized: "Extra high", bundle: .module)
+        case "max": String(localized: "Max", bundle: .module)
         default: id.prefix(1).uppercased() + id.dropFirst()
         }
     }

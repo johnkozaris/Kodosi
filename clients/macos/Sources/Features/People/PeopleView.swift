@@ -182,7 +182,7 @@ private struct FriendItem: View {
             if verifying {
                 HStack(spacing: 6) {
                     TextField("Paste the invite \(name) sent you", text: $invite)
-                        .accessibilityIdentifier("people.verifyInvite")
+                        .accessibilityIdentifier("people.verifyInvite.\(AccessibilityIdentifier.token(friend.id))")
                     Button("Verify") {
                         deps.people.verify(friend, invite: invite)
                         verifying = false; invite = ""
