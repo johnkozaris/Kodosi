@@ -73,9 +73,9 @@ Item {
         running: window.visible
         loops: Animation.Infinite
         ParallelAnimation {
-            XAnimator { target: window; from: -root.band; to: root.sweep; duration: 1700; easing.type: Easing.InOutSine }
-            XAnimator { target: sheen; from: root.band; to: -root.sweep; duration: 1700; easing.type: Easing.InOutSine }
+            NumberAnimation { target: window; property: "x"; from: -root.band; to: root.sweep; duration: 1700; easing.type: Easing.InOutSine }
+            NumberAnimation { target: sheen; property: "x"; from: root.band; to: -root.sweep; duration: 1700; easing.type: Easing.InOutSine }
         }
-        XAnimator { target: window; from: root.sweep; to: root.sweep; duration: 250 }
+        PauseAnimation { duration: 250 }
     }
 }

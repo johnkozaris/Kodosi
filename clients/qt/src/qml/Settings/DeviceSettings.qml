@@ -69,8 +69,8 @@ ColumnLayout {
                             running: root.waiting && !KodosiTheme.reduceMotion && KodosiTheme.shown
                             loops: Animation.Infinite
                             PauseAnimation { duration: dot.index * 180 }
-                            OpacityAnimator { target: dot; from: 0.3; to: 1; duration: 260 }
-                            OpacityAnimator { target: dot; from: 1; to: 0.3; duration: 260 }
+                            NumberAnimation { target: dot; property: "opacity"; from: 0.3; to: 1; duration: 260 }
+                            NumberAnimation { target: dot; property: "opacity"; from: 1; to: 0.3; duration: 260 }
                             PauseAnimation { duration: (2 - dot.index) * 180 + 300 }
                         }
                     }
