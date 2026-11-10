@@ -139,24 +139,35 @@ struct Pending {
     closes: bool,
 }
 
-pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteConnection> {
-    let credentials = network.credentials()?;
+pub(super) async fn connect(
+    network: BackendClient,
+    credentials: Credentials,
+    id: Uuid,
+) -> Result<RemoteConnection> {
     if !credentials.enrolled {
         return Err(Error::EnrollmentRequired);
     }
-    let (mut dto, kept) = network.known_session(&credentials, id).await?;
-    let (channel, public) = match open(&network, &credentials, &dto).await {
-        Err(
-            Error::Stale
-            | Error::Backend {
-                status: 404 | 409, ..
-            },
-        ) if kept => {
-            dto = network.fetch_session(&credentials, id).await?;
-            open(&network, &credentials, &dto).await?
-        }
-        opened => opened?,
+    let opened = async {
+        let (mut dto, kept) = network.known_session(&credentials, id).await?;
+        let (channel, public) = match open(&network, &credentials, &dto).await {
+            Err(
+                Error::Stale
+                | Error::Backend {
+                    status: 404 | 409, ..
+                },
+            ) if kept => {
+                dto = network.fetch_session(&credentials, id).await?;
+                open(&network, &credentials, &dto).await?
+            }
+            opened => opened?,
+        };
+        Ok((dto, channel, public))
     };
+    let (dto, channel, public) = tokio::select! {
+        biased;
+        () = credentials.cancel.cancelled() => Err(Error::Stale),
+        opened = opened => opened,
+    }?;
     let (updates_tx, updates) = mpsc::channel(128);
     let (commands, commands_rx) = mpsc::channel(128);
     network.check_credentials(&credentials)?;
