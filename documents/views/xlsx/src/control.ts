@@ -26,7 +26,7 @@ export interface CellLook {
   merged: boolean;
 }
 
-export interface SheetName {
+interface SheetName {
   id: string;
   name: string;
   active: boolean;

@@ -145,7 +145,7 @@ async fn show(
         .latest
         .get("dosi.snapshot")
         .map(|event| event["dosi"].clone())
-        .ok_or_else(|| Error::Other("This host runs no Dosi.".into()))?;
+        .ok_or_else(|| Error::Other("Dosi is off on this computer.".into()))?;
     if json_output {
         return print_json(&snapshot);
     }

@@ -2028,8 +2028,8 @@
         <translation>El enlace tiene caracteres ocultos que pueden cambiar cómo se ve.</translation>
     </message>
     <message>
-        <source>The web link has no host.</source>
-        <translation>El enlace web no tiene host.</translation>
+        <source>The web link has no server name.</source>
+        <translation>El enlace web no tiene nombre de servidor.</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -4555,22 +4555,6 @@
     <message>
         <source>Kodosi could not start.</source>
         <translation>Kodosi no ha podido iniciarse.</translation>
-    </message>
-    <message>
-        <source>An earlier version of Kodosi is still open.</source>
-        <translation>Todavía hay una versión anterior de Kodosi abierta.</translation>
-    </message>
-    <message>
-        <source>Close it to use Kodosi %1. Its terminals keep running until you restart them.</source>
-        <translation>Ciérrala para usar Kodosi %1. Sus terminales siguen en marcha hasta que los reinicies.</translation>
-    </message>
-    <message>
-        <source>Use Kodosi %1</source>
-        <translation>Usar Kodosi %1</translation>
-    </message>
-    <message>
-        <source>Keep the earlier one</source>
-        <translation>Mantener la anterior</translation>
     </message>
 </context>
 </TS>

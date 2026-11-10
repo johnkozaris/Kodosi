@@ -155,8 +155,7 @@ mod framing;
 mod server;
 
 pub use app::{
-    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, RunningApp, app_owner, claim_app,
-    forward_activation, serve_activations,
+    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, claim_app, forward_activation, serve_activations,
 };
 pub use client::{
     Client, Commands, Events, TerminalClient, connect_or_start, host_status, stop_other_host,

@@ -151,7 +151,8 @@ that you choose above the message, at first the one that answered last. A messag
 computer that is offline waits until it runs Kodosi again, and Do not send takes it back.
 
 The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
-question. On a computer with no agent, it reads Set up Dosi and opens Settings › Dosi. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
+question. On a computer with no agent, it reads Set up Dosi and opens Settings › Dosi. To
+remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
 ## 6. Add your other computers
 
@@ -178,9 +179,8 @@ username of a friend. An invite lets Kodosi verify your friend.
 <p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
 
 To share a terminal, select Share in the actions key of its header and choose friends or
-projects.
-The people you share with get full control, with your privileges on that computer. Your
-other terminals stay private.
+projects. The people you share with get full control, with your privileges on that
+computer. Your other terminals stay private.
 
 A project gathers terminals from any folder and computer, with a conversation and tasks.
 Select + beside Projects, then start a terminal in the project or share one into it, and

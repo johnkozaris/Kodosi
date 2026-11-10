@@ -2,7 +2,7 @@ using Kodosi.TerminalConnections;
 
 namespace Kodosi.Push;
 
-internal sealed record PushNotice(Guid TerminalId, string ComputerId, Guid OwnerId, TerminalStatus Status, int Blocked);
+internal sealed record PushNotice(Guid TerminalId, Guid OwnerId, TerminalStatus Status, int Blocked);
 
 internal sealed partial class TerminalAlerts(ConnectionDirectory directory, TimeProvider clock, ILogger<TerminalAlerts> logger)
 {
@@ -26,7 +26,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
             if (report.First || state is not ("blocked" or "done" or "error") || report.Before?.State == state
                 || waiting.Count >= ConnectionDirectory.MaximumHostedTerminals)
                 return;
-            waiting[report.SessionId] = new Alert(report.OwnerId, report.HostDeviceId, state, clock.GetUtcNow() + Delay);
+            waiting[report.SessionId] = new Alert(report.OwnerId, state, clock.GetUtcNow() + Delay);
         }
     }
 
@@ -48,7 +48,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
                 Capped(logger, alert.OwnerId, MostEachHour);
                 continue;
             }
-            notices.Add(new PushNotice(terminalId, alert.ComputerId, alert.OwnerId, status, directory.Blocked(alert.OwnerId)));
+            notices.Add(new PushNotice(terminalId, alert.OwnerId, status, directory.Blocked(alert.OwnerId)));
         }
         Forget(now);
         return notices;
@@ -76,7 +76,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
             }
     }
 
-    private sealed record Alert(Guid OwnerId, string ComputerId, string State, DateTimeOffset Due);
+    private sealed record Alert(Guid OwnerId, string State, DateTimeOffset Due);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "A push notification of account {Account} was dropped, because it had {Most} in the last hour")]
     private static partial void Capped(ILogger logger, Guid account, int most);

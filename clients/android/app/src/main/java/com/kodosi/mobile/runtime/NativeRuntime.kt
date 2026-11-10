@@ -70,8 +70,8 @@ internal object NativeRuntime {
 
 /** The codes of the C API. */
 object Ffi {
-    const val ABI_VERSION = 10
-    const val PROTOCOL_VERSION = 82
+    const val ABI_VERSION = 11
+    const val PROTOCOL_VERSION = 83
     const val OK = 0
     const val DESER_FAILED = 3
     const val RUNTIME_STOPPED = 5

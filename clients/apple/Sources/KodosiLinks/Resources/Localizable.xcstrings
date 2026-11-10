@@ -833,54 +833,54 @@
         }
       }
     },
-    "The web link has no host." : {
+    "The web link has no server name." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Weblink hat keinen Host."
+            "value" : "Der Weblink hat keinen Servernamen."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ο σύνδεσμος ιστού δεν έχει host."
+            "value" : "Ο σύνδεσμος ιστού δεν έχει όνομα διακομιστή."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El enlace web no tiene host."
+            "value" : "El enlace web no tiene nombre de servidor."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le lien web n'a pas d'hôte."
+            "value" : "Le lien web n'a pas de nom de serveur."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il link web non ha un host."
+            "value" : "Il link web non ha un nome di server."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この Web リンクにはホストがありません。"
+            "value" : "この Web リンクにはサーバー名がありません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 웹 링크에는 호스트가 없어요."
+            "value" : "이 웹 링크에는 서버 이름이 없어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "该网页链接缺少主机名。"
+            "value" : "该网页链接缺少服务器名称。"
           }
         }
       }

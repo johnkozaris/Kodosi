@@ -99,7 +99,6 @@ pub struct DosiAsk {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DosiRemote {
     pub computer: String,
-    pub since: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

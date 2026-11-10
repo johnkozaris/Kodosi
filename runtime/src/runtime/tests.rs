@@ -1843,7 +1843,13 @@ async fn a_view_whose_computer_goes_offline_says_so_and_connects_again_when_it_i
     let id = remote.id;
     let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
 
-    lose_link(&mut runtime, &remote, &updates, "The host is offline.").await;
+    lose_link(
+        &mut runtime,
+        &remote,
+        &updates,
+        "The terminal's computer is offline.",
+    )
+    .await;
     runtime.remotes.get_mut(&id).unwrap().program_status = Some(crate::terminal::ProgramStatus {
         state: crate::terminal::ProgramState::Working,
         kind: None,

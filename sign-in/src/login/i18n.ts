@@ -85,10 +85,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Use {0} or more characters.",
       kdsBadCharacters: "That has a character that you cannot use here.",
       kdsPolicyLength: "{0} or more characters",
-      kdsPolicyDigits: "A digit",
-      kdsPolicyLower: "A small letter",
-      kdsPolicyUpper: "A capital letter",
-      kdsPolicySpecial: "A special character",
       kdsPolicyMax: "{0} characters at most",
       kdsPolicyNotUsername: "Not your username",
       kdsPolicyNotEmail: "Not your email",
@@ -201,8 +197,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "If it is your account, add {0} to it.",
       kdsLinkAdd: "Add to my account",
       kdsLinkReview: "Check my details",
-      kdsLinkEmailLead: "We sent a link to the email of your account. Open it to add {0}.",
-      kdsLinkVerified: "I opened the link",
       kdsReplaceTitle: "Change your {0} account?",
       kdsReplaceLead: "Your account signs in with {0} now.",
       kdsReplaceLeadPlain: "Your account signs in with a different {0} account now.",
@@ -246,7 +240,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "Nothing changed. To try again, start the sign-in in Kodosi.",
       profileScopeConsentText: "Your name and your username",
-      emailScopeConsentText: "Your email",
       offlineAccessScopeConsentText: "A sign-in that stays on your computer",
 
       accountUpdatedMessage: "Your account is updated",
@@ -290,18 +283,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "That has a character that you cannot use here.",
       "error-person-name-invalid-character": "That has a character that you cannot use here.",
       invalidPasswordMinLengthMessage: "The password must have {0} or more characters.",
-      invalidPasswordMinDigitsMessage: "The password must have {0} or more digits.",
-      invalidPasswordMinLowerCaseCharsMessage: "The password must have {0} or more small letters.",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "The password must have {0} or more capital letters.",
-      invalidPasswordMinSpecialCharsMessage:
-        "The password must have {0} or more special characters.",
       invalidPasswordNotUsernameMessage: "The password must not be your username.",
-      invalidPasswordNotContainsUsernameMessage: "The password must not have your username in it.",
       invalidPasswordNotEmailMessage: "The password must not be your email.",
-      invalidPasswordHistoryMessage: "Choose a password that you did not use before.",
-      invalidPasswordBlacklistedMessage:
-        "That password is too easy to guess. Choose a different one.",
       invalidPasswordGenericMessage: "The password does not follow the rules.",
 
       "requiredAction.CONFIGURE_TOTP": "Set up your authenticator",
@@ -390,10 +373,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Verwende mindestens {0} Zeichen.",
       kdsBadCharacters: "Das enthält ein Zeichen, das du hier nicht verwenden kannst.",
       kdsPolicyLength: "Mindestens {0} Zeichen",
-      kdsPolicyDigits: "Eine Ziffer",
-      kdsPolicyLower: "Ein Kleinbuchstabe",
-      kdsPolicyUpper: "Ein Großbuchstabe",
-      kdsPolicySpecial: "Ein Sonderzeichen",
       kdsPolicyMax: "Höchstens {0} Zeichen",
       kdsPolicyNotUsername: "Nicht dein Benutzername",
       kdsPolicyNotEmail: "Nicht deine E-Mail-Adresse",
@@ -497,9 +476,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "Wenn es dein Konto ist, füge {0} hinzu.",
       kdsLinkAdd: "Zu meinem Konto hinzufügen",
       kdsLinkReview: "Meine Angaben prüfen",
-      kdsLinkEmailLead:
-        "Wir haben einen Link an die E-Mail-Adresse deines Kontos geschickt. Öffne ihn, um {0} hinzuzufügen.",
-      kdsLinkVerified: "Ich habe den Link geöffnet",
       kdsReplaceTitle: "Dein {0}-Konto ändern?",
       kdsReplaceLead: "Dein Konto meldet sich jetzt mit {0} an.",
       kdsReplaceLeadPlain: "Dein Konto meldet sich jetzt mit einem anderen {0}-Konto an.",
@@ -543,7 +519,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "Es hat sich nichts geändert. Starte die Anmeldung in Kodosi, um es erneut zu versuchen.",
       profileScopeConsentText: "Dein Name und dein Benutzername",
-      emailScopeConsentText: "Deine E-Mail-Adresse",
       offlineAccessScopeConsentText: "Eine Anmeldung, die auf deinem Computer bleibt",
       accountUpdatedMessage: "Dein Konto wurde aktualisiert",
       accountPasswordUpdatedMessage: "Dein Passwort wurde geändert",
@@ -588,20 +563,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-person-name-invalid-character":
         "Das enthält ein Zeichen, das du hier nicht verwenden kannst.",
       invalidPasswordMinLengthMessage: "Das Passwort muss mindestens {0} Zeichen lang sein.",
-      invalidPasswordMinDigitsMessage: "Das Passwort muss mindestens {0} Ziffern enthalten.",
-      invalidPasswordMinLowerCaseCharsMessage:
-        "Das Passwort muss mindestens {0} Kleinbuchstaben enthalten.",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "Das Passwort muss mindestens {0} Großbuchstaben enthalten.",
-      invalidPasswordMinSpecialCharsMessage:
-        "Das Passwort muss mindestens {0} Sonderzeichen enthalten.",
       invalidPasswordNotUsernameMessage: "Das Passwort darf nicht dein Benutzername sein.",
-      invalidPasswordNotContainsUsernameMessage:
-        "Das Passwort darf deinen Benutzernamen nicht enthalten.",
       invalidPasswordNotEmailMessage: "Das Passwort darf nicht deine E-Mail-Adresse sein.",
-      invalidPasswordHistoryMessage: "Wähle ein Passwort, das du noch nicht verwendet hast.",
-      invalidPasswordBlacklistedMessage:
-        "Dieses Passwort ist zu leicht zu erraten. Wähle ein anderes.",
       invalidPasswordGenericMessage: "Das Passwort erfüllt die Anforderungen nicht.",
       "requiredAction.CONFIGURE_TOTP": "Richte deine Authenticator-App ein",
       "requiredAction.TERMS_AND_CONDITIONS": "Bedingungen akzeptieren",
@@ -689,10 +652,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Χρησιμοποιήστε {0} ή περισσότερους χαρακτήρες.",
       kdsBadCharacters: "Περιέχει χαρακτήρα που δεν επιτρέπεται εδώ.",
       kdsPolicyLength: "{0} ή περισσότεροι χαρακτήρες",
-      kdsPolicyDigits: "Ένα ψηφίο",
-      kdsPolicyLower: "Ένα πεζό γράμμα",
-      kdsPolicyUpper: "Ένα κεφαλαίο γράμμα",
-      kdsPolicySpecial: "Ένας ειδικός χαρακτήρας",
       kdsPolicyMax: "Έως {0} χαρακτήρες",
       kdsPolicyNotUsername: "Δεν είναι το όνομα χρήστη σας",
       kdsPolicyNotEmail: "Δεν είναι το email σας",
@@ -792,9 +751,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "Αν ο λογαριασμός είναι δικός σας, προσθέστε σε αυτόν το {0}.",
       kdsLinkAdd: "Προσθήκη στον λογαριασμό μου",
       kdsLinkReview: "Έλεγχος των στοιχείων μου",
-      kdsLinkEmailLead:
-        "Στείλαμε έναν σύνδεσμο στο email του λογαριασμού σας. Ανοίξτε τον για να προσθέσετε το {0}.",
-      kdsLinkVerified: "Άνοιξα τον σύνδεσμο",
       kdsReplaceTitle: "Αλλαγή του λογαριασμού σας στο {0};",
       kdsReplaceLead: "Ο λογαριασμός σας συνδέεται τώρα με {0}.",
       kdsReplaceLeadPlain: "Ο λογαριασμός σας συνδέεται τώρα με άλλον λογαριασμό {0}.",
@@ -840,7 +796,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "Δεν άλλαξε τίποτα. Για να δοκιμάσετε ξανά, ξεκινήστε τη σύνδεση στο Kodosi.",
       profileScopeConsentText: "Το όνομα και το όνομα χρήστη σας",
-      emailScopeConsentText: "Το email σας",
       offlineAccessScopeConsentText: "Μια σύνδεση που μένει στον υπολογιστή σας",
       accountUpdatedMessage: "Ο λογαριασμός σας ενημερώθηκε",
       accountPasswordUpdatedMessage: "Ο κωδικός πρόσβασής σας άλλαξε",
@@ -884,23 +839,9 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-person-name-invalid-character": "Περιέχει χαρακτήρα που δεν επιτρέπεται εδώ.",
       invalidPasswordMinLengthMessage:
         "Ο κωδικός πρόσβασης πρέπει να έχει {0} ή περισσότερους χαρακτήρες.",
-      invalidPasswordMinDigitsMessage:
-        "Ο κωδικός πρόσβασης πρέπει να έχει {0} ή περισσότερα ψηφία.",
-      invalidPasswordMinLowerCaseCharsMessage:
-        "Ο κωδικός πρόσβασης πρέπει να έχει {0} ή περισσότερα πεζά γράμματα.",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "Ο κωδικός πρόσβασης πρέπει να έχει {0} ή περισσότερα κεφαλαία γράμματα.",
-      invalidPasswordMinSpecialCharsMessage:
-        "Ο κωδικός πρόσβασης πρέπει να έχει {0} ή περισσότερους ειδικούς χαρακτήρες.",
       invalidPasswordNotUsernameMessage:
         "Ο κωδικός πρόσβασης δεν πρέπει να είναι το όνομα χρήστη σας.",
-      invalidPasswordNotContainsUsernameMessage:
-        "Ο κωδικός πρόσβασης δεν πρέπει να περιέχει το όνομα χρήστη σας.",
       invalidPasswordNotEmailMessage: "Ο κωδικός πρόσβασης δεν πρέπει να είναι το email σας.",
-      invalidPasswordHistoryMessage:
-        "Επιλέξτε κωδικό πρόσβασης που δεν έχετε χρησιμοποιήσει παλαιότερα.",
-      invalidPasswordBlacklistedMessage:
-        "Αυτός ο κωδικός πρόσβασης μαντεύεται εύκολα. Επιλέξτε άλλον.",
       invalidPasswordGenericMessage: "Ο κωδικός πρόσβασης δεν πληροί τις απαιτήσεις.",
       "requiredAction.CONFIGURE_TOTP": "Ρυθμίστε την εφαρμογή ελέγχου ταυτότητας",
       "requiredAction.TERMS_AND_CONDITIONS": "Αποδοχή των όρων",
@@ -988,10 +929,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Usa {0} caracteres o más.",
       kdsBadCharacters: "Tiene un carácter que no puedes usar aquí.",
       kdsPolicyLength: "{0} caracteres o más",
-      kdsPolicyDigits: "Un número",
-      kdsPolicyLower: "Una minúscula",
-      kdsPolicyUpper: "Una mayúscula",
-      kdsPolicySpecial: "Un carácter especial",
       kdsPolicyMax: "Como máximo {0} caracteres",
       kdsPolicyNotUsername: "Que no sea tu nombre de usuario",
       kdsPolicyNotEmail: "Que no sea tu correo",
@@ -1095,8 +1032,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "Si es tu cuenta, añádele {0}.",
       kdsLinkAdd: "Añadir a mi cuenta",
       kdsLinkReview: "Revisar mis datos",
-      kdsLinkEmailLead: "Hemos enviado un enlace al correo de tu cuenta. Ábrelo para añadir {0}.",
-      kdsLinkVerified: "He abierto el enlace",
       kdsReplaceTitle: "¿Cambiar tu cuenta de {0}?",
       kdsReplaceLead: "Tu cuenta inicia sesión ahora con {0}.",
       kdsReplaceLeadPlain: "Tu cuenta inicia sesión ahora con otra cuenta de {0}.",
@@ -1142,7 +1077,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "No ha cambiado nada. Para volver a intentarlo, inicia sesión desde Kodosi.",
       profileScopeConsentText: "Tu nombre y tu nombre de usuario",
-      emailScopeConsentText: "Tu correo",
       offlineAccessScopeConsentText: "Una sesión que se queda en tu ordenador",
       accountUpdatedMessage: "Tu cuenta se ha actualizado",
       accountPasswordUpdatedMessage: "Tu contraseña se ha cambiado",
@@ -1186,18 +1120,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "Tiene un carácter que no puedes usar aquí.",
       "error-person-name-invalid-character": "Tiene un carácter que no puedes usar aquí.",
       invalidPasswordMinLengthMessage: "La contraseña debe tener {0} caracteres o más.",
-      invalidPasswordMinDigitsMessage: "La contraseña debe tener {0} números o más.",
-      invalidPasswordMinLowerCaseCharsMessage: "La contraseña debe tener {0} minúsculas o más.",
-      invalidPasswordMinUpperCaseCharsMessage: "La contraseña debe tener {0} mayúsculas o más.",
-      invalidPasswordMinSpecialCharsMessage:
-        "La contraseña debe tener {0} caracteres especiales o más.",
       invalidPasswordNotUsernameMessage: "La contraseña no puede ser tu nombre de usuario.",
-      invalidPasswordNotContainsUsernameMessage:
-        "La contraseña no puede contener tu nombre de usuario.",
       invalidPasswordNotEmailMessage: "La contraseña no puede ser tu correo.",
-      invalidPasswordHistoryMessage: "Elige una contraseña que no hayas usado antes.",
-      invalidPasswordBlacklistedMessage:
-        "Esa contraseña es demasiado fácil de adivinar. Elige otra.",
       invalidPasswordGenericMessage: "La contraseña no cumple los requisitos.",
       "requiredAction.CONFIGURE_TOTP": "Configura tu app de autenticación",
       "requiredAction.TERMS_AND_CONDITIONS": "Aceptar los términos",
@@ -1284,10 +1208,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Utilisez au moins {0} caractères.",
       kdsBadCharacters: "Ceci contient un caractère non autorisé ici.",
       kdsPolicyLength: "Au moins {0} caractères",
-      kdsPolicyDigits: "Un chiffre",
-      kdsPolicyLower: "Une minuscule",
-      kdsPolicyUpper: "Une majuscule",
-      kdsPolicySpecial: "Un caractère spécial",
       kdsPolicyMax: "{0} caractères au maximum",
       kdsPolicyNotUsername: "Différent de votre nom d'utilisateur",
       kdsPolicyNotEmail: "Différent de votre e-mail",
@@ -1389,9 +1309,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "Si c'est votre compte, ajoutez-y {0}.",
       kdsLinkAdd: "Ajouter à mon compte",
       kdsLinkReview: "Vérifier mes informations",
-      kdsLinkEmailLead:
-        "Nous avons envoyé un lien à l'adresse e-mail de votre compte. Ouvrez-le pour ajouter {0}.",
-      kdsLinkVerified: "J'ai ouvert le lien",
       kdsReplaceTitle: "Changer votre compte {0} ?",
       kdsReplaceLead: "Votre compte se connecte désormais avec {0}.",
       kdsReplaceLeadPlain: "Votre compte se connecte désormais avec un autre compte {0}.",
@@ -1436,7 +1353,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "Rien n'a changé. Pour réessayer, lancez la connexion dans Kodosi.",
       profileScopeConsentText: "Votre nom et votre nom d'utilisateur",
-      emailScopeConsentText: "Votre adresse e-mail",
       offlineAccessScopeConsentText: "Une connexion qui reste sur votre ordinateur",
       accountUpdatedMessage: "Votre compte a été mis à jour",
       accountPasswordUpdatedMessage: "Votre mot de passe a été modifié",
@@ -1480,21 +1396,9 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "Ceci contient un caractère non autorisé ici.",
       "error-person-name-invalid-character": "Ceci contient un caractère non autorisé ici.",
       invalidPasswordMinLengthMessage: "Le mot de passe doit contenir au moins {0} caractères.",
-      invalidPasswordMinDigitsMessage: "Le mot de passe doit contenir au moins {0} chiffres.",
-      invalidPasswordMinLowerCaseCharsMessage:
-        "Le mot de passe doit contenir au moins {0} minuscules.",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "Le mot de passe doit contenir au moins {0} majuscules.",
-      invalidPasswordMinSpecialCharsMessage:
-        "Le mot de passe doit contenir au moins {0} caractères spéciaux.",
       invalidPasswordNotUsernameMessage:
         "Le mot de passe ne doit pas être votre nom d'utilisateur.",
-      invalidPasswordNotContainsUsernameMessage:
-        "Le mot de passe ne doit pas contenir votre nom d'utilisateur.",
       invalidPasswordNotEmailMessage: "Le mot de passe ne doit pas être votre adresse e-mail.",
-      invalidPasswordHistoryMessage: "Choisissez un mot de passe que vous n'avez jamais utilisé.",
-      invalidPasswordBlacklistedMessage:
-        "Ce mot de passe est trop facile à deviner. Choisissez-en un autre.",
       invalidPasswordGenericMessage: "Le mot de passe ne respecte pas les exigences.",
       "requiredAction.CONFIGURE_TOTP": "Configurez votre application d'authentification",
       "requiredAction.TERMS_AND_CONDITIONS": "Accepter les conditions",
@@ -1581,10 +1485,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "Usa almeno {0} caratteri.",
       kdsBadCharacters: "Contiene un carattere non consentito.",
       kdsPolicyLength: "Almeno {0} caratteri",
-      kdsPolicyDigits: "Un numero",
-      kdsPolicyLower: "Una lettera minuscola",
-      kdsPolicyUpper: "Una lettera maiuscola",
-      kdsPolicySpecial: "Un carattere speciale",
       kdsPolicyMax: "Al massimo {0} caratteri",
       kdsPolicyNotUsername: "Diversa dal tuo nome utente",
       kdsPolicyNotEmail: "Diversa dalla tua email",
@@ -1682,9 +1582,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "Se è il tuo account, aggiungici {0}.",
       kdsLinkAdd: "Aggiungi al mio account",
       kdsLinkReview: "Controlla i miei dati",
-      kdsLinkEmailLead:
-        "Abbiamo inviato un link all'email del tuo account. Aprilo per aggiungere {0}.",
-      kdsLinkVerified: "Ho aperto il link",
       kdsReplaceTitle: "Cambiare il tuo account {0}?",
       kdsReplaceLead: "Il tuo account ora accede con {0}.",
       kdsReplaceLeadPlain: "Il tuo account ora accede con un altro account {0}.",
@@ -1728,7 +1625,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "Non è cambiato nulla. Per riprovare, avvia l'accesso in Kodosi.",
       profileScopeConsentText: "Il tuo nome e il tuo nome utente",
-      emailScopeConsentText: "La tua email",
       offlineAccessScopeConsentText: "Un accesso che resta sul tuo computer",
       accountUpdatedMessage: "Il tuo account è stato aggiornato",
       accountPasswordUpdatedMessage: "La tua password è stata cambiata",
@@ -1771,20 +1667,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "Contiene un carattere non consentito.",
       "error-person-name-invalid-character": "Contiene un carattere non consentito.",
       invalidPasswordMinLengthMessage: "La password deve contenere almeno {0} caratteri.",
-      invalidPasswordMinDigitsMessage: "La password deve contenere almeno {0} numeri.",
-      invalidPasswordMinLowerCaseCharsMessage:
-        "La password deve contenere almeno {0} lettere minuscole.",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "La password deve contenere almeno {0} lettere maiuscole.",
-      invalidPasswordMinSpecialCharsMessage:
-        "La password deve contenere almeno {0} caratteri speciali.",
       invalidPasswordNotUsernameMessage: "La password non può essere il tuo nome utente.",
-      invalidPasswordNotContainsUsernameMessage:
-        "La password non può contenere il tuo nome utente.",
       invalidPasswordNotEmailMessage: "La password non può essere la tua email.",
-      invalidPasswordHistoryMessage: "Scegli una password che non hai mai usato.",
-      invalidPasswordBlacklistedMessage:
-        "Questa password è troppo facile da indovinare. Scegline un'altra.",
       invalidPasswordGenericMessage: "La password non rispetta i requisiti.",
       "requiredAction.CONFIGURE_TOTP": "Configura la tua app di autenticazione",
       "requiredAction.TERMS_AND_CONDITIONS": "Accetta i termini",
@@ -1872,10 +1756,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "{0} 文字以上で入力してください。",
       kdsBadCharacters: "ここでは使えない文字が含まれています。",
       kdsPolicyLength: "{0} 文字以上",
-      kdsPolicyDigits: "数字",
-      kdsPolicyLower: "英小文字",
-      kdsPolicyUpper: "英大文字",
-      kdsPolicySpecial: "記号",
       kdsPolicyMax: "{0} 文字以内",
       kdsPolicyNotUsername: "ユーザー名と異なる",
       kdsPolicyNotEmail: "メールアドレスと異なる",
@@ -1976,9 +1856,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "ご自身のアカウントであれば、{0} を追加してください。",
       kdsLinkAdd: "自分のアカウントに追加",
       kdsLinkReview: "プロフィールを確認",
-      kdsLinkEmailLead:
-        "アカウントのメールアドレスにリンクを送信しました。リンクを開いて {0} を追加してください。",
-      kdsLinkVerified: "リンクを開きました",
       kdsReplaceTitle: "{0} アカウントを変更しますか？",
       kdsReplaceLead: "今後、このアカウントは {0} でサインインします。",
       kdsReplaceLeadPlain: "今後、このアカウントは別の {0} アカウントでサインインします。",
@@ -2026,7 +1903,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "何も変更されていません。もう一度試すには、Kodosi でサインインを始めてください。",
       profileScopeConsentText: "名前とユーザー名",
-      emailScopeConsentText: "メールアドレス",
       offlineAccessScopeConsentText: "コンピュータに保存されるサインイン",
       accountUpdatedMessage: "アカウントを更新しました",
       accountPasswordUpdatedMessage: "パスワードを変更しました",
@@ -2072,18 +1948,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "ここでは使えない文字が含まれています。",
       "error-person-name-invalid-character": "ここでは使えない文字が含まれています。",
       invalidPasswordMinLengthMessage: "パスワードは {0} 文字以上にしてください。",
-      invalidPasswordMinDigitsMessage: "パスワードには数字を {0} 文字以上含めてください。",
-      invalidPasswordMinLowerCaseCharsMessage:
-        "パスワードには英小文字を {0} 文字以上含めてください。",
-      invalidPasswordMinUpperCaseCharsMessage:
-        "パスワードには英大文字を {0} 文字以上含めてください。",
-      invalidPasswordMinSpecialCharsMessage: "パスワードには記号を {0} 文字以上含めてください。",
       invalidPasswordNotUsernameMessage: "パスワードをユーザー名と同じにすることはできません。",
-      invalidPasswordNotContainsUsernameMessage: "パスワードにユーザー名を含めることはできません。",
       invalidPasswordNotEmailMessage: "パスワードをメールアドレスと同じにすることはできません。",
-      invalidPasswordHistoryMessage: "以前に使ったことのないパスワードを選んでください。",
-      invalidPasswordBlacklistedMessage:
-        "このパスワードは推測されやすすぎます。別のパスワードを選んでください。",
       invalidPasswordGenericMessage: "パスワードが要件を満たしていません。",
       "requiredAction.CONFIGURE_TOTP": "認証アプリを設定",
       "requiredAction.TERMS_AND_CONDITIONS": "利用規約に同意",
@@ -2170,10 +2036,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "{0}자 이상 입력하세요.",
       kdsBadCharacters: "여기서 쓸 수 없는 문자가 있어요.",
       kdsPolicyLength: "{0}자 이상",
-      kdsPolicyDigits: "숫자",
-      kdsPolicyLower: "영문 소문자",
-      kdsPolicyUpper: "영문 대문자",
-      kdsPolicySpecial: "특수 문자",
       kdsPolicyMax: "최대 {0}자",
       kdsPolicyNotUsername: "사용자 이름과 달라야 함",
       kdsPolicyNotEmail: "이메일과 달라야 함",
@@ -2269,8 +2131,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "내 계정이라면 {0}을(를) 추가하세요.",
       kdsLinkAdd: "내 계정에 추가",
       kdsLinkReview: "내 정보 확인",
-      kdsLinkEmailLead: "계정 이메일로 링크를 보냈어요. 링크를 열어 {0}을(를) 추가하세요.",
-      kdsLinkVerified: "링크를 열었어요",
       kdsReplaceTitle: "{0} 계정을 바꿀까요?",
       kdsReplaceLead: "이제 내 계정은 {0}(으)로 로그인해요.",
       kdsReplaceLeadPlain: "이제 내 계정은 다른 {0} 계정으로 로그인해요.",
@@ -2312,7 +2172,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceConsentDeniedMessage:
         "아무것도 바뀌지 않았어요. 다시 시도하려면 Kodosi에서 로그인을 시작하세요.",
       profileScopeConsentText: "이름과 사용자 이름",
-      emailScopeConsentText: "이메일",
       offlineAccessScopeConsentText: "컴퓨터에 유지되는 로그인",
       accountUpdatedMessage: "계정 정보가 업데이트됐어요",
       accountPasswordUpdatedMessage: "비밀번호가 바뀌었어요",
@@ -2353,16 +2212,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "여기서 쓸 수 없는 문자가 있어요.",
       "error-person-name-invalid-character": "여기서 쓸 수 없는 문자가 있어요.",
       invalidPasswordMinLengthMessage: "비밀번호는 {0}자 이상이어야 해요.",
-      invalidPasswordMinDigitsMessage: "비밀번호에 숫자가 {0}개 이상 있어야 해요.",
-      invalidPasswordMinLowerCaseCharsMessage: "비밀번호에 영문 소문자가 {0}개 이상 있어야 해요.",
-      invalidPasswordMinUpperCaseCharsMessage: "비밀번호에 영문 대문자가 {0}개 이상 있어야 해요.",
-      invalidPasswordMinSpecialCharsMessage: "비밀번호에 특수 문자가 {0}개 이상 있어야 해요.",
       invalidPasswordNotUsernameMessage: "비밀번호는 사용자 이름과 같으면 안 돼요.",
-      invalidPasswordNotContainsUsernameMessage: "비밀번호에 사용자 이름이 들어가면 안 돼요.",
       invalidPasswordNotEmailMessage: "비밀번호는 이메일과 같으면 안 돼요.",
-      invalidPasswordHistoryMessage: "이전에 사용한 적 없는 비밀번호를 설정하세요.",
-      invalidPasswordBlacklistedMessage:
-        "이 비밀번호는 추측하기 너무 쉬워요. 다른 비밀번호를 고르세요.",
       invalidPasswordGenericMessage: "비밀번호가 요구 사항을 충족하지 않아요.",
       "requiredAction.CONFIGURE_TOTP": "인증 앱 설정",
       "requiredAction.TERMS_AND_CONDITIONS": "이용약관 동의",
@@ -2449,10 +2300,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsTooShort: "请至少使用 {0} 个字符。",
       kdsBadCharacters: "包含此处不能使用的字符。",
       kdsPolicyLength: "至少 {0} 个字符",
-      kdsPolicyDigits: "一个数字",
-      kdsPolicyLower: "一个小写字母",
-      kdsPolicyUpper: "一个大写字母",
-      kdsPolicySpecial: "一个特殊字符",
       kdsPolicyMax: "最多 {0} 个字符",
       kdsPolicyNotUsername: "不能是你的用户名",
       kdsPolicyNotEmail: "不能是你的邮箱",
@@ -2548,8 +2395,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsHandleTakenLead: "如果这是你的账号，请将 {0} 添加到其中。",
       kdsLinkAdd: "添加到我的账号",
       kdsLinkReview: "核对我的信息",
-      kdsLinkEmailLead: "我们已向你账号的邮箱发送链接。打开它即可添加 {0}。",
-      kdsLinkVerified: "我已打开链接",
       kdsReplaceTitle: "更换你的 {0} 账号？",
       kdsReplaceLead: "你的账号目前使用 {0} 登录。",
       kdsReplaceLeadPlain: "你的账号目前使用另一个 {0} 账号登录。",
@@ -2589,7 +2434,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       oauth2DeviceVerificationFailedMessage: "请在 Kodosi 中重新开始登录。",
       oauth2DeviceConsentDeniedMessage: "没有任何更改。如需重试，请在 Kodosi 中开始登录。",
       profileScopeConsentText: "你的姓名和用户名",
-      emailScopeConsentText: "你的邮箱",
       offlineAccessScopeConsentText: "保留在你电脑上的登录",
       accountUpdatedMessage: "你的账号已更新",
       accountPasswordUpdatedMessage: "你的密码已更新",
@@ -2627,15 +2471,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       "error-username-invalid-character": "包含此处不能使用的字符。",
       "error-person-name-invalid-character": "包含此处不能使用的字符。",
       invalidPasswordMinLengthMessage: "密码至少需要 {0} 个字符。",
-      invalidPasswordMinDigitsMessage: "密码至少需要 {0} 个数字。",
-      invalidPasswordMinLowerCaseCharsMessage: "密码至少需要 {0} 个小写字母。",
-      invalidPasswordMinUpperCaseCharsMessage: "密码至少需要 {0} 个大写字母。",
-      invalidPasswordMinSpecialCharsMessage: "密码至少需要 {0} 个特殊字符。",
       invalidPasswordNotUsernameMessage: "密码不能是你的用户名。",
-      invalidPasswordNotContainsUsernameMessage: "密码不能包含你的用户名。",
       invalidPasswordNotEmailMessage: "密码不能是你的邮箱。",
-      invalidPasswordHistoryMessage: "请选择你以前没用过的密码。",
-      invalidPasswordBlacklistedMessage: "该密码太容易被猜到。请换一个。",
       invalidPasswordGenericMessage: "密码不符合要求。",
       "requiredAction.CONFIGURE_TOTP": "设置身份验证器",
       "requiredAction.TERMS_AND_CONDITIONS": "接受条款",

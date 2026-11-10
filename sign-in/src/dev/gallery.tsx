@@ -432,10 +432,6 @@ const SCENES: Record<string, Scene> = {
     page: "login-idp-link-confirm.ftl",
     with: { idpAlias: "github", idpDisplayName: "GitHub" },
   },
-  "link-email": {
-    page: "login-idp-link-email.ftl",
-    with: { idpAlias: "github", brokerContext: { username: maya.email } },
-  },
   "link-replace": {
     page: "login-idp-link-confirm-override.ftl",
     with: {

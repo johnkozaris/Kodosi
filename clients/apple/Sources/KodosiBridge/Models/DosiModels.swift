@@ -52,7 +52,6 @@ public struct DosiAgent: Decodable, Equatable, Sendable, Identifiable {
 
 public struct DosiRemote: Decodable, Equatable, Sendable {
     public let computer: String
-    public let since: Int64
 }
 
 public struct DosiConversation: Decodable, Equatable, Sendable {

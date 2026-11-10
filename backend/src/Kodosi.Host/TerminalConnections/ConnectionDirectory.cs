@@ -150,7 +150,7 @@ public sealed class ConnectionDirectory
             var first = !live.Reported;
             live.Reported = true;
             if (live.Status == status) return;
-            report = new TerminalReport(sessionId, connection.UserId, connection.DeviceId, live.Status, status, first);
+            report = new TerminalReport(sessionId, connection.UserId, live.Status, status, first);
             live.Status = status;
         }
         HostChanged?.Invoke(sessionId);
@@ -178,7 +178,7 @@ public sealed class ConnectionDirectory
         lock (sync)
         {
             if (!entries.TryGetValue(viewer, out var watcher)) throw ApiException.Conflict("The device connection closed.");
-            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw ApiException.Conflict("The host is offline.");
+            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw ApiException.Conflict("The terminal's computer is offline.");
             if (live.IncarnationId != session.IncarnationId) throw ApiException.Conflict("This terminal was replaced.");
             if (live.Pipes.Count >= MaximumSessionPipes) throw new ApiException(503, "Too many connected participants.");
             if (watcher.Views >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");
@@ -283,12 +283,12 @@ public sealed class ConnectionDirectory
     private void DetachLocked(Entry entry, AfterUnlock afterUnlock)
     {
         var connection = entry.Connection;
-        foreach (var sessionId in entry.Hosted.ToArray()) RemoveHostedLocked(sessionId, hosted[sessionId], afterUnlock, 409, "The host is offline.");
+        foreach (var sessionId in entry.Hosted.ToArray()) RemoveHostedLocked(sessionId, hosted[sessionId], afterUnlock, 409, "The terminal's computer is offline.");
         foreach (var pipe in entry.Pipes.Select(id => pipes[id]).ToArray())
             if (RemovePipeLocked(pipe))
             {
                 var lost = pipe.Host == connection;
-                afterUnlock.Pipes.Add((pipe, lost ? 409 : 0, !lost ? "" : pipe.IsCall ? "That computer is not online." : "The host is offline.", connection));
+                afterUnlock.Pipes.Add((pipe, lost ? 409 : 0, !lost ? "" : pipe.IsCall ? "That computer is not online." : "The terminal's computer is offline.", connection));
             }
         entries.Remove(connection);
         if (accounts.TryGetValue(connection.UserId, out var devices) && devices.GetValueOrDefault(connection.DeviceId) == entry)

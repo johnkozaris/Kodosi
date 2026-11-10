@@ -338,7 +338,7 @@ async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
     .map_err(|_| Error::Closed)?
     .map_err(|error| {
         tracing::warn!(%error, "terminal connection send failed");
-        Error::Text(text!("The connection to the host dropped."))
+        Error::Text(text!("The connection to the server dropped."))
     })
 }
 async fn read_json(socket: &mut Socket) -> Result<Value> {
@@ -348,7 +348,7 @@ async fn read_json(socket: &mut Socket) -> Result<Value> {
         .ok_or(Error::Closed)?
         .map_err(|error| {
             tracing::warn!(%error, "terminal connection read failed");
-            Error::Text(text!("The connection to the host dropped."))
+            Error::Text(text!("The connection to the server dropped."))
         })?;
     match message {
         Message::Text(text) => serde_json::from_str(&text).map_err(Into::into),

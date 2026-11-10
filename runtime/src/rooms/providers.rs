@@ -34,7 +34,7 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
         format!(
             "https://{}{}",
             ssh.host_str()
-                .ok_or_else(|| Error::Text(text!("The repository address has no host.")))?,
+                .ok_or_else(|| Error::Text(text!("The repository address has no server name.")))?,
             ssh.path()
         )
     } else {
@@ -65,7 +65,7 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
     let (owner, name) = (parts[0].to_owned(), parts[1].to_owned());
     let host = url
         .host_str()
-        .ok_or_else(|| Error::Text(text!("The repository address has no host.")))?
+        .ok_or_else(|| Error::Text(text!("The repository address has no server name.")))?
         .to_owned();
     let kind = provider.unwrap_or(if host == "github.com" {
         "github"
@@ -162,7 +162,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
         .map_err(|_| Error::Text(text!("This repository address is not valid.")))?;
     let host = url
         .host_str()
-        .ok_or_else(|| Error::Text(text!("The repository address has no host.")))?;
+        .ok_or_else(|| Error::Text(text!("The repository address has no server name.")))?;
     if repo.provider == "github"
         && let Some(gh) = gh().await
         && let Some(token) = gh_token(&gh, host).await?

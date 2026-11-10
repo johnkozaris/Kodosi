@@ -23,7 +23,7 @@ public sealed record TerminalStatus(string? Program = null, string? State = null
         && (Kind is null || (State == "blocked" && Kind is "permission" or "question" or "auth"));
 }
 
-internal sealed record TerminalReport(Guid SessionId, Guid OwnerId, string HostDeviceId, TerminalStatus? Before, TerminalStatus? After, bool First);
+internal sealed record TerminalReport(Guid SessionId, Guid OwnerId, TerminalStatus? Before, TerminalStatus? After, bool First);
 
 internal sealed partial class TerminalPresence(IServiceScopeFactory scopes, ConnectionDirectory directory, TimeProvider clock,
     ILogger<TerminalPresence> logger) : BackgroundService

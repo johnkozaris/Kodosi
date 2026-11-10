@@ -254,8 +254,8 @@ mod tests {
     #[test]
     fn a_repeated_failure_is_written_once_until_it_works_again() {
         let mut failure = Repeats::new();
-        assert!(failure.new_failure(&"The host is offline."));
-        assert!(!failure.new_failure(&"The host is offline."));
+        assert!(failure.new_failure(&"The terminal's computer is offline."));
+        assert!(!failure.new_failure(&"The terminal's computer is offline."));
         assert!(failure.new_failure(&"Unauthorized"));
         failure.worked();
         assert!(failure.new_failure(&"Unauthorized"));

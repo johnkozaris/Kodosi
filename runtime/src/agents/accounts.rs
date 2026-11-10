@@ -36,6 +36,8 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     reports_usage: usage::reports(agent),
                     permissions: agent.permissions(),
                     outputs: agent.outputs(),
+                    default_permissions: agent.default_permissions(),
+                    default_output: agent.default_output(),
                 }
             })
             .collect(),

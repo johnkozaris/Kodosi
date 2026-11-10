@@ -11,7 +11,7 @@ pub use contract::{
 };
 pub use format::{
     Answer, Assets, Format, Guide, GuideField, GuideOp, Ordered, Refused, Snapshot, Unreadable,
-    Unwritable,
+    Unwritable, guide_field, guide_op,
 };
 pub use live::{Document, Effect, Input, PipeId, Restored};
 

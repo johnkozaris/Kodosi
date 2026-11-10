@@ -182,7 +182,7 @@ LinkDecision decideLink(const QString& value, const QString& otherComputer)
     const auto scheme = link.scheme().toLower();
     if (scheme == QStringLiteral("http") || scheme == QStringLiteral("https")) {
         if (link.host().isEmpty()) {
-            return refuse(shown, QT_TRANSLATE_NOOP("Link", "The web link has no host."));
+            return refuse(shown, QT_TRANSLATE_NOOP("Link", "The web link has no server name."));
         }
         if (!otherComputer.isEmpty() && isLocalAddress(link.host())) {
             return refuse(shown, QT_TRANSLATE_NOOP("Link", "The address is on %1."), otherComputer);

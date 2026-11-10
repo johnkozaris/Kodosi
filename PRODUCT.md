@@ -254,9 +254,8 @@ progress where work happens and give each failure a clear recovery action.
 - Apps update themselves in the background and never restart without asking, because a
   restart stops the host's terminals. An app too old for the backend asks for an update,
   and an app that updates itself looks for the update at once and offers the restart.
-- Until an approved device of the person approves it, a new device says so and shares
-  nothing. The person's approved
-  computers show its request.
+- A new device shares nothing and says so until an approved device of the person approves
+  it. The person's approved computers show its request.
 - A server can define plans that limit an account's devices, projects, people, friends
   and project data. A full project loses its oldest messages first; tasks and repositories
   stay.

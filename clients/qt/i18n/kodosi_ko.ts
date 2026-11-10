@@ -2025,8 +2025,8 @@
         <translation>이 링크에는 모양을 바꿀 수 있는 숨은 문자가 있어요.</translation>
     </message>
     <message>
-        <source>The web link has no host.</source>
-        <translation>이 웹 링크에는 호스트가 없어요.</translation>
+        <source>The web link has no server name.</source>
+        <translation>이 웹 링크에는 서버 이름이 없어요.</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -4538,22 +4538,6 @@
     <message>
         <source>Kodosi could not start.</source>
         <translation>Kodosi를 시작하지 못했어요.</translation>
-    </message>
-    <message>
-        <source>An earlier version of Kodosi is still open.</source>
-        <translation>이전 버전의 Kodosi가 아직 열려 있어요.</translation>
-    </message>
-    <message>
-        <source>Close it to use Kodosi %1. Its terminals keep running until you restart them.</source>
-        <translation>Kodosi %1을(를) 쓰려면 이전 버전을 닫으세요. 해당 터미널은 다시 시작할 때까지 계속 실행돼요.</translation>
-    </message>
-    <message>
-        <source>Use Kodosi %1</source>
-        <translation>Kodosi %1 사용</translation>
-    </message>
-    <message>
-        <source>Keep the earlier one</source>
-        <translation>이전 버전 유지</translation>
     </message>
 </context>
 </TS>

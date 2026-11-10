@@ -198,13 +198,6 @@ export function listsOf(view: DocxView): { bullets: string | null; numbers: stri
   return { bullets: first(true), numbers: first(false) };
 }
 
-export function listFormatOf(view: DocxView, paragraph: ProseNode | null): string | null {
-  const list = paragraph?.attrs.numId as string | null | undefined;
-  if (!list || list === "0") return null;
-  const level = Number(paragraph?.attrs.ilvl ?? 0);
-  return view.numbering?.[list]?.[level]?.format ?? null;
-}
-
 /** Puts the paragraphs in a list, or takes them out when they are in it. */
 export function toggleList(editor: Editor, list: string): void {
   const inList = paragraphAt(editor.state)?.attrs.numId === list;

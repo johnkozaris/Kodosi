@@ -181,7 +181,7 @@ pub(crate) fn invalid(reason: impl Into<String>) -> Error {
 
 fn unconfirmed() -> Error {
     Error::Text(text!(
-        "The connection closed before the host confirmed the operation, and Kodosi did not send it again."
+        "The connection closed before the terminal's computer confirmed the operation, and Kodosi did not send it again."
     ))
 }
 
@@ -503,7 +503,7 @@ impl RemoteControl {
         tokio::select! {
             biased;
             result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
-                result.map_err(|_|Error::Text(text!("The host did not confirm the operation, and Kodosi did not send it again.")))?
+                result.map_err(|_|Error::Text(text!("The terminal's computer did not confirm the operation, and Kodosi did not send it again.")))?
                     .map_err(|_|unconfirmed())?,
             ()=self.cancellation.cancelled()=>Err(unconfirmed()),
         }

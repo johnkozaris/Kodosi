@@ -105,7 +105,7 @@ impl Waiting {
             "rooms" => {
                 let room = change
                     .room
-                    .ok_or_else(|| invalid("A project change names its project."))?;
+                    .ok_or_else(|| invalid("A project change does not name its project."))?;
                 let wanted = self.rooms.entry(room).or_insert(change.sequence);
                 *wanted = wanted
                     .zip(change.sequence)

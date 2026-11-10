@@ -697,6 +697,8 @@ fn claude_with_accounts() -> AgentInfo {
         reports_usage: true,
         permissions: Agent::Claude.permissions(),
         outputs: Agent::Claude.outputs(),
+        default_permissions: Agent::Claude.default_permissions(),
+        default_output: Agent::Claude.default_output(),
     }
 }
 
@@ -827,6 +829,8 @@ fn installed(agent: Agent) -> AgentInfo {
         reports_usage: false,
         permissions: agent.permissions(),
         outputs: agent.outputs(),
+        default_permissions: agent.default_permissions(),
+        default_output: agent.default_output(),
     }
 }
 

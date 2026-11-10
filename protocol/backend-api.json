@@ -44,8 +44,10 @@
       "input",
       "resize",
       "focus",
+      "message",
       "interrupt",
-      "close"
+      "close",
+      "canvas"
     ],
     "administration": "owner; membership updates require the hosting device",
     "friendshipGrantsSessions": false,
@@ -130,9 +132,9 @@
     "off": "without the Push settings of a platform, the server sends nothing on it and PUT answers 404 for it",
     "removed": "with its device when the device is removed or starts fresh, with the account, and when APNs answers 410, or 400 with BadDeviceToken or DeviceTokenNotForTopic, or FCM answers 404 UNREGISTERED, or 400 INVALID_ARGUMENT for the token",
     "when": "when the state that the host of a terminal reports on a live connection changes into blocked, done or error, the server waits 15 seconds and, if the terminal still has that state, sends one push to each token of the terminal's owner; the first status after the host connects sends nothing; each terminal has one waiting push, with its newest status; an account gets at most 120 pushes in an hour",
-    "apns": "HTTP/2 to api.push.apple.com, or api.sandbox.push.apple.com for a development token, with an ES256 provider token of Push:Apns that lasts 50 minutes; apns-topic Push:Apns:Topic, apns-push-type alert, apns-priority 10 for blocked and 5 otherwise, apns-collapse-id the terminal ID, apns-expiration one hour later; {aps: {alert: {loc-key, loc-args}, sound: default, mutable-content: 1, thread-id: the terminal ID, interruption-level: time-sensitive for blocked and active otherwise, relevance-score: 1.0 for blocked and 0.5 otherwise, category: kodosi.terminal, badge: the owner's terminals that are blocked}, kodosi: {terminal, computer: the host's device ID, agent: the program or null, account: the place of the agent's account or null, state, kind or null}}",
+    "apns": "HTTP/2 to api.push.apple.com, or api.sandbox.push.apple.com for a development token, with an ES256 provider token of Push:Apns that lasts 50 minutes; apns-topic Push:Apns:Topic, apns-push-type alert, apns-priority 10 for blocked and 5 otherwise, apns-collapse-id the terminal ID, apns-expiration one hour later; {aps: {alert: {loc-key, loc-args}, sound: default, mutable-content: 1, thread-id: the terminal ID, interruption-level: time-sensitive for blocked and active otherwise, relevance-score: 1.0 for blocked and 0.5 otherwise, category: kodosi.terminal, badge: the owner's terminals that are blocked}, kodosi: {terminal, agent: the program or null, state, kind or null}}",
     "sentences": "loc-key is %@ asks for permission, %@ asks you a question or %@ needs you to sign in for blocked with the kind permission, question or auth, %@ waits for you for blocked without a kind, %@ finished for done and %@ failed for error, and loc-args is the name of the agent: Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI or OpenCode; for another or no agent, A terminal takes the place of %@ and loc-args is absent; the app has the words of each loc-key",
-    "fcm": "HTTP v1 POST https://fcm.googleapis.com/v1/projects/{Push:Fcm:ProjectId}/messages:send with an access token that the service account of Push:Fcm gets with a signed RS256 assertion for the scope https://www.googleapis.com/auth/firebase.messaging; {message: {token, data: {terminal, computer, agent, account, state, kind}, android: {priority: HIGH for blocked and NORMAL otherwise, collapse_key: the terminal ID, ttl: 3600s}}}, where each data value is a string and an absent one is left out",
+    "fcm": "HTTP v1 POST https://fcm.googleapis.com/v1/projects/{Push:Fcm:ProjectId}/messages:send with an access token that the service account of Push:Fcm gets with a signed RS256 assertion for the scope https://www.googleapis.com/auth/firebase.messaging; {message: {token, data: {terminal, agent, state, kind}, android: {priority: HIGH for blocked and NORMAL otherwise, collapse_key: the terminal ID, ttl: 3600s}}}, where each data value is a string and an absent one is left out",
     "retries": "5xx, 429 and network failures are tried 3 times with backoff",
     "privacy": "a push carries identifiers and the state, never names, folders or terminal text"
   },

@@ -14,7 +14,7 @@ use crate::message::{Dialog, MenuItem, Size};
 pub const AS_ROOT: i32 = 73;
 
 /// The bytes before a picture's data: its window, whether it is a key frame, and its time.
-pub const FRAME_HEADER: usize = 8 + 1 + 8;
+const FRAME_HEADER: usize = 8 + 1 + 8;
 
 /// Where an engine finds its host. The host writes it into the engine's profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

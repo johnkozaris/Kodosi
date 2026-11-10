@@ -205,7 +205,7 @@ pub(super) struct AgentLine {
 }
 
 /// The line that continues the conversation of the agent `program` in `terminal`, with the
-/// account, model and effort that it runs with. `folder` is the folder of the terminal.
+/// account, model, effort, permissions and output that it runs with. `folder` is the folder of the terminal.
 pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
@@ -309,8 +309,8 @@ pub(super) fn account_variable(shown: Option<String>, name: &str) -> Option<Stri
     shown.or_else(|| cfg!(windows).then(|| std::env::var(name).ok()).flatten())
 }
 
-/// The command that starts `agent` again in its account folder `account`, with the model and
-/// effort of the `arguments` that it runs with.
+/// The command that starts `agent` again in its account folder `account`, with the model,
+/// effort, permissions and output of the `arguments` that it runs with.
 pub(super) fn restart_command(
     agent: Agent,
     home: &Path,

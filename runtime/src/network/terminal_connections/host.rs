@@ -555,7 +555,7 @@ async fn admit(
         )),
         Err(_) => Err(refuse(
             "busy",
-            text!("The host could not check this device. Try again."),
+            text!("The terminal's computer could not check this device. Try again."),
         )),
     }
 }
@@ -1159,7 +1159,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 if self.heartbeat.wrapping_sub(heartbeat) > LATE_HEARTBEATS {
                     return Err(Error::Text(text!(
-                        "Terminal input arrived too late, and the host did not use it."
+                        "Terminal input arrived too late, and the terminal's computer did not use it."
                     )));
                 }
                 self.input_offset += bytes.len() as u64;

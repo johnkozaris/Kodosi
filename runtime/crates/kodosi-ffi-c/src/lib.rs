@@ -30,10 +30,7 @@ mod terminal_bridge;
 #[cfg(not(target_vendor = "apple"))]
 mod video;
 
-pub use app::{
-    kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare,
-    kodosi_replace_earlier_app,
-};
+pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};
 pub use instance::kodosi_start;
 
 use callbacks::{CallbackScope, Gate, State, UserData, lock};
@@ -44,7 +41,7 @@ pub use terminal_bridge::*;
 #[cfg(test)]
 use instance::Completion;
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 10;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 11;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 281_018_368;
 pub const KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = 67_108_864;
@@ -79,7 +76,6 @@ pub const KODOSI_APP_OWNER: i32 = 0;
 pub const KODOSI_APP_SECONDARY: i32 = 1;
 pub const KODOSI_APP_FORWARDED: i32 = 2;
 pub const KODOSI_APP_FAILED: i32 = 3;
-pub const KODOSI_APP_FORWARDED_TO_EARLIER: i32 = 4;
 pub const KODOSI_ACTIVATION_MAX_BYTES: usize = 16_384;
 pub const KODOSI_LOG_INFO: i32 = 0;
 pub const KODOSI_LOG_WARNING: i32 = 1;

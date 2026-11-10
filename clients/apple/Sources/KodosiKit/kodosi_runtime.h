@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 10
+#define KODOSI_FFI_ABI_VERSION 11
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
@@ -77,8 +77,6 @@
 #define KODOSI_APP_FORWARDED 2
 
 #define KODOSI_APP_FAILED 3
-
-#define KODOSI_APP_FORWARDED_TO_EARLIER 4
 
 #define KODOSI_ACTIVATION_MAX_BYTES 16384
 
@@ -183,8 +181,6 @@ int32_t kodosi_prepare(kodosi_activation_cb_t on_activation,
 ;
 
  int32_t kodosi_forward_activation(const uint8_t *json, uintptr_t length) ;
-
- int32_t kodosi_replace_earlier_app(void) ;
 
  int32_t kodosi_log(int32_t level, const uint8_t *utf8, uintptr_t length) ;
 

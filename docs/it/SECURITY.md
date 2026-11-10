@@ -11,52 +11,43 @@ verificato.
 
 ## Cosa concede la condivisione
 
-Condividere un terminale concede il pieno controllo, con i privilegi di sistema operativo
-dell'utente dell'host. Un terminale in un progetto va agli amici del suo proprietario in quel
-progetto, compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi
-terminali, e ciascuno di voi lascia i progetti dell'altro. Bloccare una persona fa lo stesso, e
-non può inviarti richieste di amicizia. Un terminale condiviso viene eseguito come te: le
-persone che lo usano possono anche eseguire `kodosi` come te e leggere e modificare i tuoi
-file su quel computer, quindi condividilo solo con persone a cui affideresti quel computer.
-Kodosi si fida di tutti quelli che condividono un terminale o un progetto, e dei programmi e
-degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi
-approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer
-che eseguono Kodosi. Da qualsiasi tuo dispositivo puoi scrivere a Dosi sui tuoi computer, e Dosi agisce lì come quando gli scrivi direttamente sul computer. Un dispositivo che rimuovi non può più scrivere a Dosi.
+Condividere un terminale concede il pieno controllo, con i privilegi di sistema operativo del suo proprietario su quel computer. Un terminale in un progetto va agli amici del suo proprietario in quel progetto,
+compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi terminali, e ciascuno di voi lascia i progetti dell'altro. Bloccare una persona fa lo stesso, e non può inviarti richieste di
+amicizia. Un terminale condiviso viene eseguito come te: le persone che lo usano possono anche eseguire `kodosi` come te e leggere e modificare i tuoi file su quel computer, quindi condividilo solo con persone a
+cui affideresti quel computer. Kodosi si fida di tutti quelli che condividono un terminale o un progetto, e dei programmi e degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi
+approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer che eseguono Kodosi. Da qualsiasi tuo dispositivo puoi scrivere a Dosi sui tuoi computer, e Dosi agisce lì come quando
+gli scrivi direttamente sul computer. Un dispositivo che rimuovi non può più scrivere a Dosi.
 
-Chi può aprire un terminale vede anche i file sul suo canvas e usa il suo browser condiviso,
-quindi accedi lì solo dove tutti possono agire. Il browser condiviso di un terminale condiviso
-non usa mai i tuoi accessi salvati. I file su un canvas sono file normali, e chi può aprire il
-terminale può modificarli. Una pagina sul canvas e un documento dal vivo girano in un frame
-chiuso, senza rete, senza file e senza memoria che resti. Finché un browser condiviso è
-attivo, la sua porta di debug e la porta del driver di ogni finestra ascoltano su `127.0.0.1`,
-dove possono raggiungerle altri account di quel computer. Un sito nel browser condiviso salva
-un download nella cartella del terminale per ogni azione di una persona o di un agent, e
-arriva ai tuoi appunti solo quando copi. Quando un dispositivo apre il browser di un terminale
-su un altro computer, quel computer ascolta su una porta TCP per pochi secondi, così i due si
-collegano direttamente. Passa solo quel dispositivo, con la crittografia del terminale. L'app
-per Linux mostra le pagine solo dove Chromium può isolarle in una sandbox; su Ubuntu il suo
-profilo AppArmor permette all'app, al suo processo delle pagine e a Kodosi Browser di creare
-gli user namespace che servono alla sandbox. Per lo stesso motivo, su Linux il browser
-condiviso non gira come root. Le app non contengono Kodosi Browser. Quando un computer apre il
-suo primo browser condiviso, il suo host scarica il browser dal feed su `updates.kodosi.com` e
-lì cerca ogni giorno una nuova versione. L'host usa un download solo quando il feed ha la
-firma della chiave degli aggiornamenti di Kodosi e il download ha lo SHA-256 indicato dal
-feed.
+Chi può aprire un terminale vede anche i file sul suo canvas e usa il suo browser condiviso, quindi
+accedi lì solo dove tutti possono agire. Il browser condiviso di un terminale condiviso non usa mai i
+tuoi accessi salvati. I file su un canvas sono file normali, e chi può aprire il terminale può
+modificarli. Una pagina sul canvas e un documento dal vivo girano in un frame chiuso, senza rete,
+senza file e senza memoria che resti. Finché un browser condiviso è attivo, la sua porta di debug e la
+porta del driver di ogni finestra ascoltano su `127.0.0.1` o `::1`, dove possono raggiungerle altri
+account di quel computer. Un sito nel browser condiviso salva un download nella cartella del terminale
+per ogni azione di una persona o di un agent, e arriva ai tuoi appunti solo quando copi. Quando un
+dispositivo apre il browser di un terminale su un altro computer, quel computer ascolta su una porta
+TCP per pochi secondi, così i due si collegano direttamente. Passa solo quel dispositivo, con la
+crittografia del terminale. L'app per Linux mostra le pagine solo dove Chromium può isolarle in una
+sandbox; su Ubuntu il suo profilo AppArmor permette all'app, al suo processo delle pagine e a Kodosi
+Browser di creare gli user namespace che servono alla sandbox. Per lo stesso motivo, su Linux il
+browser condiviso non gira come root. Le app non contengono Kodosi Browser. Quando un computer apre il
+suo primo browser condiviso, Kodosi scarica il browser dal feed su `updates.kodosi.com` e lì cerca
+ogni giorno una nuova versione. Kodosi usa un download solo quando il feed ha la firma della chiave
+degli aggiornamenti di Kodosi e il download ha lo SHA-256 indicato dal feed.
 
 ## Cosa vede il servizio
 
 Il servizio vede i dati di account e dispositivi, i membri dei progetti, i metadati di progetti
 e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in attesa di
-un'approvazione, mai il suo testo), i campi di instradamento, i tempi e le dimensioni del
-testo cifrato. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal
-servizio push di Apple o di Google, che vede gli ID del terminale e del suo computer,
-l'agente, la posizione dell'account dell'agente e lo stato, mai nomi o testo. La
-crittografia non nasconde questi metadati e non evita un'interruzione del
-servizio. Un dispositivo che rimuovi perde l'accesso da quel momento. Dopo aver rimosso un
-dispositivo perso o rubato, crea una nuova chiave di recupero per tenerlo fuori. Quando
-qualcuno ricomincia da zero sul tuo account mentre hai dei dispositivi, si attende un giorno
-e i tuoi dispositivi lo mostrano, così puoi fermarlo. Le credenziali di GitHub e Gitea
-restano sul tuo computer.
+un'approvazione, mai il suo testo), i campi di instradamento, i tempi e le dimensioni del testo
+cifrato. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal servizio push
+di Apple o di Google, che vede l'ID del terminale, il suo agente e il suo stato, mai nomi o
+testo. La crittografia non nasconde questi metadati e non evita un'interruzione del servizio.
+Un dispositivo che rimuovi perde l'accesso da quel momento. Dopo aver rimosso un dispositivo
+perso o rubato, crea una nuova chiave di recupero per tenerlo fuori. Quando qualcuno ricomincia
+da zero sul tuo account mentre hai dei dispositivi, si attende un giorno e i tuoi dispositivi
+lo mostrano, così puoi fermarlo. Le credenziali di GitHub e Gitea restano sul tuo computer.
 
 Eliminare un account rimuove i suoi dispositivi, i dati di recupero, gli amici, le
 condivisioni e i progetti di sua proprietà; i messaggi nei progetti di altri restano, senza

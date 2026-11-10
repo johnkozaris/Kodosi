@@ -298,8 +298,6 @@ QVariant SessionCatalogModel::data(const QModelIndex& index, int role) const
     switch (role) {
     case SessionIdRole:
         return s.id;
-    case MissionIdRole:
-        return s.missionId;
     default:
         return {};
     }

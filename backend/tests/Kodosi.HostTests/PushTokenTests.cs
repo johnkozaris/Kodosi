@@ -144,7 +144,7 @@ public sealed class PushTokenTests(PostgresFixture postgres)
 
         var delivery = app.Services.GetRequiredService<PushDelivery>();
         foreach (var actor in new[] { alice, bob, carol })
-            await delivery.DeliverAsync(new PushNotice(Guid.CreateVersion7(), "laptop", actor.Fixture.UserId, new TerminalStatus("claude", "done"), 0), ct);
+            await delivery.DeliverAsync(new PushNotice(Guid.CreateVersion7(), actor.Fixture.UserId, new TerminalStatus("claude", "done"), 0), ct);
 
         Assert.Equal(carol.Fixture.DeviceId, Assert.Single(await TokensAsync(app)).DeviceId);
         Assert.Equal(2, apple.Sent.Count);

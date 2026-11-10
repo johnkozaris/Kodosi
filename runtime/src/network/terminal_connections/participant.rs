@@ -452,12 +452,12 @@ impl<T: Transport> Viewer<T> {
             _ = deadlines.tick() => {
                 let now = tokio::time::Instant::now();
                 if self.heard.elapsed() >= CHANNEL_SILENCE {
-                    return Err(Error::Text(text!("The host did not answer.")));
+                    return Err(Error::Text(text!("The terminal's computer did not answer.")));
                 }
                 let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
                 for id in expired {
                     if let Some(pending) = self.pending.remove(&id) {
-                        drop(pending.reply.send(Err(Error::Text(text!("The host did not confirm the operation, and Kodosi did not send it again.")))));
+                        drop(pending.reply.send(Err(Error::Text(text!("The terminal's computer did not confirm the operation, and Kodosi did not send it again.")))));
                     }
                 }
                 if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {

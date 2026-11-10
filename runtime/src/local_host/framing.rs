@@ -108,16 +108,15 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
         }),
         Some(&INPUT_ACK) => {
             let value: Value = serde_json::from_slice(&bytes[1..])?;
+            let invalid = || Error::Invalid("invalid input acknowledgement".into());
+            let flag = |name| value.get(name).and_then(Value::as_bool).ok_or_else(invalid);
             Ok(TerminalFrame::InputAck {
-                accepted: value
-                    .get("accepted")
-                    .and_then(Value::as_bool)
-                    .ok_or_else(|| Error::Invalid("invalid input acknowledgement".into()))?,
-                ended: value.get("ended").and_then(Value::as_bool).unwrap_or(false),
-                shown: value.get("shown").and_then(Value::as_bool).unwrap_or(false),
-                message: value
-                    .get("message")
-                    .and_then(|message| serde_json::from_value(message.clone()).ok()),
+                accepted: flag("accepted")?,
+                ended: flag("ended")?,
+                shown: flag("shown")?,
+                message: serde_json::from_value(
+                    value.get("message").cloned().ok_or_else(invalid)?,
+                )?,
             })
         }
         Some(&CONTROL) => {
@@ -133,10 +132,12 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                     at_sequence: number(&value, "atSequence")?,
                 }),
                 Some("closed") => Ok(TerminalFrame::Closed {
-                    reason: value
-                        .get("reason")
-                        .and_then(|reason| serde_json::from_value(reason.clone()).ok())
-                        .unwrap_or_else(|| text!("The terminal closed.")),
+                    reason: serde_json::from_value(
+                        value
+                            .get("reason")
+                            .cloned()
+                            .ok_or_else(|| Error::Invalid("invalid terminal close".into()))?,
+                    )?,
                     final_sequence: number(&value, "finalSequence")?,
                 }),
                 Some(kind) if kind.starts_with("term.") => Ok(TerminalFrame::Answer(value)),

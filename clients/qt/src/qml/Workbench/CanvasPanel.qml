@@ -13,7 +13,6 @@ Item {
 
     required property string sessionId
     property bool wide: false
-    property real clearance: 10
     property var session: Models.Sessions.presentationForSession(sessionId)
     readonly property var canvas: session.canvas || null
     readonly property var files: canvas ? canvas.items || [] : []
@@ -177,7 +176,7 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 38
-            Layout.leftMargin: root.wide ? 7 : 7 + root.clearance
+            Layout.leftMargin: root.wide ? 7 : 17
             Layout.rightMargin: 6
             spacing: 8
 

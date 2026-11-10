@@ -1,4 +1,4 @@
-use document::{Guide, GuideField, GuideOp};
+use document::{Guide, guide_field as field, guide_op as op};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -176,23 +176,6 @@ pub(crate) fn cut(line: &str) -> String {
     match line.char_indices().nth(MOST_LINE) {
         Some((at, _)) => format!("{}…", &line[..at]),
         None => line.to_owned(),
-    }
-}
-
-fn field(name: &str, kind: &str, required: bool, does: &str) -> GuideField {
-    GuideField {
-        name: name.to_owned(),
-        kind: kind.to_owned(),
-        required,
-        does: does.to_owned(),
-    }
-}
-
-fn op(name: &str, does: &str, fields: Vec<GuideField>) -> GuideOp {
-    GuideOp {
-        name: name.to_owned(),
-        does: does.to_owned(),
-        fields,
     }
 }
 

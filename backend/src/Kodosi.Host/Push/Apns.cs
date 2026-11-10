@@ -84,10 +84,7 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
             json.WriteEndObject();
             json.WriteStartObject("kodosi");
             json.WriteString("terminal", notice.TerminalId);
-            json.WriteString("computer", notice.ComputerId);
             json.WriteString("agent", status.Program);
-            if (status.Account is { } account) json.WriteNumber("account", account);
-            else json.WriteNull("account");
             json.WriteString("state", status.State);
             json.WriteString("kind", status.Kind);
             json.WriteEndObject();

@@ -3275,7 +3275,8 @@
                   }
                 },
                 "required": [
-                  "type"
+                  "type",
+                  "keys"
                 ],
                 "type": "object"
               },
@@ -3311,7 +3312,8 @@
                   "name",
                   "offset",
                   "data",
-                  "last"
+                  "last",
+                  "page"
                 ],
                 "type": "object"
               },
@@ -10290,6 +10292,32 @@
                             }
                           ]
                         },
+                        "defaultOutput": {
+                          "oneOf": [
+                            {
+                              "const": "quiet"
+                            },
+                            {
+                              "const": "standard"
+                            },
+                            {
+                              "const": "detailed"
+                            }
+                          ]
+                        },
+                        "defaultPermissions": {
+                          "oneOf": [
+                            {
+                              "const": "ask"
+                            },
+                            {
+                              "const": "auto"
+                            },
+                            {
+                              "const": "unrestricted"
+                            }
+                          ]
+                        },
                         "install": {
                           "type": "string"
                         },
@@ -10344,7 +10372,9 @@
                         "addsAccounts",
                         "reportsUsage",
                         "permissions",
-                        "outputs"
+                        "outputs",
+                        "defaultPermissions",
+                        "defaultOutput"
                       ],
                       "type": "object"
                     },
@@ -12055,15 +12085,10 @@
                     "properties": {
                       "computer": {
                         "type": "string"
-                      },
-                      "since": {
-                        "format": "i64",
-                        "type": "integer"
                       }
                     },
                     "required": [
-                      "computer",
-                      "since"
+                      "computer"
                     ],
                     "type": "object"
                   },
@@ -13308,8 +13333,8 @@
       }
     ]
   },
-  "ffiAbiVersion": 10,
-  "protocolVersion": 82,
+  "ffiAbiVersion": 11,
+  "protocolVersion": 83,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

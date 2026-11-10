@@ -2028,8 +2028,8 @@
         <translation>Ο σύνδεσμος έχει κρυφούς χαρακτήρες που μπορούν να αλλάξουν την εμφάνισή του.</translation>
     </message>
     <message>
-        <source>The web link has no host.</source>
-        <translation>Ο σύνδεσμος ιστού δεν έχει host.</translation>
+        <source>The web link has no server name.</source>
+        <translation>Ο σύνδεσμος ιστού δεν έχει όνομα διακομιστή.</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
@@ -4555,22 +4555,6 @@
     <message>
         <source>Kodosi could not start.</source>
         <translation>Το Kodosi δεν μπόρεσε να ξεκινήσει.</translation>
-    </message>
-    <message>
-        <source>An earlier version of Kodosi is still open.</source>
-        <translation>Μια προηγούμενη έκδοση του Kodosi είναι ακόμη ανοιχτή.</translation>
-    </message>
-    <message>
-        <source>Close it to use Kodosi %1. Its terminals keep running until you restart them.</source>
-        <translation>Κλείστε την για να χρησιμοποιήσετε το Kodosi %1. Τα τερματικά της συνεχίζουν να τρέχουν μέχρι να τα επανεκκινήσετε.</translation>
-    </message>
-    <message>
-        <source>Use Kodosi %1</source>
-        <translation>Χρήση του Kodosi %1</translation>
-    </message>
-    <message>
-        <source>Keep the earlier one</source>
-        <translation>Διατήρηση της προηγούμενης</translation>
     </message>
 </context>
 </TS>

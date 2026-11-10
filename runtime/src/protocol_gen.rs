@@ -308,7 +308,7 @@ fn invalid(message: impl Into<String>) -> Error {
 fn rendered() -> Result<String> {
     let value = json!({
         "protocolVersion":protocol::VERSION,
-        "ffiAbiVersion":10,
+        "ffiAbiVersion":11,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
         "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"imageStorageMaxBytes":kodosi_runtime::terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
