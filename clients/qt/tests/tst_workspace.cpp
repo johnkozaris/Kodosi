@@ -229,6 +229,33 @@ private slots:
         QCOMPARE(f.desktop.selectedSessionId(), first);
     }
 
+    void aTerminalOfAnotherComputerOpensItsCanvasOnlyAtWhatItsAgentDidAfterTheStart()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
+        f.workspace.attachCanvas(canvas);
+        const auto id = test::id(1);
+        auto terminal = onMini(1);
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ terminal }), 1);
+        QVERIFY(f.desktop.selectSession(id));
+        f.sessions.setVisible(id, true);
+        auto shown = showing(1, 1).value(QStringLiteral("canvas")).toObject();
+        terminal.insert(QStringLiteral("canvas"), shown);
+        f.workspace.apply(test::snapshot({ terminal }), 1);
+        QCoreApplication::sendPostedEvents();
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        shown.insert(QStringLiteral("sequence"), 3);
+        shown.insert(QStringLiteral("browser"), QJsonObject { { QStringLiteral("state"), QStringLiteral("starting") },
+            { QStringLiteral("changed"), 3 }, { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } });
+        shown.insert(QStringLiteral("open"),
+            QJsonObject { { QStringLiteral("key"), QStringLiteral("browser") }, { QStringLiteral("at"), 3 } });
+        terminal.insert(QStringLiteral("canvas"), shown);
+        f.workspace.apply(test::snapshot({ terminal }), 1);
+        QTRY_COMPARE(f.desktop.canvasSessionId(), id);
+        QCOMPARE(canvas.current(id), QStringLiteral("browser"));
+    }
+
     void updatingRoomTasksPreservesTheirVisibleOrder()
     {
         Fixture f;
