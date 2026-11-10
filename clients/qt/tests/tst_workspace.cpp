@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QWindow>
@@ -1196,6 +1197,25 @@ private slots:
         first.insert(QStringLiteral("restoredFrom"), test::id(1));
         restarted.workspace.apply(test::snapshot({ first, second }), 1);
         QCOMPARE(restarted.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(4) }));
+    }
+    void theStageIsWrittenOnlyWhenItChanges()
+    {
+        QTemporaryDir dir;
+        const auto file = dir.filePath(QStringLiteral("ui.ini"));
+        Fixture f(dir.path());
+        f.workspace.apply(accountEvent({}, 1), 1);
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QTRY_VERIFY(QFileInfo::exists(file));
+        QVERIFY(QFile::remove(file));
+        auto renamed = test::session(2);
+        renamed.insert(QStringLiteral("name"), QStringLiteral("Build"));
+        f.workspace.apply(test::snapshot({ test::session(1), renamed }), 1);
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+        QCoreApplication::processEvents();
+        QVERIFY(!QFileInfo::exists(file));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QTRY_VERIFY(QFileInfo::exists(file));
     }
     void theStageComesBackWhileASavedSignInWaitsForTheServer()
     {

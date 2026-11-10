@@ -148,6 +148,7 @@ private:
     QString m_stageKey;
     QStringList m_restoring;
     QStringList m_savedStage;
+    QStringList m_stageWritten;
     QHash<QString, Computer> m_computers;
     QList<Departure> m_departures;
     QSet<QString> m_closing;

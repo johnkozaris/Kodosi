@@ -295,6 +295,7 @@ void DesktopStateModel::switchAccount(const QString& userId)
                                   QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     m_restoring = m_settings->value(m_stageKey).toStringList();
     m_savedStage = m_restoring;
+    m_stageWritten = m_restoring;
     m_pins = m_settings->value(QStringLiteral("pins/") + m_stageKey.mid(QStringLiteral("stage/").size())).toStringList();
     m_pinComputers.clear();
     emit pinnedSessionIdsChanged();
@@ -317,7 +318,11 @@ void DesktopStateModel::saveStage()
         if (!kept.contains(id))
             kept.append(id);
     }
-    m_settings->setValue(m_stageKey, kept.mid(0, 64));
+    kept = kept.mid(0, 64);
+    if (kept == m_stageWritten)
+        return;
+    m_stageWritten = kept;
+    m_settings->setValue(m_stageKey, kept);
 }
 void DesktopStateModel::togglePin(const QString& id)
 {
