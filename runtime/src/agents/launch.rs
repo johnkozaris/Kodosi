@@ -294,17 +294,23 @@ impl State {
     }
 }
 
-/// The permissions that an agent starts with: the last choice that it has, else asking.
+/// The permissions that an agent starts with: the last choice that it has, else unrestricted,
+/// else asking.
 fn permissions_of(agent: Agent, saved: Option<Permissions>) -> Permissions {
-    saved
-        .filter(|permissions| agent.permission_words(*permissions).is_some())
+    [saved, Some(Permissions::Unrestricted)]
+        .into_iter()
+        .flatten()
+        .find(|permissions| agent.permission_words(*permissions).is_some())
         .unwrap_or(Permissions::Ask)
 }
 
-/// The output that an agent starts with: the last choice that it has, else its standard one.
+/// The output that an agent starts with: the last choice that it has, else quiet, else its
+/// standard one.
 fn output_of(agent: Agent, saved: Option<Output>) -> Output {
-    saved
-        .filter(|output| agent.output_words(*output).is_some())
+    [saved, Some(Output::Quiet)]
+        .into_iter()
+        .flatten()
+        .find(|output| agent.output_words(*output).is_some())
         .unwrap_or(Output::Standard)
 }
 

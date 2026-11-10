@@ -112,23 +112,23 @@ impl Agent {
     ) -> Option<&'static [&'static str]> {
         match (self, permissions) {
             (Self::Claude, Permissions::Ask) => Some(&["--permission-mode", "manual"]),
-            (Self::Claude, Permissions::Skip) => Some(&["--dangerously-skip-permissions"]),
             (Self::Claude, Permissions::Auto) => Some(&["--permission-mode", "auto"]),
+            (Self::Claude, Permissions::Unrestricted) => Some(&["--dangerously-skip-permissions"]),
             (Self::Codex, Permissions::Ask) => Some(&["-a", "on-request", "-s", "read-only"]),
-            (Self::Codex, Permissions::Skip) => {
-                Some(&["--dangerously-bypass-approvals-and-sandbox"])
-            }
             (Self::Codex, Permissions::Auto) => {
                 Some(&["-a", "on-request", "-s", "workspace-write"])
             }
+            (Self::Codex, Permissions::Unrestricted) => {
+                Some(&["--dangerously-bypass-approvals-and-sandbox"])
+            }
             (Self::Copilot | Self::Cursor | Self::Opencode, Permissions::Ask) => Some(&[]),
-            (Self::Copilot | Self::Gemini, Permissions::Skip) => Some(&["--yolo"]),
             (Self::Copilot, Permissions::Auto) => Some(&["--assisted-approval"]),
+            (Self::Copilot | Self::Gemini, Permissions::Unrestricted) => Some(&["--yolo"]),
             (Self::Gemini, Permissions::Ask) => Some(&["--approval-mode", "default"]),
             (Self::Gemini, Permissions::Auto) => Some(&["--approval-mode", "auto_edit"]),
-            (Self::Cursor, Permissions::Skip) => Some(&["--force"]),
+            (Self::Cursor, Permissions::Unrestricted) => Some(&["--force"]),
             (Self::Opencode, Permissions::Auto) => Some(&["--auto"]),
-            (Self::Cursor, Permissions::Auto) | (Self::Opencode, Permissions::Skip) => None,
+            (Self::Cursor, Permissions::Auto) | (Self::Opencode, Permissions::Unrestricted) => None,
         }
     }
 
@@ -510,18 +510,18 @@ pub struct AgentInfo {
 #[serde(rename_all = "lowercase")]
 pub enum Permissions {
     Ask,
-    Skip,
     Auto,
+    Unrestricted,
 }
 
 impl Permissions {
-    pub const ALL: [Self; 3] = [Self::Ask, Self::Skip, Self::Auto];
+    pub const ALL: [Self; 3] = [Self::Ask, Self::Auto, Self::Unrestricted];
 
     pub const fn name(self) -> &'static str {
         match self {
             Self::Ask => "ask",
-            Self::Skip => "skip",
             Self::Auto => "auto",
+            Self::Unrestricted => "unrestricted",
         }
     }
 

@@ -158,8 +158,8 @@
         <translation>確認</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>スキップ</translation>
+        <source>Unrestricted</source>
+        <translation>制限なし</translation>
     </message>
     <message>
         <source>Auto</source>

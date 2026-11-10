@@ -146,11 +146,11 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
     const auto offered = info.value(QStringLiteral("permissions")).toStringList();
     auto permissions = saved.value(QStringLiteral("permissions")).toString();
     if (!offered.contains(permissions))
-        permissions = QStringLiteral("ask");
+        permissions = offered.contains(QStringLiteral("unrestricted")) ? QStringLiteral("unrestricted") : QStringLiteral("ask");
     const auto outputs = info.value(QStringLiteral("outputs")).toStringList();
     auto output = saved.value(QStringLiteral("output")).toString();
     if (!outputs.contains(output))
-        output = QStringLiteral("standard");
+        output = outputs.contains(QStringLiteral("quiet")) ? QStringLiteral("quiet") : QStringLiteral("standard");
     QVariant start;
     if (info.value(QStringLiteral("installed")).toBool() && account.isValid()) {
         QVariantMap starting { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },

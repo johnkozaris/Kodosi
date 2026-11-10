@@ -50,7 +50,7 @@ public struct AgentPick: Decodable, Equatable, Sendable {
 
 /// How an agent asks before it acts, through its own flags.
 public enum AgentPermissions: String, CaseIterable, Decodable, Sendable {
-    case ask, skip, auto
+    case ask, auto, unrestricted
 }
 
 /// How much of its work an agent shows, through its own settings.

@@ -158,8 +158,8 @@
         <translation>Demander</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>Ignorer</translation>
+        <source>Unrestricted</source>
+        <translation>Accès total</translation>
     </message>
     <message>
         <source>Auto</source>

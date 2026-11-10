@@ -5,28 +5,28 @@ public extension AgentPermissions {
     var label: String {
         switch self {
         case .ask: String(localized: "Ask", bundle: .module)
-        case .skip: String(localized: "Skip", bundle: .module)
         case .auto: String(localized: "Auto", bundle: .module)
+        case .unrestricted: String(localized: "Unrestricted", bundle: .module)
         }
     }
 
     var symbol: String {
         switch self {
         case .ask: "hand.raised"
-        case .skip: "bolt.shield"
         case .auto: "wand.and.stars"
+        case .unrestricted: "bolt.shield"
         }
     }
 
     func detail(for kind: AgentKind) -> String {
         switch (self, kind) {
         case (.ask, _): String(localized: "Asks before it changes files or runs commands.", bundle: .module)
-        case (.skip, _): String(localized: "Never asks, and runs every command as you.", bundle: .module)
         case (.auto, .claude), (.auto, .copilot):
             String(localized: "A safety check approves what is safe and asks you for the rest. The check uses tokens.", bundle: .module)
         case (.auto, .codex): String(localized: "Works in this folder on its own and asks you for the rest.", bundle: .module)
         case (.auto, .gemini): String(localized: "Edits files on its own and asks before it runs commands.", bundle: .module)
         case (.auto, _): String(localized: "Accepts its own actions, except what you denied.", bundle: .module)
+        case (.unrestricted, _): String(localized: "Never asks, and runs every command as you.", bundle: .module)
         }
     }
 }

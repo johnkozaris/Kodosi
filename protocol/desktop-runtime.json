@@ -1496,10 +1496,10 @@
                             "const": "ask"
                           },
                           {
-                            "const": "skip"
+                            "const": "auto"
                           },
                           {
-                            "const": "auto"
+                            "const": "unrestricted"
                           }
                         ]
                       },
@@ -1929,10 +1929,10 @@
                             "const": "ask"
                           },
                           {
-                            "const": "skip"
+                            "const": "auto"
                           },
                           {
-                            "const": "auto"
+                            "const": "unrestricted"
                           }
                         ]
                       },
@@ -4811,10 +4811,10 @@
                             "const": "ask"
                           },
                           {
-                            "const": "skip"
+                            "const": "auto"
                           },
                           {
-                            "const": "auto"
+                            "const": "unrestricted"
                           }
                         ]
                       },
@@ -5503,10 +5503,10 @@
                             "const": "ask"
                           },
                           {
-                            "const": "skip"
+                            "const": "auto"
                           },
                           {
-                            "const": "auto"
+                            "const": "unrestricted"
                           }
                         ]
                       },
@@ -9977,10 +9977,10 @@
                                 "const": "ask"
                               },
                               {
-                                "const": "skip"
+                                "const": "auto"
                               },
                               {
-                                "const": "auto"
+                                "const": "unrestricted"
                               }
                             ]
                           },
@@ -10124,10 +10124,10 @@
                                       "const": "ask"
                                     },
                                     {
-                                      "const": "skip"
+                                      "const": "auto"
                                     },
                                     {
-                                      "const": "auto"
+                                      "const": "unrestricted"
                                     }
                                   ]
                                 },
@@ -10330,10 +10330,10 @@
                                       "const": "ask"
                                     },
                                     {
-                                      "const": "skip"
+                                      "const": "auto"
                                     },
                                     {
-                                      "const": "auto"
+                                      "const": "unrestricted"
                                     }
                                   ]
                                 },
@@ -10794,10 +10794,10 @@
                                   "const": "ask"
                                 },
                                 {
-                                  "const": "skip"
+                                  "const": "auto"
                                 },
                                 {
-                                  "const": "auto"
+                                  "const": "unrestricted"
                                 }
                               ]
                             },
@@ -11846,10 +11846,10 @@
                                   "const": "ask"
                                 },
                                 {
-                                  "const": "skip"
+                                  "const": "auto"
                                 },
                                 {
-                                  "const": "auto"
+                                  "const": "unrestricted"
                                 }
                               ]
                             },

@@ -291,7 +291,7 @@ struct NewTerminalSheet: View {
             values: agent.permissions, selection: permissions, label: \.label,
             choose: { permissions in choosePick(plan, launcher) { $0.permissions = permissions } },
             leading: {
-                IconTile(symbol: permissions.symbol, tint: permissions == .skip ? TileTint.amber : agent.kind.tint, size: 28)
+                IconTile(symbol: permissions.symbol, tint: permissions == .unrestricted ? TileTint.amber : agent.kind.tint, size: 28)
             },
         )
         .accessibilityIdentifier("terminals.new.permissions")

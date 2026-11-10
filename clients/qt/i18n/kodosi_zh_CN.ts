@@ -158,8 +158,8 @@
         <translation>询问</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>跳过</translation>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
     </message>
     <message>
         <source>Auto</source>

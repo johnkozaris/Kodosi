@@ -158,8 +158,8 @@
         <translation>Chiedi</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>Salta</translation>
+        <source>Unrestricted</source>
+        <translation>Accesso totale</translation>
     </message>
     <message>
         <source>Auto</source>

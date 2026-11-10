@@ -28,6 +28,9 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
   화살표로 옆 터미널을 고르고(Ctrl+Alt와 화살표), ⌘W로 선택한 터미널을 닫아요. 설정 ›
   단축키에서 모든 키를 보고 바꿀 수 있어요.
 - 에이전트가 없으면 런처가 설치 명령을 보여 줘요.
+- 에이전트는 제한 없음으로 시작해요. 묻지 않고 파일을 바꾸고 명령을 실행해요. 먼저 묻게
+  하려면 모델 다음 버튼에서 묻기를 고르세요. Claude Code와 Codex가 작업을 얼마나 보여
+  줄지도 거기서 고를 수 있고, 처음에는 간결이에요.
 - 새 계정은 `~/.claude-work`처럼 자기만의 로그인 폴더를 가져요. Kodosi는
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`처럼 셸에서 설정한 계정도 찾아요.
 - 프롬프트에서 기다리는 터미널에서는 헤더의 동작 버튼(슬라이더 두 개)에 설치된 에이전트가
@@ -55,9 +58,9 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
 터미널에 보이던 내용을 내 컴퓨터에만 저장해요. Kodosi를 다시 열면 터미널이 원래 폴더, 방,
 스테이지의 자리에서 다시 시작하고, 새 프롬프트 위에 이전 화면과 기록이 나와요(Windows에서는
 위로 스크롤하면 보여요). Claude Code, Codex, Copilot CLI는 대화를 이어 가고, Mac과
-Linux에서는 고른 모델과 추론 수준도 그대로 써요. 어떤 대화였는지 Kodosi가 알 수 없으면
-에이전트가 대화 목록을 보여 줘서 하나를 골라 이어 갈 수 있어요. 창을 닫을 때의 동작은
-설정에서 고를 수 있어요.
+Linux에서는 고른 모델, 추론 수준, 권한, 출력도 그대로 써요. 어떤 대화였는지 Kodosi가 알 수
+없으면 에이전트가 대화 목록을 보여 줘서 하나를 골라 이어 갈 수 있어요. 창을 닫을 때의
+동작은 설정에서 고를 수 있어요.
 
 Mac에서는 다른 터미널 앱처럼 터미널의 프로그램이 Kodosi에 준 권한을 가져요. macOS가 Kodosi의
 앱 수정을 막았다고 알리면, 터미널의 프로그램이 다른 앱을 바꾸려고 한 거예요. 허용하려면 앱
@@ -189,7 +192,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 지난번 선택으로 에이전트를 시작해요. `--account`, `--model`, `--effort`로 바꿀 수 있어요. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 지난번 선택으로 에이전트를 시작해요. `--account`, `--model`, `--effort`, `--permissions`, `--output`로 바꿀 수 있어요. |
 | `kodosi terminal start --directory <repository> --branch <name>` | 전용 worktree의 새 브랜치에서 터미널을 시작해요. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 내 다른 컴퓨터에서 터미널을 시작해요. 상대 경로 폴더나 `~`로 시작하는 폴더는 그 컴퓨터의 홈에 있어요. 어느 컴퓨터가 온라인인지는 `kodosi devices list`로 볼 수 있어요. |
 | `kodosi agent list` | 에이전트, 그 계정, 지난번 선택을 보여 줘요. |

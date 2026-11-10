@@ -14,7 +14,7 @@ struct LauncherModes: View {
             ModeRow(
                 title: String(localized: "Permissions"), identifier: "launcher.permissions",
                 options: info.permissions.map {
-                    ModeRow.Option(id: $0.rawValue, label: $0.label, detail: $0.detail(for: info.kind), caution: $0 == .skip)
+                    ModeRow.Option(id: $0.rawValue, label: $0.label, detail: $0.detail(for: info.kind), caution: $0 == .unrestricted)
                 },
                 current: permissions.rawValue, pick: pick,
             )

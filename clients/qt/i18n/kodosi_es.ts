@@ -158,8 +158,8 @@
         <translation>Preguntar</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>Omitir</translation>
+        <source>Unrestricted</source>
+        <translation>Acceso total</translation>
     </message>
     <message>
         <source>Auto</source>

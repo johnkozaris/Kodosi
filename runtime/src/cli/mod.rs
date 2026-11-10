@@ -117,8 +117,8 @@ enum Action {
 
 const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
-const PERMISSIONS: &str = "How the agent asks before it acts: ask, skip, which never asks, or auto, where the agent's own safety check decides and asks for the rest. It starts with your last choice, else ask";
-const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed, for Claude Code and Codex. It starts with your last choice, else standard";
+const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
+const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed, for Claude Code and Codex. It starts with your last choice, else quiet";
 
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {
@@ -236,7 +236,7 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long, requires = "agent")]
         effort: Option<String>,
-        #[arg(long, requires = "agent", help = PERMISSIONS, value_parser = ["ask", "skip", "auto"])]
+        #[arg(long, requires = "agent", help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
         permissions: Option<String>,
         #[arg(long, requires = "agent", help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
         output: Option<String>,
@@ -260,7 +260,7 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long)]
         effort: Option<String>,
-        #[arg(long, help = PERMISSIONS, value_parser = ["ask", "skip", "auto"])]
+        #[arg(long, help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
         permissions: Option<String>,
         #[arg(long, help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
         output: Option<String>,

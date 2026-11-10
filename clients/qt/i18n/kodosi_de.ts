@@ -158,8 +158,8 @@
         <translation>Fragen</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>Überspringen</translation>
+        <source>Unrestricted</source>
+        <translation>Vollzugriff</translation>
     </message>
     <message>
         <source>Auto</source>

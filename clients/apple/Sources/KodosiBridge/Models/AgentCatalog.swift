@@ -34,6 +34,16 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var id: String {
         agent
     }
+
+    /// The permissions that the agent starts with until someone chooses: unrestricted, else asking.
+    public var defaultPermissions: AgentPermissions {
+        permissions.contains(.unrestricted) ? .unrestricted : .ask
+    }
+
+    /// The output that the agent starts with until someone chooses: quiet, else its standard one.
+    public var defaultOutput: AgentOutput {
+        outputs.contains(.quiet) ? .quiet : .standard
+    }
 }
 
 public struct AgentAccount: Decodable, Equatable, Identifiable, Sendable {
@@ -293,15 +303,17 @@ public struct LaunchPlan {
         models == nil || !(models?.models.isEmpty ?? true)
     }
 
-    /// How the agent asks before it acts: the last choice that it still has, else asking.
+    /// How the agent asks before it acts: the last choice that it still has, else its default.
     public var permissions: AgentPermissions {
-        guard let info, let saved = pick?.permissions, info.permissions.contains(saved) else { return .ask }
+        guard let info else { return .ask }
+        guard let saved = pick?.permissions, info.permissions.contains(saved) else { return info.defaultPermissions }
         return saved
     }
 
-    /// How much of its work the agent shows: the last choice that it still has, else its standard.
+    /// How much of its work the agent shows: the last choice that it still has, else its default.
     public var output: AgentOutput {
-        guard let info, let saved = pick?.output, info.outputs.contains(saved) else { return .standard }
+        guard let info else { return .standard }
+        guard let saved = pick?.output, info.outputs.contains(saved) else { return info.defaultOutput }
         return saved
     }
 

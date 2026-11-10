@@ -733,7 +733,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         account: Some("work".to_owned()),
         model: Some("opus".to_owned()),
         effort: Some("high".to_owned()),
-        permissions: Some(Permissions::Skip),
+        permissions: Some(Permissions::Unrestricted),
         output: Some(Output::Standard),
     };
     let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
@@ -831,7 +831,7 @@ fn installed(agent: Agent) -> AgentInfo {
 }
 
 #[test]
-fn an_agent_starts_with_its_last_permissions_and_output_else_it_asks() {
+fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_quiet() {
     let line = |agent: Agent,
                 saved: Option<Permissions>,
                 permissions: Option<Permissions>,
@@ -861,36 +861,49 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_it_asks() {
         )
         .map(|(line, pick)| (line, pick.permissions))
     };
-    let (ask, skip, auto) = (Permissions::Ask, Permissions::Skip, Permissions::Auto);
+    let (ask, auto, unrestricted) = (
+        Permissions::Ask,
+        Permissions::Auto,
+        Permissions::Unrestricted,
+    );
 
     assert_eq!(
         line(Agent::Claude, None, None, None).unwrap(),
+        (
+            r#"claude --dangerously-skip-permissions --settings '{"viewMode":"focus"}'"#.to_owned(),
+            Some(unrestricted)
+        )
+    );
+    assert_eq!(
+        line(Agent::Claude, Some(ask), None, Some(Output::Standard)).unwrap(),
         ("claude --permission-mode manual".to_owned(), Some(ask))
     );
     assert_eq!(
-        line(Agent::Claude, Some(skip), Some(auto), Some(Output::Quiet))
+        line(Agent::Claude, Some(unrestricted), Some(auto), None)
             .unwrap()
             .0,
         r#"claude --permission-mode auto --settings '{"viewMode":"focus"}'"#
     );
     assert_eq!(
-        line(Agent::Codex, Some(skip), None, Some(Output::Quiet))
-            .unwrap()
-            .0,
+        line(Agent::Codex, None, None, None).unwrap().0,
         "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
          -c model_reasoning_summary=none -c tui.auto_recap=false"
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),
-        ("copilot".to_owned(), Some(ask))
+        ("copilot --yolo".to_owned(), Some(unrestricted))
+    );
+    assert_eq!(
+        line(Agent::Opencode, None, None, None).unwrap(),
+        ("opencode".to_owned(), Some(ask))
     );
     assert_eq!(
         line(Agent::Cursor, Some(auto), None, None).unwrap().0,
-        "cursor-agent"
+        "cursor-agent --force"
     );
     assert_eq!(
         line(Agent::Cursor, None, Some(auto), None).unwrap_err(),
-        "Cursor has no permissions auto. Permissions: ask, skip."
+        "Cursor has no permissions auto. Permissions: ask, unrestricted."
     );
     assert_eq!(
         line(Agent::Copilot, None, None, Some(Output::Quiet)).unwrap_err(),

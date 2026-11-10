@@ -40,9 +40,11 @@ ColumnLayout {
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
-    readonly property string permissions: plan ? plan.permissions || "ask" : "ask"
-    readonly property string output: plan ? plan.output || "standard" : "standard"
     readonly property var outputs: info ? info.outputs || [] : []
+    readonly property string defaultPermissions: info && (info.permissions || []).includes("unrestricted") ? "unrestricted" : "ask"
+    readonly property string defaultOutput: outputs.includes("quiet") ? "quiet" : "standard"
+    readonly property string permissions: plan ? plan.permissions || defaultPermissions : defaultPermissions
+    readonly property string output: plan ? plan.output || defaultOutput : defaultOutput
     readonly property string directory: computer.length > 0 ? Models.DesktopState.launcherRemoteFolders[computer] || (places.recent || [])[0] || ""
         : folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
@@ -132,10 +134,10 @@ ColumnLayout {
         return rows
     }
     function permissionLabel(id) {
-        return id === "skip" ? qsTr("Skip") : id === "auto" ? qsTr("Auto") : qsTr("Ask")
+        return id === "unrestricted" ? qsTr("Unrestricted") : id === "auto" ? qsTr("Auto") : qsTr("Ask")
     }
     function permissionDetail(id) {
-        if (id === "skip")
+        if (id === "unrestricted")
             return qsTr("Never asks, and runs every command as you.")
         if (id !== "auto")
             return qsTr("Asks before it changes files or runs commands.")
@@ -156,7 +158,7 @@ ColumnLayout {
     }
     function permissionOptions() {
         return (info ? info.permissions || [] : []).map(id => ({ id: id, label: permissionLabel(id), detail: permissionDetail(id),
-            caution: id === "skip" }))
+            caution: id === "unrestricted" }))
     }
     function outputOptions() {
         return outputs.map(id => ({ id: id, label: outputLabel(id), detail: outputDetail(id), caution: false }))
@@ -792,8 +794,8 @@ ColumnLayout {
                         visible: root.info !== null && root.info.installed
                             && ((root.info.permissions || []).length > 1 || root.outputs.length > 0)
                         title: [root.permissionLabel(root.permissions)]
-                            .concat(root.output === "standard" || root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(" · ")
-                        quiet: root.permissions === "ask" && root.output === "standard"
+                            .concat(root.output === root.defaultOutput || root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(" · ")
+                        quiet: root.permissions === root.defaultPermissions && root.output === root.defaultOutput
                         open: root.menuKind === "modes"
                         objectName: "launcher.modes"
                         Accessible.id: objectName
@@ -801,10 +803,10 @@ ColumnLayout {
                         glyph: KIcon {
                             width: 11
                             height: 11
-                            name: root.permissions === "skip" ? "warning" : root.permissions === "auto" ? "check" : "hand"
+                            name: root.permissions === "unrestricted" ? "warning" : root.permissions === "auto" ? "check" : "hand"
                             filled: true
                             strokeWidth: 1
-                            color: root.permissions === "skip" ? KodosiTheme.caution : Identity.kindTint(root.agentId)
+                            color: root.permissions === "unrestricted" ? KodosiTheme.caution : Identity.kindTint(root.agentId)
                         }
                         onClicked: root.toggleMenu("modes")
                     }

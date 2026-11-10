@@ -31,7 +31,7 @@ private let catalog: JSONValue = .object([
         .object([
             "agent": .string("claude"), "program": .string("claude"), "installed": .bool(true), "install": .string(""),
             "addsAccounts": .bool(true), "reportsUsage": .bool(true),
-            "permissions": .array(["ask", "skip", "auto"].map(JSONValue.string)),
+            "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
@@ -43,7 +43,7 @@ private let catalog: JSONValue = .object([
         .object([
             "agent": .string("codex"), "program": .string("codex"), "installed": .bool(false),
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
-            "reportsUsage": .bool(true), "permissions": .array(["ask", "skip", "auto"].map(JSONValue.string)),
+            "reportsUsage": .bool(true), "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
             "accounts": .array([]),
         ]),
@@ -289,14 +289,14 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     try await answerAgentRequests(app, sent: sent)
     #expect(app.launcher.installed.map(\.agent) == ["claude"])
     #expect(LaunchPlan(launcher: app.launcher).start == AgentStart(
-        agent: "claude", account: "work", model: "", effort: "high", permissions: .ask, output: .standard,
+        agent: "claude", account: "work", model: "", effort: "high", permissions: .unrestricted, output: .quiet,
     ))
     #expect(LaunchPlan(launcher: app.launcher, agent: "codex").start == nil)
-    app.launcher.choose(.pick(AgentPick(agent: "claude", account: "gone", permissions: .skip, output: .quiet)))
+    app.launcher.choose(.pick(AgentPick(agent: "claude", account: "gone", permissions: .ask, output: .standard)))
     let plan = LaunchPlan(launcher: app.launcher)
     #expect(plan.account?.name == "default")
-    #expect(plan.start?.permissions == .skip && plan.start?.output == .quiet)
-    #expect(plan.shown?.permissions == .skip)
+    #expect(plan.start?.permissions == .ask && plan.start?.output == .standard)
+    #expect(plan.shown?.permissions == .ask)
 }
 
 @Test @MainActor func `usage shows only on accounts that are signed in`() async throws {

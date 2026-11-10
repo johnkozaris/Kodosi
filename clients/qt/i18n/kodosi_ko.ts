@@ -158,8 +158,8 @@
         <translation>묻기</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>건너뛰기</translation>
+        <source>Unrestricted</source>
+        <translation>제한 없음</translation>
     </message>
     <message>
         <source>Auto</source>

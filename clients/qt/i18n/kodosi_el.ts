@@ -158,8 +158,8 @@
         <translation>Ερώτηση</translation>
     </message>
     <message>
-        <source>Skip</source>
-        <translation>Παράλειψη</translation>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
     </message>
     <message>
         <source>Auto</source>

@@ -176,10 +176,11 @@ from another device with a note that Dosi is off there.
   start the same way. Kodosi types the agent's command into the shell of the new terminal
   and does no more.
 - The launcher also chooses how the agent asks before it acts, with the agent's own flags:
-  Ask, Skip, where it never asks, or Auto, where the agent's own safety check approves what
-  is safe. For Claude Code and Codex it also chooses how much of their work they show:
-  Quiet, Standard or Detailed. It starts at Ask and Standard, keeps the last choice of each
-  agent, and a terminal that starts again keeps them.
+  Ask; Auto, where the agent's own safety check approves what is safe; or Unrestricted,
+  where it never asks. For Claude Code and Codex it also chooses how much of their work they
+  show: Quiet, Standard or Detailed. It starts at Unrestricted, or Ask for an agent without
+  it, and at Quiet, keeps the last choice of each agent, and a terminal that starts again
+  keeps them.
 - Quick terminal skips the launcher and opens a plain terminal on this computer at once:
   in the folder of the selected terminal, or else in the launcher's folder. What the
   person types while it opens goes into it.
