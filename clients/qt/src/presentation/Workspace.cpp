@@ -347,6 +347,14 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit showRequested(event.value(QStringLiteral("sessionId")).toString());
         return;
     }
+    if (type == QStringLiteral("mission.show")) {
+        if (const auto id = event.value(QStringLiteral("missionId")).toString(); !id.isEmpty()) {
+            m_desktop.bringToFront();
+            m_desktop.setActiveView(DesktopStateModel::Missions);
+            m_missions.open(id);
+        }
+        return;
+    }
     if (type == QStringLiteral("sessions.snapshot")) {
         m_sessions.apply(event);
         if (!m_sessions.hasAuthoritativeSnapshot()) {

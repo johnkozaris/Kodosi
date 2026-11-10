@@ -1,10 +1,12 @@
 #include "presentation/DesktopStateModel.hpp"
+#include "app/AppActivation.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include <QEvent>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
 #include <algorithm>
+#include <utility>
 
 namespace kodosi {
 DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObject* parent)
@@ -15,6 +17,9 @@ DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObjec
     m_dosiOpen = m_settings->value(QStringLiteral("window/dosi"), false).toBool();
     m_listWidth = std::clamp(m_settings->value(QStringLiteral("window/sidebarWidth"), 252.0).toDouble(), 220.0, 380.0);
     m_dosiWidth = std::clamp(m_settings->value(QStringLiteral("window/dosiWidth"), 420.0).toDouble(), 340.0, 640.0);
+    m_windowSave.setSingleShot(true);
+    m_windowSave.setInterval(500);
+    connect(&m_windowSave, &QTimer::timeout, this, &DesktopStateModel::saveWindow);
     connect(this, &DesktopStateModel::selectedSessionIdChanged, this, [this] {
         if (m_selected.isEmpty())
             return;
@@ -290,6 +295,7 @@ void DesktopStateModel::switchAccount(const QString& userId)
                                   QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)));
     m_restoring = m_settings->value(m_stageKey).toStringList();
     m_savedStage = m_restoring;
+    m_stageWritten = m_restoring;
     m_pins = m_settings->value(QStringLiteral("pins/") + m_stageKey.mid(QStringLiteral("stage/").size())).toStringList();
     m_pinComputers.clear();
     emit pinnedSessionIdsChanged();
@@ -312,7 +318,11 @@ void DesktopStateModel::saveStage()
         if (!kept.contains(id))
             kept.append(id);
     }
-    m_settings->setValue(m_stageKey, kept.mid(0, 64));
+    kept = kept.mid(0, 64);
+    if (kept == m_stageWritten)
+        return;
+    m_stageWritten = kept;
+    m_settings->setValue(m_stageKey, kept);
 }
 void DesktopStateModel::togglePin(const QString& id)
 {
@@ -552,13 +562,26 @@ bool DesktopStateModel::watching() const
 {
     return m_window && m_window->isActive();
 }
-void DesktopStateModel::saveWindow()
+void DesktopStateModel::bringToFront(const QString& activationToken)
 {
     if (!m_window)
         return;
-    m_settings->setValue(QStringLiteral("window/maximized"), m_window->windowState() == Qt::WindowMaximized);
-    if (m_window->windowState() == Qt::WindowNoState)
-        m_settings->setValue(QStringLiteral("window/geometry"), m_window->geometry());
+    if (m_window->windowStates() & Qt::WindowMinimized)
+        m_window->setWindowStates(m_window->windowStates() & ~Qt::WindowMinimized);
+    m_window->setVisible(true);
+    withActivationToken(activationToken, [this] {
+        m_window->raise();
+        m_window->requestActivate();
+    });
+}
+void DesktopStateModel::saveWindow()
+{
+    m_windowSave.stop();
+    if (!std::exchange(m_windowUnsaved, false))
+        return;
+    m_settings->setValue(QStringLiteral("window/maximized"), m_windowMaximized);
+    if (m_windowGeometry.isValid())
+        m_settings->setValue(QStringLiteral("window/geometry"), m_windowGeometry);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Kodosi could not save the window preferences.");
@@ -567,10 +590,19 @@ void DesktopStateModel::saveWindow()
 }
 bool DesktopStateModel::eventFilter(QObject* object, QEvent* event)
 {
+    const auto type = event->type();
     if (object == m_window
-        && (event->type() == QEvent::Move || event->type() == QEvent::Resize
-            || event->type() == QEvent::WindowStateChange || event->type() == QEvent::Close))
-        saveWindow();
+        && (type == QEvent::Move || type == QEvent::Resize || type == QEvent::WindowStateChange
+            || type == QEvent::Close)) {
+        m_windowMaximized = m_window->windowState() == Qt::WindowMaximized;
+        if (m_window->windowState() == Qt::WindowNoState)
+            m_windowGeometry = m_window->geometry();
+        m_windowUnsaved = true;
+        if (type == QEvent::Close)
+            saveWindow();
+        else
+            m_windowSave.start();
+    }
     return QObject::eventFilter(object, event);
 }
 }

@@ -3959,6 +3959,34 @@
         <translation>Shell</translation>
     </message>
     <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>最低</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>低</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message>
+        <source>Extra high</source>
+        <translation>超高</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>最高</translation>
+    </message>
+    <message>
         <source>Choose valid terminal settings.</source>
         <translation>请选择有效的终端设置。</translation>
     </message>
@@ -4345,6 +4373,22 @@
     <message>
         <source>This terminal can no longer be shown.</source>
         <translation>此终端已无法显示。</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect (%1).</source>
+        <translation>终端无法连接（%1）。</translation>
+    </message>
+    <message>
+        <source>This terminal was replaced or closed.</source>
+        <translation>此终端已被替换或关闭。</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect.</source>
+        <translation>终端无法连接。</translation>
+    </message>
+    <message>
+        <source>The terminal&apos;s screen did not arrive in time.</source>
+        <translation>终端的屏幕内容未能及时送达。</translation>
     </message>
 </context>
 <context>

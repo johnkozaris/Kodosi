@@ -224,11 +224,11 @@ void ConversationHistoryModel::apply(const QJsonObject& event, const QByteArray&
     m_pageBefore = m_requestedBefore;
     m_entries = entries.toVariantList();
     m_before.reset();
-    if (const auto fields = jsonObjectFields(payload)) {
+    if (const auto fields = jsonObjectFields(payload, event)) {
         for (const auto& field : *fields) {
             if (field.name != QStringLiteral("result"))
                 continue;
-            if (const auto resultFields = jsonObjectFields(field.value.toByteArray())) {
+            if (const auto resultFields = jsonObjectFields(field.value.toByteArray(), result)) {
                 for (const auto& resultField : *resultFields) {
                     if (resultField.name == QStringLiteral("nextBeforeByte"))
                         m_before = jsonUnsigned(resultField.value);

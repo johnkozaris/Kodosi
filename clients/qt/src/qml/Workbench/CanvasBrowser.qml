@@ -204,7 +204,7 @@ Item {
                 anchors.fill: parent
                 documents: Models.CanvasDocuments
                 sessionId: root.sessionId
-                active: !root.browser.problem
+                active: !root.browser.problem && KodosiTheme.shown
                 visible: root.browserState === "awake" && shows
             }
             MouseArea {

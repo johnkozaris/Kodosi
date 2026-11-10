@@ -103,6 +103,24 @@ QString DesktopSettings::agentLabel(const QString& agent)
     const auto known = std::ranges::find(knownAgents(), agent, &KnownAgent::id);
     return known == knownAgents().end() ? tr("Shell") : known->label;
 }
+QString DesktopSettings::effortLabel(const QString& effort)
+{
+    if (effort == QStringLiteral("none"))
+        return tr("None");
+    if (effort == QStringLiteral("minimal"))
+        return tr("Minimal");
+    if (effort == QStringLiteral("low"))
+        return tr("Low");
+    if (effort == QStringLiteral("medium"))
+        return tr("Medium");
+    if (effort == QStringLiteral("high"))
+        return tr("High");
+    if (effort == QStringLiteral("xhigh"))
+        return tr("Extra high");
+    if (effort == QStringLiteral("max"))
+        return tr("Max");
+    return effort.left(1).toUpper() + effort.mid(1);
+}
 QString DesktopSettings::homeDirectory() const
 {
     return QDir::homePath();

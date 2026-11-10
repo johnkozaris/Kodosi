@@ -1,11 +1,13 @@
 #pragma once
 #include <QObject>
 #include <QPointer>
+#include <QRect>
 #include <QSettings>
 #include <QHash>
 #include <QSet>
 #include <QSize>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantMap>
 #include <memory>
 #include <optional>
@@ -70,6 +72,7 @@ public:
     Q_INVOKABLE void resizeSidebar(qreal width);
     void attachSessionCatalog(SessionCatalogModel* sessions);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
+    Q_INVOKABLE void bringToFront(const QString& activationToken = {});
     Q_INVOKABLE bool selectSession(const QString& id);
     bool stageSession(const QString& id, bool revealStage = true);
     bool unstageSession(const QString& id);
@@ -126,6 +129,10 @@ private:
     std::unique_ptr<QSettings> m_settings;
     QPointer<SessionCatalogModel> m_sessions;
     QPointer<QWindow> m_window;
+    QTimer m_windowSave;
+    QRect m_windowGeometry;
+    bool m_windowMaximized = false;
+    bool m_windowUnsaved = false;
     QHash<QObject*, QMetaObject::Connection> m_modals;
     QString m_selected;
     QStringList m_looked;
@@ -141,6 +148,7 @@ private:
     QString m_stageKey;
     QStringList m_restoring;
     QStringList m_savedStage;
+    QStringList m_stageWritten;
     QHash<QString, Computer> m_computers;
     QList<Departure> m_departures;
     QSet<QString> m_closing;

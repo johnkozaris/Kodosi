@@ -319,7 +319,7 @@ void RuntimeBridge::deliverEvent(const QByteArray& payload)
     }
     const auto object = document.object();
     const auto type = object.value(QStringLiteral("type")).toString();
-    const auto fields = jsonObjectFields(payload);
+    const auto fields = jsonObjectFields(payload, object);
     std::optional<std::uint64_t> epoch;
     if (fields) {
         for (const auto& field : *fields) {

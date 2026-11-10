@@ -487,6 +487,7 @@ private slots:
     void terminalViewPreservesControlAndEscapeKeys();
     void modifierKeysWithControlTextSendNothing();
     void runtimeBellAndTitleKeepTerminalAvailable();
+    void attentionAndUnknownControlsKeepTerminalAvailable();
     void hiddenAndDisabledTerminalRejectsInputAndCancelsRetries();
     void terminalControlsStayBoundedAndFenceReattachment();
     void terminalClosePresentsPendingFinalFrameBeforeDetaching();
@@ -625,6 +626,26 @@ void TerminalKernelTest::runtimeBellAndTitleKeepTerminalAvailable()
     QTRY_COMPARE(errors.count(), 1);
 }
 
+void TerminalKernelTest::attentionAndUnknownControlsKeepTerminalAvailable()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"), QStringLiteral("subscription"), 1};
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
+    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.attention","sessionId":"session"})")});
+    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.later","sessionId":"session"})")});
+    QCoreApplication::processEvents();
+    QCOMPARE(errors.count(), 0);
+    QVERIFY(view.terminalReady());
+    QCOMPARE(dispatcher.disconnectCount, 0);
+    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.attention","sessionId":"wrong"})")});
+    QTRY_COMPARE(errors.count(), 1);
+}
+
 void TerminalKernelTest::hiddenAndDisabledTerminalRejectsInputAndCancelsRetries()
 {
     kodosi::TerminalSessionRegistry registry;
@@ -685,7 +706,7 @@ void TerminalKernelTest::terminalControlsStayBoundedAndFenceReattachment()
     makeTerminalReady(registry, subscription);
     QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
     for (int i = 0; i < 5000; ++i) {
-        registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"invalid"})")});
+        registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.bell"})")});
     }
     QCoreApplication::processEvents();
     QCOMPARE(errors.count(), 1);
@@ -693,7 +714,7 @@ void TerminalKernelTest::terminalControlsStayBoundedAndFenceReattachment()
     QCOMPARE(dispatcher.disconnectCount, 1);
     QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("replacement")));
     makeTerminalReady(registry, subscription);
-    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"invalid"})")});
+    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.bell"})")});
     view.detach();
     QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("newer")));
     makeTerminalReady(registry, subscription);

@@ -923,6 +923,11 @@ void CanvasModel::reset()
     m_uploads.clear();
     m_giving.clear();
     m_published.clear();
+    m_browserChecked.reset();
+    m_browserStatusRequest.clear();
+    m_browserStepRequest.clear();
+    m_browserWork.clear();
+    emit browserChanged();
     touch();
 }
 }

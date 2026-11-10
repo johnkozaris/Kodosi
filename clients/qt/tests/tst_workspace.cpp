@@ -9,8 +9,10 @@
 #include <algorithm>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QWindow>
 #include <QtTest/QTest>
 #include <limits>
 
@@ -1196,6 +1198,25 @@ private slots:
         restarted.workspace.apply(test::snapshot({ first, second }), 1);
         QCOMPARE(restarted.desktop.stagedSessionIds(), (QStringList { test::id(3), test::id(4) }));
     }
+    void theStageIsWrittenOnlyWhenItChanges()
+    {
+        QTemporaryDir dir;
+        const auto file = dir.filePath(QStringLiteral("ui.ini"));
+        Fixture f(dir.path());
+        f.workspace.apply(accountEvent({}, 1), 1);
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QTRY_VERIFY(QFileInfo::exists(file));
+        QVERIFY(QFile::remove(file));
+        auto renamed = test::session(2);
+        renamed.insert(QStringLiteral("name"), QStringLiteral("Build"));
+        f.workspace.apply(test::snapshot({ test::session(1), renamed }), 1);
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 1);
+        QCoreApplication::processEvents();
+        QVERIFY(!QFileInfo::exists(file));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QTRY_VERIFY(QFileInfo::exists(file));
+    }
     void theStageComesBackWhileASavedSignInWaitsForTheServer()
     {
         QTemporaryDir dir;
@@ -1736,6 +1757,65 @@ private slots:
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
         QCOMPARE(answered.count(), 1);
     }
+    void aMinimizedWindowComesBackAsItWas()
+    {
+        Fixture f;
+        QWindow window;
+        f.desktop.attachWindow(&window);
+        window.show();
+        window.setWindowStates(Qt::WindowMaximized | Qt::WindowMinimized);
+        f.desktop.bringToFront();
+        QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowMaximized));
+        window.setWindowStates(Qt::WindowMinimized);
+        window.hide();
+        f.desktop.bringToFront();
+        QVERIFY(window.isVisible());
+        QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowNoState));
+    }
+    void theWindowPlaceIsSavedWhenTheWindowRestsClosesOrQuits()
+    {
+        QTemporaryDir dir;
+        const auto saved = [&dir] {
+            return QSettings(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
+                .value(QStringLiteral("window/geometry"))
+                .toRect()
+                .topLeft();
+        };
+        QWindow window;
+        {
+            Fixture f(dir.path());
+            f.desktop.attachWindow(&window);
+            window.show();
+            for (int x = 10; x <= 50; x += 10) {
+                window.setPosition(x, 20);
+                QCoreApplication::processEvents();
+            }
+            QCOMPARE_NE(saved(), QPoint(50, 20));
+            QTRY_COMPARE(saved(), QPoint(50, 20));
+            window.setPosition(60, 20);
+            QCoreApplication::processEvents();
+        }
+        QCOMPARE(saved(), QPoint(60, 20));
+        Fixture f(dir.path());
+        f.desktop.attachWindow(&window);
+        window.setPosition(70, 20);
+        QCoreApplication::processEvents();
+        window.close();
+        QCOMPARE(saved(), QPoint(70, 20));
+    }
+    void aRoomThatTheCommandShowsOpensInFront()
+    {
+        Fixture f;
+        QWindow window;
+        f.desktop.attachWindow(&window);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("mission.show") },
+            { QStringLiteral("missionId"), test::id(10) } }, 0);
+        QVERIFY(window.isVisible());
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Missions);
+        QCOMPARE(f.workspace.missions().selectedMissionId(), test::id(10));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.open"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("missionId")).toString(), test::id(10));
+    }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {
         Fixture f;
@@ -1827,5 +1907,5 @@ private slots:
         QVERIFY(!f.workspace.error().isEmpty());
     }
 };
-QTEST_GUILESS_MAIN(WorkspaceTest)
+QTEST_MAIN(WorkspaceTest)
 #include "tst_workspace.moc"

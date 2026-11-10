@@ -55,7 +55,7 @@ private:
     void join();
     void leave();
     void opened(const QString& pipe);
-    void received(const QString& pipe, const QString& frame);
+    void received(const QString& pipe, const QByteArray& message);
     void lost(const QString& pipe);
     void reachable(const QString& sessionId);
     void frame(const QByteArray& message);

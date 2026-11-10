@@ -149,11 +149,7 @@ ApplicationWindow {
         sourceComponent: QuitDialog {
             objectName: "window.quit"
 
-            onAboutToShow: {
-                window.show();
-                window.raise();
-                window.requestActivate();
-            }
+            onAboutToShow: Models.DesktopState.bringToFront()
         }
     }
 
@@ -400,17 +396,14 @@ ApplicationWindow {
             Models.DesktopFiles.openWebUrl(page);
         }
         function onBrowserAnswered() {
-            window.show();
-            window.raise();
-            window.requestActivate();
+            Models.DesktopState.bringToFront();
         }
 
         target: Models.Account
     }
     Connections {
         function onActivated(sessionId) {
-            window.show();
-            window.raise();
+            Models.DesktopState.bringToFront();
             const currentStage = stageLoader.item as TerminalStage;
             if (currentStage) currentStage.scheduleTerminalFocus();
         }

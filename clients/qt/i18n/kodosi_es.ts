@@ -3976,6 +3976,34 @@
         <translation>Shell</translation>
     </message>
     <message>
+        <source>None</source>
+        <translation>Ninguno</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>Mínimo</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Bajo</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Medio</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>Alto</translation>
+    </message>
+    <message>
+        <source>Extra high</source>
+        <translation>Muy alto</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>Máximo</translation>
+    </message>
+    <message>
         <source>Choose valid terminal settings.</source>
         <translation>Elige ajustes de terminal válidos.</translation>
     </message>
@@ -4362,6 +4390,22 @@
     <message>
         <source>This terminal can no longer be shown.</source>
         <translation>Este terminal ya no se puede mostrar.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect (%1).</source>
+        <translation>El terminal no se ha podido conectar (%1).</translation>
+    </message>
+    <message>
+        <source>This terminal was replaced or closed.</source>
+        <translation>Este terminal se ha sustituido o se ha cerrado.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect.</source>
+        <translation>El terminal no se ha podido conectar.</translation>
+    </message>
+    <message>
+        <source>The terminal&apos;s screen did not arrive in time.</source>
+        <translation>La pantalla del terminal no ha llegado a tiempo.</translation>
     </message>
 </context>
 <context>
