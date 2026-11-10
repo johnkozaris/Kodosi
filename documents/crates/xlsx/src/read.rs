@@ -292,7 +292,7 @@ fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Optio
 
 /// The text of a formula. A cell of a shared group holds only the group's number, so its
 /// formula comes from the group's first cell.
-fn formula_of(
+pub(crate) fn formula_of(
     formula: Xml<'_, '_>,
     row: u32,
     column: u32,

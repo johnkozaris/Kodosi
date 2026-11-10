@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write as _,
 };
 
@@ -12,7 +12,10 @@ use crate::{
     formats,
     formula::{cell_name, column_name, parse_cell, parse_range, range_name},
     model::{Cell, Look, Model, Sheet, Value},
-    read::{ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, local, locals, merges_of, widths_of},
+    read::{
+        self, ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, formula_of, local, locals, merges_of,
+        widths_of,
+    },
 };
 
 const CONTENT_TYPES: &str = "[Content_Types].xml";
@@ -67,12 +70,10 @@ fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
 }
 
-fn value_xml(value: Option<&Value>, formula: Option<&str>) -> (Option<&'static str>, String) {
-    let formula = formula.map_or_else(String::new, |formula| {
-        format!("<f>{}</f>", escape(formula.trim_start_matches('=')))
-    });
+/// The type and the inner XML of a cell, after its formula element when it has one.
+fn value_xml(value: Option<&Value>, formula: &str) -> (Option<&'static str>, String) {
     match value {
-        None => (None, formula),
+        None => (None, formula.to_owned()),
         Some(Value::Number(number)) => (None, format!("{formula}<v>{number}</v>")),
         Some(Value::Bool(on)) => (Some("b"), format!("{formula}<v>{}</v>", u8::from(*on))),
         Some(Value::Error { error }) => (Some("e"), format!("{formula}<v>{}</v>", escape(error))),
@@ -85,7 +86,10 @@ fn value_xml(value: Option<&Value>, formula: Option<&str>) -> (Option<&'static s
 }
 
 fn cell_xml(row: u32, column: u32, cell: &Cell) -> String {
-    let (kind, inner) = value_xml(cell.value.as_ref(), cell.formula.as_deref());
+    let formula = cell.formula.as_deref().map_or_else(String::new, |formula| {
+        format!("<f>{}</f>", escape(formula.trim_start_matches('=')))
+    });
+    let (kind, inner) = value_xml(cell.value.as_ref(), &formula);
     let mut xml = format!(r#"<c r="{}""#, cell_name(row, column));
     if let Some(style) = cell.style {
         let _ = write!(xml, r#" s="{style}""#);
@@ -99,6 +103,38 @@ fn cell_xml(row: u32, column: u32, cell: &Cell) -> String {
         let _ = write!(xml, ">{inner}</c>");
     }
     xml
+}
+
+/// A cell with its formula element as the file has it, so that a shared or an array formula
+/// stays one, and with the value and the style of the model.
+fn kept_formula_cell(xml: &str, element: Xml<'_, '_>, formula: Xml<'_, '_>, cell: &Cell) -> String {
+    let (kind, inner) = value_xml(cell.value.as_ref(), &xml[formula.range()]);
+    let mut text = String::from("<c");
+    for attribute in element
+        .attributes()
+        .filter(|attribute| attribute.namespace().is_none())
+        .filter(|attribute| !matches!(attribute.name(), "s" | "t"))
+    {
+        let _ = write!(
+            text,
+            r#" {}="{}""#,
+            attribute.name(),
+            escape(attribute.value())
+        );
+    }
+    if let Some(style) = cell.style {
+        let _ = write!(text, r#" s="{style}""#);
+    }
+    if let Some(kind) = kind {
+        let _ = write!(text, r#" t="{kind}""#);
+    }
+    let others: String = element
+        .children()
+        .filter(|child| child.is_element() && !matches!(child.tag_name().name(), "f" | "v" | "is"))
+        .map(|child| &xml[child.range()])
+        .collect();
+    let _ = write!(text, ">{inner}{others}</c>");
+    text
 }
 
 /// The shared strings of the file, which a cell needs to compare itself with the model.
@@ -125,27 +161,56 @@ fn strings_of(package: &mut Package<'_>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn same_cell(file: &Cell, model: Option<&Cell>, element: Xml<'_, '_>) -> bool {
-    let Some(model) = model else {
-        return false;
-    };
-    let has_formula = local(element, "f").is_some();
-    file.style == model.style
-        && has_formula == model.formula.is_some()
-        && (has_formula || file.value == model.value)
-        && (!has_formula || formula_text_same(element, model))
+/// The shared formulas of a sheet so far: the text of each group with the cell that holds it,
+/// and the groups whose holding cell changes, so that their other cells take their own text.
+#[derive(Default)]
+struct Shared {
+    groups: HashMap<String, (String, u32, u32)>,
+    lost: HashSet<String>,
 }
 
-/// A shared formula holds no text, so only a formula with its own text can differ from the
-/// model here. A shared one that the model changed is new text in the model.
-fn formula_text_same(element: Xml<'_, '_>, model: &Cell) -> bool {
-    let Some(formula) = local(element, "f") else {
-        return false;
-    };
-    if formula.attribute("t") == Some("shared") && formula.text().is_none() {
-        return true;
+/// The new XML of a cell of the file, when the model holds it otherwise. A formula that the
+/// model keeps keeps its element, with the result and the style of the model.
+fn cell_edit(
+    xml: &str,
+    element: Xml<'_, '_>,
+    (row, column): (u32, u32),
+    model: Option<&Cell>,
+    strings: &[String],
+    shared: &mut Shared,
+) -> Option<String> {
+    let file = cell_of(element, strings);
+    let formula = local(element, "f");
+    let text = formula
+        .and_then(|formula| formula_of(formula, row, column, &mut shared.groups))
+        .filter(|text| !text.is_empty());
+    let group = formula
+        .filter(|formula| formula.attribute("t") == Some("shared"))
+        .and_then(|formula| formula.attribute("si"));
+    let holds_group = group.is_some() && formula.is_some_and(|formula| formula.text().is_some());
+    let lost = !holds_group && group.is_some_and(|group| shared.lost.contains(group));
+    match (model, formula) {
+        (Some(cell), Some(formula))
+            if !lost
+                && cell
+                    .formula
+                    .as_deref()
+                    .map(|text| text.trim_start_matches('='))
+                    == text.as_deref() =>
+        {
+            (file.value != cell.value || file.style != cell.style)
+                .then(|| kept_formula_cell(xml, element, formula, cell))
+        }
+        (Some(cell), None) if cell.formula.is_none() => {
+            (file != *cell).then(|| cell_xml(row, column, cell))
+        }
+        _ => {
+            if holds_group && let Some(group) = group {
+                shared.lost.insert(group.to_owned());
+            }
+            Some(model.map_or_else(String::new, |cell| cell_xml(row, column, cell)))
+        }
     }
-    formula.text() == model.formula.as_deref()
 }
 
 /// Swaps the cells that differ from the model, and copies all other bytes.
@@ -157,6 +222,7 @@ fn patch_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<St
         waiting.entry(*row).or_default().insert(*column, cell);
     }
     let mut edits: Vec<(std::ops::Range<usize>, String)> = Vec::new();
+    let mut shared = Shared::default();
     for row_element in locals(data, "row") {
         let Some(row) = row_element
             .attribute("r")
@@ -182,9 +248,7 @@ fn patch_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<St
                 edits.push((element.range().start..element.range().start, added));
             }
             let model = wanted.remove(&column);
-            let file = cell_of(element, strings);
-            if !same_cell(&file, model, element) {
-                let new = model.map_or_else(String::new, |cell| cell_xml(row, column, cell));
+            if let Some(new) = cell_edit(xml, element, (row, column), model, strings, &mut shared) {
                 edits.push((element.range(), new));
             }
             last_end = Some(element.range().end);
@@ -937,10 +1001,39 @@ fn write_parts(model: &Model, file: &[u8]) -> Result<Option<Vec<u8>>, String> {
         .map_err(|error| error.to_string())
 }
 
-/// Writes the file with the current result of each formula.
+/// Writes the file with the current result of each formula. A formula keeps the result that the
+/// file holds when the edits did not change what it works out to, so a save changes only the
+/// results that follow an edit.
 pub(crate) fn write(model: &Model, file: &[u8]) -> Result<Vec<u8>, Unwritable> {
-    let current = calculated(model);
+    let mut current = calculated(model);
+    if let Ok(saved) = read::read(file) {
+        keep_saved_results(&mut current, &saved);
+    }
     Ok(write_parts(&current, file)
         .map_err(failed)?
         .unwrap_or_else(|| file.to_vec()))
+}
+
+fn keep_saved_results(current: &mut Model, saved: &Model) {
+    let worked_out = calculated(saved);
+    for sheet in current.sheets.iter_mut().filter(|sheet| !sheet.moved) {
+        let Some(index) = saved
+            .sheets
+            .iter()
+            .position(|known| known.part_name() == sheet.part_name())
+        else {
+            continue;
+        };
+        let (stored, results) = (&saved.sheets[index], &worked_out.sheets[index]);
+        for (place, cell) in &mut sheet.cells {
+            if let (Some(stored), Some(result)) =
+                (stored.cells.get(place), results.cells.get(place))
+                && cell.formula.is_some()
+                && cell.formula == stored.formula
+                && cell.value == result.value
+            {
+                cell.value.clone_from(&stored.value);
+            }
+        }
+    }
 }

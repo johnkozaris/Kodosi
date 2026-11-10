@@ -123,6 +123,69 @@ fn an_edit_changes_one_cell_and_the_results_that_follow_it() {
     let again = read(&new_file);
     assert_eq!(cell_value(&again, "A3"), 12.0);
     assert_eq!(cell_value(&again, "B3"), 24.0);
+    assert!(xml.contains(r#"<c r="A3"><f>A1+A2</f><v>12</v></c>"#));
+    assert!(xml.contains(r#"<c r="B3"><f t="shared" ref="B3:B4" si="0">A3*2</f><v>24</v></c>"#));
+}
+
+fn set_formula(cell: &str, formula: &str) -> Op {
+    Op::SetCell {
+        sheet: "Data".to_owned(),
+        cell: cell.to_owned(),
+        value: None,
+        formula: Some(formula.to_owned()),
+    }
+}
+
+fn formula_at(model: &Model, row: usize, column: usize) -> serde_json::Value {
+    Xlsx::snapshot(model).0["sheets"][0]["cells"][row.to_string()][column.to_string()]["formula"]
+        .clone()
+}
+
+#[test]
+fn a_change_to_the_cell_that_holds_a_shared_formula_leaves_the_others_their_formula() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    let bold = crate::model::Look {
+        bold: true,
+        ..crate::model::Look::default()
+    };
+    format(&mut model, "B3:B3", bold);
+    let styled = saved(&model, &file);
+    let xml = part(&styled, "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(r#"<f t="shared" ref="B3:B4" si="0">A3*2</f>"#));
+    assert_eq!(formula_at(&read(&styled), 3, 1), "A4*2");
+    ops(&mut model, vec![set_formula("B3", "A3*3")]).unwrap();
+    let changed = saved(&model, &styled);
+    assert!(!part(&changed, "xl/worksheets/sheet1.xml").contains("shared"));
+    let again = read(&changed);
+    assert_eq!(formula_at(&again, 2, 1), "A3*3");
+    assert_eq!(formula_at(&again, 3, 1), "A4*2");
+}
+
+#[test]
+fn a_new_formula_in_a_cell_that_shares_one_reaches_the_file() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    ops(&mut model, vec![set_formula("B4", "A4*5")]).unwrap();
+    let again = read(&saved(&model, &file));
+    assert_eq!(formula_at(&again, 3, 1), "A4*5");
+    assert_eq!(formula_at(&again, 2, 1), "A3*2");
+}
+
+#[test]
+fn a_save_keeps_the_stored_results_that_an_edit_does_not_change() {
+    let sheet = SHEET.replace(" x14ac:custom=\"kept\"", "").replace(
+        r#"<c r="B1" t="s"><v>0</v></c>"#,
+        r#"<c r="B1" t="s"><v>0</v></c><c r="C1"><f>0.1+0.2-0.3</f><v>0</v></c><c r="D1" t="str"><f>""</f><v></v></c>"#,
+    );
+    let file = xlsx_file_with(&sheet, WORKBOOK, STYLES);
+    let mut model = read(&file);
+    ops(&mut model, vec![set("A2", Value::Number(10.0))]).unwrap();
+    let xml = part(&saved(&model, &file), "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(
+        r#"<c r="C1"><f>0.1+0.2-0.3</f><v>0</v></c><c r="D1" t="str"><f>""</f><v></v></c>"#
+    ));
+    assert!(xml.contains(r#"<c r="A3"><f>A1+A2</f><v>12</v></c>"#));
 }
 
 #[test]
