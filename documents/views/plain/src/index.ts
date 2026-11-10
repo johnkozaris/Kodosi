@@ -5,6 +5,7 @@ import {
   type Client,
   type Person,
   type Pictures,
+  type Sent,
   Status,
   settled,
   type Editor as ViewEditor,
@@ -70,7 +71,7 @@ class PlainEditor implements ViewEditor, Pictures {
     root.append(this.bar.element, this.page);
   }
 
-  load(raw: unknown, person: Person, refused: boolean): void {
+  load(raw: unknown, person: Person, sent: Sent): void {
     const snapshot = raw as Snapshot;
     const before = this.view?.state;
     this.view?.destroy();
@@ -116,13 +117,13 @@ class PlainEditor implements ViewEditor, Pictures {
     });
     this.numberLines();
     this.showBar();
-    const carried = this.waiting.loaded(doc, before, refused);
+    const carried = this.waiting.loaded(doc, before, sent);
     if (carried.steps.length > 0) {
       const transaction = this.view.state.tr.setMeta("addToHistory", false);
       for (const step of carried.steps) transaction.maybeStep(step);
       this.view.dispatch(transaction);
     }
-    if (carried.lost) this.status.kept(carried.lost);
+    if (carried.lost !== undefined) this.status.kept(carried.lost);
   }
 
   private dispatch(transaction: Transaction): void {

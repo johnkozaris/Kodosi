@@ -1,133 +1,85 @@
-import { type Fragment, Mark, type Node as ProseNode, Slice } from "@tiptap/pm/model";
+import type { Sent } from "@documents/client";
+import { Mark, type Node as ProseNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
-import { AttrStep, Mapping, ReplaceStep, type Step, Transform } from "@tiptap/pm/transform";
+import { Mapping, ReplaceStep, type Step, Transform } from "@tiptap/pm/transform";
 import { sendableSteps } from "prosemirror-collab";
 
-/** This copy's steps on a snapshot, and the text of those that do not fit it. */
+/** This copy's steps on a snapshot, and the text of the edits that stay off it. */
 export interface Carried {
   steps: Step[];
-  lost: string;
+  /** The text of the edits that stay off the snapshot, when they change what shows. */
+  lost: string | undefined;
 }
 
-/** Whether two nodes differ in their type or marks. Their attributes do not count. */
-function differs(a: ProseNode, b: ProseNode): boolean {
-  return a.type !== b.type || !Mark.sameSet(a.marks, b.marks);
-}
+type Range = [number, number];
 
-function diffStart(a: Fragment, b: Fragment, pos: number): number | null {
-  for (let index = 0; ; index++) {
-    if (index === a.childCount || index === b.childCount) {
-      return a.childCount === b.childCount ? null : pos;
-    }
-    const childA = a.child(index);
-    const childB = b.child(index);
-    if (differs(childA, childB)) return pos;
-    if (childA.isText && childA.text !== childB.text) {
-      const textA = childA.text ?? "";
-      const textB = childB.text ?? "";
-      let same = 0;
-      while (same < textA.length && textA[same] === textB[same]) same++;
-      return pos + same;
-    }
-    const inner = diffStart(childA.content, childB.content, pos + 1);
-    if (inner !== null) return inner;
-    pos += childA.nodeSize;
-  }
-}
-
-function diffEnd(a: Fragment, b: Fragment, posA: number, posB: number): [number, number] | null {
-  for (let indexA = a.childCount, indexB = b.childCount; ; ) {
-    if (indexA === 0 || indexB === 0) return indexA === indexB ? null : [posA, posB];
-    const childA = a.child(--indexA);
-    const childB = b.child(--indexB);
-    if (differs(childA, childB)) return [posA, posB];
-    if (childA.isText && childA.text !== childB.text) {
-      const textA = childA.text ?? "";
-      const textB = childB.text ?? "";
-      const most = Math.min(textA.length, textB.length);
-      let same = 0;
-      while (same < most && textA[textA.length - same - 1] === textB[textB.length - same - 1]) {
-        same++;
-      }
-      return [posA - same, posB - same];
-    }
-    const inner = diffEnd(childA.content, childB.content, posA - 1, posB - 1);
-    if (inner) return inner;
-    posA -= childA.nodeSize;
-    posB -= childB.nodeSize;
-  }
-}
-
-function same(a: unknown, b: unknown): boolean {
+/**
+ * Whether two nodes show the same: their type, marks, text and children. Attributes, such as the
+ * ids that a file gets when it opens again, do not count.
+ */
+function alike(a: ProseNode, b: ProseNode): boolean {
   if (a === b) return true;
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const keys = Object.keys(a);
-  if (keys.length !== Object.keys(b).length) return false;
-  return keys.every((key) =>
-    same((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
-  );
-}
-
-/** Gives each node of `doc` the attributes of the node at its place in `to`, of the same shape. */
-function setAttributes(doc: ProseNode, to: ProseNode, pos: number, transform: Transform): void {
-  doc.forEach((child, offset, index) => {
-    const other = to.child(index);
-    for (const [name, value] of Object.entries(other.attrs)) {
-      if (!same(child.attrs[name], value)) transform.step(new AttrStep(pos + offset, name, value));
-    }
-    if (!child.isLeaf) setAttributes(child, other, pos + offset + 1, transform);
-  });
+  if (a.type !== b.type || a.text !== b.text || a.childCount !== b.childCount) return false;
+  if (!Mark.sameSet(a.marks, b.marks)) return false;
+  for (let index = 0; index < a.childCount; index++) {
+    if (!alike(a.child(index), b.child(index))) return false;
+  }
+  return true;
 }
 
 /**
- * Turns one document into another: one replacement of the part that differs, then the attributes
- * of the nodes, such as the ids that a file gets when it opens again. A step made on the first
- * document moves across this as long as its place stays.
+ * The top-level blocks of `doc` that differ from `other`: the blocks before and after them are
+ * the same in both. Where blocks only went in or out, the range takes in a block on each side, so
+ * it has a place.
  */
-function between(from: ProseNode, to: ProseNode): Transform {
-  const transform = new Transform(from);
-  const start = diffStart(from.content, to.content, 0);
-  if (start !== null) {
-    const ends = diffEnd(from.content, to.content, from.content.size, to.content.size);
-    let [endA, endB] = ends ?? [start, start];
-    const overlap = start - Math.min(endA, endB);
-    if (overlap > 0) {
-      endA += overlap;
-      endB += overlap;
-    }
-    transform.maybeStep(new ReplaceStep(start, endA, to.slice(start, endB)));
+function changed(doc: ProseNode, other: ProseNode): Range | null {
+  const most = Math.min(doc.childCount, other.childCount);
+  let first = 0;
+  while (first < most && doc.child(first).eq(other.child(first))) first++;
+  let last = 0;
+  while (
+    last < most - first &&
+    doc.child(doc.childCount - 1 - last).eq(other.child(other.childCount - 1 - last))
+  ) {
+    last++;
   }
-  if (diffStart(transform.doc.content, to.content, 0) === null) {
-    setAttributes(transform.doc, to, 0, transform);
-  }
-  if (transform.doc.content.eq(to.content)) return transform;
-  const whole = new Transform(from);
-  whole.step(new ReplaceStep(0, from.content.size, new Slice(to.content, 0, 0)));
-  return whole;
+  const end = doc.childCount - last;
+  if (first < end) return [first, end];
+  if (doc.childCount === other.childCount) return null;
+  return [Math.max(0, first - 1), Math.min(doc.childCount, end + 1)];
 }
 
-/** How much a transform changes: the size of what it replaces and puts in, and its steps. */
-function distance(transform: Transform): number {
-  let size = transform.steps.length;
-  for (const map of transform.mapping.maps) {
-    map.forEach((fromA, toA, fromB, toB) => {
-      size += toA - fromA + toB - fromB;
-    });
+function around(a: Range | null, b: Range | null): Range | null {
+  if (!a || !b) return a ?? b;
+  return [Math.min(a[0], b[0]), Math.max(a[1], b[1])];
+}
+
+/** Where the blocks of `range` of `doc` show in `snapshot`, when they show there once. */
+function placeOf(doc: ProseNode, [from, to]: Range, snapshot: ProseNode): number | null {
+  let place: number | null = null;
+  for (let at = 0; at + to - from <= snapshot.childCount; at++) {
+    let same = true;
+    for (let index = from; same && index < to; index++) {
+      same = alike(doc.child(index), snapshot.child(at + index - from));
+    }
+    if (same && place !== null) return null;
+    if (same) place = at;
   }
-  return size;
+  return place;
+}
+
+function startOf(doc: ProseNode, block: number): number {
+  let pos = 0;
+  for (let index = 0; index < block; index++) pos += doc.child(index).nodeSize;
+  return pos;
 }
 
 /**
  * Moves steps across others that came first, as prosemirror-collab does: each step maps back
  * across the steps before it, across `over`, and forward across those that moved. `docs` holds
- * the document before each step. It gives the steps that still apply, and the places of the others.
+ * the document before each step.
  */
-function rebase(
-  steps: readonly Step[],
-  docs: readonly ProseNode[],
-  over: Transform,
-): { kept: Step[]; lost: number[] } {
+function rebase(steps: readonly Step[], docs: readonly ProseNode[], over: Transform): Step[] {
   const mapping = new Mapping();
   for (let index = steps.length - 1; index >= 0; index--) {
     const step = steps[index] as Step;
@@ -136,23 +88,70 @@ function rebase(
   mapping.appendMapping(over.mapping);
   const moved = new Transform(over.doc);
   const kept: Step[] = [];
-  const lost: number[] = [];
   steps.forEach((step, index) => {
     const mirror = steps.length - 1 - index;
     const mapped = step.map(mapping.slice(mirror + 1));
     if (mapped && !moved.maybeStep(mapped).failed) {
       mapping.appendMap(mapped.getMap(), mirror);
       kept.push(mapped);
-    } else {
-      lost.push(index);
     }
   });
-  return { kept, lost };
+  return kept;
+}
+
+/**
+ * Moves the steps `from` on of `typed` onto `snapshot`, where the blocks `range` of the document
+ * before them show unchanged once. The blocks around them may hold changes of others. It gives the
+ * moved steps only when the snapshot ends with the person's blocks in place of those blocks and
+ * all else as it was.
+ */
+function onto(typed: Transform, from: number, [first, end]: Range, snapshot: ProseNode) {
+  const base = typed.docs[from] ?? typed.doc;
+  const at = placeOf(base, [first, end], snapshot);
+  if (at === null) return null;
+  const blocks = end - first;
+  const over = new Transform(base);
+  const after = snapshot.slice(startOf(snapshot, at + blocks));
+  const before = snapshot.slice(0, startOf(snapshot, at));
+  if (
+    over.maybeStep(new ReplaceStep(startOf(base, end), base.content.size, after)).failed ||
+    over.maybeStep(new ReplaceStep(0, startOf(base, first), before)).failed
+  ) {
+    return null;
+  }
+  const steps = rebase(typed.steps.slice(from), typed.docs.slice(from), over);
+  const moved = new Transform(snapshot);
+  if (steps.some((step) => moved.maybeStep(step).failed)) return null;
+  const person = typed.doc;
+  const last = person.childCount - (base.childCount - end);
+  const expected: ProseNode[] = [];
+  for (let index = 0; index < at; index++) expected.push(snapshot.child(index));
+  for (let index = first; index < last; index++) expected.push(person.child(index));
+  for (let index = at + blocks; index < snapshot.childCount; index++) {
+    expected.push(snapshot.child(index));
+  }
+  const result = moved.doc;
+  const same =
+    result.childCount === expected.length &&
+    expected.every((block, index) => alike(result.child(index), block));
+  return same ? steps : null;
+}
+
+/**
+ * The steps from `from` on, moved onto the snapshot, or null when they do not fit it. With
+ * `proving`, the steps before `from` must show in the snapshot too.
+ */
+function way(typed: Transform, from: number, proving: boolean, snapshot: ProseNode) {
+  const base = typed.docs[from] ?? typed.doc;
+  if (alike(base, snapshot)) return onto(typed, from, [0, base.childCount], snapshot);
+  const batch = proving ? changed(base, typed.docs[0] ?? typed.doc) : null;
+  const range = around(changed(base, typed.doc), batch);
+  return range ? onto(typed, from, range, snapshot) : [];
 }
 
 /** The text that some steps of `typed` put in, as it shows when all its steps are made. */
 function textOf(typed: Transform, steps: readonly number[]): string {
-  const ranges: [number, number][] = [];
+  const ranges: Range[] = [];
   for (const index of steps) {
     const later = typed.mapping.slice(index + 1);
     typed.mapping.maps[index]?.forEach((_fromA, _toA, fromB, toB) => {
@@ -162,7 +161,7 @@ function textOf(typed: Transform, steps: readonly number[]): string {
     });
   }
   ranges.sort(([a], [b]) => a - b);
-  const joined: [number, number][] = [];
+  const joined: Range[] = [];
   for (const [from, to] of ranges) {
     const last = joined.at(-1);
     if (last && from <= last[1]) last[1] = Math.max(last[1], to);
@@ -175,35 +174,40 @@ function textOf(typed: Transform, steps: readonly number[]): string {
 }
 
 /**
- * Moves the steps that wait, made on `confirmed`, onto a snapshot. The first `sent` of them went
- * to the document, which may have taken them before the snapshot, so they come again only when
- * the snapshot lies nearer to the document without them. When the document refused them, they
- * never come again.
+ * Moves the steps that wait, made on `confirmed`, onto a snapshot. The first `count` of them are
+ * the batch on its way, and `sent` says what became of it. They come only onto a snapshot that
+ * shows as the document they were made on, at least in the blocks that they change, so a step
+ * never comes twice and never comes in part. Else the text of the edits shows, to write again.
  */
 function carry(
   confirmed: ProseNode,
   waiting: readonly Step[],
-  sent: number,
-  refused: boolean,
+  count: number,
+  sent: Sent,
   snapshot: ProseNode,
 ): Carried {
   const typed = new Transform(confirmed);
   for (const step of waiting) {
     if (typed.maybeStep(step).failed) break;
   }
-  const went = Math.min(sent, typed.steps.length);
-  const starts = refused || went === 0 ? [went] : [0, went];
-  const nearest = starts
-    .map((start) => {
-      const over = between(typed.docs[start] ?? typed.doc, snapshot);
-      return { start, over, distance: distance(over) };
-    })
-    .reduce((best, way) => (way.distance < best.distance ? way : best));
-  const { start, over } = nearest;
-  const { kept, lost } = rebase(typed.steps.slice(start), typed.docs.slice(start), over);
-  const refusedSteps = refused ? Array.from({ length: start }, (_, index) => index) : [];
-  const gone = [...refusedSteps, ...lost.map((index) => start + index)];
-  return { steps: kept, lost: textOf(typed, gone) };
+  const batch = Math.min(count, typed.steps.length);
+  const complete = typed.steps.length === waiting.length;
+  const fits = (from: number, proving: boolean) =>
+    complete ? way(typed, from, proving, snapshot) : null;
+  let steps: Step[] | null = null;
+  if (sent === "none" || sent === "lost") steps = fits(0, false);
+  else if (sent === "taken") steps = fits(batch, false);
+  else if (sent === "unknown") {
+    const all = fits(0, false);
+    const rest = batch > 0 ? fits(batch, true) : null;
+    const unchanged = alike(confirmed, typed.docs[batch] ?? typed.doc);
+    steps = all && rest && !unchanged ? null : (all ?? rest);
+  }
+  if (steps) return { steps, lost: undefined };
+  const shown = sent === "taken" ? batch : 0;
+  const before = typed.docs[shown] ?? typed.doc;
+  const gone = Array.from({ length: typed.steps.length - shown }, (_, index) => shown + index);
+  return { steps: [], lost: alike(before, typed.doc) ? undefined : textOf(typed, gone) };
 }
 
 /**
@@ -231,14 +235,13 @@ export class Waiting {
   }
 
   /** The copy shows `snapshot` now, in place of `before`. It gives the steps that go on it. */
-  loaded(snapshot: ProseNode, before: EditorState | undefined, refused: boolean): Carried {
+  loaded(snapshot: ProseNode, before: EditorState | undefined, sent: Sent): Carried {
     const waiting = before ? (sendableSteps(before)?.steps ?? []) : [];
-    const carried =
-      this.confirmed && waiting.length > 0
-        ? carry(this.confirmed, waiting, this.sent, refused, snapshot)
-        : { steps: [], lost: "" };
+    const confirmed = this.confirmed;
+    const count = sent === "none" ? 0 : this.sent;
     this.confirmed = snapshot;
     this.sent = 0;
-    return carried;
+    if (!confirmed || waiting.length === 0) return { steps: [], lost: undefined };
+    return carry(confirmed, waiting, count, sent, snapshot);
   }
 }

@@ -7,6 +7,7 @@ import {
   opensLink,
   type Person,
   type Pictures,
+  type Sent,
   Status,
   settled,
   type Editor as ViewEditor,
@@ -153,7 +154,7 @@ class DocxEditor implements ViewEditor, Pictures {
     };
   }
 
-  load(raw: unknown, person: Person, refused: boolean): void {
+  load(raw: unknown, person: Person, sent: Sent): void {
     const snapshot = raw as Snapshot;
     const before = this.editor?.state;
     this.editor?.destroy();
@@ -205,13 +206,13 @@ class DocxEditor implements ViewEditor, Pictures {
     this.sizing = new ResizeObserver(() => this.sizeSheet());
     this.sizing.observe(this.editor.view.dom);
     this.zoom.refit();
-    const carried = this.waiting.loaded(this.editor.state.doc, before, refused);
+    const carried = this.waiting.loaded(this.editor.state.doc, before, sent);
     if (carried.steps.length > 0) {
       const transaction = this.editor.state.tr.setMeta("addToHistory", false);
       for (const step of carried.steps) transaction.maybeStep(step);
       this.editor.view.dispatch(transaction);
     }
-    if (carried.lost) this.status.kept(carried.lost);
+    if (carried.lost !== undefined) this.status.kept(carried.lost);
   }
 
   /**

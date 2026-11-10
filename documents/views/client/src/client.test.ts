@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ToClient, ToDocument } from "@documents/contract";
-import { Client, type Editor, type Pipe } from "./client";
+import { Client, type Editor, type Pipe, type Sent } from "./client";
 
 class TestPipe implements Pipe {
   readonly sent: ToDocument[] = [];
@@ -28,11 +28,11 @@ function settled(): Promise<void> {
 }
 
 class TestEditor implements Editor {
-  readonly loads: boolean[] = [];
+  readonly loads: Sent[] = [];
   edits = 0;
 
-  load(_snapshot: unknown, _person: unknown, refused: boolean): void {
-    this.loads.push(refused);
+  load(_snapshot: unknown, _person: unknown, sent: Sent): void {
+    this.loads.push(sent);
   }
 
   apply(): void {}
@@ -47,15 +47,15 @@ class TestEditor implements Editor {
   destroy(): void {}
 }
 
-function joined(rev: number): ToClient {
+function joined(rev: number, seq = 0, epoch = 7): ToClient {
   return {
     type: "joined",
     id: "ana",
     name: "Ana",
     canEdit: true,
-    epoch: 7,
+    epoch,
     rev,
-    seq: 0,
+    seq,
     peers: [],
     catchup: { kind: "snapshot", snapshot: {} },
   };
@@ -95,5 +95,32 @@ test("a snapshot after a refused batch says so to the editor", async () => {
   await settled();
   expect(pipe.sent.at(-1)).toMatchObject({ type: "join", epoch: 0, rev: 0 });
   await pipe.deliver(joined(2));
-  expect(editor.loads).toEqual([false, true]);
+  expect(editor.loads).toEqual(["none", "refused"]);
+});
+
+test("a snapshot says what became of the batch on its way, as far as the document knows", async () => {
+  for (const [seq, sent] of [
+    [2, "taken"],
+    [1, "lost"],
+    [0, "unknown"],
+  ] as const) {
+    const editor = new TestEditor();
+    const client = new Client();
+    client.use(editor);
+    const pipe = new TestPipe();
+    client.attach(pipe);
+    await pipe.deliver(joined(0));
+    editor.edits = 1;
+    client.pull();
+    await settled();
+    const id = (pipe.sent[0] as { client: string }).client;
+    await pipe.deliver({ type: "changed", rev: 1, author: "Ana", client: id, seq: 1, body: {} });
+    await settled();
+    expect(pipe.sent.at(-1)).toMatchObject({ type: "change", seq: 2 });
+    client.detach();
+    const again = new TestPipe();
+    client.attach(again);
+    await again.deliver(joined(1, seq, 8));
+    expect(editor.loads).toEqual(["none", sent]);
+  }
 });
