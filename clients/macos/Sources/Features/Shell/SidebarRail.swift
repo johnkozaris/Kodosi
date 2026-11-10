@@ -25,7 +25,7 @@ struct SidebarRail: View {
             .tip("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
             ScrollView {
                 VStack(spacing: 6) {
-                    ForEach(deps.missions) { mission in
+                    ForEach(deps.rooms.missions) { mission in
                         railItem(selected: selection == .room(mission.id), help: mission.name,
                                  identifier: "missions.mission.\(AccessibilityIdentifier.token(mission.id))")
                         {
@@ -43,7 +43,7 @@ struct SidebarRail: View {
                                 .animation(theme.motion.snappy, value: mission.unread)
                         }
                     }
-                    if !deps.missions.isEmpty, !deps.listedSessions.isEmpty {
+                    if !deps.rooms.missions.isEmpty, !deps.listedSessions.isEmpty {
                         Capsule().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.3)).frame(width: 18, height: 1).padding(.vertical, 4)
                     }
                     ForEach(deps.listedSessions) { session in

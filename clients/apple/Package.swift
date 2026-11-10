@@ -73,6 +73,17 @@ let package = Package(
             ],
         ),
         .testTarget(
+            name: "KodosiBridgeTests",
+            dependencies: ["KodosiBridge", "KodosiKit"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ],
+            linkerSettings: [
+                // The tests link the bridge without the runtime library. No test calls its functions.
+                .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
+            ],
+        ),
+        .testTarget(
             name: "KodosiLinksTests",
             dependencies: ["KodosiLinks"],
             swiftSettings: [

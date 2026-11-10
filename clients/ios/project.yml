@@ -119,6 +119,7 @@ targets:
         BUNDLE_LOADER: $(TEST_HOST)
     sources:
       - path: Tests
+      - path: ../apple/Tests/KodosiBridgeTests/RuntimeContract.swift
     dependencies:
       - target: KodosiMobile
 

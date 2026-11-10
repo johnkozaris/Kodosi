@@ -1,3 +1,4 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -13,7 +14,7 @@ struct RoomComposer: View {
         @Bindable var state = model.rooms.view(roomId)
         let query = focused ? RoomMentions.query(in: state.message).flatMap { $0 == dismissedQuery ? nil : $0 } : nil
         let suggestions = query.map { RoomMentions.suggestions(for: $0, in: targets) } ?? []
-        let canSend = !state.sending && !state.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let canSend = state.canPost
         VStack(spacing: 8) {
             if let failure = state.failure {
                 failureNote(failure, state: state)
@@ -122,7 +123,6 @@ struct RoomComposer: View {
 
     private func send() {
         dismissedQuery = nil
-        model.rooms.view(roomId).followsLatest = true
         let rooms = model.rooms
         let roomId = roomId
         Task { await rooms.post(in: roomId) }

@@ -1,3 +1,4 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -17,15 +18,18 @@ struct RoomComposer: View {
     }
 
     private var canSend: Bool {
-        !state.busy && !state.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        state.canPost
     }
 
     var body: some View {
         let suggestions = query.map { RoomMentions.suggestions(for: $0, in: targets) } ?? []
         VStack(spacing: 6) {
-            if let failure = state.failure {
-                CautionNote(message: failure, identifier: "room.failure") { state.failure = nil }
-                    .transition(AnyTransition.rise)
+            if let failure = state.failure ?? state.readFailure {
+                CautionNote(message: failure, identifier: "room.failure") {
+                    state.failure = nil
+                    state.readFailure = nil
+                }
+                .transition(AnyTransition.rise)
             }
             if !suggestions.isEmpty {
                 VStack(spacing: 1) {
@@ -77,7 +81,7 @@ struct RoomComposer: View {
                         dismissedQuery = query
                         return .handled
                     }
-                SendKey(enabled: canSend, working: state.busy, action: send)
+                SendKey(enabled: canSend, working: state.sending, action: send)
                     .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send")
             }
             .composerField(focused: focused)
@@ -86,7 +90,7 @@ struct RoomComposer: View {
         .animation(theme.motion.snappy, value: suggestions)
         .animation(theme.motion.hover, value: focused)
         .animation(theme.motion.snappy, value: canSend)
-        .animation(theme.motion.spring, value: state.failure)
+        .animation(theme.motion.spring, value: state.failure ?? state.readFailure)
         .onChange(of: query) { _, _ in highlighted = 0 }
     }
 
@@ -127,6 +131,8 @@ struct RoomComposer: View {
 
     private func send() {
         dismissedQuery = nil
-        Task { await deps.postRoomMessage(roomId) }
+        let rooms = deps.rooms
+        let roomId = roomId
+        Task { await rooms.post(in: roomId) }
     }
 }

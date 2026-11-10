@@ -29,6 +29,8 @@ final class AppModel {
     @ObservationIgnored private var accountKnown = false
     @ObservationIgnored private(set) var accountEpoch: UInt64 = 0
     @ObservationIgnored private var launchers: [String: LauncherState] = [:]
+    @ObservationIgnored private var roomScreens: [String: RoomScreenState] = [:]
+    @ObservationIgnored private var active = true
 
     init() {
         let commands = CommandSink()
@@ -39,11 +41,13 @@ final class AppModel {
         self.runtime = runtime
         account = AccountStore(commands: commands, browser: "app")
         terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
-        rooms = RoomStore(commands: commands, notices: notices)
+        rooms = RoomStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
         account.notify = { [notices] message in notices.show(message) }
+        rooms.notify = { [notices] message in notices.show(message) }
+        rooms.isFront = { [weak self] in self?.inFront == true }
     }
 
     func start() {
@@ -92,10 +96,27 @@ final class AppModel {
         }
     }
 
+    /// Whether the person sees what Kodosi shows: it is in front and not locked.
+    private var inFront: Bool {
+        active && !lock.locked
+    }
+
     func sceneChanged(to scenePhase: ScenePhase) {
         lock.sceneChanged(to: scenePhase)
+        active = scenePhase == .active
+        rooms.markShownRead()
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
+    }
+
+    /// How the phone shows a room, kept while the person moves around.
+    func roomScreen(_ roomId: String) -> RoomScreenState {
+        if let screen = roomScreens[roomId] {
+            return screen
+        }
+        let screen = RoomScreenState()
+        roomScreens[roomId] = screen
+        return screen
     }
 
     /// The agents, choices and folders of one of the person's computers, for a new terminal there.
@@ -147,6 +168,7 @@ final class AppModel {
 
     private func resetStores(userId: String?) {
         launchers.removeAll()
+        roomScreens.removeAll()
         account.reset(userId: userId)
         terminals.reset(userId: userId)
         rooms.reset(userId: userId)

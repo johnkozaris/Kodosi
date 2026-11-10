@@ -34,23 +34,20 @@ struct RoomConversation: View {
                 RoomSkeleton()
             }
         }
+        .showsRoomPart(.conversation, of: state)
         .onAppear {
-            state.watchingConversation = true
-            if state.followsLatest {
-                rooms.markRead(roomId)
-            } else if let reading = state.readingMessage {
+            if !state.followsLatest, let reading = state.readingMessage {
                 position.scrollTo(id: reading, anchor: .top)
             }
         }
         .onDisappear {
-            state.watchingConversation = false
             state.readingMessage = state.followsLatest ? nil : position.viewID(type: String.self)
         }
     }
 
     private func transcript(_ snapshot: RoomSnapshot, state: RoomViewState, targets: [RoomMention]) -> some View {
         let messages = snapshot.messages
-        let unread = rooms.unread[roomId] ?? 0
+        let unread = state.unread
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if snapshot.hasOlder, let first = messages.first {
@@ -90,7 +87,6 @@ struct RoomConversation: View {
         } action: { _, bottom in
             if bottom {
                 state.followsLatest = true
-                rooms.markRead(roomId)
             } else if touching {
                 state.followsLatest = false
             }
@@ -104,7 +100,7 @@ struct RoomConversation: View {
         }
         .overlay {
             if messages.isEmpty {
-                welcome(state: state)
+                welcome()
             }
         }
         .overlay(alignment: .bottom) {
@@ -116,28 +112,29 @@ struct RoomConversation: View {
         .animation(theme.motion.snappy, value: unread)
     }
 
-    private func welcome(state: RoomViewState) -> some View {
+    private func welcome() -> some View {
+        let screen = model.roomScreen(roomId)
         var steps: [RoomWelcome.Step] = []
         if rooms.isOwner(of: roomId) {
             steps.append(RoomWelcome.Step(
                 title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
                 done: (rooms.details[roomId]?.members.count ?? 0) > 1,
-            ) { state.showsInfo = true })
+            ) { screen.showsInfo = true })
         }
         steps.append(RoomWelcome.Step(
             title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
             done: model.terminals.sessions.contains { $0.missionId == roomId },
-        ) { show(.terminals, in: state) })
+        ) { show(.terminals, in: screen) })
         steps.append(RoomWelcome.Step(
             title: "Put up a task", symbol: "checklist", tint: TileTint.orange,
             done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true),
-        ) { show(.tasks, in: state) })
+        ) { show(.tasks, in: screen) })
         return RoomWelcome(name: rooms.mission(roomId)?.name ?? "", key: roomId, steps: steps)
     }
 
-    private func show(_ section: RoomSection, in state: RoomViewState) {
-        state.section = section
-        state.shownSection = section
+    private func show(_ section: RoomSection, in screen: RoomScreenState) {
+        screen.section = section
+        screen.shownSection = section
     }
 
     private func earlier(before first: RoomMessage, state: RoomViewState) -> some View {

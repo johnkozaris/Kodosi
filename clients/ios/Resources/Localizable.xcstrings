@@ -15278,58 +15278,6 @@
         }
       }
     },
-    "Some invitations did not go out. Invite them again from the room." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einige Einladungen wurden nicht verschickt. Lade die Personen im Raum erneut ein."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ορισμένες προσκλήσεις δεν στάλθηκαν. Προσκαλέστε τους ξανά από το δωμάτιο."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Algunas invitaciones no se han enviado. Vuelve a invitarlos desde la sala."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Certaines invitations n'ont pas été envoyées. Invitez-les à nouveau depuis le salon."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alcuni inviti non sono partiti. Invitali di nuovo dalla stanza."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一部の招待が送信されませんでした。ルームからもう一度招待してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "일부 초대가 전송되지 않았어요. 방에서 다시 초대하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分邀请未发出。请从房间重新邀请。"
-          }
-        }
-      }
-    },
     "Some rooms are not shown." : {
       "localizations" : {
         "de" : {
@@ -18238,58 +18186,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用 %@"
-          }
-        }
-      }
-    },
-    "Use a shorter name." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verwende einen kürzeren Namen."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Χρησιμοποιήστε μικρότερο όνομα."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usa un nombre más corto."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisez un nom plus court."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usa un nome più corto."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "もっと短い名前にしてください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "더 짧은 이름을 쓰세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请使用更短的名称。"
           }
         }
       }

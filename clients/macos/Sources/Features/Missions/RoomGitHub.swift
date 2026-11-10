@@ -15,7 +15,7 @@ struct RepositoryPicker: View {
     @FocusState private var searching: Bool
 
     private var linked: Set<String> {
-        Set((deps.rooms[roomId]?.repositories ?? []).map { $0.url.lowercased() })
+        Set((deps.rooms.snapshots[roomId]?.repositories ?? []).map { $0.url.lowercased() })
     }
 
     private var shown: [RepositoryChoice] {
@@ -146,7 +146,7 @@ struct RepositoryPicker: View {
         Task { @MainActor in
             defer { adding = nil }
             do {
-                try await deps.roomAction(roomId, RoomAction.addRepository(url))
+                try await deps.rooms.addRepository(url, to: roomId)
                 query = ""
                 close()
             } catch { failure = error.localizedDescription }
@@ -164,7 +164,7 @@ struct IssuePicker: View {
     @State private var adding: String?
 
     private var repositories: [RoomRepository] {
-        deps.rooms[roomId]?.repositories ?? []
+        deps.rooms.snapshots[roomId]?.repositories ?? []
     }
 
     var body: some View {
@@ -195,7 +195,7 @@ struct IssuePicker: View {
     @ViewBuilder
     private func section(_ repository: RoomRepository) -> some View {
         let words = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let issues = (deps.roomIssues[repository.id] ?? []).filter {
+        let issues = (deps.rooms.issues[repository.id] ?? []).filter {
             !$0.closed && (words.isEmpty || $0.title.localizedCaseInsensitiveContains(words) || "#\($0.number)".contains(words))
         }
         let number = Self.number(in: words).flatMap { number in issues.contains { $0.number == number } ? nil : number }
@@ -243,7 +243,7 @@ struct IssuePicker: View {
     }
 
     private func row(_ issue: RoomIssue, in repository: RoomRepository) -> some View {
-        let imported = deps.rooms[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
+        let imported = deps.rooms.snapshots[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
         return Button { add(issue.number, from: repository) } label: {
             HStack(spacing: 10) {
                 Image(systemName: "smallcircle.filled.circle").font(.system(size: 13)).foregroundStyle(theme.colors.ready)
@@ -269,7 +269,7 @@ struct IssuePicker: View {
             loading.insert(repository.id)
             failures[repository.id] = nil
             do {
-                try await deps.roomAction(roomId, RoomAction.issues(repository.id))
+                try await deps.rooms.act(roomId, RoomAction.issues(repository.id))
             } catch { failures[repository.id] = error.localizedDescription }
             loading.remove(repository.id)
         }
@@ -284,7 +284,7 @@ struct IssuePicker: View {
         Task { @MainActor in
             defer { adding = nil }
             do {
-                try await deps.roomAction(roomId, RoomAction.importIssue(repositoryId: repository.id, number: number))
+                try await deps.rooms.act(roomId, RoomAction.importIssue(repositoryId: repository.id, number: number))
                 query = ""
             } catch { failures[repository.id] = error.localizedDescription }
         }

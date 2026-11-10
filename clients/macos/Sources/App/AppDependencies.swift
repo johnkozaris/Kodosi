@@ -19,18 +19,12 @@ final class AppDependencies {
     let people: PeopleStore
     let dosi: DosiStore
     let canvas: CanvasStore
+    let rooms: RoomStore
     let documentPages = CanvasDocumentPages()
     var sessions: [RuntimeSession] = []
     var inviteRequested: Date?
     var inviteCopies = 0
-    var missions: [MissionEntry] = []
-    var invitations: [MissionInvitationEntry] = []
-    var missionListTruncated = false
-    var missionDetail: MissionDetail?
-    var rooms: [String: RoomSnapshot] = [:]
-    var roomIssues: [String: [RoomIssue]] = [:]
-    var roomViews: [String: RoomViewState] = [:]
-    var roomSeen: [String: UInt64] = [:]
+    @ObservationIgnored var roomWorkspaces: [String: RoomWorkspace] = [:]
     var reportedVisible: VisibleReport?
     var restoreAsked = false
     var hostForeground = false
@@ -64,7 +58,7 @@ final class AppDependencies {
         terminal: { [weak self] in self?.terminal(named: $0) },
         room: { [weak self] in self?.room(named: $0) },
         sessions: { [weak self] in self?.listedSessions ?? [] },
-        rooms: { [weak self] in self?.missions ?? [] },
+        rooms: { [weak self] in self?.rooms.missions ?? [] },
         open: { [weak self] in self?.open($0) },
         answer: { [weak self] in self?.answerDosi($0, $1) },
         send: { [weak self] in self?.sendToDosi($0) },
@@ -75,8 +69,6 @@ final class AppDependencies {
     @ObservationIgnored private var outdatedHostRestarted = false
     private var eventTask: Task<Void, Never>?
     var activationTasks: [String: Task<Void, Never>] = [:]
-    var missionTask: Task<Void, Never>?
-    var missionRequestId: String?
     private let inbox: RuntimeEventInbox
     let runtimeHandle: RuntimeHandle
     let terminalManager: TerminalSessionManager
@@ -100,6 +92,7 @@ final class AppDependencies {
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         canvas = CanvasStore(commands: commands)
+        rooms = RoomStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox
@@ -116,6 +109,8 @@ final class AppDependencies {
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
         account.notify = { [weak self] message in self?.errorMessage = message }
+        rooms.notify = { [weak self] message in self?.errorMessage = message }
+        rooms.isFront = { [weak self] in self?.isFront() == true }
     }
 
     func start() {
@@ -220,7 +215,6 @@ final class AppDependencies {
         signInPresented = false
         account.endSignIn()
         terminalNotifications.clear()
-        missionTask?.cancel(); missionTask = nil; missionRequestId = nil
         activationTasks.values.forEach { $0.cancel() }
         activationTasks.removeAll()
         for session in sessions {
@@ -281,7 +275,7 @@ final class AppDependencies {
             makeRoom(for: id)
             workbench.showSession(id, inRoom: roomId)
             if let roomId {
-                roomView(roomId).selectedTerminal = id
+                roomWorkspace(roomId).selectedTerminal = id
             }
             reportVisible()
             if current.kind == .remote, activationTasks[id] == nil {
@@ -347,7 +341,7 @@ final class AppDependencies {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
         if let roomId {
-            roomView(roomId).shownSection = 0
+            roomWorkspace(roomId).shownSection = 0
         }
         var fields = TerminalStart(
             name: name, directory: directory, computer: computer, roomId: roomId, command: command, agent: agent, prompt: prompt,
@@ -375,27 +369,9 @@ final class AppDependencies {
         openMission(id: mission.id)
     }
 
+    /// Shows a room. The room's view loads it.
     func openMission(id: String) {
-        missionTask?.cancel()
-        let requestId = UUIDv7.generate()
-        missionRequestId = requestId
         workbench.selectedMissionId = id
-        if missionDetail?.mission.id != id {
-            missionDetail = nil
-        }
-        missionTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                let opened = try await commandSink.request("mission.open", ["missionId": .string(id), "requestId": .string(requestId)])
-                guard !Task.isCancelled, missionRequestId == requestId, workbench.selectedMissionId == id else { return }
-                missionDetail = try MissionDetail(mission: opened.value("mission"), members: opened.value("members"))
-            } catch {
-                guard !Task.isCancelled, missionRequestId == requestId else { return }
-                workbench.selectedMissionId = nil
-                missionDetail = nil
-                errorMessage = error.localizedDescription
-            }
-        }
     }
 
     func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
@@ -407,8 +383,8 @@ extension AppDependencies {
     func openStaged(_ id: String) {
         guard let current = session(id) else { return }
         if let replaced = current.restoredFrom {
-            for state in roomViews.values where state.selectedTerminal == replaced {
-                state.selectedTerminal = id
+            for workspace in roomWorkspaces.values where workspace.selectedTerminal == replaced {
+                workspace.selectedTerminal = id
             }
         }
         guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
@@ -438,7 +414,7 @@ extension AppDependencies {
                     return
                 }
                 if let roomId {
-                    roomView(roomId).selectedTerminal = id
+                    roomWorkspace(roomId).selectedTerminal = id
                 }
             } catch {
                 guard session(id) == nil, !Task.isCancelled, accountEpoch == epoch else { return }

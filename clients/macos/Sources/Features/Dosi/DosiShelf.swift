@@ -43,7 +43,7 @@ struct DosiShelf: View {
     }
 
     private var rooms: [MissionEntry] {
-        deps.missions.enumerated().sorted { left, right in
+        deps.rooms.missions.enumerated().sorted { left, right in
             left.element.unread == right.element.unread ? left.offset < right.offset : left.element.unread
         }
         .map(\.element)

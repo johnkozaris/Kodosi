@@ -6,7 +6,8 @@ struct RoomView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let detail: MissionDetail
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    @Bindable var workspace: RoomWorkspace
     @State private var dragStart: CGFloat?
     @State private var handleHovered = false
     @State private var dropping = false
@@ -17,24 +18,24 @@ struct RoomView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            RoomHeader(detail: detail, state: state)
+            RoomHeader(detail: detail, state: state, workspace: workspace)
             GeometryReader { geometry in
                 let narrow = geometry.size.width < 720
-                let width = min(max(state.conversationWidth, 300), max(300, min(540, geometry.size.width - 380)))
+                let width = min(max(workspace.conversationWidth, 300), max(300, min(540, geometry.size.width - 380)))
                 ZStack(alignment: .trailing) {
-                    if !(narrow && state.conversationVisible) {
-                        RoomContentView(roomId: roomId, state: state)
+                    if !(narrow && workspace.conversationVisible) {
+                        RoomContentView(roomId: roomId, state: state, workspace: workspace)
                             .overlay {
                                 DropSlot(radius: Radius.xl, shown: dropping, label: String(localized: "Share with \(detail.mission.name)"))
                                     .padding(6)
                             }
                             .roomDrop(roomId, deps: deps, targeted: $dropping)
                             .animation(theme.motion.snappy, value: dropping)
-                            .padding(.trailing, state.conversationVisible ? width + 6 : 0)
-                            .transaction(value: state.conversationVisible) { $0.animation = nil }
+                            .padding(.trailing, workspace.conversationVisible ? width + 6 : 0)
+                            .transaction(value: workspace.conversationVisible) { $0.animation = nil }
                     }
-                    if state.conversationVisible {
-                        RoomConversationView(roomId: roomId, detail: detail, state: state)
+                    if workspace.conversationVisible {
+                        RoomConversationView(roomId: roomId, detail: detail, state: state, workspace: workspace)
                             .frame(width: narrow ? nil : width)
                             .overlay(alignment: .leading) {
                                 if !narrow {
@@ -47,8 +48,7 @@ struct RoomView: View {
                 }
             }
         }
-        .animation(theme.motion.soft, value: state.conversationVisible)
-        .task(id: roomId) { await deps.readRoom(roomId) }
+        .animation(theme.motion.soft, value: workspace.conversationVisible)
     }
 
     private func resizeHandle(maximum: CGFloat) -> some View {
@@ -61,9 +61,9 @@ struct RoomView: View {
             .onHover { handleHovered = $0 }
             .animation(theme.motion.hover, value: handleHovered)
             .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global).onChanged { value in
-                let start = dragStart ?? state.conversationWidth
+                let start = dragStart ?? workspace.conversationWidth
                 dragStart = start
-                state.conversationWidth = min(max(start - value.translation.width, 300), max(300, min(540, maximum)))
+                workspace.conversationWidth = min(max(start - value.translation.width, 300), max(300, min(540, maximum)))
             }.onEnded { _ in dragStart = nil })
             .accessibilityHidden(true)
     }
@@ -73,7 +73,8 @@ struct RoomHeader: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let detail: MissionDetail
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    @Bindable var workspace: RoomWorkspace
     @State private var name = ""
     @State private var confirmDelete = false
     @State private var confirmLeave = false
@@ -84,7 +85,7 @@ struct RoomHeader: View {
     }
 
     private var isOwner: Bool {
-        detail.mission.ownerUserId == deps.account.userId
+        deps.rooms.isOwner(of: roomId)
     }
 
     private var sessions: [RuntimeSession] {
@@ -95,11 +96,11 @@ struct RoomHeader: View {
         HStack(spacing: 12) {
             RoomSigil(key: roomId, size: 30)
             VStack(alignment: .leading, spacing: 1) {
-                if state.renaming {
+                if workspace.renaming {
                     TextField("Room name", text: $name)
                         .textFieldStyle(.plain).appTextStyle(.headline).focused($nameFocused).frame(maxWidth: 260)
-                        .onSubmit { run("mission.rename", ["name": .string(name)]) }
-                        .onExitCommand { state.renaming = false }
+                        .onSubmit { run { try await $0.rename(roomId, to: name) } }
+                        .onExitCommand { workspace.renaming = false }
                         .accessibilityIdentifier("room.name.input")
                 } else {
                     Text(detail.mission.name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
@@ -114,12 +115,17 @@ struct RoomHeader: View {
             }
             .layoutPriority(1)
             Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
-            SectionDock(items: dockItems, selection: state.shownSection, identifier: "room.section") { state.shownSection = $0 }
+            SectionDock(items: dockItems, selection: workspace.shownSection, identifier: "room.section") { workspace.shownSection = $0 }
             Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
-            if let failure = state.failure, !state.conversationVisible, deps.rooms[roomId] != nil || state.shownSection == 0 {
-                NoticeDot(message: failure) { Task { await deps.readRoom(roomId) } } dismiss: { state.failure = nil }
+            if let failure = state.failure ?? state.readFailure, !workspace.conversationVisible,
+               deps.rooms.snapshots[roomId] != nil || workspace.shownSection == 0
+            {
+                NoticeDot(message: failure) { Task { await deps.rooms.read(roomId) } } dismiss: {
+                    state.failure = nil
+                    state.readFailure = nil
+                }
             }
-            Button { state.peopleVisible.toggle() } label: {
+            Button { workspace.peopleVisible.toggle() } label: {
                 AvatarStack(people: detail.members.map { member in
                     AvatarStack.Person(id: member.userId, name: member.personName,
                                        isSelf: member.userId == deps.account.userId)
@@ -127,30 +133,32 @@ struct RoomHeader: View {
             }
             .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Room members"))
             .accessibilityIdentifier("room.people")
-            .kodosiPopover(isPresented: $state.peopleVisible, arrowEdge: .bottom) { RoomPeoplePopover(detail: detail, state: state) }
-            if state.conversationVisible {
+            .kodosiPopover(isPresented: $workspace.peopleVisible, arrowEdge: .bottom) {
+                RoomPeoplePopover(detail: detail, state: state, workspace: workspace)
+            }
+            if workspace.conversationVisible {
                 IconButton(title: "Hide conversation", symbol: "bubble.left.and.bubble.right.fill",
                            identifier: "room.conversation.toggle", size: 30, active: true)
                 {
-                    state.conversationVisible = false
+                    workspace.conversationVisible = false
                 }
                 .transition(.opacity)
             } else {
-                ConversationKey(roomId: roomId, state: state)
+                ConversationKey(roomId: roomId, state: state, workspace: workspace)
                     .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.6, anchor: .trailing).combined(with: .opacity))
             }
-            IconButton(title: "Room options", symbol: "ellipsis", identifier: "room.options", size: 30, open: state.optionsVisible) {
-                state.optionsVisible.toggle()
+            IconButton(title: "Room options", symbol: "ellipsis", identifier: "room.options", size: 30, open: workspace.optionsVisible) {
+                workspace.optionsVisible.toggle()
             }
-            .kodosiPopover(isPresented: $state.optionsVisible, arrowEdge: .bottom, alignment: .trailing) {
+            .kodosiPopover(isPresented: $workspace.optionsVisible, arrowEdge: .bottom, alignment: .trailing) {
                 VStack(alignment: .leading, spacing: 2) {
                     if isOwner {
                         PanelMenuRow(Text("Rename"), icon: .symbol("pencil"), identifier: "room.options.rename") {
-                            name = detail.mission.name; state.renaming = true; nameFocused = true
+                            name = detail.mission.name; workspace.renaming = true; nameFocused = true
                         }
                     }
                     PanelMenuRow(Text("Refresh"), icon: .symbol("arrow.clockwise"), identifier: "room.options.refresh") {
-                        Task { await deps.readRoom(roomId) }
+                        Task { await deps.rooms.read(roomId) }
                     }
                     PanelMenuDivider()
                     if isOwner {
@@ -171,37 +179,41 @@ struct RoomHeader: View {
         }
         .padding(.leading, 16).padding(.trailing, 10).frame(height: Metrics.headerHeight)
         .animation(theme.motion.snappy, value: state.unread)
-        .animation(theme.motion.soft, value: state.conversationVisible)
+        .animation(theme.motion.soft, value: workspace.conversationVisible)
         .confirmationDialog("Delete \(detail.mission.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete room", role: .destructive) { run("mission.delete") }
+            Button("Delete room", role: .destructive) { end { try await $0.delete(roomId) } }
         } message: { Text("Its conversation and sharing end. Terminals keep running.") }
         .confirmationDialog("Leave \(detail.mission.name)?", isPresented: $confirmLeave, titleVisibility: .visible) {
-            Button("Leave room", role: .destructive) { run("mission.leave") }
+            Button("Leave room", role: .destructive) { end { try await $0.leave(roomId) } }
         } message: { Text("You lose its terminals and conversation until someone invites you again.") }
     }
 
     private var dockItems: [DockItem] {
-        let tasks = deps.rooms[roomId]?.tasks ?? []
+        let tasks = deps.rooms.snapshots[roomId]?.tasks ?? []
         let open = tasks.filter { !$0.closed }.count
         return [
             DockItem(id: 0, title: String(localized: "Terminals"), symbol: "apple.terminal", count: sessions.count),
             DockItem(id: 1, title: String(localized: "Tasks"), symbol: "checklist", count: open,
-                     progress: tasks.isEmpty ? nil : Double(tasks.count - open) / Double(tasks.count), fresh: state.fresh.contains(1)),
+                     progress: tasks.isEmpty ? nil : Double(tasks.count - open) / Double(tasks.count), fresh: state.fresh.contains(.tasks)),
             DockItem(id: 2, title: String(localized: "Repositories"), symbol: "shippingbox",
-                     count: deps.rooms[roomId]?.repositories.count ?? 0, fresh: state.fresh.contains(2)),
+                     count: deps.rooms.snapshots[roomId]?.repositories.count ?? 0, fresh: state.fresh.contains(.repositories)),
         ]
     }
 
-    private func run(_ operation: String, _ fields: [String: JSONValue] = [:]) {
-        var fields = fields; fields["missionId"] = .string(roomId)
+    private func run(_ work: @escaping (RoomStore) async throws -> Void) {
+        let rooms = deps.rooms
         Task { @MainActor in
             do {
-                _ = try await deps.commandSink.request(operation, fields)
-                state.renaming = false
-                if operation == "mission.delete" || operation == "mission.leave" {
-                    deps.workbench.selectedMissionId = nil; deps.missionDetail = nil
-                }
+                try await work(rooms)
+                workspace.renaming = false
             } catch { state.failure = error.localizedDescription }
+        }
+    }
+
+    private func end(_ work: @escaping (RoomStore) async throws -> Void) {
+        run { rooms in
+            try await work(rooms)
+            deps.workbench.selectedMissionId = nil
         }
     }
 }
@@ -239,15 +251,16 @@ struct RoomPeoplePopover: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let detail: MissionDetail
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    let workspace: RoomWorkspace
     @State private var invited: Set<String> = []
 
     private var isOwner: Bool {
-        detail.mission.ownerUserId == deps.account.userId
+        deps.rooms.isOwner(of: detail.mission.id)
     }
 
     private var candidates: [FriendEntry] {
-        deps.people.friends.filter { friend in !detail.members.contains { $0.userId == friend.userId } }
+        deps.rooms.invitable(deps.people.friends, to: detail.mission.id)
     }
 
     var body: some View {
@@ -260,7 +273,7 @@ struct RoomPeoplePopover: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Invite").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).padding(.leading, 8)
                     if candidates.isEmpty {
-                        Button { state.peopleVisible = false; deps.workbench.section = .people } label: {
+                        Button { workspace.peopleVisible = false; deps.workbench.section = .people } label: {
                             MenuRow(title: String(localized: "Add friends"), symbol: "person.badge.plus")
                         }.buttonStyle(.plain)
                     }
@@ -315,7 +328,7 @@ struct RoomPeoplePopover: View {
         invited.insert(friend.userId)
         Task { @MainActor in
             do {
-                _ = try await deps.commandSink.request("mission.invite", ["missionId": .string(detail.mission.id), "userId": .string(friend.userId)])
+                try await deps.rooms.invite(friend.userId, to: detail.mission.id)
             } catch {
                 invited.remove(friend.userId)
                 state.failure = error.localizedDescription
@@ -326,9 +339,7 @@ struct RoomPeoplePopover: View {
     private func remove(_ member: MissionMemberEntry) {
         Task { @MainActor in
             do {
-                _ = try await deps.commandSink.request(
-                    "mission.removeMember", ["missionId": .string(detail.mission.id), "userId": .string(member.userId)],
-                )
+                try await deps.rooms.remove(member, from: detail.mission.id)
             } catch { state.failure = error.localizedDescription }
         }
     }
@@ -339,14 +350,15 @@ struct ConversationKey: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
     let roomId: String
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    let workspace: RoomWorkspace
 
     private var last: RoomMessage? {
-        deps.rooms[roomId]?.messages.last
+        deps.rooms.snapshots[roomId]?.messages.last
     }
 
     var body: some View {
-        Button(action: open) {
+        Button { workspace.conversationVisible = true } label: {
             HStack(spacing: 6) {
                 face.id(last?.id)
                     .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
@@ -385,11 +397,5 @@ struct ConversationKey: View {
             Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(theme.colors.inkMuted).frame(width: 20, height: 20)
         }
-    }
-
-    private func open() {
-        state.conversationVisible = true
-        state.unread = 0
-        deps.seeRoom(roomId)
     }
 }

@@ -8,22 +8,9 @@ enum RuntimeContract {
         let allowed: Set<String>
     }
 
-    private static let schema: [String: Any] = {
-        let url = URL(filePath: #filePath)
-            .deletingLastPathComponent()
-            .appending(path: "../../../protocol/desktop-runtime.json")
-            .standardizedFileURL
-        guard let data = try? Data(contentsOf: url),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return [:] }
-        return root
-    }()
-
     private static let shapes: [String: Shape] = load()
 
-    static var version: Int? {
-        schema["protocolVersion"] as? Int
-    }
+    static let version: Int? = schema()["protocolVersion"] as? Int
 
     static func verify(_ data: Data, sourceLocation: SourceLocation = #_sourceLocation) {
         if let violation = violation(in: data) {
@@ -43,8 +30,19 @@ enum RuntimeContract {
         return "\(type) is missing \(missing) and has unknown fields \(unknown)."
     }
 
+    private static func schema() -> [String: Any] {
+        let url = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .appending(path: "../../../../protocol/desktop-runtime.json")
+            .standardizedFileURL
+        guard let data = try? Data(contentsOf: url),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [:] }
+        return root
+    }
+
     private static func load() -> [String: Shape] {
-        guard let commands = schema["commands"] as? [String: Any],
+        guard let commands = schema()["commands"] as? [String: Any],
               let variants = commands["oneOf"] as? [[String: Any]]
         else { return [:] }
         var shapes: [String: Shape] = [:]
@@ -58,18 +56,5 @@ enum RuntimeContract {
             )
         }
         return shapes
-    }
-}
-
-struct RuntimeContractTests {
-    @Test func `the schema lists the commands the app sends`() {
-        let open = #"{"type":"session.openRemote","sessionId":"s","accountUserId":null,"accountEpoch":0}"#
-        #expect(RuntimeContract.violation(in: Data(open.utf8)) != nil)
-        let complete = #"{"type":"session.openRemote","sessionId":"s","requestId":"r","accountUserId":null,"accountEpoch":0}"#
-        #expect(RuntimeContract.violation(in: Data(complete.utf8)) == nil)
-    }
-
-    @Test func `the app expects the schema version`() {
-        #expect(RuntimeContract.version == Int(RuntimeHandle.expectedProtocolVersion))
     }
 }

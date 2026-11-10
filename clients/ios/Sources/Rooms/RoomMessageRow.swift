@@ -194,7 +194,7 @@ struct RoomMessageRow: View {
             Label("Copy", systemImage: "doc.on.doc")
         }
         Button {
-            model.rooms.view(roomId).selectedText = RoomTextSelection(id: message.id, text: message.text)
+            model.roomScreen(roomId).selectedText = RoomTextSelection(id: message.id, text: message.text)
         } label: {
             Label("Select text", systemImage: "selection.pin.in.out")
         }

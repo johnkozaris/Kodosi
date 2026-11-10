@@ -28,11 +28,10 @@ struct RoomTasks: View {
                 RoomSkeleton()
             }
         }
-        .onAppear { state.watchingTasks = true }
-        .onDisappear { state.watchingTasks = false }
+        .showsRoomPart(.tasks, of: state)
         .sheet(isPresented: $composing) { RoomTaskComposer(roomId: roomId) }
         .sheet(item: $opened) { RoomTaskSheet(roomId: roomId, taskId: $0.id) }
-        .sensoryFeedback(.success, trigger: state.finishedTasks)
+        .sensoryFeedback(.success, trigger: model.roomScreen(roomId).finishedTasks)
     }
 
     private func list(_ snapshot: RoomSnapshot, state: RoomViewState) -> some View {
@@ -283,6 +282,7 @@ struct RoomTaskRow: View {
         guard pending == nil else { return }
         pending = change
         let rooms = model.rooms
+        let screen = model.roomScreen(roomId)
         let roomId = roomId
         let task = task
         Task {
@@ -290,7 +290,7 @@ struct RoomTaskRow: View {
             do {
                 try await rooms.update(task, in: roomId, change: change)
                 if change == .close {
-                    rooms.view(roomId).finishedTasks += 1
+                    screen.finishedTasks += 1
                 }
             } catch {
                 rooms.report(error)

@@ -22,7 +22,7 @@ extension AppDependencies {
             return DosiContext(terminal: workbench.focusedSessionId ?? workbench.selectedSessionId)
         case .missions:
             guard let room = workbench.selectedMissionId else { return DosiContext() }
-            return DosiContext(terminal: roomView(room).selectedTerminal, room: room)
+            return DosiContext(terminal: roomWorkspace(room).selectedTerminal, room: room)
         case .people, .settings:
             return DosiContext()
         }
@@ -102,7 +102,7 @@ extension AppDependencies {
     }
 
     func room(named reference: String) -> MissionEntry? {
-        referred(reference, in: missions, id: \.id, name: \.name)
+        referred(reference, in: rooms.missions, id: \.id, name: \.name)
     }
 
     func open(_ target: DosiTarget) {

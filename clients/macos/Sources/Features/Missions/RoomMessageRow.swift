@@ -9,7 +9,8 @@ struct RoomMessageRow: View {
     let message: RoomMessage
     let previous: RoomMessage?
     let targets: [RoomMention]
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    let workspace: RoomWorkspace
     @State private var hovered = false
     @State private var madeTask = false
 
@@ -26,8 +27,7 @@ struct RoomMessageRow: View {
     }
 
     private var authorHandle: String? {
-        guard let detail = deps.missionDetail, detail.mission.id == roomId else { return nil }
-        return detail.members.first { $0.userId == message.authorId }?.handle
+        deps.rooms.member(message.authorId, in: roomId)?.handle
     }
 
     private var startsGroup: Bool {
@@ -130,8 +130,8 @@ struct RoomMessageRow: View {
             }
             if let terminal {
                 Button {
-                    state.shownSection = 0
-                    state.selectedTerminal = terminal.id
+                    workspace.shownSection = 0
+                    workspace.selectedTerminal = terminal.id
                     deps.activateSession(terminal.id, inRoom: roomId)
                 } label: {
                     HStack(spacing: 4) {
@@ -157,7 +157,7 @@ struct RoomMessageRow: View {
             }
             IconButton(title: madeTask ? "Added to tasks" : "Make this a task", symbol: madeTask ? "checkmark" : "checklist",
                        identifier: "room.message.task", size: 24, active: madeTask, action: makeTask)
-                .disabled(madeTask || state.busy)
+                .disabled(madeTask || workspace.busy)
         }
         .padding(2)
         .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
@@ -166,7 +166,7 @@ struct RoomMessageRow: View {
     private func makeTask() {
         Task { @MainActor in
             do {
-                try await deps.roomAction(roomId, RoomAction.createTask(from: message))
+                try await deps.rooms.makeTask(from: message, in: roomId)
                 madeTask = true
             } catch { state.failure = error.localizedDescription }
         }

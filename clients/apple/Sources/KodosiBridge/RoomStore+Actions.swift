@@ -1,7 +1,7 @@
 import Foundation
-import KodosiBridge
 
-extension RoomStore {
+public extension RoomStore {
+    /// Posts the draft of a room, and keeps what the person wrote while it went out.
     func post(in roomId: String) async {
         let state = view(roomId)
         let text = state.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -9,6 +9,7 @@ extension RoomStore {
         let revision = state.messageRevision
         state.sending = true
         state.failure = nil
+        state.followsLatest = true
         defer { state.sending = false }
         do {
             try await act(roomId, RoomAction.post(text))
@@ -16,16 +17,20 @@ extension RoomStore {
                 state.message = ""
             }
             state.sent += 1
+        } catch is CancellationError {
+            return
         } catch {
-            if !(error is CancellationError) {
-                state.failure = error.localizedDescription
-            }
+            state.failure = error.localizedDescription
         }
     }
 
-    func createTask(in roomId: String, title: String, description: String, repositoryIds: Set<String>) async throws {
+    func createTask(
+        in roomId: String, title: String, description: String, repositoryIds: Set<String>, issueRepositoryId: String? = nil,
+    ) async throws {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        try await act(roomId, RoomAction.createTask(title: title, description: description, repositoryIds: repositoryIds))
+        try await act(roomId, RoomAction.createTask(
+            title: title, description: description, repositoryIds: repositoryIds, issueRepositoryId: issueRepositoryId,
+        ))
     }
 
     func makeTask(from message: RoomMessage, in roomId: String) async throws {
@@ -41,10 +46,11 @@ extension RoomStore {
         try await act(roomId, RoomAction.addRepository(address))
     }
 
+    /// Makes a room and invites the friends, and returns the room.
     func create(name: String, inviting friends: [String]) async throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
-            throw RuntimeError.operation(String(localized: "Use a shorter name."))
+            throw RuntimeError.operation(String(localized: "Use a shorter name.", bundle: .module))
         }
         let roomId = UUIDv7.generate()
         _ = try await commands.request("mission.create", ["requestId": .string(roomId), "name": .string(name)])
@@ -57,7 +63,7 @@ extension RoomStore {
             }
         }
         if missed > 0 {
-            notices.show(String(localized: "Some invitations did not go out. Invite them again from the room."))
+            notify(String(localized: "Some invitations did not go out. Invite them again from the room.", bundle: .module))
         }
         return roomId
     }
@@ -71,9 +77,13 @@ extension RoomStore {
         _ = try await commands.request(operation, ["invitationId": .string(invitation.id)])
     }
 
+    /// Renames a room. An empty name keeps the one it has.
     func rename(_ roomId: String, to name: String) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard ProductInput.validName(name), name != mission(roomId)?.name else { return }
+        guard !name.isEmpty, name != mission(roomId)?.name else { return }
+        guard ProductInput.validName(name) else {
+            throw RuntimeError.operation(String(localized: "Use a shorter name.", bundle: .module))
+        }
         _ = try await commands.request("mission.rename", ["missionId": .string(roomId), "name": .string(name)])
     }
 
@@ -89,6 +99,7 @@ extension RoomStore {
         _ = try await commands.request("mission.removeMember", ["missionId": .string(roomId), "userId": .string(member.userId)])
     }
 
+    /// Does the work, and tells the person when it fails.
     func run(_ work: @escaping () async throws -> Void) {
         Task {
             do {
@@ -101,6 +112,6 @@ extension RoomStore {
 
     func report(_ error: any Error) {
         guard !(error is CancellationError) else { return }
-        notices.show(error)
+        notify(error.localizedDescription)
     }
 }
