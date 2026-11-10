@@ -89,6 +89,13 @@ view is a person's; input from the `kodosi` command stops with a message while a
 types in the terminal. When a terminal stops working or starts to wait while no client
 shows it, the host marks it until a client shows it.
 
+The runtime says in each list of terminals whether a terminal's program works, what the
+terminal waits with and what the program does in words, and each client shows that. The
+program's report decides. Without a report, a spinner at the start of the terminal's title
+means work, and the words of the title are what it does, without the characters that hide or
+reorder text. A title that the runtime does not read now, as of a terminal of another
+computer that is not open, says nothing new.
+
 A terminal starts with its host's environment and Kodosi's terminal variables. A host
 that a client starts gets the user session's environment from Windows or the systemd
 user manager, plus the client's `KODOSI` settings, and otherwise the client's
