@@ -8,8 +8,8 @@ use std::{
     fmt::Write as _,
     io::Read as _,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, PoisonError},
-    time::{Duration, Instant},
+    sync::{Arc, Mutex, MutexGuard, PoisonError, Weak},
+    time::Duration,
 };
 
 use clap::{Args, Subcommand};
@@ -20,11 +20,14 @@ use pdf::Pdf;
 use plain::Plain;
 use pptx::Pptx;
 use serde_json::{Value, json};
+use tokio::time::Instant;
 use xlsx::Xlsx;
 
 const ANSWER_LIMIT: Duration = Duration::from_mins(1);
 /// How long an agent stays among the people after its last command.
 const SEAT_KEPT: Duration = Duration::from_secs(30);
+/// How often a host looks for seats that no command used for a while.
+const FORGET_EVERY: Duration = Duration::from_secs(5);
 /// The largest file of ops or text to start from that an agent can give.
 const MOST_TEXT: u64 = 32 * 1024 * 1024;
 
@@ -464,10 +467,35 @@ async fn message(pipe: &mut Pipe) -> Result<ToClient, Failed> {
     }
 }
 
+type Seats = HashMap<(String, PathBuf), Arc<tokio::sync::Mutex<Seat>>>;
+
+fn lock(seats: &Mutex<Seats>) -> MutexGuard<'_, Seats> {
+    seats.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Lets go of the seats that no command used for a while, until no seat is left.
+async fn forget_idle(seats: Weak<Mutex<Seats>>) {
+    let mut every = tokio::time::interval(FORGET_EVERY);
+    loop {
+        every.tick().await;
+        let Some(seats) = seats.upgrade() else {
+            return;
+        };
+        let mut seats = lock(&seats);
+        seats.retain(|_, seat| {
+            seat.try_lock()
+                .map_or(true, |seat| seat.used_at.elapsed() < SEAT_KEPT)
+        });
+        if seats.is_empty() {
+            return;
+        }
+    }
+}
+
 /// The agents of one host, each with its seats in the documents that it works on.
 pub struct Agents {
     documents: Documents,
-    seats: Arc<Mutex<HashMap<(String, PathBuf), Arc<tokio::sync::Mutex<Seat>>>>>,
+    seats: Arc<Mutex<Seats>>,
 }
 
 impl Agents {
@@ -478,35 +506,25 @@ impl Agents {
         }
     }
 
-    fn lock(
-        &self,
-    ) -> std::sync::MutexGuard<'_, HashMap<(String, PathBuf), Arc<tokio::sync::Mutex<Seat>>>> {
-        self.seats.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Lets go of seats that no command used for a while.
-    fn forget_old(&self) {
-        self.lock().retain(|_, seat| {
-            seat.try_lock()
-                .map_or(true, |seat| seat.used_at.elapsed() < SEAT_KEPT)
-        });
-    }
-
     async fn seat(
         &self,
         viewer: &Viewer,
         path: &Path,
     ) -> Result<Arc<tokio::sync::Mutex<Seat>>, Failed> {
-        self.forget_old();
         let key = (viewer.id.clone(), documents::real_path(path)?);
-        let known = self.lock().get(&key).cloned();
+        let known = lock(&self.seats).get(&key).cloned();
         if let Some(seat) = known {
             return Ok(seat);
         }
         let seat = Arc::new(tokio::sync::Mutex::new(
             Seat::open(&self.documents, path, viewer.clone()).await?,
         ));
-        self.lock().insert(key, Arc::clone(&seat));
+        let mut seats = lock(&self.seats);
+        if seats.is_empty() {
+            tokio::spawn(forget_idle(Arc::downgrade(&self.seats)));
+        }
+        seats.insert(key, Arc::clone(&seat));
+        drop(seats);
         Ok(seat)
     }
 
