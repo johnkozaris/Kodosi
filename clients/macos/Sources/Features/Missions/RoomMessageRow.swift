@@ -19,15 +19,11 @@ struct RoomMessageRow: View {
     }
 
     private var isMine: Bool {
-        message.isWritten(by: deps.account.userId)
+        deps.rooms.isOwn(message)
     }
 
     private var terminal: RuntimeSession? {
         message.terminalId.flatMap(deps.session)
-    }
-
-    private var authorHandle: String? {
-        deps.rooms.member(message.authorId, in: roomId)?.handle
     }
 
     private var startsGroup: Bool {
@@ -38,9 +34,7 @@ struct RoomMessageRow: View {
         let mentioned = !isMine && RoomMentions.mentionsSelf(message.text, targets: targets)
         VStack(spacing: 0) {
             if RoomDates.startsDay(message, after: previous), let date {
-                Text(RoomDates.day(date)).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                    .padding(.horizontal, 10).frame(height: 20).background(theme.colors.ink.opacity(0.06), in: Capsule())
-                    .frame(maxWidth: .infinity).padding(.top, 14).padding(.bottom, 4)
+                RoomDayDivider(date: date)
             }
             Group {
                 if isMine {
@@ -49,12 +43,7 @@ struct RoomMessageRow: View {
                     theirs
                 }
             }
-            .padding(.horizontal, mentioned ? 8 : 0).padding(.vertical, mentioned ? 6 : 0)
-            .background {
-                if mentioned {
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(theme.colors.accentSoft.opacity(0.6))
-                }
-            }
+            .roomMention(mentioned)
             .padding(.top, startsGroup ? 12 : 3)
             .overlay(alignment: .topTrailing) {
                 if hovered {
@@ -69,26 +58,13 @@ struct RoomMessageRow: View {
         .accessibilityIdentifier("room.message.\(AccessibilityIdentifier.token(message.id))")
     }
 
-    private var messageText: some View {
-        RoomMessageText(text: message.text, targets: targets)
-            .appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-            .tint(theme.colors.accentStrong)
-    }
-
     private var mine: some View {
         HStack(alignment: .bottom, spacing: 6) {
             Spacer(minLength: 44)
             if hovered, let date {
-                Text(date, style: .time).appTextStyle(.caption2).foregroundStyle(theme.colors.inkFaint).transition(.opacity)
+                RoomMessageTime(date: date).transition(.opacity)
             }
-            messageText
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background {
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 6, topTrailingRadius: 16, style: .continuous,
-                    )
-                    .fill(theme.colors.accentSoft)
-                }
+            RoomMessageBody(text: message.text, targets: targets).roomBubble()
         }
     }
 
@@ -96,15 +72,9 @@ struct RoomMessageRow: View {
         HStack(alignment: .top, spacing: 10) {
             ZStack(alignment: .top) {
                 if startsGroup {
-                    if message.agent != nil {
-                        AgentMark(kind: AgentKind(agentName: message.agent, program: terminal?.program), size: 28,
-                                  activity: terminal?.mark(rested: .awake) ?? .awake)
-                    } else {
-                        PersonAvatar(name: message.authorName, key: message.authorId, size: 28)
-                    }
+                    RoomMessageFace(message: message, terminal: terminal)
                 } else if hovered, let date {
-                    Text(date, format: .dateTime.hour().minute()).appTextStyle(.caption2).foregroundStyle(theme.colors.inkFaint)
-                        .lineLimit(1).fixedSize().padding(.top, 3)
+                    RoomMessageTime(date: date).lineLimit(1).fixedSize().padding(.top, 3)
                 }
             }
             .frame(width: 28)
@@ -112,39 +82,26 @@ struct RoomMessageRow: View {
                 if startsGroup {
                     header
                 }
-                messageText.frame(maxWidth: .infinity, alignment: .leading)
+                RoomMessageBody(text: message.text, targets: targets).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(message.agent ?? message.authorName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-            if message.agent == nil, let authorHandle {
-                Text(verbatim: "@\(authorHandle)").appTextStyle(.caption).fontWeight(.regular)
-                    .foregroundStyle(theme.colors.inkFaint).lineLimit(1)
-            }
-            if message.agent != nil {
-                Text("for \(message.authorName)").appTextStyle(.caption).fontWeight(.regular)
-                    .foregroundStyle(theme.colors.inkFaint).lineLimit(1)
-            }
+            RoomMessageAuthor(message: message, handle: deps.rooms.member(message.authorId, in: roomId)?.handle)
             if let terminal {
                 Button {
                     workspace.shownSection = 0
                     workspace.selectedTerminal = terminal.id
                     deps.activateSession(terminal.id, inRoom: roomId)
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "apple.terminal").font(.system(size: 8, weight: .bold))
-                        Text(terminal.name).lineLimit(1)
-                    }
-                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-                    .padding(.horizontal, 7).frame(height: 18).background(theme.colors.ink.opacity(0.08), in: Capsule())
+                    RoomTerminalChip(name: terminal.name)
                 }
                 .buttonStyle(PressScaleStyle()).help("Open this terminal")
             }
             if let date {
-                Text(date, style: .time).appTextStyle(.caption2).foregroundStyle(theme.colors.inkFaint)
+                RoomMessageTime(date: date)
             }
             Spacer(minLength: 0)
         }
