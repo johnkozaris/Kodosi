@@ -84,9 +84,9 @@ pub(super) struct Places {
 }
 
 impl Places {
-    pub(super) fn of(data_root: &Path) -> Self {
+    pub(super) fn of(data_root: &Path, binary: PathBuf) -> Self {
         Self {
-            binary: agent_browser(),
+            binary,
             sockets: sockets(data_root),
             config: data_root.join("browser").join("agent-browser.json"),
         }
@@ -125,8 +125,8 @@ pub(super) fn own_profile(data_root: &Path, id: Uuid) -> PathBuf {
 }
 
 /// Why this computer cannot run the agent's side of the shared browser, if it cannot.
-pub(super) fn missing() -> Option<Text> {
-    (!agent_browser().is_file()).then(no_agent_browser)
+pub(super) fn missing(agent_browser: &Path) -> Option<Text> {
+    (!agent_browser.is_file()).then(no_agent_browser)
 }
 
 fn no_agent_browser() -> Text {
