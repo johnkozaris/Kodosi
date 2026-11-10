@@ -81,6 +81,7 @@ struct CanvasScreen: View {
         let session = model.terminals.session(sessionId)
         let current = session.flatMap(store.current)
         let shelf = current?.section == .files && store.showsShelf(sessionId)
+        let shows = session.map(store.showsSomething) == true || store.opensBrowser(sessionId)
         NavigationStack {
             VStack(spacing: 0) {
                 if let session, current?.section == .files {
@@ -133,9 +134,6 @@ struct CanvasScreen: View {
                             store.show(section, in: session)
                         } close: { section in
                             store.close(section, in: session)
-                            if store.sections(session).isEmpty {
-                                dismiss()
-                            }
                         } open: { section in
                             if section == .browser {
                                 openBrowser(of: session)
@@ -165,8 +163,8 @@ struct CanvasScreen: View {
                 store.saw(current, in: sessionId)
             }
         }
-        .onChange(of: session?.canvas == nil) { _, gone in
-            if gone, !store.opensBrowser(sessionId) {
+        .onChange(of: shows) { _, shows in
+            if !shows {
                 dismiss()
             }
         }

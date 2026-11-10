@@ -123,7 +123,10 @@ private struct TerminalScreenContent: View {
                             .accessibilityLabel(Text("Here now: \(viewers.map(\.name).joined(separator: ", "))"))
                     }
                     if session.canvas != nil {
-                        CanvasKey(session: session, canvas: model.terminals.canvas) { canvasOpen = true }
+                        CanvasKey(session: session, canvas: model.terminals.canvas) {
+                            model.terminals.canvas.open(session)
+                            canvasOpen = true
+                        }
                     }
                     TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                         openBrowser(of: session)
