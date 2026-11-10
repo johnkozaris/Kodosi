@@ -9,6 +9,10 @@ public sealed class User
     public string DisplayName { get; set; } = "";
     public Guid? IdentityIncarnationId { get; set; }
     public string? Plan { get; set; }
+    public DateTimeOffset? NameChecksUntil { get; set; }
+    public DateTimeOffset? NameChecksRefusedAt { get; set; }
+    public int NameChecksRefusedIntervals { get; set; }
+    public DateTimeOffset? BannedAt { get; set; }
 }
 
 public sealed class DeletedAccount

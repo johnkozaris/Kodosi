@@ -37,6 +37,7 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<FriendService>();
+builder.Services.AddScoped<NameChecks>();
 builder.Services.AddScoped<MissionService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.ConfigureHttpJsonOptions(options => StrictJson.Configure(options.SerializerOptions));

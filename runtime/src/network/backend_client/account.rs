@@ -68,7 +68,11 @@ impl BackendClient {
             Error::Dns | Error::Unreachable | Error::Timeout | Error::Dropped => {
                 AuthRestoringReason::Offline
             }
-            Error::SignedOut | Error::AccountDeleted | Error::Stale | Error::Closed => return,
+            Error::SignedOut
+            | Error::AccountDeleted
+            | Error::AccountBanned
+            | Error::Stale
+            | Error::Closed => return,
             _ => AuthRestoringReason::Unavailable,
         };
         self.announce_restoring(generation, reason);

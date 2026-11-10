@@ -4457,6 +4457,10 @@
         <source>Your Kodosi account is deleted.</source>
         <translation>Tu cuenta de Kodosi se ha eliminado.</translation>
     </message>
+    <message>
+        <source>This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban.</source>
+        <translation>Esta cuenta está suspendida porque probó demasiados nombres de usuario. Pide al administrador de este servidor de Kodosi que retire la suspensión.</translation>
+    </message>
 </context>
 <context>
     <name>main</name>

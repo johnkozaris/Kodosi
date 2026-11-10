@@ -346,6 +346,9 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
     if status == reqwest::StatusCode::GONE {
         return Err(Error::AccountDeleted);
     }
+    if status == reqwest::StatusCode::LOCKED {
+        return Err(Error::AccountBanned);
+    }
     if !status.is_success() {
         let body = serde_json::from_slice::<Value>(&bytes).unwrap_or_default();
         return Err(Error::Backend {
@@ -370,10 +373,15 @@ pub(crate) fn supported(own: u32, oldest: u64, current: u64) -> Result<()> {
 }
 
 fn backend_message(status: u16, body: &Value) -> Text {
+    let known = || {
+        body.get("error")
+            .and_then(Value::as_str)
+            .and_then(known_refusal)
+    };
     match status {
         401 => text!("Your sign-in has expired. Sign in again."),
-        404 => text!("That no longer exists on the Kodosi server."),
-        429 => text!("Too many requests. Wait a minute and try again."),
+        404 => known().unwrap_or_else(|| text!("That no longer exists on the Kodosi server.")),
+        429 => known().unwrap_or_else(|| text!("Too many requests. Wait a minute and try again.")),
         500..=599 => text!("The Kodosi server had a problem. Try again in a moment."),
         _ => backend_text(body)
             .unwrap_or_else(|| text!("The Kodosi server could not complete the request.")),
@@ -392,12 +400,13 @@ pub(crate) fn backend_text(body: &Value) -> Option<Text> {
     if words.is_empty() {
         return None;
     }
-    Some(
-        backend_refusals()
-            .into_iter()
-            .find(|text| text.words() == words)
-            .unwrap_or_else(|| Text::plain(words)),
-    )
+    Some(known_refusal(&words).unwrap_or_else(|| Text::plain(words)))
+}
+
+fn known_refusal(words: &str) -> Option<Text> {
+    backend_refusals()
+        .into_iter()
+        .find(|text| text.words() == words)
 }
 
 fn plan_limit(limit: &str, most: u64) -> Option<Text> {
@@ -446,6 +455,7 @@ fn backend_refusals() -> Vec<Text> {
         text!("Invite an accepted friend."),
         text!("Leave a room before you join or make another."),
         text!("Leave the room to leave its shared terminals."),
+        text!("No Kodosi account has this user name."),
         text!("Only the computer that hosts a terminal can add it."),
         text!("Only the computer that hosts this terminal can change it."),
         text!("Only the owner can change this terminal."),
@@ -505,6 +515,7 @@ fn backend_refusals() -> Vec<Text> {
         text!("Unblock this person first."),
         text!("You cannot leave your own terminal."),
         text!("You have too many terminals."),
+        text!("You tried too many user names. You can try another one in 30 minutes."),
     ]
 }
 
@@ -539,6 +550,23 @@ mod refusal_tests {
             unknown
                 .in_language(Language::German)
                 .ends_with(" (Invalid room signature.)")
+        );
+    }
+
+    #[test]
+    fn a_missing_or_limited_request_keeps_only_the_server_words_that_the_app_knows() {
+        let missing = backend_message(
+            404,
+            &serde_json::json!({"error": "No Kodosi account has this user name."}),
+        );
+        assert_eq!(missing.words(), "No Kodosi account has this user name.");
+        let limited = backend_message(
+            429,
+            &serde_json::json!({"error": "Too many requests. Wait a moment and try again."}),
+        );
+        assert_eq!(
+            limited.words(),
+            "Too many requests. Wait a minute and try again."
         );
     }
 }

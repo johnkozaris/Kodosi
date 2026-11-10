@@ -34,6 +34,7 @@ pub enum Error {
     Trust(Text),
     SignedOut,
     AccountDeleted,
+    AccountBanned,
     EnrollmentRequired,
     Stale,
     Busy,
@@ -60,6 +61,9 @@ impl Error {
             }
             Self::SignedOut => text!("Sign in to continue."),
             Self::AccountDeleted => text!("This Kodosi account was deleted."),
+            Self::AccountBanned => text!(
+                "This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban."
+            ),
             Self::EnrollmentRequired => {
                 text!("This device is not approved for your account. Approve it first.")
             }

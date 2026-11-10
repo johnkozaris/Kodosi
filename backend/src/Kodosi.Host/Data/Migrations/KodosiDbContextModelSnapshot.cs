@@ -575,6 +575,9 @@ namespace Kodosi.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("BannedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -592,6 +595,15 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("NameChecksRefusedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("NameChecksRefusedIntervals")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("NameChecksUntil")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Plan")
                         .HasMaxLength(64)

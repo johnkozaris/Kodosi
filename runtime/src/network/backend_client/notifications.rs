@@ -100,6 +100,7 @@ fn ends_connection(error: &Error) -> bool {
         Error::Stale
             | Error::SignedOut
             | Error::AccountDeleted
+            | Error::AccountBanned
             | Error::EnrollmentRequired
             | Error::UpdateRequired
             | Error::ServerOutdated
@@ -148,6 +149,13 @@ impl BackendClient {
                 if started.elapsed() >= terminal_connections::STABLE_CONNECTION {
                     delay = 1;
                     failure.worked();
+                }
+                if matches!(result, Err(Error::AccountBanned)) {
+                    let _operation = network.inner.operations.lock().await;
+                    if let Err(error) = network.sign_in_kept(result).await {
+                        tracing::warn!(%error, "the banned account was not signed out");
+                    }
+                    break;
                 }
                 if let Err(error) = result
                     && failure.new_failure(&error)

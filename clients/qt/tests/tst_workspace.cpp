@@ -1666,6 +1666,20 @@ private slots:
         QVERIFY(!f.workspace.account().signedIn());
         QCOMPARE(f.workspace.error(), QStringLiteral("Your Kodosi account is deleted."));
     }
+    void bannedAccountSignsOutWithTheReasonUntilItSignsInAgain()
+    {
+        Fixture f;
+        const QJsonObject ready { { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) } };
+        f.workspace.apply(ready, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") },
+            { QStringLiteral("reason"), QStringLiteral("accountBanned") } }, 2);
+        QVERIFY(!f.workspace.account().signedIn());
+        QCOMPARE(f.workspace.error(), QStringLiteral("This account is banned because it tried too many user names. "
+                                                     "Ask the operator of this Kodosi server to remove the ban."));
+        f.workspace.apply(ready, 3);
+        QVERIFY(f.workspace.error().isEmpty());
+    }
     void unapprovedDeviceShowsItsReasonUntilItIsApproved()
     {
         Fixture f;

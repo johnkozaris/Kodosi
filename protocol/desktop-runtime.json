@@ -5971,6 +5971,9 @@
               },
               {
                 "const": "accountDeleted"
+              },
+              {
+                "const": "accountBanned"
               }
             ]
           },

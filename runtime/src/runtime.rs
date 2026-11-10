@@ -2496,6 +2496,10 @@ impl Runtime {
                 "auth.finalizing" | "auth.restoring" => {
                     self.latest_auth = Some(event.event.clone());
                 }
+                "auth.required" if event.event["reason"] == "accountBanned" => {
+                    self.latest_auth = Some(event.event.clone());
+                    self.person = None;
+                }
                 "auth.ready" | "auth.required" | "auth.error" => {
                     self.latest_auth = None;
                     self.person = event.event["displayName"].as_str().map(str::to_owned);

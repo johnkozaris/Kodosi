@@ -1305,6 +1305,7 @@ pub enum AuthRequiredReason {
     Expired,
     Cancelled,
     AccountDeleted,
+    AccountBanned,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
