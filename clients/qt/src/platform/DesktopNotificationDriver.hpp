@@ -17,7 +17,7 @@ struct DesktopNotification {
     [[nodiscard]] bool valid() const noexcept
     {
         return !key.isEmpty() && key.size() <= 256 && !title.isEmpty() && title.size() <= 320
-            && body.size() <= 480 && DeepLinkRouter::isSafeIdentity(destination.sessionId);
+            && body.size() <= 480 && DeepLinkRouter::sessionId(destination.sessionId);
     }
 };
 

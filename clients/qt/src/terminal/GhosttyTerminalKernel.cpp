@@ -951,29 +951,39 @@ public:
 
     FrameResult captureFrame()
     {
-        return extractFrame(
+        auto frame = extractFrame(
             terminal.value,
             renderState.value,
             images,
             nextSequence,
             viewportRevision,
             displayRevision);
+        if (frame) {
+            outputPending = false;
+            outputHeldView.reset();
+        }
+        return frame;
     }
 
-    FrameResult frameAfterWrite(const std::optional<ViewCapture>& held)
+    FrameResult outputFrame()
     {
-        if (!renderHeldSince) {
+        if (!renderHeldSince || !outputHeldView) {
             return captureFrame();
         }
-        if (!*held) {
-            return std::unexpected(held->error());
+        if (!*outputHeldView) {
+            return std::unexpected(outputHeldView->error());
         }
-        return buildFrame(
+        auto frame = buildFrame(
             renderState.value,
-            **held,
+            **outputHeldView,
             nextSequence,
             viewportRevision,
             displayRevision);
+        if (frame) {
+            outputPending = false;
+            outputHeldView.reset();
+        }
+        return frame;
     }
 
     std::optional<Failure> refuseViewportMove(const TerminalSubscription& candidate) const
@@ -1149,7 +1159,7 @@ public:
             };
         }
         const auto* frame = currentFrame.get();
-        if (frame == nullptr || frame->viewportRevision != revision) {
+        if (frame == nullptr || viewportRevision != revision) {
             return Failure {
                 Failure::Code::StaleFrame,
                 QStringLiteral("Terminal selection does not match the displayed frame."),
@@ -1246,8 +1256,12 @@ public:
     std::uint64_t viewportRevision = 0;
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
+    // Output that the terminal has and currentFrame does not show yet.
+    bool outputPending = false;
     std::optional<std::chrono::steady_clock::time_point> renderHeldSince;
     std::optional<ViewCapture> heldView;
+    // The view at the start of the render hold that holds the pending output.
+    std::optional<ViewCapture> outputHeldView;
     TerminalKernelSettings settings;
     TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
@@ -1409,15 +1423,17 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->viewportRevision = viewportRevision;
     m_impl->displayRevision = displayRevision;
     m_impl->currentFrame = *candidateFrame;
+    m_impl->outputPending = false;
     m_impl->renderHeldSince.reset();
     m_impl->heldView.reset();
+    m_impl->outputHeldView.reset();
     m_impl->clipboard.clear();
     m_impl->admitted = true;
     m_impl->failed = false;
     return m_impl->currentFrame;
 }
 
-GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalData& data)
+std::expected<bool, GhosttyTerminalKernel::Failure> GhosttyTerminalKernel::writeData(const TerminalData& data)
 {
     std::scoped_lock lock(m_impl->mutex);
     if (!m_impl->admitted || m_impl->failed) {
@@ -1471,15 +1487,32 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
         m_impl->failed = true;
         return std::unexpected(ghosttyFailure(QStringLiteral("render hold release"), holdResult));
     }
-    const auto heldView = std::exchange(m_impl->heldView, std::nullopt);
+    auto heldView = std::exchange(m_impl->heldView, std::nullopt);
 
     ++m_impl->nextSequence;
     if (m_impl->renderHeldSince && !heldView) {
-        return m_impl->currentFrame;
+        return false;
     }
     ++m_impl->viewportRevision;
     ++m_impl->displayRevision;
-    auto nextFrame = m_impl->frameAfterWrite(heldView);
+    m_impl->outputPending = true;
+    m_impl->outputHeldView = std::move(heldView);
+    return true;
+}
+
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::latestFrame()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (!m_impl->admitted) {
+        return std::unexpected(Failure {
+            Failure::Code::MissingCheckpoint,
+            QStringLiteral("The terminal frame requires an admitted checkpoint."),
+        });
+    }
+    if (m_impl->failed || !m_impl->outputPending) {
+        return m_impl->currentFrame;
+    }
+    auto nextFrame = m_impl->outputFrame();
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1907,7 +1940,7 @@ GhosttyTerminalKernel::linkAt(
         });
     }
     const auto* frame = m_impl->currentFrame.get();
-    if (frame == nullptr || frame->viewportRevision != viewportRevision) {
+    if (frame == nullptr || m_impl->viewportRevision != viewportRevision) {
         return std::unexpected(Failure {
             Failure::Code::StaleFrame,
             QStringLiteral("Terminal link lookup does not match the displayed frame."),

@@ -40,6 +40,9 @@ public:
         std::uint64_t incarnation,
         GhosttyTerminalKernel::Frame frame);
     [[nodiscard]] GhosttyTerminalKernel::Frame take(std::uint64_t incarnation);
+    // Notes output that has no frame yet and says whether a drain must be queued for it.
+    [[nodiscard]] bool markOutput(std::uint64_t incarnation);
+    [[nodiscard]] bool takeOutput(std::uint64_t incarnation);
 
 private:
     std::mutex m_mutex;
@@ -47,6 +50,7 @@ private:
     std::uint64_t m_incarnation = 0;
     std::uint64_t m_highestDisplayRevision = 0;
     bool m_drainQueued = false;
+    bool m_outputPending = false;
 };
 
 }
@@ -275,6 +279,7 @@ private:
     std::atomic<std::uint64_t> m_renderPerformanceGeneration {1};
 
     void enqueueFrame(std::uint64_t epoch, GhosttyTerminalKernel::Frame frame);
+    void enqueueOutput(std::uint64_t epoch);
     void enqueueGuiEvent(std::uint64_t epoch, GuiEvent event);
     void drainGuiEvents(std::uint64_t epoch);
     [[nodiscard]] bool interactionAvailable() const;

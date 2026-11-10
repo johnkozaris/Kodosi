@@ -182,7 +182,10 @@ public:
 
 
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
-    [[nodiscard]] Result applyData(const TerminalData& data);
+    // Writes output and says whether the frame changed; latestFrame builds one frame for all
+    // output written since the last frame.
+    [[nodiscard]] std::expected<bool, Failure> writeData(const TerminalData& data);
+    [[nodiscard]] Result latestFrame();
     [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,

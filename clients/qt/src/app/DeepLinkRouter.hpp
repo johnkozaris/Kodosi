@@ -18,7 +18,6 @@ enum class DeepLinkParseError {
     None,
     Oversized,
     UnsupportedRoute,
-    MalformedEncoding,
     UnsafeText,
     InvalidQuery,
 };
@@ -33,17 +32,12 @@ class DeepLinkRouter final {
 
 public:
     static constexpr qsizetype MaximumUrlCharacters = 4096;
-    static constexpr qsizetype MaximumIdentityCharacters = 512;
 
     [[nodiscard]] static DeepLinkParseResult parse(QStringView rawUrl);
     [[nodiscard]] static QString url(const DeepLinkDestination& destination);
-    [[nodiscard]] static bool isSafeIdentity(QStringView value);
+    // The lowercase ID of a terminal, for a UUID in any letter case.
+    [[nodiscard]] static std::optional<QString> sessionId(QStringView value);
     [[nodiscard]] static QString userMessage(DeepLinkParseError error);
-
-private:
-    [[nodiscard]] static std::optional<QString> decodeComponent(
-        QStringView encoded,
-        DeepLinkParseError& error);
 };
 
 }

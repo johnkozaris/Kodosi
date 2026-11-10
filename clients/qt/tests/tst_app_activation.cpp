@@ -68,7 +68,7 @@ void AppActivationTest::malformedFieldsStillShowTheWindow()
              QJsonObject { { QStringLiteral("token"), QString(kodosi::MaximumActivationTokenBytes + 1, QLatin1Char('t')) } },
              QJsonObject { { QStringLiteral("session"), 42 } },
              QJsonObject { { QStringLiteral("session"), QStringLiteral("bad\u0001session") } },
-             QJsonObject { { QStringLiteral("session"), QString(kodosi::DeepLinkRouter::MaximumIdentityCharacters + 1, QLatin1Char('s')) } },
+             QJsonObject { { QStringLiteral("session"), QStringLiteral("123") } },
              QJsonObject { { QStringLiteral("routeError"), 0 } },
              QJsonObject { { QStringLiteral("routeError"), 99 } },
              QJsonObject { { QStringLiteral("routeError"), QStringLiteral("1") } },

@@ -574,10 +574,6 @@
         <translation>링크가 너무 길어서 안전하게 열 수 없어요.</translation>
     </message>
     <message>
-        <source>The link contains malformed text encoding.</source>
-        <translation>링크에 잘못 인코딩된 텍스트가 있어요.</translation>
-    </message>
-    <message>
         <source>The link contains unsafe text.</source>
         <translation>링크에 안전하지 않은 텍스트가 있어요.</translation>
     </message>

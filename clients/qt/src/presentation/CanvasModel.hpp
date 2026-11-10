@@ -78,7 +78,6 @@ public:
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
     Q_INVOKABLE void openBrowser(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
-    Q_INVOKABLE [[nodiscard]] bool hasNews(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
     // Whether the agent of a terminal showed something that this device did not open yet.
@@ -100,7 +99,6 @@ public:
     [[nodiscard]] std::optional<QByteArray> published(int number) const;
     [[nodiscard]] std::optional<QByteArray> stored(const QString& sessionId, const QString& key) const;
 
-    Q_INVOKABLE void act(const QString& sessionId, const QVariantMap& action);
     Q_INVOKABLE void wake(const QString& sessionId);
 
     void apply(const QJsonObject& event);
@@ -221,6 +219,7 @@ private:
     bool sendPart(const QString& upload);
     void gave(const QString& sessionId, const QString& path);
     void askBrowserStatus();
+    void act(const QString& sessionId, const QVariantMap& action);
     void browserStep(const QString& key, const QString& type, QJsonObject fields = {});
     void read(const QString& sessionId, const QString& key, bool copy);
     void askPart(const QString& id);

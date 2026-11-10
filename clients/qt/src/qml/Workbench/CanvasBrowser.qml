@@ -162,7 +162,7 @@ Item {
                 visible: root.failure.length === 0 && !!root.browser.last
                 spacing: 5
 
-                AgentMark { program: root.browser.last ? root.browser.last.agent : ""; size: 14 }
+                AgentMark { kind: Models.DesktopSettings.agentNamed(root.browser.last ? root.browser.last.agent : ""); size: 14 }
                 PlainLabel {
                     Layout.fillWidth: true
                     text: root.browser.last ? root.browser.last.agent + " · " + root.browser.last.words : ""
@@ -239,10 +239,7 @@ Item {
                 property var shown: null
                 property real atX: 0
                 property real atY: 0
-                readonly property string kind: {
-                    const name = (shown ? shown.agent : "").toLowerCase();
-                    return ["claude", "codex", "copilot", "cursor", "gemini", "opencode"].find(kind => name.indexOf(kind) >= 0) || "shell";
-                }
+                readonly property string kind: Models.DesktopSettings.agentNamed(shown ? shown.agent : "")
                 readonly property color tint: Identity.kindTint(kind)
 
                 function place() {
@@ -331,7 +328,7 @@ Item {
                     AgentMark {
                         x: 13
                         y: 17
-                        program: pointer.kind
+                        kind: pointer.kind
                         size: 18
                         working: root.browser.doing !== undefined && root.browser.doing !== null
                     }

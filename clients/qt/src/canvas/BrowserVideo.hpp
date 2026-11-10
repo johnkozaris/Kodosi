@@ -38,7 +38,6 @@ public:
     Q_INVOKABLE void pointer(const QString& action, qreal x, qreal y, int button, int clicks, int modifiers);
     Q_INVOKABLE void wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers);
     Q_INVOKABLE bool key(int key, const QString& text, int modifiers, bool down);
-    Q_INVOKABLE void type(const QString& text);
     Q_INVOKABLE void paste();
     Q_INVOKABLE void step(const QVariantMap& input);
     Q_INVOKABLE [[nodiscard]] QVariant viewPoint(qreal x, qreal y) const;
@@ -64,6 +63,7 @@ private:
     void post(const QJsonObject& message);
     void input(const QJsonObject& event);
     void press(int key, const QString& typed, bool down, int modifiers);
+    void type(const QString& text);
     [[nodiscard]] QJsonObject sizeMessage() const;
     [[nodiscard]] QSizeF browserSize() const;
     [[nodiscard]] QRectF pictureRect() const;

@@ -44,6 +44,8 @@ class TerminalSessionRegistry final : public TerminalEventSink {
 public:
     struct Listener {
         std::function<void(GhosttyTerminalKernel::Frame)> frameChanged;
+        // Output changed the terminal; latestFrame builds and publishes its frame.
+        std::function<void()> outputChanged;
         std::function<void(GhosttyTerminalKernel::Failure)> failed;
         std::function<void(std::int32_t)> connectionCompleted;
         std::function<void(TerminalFocusOutcome)> focusCompleted;
@@ -78,6 +80,7 @@ public:
     [[nodiscard]] std::expected<QByteArray, GhosttyTerminalKernel::Failure> encodeMouse(
         const TerminalSurfaceIdentity& identity,
         TerminalMouseEvent event);
+    [[nodiscard]] GhosttyTerminalKernel::Result latestFrame(const TerminalSurfaceIdentity& identity);
     [[nodiscard]] GhosttyTerminalKernel::Result scrollViewport(
         const TerminalSurfaceIdentity& identity,
         int rows);

@@ -72,6 +72,15 @@ bool publishFrame(const std::shared_ptr<Entry>& entry, GhosttyTerminalKernel::Re
     return true;
 }
 
+bool publishOutput(const std::shared_ptr<Entry>& entry, const bool changed)
+{
+    std::scoped_lock lock(entry->listenerMutex);
+    if (entry->active && changed && entry->listener.outputChanged) {
+        entry->listener.outputChanged();
+    }
+    return entry->active;
+}
+
 void publishFailure(
     const std::shared_ptr<Entry>& entry,
     GhosttyTerminalKernel::Failure failure)
@@ -425,6 +434,23 @@ TerminalSessionRegistry::encodeMouse(
         std::move(event));
 }
 
+GhosttyTerminalKernel::Result TerminalSessionRegistry::latestFrame(const TerminalSurfaceIdentity& identity)
+{
+    ScopedPerformanceSpan span(
+        QStringLiteral("frame.build"),
+        8);
+    auto entry = m_impl->exact(identity);
+    if (!entry) {
+        return std::unexpected(GhosttyTerminalKernel::Failure {
+            GhosttyTerminalKernel::Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal output belongs to an unregistered surface."),
+        });
+    }
+    auto result = entry->kernel.latestFrame();
+    publishFrame(entry, result);
+    return result;
+}
+
 GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewport(
     const TerminalSurfaceIdentity& identity,
     const int rows)
@@ -643,7 +669,10 @@ void TerminalSessionRegistry::receiveData(TerminalData data) noexcept
         if (entry->needsCheckpoint.load(std::memory_order_acquire)) {
             continue;
         }
-        current = publishFrame(entry, entry->kernel.applyData(data)) || current;
+        auto written = entry->kernel.writeData(data);
+        current = (written ? publishOutput(entry, *written)
+                           : publishFrame(entry, std::unexpected(std::move(written.error()))))
+            || current;
         if (auto clipboard = entry->kernel.takeClipboardOperations(); !clipboard.empty()) {
             publishValue(
                 entry,

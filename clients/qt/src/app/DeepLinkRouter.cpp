@@ -1,7 +1,6 @@
 #include "app/DeepLinkRouter.hpp"
 
-#include <QByteArray>
-#include <QStringDecoder>
+#include <QUuid>
 
 namespace kodosi {
 namespace {
@@ -43,13 +42,6 @@ DeepLinkParseResult failure(const DeepLinkParseError error)
     };
 }
 
-bool isHexDigit(const QChar value)
-{
-    return (value >= u'0' && value <= u'9')
-        || (value >= u'a' && value <= u'f')
-        || (value >= u'A' && value <= u'F');
-}
-
 }
 
 DeepLinkParseResult DeepLinkRouter::parse(const QStringView rawUrl)
@@ -86,36 +78,31 @@ DeepLinkParseResult DeepLinkRouter::parse(const QStringView rawUrl)
     if (remainder.contains(u'?')) {
         return failure(DeepLinkParseError::InvalidQuery);
     }
-    const QStringView encodedSession = remainder;
-    if (encodedSession.isEmpty() || encodedSession.contains(u'/')) {
+    auto session = sessionId(remainder);
+    if (!session) {
         return failure(DeepLinkParseError::UnsupportedRoute);
-    }
-
-    DeepLinkParseError decodeError = DeepLinkParseError::None;
-    auto sessionId = decodeComponent(encodedSession, decodeError);
-    if (!sessionId) {
-        return failure(decodeError);
     }
 
     return {
         .destination = DeepLinkDestination {
-            .sessionId = std::move(*sessionId),
+            .sessionId = std::move(*session),
         },
     };
 }
 
 QString DeepLinkRouter::url(const DeepLinkDestination& destination)
 {
-    return QStringLiteral("kodosi://session/")
-        + QString::fromLatin1(destination.sessionId.toUtf8().toPercentEncoding());
+    return QStringLiteral("kodosi://session/") + destination.sessionId;
 }
 
-bool DeepLinkRouter::isSafeIdentity(const QStringView value)
+std::optional<QString> DeepLinkRouter::sessionId(const QStringView value)
 {
-    return !value.isEmpty()
-        && value.size() <= MaximumIdentityCharacters
-        && value.toUtf8().size() <= MaximumIdentityCharacters * 4
-        && !hasForbiddenText(value);
+    const auto id = QUuid::fromString(value);
+    auto text = id.toString(QUuid::WithoutBraces);
+    if (id.isNull() || text.compare(value, Qt::CaseInsensitive) != 0) {
+        return std::nullopt;
+    }
+    return text;
 }
 
 QString DeepLinkRouter::userMessage(const DeepLinkParseError error)
@@ -123,8 +110,6 @@ QString DeepLinkRouter::userMessage(const DeepLinkParseError error)
     switch (error) {
     case DeepLinkParseError::Oversized:
         return tr("The link is too long to open safely.");
-    case DeepLinkParseError::MalformedEncoding:
-        return tr("The link contains malformed text encoding.");
     case DeepLinkParseError::UnsafeText:
         return tr("The link contains unsafe text.");
     case DeepLinkParseError::InvalidQuery:
@@ -134,40 +119,6 @@ QString DeepLinkRouter::userMessage(const DeepLinkParseError error)
         return tr("This Kodosi link is invalid or unsupported.");
     }
     return tr("Kodosi could not open this link.");
-}
-
-std::optional<QString> DeepLinkRouter::decodeComponent(
-    const QStringView encoded,
-    DeepLinkParseError& error)
-{
-    for (auto index = qsizetype {0}; index < encoded.size(); ++index) {
-        if (encoded.at(index) != u'%') {
-            continue;
-        }
-        if (index + 2 >= encoded.size()
-            || !isHexDigit(encoded.at(index + 1))
-            || !isHexDigit(encoded.at(index + 2))) {
-            error = DeepLinkParseError::MalformedEncoding;
-            return std::nullopt;
-        }
-        index += 2;
-    }
-
-    const auto bytes = QByteArray::fromPercentEncoding(encoded.toUtf8());
-    QStringDecoder decoder(QStringDecoder::Utf8);
-    const QString decoded = decoder.decode(bytes);
-    if (decoder.hasError()) {
-        error = DeepLinkParseError::MalformedEncoding;
-        return std::nullopt;
-    }
-    if (!isSafeIdentity(decoded)
-        || decoded.contains(u'/')
-        || decoded.contains(u'?')
-        || decoded.contains(u'#')) {
-        error = DeepLinkParseError::UnsafeText;
-        return std::nullopt;
-    }
-    return decoded;
 }
 
 }

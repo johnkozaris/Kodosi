@@ -176,6 +176,7 @@ void detail::TerminalFrameMailbox::reset(const std::uint64_t incarnation)
     m_incarnation = incarnation;
     m_highestDisplayRevision = 0;
     m_drainQueued = false;
+    m_outputPending = false;
 }
 
 detail::TerminalFrameMailbox::EnqueueResult detail::TerminalFrameMailbox::enqueue(
@@ -207,6 +208,18 @@ GhosttyTerminalKernel::Frame detail::TerminalFrameMailbox::take(
     auto frame = std::exchange(m_pendingFrame, {});
     m_drainQueued = false;
     return frame;
+}
+
+bool detail::TerminalFrameMailbox::markOutput(const std::uint64_t incarnation)
+{
+    std::scoped_lock lock(m_mutex);
+    return incarnation == m_incarnation && !std::exchange(m_outputPending, true);
+}
+
+bool detail::TerminalFrameMailbox::takeOutput(const std::uint64_t incarnation)
+{
+    std::scoped_lock lock(m_mutex);
+    return incarnation == m_incarnation && std::exchange(m_outputPending, false);
 }
 
 TerminalView::TerminalView(QQuickItem* parent)
@@ -674,6 +687,7 @@ bool TerminalView::attach(
             .frameChanged = [this, epoch](auto frame) {
                 enqueueFrame(epoch, std::move(frame));
             },
+            .outputChanged = [this, epoch] { enqueueOutput(epoch); },
             .failed = [this, epoch](auto failure) {
                 failure.message = failure.message.left(1024);
                 enqueueGuiEvent(epoch, std::move(failure));
@@ -730,15 +744,6 @@ void TerminalView::detach()
     const auto ownsComposition = hasActiveFocus() && !m_preedit.isEmpty();
     if (m_runtime != nullptr && (m_focusClaimed || !m_pendingFocusRequestId.isEmpty())) {
         sendFocus(false);
-        for (const auto delay : inputBackoffMilliseconds) {
-            if (!m_focusRetryQueued) {
-                break;
-            }
-            m_focusRetryQueued = false;
-            m_focusRetryOperation = FocusOperation::None;
-            QThread::msleep(static_cast<unsigned long>(delay));
-            sendFocus(false);
-        }
     }
     const auto epoch = m_attachmentEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
     m_frameMailbox.reset(epoch);
@@ -995,11 +1000,24 @@ void TerminalView::enqueueFrame(
     }
 }
 
+void TerminalView::enqueueOutput(const std::uint64_t epoch)
+{
+    if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && m_frameMailbox.markOutput(epoch)) {
+        QMetaObject::invokeMethod(
+            this,
+            [this, epoch] { drainFrame(epoch); },
+            Qt::QueuedConnection);
+    }
+}
+
 void TerminalView::drainFrame(const std::uint64_t epoch)
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch) {
         return;
+    }
+    if (m_frameMailbox.takeOutput(epoch) && m_registry != nullptr) {
+        (void)m_registry->latestFrame(surfaceIdentity());
     }
     auto frame = m_frameMailbox.take(epoch);
     if (frame) {
