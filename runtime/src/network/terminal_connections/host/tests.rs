@@ -614,3 +614,56 @@ async fn a_picture_takes_the_place_of_one_whose_parts_stopped() {
     assert_eq!(done.step, PictureStep::Pasted);
     assert_eq!(terminal.pictures.recv().await.unwrap(), next.bytes);
 }
+
+#[tokio::test]
+async fn a_viewer_whose_device_the_host_cannot_check_is_asked_to_try_again() {
+    let storage = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(crate::network::BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network.assume_identity(crate::network::Identity {
+        user_id: "owner".into(),
+        device_id: "laptop".into(),
+        display_name: "Owner".into(),
+        enrolled: true,
+    });
+    let (session, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
+    let dto: SessionDto = serde_json::from_value(json!({
+        "id":session,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
+        "hostDeviceId":"laptop","hostName":"Laptop","missionId":null,"missionName":null,"sharedWith":["friend"],
+        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
+    }))
+    .unwrap();
+    let info = LocalPublication {
+        session_id: session,
+        incarnation_id: incarnation,
+        name: "Terminal".into(),
+        mission_id: None,
+        room_sequence: 0,
+        shared_with: ["friend".to_owned()].into(),
+        restored_from: None,
+    };
+    let (requests, _host) = mpsc::channel(1);
+    let (_frames, output) = broadcast::channel(1);
+    let publication = Publication::new(info, requests, output, dto);
+    let credentials = network.credentials().unwrap();
+    credentials.cancel.cancel();
+    let refused = admit(
+        &network,
+        &publication,
+        &credentials,
+        ("friend", "phone"),
+        &[1; 32],
+        &Viewers::default(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(refused.code, "busy");
+}

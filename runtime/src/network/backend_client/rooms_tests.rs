@@ -502,9 +502,71 @@ async fn a_device_keeps_the_room_state_that_it_signed_when_the_server_withholds_
         .last_key_value()
         .map(|(version, state)| (*version, state.state.members.contains_key(&member)));
     assert_eq!(kept, Some((2, false)));
+    let restarted = BackendClient::new(network.inner.config.clone()).unwrap();
+    restarted.inner.rooms.lock().await.generation = credentials.generation;
+    assert!(
+        restarted
+            .remember_room(&credentials, room, withheld)
+            .await
+            .is_err()
+    );
+}
+
+fn continued(keys: &DeviceKeys, cached: &CachedRoom, created_at_ms: u64) -> CachedRoom {
+    let previous = cached.states.last_key_value().unwrap().1;
+    let mut state = previous.state.clone();
+    state.version += 1;
+    state.created_at_ms = created_at_ms;
+    state.previous_hash.clone_from(&previous.hash);
+    let mut next = cached.clone();
+    next.states
+        .insert(state.version, state_signed(&state, keys, Some(previous)));
+    next
+}
+
+#[tokio::test]
+async fn a_check_that_read_an_older_room_history_takes_the_newer_one_that_continues_it() {
+    let (keys, identity) = person();
+    let user = identity.user_id.clone();
+    let (room, first, _) = signed_room(&keys, identity);
+    let second = continued(&keys, &first, 2000);
+    let third = continued(&keys, &second, 2000);
+    let fork = continued(&keys, &first, 2001);
+    let storage = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(storage.path().join("network")).unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let credentials = Credentials {
+        user_id: user,
+        display_name: "You".to_owned(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::new(keys),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    network.inner.rooms.lock().await.generation = credentials.generation;
+    network
+        .remember_room(&credentials, room, third)
+        .await
+        .unwrap();
+    let taken = network
+        .remember_room(&credentials, room, second)
+        .await
+        .unwrap();
+    assert_eq!(taken.states.keys().copied().collect::<Vec<_>>(), [1, 2, 3]);
     assert!(
         network
-            .remember_room(&credentials, room, withheld)
+            .remember_room(&credentials, room, fork)
             .await
             .is_err()
     );

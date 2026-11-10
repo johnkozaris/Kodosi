@@ -548,15 +548,15 @@ async fn admit(
     }
     match identity {
         Ok(identity) if approved(&identity) => Ok(()),
-        Err(error) if error.unanswered() => Err(refuse(
-            "busy",
-            text!("The host could not check this device. Try again."),
-        )),
+        Ok(_) => Err(refuse("access", text!("This device is not approved."))),
         Err(Error::Trust(_)) => Err(refuse(
             "access",
             text!("The owner of this terminal must trust your identity in Friends first."),
         )),
-        Ok(_) | Err(_) => Err(refuse("access", text!("This device is not approved."))),
+        Err(_) => Err(refuse(
+            "busy",
+            text!("The host could not check this device. Try again."),
+        )),
     }
 }
 
