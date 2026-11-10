@@ -56,6 +56,8 @@ pub struct Slide {
     /// What its layout and master draw behind it, which is not edited here.
     pub behind: Vec<Shape>,
     pub background: Option<String>,
+    /// The look that the text of a new shape takes from the master.
+    pub text_look: Value,
 }
 
 /// The live copy of a .pptx file.

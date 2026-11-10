@@ -72,6 +72,27 @@ test("an empty tracked paragraph at the caret is no next or previous change", ()
   expect(changeNear(state, false)).toBeUndefined();
 });
 
+test("an accepted paragraph mark leaves the next paragraph with its own look", () => {
+  const by = { author: "Agent", date: "" };
+  const deleted = schema.mark("deletion", by);
+  const marker = () => schema.node("inlineOpaque", { raw: "bookmark" });
+  const next = (text: string) =>
+    schema.node("paragraph", { id: "b", align: "center" }, [schema.text(text)]);
+  const deletions = [
+    { words: [marker(), schema.text("Heading", [deleted]), marker()], caret: 5, left: "Body text" },
+    { words: [schema.text("Hello ")], caret: 7, left: "Hello Body text" },
+  ];
+  for (const { words, caret, left } of deletions) {
+    const heading = schema.node("paragraph", { id: "h", style: "Heading1", deleted: by }, words);
+    const doc = schema.node("doc", null, [heading, next("Body text")]);
+    for (const all of [true, false]) {
+      const state = EditorState.create({ doc, selection: TextSelection.create(doc, caret) });
+      const accepted = state.apply(decision(state, true, all) ?? state.tr).doc;
+      expect(accepted.toJSON()).toEqual(schema.node("doc", null, [next(left)]).toJSON());
+    }
+  }
+});
+
 test("the next and the previous change step over the change at the caret", () => {
   const state = replaced();
   const second = changeNear(state, true);
