@@ -141,7 +141,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     }
     try app.receive(devices(reset: .object([
         "resetId": .string(UUIDv7.generate()), "deviceLabel": .string("Mac"), "thisDevice": .bool(true),
-        "requestedAtMs": .int(1000), "readyAtMs": .int(86_401_000),
+        "readyAtMs": .int(86_401_000),
     ])))
     #expect(app.account.stage == .trustingDevice(.waiting(Date(timeIntervalSince1970: 86401))))
     app.account.stopReset()
@@ -211,19 +211,16 @@ private func requestIds(_ notice: DeviceNotice?) -> [String]? {
     return requests.map(\.id)
 }
 
-@Test @MainActor func `trust reason shows until this Mac is approved and an ended sign in says so`() throws {
+@Test @MainActor func `this Mac is ready once it is approved and an ended sign in says so`() throws {
     let (app, _) = try signedOutApp(prefix: "SignInReason")
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))
     try app.receive(runtimeEvent("devices.list", fields: [
         "selfDeviceId": .string("this"), "localDeviceEnrolled": .bool(false), "devices": .array([]),
-        "notice": .string("Approve this device from one of your existing devices."),
     ]))
-    #expect(app.account.identityMessage == "Approve this device from one of your existing devices.")
     #expect(!app.account.isReady)
     try app.receive(runtimeEvent("devices.list", fields: [
         "selfDeviceId": .string("this"), "localDeviceEnrolled": .bool(true), "devices": .array([]),
     ]))
-    #expect(app.account.identityMessage == nil)
     #expect(app.account.isReady)
     try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("expired")]))
     #expect(app.account.userId == nil)

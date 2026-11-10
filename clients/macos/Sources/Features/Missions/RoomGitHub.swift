@@ -46,7 +46,7 @@ struct RepositoryPicker: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
                     if let address {
-                        row(RepositoryChoice(name: address, url: address, provider: ""), link: true)
+                        row(RepositoryChoice(name: address, url: address), link: true)
                     }
                     ForEach(shown) { choice in row(choice) }
                     if choices == nil, failure == nil {

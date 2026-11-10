@@ -90,7 +90,6 @@ public struct DeviceReset: Decodable, Equatable, Sendable {
     public let resetId: String
     public let deviceLabel: String
     public let thisDevice: Bool
-    public let requestedAtMs: Int64
     public let readyAtMs: Int64
 
     public var readyAt: Date {
@@ -152,14 +151,12 @@ public struct RepositoryChoices: Decodable, Equatable, Sendable {
 public struct RepositoryChoice: Decodable, Equatable, Identifiable, Sendable {
     public let name: String
     public let url: String
-    public let provider: String
     public let folder: String?
     public let `private`: Bool
 
-    public init(name: String, url: String, provider: String, folder: String? = nil, private: Bool = false) {
+    public init(name: String, url: String, folder: String? = nil, private: Bool = false) {
         self.name = name
         self.url = url
-        self.provider = provider
         self.folder = folder
         self.private = `private`
     }

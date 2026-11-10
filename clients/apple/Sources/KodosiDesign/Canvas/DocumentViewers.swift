@@ -40,6 +40,8 @@ public struct DocumentViewers: Equatable, Sendable {
     }
 }
 
+/// Written out, because a `RawRepresentable` type with `String` raw values would otherwise code
+/// itself as its raw value, which is this JSON.
 extension DocumentViewers: Codable {
     private enum CodingKeys: String, CodingKey {
         case documents, documentPages, darkDocuments, sheets, darkSheets, presentations, pdfs, darkPdfs, texts
@@ -47,17 +49,15 @@ extension DocumentViewers: Codable {
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        let chosen = { (key: CodingKeys, usual: Bool) in try values.decodeIfPresent(Bool.self, forKey: key) ?? usual }
-        let usual = Self()
-        documents = try chosen(.documents, usual.documents)
-        documentPages = try chosen(.documentPages, usual.documentPages)
-        darkDocuments = try chosen(.darkDocuments, usual.darkDocuments)
-        sheets = try chosen(.sheets, usual.sheets)
-        darkSheets = try chosen(.darkSheets, usual.darkSheets)
-        presentations = try chosen(.presentations, usual.presentations)
-        pdfs = try chosen(.pdfs, usual.pdfs)
-        darkPdfs = try chosen(.darkPdfs, usual.darkPdfs)
-        texts = try chosen(.texts, usual.texts)
+        documents = try values.decode(Bool.self, forKey: .documents)
+        documentPages = try values.decode(Bool.self, forKey: .documentPages)
+        darkDocuments = try values.decode(Bool.self, forKey: .darkDocuments)
+        sheets = try values.decode(Bool.self, forKey: .sheets)
+        darkSheets = try values.decode(Bool.self, forKey: .darkSheets)
+        presentations = try values.decode(Bool.self, forKey: .presentations)
+        pdfs = try values.decode(Bool.self, forKey: .pdfs)
+        darkPdfs = try values.decode(Bool.self, forKey: .darkPdfs)
+        texts = try values.decode(Bool.self, forKey: .texts)
     }
 
     public func encode(to encoder: any Encoder) throws {

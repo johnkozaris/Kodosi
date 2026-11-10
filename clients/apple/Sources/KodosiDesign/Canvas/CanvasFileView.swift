@@ -10,11 +10,13 @@ import SwiftUI
 public struct CanvasFileView: View {
     let content: Data
     let name: String
+    let revision: UInt64
     @State private var copy: CanvasCopy?
 
-    public init(content: Data, name: String) {
+    public init(content: Data, name: String, revision: UInt64) {
         self.content = content
         self.name = name
+        self.revision = revision
     }
 
     public var body: some View {
@@ -23,21 +25,34 @@ public struct CanvasFileView: View {
                 QuickLookView(url: copy.url)
             }
         }
-        .task(id: content) { copy = try? CanvasCopy(content, name: name) }
+        .task(id: revision) {
+            guard copy?.revision != revision else { return }
+            let written = await CanvasCopy.write(content, name: name, revision: revision)
+            guard !Task.isCancelled else { return }
+            copy = written
+        }
     }
 }
 
-final class CanvasCopy {
+final class CanvasCopy: Sendable {
     private static let folder = FileManager.default.temporaryDirectory.appending(path: "Kodosi Canvas", directoryHint: .isDirectory)
 
     let url: URL
+    let revision: UInt64
 
-    init(_ content: Data, name: String) throws {
+    private init(_ content: Data, name: String, revision: UInt64) throws {
         let folder = Self.folder.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let safe = String(name.map { "/:\\".contains($0) ? "-" : $0 })
         url = folder.appending(path: safe.isEmpty || safe.hasPrefix(".") ? "item" + safe : safe)
+        self.revision = revision
         try content.write(to: url, options: .atomic)
+    }
+
+    /// Writes the copy away from the main actor, as a file can have 32 MB.
+    @concurrent
+    static func write(_ content: Data, name: String, revision: UInt64) async -> CanvasCopy? {
+        try? CanvasCopy(content, name: name, revision: revision)
     }
 
     deinit {
