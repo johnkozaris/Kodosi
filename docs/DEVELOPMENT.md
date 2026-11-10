@@ -122,7 +122,10 @@ a disposable `KODOSI_DATA_ROOT`. Set `KODOSI_PRODUCTION_DATA_ROOT` to the real d
 too, so the runtime refuses an overlap. `KODOSI__RUNTIME__INITIAL_SHELL` picks the shell
 of new terminals. The Mac app gives its host `<KODOSI_DATA_ROOT>/harness-home` as `HOME`;
 elsewhere terminals get your real `HOME`, so point the shell variable at a script that
-sets a disposable one. Never touch real provider settings, memory, conversations,
+sets a disposable one. On Linux, a host that a command starts takes the environment of
+the systemd user session, with your real `HOME`, and reads the agents' own folders for
+plan use; run it with a disposable `HOME` and a `DBUS_SESSION_BUS_ADDRESS` that points
+nowhere. Never touch real provider settings, memory, conversations,
 credentials or working files. The app writes a redacted `app.log` in the data root, and
 the host `host.log`; check them for private data before you attach them to an issue.
 With `KODOSI_TERMINAL_DEBUG=1`, the Mac and iPhone apps write the sizes and lifecycle of
