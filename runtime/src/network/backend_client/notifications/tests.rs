@@ -1,8 +1,12 @@
 use super::*;
 use crate::{
-    identity::keys::DeviceKeys,
+    identity::{
+        friends::{FriendList, Head, broken},
+        keys::DeviceKeys,
+    },
     network::{
         BackendConfig,
+        backend_client::tests::{compatible_server, scripted_backend, signed_in_at},
         wire::{Change, Notice, TerminalNotice},
     },
 };
@@ -183,4 +187,69 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     assert!(request.starts_with(&format!("get /api/missions/{room}/keys?")));
     assert!(request.contains("authorization: bearer renewed-token\r\n"));
     assert!(!request.contains("expired-token"));
+}
+
+#[tokio::test]
+async fn a_friend_list_that_fails_its_check_is_told_and_the_other_changes_still_arrive() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, user) = signed_in_at(&address).await;
+    let credentials = network.credentials().unwrap();
+    let key = credentials.keys.signing_key().unwrap();
+    let mut list = FriendList::new(&user);
+    let (_, first) = list
+        .sign(&Head::default(), &credentials.keys.device_id, &key)
+        .unwrap();
+    let (kept, _) = list
+        .sign(&first, &credentials.keys.device_id, &key)
+        .unwrap();
+    network
+        .inner
+        .state
+        .lock()
+        .await
+        .friend_lists
+        .put(&user, kept)
+        .unwrap();
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (
+                200,
+                json!({"challengeId": Uuid::now_v7(), "challengeBytes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}),
+            ),
+            (200, json!({"session": "fixture-session"})),
+            (200, json!([])),
+            (200, json!({"incoming": [], "outgoing": []})),
+            (200, json!([])),
+            (200, json!({"revision": 1, "lists": []})),
+            (200, json!([])),
+        ],
+    );
+    let mut events = network.events();
+    let mut waiting = Waiting::default();
+    for surface in ["friends", "sessions"] {
+        waiting.add(&Change::of(surface)).unwrap();
+    }
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        network.refresh_waiting(&credentials, &mut waiting),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(waiting.is_empty());
+    let requests = server.await.unwrap();
+    assert_eq!(requests.last().unwrap(), "GET /api/sessions HTTP/1.1");
+    let told = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|sent| sent.event)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        told.iter()
+            .map(|event| event["type"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["system.error", "network.sessions"]
+    );
+    assert_eq!(told[0]["message"], json!(broken().text()));
 }
