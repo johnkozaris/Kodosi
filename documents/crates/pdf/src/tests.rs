@@ -228,6 +228,90 @@ fn a_redaction_leaves_the_words_nowhere_and_seals() {
     assert!(text_of(&new_file, 2).contains("second page"));
 }
 
+/// A page that draws its words through a form, as pdfpages, stamps and placed PDF figures do,
+/// after these operations of its own.
+fn form_pdf(drawn: &str, operations: &[u8]) -> Vec<u8> {
+    let mut document = Document::with_version("1.7");
+    let pages = document.new_object_id();
+    let font = document.add_object(dictionary! {
+        "Type" => "Font",
+        "Subtype" => "Type1",
+        "BaseFont" => "Helvetica",
+    });
+    let form = document.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font } },
+        },
+        page_content(&[("visible words", 72, 700), ("secret number", 72, 600)]),
+    ));
+    let mut content = operations.to_vec();
+    content.extend_from_slice(format!("\nq 1 0 0 1 0 0 cm /{drawn} Do Q").as_bytes());
+    let content = document.add_object(Stream::new(Dictionary::new(), content));
+    let page = document.add_object(dictionary! {
+        "Type" => "Page",
+        "Parent" => pages,
+        "Contents" => content,
+        "Resources" => dictionary! { "XObject" => dictionary! { "Fm0" => form } },
+    });
+    document.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![Object::Reference(page)],
+            "Count" => 1,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+        }),
+    );
+    let catalog = document.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    document.trailer.set("Root", catalog);
+    let mut bytes = Vec::new();
+    document.save_to(&mut bytes).unwrap();
+    bytes
+}
+
+fn redacted(model: &mut Model) -> Result<Change, Refused> {
+    ops(
+        model,
+        vec![Op::Redact {
+            page: 1,
+            rects: vec![[60.0, 590.0, 300.0, 620.0]],
+        }],
+    )
+}
+
+#[test]
+fn a_redaction_takes_the_words_out_of_a_form_and_the_pictures_in_the_page() {
+    let picture = b"q 100 0 0 20 70 595 cm BI /W 1 /H 1 /CS /G /BPC 8 ID \x7f EI Q";
+    let file = form_pdf("Fm0", picture);
+    let mut model = read(&file);
+    assert!(contains_bytes(&file, b"secret number"));
+    redacted(&mut model).unwrap();
+    let new_file = saved(&model, &file);
+    assert!(!contains_bytes(&new_file, b"secret number"));
+    assert!(contains_bytes(&new_file, b"visible words"));
+    let document = Document::load_mem(&new_file).unwrap();
+    let page = document.get_pages()[&1];
+    let operators: Vec<String> = Content::decode(&document.get_page_content(page))
+        .unwrap()
+        .operations
+        .into_iter()
+        .map(|operation| operation.operator)
+        .collect();
+    assert!(operators.contains(&"Do".to_owned()));
+    assert!(!operators.contains(&"BI".to_owned()));
+}
+
+#[test]
+fn a_redaction_refuses_a_page_that_draws_what_it_cannot_look_into() {
+    let file = form_pdf("Missing", b"");
+    let mut model = read(&file);
+    assert!(matches!(redacted(&mut model), Err(Refused::Invalid(_))));
+    assert_eq!(saved(&model, &file), file);
+}
+
 #[test]
 fn page_work_gives_views_a_new_file_to_load() {
     let file = pdf_file();
