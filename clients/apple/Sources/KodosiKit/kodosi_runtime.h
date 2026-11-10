@@ -86,7 +86,7 @@
 
 #define KODOSI_LOG_ERROR 2
 
-#if !defined(__APPLE__)
+#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))
 typedef struct kodosi_video_decoder_t kodosi_video_decoder_t;
 #endif
 
@@ -142,7 +142,7 @@ typedef struct kodosi_callbacks_t {
   kodosi_terminal_checkpoint_cb_t on_terminal_checkpoint;
 } kodosi_callbacks_t;
 
-#if !defined(__APPLE__)
+#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))
 typedef struct kodosi_picture_t {
   uint32_t width;
   uint32_t height;
@@ -223,11 +223,11 @@ int32_t kodosi_terminal_disconnect(void *handle,
                                    uint64_t generation)
 ;
 
-#if !defined(__APPLE__)
+#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))
  struct kodosi_video_decoder_t *kodosi_video_decoder_new(void) ;
 #endif
 
-#if !defined(__APPLE__)
+#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))
 
 int32_t kodosi_video_decoder_decode(struct kodosi_video_decoder_t *decoder,
                                     const uint8_t *data,
@@ -236,7 +236,7 @@ int32_t kodosi_video_decoder_decode(struct kodosi_video_decoder_t *decoder,
 ;
 #endif
 
-#if !defined(__APPLE__)
+#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))
  void kodosi_video_decoder_free(struct kodosi_video_decoder_t *decoder) ;
 #endif
 

@@ -41,6 +41,20 @@ fn the_header_states_the_terminal_limits_of_the_contract() {
 }
 
 #[test]
+fn only_linux_and_windows_declare_the_video_decoder() {
+    let header = header();
+    let declaration = header
+        .find("kodosi_video_decoder_new(")
+        .expect("declaration");
+    let guard = header[..declaration].rfind("#if").expect("guard");
+    assert!(
+        header[guard..]
+            .starts_with("#if (defined(_WIN32) || (defined(__linux__) && !defined(__ANDROID__)))")
+    );
+    assert!(!header[guard..declaration].contains("#endif"));
+}
+
+#[test]
 fn only_android_declares_the_android_entry_point() {
     let header = header();
     let declaration = header.find("kodosi_android_init(").expect("declaration");
