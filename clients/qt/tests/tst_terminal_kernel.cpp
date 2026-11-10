@@ -1665,6 +1665,10 @@ void TerminalKernelTest::terminalViewRoutesTrackedMouseToPty()
             QByteArrayLiteral("\x1b[<0;1;1M"),
             QByteArrayLiteral("\x1b[<0;1;1m"),
         }));
+
+    QWheelEvent notch(point, point, {}, QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QCoreApplication::sendEvent(&view, &notch);
+    QCOMPARE(dispatcher.inputCommands.mid(2).join(), QByteArrayLiteral("\x1b[<64;1;1M").repeated(3));
 }
 
 void TerminalKernelTest::remoteGridFitsAndMapsAccessibleMouseCoordinates()
@@ -2507,33 +2511,34 @@ void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
     QVERIFY(before.contains(QStringLiteral("line-299")));
 
     QSignalSpy frames(&view, &kodosi::TerminalView::frameChanged);
-    QWheelEvent firstHalfStep(
+    QWheelEvent partOfANotch(
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, 60),
+        QPoint(0, 20),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,
         false);
-    QCoreApplication::sendEvent(&view, &firstHalfStep);
+    QCoreApplication::sendEvent(&view, &partOfANotch);
     QCoreApplication::processEvents();
     QCOMPARE(view.accessibleText(), before);
     QCOMPARE(frames.count(), 0);
 
-    QWheelEvent secondHalfStep(
+    QWheelEvent restOfTheNotch(
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, 60),
+        QPoint(0, 100),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,
         false);
-    QCoreApplication::sendEvent(&view, &secondHalfStep);
+    QCoreApplication::sendEvent(&view, &restOfTheNotch);
     QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != before, 250);
-    const auto afterOneRow = view.accessibleText();
-    QVERIFY(afterOneRow.contains(QStringLiteral("line-294")));
+    const auto afterANotch = view.accessibleText();
+    QVERIFY(afterANotch.contains(QStringLiteral("line-292")));
+    QVERIFY(!afterANotch.contains(QStringLiteral("line-298")));
     QCOMPARE(frames.count(), 1);
 
     QWheelEvent boundedLargeDelta(
@@ -2546,7 +2551,7 @@ void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
         Qt::ScrollUpdate,
         false);
     QCoreApplication::sendEvent(&view, &boundedLargeDelta);
-    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != afterOneRow, 250);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != afterANotch, 250);
     QVERIFY(!view.accessibleText().contains(QStringLiteral("line-00")));
     QVERIFY(frames.count() >= 1);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
@@ -2715,7 +2720,7 @@ void TerminalKernelTest::terminalViewSelectionAnchorSurvivesPresentedScroll()
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, -120),
+        QPoint(0, -40),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,

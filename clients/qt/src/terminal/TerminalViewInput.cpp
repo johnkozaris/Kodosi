@@ -33,6 +33,9 @@ namespace {
 constexpr qsizetype maximumQueuedInputBytes = 1024 * 1024;
 constexpr std::size_t maximumQueuedInputFrames = 1024;
 constexpr int maximumWheelRowsPerEvent = 100;
+constexpr int wheelNotchAngle = 120;
+constexpr int rowsPerWheelNotch = 3;
+constexpr int wheelRowAngle = wheelNotchAngle / rowsPerWheelNotch;
 
 std::uint32_t unshiftedCodepoint(const int key)
 {
@@ -661,37 +664,27 @@ void TerminalView::hoverLeaveEvent(QHoverEvent* event)
 
 void TerminalView::wheelEvent(QWheelEvent* event)
 {
-    if (!interactionAvailable() || !m_terminalReady || m_registry == nullptr) {
+    if (!interactionAvailable() || !m_terminalReady || m_registry == nullptr
+        || (event->pixelDelta().y() == 0 && event->angleDelta().y() == 0)) {
         QQuickItem::wheelEvent(event);
         return;
     }
-    const auto delta = event->pixelDelta().y() != 0
-        ? event->pixelDelta().y()
-        : event->angleDelta().y();
-    if (m_canSendInput && delta != 0
-        && sendMouseEvent(
-            TerminalMouseAction::Press,
-            delta > 0
-                ? TerminalMouseButton::WheelUp
-                : TerminalMouseButton::WheelDown,
-            event->position(),
-            event->modifiers(),
-            false)) {
-        event->accept();
-        return;
-    }
+    event->accept();
     const auto rows = wheelRows(event);
-    if (rows != 0) {
-        auto scrolled = m_registry->scrollViewport(surfaceIdentity(), rows);
-        if (!scrolled) {
-            emit operationError(scrolled.error().message);
-        }
-    }
-    if (event->pixelDelta().y() != 0 || event->angleDelta().y() != 0) {
-        event->accept();
+    if (rows == 0)
+        return;
+    const auto button = rows < 0 ? TerminalMouseButton::WheelUp : TerminalMouseButton::WheelDown;
+    const auto report = [&] {
+        return m_canSendInput
+            && sendMouseEvent(TerminalMouseAction::Press, button, event->position(), event->modifiers(), false);
+    };
+    if (report()) {
+        for (auto row = 1; row < std::abs(rows); ++row)
+            (void)report();
         return;
     }
-    QQuickItem::wheelEvent(event);
+    if (auto scrolled = m_registry->scrollViewport(surfaceIdentity(), rows); !scrolled)
+        emit operationError(scrolled.error().message);
 }
 
 bool TerminalView::sendMouseEvent(
@@ -1127,14 +1120,14 @@ int TerminalView::wheelRows(QWheelEvent* event)
     if (event->angleDelta().y() != 0) {
         const auto bounded = std::clamp(
             event->angleDelta().y(),
-            -120 * maximumWheelRowsPerEvent,
-            120 * maximumWheelRowsPerEvent);
+            -wheelRowAngle * maximumWheelRowsPerEvent,
+            wheelRowAngle * maximumWheelRowsPerEvent);
         m_wheelAngleRemainder += bounded;
         const auto rows = std::clamp(
-            m_wheelAngleRemainder / 120,
+            m_wheelAngleRemainder / wheelRowAngle,
             -maximumWheelRowsPerEvent,
             maximumWheelRowsPerEvent);
-        m_wheelAngleRemainder -= rows * 120;
+        m_wheelAngleRemainder -= rows * wheelRowAngle;
         return -rows;
     }
     return 0;
