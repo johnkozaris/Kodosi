@@ -104,6 +104,23 @@ struct TerminalInputTests {
         #expect(!keyboard.focusesTerminal(composing: false))
     }
 
+    @Test func `a message that the lock interrupts keeps the keyboard until it is sent`() {
+        var keyboard = TerminalKeyboard(hardware: true)
+        keyboard.terminalFocused(true)
+        keyboard.compose()
+        keyboard.terminalFocused(false)
+        keyboard.composerClosed(locked: true)
+        #expect(keyboard.input(composing: false) == .composing)
+        #expect(!keyboard.focusesTerminal(composing: false))
+        keyboard.composerClosed()
+        #expect(keyboard.focusesTerminal(composing: false))
+
+        var tapped = TerminalKeyboard(hardware: true)
+        tapped.composerClosed(locked: true)
+        #expect(tapped.input(composing: false) == .composing)
+        #expect(!tapped.focusesTerminal(composing: false))
+    }
+
     @Test func `a hardware keyboard that connects focuses the terminal`() {
         var keyboard = TerminalKeyboard(hardware: false)
         keyboard.hardwareChanged(true)

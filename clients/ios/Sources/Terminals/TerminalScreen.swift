@@ -149,16 +149,19 @@ private struct TerminalScreenContent: View {
             controller.setActive(phase == .active)
             openShownCanvas()
         }
-        .onChange(of: model.lock.locked) { _, _ in
+        .onChange(of: model.lock.locked) { _, locked in
             controller.refresh()
             openShownCanvas()
+            if !locked, !canvasOpen, keyboard.input(composing: false) == .composing {
+                composing = true
+            }
         }
         .onChange(of: session?.canvas?.open) { _, _ in openShownCanvas() }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: composing) { _, focused in
             if !focused {
-                keyboard.composerClosed()
+                keyboard.composerClosed(locked: model.lock.locked)
             }
         }
         .onChange(of: session == nil || session?.hidden == true) { _, gone in

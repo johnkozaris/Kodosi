@@ -69,7 +69,9 @@ struct TerminalKeyboard {
         typing = false
     }
 
-    mutating func composerClosed() {
-        writing = false
+    /// The composer lost the keyboard. When the lock took it, the person still writes, and the
+    /// composer gets the keyboard back after the unlock.
+    mutating func composerClosed(locked: Bool = false) {
+        writing = locked
     }
 }
