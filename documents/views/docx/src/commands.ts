@@ -304,18 +304,23 @@ function hasChangedEnd(node: ProseNode): boolean {
 
 /**
  * The runs of changed text of a textblock whose content starts at `start`, with neighbors
- * joined, so a replacement (a deletion next to an insertion) is one change. A changed mark at
- * the end of the block is a run of no length there.
+ * joined, so a replacement (a deletion next to an insertion) is one change. XML of its own
+ * between them, such as a bookmark, does not part them. A changed mark at the end of the block
+ * is a run of no length there.
  */
 function changeRunsIn(block: ProseNode, start: number): { from: number; to: number }[] {
   const runs: { from: number; to: number }[] = [];
+  let joins = -1;
   const add = (from: number, to: number) => {
     const last = runs.at(-1);
-    if (last && last.to === from) last.to = to;
+    if (last && joins === from) last.to = to;
     else runs.push({ from, to });
+    joins = to;
   };
   block.forEach((node, offset) => {
-    if (node.marks.some(isChange)) add(start + offset, start + offset + node.nodeSize);
+    const from = start + offset;
+    if (node.marks.some(isChange)) add(from, from + node.nodeSize);
+    else if (node.type.name === "inlineOpaque" && joins === from) joins += node.nodeSize;
   });
   const end = start + block.content.size;
   if (hasChangedEnd(block)) add(end, end);
@@ -396,22 +401,27 @@ export function canDecide(state: EditorState): boolean {
 }
 
 /**
- * Takes away the mark that ends the paragraph at `pos`: the paragraph goes when nothing is left
- * of it, and else it joins the paragraph after it. The last block of the body or of a cell, and
- * a paragraph before a table, keep their mark and lose only its change.
+ * Takes away the mark that ends the paragraph at `pos`. The paragraph goes when nothing but XML of
+ * its own is left of it, as a deleted block does, and else its content goes to the start of the
+ * paragraph after it, whose mark stays and keeps its look. The last block of the body or of a
+ * cell, and a paragraph before a table, keep their mark and lose only its change.
  */
 function removeEnd(transaction: Transaction, pos: number, name: TrackedEnd["name"]): void {
   const node = transaction.doc.nodeAt(pos);
   if (!node) return;
   const end = pos + node.nodeSize;
-  if (node.content.size === 0 && transaction.doc.resolve(pos).parent.childCount > 1) {
+  const alone = transaction.doc.resolve(pos).parent.childCount === 1;
+  const next = transaction.doc.resolve(end).nodeAfter;
+  const words = node.content.content.some((child) => child.type.name !== "inlineOpaque");
+  if (!words && !alone) {
     transaction.delete(pos, end);
     return;
   }
-  transaction.setNodeAttribute(pos, name, null);
-  if (node.content.size > 0 && transaction.doc.resolve(end).nodeAfter?.type.name === "paragraph") {
-    transaction.join(end);
+  if (words && next?.type.name === "paragraph") {
+    transaction.delete(pos, end).insert(pos + 1, node.content);
+    return;
   }
+  transaction.setNodeAttribute(pos, name, null);
 }
 
 /**

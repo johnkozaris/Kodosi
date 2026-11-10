@@ -10,6 +10,7 @@ use text::{Fragment, Mark, Node};
 use crate::{
     model::{Model, Source, schema},
     styles,
+    write::look_properties,
 };
 
 pub(crate) const MAIN_PART: &str = "word/document.xml";
@@ -180,6 +181,34 @@ pub(crate) fn change_attrs(element: Xml<'_, '_>) -> Value {
     })
 }
 
+/// The XML of a paragraph's properties without the tracked change of its mark, which its
+/// attributes hold, or nothing when no more is there.
+fn own_properties(properties: Xml<'_, '_>, xml: &str) -> Option<String> {
+    let mut left = properties.children().filter(Xml::is_element).count();
+    let mut gone = Vec::new();
+    if let Some(mark) = word_child(properties, "rPr") {
+        let changes: Vec<_> = mark
+            .children()
+            .filter(|child| is_word(*child, "ins") || is_word(*child, "del"))
+            .collect();
+        if changes.len() == mark.children().filter(Xml::is_element).count() {
+            left -= 1;
+            gone.push(mark.range());
+        } else {
+            gone.extend(changes.iter().map(Xml::range));
+        }
+    }
+    if left == 0 {
+        return None;
+    }
+    let start = properties.range().start;
+    let mut own = xml.to_owned();
+    for range in gone.into_iter().rev() {
+        own.replace_range(range.start - start..range.end - start, "");
+    }
+    Some(own)
+}
+
 struct Reader<'t, 'input> {
     source: &'input str,
     relations: HashMap<String, Relation>,
@@ -336,6 +365,10 @@ impl<'input> Reader<'_, 'input> {
     ) -> Result<Node, text::Failed> {
         let properties = word_child(element, "pPr");
         let look = properties.map(paragraph_look).unwrap_or_default();
+        let props = properties
+            .and_then(|node| own_properties(node, self.xml_of(node)))
+            .filter(|own| *own != look_properties(&look))
+            .map(|own| self.keep(&own));
         let attrs = json!({
             "id": id,
             "style": look.style,
@@ -344,7 +377,7 @@ impl<'input> Reader<'_, 'input> {
             "ilvl": look.level,
             "line": look.line,
             "indent": look.indent,
-            "props": self.keep_child(element, "pPr"),
+            "props": props,
             "pageBreak": properties
                 .and_then(|node| word_child(node, "pageBreakBefore"))
                 .is_some_and(|node| !matches!(word_attribute(node, "val"), Some("0" | "false"))),
@@ -566,11 +599,19 @@ fn is_page_break(node: Xml<'_, '_>) -> bool {
     is_word(node, "br") && word_attribute(node, "type") == Some("page")
 }
 
-/// Whether the tree holds this child of a run. A run with any other child stays as it came.
+/// Whether the tree holds this child of a run, or can leave it out, as Word writes where it last
+/// broke the pages each time it draws them. A run with any other child stays as it came.
 fn held_in_tree(child: Xml<'_, '_>) -> bool {
-    ["rPr", "t", "delText", "tab", "drawing"]
-        .iter()
-        .any(|name| is_word(child, name))
+    [
+        "rPr",
+        "t",
+        "delText",
+        "tab",
+        "drawing",
+        "lastRenderedPageBreak",
+    ]
+    .iter()
+    .any(|name| is_word(child, name))
         || (is_word(child, "br") && matches!(word_attribute(child, "type"), None | Some("page")))
 }
 

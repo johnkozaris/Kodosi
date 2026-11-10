@@ -463,6 +463,11 @@ fn replace_text_steps(
     Ok(steps)
 }
 
+/// Whether the tree keeps this node as XML of its own, such as a bookmark or a field.
+fn is_opaque(node: &Node) -> bool {
+    schema().node_name(node.kind()) == "inlineOpaque"
+}
+
 /// Deletion marks on the words, breaks and pictures of a textblock whose content starts at
 /// `offset`, where no deletion is yet. What the tree keeps as XML of its own stays as it is.
 fn word_deletions(node: &Node, offset: usize, deletion: &Mark) -> Vec<Step> {
@@ -474,7 +479,7 @@ fn word_deletions(node: &Node, offset: usize, deletion: &Mark) -> Vec<Step> {
             .marks()
             .iter()
             .any(|mark| schema().mark_name(mark.kind()) == "deletion");
-        if !deleted && schema().node_name(child.kind()) != "inlineOpaque" {
+        if !deleted && !is_opaque(child) {
             steps.push(Step::AddMark {
                 from: position,
                 to: end,
@@ -831,9 +836,10 @@ fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Ste
     Ok(steps)
 }
 
-/// Takes away the mark that ends the paragraph at `at`: the paragraph goes when nothing is left
-/// of it, and else it joins the paragraph after it. The last block of the body or of a cell, and
-/// a paragraph before a table, keep their mark and lose only its change.
+/// Takes away the mark that ends the paragraph at `at`. The paragraph goes when nothing but XML of
+/// its own is left of it, as a deleted block does, and else its content goes to the start of the
+/// paragraph after it, whose mark stays and keeps its look. The last block of the body or of a
+/// cell, and a paragraph before a table, keep their mark and lose only its change.
 fn end_removal(doc: &Node, at: usize, name: &str) -> Result<Vec<Step>, String> {
     let failed = |failed: text::Failed| failed.0;
     let node = doc
@@ -847,31 +853,36 @@ fn end_removal(doc: &Node, at: usize, name: &str) -> Result<Vec<Step>, String> {
         .map_err(failed)?
         .node_after()
         .map_err(failed)?;
-    let unchanged = Step::Attr {
-        pos: at,
-        attr: name.to_owned(),
-        value: Value::Null,
+    let words = node
+        .content()
+        .children()
+        .iter()
+        .any(|child| !is_opaque(child));
+    let removed = Step::Replace {
+        from: at,
+        to: end,
+        slice: Slice::empty(),
+        structure: false,
     };
-    if node.content().size() == 0 && !alone {
-        return Ok(vec![Step::Replace {
-            from: at,
-            to: end,
-            slice: Slice::empty(),
-            structure: false,
-        }]);
+    if !words && !alone {
+        return Ok(vec![removed]);
     }
-    if node.content().size() > 0 && next.as_ref().is_some_and(is_paragraph) {
+    if words && next.as_ref().is_some_and(is_paragraph) {
         return Ok(vec![
-            unchanged,
+            removed,
             Step::Replace {
-                from: end - 1,
-                to: end + 1,
-                slice: Slice::empty(),
+                from: at + 1,
+                to: at + 1,
+                slice: Slice::new(node.content().clone(), 0, 0),
                 structure: false,
             },
         ]);
     }
-    Ok(vec![unchanged])
+    Ok(vec![Step::Attr {
+        pos: at,
+        attr: name.to_owned(),
+        value: Value::Null,
+    }])
 }
 
 /// Turns ops into steps, each one on the document as the ops before it left it, all or none.

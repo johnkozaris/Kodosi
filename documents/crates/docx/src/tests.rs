@@ -470,6 +470,63 @@ fn a_tracked_deletion_of_a_paragraph_strikes_its_words_and_its_mark() {
 }
 
 #[test]
+fn an_accepted_deletion_of_a_paragraph_leaves_what_a_direct_deletion_leaves() {
+    let file = docx_file(concat!(
+        r#"<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:bookmarkStart w:id="0" w:name="_Toc1"/>"#,
+        r#"<w:r><w:lastRenderedPageBreak/><w:t xml:space="preserve">Old </w:t></w:r><w:r><w:t>heading</w:t></w:r>"#,
+        r#"<w:bookmarkEnd w:id="0"/></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Body text</w:t></w:r></w:p>"#,
+    ));
+    let mut direct = read(&file);
+    let heading = first_id(&direct);
+    steps_of(
+        &mut direct,
+        vec![Op::DeleteBlock {
+            block: heading.clone(),
+        }],
+    );
+    let mut model = read(&file);
+    tracked(&mut model, vec![Op::DeleteBlock { block: heading }]).unwrap();
+    let suggested = saved(&model, &file);
+    assert!(
+        part(&suggested, "word/document.xml")
+            .contains(r#"<w:delText xml:space="preserve">Old heading</w:delText>"#)
+    );
+    let accepted = decided(
+        &read(&suggested),
+        &suggested,
+        Op::AcceptChanges { block: None },
+    );
+    assert_eq!(
+        part(&saved(&accepted, &suggested), "word/document.xml"),
+        part(&saved(&direct, &file), "word/document.xml")
+    );
+}
+
+#[test]
+fn a_saved_suggestion_reads_as_the_paragraphs_that_made_it() {
+    let file = docx_file(concat!(
+        r#"<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:after="120"/></w:pPr><w:r><w:t>Title</w:t></w:r></w:p>"#,
+        r#"<w:p><w:r><w:t>Last</w:t></w:r></w:p>"#,
+    ));
+    let mut model = read(&file);
+    let title = first_id(&model);
+    tracked(
+        &mut model,
+        vec![
+            Op::InsertParagraph {
+                text: "Added".to_owned(),
+                after: None,
+                style: Some("ListParagraph".to_owned()),
+            },
+            Op::DeleteBlock { block: title },
+        ],
+    )
+    .unwrap();
+    let changes = Docx::compare(&model, &read(&saved(&model, &file)));
+    assert!(changes.is_empty(), "{changes:?}");
+}
+
+#[test]
 fn a_tracked_cell_keeps_its_old_text_until_a_person_decides() {
     let file = docx_file(THREE);
     let mut model = read(&file);
@@ -527,10 +584,10 @@ fn a_look_or_a_table_changes_directly_under_track() {
 }
 
 #[test]
-fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragraphs() {
+fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragraphs_in_the_next() {
     let file = docx_file(concat!(
-        r#"<w:p><w:pPr><w:rPr><w:ins w:id="1" w:author="Ana" w:date="2026-11-09T10:00:00Z"/></w:rPr></w:pPr>"#,
-        r#"<w:r><w:t xml:space="preserve">Hello </w:t></w:r></w:p><w:p><w:r><w:t>world</w:t></w:r></w:p>"#,
+        r#"<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:rPr><w:ins w:id="1" w:author="Ana" w:date="2026-11-09T10:00:00Z"/></w:rPr></w:pPr>"#,
+        r#"<w:r><w:t xml:space="preserve">Hello </w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>world</w:t></w:r></w:p>"#,
     ));
     let model = read(&file);
     assert_eq!(saved(&model, &file), file);
@@ -539,6 +596,8 @@ fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragr
     let all = blocks(&rejected);
     assert_eq!(all.len(), 1);
     assert_eq!(all[0]["text"], "Hello world");
+    assert_eq!(all[0]["style"], Value::Null);
+    assert_eq!(attrs_of(&rejected, "align"), [json!("center")]);
 }
 
 #[test]

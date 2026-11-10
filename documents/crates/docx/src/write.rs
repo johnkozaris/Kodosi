@@ -954,6 +954,13 @@ fn with_attributes(
     Some(text)
 }
 
+/// The properties that a save writes for the look of a paragraph alone.
+pub(crate) fn look_properties(look: &ParagraphLook) -> String {
+    let mut children = Vec::new();
+    add_paragraph_look(look, &mut children);
+    wrapped("pPr", children)
+}
+
 fn add_paragraph_look(look: &ParagraphLook, children: &mut Vec<(usize, String)>) {
     let mut add = |name: &str, xml: String| children.push((rank(PARAGRAPH_ORDER, name), xml));
     if let Some(style) = &look.style {
