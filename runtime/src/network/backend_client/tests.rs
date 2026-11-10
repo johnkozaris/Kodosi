@@ -1065,6 +1065,39 @@ async fn a_renewed_sign_in_that_cannot_be_saved_is_used_and_saved_later() {
 }
 
 #[tokio::test]
+async fn the_device_link_connects_with_a_renewed_sign_in() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let discovery = json!({
+        "issuer": address,
+        "authorization_endpoint": format!("{address}/authorize"),
+        "token_endpoint": format!("{address}/token"),
+        "device_authorization_endpoint": format!("{address}/device"),
+    });
+    let renewed = json!({
+        "access_token": "renewed",
+        "refresh_token": "next",
+        "token_type": "Bearer",
+        "expires_in": 900,
+    });
+    let server = scripted_backend(listener, vec![(200, discovery), (200, renewed)]);
+    let (_root, network, _user) = signed_in_at(&address).await;
+    network.inner.state.lock().await.tokens = Some(Tokens {
+        access_token: "token".into(),
+        refresh_token: Some("refresh".into()),
+        expires_at: 0,
+    });
+    let admitted = network.credentials().unwrap();
+
+    let ended =
+        Box::pin(network.notification_connection(&admitted, &CancellationToken::new())).await;
+    assert!(ended.is_err());
+    assert_eq!(network.credentials().unwrap().token.as_str(), "renewed");
+    let requests = server.await.unwrap();
+    assert!(requests[1].starts_with("POST /token "), "{requests:?}");
+}
+
+#[tokio::test]
 async fn a_damaged_saved_sign_in_ends_so_a_new_sign_in_can_start() {
     let (_root, network) = fixture();
     let secrets = network.inner.state.lock().await.secrets.clone();

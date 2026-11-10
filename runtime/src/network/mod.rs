@@ -197,6 +197,34 @@ pub(crate) fn stagger(delay: Duration) -> Duration {
     delay.mul_f64(0.5 + f64::from(u32::from_le_bytes(random)) / f64::from(u32::MAX) / 2.0)
 }
 
+/// The least time that the wall clock gains on the monotonic clock in a sleep that Kodosi
+/// notices.
+const SHORTEST_SLEEP: Duration = Duration::from_secs(5);
+
+/// A moment on the monotonic clock and on the wall clock. The monotonic clock stands still
+/// while the computer sleeps, and the wall clock goes on.
+#[derive(Clone, Copy)]
+pub(crate) struct Moment {
+    pub(crate) monotonic: tokio::time::Instant,
+    pub(crate) wall: std::time::SystemTime,
+}
+
+impl Moment {
+    pub(crate) fn now() -> Self {
+        Self {
+            monotonic: tokio::time::Instant::now(),
+            wall: std::time::SystemTime::now(),
+        }
+    }
+
+    /// Whether the computer slept between this moment and a later one.
+    pub(crate) fn slept_until(self, later: Self) -> bool {
+        let awake = later.monotonic.saturating_duration_since(self.monotonic);
+        let passed = later.wall.duration_since(self.wall).unwrap_or_default();
+        passed > awake + SHORTEST_SLEEP
+    }
+}
+
 #[derive(Clone)]
 pub struct BackendConfig {
     pub api_url: Url,

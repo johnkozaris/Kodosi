@@ -12,6 +12,39 @@ use super::{
 
 const RETRY_LIMIT: Duration = Duration::from_mins(1);
 
+/// When the device link connects again after it ended. The wait doubles up to 15 seconds. A
+/// terminal that waits for the link ends a wait, but when that early try fails too, the next
+/// wait runs in full, so that a link that keeps ending cannot connect again and again.
+#[derive(Debug, PartialEq, Eq)]
+struct Retry {
+    delay: u64,
+    hurried: bool,
+}
+
+impl Default for Retry {
+    fn default() -> Self {
+        Self {
+            delay: 1,
+            hurried: false,
+        }
+    }
+}
+
+impl Retry {
+    const fn hurries(&self) -> bool {
+        !self.hurried
+    }
+
+    fn waited(&mut self, ended: terminal_connections::Wait) {
+        if ended == terminal_connections::Wait::Slept {
+            *self = Self::default();
+        } else {
+            self.hurried = ended == terminal_connections::Wait::Wanted;
+            self.delay = (self.delay * 2).min(15);
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Scope {
     All,
@@ -130,7 +163,7 @@ impl BackendClient {
         drop(current);
         let network = self.clone();
         tokio::spawn(async move {
-            let mut delay = 1;
+            let mut retry = Retry::default();
             let mut failure = crate::diagnostics::Repeats::new();
             loop {
                 if cancel.is_cancelled()
@@ -139,15 +172,17 @@ impl BackendClient {
                 {
                     break;
                 }
-                let started = tokio::time::Instant::now();
+                let started = crate::network::Moment::now();
                 let result = tokio::select! {
                     biased;
                     ()=cancel.cancelled()=>break,
                     ()=network.inner.shutdown.cancelled()=>break,
                     result=network.notification_connection(&credentials,&cancel)=>result,
                 };
-                if started.elapsed() >= terminal_connections::STABLE_CONNECTION {
-                    delay = 1;
+                if started.monotonic.elapsed() >= terminal_connections::STABLE_CONNECTION
+                    || started.slept_until(crate::network::Moment::now())
+                {
+                    retry = Retry::default();
                     failure.worked();
                 }
                 if matches!(result, Err(Error::AccountBanned)) {
@@ -162,24 +197,28 @@ impl BackendClient {
                 {
                     tracing::warn!(%error, "notification stream interrupted");
                 }
-                tokio::select! {
+                let ended = tokio::select! {
                     ()=cancel.cancelled()=>break,
                     ()=network.inner.shutdown.cancelled()=>break,
-                    ()=tokio::time::sleep(crate::network::stagger(Duration::from_secs(delay)))=>{},
-                }
-                delay = (delay * 2).min(15);
+                    ended=network.inner.link.wait_to_reconnect(crate::network::stagger(Duration::from_secs(retry.delay)), retry.hurries())=>ended,
+                };
+                retry.waited(ended);
             }
             cancel.cancel();
         });
         Ok(())
     }
 
-    async fn notification_connection(
+    pub(super) async fn notification_connection(
         &self,
         admitted: &Credentials,
         cancel: &CancellationToken,
     ) -> Result<()> {
-        let credentials = self.credentials()?;
+        let credentials = {
+            let _operation = self.inner.operations.lock().await;
+            self.renew_token().await?;
+            self.credentials()?
+        };
         self.check_credentials(admitted)?;
         let (sender, mut notices) = tokio::sync::mpsc::unbounded_channel::<Notice>();
         let refresh = async {

@@ -46,7 +46,7 @@ mod participant;
 pub(crate) use calls::{Answering, answer as answer_calls};
 pub(crate) use calls::{Lines, ask as ask_computer};
 pub(crate) use channel::ChannelKeys;
-pub(crate) use link::Link;
+pub(crate) use link::{Link, Wait};
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
