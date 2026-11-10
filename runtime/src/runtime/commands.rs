@@ -1388,6 +1388,13 @@ impl Runtime {
                     }
                 }
             }
+            #[cfg(feature = "host")]
+            Completion::Conversation { id, program, line } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    let current = local.entry.program.as_deref() == Some(program.as_str());
+                    local.conversation.found(line.filter(|_| current));
+                }
+            }
             Completion::BackendClient {
                 command,
                 requested,
@@ -1680,6 +1687,7 @@ impl Runtime {
                         room_sequence: 0,
                         worktree: started.worktree.take().or(kept),
                         wanted,
+                        conversation: super::restore::Conversation::default(),
                     },
                 );
                 self.apply_wanted();

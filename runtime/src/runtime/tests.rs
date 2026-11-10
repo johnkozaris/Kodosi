@@ -2472,6 +2472,65 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     );
 }
 
+#[cfg(feature = "host")]
+#[test]
+fn a_terminal_comes_back_to_the_conversation_its_agent_had_when_the_agent_stops_first() {
+    use restore::{AgentLine, Conversation};
+    let now = Instant::now();
+    let later = |seconds| now + Duration::from_secs(seconds);
+    let named = |line: &str| {
+        Some(AgentLine {
+            line: line.to_owned(),
+            named: true,
+        })
+    };
+    let listing = || {
+        Some(AgentLine {
+            line: "copilot --resume".to_owned(),
+            named: false,
+        })
+    };
+    let chosen = |fresh, known: &Conversation, at| restore::chosen_line(fresh, known, at);
+
+    let mut known = Conversation::default();
+    assert_eq!(
+        chosen(listing(), &known, now).as_deref(),
+        Some("copilot --resume")
+    );
+    assert!(known.ask(now));
+    assert!(!known.ask(later(11)));
+    known.found(Some("copilot --resume=A".to_owned()));
+    assert!(!known.ask(later(29)));
+    assert!(known.ask(later(31)));
+    known.found(None);
+
+    assert_eq!(
+        chosen(named("copilot --resume=B"), &known, now).as_deref(),
+        Some("copilot --resume=B")
+    );
+    assert_eq!(
+        chosen(listing(), &known, now).as_deref(),
+        Some("copilot --resume=A")
+    );
+    assert_eq!(
+        chosen(None, &known, now).as_deref(),
+        Some("copilot --resume=A")
+    );
+
+    known.program_changed(true, now);
+    assert_eq!(
+        chosen(None, &known, later(9)).as_deref(),
+        Some("copilot --resume=A")
+    );
+    assert_eq!(chosen(None, &known, later(11)), None);
+
+    known.program_changed(false, later(12));
+    assert_eq!(
+        chosen(listing(), &known, later(12)).as_deref(),
+        Some("copilot --resume")
+    );
+}
+
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_its_choices() {
@@ -2533,7 +2592,9 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
         .await;
         terminal.close().await.unwrap();
         drop(terminal);
-        line.unwrap()
+        let line = line.unwrap();
+        assert!(line.named);
+        line.line
     };
     let copilot = stopping(
         "copilot",
@@ -2881,6 +2942,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
             room_sequence: 0,
             worktree: None,
             wanted: restore::Sharing::of(Some(&"owner".to_owned()), Some(&chosen), &[]),
+            conversation: restore::Conversation::default(),
         },
     );
     assert_eq!(
@@ -3125,6 +3187,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
             room_sequence: 0,
             worktree: None,
             wanted: None,
+            conversation: restore::Conversation::default(),
         },
     );
     let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});

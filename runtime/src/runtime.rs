@@ -469,6 +469,7 @@ struct Local {
     room_sequence: u64,
     worktree: Option<crate::worktree::Worktree>,
     wanted: Option<restore::Sharing>,
+    conversation: restore::Conversation,
 }
 
 #[cfg(feature = "host")]
@@ -609,6 +610,12 @@ enum Completion {
         account: Option<u8>,
         agent: crate::agents::Agent,
         outside: bool,
+    },
+    #[cfg(feature = "host")]
+    Conversation {
+        id: Uuid,
+        program: String,
+        line: Option<String>,
     },
     BackendClient {
         command: Command,
@@ -1703,7 +1710,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
             }
         }
         requests.close();
@@ -1771,7 +1778,7 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    async fn agent_lines(&self) -> HashMap<Uuid, String> {
+    async fn agent_lines(&self) -> HashMap<Uuid, restore::AgentLine> {
         let mut asking = JoinSet::new();
         for (id, local) in &self.local {
             if let Some(program) = local.entry.program.clone().filter(|_| local.comes_back()) {
@@ -1801,6 +1808,37 @@ impl Runtime {
         lines
     }
 
+    /// Keeps the line that names the conversation of each terminal's agent while it runs.
+    #[cfg(feature = "host")]
+    fn remember_conversations(&mut self) {
+        let now = tokio::time::Instant::now();
+        let mut asking = Vec::new();
+        for (id, local) in &mut self.local {
+            let Some(program) = local.entry.program.clone().filter(|program| {
+                crate::agents::Agent::named(program).is_some_and(|agent| agent.home().is_some())
+            }) else {
+                continue;
+            };
+            if local.comes_back() && local.conversation.ask(now) {
+                let folder = local.entry.working_dir.clone().map(PathBuf::from);
+                asking.push((*id, local.terminal.clone(), program, folder));
+            }
+        }
+        let shell = commands::shell(&self.config);
+        for (id, terminal, program, folder) in asking {
+            let (home, shell) = (self.config.home.clone(), shell.clone());
+            self.spawn(async move {
+                let line =
+                    restore::agent_line(terminal, program.clone(), home, shell, folder).await;
+                Completion::Conversation {
+                    id,
+                    program,
+                    line: line.filter(|line| line.named).map(|line| line.line),
+                }
+            });
+        }
+    }
+
     /// Keeps the screen and history of each terminal that comes back, on this computer only.
     #[cfg(feature = "host")]
     async fn save_screens(&self) {
@@ -1821,8 +1859,9 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn save_terminals(&mut self, mut lines: HashMap<Uuid, String>) {
+    fn save_terminals(&mut self, mut lines: HashMap<Uuid, restore::AgentLine>) {
         let shell = commands::shell(&self.config);
+        let now = tokio::time::Instant::now();
         let mut ids = self
             .local
             .iter()
@@ -1845,13 +1884,14 @@ impl Runtime {
                             &local.entry.shared_with,
                         )
                     }),
-                    line: lines.remove(&id).or_else(|| {
-                        local
-                            .entry
-                            .program
-                            .as_deref()
-                            .and_then(|program| restore::usual_line(program, &shell))
-                    }),
+                    line: restore::chosen_line(lines.remove(&id), &local.conversation, now)
+                        .or_else(|| {
+                            local
+                                .entry
+                                .program
+                                .as_deref()
+                                .and_then(|program| restore::usual_line(program, &shell))
+                        }),
                     worktree: local.worktree.clone(),
                     canvas: local
                         .terminal
@@ -3046,6 +3086,9 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
+                    local
+                        .conversation
+                        .program_changed(program.is_none(), tokio::time::Instant::now());
                     local.entry.program.clone_from(&program);
                     local.entry.program_account = None;
                     local.entry.program_outside = false;

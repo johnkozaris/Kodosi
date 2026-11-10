@@ -2,9 +2,11 @@ use std::{
     collections::{BTreeMap, HashSet},
     io::Read as _,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
+use tokio::time::Instant;
 use uuid::Uuid;
 
 use crate::{agents::Agent, terminal::TerminalSession, worktree::Worktree};
@@ -16,6 +18,11 @@ const MOST_BYTES: usize = 1024 * 1024;
 const SCREENS: &str = "screens";
 const SCREEN_MOST_BYTES: usize = 1024 * 1024;
 const RESTORED: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\r\n\x1b[2mRestored\x1b[0m\r\n";
+/// How long after its agent ends a terminal still comes back with that agent: at a sign-out or a
+/// shutdown, the agent and the host stop together.
+const ENDED_GRACE: Duration = Duration::from_secs(10);
+const ASK_AGAIN: Duration = Duration::from_secs(10);
+const ASK_AGAIN_KNOWN: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -189,6 +196,14 @@ pub(super) fn earlier_screen(file: &Path) -> Vec<u8> {
     screen
 }
 
+/// A line that brings back an agent, and whether it names the agent's conversation or only lists
+/// its conversations.
+#[derive(Debug)]
+pub(super) struct AgentLine {
+    pub(super) line: String,
+    pub(super) named: bool,
+}
+
 /// The line that continues the conversation of the agent `program` in `terminal`, with the
 /// account, model and effort that it runs with. `folder` is the folder of the terminal.
 pub(super) async fn agent_line(
@@ -197,7 +212,7 @@ pub(super) async fn agent_line(
     home: PathBuf,
     shell: PathBuf,
     folder: Option<PathBuf>,
-) -> Option<String> {
+) -> Option<AgentLine> {
     let agent = Agent::named(&program)?;
     let (_, variable) = agent.home()?;
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
@@ -207,7 +222,85 @@ pub(super) async fn agent_line(
         Some(group) => crate::provider::shown_conversation(agent, account, group, folder).await,
         None => None,
     };
-    resume_line(agent, &command, conversation.as_deref())
+    resume_line(agent, &command, conversation.as_deref()).map(|line| AgentLine {
+        line,
+        named: conversation.is_some(),
+    })
+}
+
+/// The line that named the conversation of a terminal's agent while the agent ran, so that the
+/// terminal still comes back to it when the agent stops before the host asks, or the host ends
+/// without asking.
+#[derive(Debug, Default)]
+pub(super) struct Conversation {
+    line: Option<String>,
+    ended: Option<Instant>,
+    asking: bool,
+    asked: Option<Instant>,
+}
+
+impl Conversation {
+    /// Whether to look for the conversation now: one look at a time, and less often once found.
+    pub(super) fn ask(&mut self, now: Instant) -> bool {
+        let wait = if self.line.is_some() {
+            ASK_AGAIN_KNOWN
+        } else {
+            ASK_AGAIN
+        };
+        if self.asking
+            || self
+                .asked
+                .is_some_and(|asked| now.duration_since(asked) < wait)
+        {
+            return false;
+        }
+        self.asking = true;
+        self.asked = Some(now);
+        true
+    }
+
+    pub(super) fn found(&mut self, line: Option<String>) {
+        self.asking = false;
+        if line.is_some() {
+            self.line = line;
+            self.ended = None;
+        }
+    }
+
+    /// The terminal's program changed. The line of an agent that ended stays for a moment;
+    /// another program starts over.
+    pub(super) fn program_changed(&mut self, ended: bool, now: Instant) {
+        self.asked = None;
+        if ended && self.line.is_some() {
+            self.ended.get_or_insert(now);
+        } else {
+            self.line = None;
+            self.ended = None;
+        }
+    }
+
+    fn line(&self, now: Instant) -> Option<&str> {
+        self.line.as_deref().filter(|_| {
+            self.ended
+                .is_none_or(|ended| now.duration_since(ended) < ENDED_GRACE)
+        })
+    }
+}
+
+/// The line that brings back a terminal's agent: one that names its conversation now, else the
+/// one that named it while the agent ran, else one that lists its conversations.
+pub(super) fn chosen_line(
+    fresh: Option<AgentLine>,
+    known: &Conversation,
+    now: Instant,
+) -> Option<String> {
+    match fresh {
+        Some(fresh) if fresh.named => Some(fresh.line),
+        fresh => known
+            .line(now)
+            .map(str::to_owned)
+            .or_else(|| fresh.map(|fresh| fresh.line)),
+    }
 }
 
 /// The folder variable `name` of a running agent. Windows shows no other process's environment,

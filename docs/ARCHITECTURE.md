@@ -30,6 +30,9 @@ earlier version restarts it, and asks first when that host still has terminals.
 
 The host saves its terminals in `terminals.json` in its data folder while they change, and
 again as it stops, with the command that continues the conversation that each agent shows.
+The host looks for that conversation while the agent runs and keeps the last one that it
+found, so the command still names it when the agent stops with the host or the host ends
+without a last look; an agent that ended more than a few seconds earlier does not come back.
 It finds the conversation in the agent's own records: Claude Code's record of each Claude
 process, the lock that Copilot CLI keeps in the folder of a session while a process uses
 it, and the rollout that a Codex process holds open, or else the one live Codex
