@@ -896,6 +896,55 @@ fn a_run_with_a_child_that_the_tree_does_not_hold_stays_whole() {
 }
 
 #[test]
+fn a_run_with_words_and_pictures_keeps_each_once_through_saves() {
+    let picture = |id: u32| {
+        format!(
+            concat!(
+                r#"<w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">"#,
+                r#"<wp:extent cx="952500" cy="952500"/><wp:docPr id="{id}" name="Picture {id}"/>"#,
+                r#"<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">"#,
+                r#"<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId9"/>"#,
+                r#"</a:graphicData></a:graphic></wp:inline></w:drawing>"#,
+            ),
+            id = id
+        )
+    };
+    let body = format!(
+        r#"<w:p><w:r w:rsidR="00AB"><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Figure 1: </w:t>{}{}</w:r></w:p><w:p><w:r><w:t>Next</w:t></w:r></w:p>"#,
+        picture(1),
+        picture(2)
+    );
+    let relations = r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>"#;
+    let parts = package::Parts::from([
+        (
+            "word/_rels/document.xml.rels".to_owned(),
+            Some(relations.as_bytes().to_vec()),
+        ),
+        (
+            "word/media/image1.png".to_owned(),
+            Some(b"picture".to_vec()),
+        ),
+    ]);
+    let mut file = package::rewrite(&docx_file(&body), &parts).unwrap();
+    for style in ["Caption", "Normal"] {
+        let mut model = read(&file);
+        let block = first_id(&model);
+        steps_of(
+            &mut model,
+            vec![Op::SetStyle {
+                block,
+                style: Some(style.to_owned()),
+            }],
+        );
+        file = saved(&model, &file);
+    }
+    let xml = part(&file, "word/document.xml");
+    assert_eq!(xml.matches("Figure 1: ").count(), 1);
+    assert_eq!(xml.matches("<w:drawing>").count(), 2);
+    assert!(xml.contains(r#"<w:r w:rsidR="00AB"><w:rPr><w:b/></w:rPr><w:drawing>"#));
+}
+
+#[test]
 fn a_new_table_has_lines_and_a_grid_as_wide_as_the_text() {
     let file = docx_file(THREE);
     let mut model = read(&file);
