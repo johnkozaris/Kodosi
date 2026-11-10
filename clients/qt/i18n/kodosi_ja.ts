@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>%1 は初回起動時にサインインが必要です。</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>スキップ</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>簡潔</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>詳細</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>権限</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>出力</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>権限と出力</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>ファイルを変更したりコマンドを実行したりする前に確認します。</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>確認せずに、すべてのコマンドをあなたの権限で実行します。</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>安全チェックが安全な操作を承認し、それ以外は確認します。チェックにはトークンを使います。</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>このフォルダー内では自分で作業し、それ以外は確認します。</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>拒否したもの以外の自分の操作を承認します。</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>作業の表示を減らします。</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>エージェントの設定どおりに作業を表示します。</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>作業の各ステップをすべて表示します。</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

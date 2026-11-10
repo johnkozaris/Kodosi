@@ -32,13 +32,30 @@ public struct AgentPick: Decodable, Equatable, Sendable {
     public var account: String?
     public var model: String?
     public var effort: String?
+    public var permissions: AgentPermissions?
+    public var output: AgentOutput?
 
-    public init(agent: String, account: String? = nil, model: String? = nil, effort: String? = nil) {
+    public init(
+        agent: String, account: String? = nil, model: String? = nil, effort: String? = nil,
+        permissions: AgentPermissions? = nil, output: AgentOutput? = nil,
+    ) {
         self.agent = agent
         self.account = account
         self.model = model
         self.effort = effort
+        self.permissions = permissions
+        self.output = output
     }
+}
+
+/// How an agent asks before it acts, through its own flags.
+public enum AgentPermissions: String, CaseIterable, Decodable, Sendable {
+    case ask, skip, auto
+}
+
+/// How much of its work an agent shows, through its own settings.
+public enum AgentOutput: String, CaseIterable, Decodable, Sendable {
+    case quiet, standard, detailed
 }
 
 public enum AgentChoiceChange: Equatable, Sendable {
@@ -53,6 +70,8 @@ public enum AgentChoiceChange: Equatable, Sendable {
             .object([
                 "type": .string("pick"), "agent": .string(pick.agent), "account": pick.account.map(JSONValue.string) ?? .null,
                 "model": pick.model.map(JSONValue.string) ?? .null, "effort": pick.effort.map(JSONValue.string) ?? .null,
+                "permissions": pick.permissions.map { .string($0.rawValue) } ?? .null,
+                "output": pick.output.map { .string($0.rawValue) } ?? .null,
             ])
         }
     }

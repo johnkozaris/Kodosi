@@ -103,18 +103,144 @@ impl Agent {
         }
     }
 
-    /// The model and effort of the agent that runs with `arguments`, in the words of the
-    /// launcher.
+    /// The words that start the agent with these permissions, or `None` when it has no such
+    /// mode. Asking is the usual mode of the agents that have no flag for it.
+    #[cfg(feature = "host")]
+    pub(crate) const fn permission_words(
+        self,
+        permissions: Permissions,
+    ) -> Option<&'static [&'static str]> {
+        match (self, permissions) {
+            (Self::Claude, Permissions::Ask) => Some(&["--permission-mode", "manual"]),
+            (Self::Claude, Permissions::Skip) => Some(&["--dangerously-skip-permissions"]),
+            (Self::Claude, Permissions::Auto) => Some(&["--permission-mode", "auto"]),
+            (Self::Codex, Permissions::Ask) => Some(&["-a", "on-request", "-s", "read-only"]),
+            (Self::Codex, Permissions::Skip) => {
+                Some(&["--dangerously-bypass-approvals-and-sandbox"])
+            }
+            (Self::Codex, Permissions::Auto) => {
+                Some(&["-a", "on-request", "-s", "workspace-write"])
+            }
+            (Self::Copilot | Self::Cursor | Self::Opencode, Permissions::Ask) => Some(&[]),
+            (Self::Copilot | Self::Gemini, Permissions::Skip) => Some(&["--yolo"]),
+            (Self::Copilot, Permissions::Auto) => Some(&["--assisted-approval"]),
+            (Self::Gemini, Permissions::Ask) => Some(&["--approval-mode", "default"]),
+            (Self::Gemini, Permissions::Auto) => Some(&["--approval-mode", "auto_edit"]),
+            (Self::Cursor, Permissions::Skip) => Some(&["--force"]),
+            (Self::Opencode, Permissions::Auto) => Some(&["--auto"]),
+            (Self::Cursor, Permissions::Auto) | (Self::Opencode, Permissions::Skip) => None,
+        }
+    }
+
+    /// The words that start the agent with this output, or `None` when it has no such choice.
+    #[cfg(feature = "host")]
+    pub(crate) const fn output_words(self, output: Output) -> Option<&'static [&'static str]> {
+        match (self, output) {
+            (_, Output::Standard) => Some(&[]),
+            (Self::Claude, Output::Quiet) => Some(&["--settings", r#"{"viewMode":"focus"}"#]),
+            (Self::Claude, Output::Detailed) => Some(&["--settings", r#"{"viewMode":"verbose"}"#]),
+            (Self::Codex, Output::Quiet) => Some(&["-c", "hide_agent_reasoning=true"]),
+            (Self::Codex, Output::Detailed) => Some(&["-c", "model_reasoning_summary=detailed"]),
+            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+        }
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn permissions(self) -> Vec<Permissions> {
+        Permissions::ALL
+            .into_iter()
+            .filter(|permissions| self.permission_words(*permissions).is_some())
+            .collect()
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn outputs(self) -> Vec<Output> {
+        let outputs: Vec<_> = Output::ALL
+            .into_iter()
+            .filter(|output| self.output_words(*output).is_some())
+            .collect();
+        if outputs.len() > 1 {
+            outputs
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The flags that choose how the agent asks and what it shows, also those that a person
+    /// types by hand, each with the start of the value that it keeps, or `None` for a switch.
+    #[cfg(feature = "host")]
+    const fn mode_flags(self) -> &'static [(&'static str, Option<&'static str>)] {
+        match self {
+            Self::Claude => &[
+                ("--permission-mode", Some("")),
+                ("--dangerously-skip-permissions", None),
+                ("--allow-dangerously-skip-permissions", None),
+                ("--settings", Some(r#"{"viewMode""#)),
+                ("--verbose", None),
+            ],
+            Self::Codex => &[
+                ("-a", Some("")),
+                ("--ask-for-approval", Some("")),
+                ("-s", Some("")),
+                ("--sandbox", Some("")),
+                ("--dangerously-bypass-approvals-and-sandbox", None),
+                ("--yolo", None),
+                ("--full-auto", None),
+                ("-c", Some("hide_agent_reasoning=")),
+                ("-c", Some("model_reasoning_summary=")),
+            ],
+            Self::Copilot => &[
+                ("--yolo", None),
+                ("--allow-all", None),
+                ("--allow-all-tools", None),
+                ("--allow-all-paths", None),
+                ("--allow-all-urls", None),
+                ("--assisted-approval", None),
+            ],
+            Self::Gemini => &[
+                ("--approval-mode", Some("")),
+                ("--yolo", None),
+                ("-y", None),
+            ],
+            Self::Cursor => &[("--force", None), ("-f", None), ("--yolo", None)],
+            Self::Opencode => &[
+                ("--auto", None),
+                ("--yolo", None),
+                ("--dangerously-skip-permissions", None),
+            ],
+        }
+    }
+
+    /// The model, effort, permissions and output of the agent that runs with `arguments`, in
+    /// the words of the launcher.
     #[cfg(feature = "host")]
     pub(crate) fn chosen(self, arguments: &[String]) -> Vec<String> {
-        [Some((self.model_flag(), "")), self.effort_flag()]
+        let mut words: Vec<_> = [Some((self.model_flag(), "")), self.effort_flag()]
             .into_iter()
             .flatten()
             .filter_map(|(flag, start)| {
                 let value = last_value(arguments, flag, start)?;
                 Some(format!("{flag} {}", shell_word(value)?))
             })
-            .collect()
+            .collect();
+        for (flag, start) in self.mode_flags() {
+            let word = start.map_or_else(
+                || {
+                    arguments
+                        .iter()
+                        .skip(1)
+                        .any(|argument| argument == flag)
+                        .then(|| (*flag).to_owned())
+                },
+                |start| {
+                    last_value(arguments, flag, start)
+                        .and_then(shell_word)
+                        .map(|value| format!("{flag} {value}"))
+                },
+            );
+            words.extend(word);
+        }
+        words
     }
 
     /// The words that give a launched agent Kodosi's note. Codex reads it only from its command
@@ -365,6 +491,62 @@ pub struct AgentInfo {
     pub install: String,
     pub adds_accounts: bool,
     pub reports_usage: bool,
+    /// How the agent can ask before it acts, in the order of the launcher.
+    pub permissions: Vec<Permissions>,
+    /// How much of its work the agent can show; empty when it has no choice.
+    pub outputs: Vec<Output>,
+}
+
+/// How an agent asks before it acts, through its own flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Permissions {
+    Ask,
+    Skip,
+    Auto,
+}
+
+impl Permissions {
+    pub const ALL: [Self; 3] = [Self::Ask, Self::Skip, Self::Auto];
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Ask => "ask",
+            Self::Skip => "skip",
+            Self::Auto => "auto",
+        }
+    }
+
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|permissions| permissions.name() == name)
+    }
+}
+
+/// How much of its work an agent shows, through its own settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Output {
+    Quiet,
+    Standard,
+    Detailed,
+}
+
+impl Output {
+    pub const ALL: [Self; 3] = [Self::Quiet, Self::Standard, Self::Detailed];
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Quiet => "quiet",
+            Self::Standard => "standard",
+            Self::Detailed => "detailed",
+        }
+    }
+
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|output| output.name() == name)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -421,6 +603,10 @@ pub struct AgentPick {
     pub account: Option<String>,
     pub model: Option<String>,
     pub effort: Option<String>,
+    #[serde(default)]
+    pub permissions: Option<Permissions>,
+    #[serde(default)]
+    pub output: Option<Output>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -433,6 +619,10 @@ pub struct AgentStart {
     pub model: Option<String>,
     #[serde(default)]
     pub effort: Option<String>,
+    #[serde(default)]
+    pub permissions: Option<Permissions>,
+    #[serde(default)]
+    pub output: Option<Output>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -651,13 +841,27 @@ fn shell_word(value: &str) -> Option<String> {
     if value.is_empty() || value.contains(['\'', '\n', '\r']) {
         return None;
     }
-    if value
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || b"._-/:=@+".contains(&byte))
-    {
+    if plain(value) {
         Some(value.to_owned())
     } else {
         Some(format!("'{value}'"))
+    }
+}
+
+/// Whether each shell takes `word` as it is.
+#[cfg(feature = "host")]
+fn plain(word: &str) -> bool {
+    word.bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b"._-/:=@+".contains(&byte))
+}
+
+/// `word` as `shell` takes it unchanged: a plain word stays, any other gets quotes.
+#[cfg(feature = "host")]
+pub(crate) fn typed(shell: &Path, word: &str) -> String {
+    if !word.is_empty() && plain(word) {
+        word.to_owned()
+    } else {
+        quote(shell, word)
     }
 }
 

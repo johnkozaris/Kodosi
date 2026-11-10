@@ -13,10 +13,12 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var install: String
     public var addsAccounts: Bool
     public var reportsUsage: Bool
+    public var permissions: [AgentPermissions]
+    public var outputs: [AgentOutput]
 
     public init(
         agent: String, program: String, installed: Bool, accounts: [AgentAccount], install: String, addsAccounts: Bool,
-        reportsUsage: Bool,
+        reportsUsage: Bool, permissions: [AgentPermissions] = [.ask], outputs: [AgentOutput] = [],
     ) {
         self.agent = agent
         self.program = program
@@ -25,6 +27,8 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
         self.install = install
         self.addsAccounts = addsAccounts
         self.reportsUsage = reportsUsage
+        self.permissions = permissions
+        self.outputs = outputs
     }
 
     public var id: String {
@@ -212,12 +216,19 @@ public struct AgentStart: Equatable, Sendable {
     public var account: String?
     public var model: String?
     public var effort: String?
+    public var permissions: AgentPermissions?
+    public var output: AgentOutput?
 
-    public init(agent: String, account: String? = nil, model: String? = nil, effort: String? = nil) {
+    public init(
+        agent: String, account: String? = nil, model: String? = nil, effort: String? = nil,
+        permissions: AgentPermissions? = nil, output: AgentOutput? = nil,
+    ) {
         self.agent = agent
         self.account = account
         self.model = model
         self.effort = effort
+        self.permissions = permissions
+        self.output = output
     }
 
     public var json: JSONValue {
@@ -225,6 +236,8 @@ public struct AgentStart: Equatable, Sendable {
         fields["account"] = account.map(JSONValue.string)
         fields["model"] = model.map(JSONValue.string)
         fields["effort"] = effort.map(JSONValue.string)
+        fields["permissions"] = permissions.map { .string($0.rawValue) }
+        fields["output"] = output.map { .string($0.rawValue) }
         return .object(fields)
     }
 }
@@ -280,12 +293,32 @@ public struct LaunchPlan {
         models == nil || !(models?.models.isEmpty ?? true)
     }
 
+    /// How the agent asks before it acts: the last choice that it still has, else asking.
+    public var permissions: AgentPermissions {
+        guard let info, let saved = pick?.permissions, info.permissions.contains(saved) else { return .ask }
+        return saved
+    }
+
+    /// How much of its work the agent shows: the last choice that it still has, else its standard.
+    public var output: AgentOutput {
+        guard let info, let saved = pick?.output, info.outputs.contains(saved) else { return .standard }
+        return saved
+    }
+
     public var shown: AgentPick? {
-        info.map { AgentPick(agent: $0.agent, account: account?.name, model: modelId, effort: effortId) }
+        info.map {
+            AgentPick(
+                agent: $0.agent, account: account?.name, model: modelId, effort: effortId, permissions: permissions,
+                output: output,
+            )
+        }
     }
 
     public var start: AgentStart? {
         guard let info, info.installed, let account else { return nil }
-        return AgentStart(agent: info.agent, account: account.name, model: modelId ?? "", effort: effortId ?? "")
+        return AgentStart(
+            agent: info.agent, account: account.name, model: modelId ?? "", effort: effortId ?? "", permissions: permissions,
+            output: info.outputs.isEmpty ? nil : output,
+        )
     }
 }

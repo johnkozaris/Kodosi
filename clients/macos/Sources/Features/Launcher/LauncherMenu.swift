@@ -3,10 +3,11 @@ import KodosiBridge
 import KodosiDesign
 
 enum LauncherMenu: String, Equatable {
-    case computer, folder, account, model
+    case computer, folder, account, model, modes
 
     enum Pick: Equatable {
         case computer(String?), folder(String), anotherFolder, account(String), newAccount, model(String?)
+        case permissions(AgentPermissions), output(AgentOutput)
     }
 
     static let add = "menu.add"
@@ -20,6 +21,7 @@ enum LauncherMenu: String, Equatable {
         case .folder: id == Self.choose ? .anotherFolder : .folder(id)
         case .account: id == Self.add ? .newAccount : .account(id)
         case .model: .model(id == Self.standard ? nil : id)
+        case .modes: AgentOutput(rawValue: id).map(Pick.output) ?? .permissions(AgentPermissions(rawValue: id) ?? .ask)
         }
     }
 
@@ -34,6 +36,8 @@ enum LauncherMenu: String, Equatable {
             plan.info.map { Self.accounts($0, current: plan.account?.name ?? "") { plan.usage(of: $0) } } ?? []
         case .model:
             Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelId)
+        case .modes:
+            []
         }
     }
 

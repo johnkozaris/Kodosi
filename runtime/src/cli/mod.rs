@@ -117,6 +117,8 @@ enum Action {
 
 const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
+const PERMISSIONS: &str = "How the agent asks before it acts: ask, skip, which never asks, or auto, where the agent's own safety check decides and asks for the rest. It starts with your last choice, else ask";
+const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed, for Claude Code and Codex. It starts with your last choice, else standard";
 
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {
@@ -222,7 +224,7 @@ enum TerminalAction {
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
-        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model and effort.
+        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model, effort, permissions and output.
         #[arg(long)]
         agent: Option<String>,
         /// The agent's account, by the name that `kodosi agent list` shows.
@@ -234,6 +236,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long, requires = "agent")]
         effort: Option<String>,
+        #[arg(long, requires = "agent", help = PERMISSIONS, value_parser = ["ask", "skip", "auto"])]
+        permissions: Option<String>,
+        #[arg(long, requires = "agent", help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
+        output: Option<String>,
         /// The agent's first prompt.
         #[arg(long, requires = "agent")]
         prompt: Option<String>,
@@ -242,7 +248,7 @@ enum TerminalAction {
     Run {
         #[arg(help = TERMINAL)]
         terminal: String,
-        /// The agent, for example claude or codex. It starts with your last choice of account, model and effort.
+        /// The agent, for example claude or codex. It starts with your last choice of account, model, effort, permissions and output.
         #[arg(long)]
         agent: String,
         /// The agent's account, by the name that `kodosi agent list` shows.
@@ -254,6 +260,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long)]
         effort: Option<String>,
+        #[arg(long, help = PERMISSIONS, value_parser = ["ask", "skip", "auto"])]
+        permissions: Option<String>,
+        #[arg(long, help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
+        output: Option<String>,
     },
     /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
     Resume {
@@ -853,6 +863,8 @@ async fn terminal_command(
             account,
             model,
             effort,
+            permissions,
+            output,
             prompt,
         } => {
             let agent = agent
@@ -860,8 +872,9 @@ async fn terminal_command(
                     agent_start(
                         &agent,
                         account.as_deref(),
-                        model.as_deref(),
-                        effort.as_deref(),
+                        [model.as_deref(), effort.as_deref()],
+                        permissions.as_deref(),
+                        output.as_deref(),
                     )
                 })
                 .transpose()?;
@@ -919,12 +932,15 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             account,
             model,
             effort,
+            permissions,
+            output,
         } => {
             let agent = agent_start(
                 &agent,
                 account.as_deref(),
-                model.as_deref(),
-                effort.as_deref(),
+                [model.as_deref(), effort.as_deref()],
+                permissions.as_deref(),
+                output.as_deref(),
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
         }
@@ -1318,10 +1334,13 @@ fn agent_name(agent: &str) -> Result<&'static str> {
 fn agent_start(
     agent: &str,
     account: Option<&str>,
-    model: Option<&str>,
-    effort: Option<&str>,
+    [model, effort]: [Option<&str>; 2],
+    permissions: Option<&str>,
+    output: Option<&str>,
 ) -> Result<Value> {
-    Ok(json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort}))
+    Ok(
+        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output}),
+    )
 }
 
 fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {
@@ -1989,8 +2008,15 @@ mod tests {
         let mut command = Arguments::command();
         command.build();
         let text = help(&mut command).to_lowercase();
-        assert!(text.contains("terminal") && text.contains("room"));
-        assert!(!text.contains("session") && !text.contains("mission"));
+        let words: std::collections::HashSet<_> = text
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .collect();
+        assert!(words.contains("terminal") && words.contains("room"));
+        assert!(
+            ["session", "sessions", "mission", "missions"]
+                .iter()
+                .all(|word| !words.contains(word))
+        );
     }
     #[test]
     fn terminal_close_and_native_resume_remain() {

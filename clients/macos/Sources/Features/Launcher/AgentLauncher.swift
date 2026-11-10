@@ -161,6 +161,9 @@ struct AgentLauncher: View {
                 if let info, plan.listsModels || !plan.efforts.isEmpty {
                     modelKey(info).transition(AnyTransition.pop)
                 }
+                if let info, info.permissions.count > 1 || !info.outputs.isEmpty {
+                    modesKey(info).transition(AnyTransition.pop)
+                }
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
             .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
@@ -300,6 +303,12 @@ struct AgentLauncher: View {
             choosePick { $0.account = name }
         case let .model(model):
             choosePick { $0.model = model }
+        case let .permissions(permissions):
+            choosePick { $0.permissions = permissions }
+            return
+        case let .output(output):
+            choosePick { $0.output = output }
+            return
         }
         closeMenu()
     }
@@ -422,6 +431,24 @@ private extension AgentLauncher {
                     identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu,
                 )
             }
+        }
+    }
+
+    func modesKey(_ info: AgentInfo) -> some View {
+        let permissions = plan.permissions
+        let output = info.outputs.isEmpty ? .standard : plan.output
+        let title = ([permissions.label] + (output == .standard ? [] : [output.label])).joined(separator: " · ")
+        return PickerKey(
+            title: title, quiet: permissions == .ask && output == .standard, open: menu == .modes,
+            identifier: "launcher.modes", label: String(localized: "Permissions and output"),
+        ) {
+            Image(systemName: permissions.symbol).font(.system(size: 9.5, weight: .bold))
+                .foregroundStyle(permissions == .skip ? theme.colors.caution : info.kind.tint)
+        } action: {
+            toggle(.modes)
+        }
+        .kodosiPopover(isPresented: presented(.modes), alignment: .leading) {
+            LauncherModes(info: info, permissions: permissions, output: output, pick: pick)
         }
     }
 

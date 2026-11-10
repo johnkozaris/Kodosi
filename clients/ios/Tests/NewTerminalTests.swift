@@ -43,7 +43,9 @@ struct NewTerminalTests {
         let create = try await request("session.create")
         #expect(create["computer"] as? String == "studio")
         #expect(create["workingDir"] as? String == "/home/maya/atlas")
-        #expect(create["agent"] as? [String: String] == ["agent": "claude", "account": "work", "model": "", "effort": "high"])
+        #expect(create["agent"] as? [String: String] == [
+            "agent": "claude", "account": "work", "model": "", "effort": "high", "permissions": "ask", "output": "standard",
+        ])
         #expect(create["prompt"] as? String == "fix the failing test")
         #expect(create["size"] == nil)
         #expect(create["missionId"] == nil)
@@ -128,6 +130,7 @@ struct NewTerminalTests {
         "agents": [
             [
                 "agent": "claude", "program": "claude", "installed": true, "install": "", "addsAccounts": true, "reportsUsage": true,
+                "permissions": ["ask", "skip", "auto"], "outputs": ["quiet", "standard", "detailed"],
                 "accounts": [
                     ["name": "default", "command": "claude", "identity": NSNull(), "folder": "~/.claude"],
                     ["name": "work", "command": "env CLAUDE_CONFIG_DIR=/home/maya/.claude-work claude", "identity": NSNull(),

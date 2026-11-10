@@ -36,8 +36,9 @@ without a last look; an agent that ended more than a few seconds earlier does no
 It finds the conversation in the agent's own records: Claude Code's record of each Claude
 process, the lock that Copilot CLI keeps in the folder of a session while a process uses
 it, and the rollout that a Codex process holds open, or else the one live Codex
-conversation of the terminal's folder. The command keeps the account, model and effort of
-the agent's environment and arguments, which Windows does not show. When the host finds no
+conversation of the terminal's folder. The command keeps the account, model, effort,
+permissions and output of the agent's environment and arguments, which Windows does not
+show. When the host finds no
 conversation, the command opens the agent's own list of conversations. A new host keeps
 the saved terminals until an app sends `session.restore`; then it starts each one again
 with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.

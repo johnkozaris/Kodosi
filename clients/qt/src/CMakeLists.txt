@@ -400,6 +400,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/LauncherPrompt.qml
         qml/Workbench/LauncherSheet.qml
         qml/Workbench/LinkDialog.qml
+        qml/Workbench/ModeRow.qml
         qml/Workbench/OfflineTerminalDialog.qml
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml

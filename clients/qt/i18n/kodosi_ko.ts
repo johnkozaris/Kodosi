@@ -153,6 +153,78 @@
         <source>%1 asks you to sign in the first time.</source>
         <translation>처음 한 번은 %1에서 로그인을 요청해요.</translation>
     </message>
+    <message>
+        <source>Ask</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>건너뛰기</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>간결</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>표준</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>자세히</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>권한</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>출력</translation>
+    </message>
+    <message>
+        <source>Permissions and output</source>
+        <translation>권한 및 출력</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>파일을 바꾸거나 명령을 실행하기 전에 물어봐요.</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>묻지 않고 모든 명령을 내 권한으로 실행해요.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>안전 검사가 안전한 작업은 승인하고 나머지는 물어봐요. 검사에 토큰이 들어요.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>거부한 작업을 빼고 자신의 작업을 승인해요.</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>작업을 덜 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>에이전트 설정대로 작업을 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>작업의 모든 단계를 자세히 보여줘요.</translation>
+    </message>
 </context>
 <context>
     <name>BrowserSettings</name>

@@ -2604,18 +2604,18 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
     .await;
     assert_eq!(
         copilot,
-        format!("copilot --model claude-opus-5.5 --reasoning-effort max --resume={id}")
+        format!("copilot --model claude-opus-5.5 --reasoning-effort max --yolo --resume={id}")
     );
     let codex = stopping(
         "codex",
         format!("exec 3<'{}'", rollout.display()),
-        "-m gpt-5.6-sol -c model_reasoning_effort=high",
+        "-m gpt-5.6-sol -c model_reasoning_effort=high -a on-request -s workspace-write -c hide_agent_reasoning=true",
     )
     .await;
     assert_eq!(
         codex,
         format!(
-            "codex -m gpt-5.6-sol -c model_reasoning_effort=high -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume {id}"
+            "codex -m gpt-5.6-sol -c model_reasoning_effort=high -a on-request -s workspace-write -c hide_agent_reasoning=true -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume {id}"
         )
     );
 }

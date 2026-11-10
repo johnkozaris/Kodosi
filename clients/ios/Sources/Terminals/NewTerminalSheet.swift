@@ -137,6 +137,12 @@ struct NewTerminalSheet: View {
                         if !plan.efforts.isEmpty {
                             effortRow(plan, launcher: launcher)
                         }
+                        if agent.permissions.count > 1 {
+                            permissionsRow(agent, plan: plan, launcher: launcher)
+                        }
+                        if !agent.outputs.isEmpty {
+                            outputRow(agent, plan: plan, launcher: launcher)
+                        }
                     }
                 }
                 if let agent {
@@ -276,6 +282,29 @@ struct NewTerminalSheet: View {
             },
         )
         .accessibilityIdentifier("terminals.new.effort")
+    }
+
+    private func permissionsRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
+        let permissions = plan.permissions
+        return ChoiceRow(
+            title: String(localized: "Permissions"), subtitle: permissions.detail(for: agent.kind), value: permissions.label,
+            values: agent.permissions, selection: permissions, label: \.label,
+            choose: { permissions in choosePick(plan, launcher) { $0.permissions = permissions } },
+            leading: {
+                IconTile(symbol: permissions.symbol, tint: permissions == .skip ? TileTint.amber : agent.kind.tint, size: 28)
+            },
+        )
+        .accessibilityIdentifier("terminals.new.permissions")
+    }
+
+    private func outputRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
+        ChoiceRow(
+            title: String(localized: "Output"), subtitle: plan.output.detail, value: plan.output.label,
+            values: agent.outputs, selection: plan.output, label: \.label,
+            choose: { output in choosePick(plan, launcher) { $0.output = output } },
+            leading: { IconTile(symbol: "text.alignleft", tint: TileTint.graphite, size: 28) },
+        )
+        .accessibilityIdentifier("terminals.new.output")
     }
 
     private func choosePick(_ plan: LaunchPlan, _ launcher: LauncherState, _ change: (inout AgentPick) -> Void) {

@@ -219,7 +219,7 @@ fn pick<'a>(result: &'a Value, agent: &str) -> &'a Value {
 }
 
 fn chosen(pick: &Value) -> String {
-    ["account", "model", "effort"]
+    ["account", "model", "effort", "permissions", "output"]
         .into_iter()
         .filter_map(|key| pick[key].as_str())
         .collect::<Vec<_>>()
@@ -250,9 +250,17 @@ fn agents(result: &Value) -> String {
             })
             .collect::<Vec<_>>()
             .join(", ");
+        let modes = ["permissions", "outputs"]
+            .into_iter()
+            .filter_map(|key| {
+                let values = info[key].as_array()?.iter().filter_map(Value::as_str);
+                let values = values.collect::<Vec<_>>().join(", ");
+                (!values.is_empty()).then(|| format!("; {key} {values}"))
+            })
+            .collect::<String>();
         let last = chosen(pick(result, &agent));
         lines.push(format!(
-            "{agent}  {}: accounts {accounts}{}",
+            "{agent}  {}: accounts {accounts}{modes}{}",
             label(&agent),
             if last.is_empty() {
                 String::new()

@@ -695,6 +695,8 @@ fn claude_with_accounts() -> AgentInfo {
         install: String::new(),
         adds_accounts: true,
         reports_usage: true,
+        permissions: Agent::Claude.permissions(),
+        outputs: Agent::Claude.outputs(),
     }
 }
 
@@ -731,17 +733,25 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         account: Some("work".to_owned()),
         model: Some("opus".to_owned()),
         effort: Some("high".to_owned()),
+        permissions: Some(Permissions::Skip),
+        output: Some(Output::Standard),
     };
     let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
         agent: Agent::Claude,
         account: account.map(str::to_owned),
         model: model.map(str::to_owned),
         effort: effort.map(str::to_owned),
+        permissions: None,
+        output: None,
     };
+    let plan =
+        |info: &AgentInfo, models: Option<&AgentModels>, saved: &AgentPick, start: &AgentStart| {
+            plan(info, models, saved, start, Path::new("/bin/zsh"))
+        };
     let (line, pick) = plan(&info, Some(&models), &saved, &start(None, None, None)).unwrap();
     assert_eq!(
         line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high"
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high --dangerously-skip-permissions"
     );
     assert_eq!(pick, saved);
 
@@ -752,7 +762,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         &start(Some("default"), Some(""), None),
     )
     .unwrap();
-    assert_eq!(line, "claude --effort high");
+    assert_eq!(line, "claude --effort high --dangerously-skip-permissions");
 
     let (line, pick) = plan(
         &info,
@@ -763,7 +773,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
     .unwrap();
     assert_eq!(
         line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku"
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku --dangerously-skip-permissions"
     );
     assert_eq!(pick.effort, None);
 
@@ -773,7 +783,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         ..saved.clone()
     };
     let (line, _) = plan(&info, Some(&models), &stale, &start(None, None, None)).unwrap();
-    assert_eq!(line, "claude --effort high");
+    assert_eq!(line, "claude --effort high --dangerously-skip-permissions");
 
     assert_eq!(
         plan(
@@ -801,6 +811,90 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
     );
 }
 
+fn installed(agent: Agent) -> AgentInfo {
+    AgentInfo {
+        agent,
+        program: agent.program().to_owned(),
+        installed: true,
+        accounts: vec![AgentAccount {
+            name: agent.program().to_owned(),
+            command: agent.program().to_owned(),
+            identity: None,
+            folder: None,
+        }],
+        install: String::new(),
+        adds_accounts: false,
+        reports_usage: false,
+        permissions: agent.permissions(),
+        outputs: agent.outputs(),
+    }
+}
+
+#[test]
+fn an_agent_starts_with_its_last_permissions_and_output_else_it_asks() {
+    let line = |agent: Agent,
+                saved: Option<Permissions>,
+                permissions: Option<Permissions>,
+                output: Option<Output>| {
+        let saved = AgentPick {
+            agent,
+            account: None,
+            model: None,
+            effort: None,
+            permissions: saved,
+            output: None,
+        };
+        let start = AgentStart {
+            agent,
+            account: None,
+            model: None,
+            effort: None,
+            permissions,
+            output,
+        };
+        plan(
+            &installed(agent),
+            None,
+            &saved,
+            &start,
+            Path::new("/bin/zsh"),
+        )
+        .map(|(line, pick)| (line, pick.permissions))
+    };
+    let (ask, skip, auto) = (Permissions::Ask, Permissions::Skip, Permissions::Auto);
+
+    assert_eq!(
+        line(Agent::Claude, None, None, None).unwrap(),
+        ("claude --permission-mode manual".to_owned(), Some(ask))
+    );
+    assert_eq!(
+        line(Agent::Claude, Some(skip), Some(auto), Some(Output::Quiet))
+            .unwrap()
+            .0,
+        r#"claude --permission-mode auto --settings '{"viewMode":"focus"}'"#
+    );
+    assert_eq!(
+        line(Agent::Codex, Some(skip), None, None).unwrap().0,
+        "codex --dangerously-bypass-approvals-and-sandbox"
+    );
+    assert_eq!(
+        line(Agent::Copilot, None, None, None).unwrap(),
+        ("copilot".to_owned(), Some(ask))
+    );
+    assert_eq!(
+        line(Agent::Cursor, Some(auto), None, None).unwrap().0,
+        "cursor-agent"
+    );
+    assert_eq!(
+        line(Agent::Cursor, None, Some(auto), None).unwrap_err(),
+        "Cursor has no permissions auto. Permissions: ask, skip."
+    );
+    assert_eq!(
+        line(Agent::Copilot, None, None, Some(Output::Quiet)).unwrap_err(),
+        "Copilot CLI has no output quiet. Outputs: none."
+    );
+}
+
 #[tokio::test]
 async fn the_launch_choice_survives_a_restart() {
     let root = tempfile::tempdir().unwrap();
@@ -809,6 +903,8 @@ async fn the_launch_choice_survives_a_restart() {
         account: Some("default".to_owned()),
         model: Some("gpt-6".to_owned()),
         effort: None,
+        permissions: Some(Permissions::Auto),
+        output: Some(Output::Detailed),
     };
     let launcher = Arc::new(Launcher::load(
         root.path(),
@@ -895,7 +991,11 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 "--model x"
             ]
         ),
-        ["--model claude-opus-5.5", "--reasoning-effort max"]
+        [
+            "--model claude-opus-5.5",
+            "--reasoning-effort max",
+            "--yolo"
+        ]
     );
     assert_eq!(
         chosen(
@@ -911,7 +1011,7 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 "high"
             ]
         ),
-        ["--model opus", "--effort high"]
+        ["--model opus", "--effort high", "--verbose"]
     );
     assert_eq!(
         chosen(
@@ -924,11 +1024,23 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 "model_reasoning_effort=xhigh",
                 "-c",
                 "developer_instructions=-m",
+                "-a",
+                "never",
+                "--sandbox",
+                "danger-full-access",
+                "-c",
+                "hide_agent_reasoning=true",
                 "resume",
                 "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
             ]
         ),
-        ["-m gpt-5.6-sol", "-c model_reasoning_effort=xhigh"]
+        [
+            "-m gpt-5.6-sol",
+            "-c model_reasoning_effort=xhigh",
+            "-a never",
+            "--sandbox danger-full-access",
+            "-c hide_agent_reasoning=true"
+        ]
     );
     assert_eq!(
         chosen(Agent::Copilot, &["copilot", "--model", "it's", "--effort"]),
