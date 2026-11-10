@@ -18,7 +18,7 @@ people=dev/people.txt
 # Keycloak e-mails the lockout notes only when this option names them, and then only what it
 # names. UPDATE_PASSWORD or UPDATE_TOTP too would send two e-mails for one change.
 notes=LOGIN_ERROR,UPDATE_CREDENTIAL,REMOVE_CREDENTIAL
-notes=$notes,USER_DISABLED_BY_TEMPORARY_LOCKOUT,USER_DISABLED_BY_PERMANENT_LOCKOUT
+notes=$notes,USER_DISABLED_BY_TEMPORARY_LOCKOUT
 
 kc() { docker exec "$name" /opt/keycloak/bin/kcadm.sh "$@"; }
 calm() { "$@" 2> >(grep -v -e '^Created new' -e '^Logging into' >&2) >/dev/null; }

@@ -16,24 +16,12 @@ function rules(
   person: { username?: string | undefined; email?: string | undefined },
 ): Rule[] {
   const { msgStr } = i18n;
-  const count = (letters: RegExp) => (password.match(letters) ?? []).length;
   const letters = [...password].length;
   const found: Rule[] = [];
   if (policies.length)
     found.push({
       text: msgStr("kdsPolicyLength", `${policies.length}`),
       met: letters >= policies.length,
-    });
-  if (policies.digits)
-    found.push({ text: msgStr("kdsPolicyDigits"), met: count(/\d/g) >= policies.digits });
-  if (policies.lowerCase)
-    found.push({ text: msgStr("kdsPolicyLower"), met: count(/\p{Ll}/gu) >= policies.lowerCase });
-  if (policies.upperCase)
-    found.push({ text: msgStr("kdsPolicyUpper"), met: count(/\p{Lu}/gu) >= policies.upperCase });
-  if (policies.specialChars)
-    found.push({
-      text: msgStr("kdsPolicySpecial"),
-      met: count(/[^\p{L}\p{N}\s]/gu) >= policies.specialChars,
     });
   if (policies.maxLength)
     found.push({
