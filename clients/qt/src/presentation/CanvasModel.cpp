@@ -233,6 +233,11 @@ QStringList CanvasModel::sections(const QString& sessionId) const
     return result;
 }
 
+bool CanvasModel::showsSomething(const QString& sessionId) const
+{
+    return !sections(sessionId).isEmpty();
+}
+
 QStringList CanvasModel::closedSections(const QString& sessionId) const
 {
     const auto open = sections(sessionId);
@@ -276,6 +281,19 @@ void CanvasModel::show(const QString& sessionId, const QString& section)
             m_picks.remove(sessionId);
     }
     touch();
+}
+
+void CanvasModel::open(const QString& sessionId, const QString& section)
+{
+    if (!section.isEmpty()) {
+        show(sessionId, section);
+        return;
+    }
+    if (showsSomething(sessionId))
+        return;
+    const auto entries = shown(sessionId);
+    if (const auto newest = std::ranges::max_element(entries, {}, &Shown::changed); newest != entries.end())
+        show(sessionId, sectionOf(newest->key));
 }
 
 bool CanvasModel::showsShelf(const QString& sessionId) const

@@ -164,6 +164,7 @@ private slots:
         Fixture f;
         kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
         f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
         const auto first = test::id(1);
         const auto second = test::id(2);
         const auto show = [&](int firstAt, int secondAt) {
@@ -213,6 +214,7 @@ private slots:
         Fixture f;
         kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
         f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
         const auto first = test::id(1);
         f.workspace.apply(test::snapshot({ showing(1, 2), test::session(2) }), 0);
         QVERIFY(f.desktop.selectSession(first));
@@ -234,6 +236,7 @@ private slots:
         Fixture f;
         kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
         f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
         const auto id = test::id(1);
         auto terminal = onMini(1);
         f.workspace.apply(accountEvent(test::id(50), 1), 1);

@@ -1,5 +1,6 @@
 #include "presentation/DesktopStateModel.hpp"
 #include "app/AppActivation.hpp"
+#include "presentation/CanvasModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include <QEvent>
 #include <QGuiApplication>
@@ -104,6 +105,10 @@ void DesktopStateModel::attachSessionCatalog(SessionCatalogModel* sessions)
         connect(sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this,
             &DesktopStateModel::reconcile);
 }
+void DesktopStateModel::attachCanvas(CanvasModel* canvas)
+{
+    m_canvasModel = canvas;
+}
 bool DesktopStateModel::stageSession(const QString& id, bool revealStage)
 {
     if (!m_sessions)
@@ -136,7 +141,7 @@ bool DesktopStateModel::selectSession(const QString& id)
 {
     return stageSession(id, false);
 }
-void DesktopStateModel::openCanvas(const QString& id)
+void DesktopStateModel::openCanvas(const QString& id, const QString& section)
 {
     if (!selectSession(id))
         return;
@@ -145,8 +150,9 @@ void DesktopStateModel::openCanvas(const QString& id)
         m_mode = Focus;
         emit stageLayoutModeChanged();
     }
-    const auto session = m_sessions->session(id);
-    if (!session || session->canvas.isEmpty()) {
+    if (m_canvasModel)
+        m_canvasModel->open(id, section);
+    if (!showsSomething(id)) {
         m_awaitedCanvas = id;
         return;
     }
@@ -164,6 +170,10 @@ void DesktopStateModel::hideCanvas()
     m_canvasWide = false;
     emit canvasChanged();
 }
+bool DesktopStateModel::showsSomething(const QString& id) const
+{
+    return m_canvasModel && m_canvasModel->showsSomething(id);
+}
 void DesktopStateModel::followCanvas(const QString& id)
 {
     if (m_canvas == id)
@@ -171,8 +181,7 @@ void DesktopStateModel::followCanvas(const QString& id)
     const bool back = m_canvasesLeftOpen.remove(id);
     if (!m_canvas.isEmpty())
         m_canvasesLeftOpen.insert(m_canvas);
-    const auto session = m_sessions ? m_sessions->session(id) : std::nullopt;
-    if (session && !session->canvas.isEmpty() && (back || !m_canvas.isEmpty())) {
+    if (showsSomething(id) && (back || !m_canvas.isEmpty())) {
         m_canvas = id;
         emit canvasChanged();
     } else {
@@ -451,13 +460,9 @@ void DesktopStateModel::reconcile()
 }
 void DesktopStateModel::reconcileCanvas()
 {
-    const auto filled = [this](const QString& id) {
-        const auto session = m_sessions->session(id);
-        return session && !session->canvas.isEmpty();
-    };
-    if (!m_canvas.isEmpty() && !filled(m_canvas))
+    if (!m_canvas.isEmpty() && !showsSomething(m_canvas))
         hideCanvas();
-    if (!m_awaitedCanvas.isEmpty() && filled(m_awaitedCanvas)) {
+    if (!m_awaitedCanvas.isEmpty() && showsSomething(m_awaitedCanvas)) {
         const auto awaited = std::exchange(m_awaitedCanvas, QString {});
         if (m_mode == Focus && m_selected == awaited && m_canvas != awaited) {
             m_canvas = awaited;

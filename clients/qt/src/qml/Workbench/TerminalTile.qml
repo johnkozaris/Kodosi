@@ -419,7 +419,7 @@ Item {
                                 objectName: root.objectName + ".browser"
                                 onTriggered: {
                                     Models.Canvas.openBrowser(root.sessionId);
-                                    root.canvasRequested("");
+                                    root.canvasRequested("browser");
                                 }
                             }
                             KMenuItem {

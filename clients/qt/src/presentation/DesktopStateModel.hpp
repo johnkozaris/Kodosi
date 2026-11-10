@@ -14,6 +14,7 @@
 
 class QWindow;
 namespace kodosi {
+class CanvasModel;
 class SessionCatalogModel;
 class DesktopStateModel final : public QObject {
     Q_OBJECT
@@ -59,7 +60,9 @@ public:
     qreal canvasWidth() const { return m_canvasWidth; }
     void setCanvasWide(bool value);
     void setCanvasWidth(qreal value);
-    Q_INVOKABLE void openCanvas(const QString& id);
+    // Shows a terminal alone on the stage with its canvas beside it, at a part or else at
+    // something, now or when its canvas has something to show on this device.
+    Q_INVOKABLE void openCanvas(const QString& id, const QString& section = {});
     Q_INVOKABLE void hideCanvas();
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }
@@ -71,6 +74,7 @@ public:
     Q_INVOKABLE void toggleDosi();
     Q_INVOKABLE void resizeSidebar(qreal width);
     void attachSessionCatalog(SessionCatalogModel* sessions);
+    void attachCanvas(CanvasModel* canvas);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
     Q_INVOKABLE void bringToFront(const QString& activationToken = {});
     Q_INVOKABLE bool selectSession(const QString& id);
@@ -128,6 +132,7 @@ private:
     };
     std::unique_ptr<QSettings> m_settings;
     QPointer<SessionCatalogModel> m_sessions;
+    QPointer<CanvasModel> m_canvasModel;
     QPointer<QWindow> m_window;
     QTimer m_windowSave;
     QRect m_windowGeometry;
@@ -164,6 +169,7 @@ private:
     qreal m_dosiWidth = 420;
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
+    bool showsSomething(const QString& id) const;
     void followCanvas(const QString& id);
     void reconcileCanvas();
     void reconcile();
