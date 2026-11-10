@@ -1,4 +1,5 @@
 #include "presentation/DesktopStateModel.hpp"
+#include "app/AppActivation.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include <QEvent>
 #include <QGuiApplication>
@@ -551,6 +552,18 @@ void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overr
 bool DesktopStateModel::watching() const
 {
     return m_window && m_window->isActive();
+}
+void DesktopStateModel::bringToFront(const QString& activationToken)
+{
+    if (!m_window)
+        return;
+    if (m_window->windowStates() & Qt::WindowMinimized)
+        m_window->setWindowStates(m_window->windowStates() & ~Qt::WindowMinimized);
+    m_window->setVisible(true);
+    withActivationToken(activationToken, [this] {
+        m_window->raise();
+        m_window->requestActivate();
+    });
 }
 void DesktopStateModel::saveWindow()
 {

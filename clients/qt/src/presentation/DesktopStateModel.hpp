@@ -70,6 +70,7 @@ public:
     Q_INVOKABLE void resizeSidebar(qreal width);
     void attachSessionCatalog(SessionCatalogModel* sessions);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
+    Q_INVOKABLE void bringToFront(const QString& activationToken = {});
     Q_INVOKABLE bool selectSession(const QString& id);
     bool stageSession(const QString& id, bool revealStage = true);
     bool unstageSession(const QString& id);

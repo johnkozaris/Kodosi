@@ -11,6 +11,7 @@
 #include <QSignalSpy>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QWindow>
 #include <QtTest/QTest>
 #include <limits>
 
@@ -1736,6 +1737,21 @@ private slots:
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
         QCOMPARE(answered.count(), 1);
     }
+    void aMinimizedWindowComesBackAsItWas()
+    {
+        Fixture f;
+        QWindow window;
+        f.desktop.attachWindow(&window);
+        window.show();
+        window.setWindowStates(Qt::WindowMaximized | Qt::WindowMinimized);
+        f.desktop.bringToFront();
+        QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowMaximized));
+        window.setWindowStates(Qt::WindowMinimized);
+        window.hide();
+        f.desktop.bringToFront();
+        QVERIFY(window.isVisible());
+        QCOMPARE(window.windowStates(), Qt::WindowStates(Qt::WindowNoState));
+    }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {
         Fixture f;
@@ -1827,5 +1843,5 @@ private slots:
         QVERIFY(!f.workspace.error().isEmpty());
     }
 };
-QTEST_GUILESS_MAIN(WorkspaceTest)
+QTEST_MAIN(WorkspaceTest)
 #include "tst_workspace.moc"

@@ -299,15 +299,8 @@ int main(int argc, char* argv[])
 #endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
-    auto raise = [window](const QString& token) {
-        window->setVisible(true);
-        kodosi::withActivationToken(token, [window] {
-            window->raise();
-            window->requestActivate();
-        });
-    };
     const auto open = [&](const kodosi::AppActivation& activation) {
-        raise(activation.token);
+        desktop.bringToFront(activation.token);
         if (!activation.appVersion.isEmpty())
             lifecycle.offerRestart(activation.appVersion, QStringLiteral(KODOSI_VERSION));
         if (!activation.route)
@@ -320,13 +313,13 @@ int main(int argc, char* argv[])
     QObject::connect(&terminalNotifications, &kodosi::TerminalNotifications::sessionRequested, &app,
         [&](const QString& id, const QString& token) {
             if (workspace.sessionActions().activate(id))
-                raise(token);
+                desktop.bringToFront(token);
         });
     QObject::connect(&workspace, &kodosi::Workspace::showRequested, &app, [&](const QString& id) {
         if (workspace.sessionActions().activate(id))
-            raise({});
+            desktop.bringToFront();
     });
-    QObject::connect(&tray, &kodosi::DesktopTray::openRequested, &app, [&] { raise({}); });
+    QObject::connect(&tray, &kodosi::DesktopTray::openRequested, &app, [&] { desktop.bringToFront(); });
 #ifdef Q_OS_LINUX
     const auto program = QFile::encodeName(executable);
     struct stat running {};
