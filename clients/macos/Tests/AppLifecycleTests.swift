@@ -294,13 +294,10 @@ import Testing
     app.sessions = try [runtimeSession()]
     try app.receive(runtimeEvent("devices.list", fields: [
         "selfDeviceId": .string("this"), "localDeviceEnrolled": .bool(false), "devices": .array([]),
-        "notice": .string("old account notice"),
     ]))
-    #expect(app.account.identityMessage == "old account notice")
     try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("signedOut")]))
     #expect(app.sessions.isEmpty)
     #expect(app.account.selfDeviceId == nil)
-    #expect(app.account.identityMessage == nil)
     try app.receive(runtimeEvent("friends.snapshot", fields: [
         "friends": .array([.object([
             "userId": .string("other"), "handle": .string("other"), "displayName": .string("Other"),

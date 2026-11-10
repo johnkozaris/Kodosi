@@ -162,7 +162,6 @@ pub enum DosiBody {
     Question {
         question: String,
         options: Vec<String>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         keys: Vec<String>,
         multiple: bool,
         terminal: Option<String>,

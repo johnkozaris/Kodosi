@@ -60,7 +60,8 @@ public struct CanvasItemView: View {
             switch item.kind {
             case .page:
                 CanvasPageView(key: item.key, frames: frames, content: content.data, otherComputer: session.otherComputer, ask: ask)
-            case .picture, .pdf, .document, .sheet, .presentation: CanvasFileView(content: content.data, name: item.name).transition(.opacity)
+            case .picture, .pdf, .document, .sheet, .presentation:
+                CanvasFileView(content: content.data, name: item.name, revision: content.revision).transition(.opacity)
             }
         } else if item.missing {
             CanvasMissing(item: item)

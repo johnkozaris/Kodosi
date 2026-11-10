@@ -2509,7 +2509,8 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
     let entry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": [], "restoredFrom": replaced,
+        "repository": false, "sharedWith": [], "restoredFrom": replaced, "attention": false,
+        "connectedUsers": [], "hidden": false,
     }))
     .unwrap();
     let chosen = Uuid::now_v7().to_string();
@@ -2754,6 +2755,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "sharedWith": ["ana"], "missionId": room, "missionName": "Launch",
+        "attention": false, "connectedUsers": [], "hidden": false,
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());

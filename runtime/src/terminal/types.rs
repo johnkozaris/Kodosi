@@ -197,7 +197,6 @@ impl Default for TerminalSize {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalMetadata {
-    #[serde(default)]
     pub connected_users: Vec<String>,
     pub directory: Option<String>,
     pub title: Option<String>,

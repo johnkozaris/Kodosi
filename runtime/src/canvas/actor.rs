@@ -752,12 +752,29 @@ fn shown(showing: &Showing, terminal: &str) -> Vec<String> {
 }
 
 /// Deletes the browser profiles of the terminals that do not come back, and the pictures of
-/// earlier renders.
+/// earlier renders, on a thread of its own, as a profile can hold thousands of files. It finds
+/// them before a terminal starts, and each new terminal has a new ID, so none of them is in use.
 pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
-    for profile in browser::left_profiles(data_root, returning) {
-        drop(std::fs::remove_dir_all(profile));
+    let mut left = browser::left_profiles(data_root, returning);
+    left.extend(
+        std::fs::read_dir(data_root.join("render"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| entry.path()),
+    );
+    if left.is_empty() {
+        return;
     }
-    drop(std::fs::remove_dir_all(data_root.join("render")));
+    drop(
+        std::thread::Builder::new()
+            .name("kodosi-profiles".into())
+            .spawn(move || {
+                for folder in left {
+                    drop(std::fs::remove_dir_all(folder));
+                }
+            }),
+    );
 }
 
 /// Closes the browsers that an earlier host left, for example after a crash.

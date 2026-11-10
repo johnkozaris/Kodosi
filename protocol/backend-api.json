@@ -194,7 +194,7 @@
       "PUT /api/missions/{id}/content/{itemId}"
     ]
   },
-  "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
+  "backendSecrets": "the client secret of Auth:AccountDeletion when it is set, and the device sessions in memory; the server relays TLS records between a host device and a viewer device, holds no terminal key and keeps room keys only as devices wrapped them, so it reads no terminal traffic or room content",
   "dosi": {
     "room": "POST /api/missions with dosi: true makes the person's one Dosi room; another Dosi room of the same person answers 409",
     "list": "GET /api/missions leaves the Dosi room out of missions and gives its ID as dosi, or null",

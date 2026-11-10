@@ -69,7 +69,8 @@ mod tests {
         let mut dto: SessionDto = serde_json::from_value(json!({
             "id":Uuid::now_v7(),"incarnationId":Uuid::now_v7(),"name":"Terminal","ownerUserId":"owner",
             "ownerName":"Owner","hostDeviceId":"host","hostName":"Host","missionId":null,"missionName":null,
-            "sharedWith":[],"authorizationRevision":1,"hostOnline":false,"roomSequence":0,"roomChoice":null
+            "sharedWith":[],"authorizationRevision":1,"hostOnline":false,"roomSequence":0,"roomChoice":null,
+            "hidden":false
         }))
         .unwrap();
         let preimage = crypto::terminal_close_preimage(

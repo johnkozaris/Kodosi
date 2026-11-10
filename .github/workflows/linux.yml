@@ -18,6 +18,7 @@ on:
       - scripts/build-agent-browser.py
       - scripts/build-document-views.py
       - scripts/build-runtime-library.py
+      - scripts/generate-engine-feed.py
       - scripts/generate-update-site.py
       - scripts/tests/**
       - .github/workflows/linux.yml

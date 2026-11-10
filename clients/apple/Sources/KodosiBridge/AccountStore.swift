@@ -26,7 +26,6 @@ public final class AccountStore {
     public private(set) var authResolved = false
     public private(set) var localDeviceEnrolled = false
     public private(set) var selfDeviceId: String?
-    public private(set) var identityMessage: String?
     public private(set) var stage: SignInStage = .idle
     public private(set) var devices: [MyDeviceEntry] = []
     public private(set) var devicesRevision = 0
@@ -107,7 +106,6 @@ public final class AccountStore {
         authResolved = false
         localDeviceEnrolled = false
         selfDeviceId = nil
-        identityMessage = nil
         devices = []
         onlineHosts = []
         deviceRequests = []
@@ -218,7 +216,6 @@ public final class AccountStore {
     private func receiveList(_ event: RuntimeEvent) throws {
         selfDeviceId = event.string("selfDeviceId")
         localDeviceEnrolled = try event.value("localDeviceEnrolled")
-        identityMessage = localDeviceEnrolled ? nil : event.string("notice")
         devices = try event.value("devices")
         pendingReset = try event.payload["reset"].map { try $0.decode(as: DeviceReset?.self) } ?? nil
         devicesRevision += 1
@@ -247,7 +244,6 @@ public final class AccountStore {
         }
         localDeviceEnrolled = event.payload["enrolled"] != .bool(false)
         if localDeviceEnrolled {
-            identityMessage = nil
             stage = .signedIn
         } else if case .trustingDevice = stage {
         } else {

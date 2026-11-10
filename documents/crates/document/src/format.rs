@@ -3,7 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
-use ts_rs::TS;
 
 use crate::contract::{Hash, Rev, Seq};
 
@@ -76,18 +75,16 @@ pub struct Unreadable(pub String);
 pub struct Unwritable(pub String);
 
 /// One op that an agent can send, with its fields.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub struct GuideOp {
     pub name: String,
     pub does: String,
     pub fields: Vec<GuideField>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub struct GuideField {
     pub name: String,
     pub kind: String,
@@ -96,9 +93,8 @@ pub struct GuideField {
 }
 
 /// Each op of a format, for agents.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub struct Guide {
     pub format: String,
     pub ops: Vec<GuideOp>,

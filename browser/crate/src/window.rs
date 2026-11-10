@@ -163,17 +163,6 @@ impl Window {
         *self.used.borrow()
     }
 
-    /// A step of the host itself, in no viewer's name.
-    pub async fn tell(&self, message: ToWindow) -> Result<(), Error> {
-        self.events
-            .send(Event::Message {
-                viewer: String::new(),
-                message,
-            })
-            .await
-            .map_err(|_| Error::Stopped)
-    }
-
     /// Counts as use, so an agent's work keeps the window awake.
     pub async fn touch(&self) {
         drop(self.events.send(Event::Touch).await);

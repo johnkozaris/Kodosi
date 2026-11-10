@@ -839,9 +839,7 @@ pub struct ResizeIdentity {
     reason = "each flag is a separate fact about one terminal"
 )]
 pub struct SessionEntry {
-    #[serde(default)]
     pub attention: bool,
-    #[serde(default)]
     pub connected_users: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program: Option<String>,
@@ -877,7 +875,6 @@ pub struct SessionEntry {
     pub is_owner: bool,
     pub status: SessionStatus,
     pub connection_state: ConnectionState,
-    #[serde(default)]
     pub hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<Text>,
