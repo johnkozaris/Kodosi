@@ -129,8 +129,7 @@ ColumnLayout {
         return rows
     }
     function effortLevels() {
-        return efforts.map(entry => ({ id: entry.id,
-            label: entry.id === "xhigh" ? "Extra high" : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
+        return efforts.map(entry => ({ id: entry.id, label: Models.DesktopSettings.effortLabel(entry.id) }))
     }
     function folderRows() {
         if (computer.length > 0)

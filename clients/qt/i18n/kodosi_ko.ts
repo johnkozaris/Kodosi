@@ -3959,6 +3959,34 @@
         <translation>셸</translation>
     </message>
     <message>
+        <source>None</source>
+        <translation>없음</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>최소</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>낮음</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>보통</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>높음</translation>
+    </message>
+    <message>
+        <source>Extra high</source>
+        <translation>매우 높음</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>최대</translation>
+    </message>
+    <message>
         <source>Choose valid terminal settings.</source>
         <translation>올바른 터미널 설정을 고르세요.</translation>
     </message>
@@ -4345,6 +4373,22 @@
     <message>
         <source>This terminal can no longer be shown.</source>
         <translation>이 터미널은 더 이상 표시할 수 없어요.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect (%1).</source>
+        <translation>터미널에 연결하지 못했어요(%1).</translation>
+    </message>
+    <message>
+        <source>This terminal was replaced or closed.</source>
+        <translation>이 터미널은 교체되었거나 닫혔어요.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect.</source>
+        <translation>터미널에 연결하지 못했어요.</translation>
+    </message>
+    <message>
+        <source>The terminal&apos;s screen did not arrive in time.</source>
+        <translation>터미널 화면이 제때 도착하지 않았어요.</translation>
     </message>
 </context>
 <context>

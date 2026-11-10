@@ -3959,6 +3959,34 @@
         <translation>シェル</translation>
     </message>
     <message>
+        <source>None</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>最小</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>低</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message>
+        <source>Extra high</source>
+        <translation>超高</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>最大</translation>
+    </message>
+    <message>
         <source>Choose valid terminal settings.</source>
         <translation>有効なターミナル設定を選んでください。</translation>
     </message>
@@ -4345,6 +4373,22 @@
     <message>
         <source>This terminal can no longer be shown.</source>
         <translation>このターミナルはもう表示できません。</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect (%1).</source>
+        <translation>ターミナルに接続できませんでした（%1）。</translation>
+    </message>
+    <message>
+        <source>This terminal was replaced or closed.</source>
+        <translation>このターミナルは置き換えられたか、閉じられました。</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect.</source>
+        <translation>ターミナルに接続できませんでした。</translation>
+    </message>
+    <message>
+        <source>The terminal&apos;s screen did not arrive in time.</source>
+        <translation>ターミナルの画面が時間内に届きませんでした。</translation>
     </message>
 </context>
 <context>

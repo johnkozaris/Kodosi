@@ -143,8 +143,7 @@ bool TerminalSurfaceController::bind(
                 binding->attached = false;
                 scheduleRemoteRetry(
                     *binding,
-                    QStringLiteral("The terminal could not connect (%1).")
-                        .arg(result));
+                    tr("The terminal could not connect (%1).").arg(result));
             });
         connect(view, &TerminalView::terminalClosed, this, [this, view] {
             const auto binding = std::ranges::find_if(
@@ -293,7 +292,7 @@ void TerminalSurfaceController::reconcile()
             emit attachmentRejected(
                 binding->view.data(),
                 binding->sessionId,
-                QStringLiteral("This terminal was replaced or closed."));
+                tr("This terminal was replaced or closed."));
             disconnect(binding->readinessConnection);
             binding = m_bindings.erase(binding);
             continue;
@@ -396,7 +395,7 @@ void TerminalSurfaceController::tryAttach(Binding& binding)
     if (!binding.attached) {
         scheduleRemoteRetry(
             binding,
-            QStringLiteral("The terminal could not connect."));
+            tr("The terminal could not connect."));
     } else if (sharedSubscription && !binding.view->terminalReady()) {
         armCheckpointTimeout(binding);
     }
@@ -473,8 +472,7 @@ void TerminalSurfaceController::armCheckpointTimeout(Binding& binding)
         emit attachmentRejected(
             binding->view.data(),
             binding->sessionId,
-            QStringLiteral(
-                "The terminal checkpoint did not arrive in time."));
+            tr("The terminal's screen did not arrive in time."));
     });
     timer->start();
 }

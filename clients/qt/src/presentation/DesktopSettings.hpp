@@ -69,6 +69,7 @@ public:
     // The agent that a name such as Claude Code or GitHub Copilot names.
     Q_INVOKABLE [[nodiscard]] static QString agentNamed(const QString& name);
     Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& agent);
+    Q_INVOKABLE [[nodiscard]] static QString effortLabel(const QString& effort);
 signals:
     void settingsChanged();
     void settingsErrorChanged();

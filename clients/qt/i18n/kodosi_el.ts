@@ -3976,6 +3976,34 @@
         <translation>Shell</translation>
     </message>
     <message>
+        <source>None</source>
+        <translation>Καμία</translation>
+    </message>
+    <message>
+        <source>Minimal</source>
+        <translation>Ελάχιστη</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Χαμηλή</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Μέτρια</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>Υψηλή</translation>
+    </message>
+    <message>
+        <source>Extra high</source>
+        <translation>Πολύ υψηλή</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>Μέγιστη</translation>
+    </message>
+    <message>
         <source>Choose valid terminal settings.</source>
         <translation>Επιλέξτε έγκυρες ρυθμίσεις τερματικού.</translation>
     </message>
@@ -4362,6 +4390,22 @@
     <message>
         <source>This terminal can no longer be shown.</source>
         <translation>Αυτό το τερματικό δεν μπορεί πλέον να εμφανιστεί.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect (%1).</source>
+        <translation>Το τερματικό δεν μπόρεσε να συνδεθεί (%1).</translation>
+    </message>
+    <message>
+        <source>This terminal was replaced or closed.</source>
+        <translation>Αυτό το τερματικό αντικαταστάθηκε ή έκλεισε.</translation>
+    </message>
+    <message>
+        <source>The terminal could not connect.</source>
+        <translation>Το τερματικό δεν μπόρεσε να συνδεθεί.</translation>
+    </message>
+    <message>
+        <source>The terminal&apos;s screen did not arrive in time.</source>
+        <translation>Η οθόνη του τερματικού δεν έφτασε εγκαίρως.</translation>
     </message>
 </context>
 <context>
