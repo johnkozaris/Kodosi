@@ -287,11 +287,7 @@ Item {
                                                         .selectedSessionId
                                             onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
                                             onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
-                                            onCanvasRequested: section => {
-                                                if (section.length > 0)
-                                                    Models.Canvas.show(cell.sessionId, section)
-                                                Models.DesktopState.openCanvas(cell.sessionId)
-                                            }
+                                            onCanvasRequested: section => Models.DesktopState.openCanvas(cell.sessionId, section)
                                         }
                                     }
                                 }

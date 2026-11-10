@@ -71,9 +71,15 @@ public:
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QStringList sections(const QString& sessionId) const;
+    // Whether the canvas of a terminal shows something on this device: a part that a person did
+    // not close here.
+    Q_INVOKABLE [[nodiscard]] bool showsSomething(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] QStringList closedSections(const QString& sessionId) const;
     Q_INVOKABLE void close(const QString& sessionId, const QString& section);
     Q_INVOKABLE void show(const QString& sessionId, const QString& section);
+    // Opens the canvas of a terminal at a part, or else at something: when a person closed all its
+    // parts on this device, the part with the newest change opens again.
+    Q_INVOKABLE void open(const QString& sessionId, const QString& section = {});
     Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
     Q_INVOKABLE void openBrowser(const QString& sessionId);
@@ -93,7 +99,8 @@ public:
     Q_INVOKABLE [[nodiscard]] QString pageAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pictureAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE void saveCopy(const QString& sessionId, const QString& key);
-    Q_INVOKABLE void attach(const QString& sessionId, const QUrl& file);
+    // Puts a file on the canvas of a terminal, and says whether it started to go up.
+    bool attach(const QString& sessionId, const QUrl& file);
     void giveFiles(const QString& sessionId, const QList<QUrl>& files);
     [[nodiscard]] std::optional<std::pair<QByteArray, QByteArray>> published(const QUrl& address) const;
     [[nodiscard]] std::optional<QByteArray> published(int number) const;

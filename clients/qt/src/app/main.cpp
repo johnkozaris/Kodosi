@@ -197,6 +197,7 @@ int main(int argc, char* argv[])
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::CanvasModel canvas(runtime, sessions);
     workspace.attachCanvas(canvas);
+    desktop.attachCanvas(&canvas);
     kodosi::CanvasDocuments documents(runtime, sessions);
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
@@ -263,11 +264,7 @@ int main(int argc, char* argv[])
         }
     });
     QObject::connect(&workspace, &kodosi::Workspace::hostReady, &launcher, [&] { launcher.refresh(true); });
-    QObject::connect(&files, &kodosi::DesktopFileIntegration::filesPicked, &canvas,
-        [&canvas](const QString& sessionId, const QList<QUrl>& picked) {
-            for (const auto& file : picked)
-                canvas.attach(sessionId, file);
-        });
+    QObject::connect(&files, &kodosi::DesktopFileIntegration::filesPicked, &workspace, &kodosi::Workspace::addFiles);
     QObject::connect(&files, &kodosi::DesktopFileIntegration::pageFilesPicked, &canvas, &kodosi::CanvasModel::giveFiles);
     QObject::connect(&canvas, &kodosi::CanvasModel::copyReady, &files, &kodosi::DesktopFileIntegration::saveCopy);
     QObject::connect(&canvas, &kodosi::CanvasModel::problem, &workspace, &kodosi::Workspace::setError);

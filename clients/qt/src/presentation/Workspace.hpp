@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QStringList>
+#include <QUrl>
 
 #include <optional>
 
@@ -46,6 +47,9 @@ public:
     void setError(QString error);
     // Opens the canvas of the terminal in front at what its agent showed, once for each show.
     void attachCanvas(CanvasModel& canvas);
+    // Puts files on the canvas of a terminal and opens the canvas at its files where the person
+    // is: in the room that shows the terminal, or else on the stage.
+    Q_INVOKABLE void addFiles(const QString& sessionId, const QList<QUrl>& files);
     // The terminal that the person looks at while its view shows: the one in single view, the
     // selected one on the stage or the only one there, or the one that a room shows.
     [[nodiscard]] QString frontSessionId() const;
@@ -96,6 +100,7 @@ private:
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();
+    void openCanvas(const QString& sessionId, const QString& section);
     void openShownCanvas();
     void askRestore();
     void receiveResult(const QString& type, const QJsonObject& event);

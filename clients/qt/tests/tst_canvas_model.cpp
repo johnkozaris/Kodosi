@@ -32,9 +32,9 @@ QJsonObject item(const QString& name, int changed, int revision = 1)
         { QStringLiteral("revision"), revision }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), changed } };
 }
 
-QJsonObject terminal(QJsonObject canvas)
+QJsonObject terminal(QJsonObject canvas, int value = 1)
 {
-    auto entry = test::session(1);
+    auto entry = test::session(value);
     if (!canvas.isEmpty())
         entry.insert(QStringLiteral("canvas"), canvas);
     return entry;
@@ -46,6 +46,12 @@ QJsonObject canvas(int sequence, QJsonArray items, QJsonObject browser = {})
     if (!browser.isEmpty())
         value.insert(QStringLiteral("browser"), browser);
     return value;
+}
+
+QJsonObject asleepBrowser(int changed)
+{
+    return { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), changed },
+        { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
 }
 
 QJsonObject answer(const Commands& commands, QJsonObject answer)
@@ -226,6 +232,25 @@ private slots:
         QVERIFY(!model.showsShelf(id));
     }
 
+    void aCanvasClosedOnThisDeviceOpensAgainOnlyAtItsNewestPart()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        const auto web = QStringLiteral("browser");
+        sessions.apply(test::snapshot({ terminal(canvas(5, { item(QStringLiteral("plan.md"), 3) }, asleepBrowser(5))) }));
+        model.close(id, QStringLiteral("files"));
+        model.open(id);
+        QCOMPARE(model.sections(id), QStringList { web });
+        model.close(id, web);
+        QVERIFY(!model.showsSomething(id));
+        QVERIFY(model.current(id).isEmpty());
+        model.open(id);
+        QCOMPARE(model.sections(id), QStringList { web });
+        QCOMPARE(model.current(id), web);
+    }
+
     void aPersonOpensTheBrowserAndSeesItWhenItComes()
     {
         Commands commands;
@@ -301,10 +326,13 @@ private slots:
     void oneCanvasOpensWithItsTerminalAloneAndHidesWithoutLeavingIt()
     {
         QTemporaryDir directory;
+        Commands commands;
         kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
         kodosi::DesktopStateModel desktop(
             std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
         desktop.attachSessionCatalog(&sessions);
+        desktop.attachCanvas(&model);
         const auto id = test::id(1);
         sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })) }));
         desktop.openCanvas(id);
@@ -330,10 +358,13 @@ private slots:
     void aCanvasThatComesLaterOpensOnlyWhenThePersonOpenedItBefore()
     {
         QTemporaryDir directory;
+        Commands commands;
         kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
         kodosi::DesktopStateModel desktop(
             std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
         desktop.attachSessionCatalog(&sessions);
+        desktop.attachCanvas(&model);
         const auto id = test::id(1);
         const auto empty = [&] { sessions.apply(test::snapshot({ terminal({}) })); };
         const auto comes = [&](int at) {
@@ -362,10 +393,13 @@ private slots:
     void aCanvasLeftOpenIsOpenAgainWhenThePersonComesBack()
     {
         QTemporaryDir directory;
+        Commands commands;
         kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
         kodosi::DesktopStateModel desktop(
             std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
         desktop.attachSessionCatalog(&sessions);
+        desktop.attachCanvas(&model);
         const auto shown = test::id(1);
         const auto plain = test::id(2);
         sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })), test::session(2) }));
@@ -384,6 +418,42 @@ private slots:
         QVERIFY(desktop.selectSession(plain));
         QVERIFY(desktop.selectSession(shown));
         QVERIFY(desktop.canvasSessionId().isEmpty());
+    }
+
+    void theStageShowsACanvasOnlyWithSomethingOpenOnThisDeviceAndOpensItAtItsNewestPart()
+    {
+        QTemporaryDir directory;
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        kodosi::DesktopStateModel desktop(
+            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
+        desktop.attachSessionCatalog(&sessions);
+        desktop.attachCanvas(&model);
+        const auto files = test::id(1);
+        const auto asleep = test::id(2);
+        const auto web = QStringLiteral("browser");
+        const auto onlyBrowser = terminal(canvas(1, {}, asleepBrowser(1)), 2);
+        sessions.apply(test::snapshot(
+            { terminal(canvas(2, { item(QStringLiteral("plan.md"), 1) }, asleepBrowser(2))), onlyBrowser }));
+        QVERIFY(desktop.selectSession(files));
+        QVERIFY(desktop.selectSession(asleep));
+        model.close(files, web);
+        model.close(asleep, web);
+        desktop.openCanvas(files);
+        QCOMPARE(desktop.canvasSessionId(), files);
+        QVERIFY(desktop.selectSession(asleep));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        desktop.openCanvas(asleep);
+        QCOMPARE(desktop.canvasSessionId(), asleep);
+        QCOMPARE(model.current(asleep), web);
+        desktop.openCanvas(files);
+        QCOMPARE(desktop.canvasSessionId(), files);
+        QCOMPARE(model.sections(files), QStringList { QStringLiteral("files") });
+        sessions.apply(test::snapshot({ terminal(canvas(3, {}, asleepBrowser(2))), onlyBrowser }));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        QCOMPARE(desktop.selectedSessionId(), files);
+        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
     }
 
     void aPersonAddsAFileInPartsAndTheCanvasShowsIt()

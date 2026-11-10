@@ -166,8 +166,7 @@ Item {
         anchors.fill: parent
         keys: ["text/uri-list"]
         onDropped: drop => {
-            for (const file of drop.urls)
-                Models.Canvas.attach(root.sessionId, file);
+            Models.AppState.addFiles(root.sessionId, drop.urls);
             drop.accept(Qt.CopyAction);
         }
     }
@@ -189,7 +188,7 @@ Item {
                 onPressed: section => Models.Canvas.show(root.sessionId, section)
                 onCloseRequested: section => {
                     Models.Canvas.close(root.sessionId, section);
-                    if (Models.Canvas.sections(root.sessionId).length === 0)
+                    if (!Models.Canvas.showsSomething(root.sessionId))
                         root.hide();
                 }
                 onOpenRequested: section => section === "browser" ? Models.Canvas.openBrowser(root.sessionId)

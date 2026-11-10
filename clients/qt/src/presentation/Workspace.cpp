@@ -151,15 +151,33 @@ QString Workspace::frontSessionId() const
     return m_sessions.visible().contains(front) ? front : QString {};
 }
 
+void Workspace::openCanvas(const QString& sessionId, const QString& section)
+{
+    if (m_desktop.activeView() == DesktopStateModel::Missions
+        && m_missions.presentation().value(QStringLiteral("terminal")).toString() == sessionId) {
+        m_canvas->open(sessionId, section);
+        m_missions.setPresentation(QStringLiteral("showsCanvas"), true);
+    } else {
+        m_desktop.openCanvas(sessionId, section);
+    }
+}
+
 void Workspace::openShownCanvas()
 {
     const auto id = frontSessionId();
-    if (id.isEmpty() || !m_canvas || !m_canvas->openShown(id))
+    if (!id.isEmpty() && m_canvas && m_canvas->openShown(id))
+        openCanvas(id, {});
+}
+
+void Workspace::addFiles(const QString& sessionId, const QList<QUrl>& files)
+{
+    if (!m_canvas)
         return;
-    if (m_desktop.activeView() == DesktopStateModel::Missions)
-        m_missions.setPresentation(QStringLiteral("showsCanvas"), true);
-    else
-        m_desktop.openCanvas(id);
+    bool sending = false;
+    for (const auto& file : files)
+        sending = m_canvas->attach(sessionId, file) || sending;
+    if (sending)
+        openCanvas(sessionId, QStringLiteral("files"));
 }
 
 void Workspace::clearError()

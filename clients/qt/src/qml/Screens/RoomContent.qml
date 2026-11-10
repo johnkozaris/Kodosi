@@ -544,7 +544,8 @@ Item {
                                 always: true
                                 radius: KodosiTheme.radiusXl
                                 tab: root.tabRect
-                                canvasSessionId: root.terminalShown && root.presentation.showsCanvas === true && !!shown.canvas ? root.shownTerminal : ""
+                                canvasSessionId: root.terminalShown && root.presentation.showsCanvas === true && !!shown.canvas
+                                    && Models.Canvas.revision >= 0 && Models.Canvas.showsSomething(root.shownTerminal) ? root.shownTerminal : ""
                                 wide: root.presentation.canvasWide === true
                                 chosenWidth: root.presentation.canvasWidth || 0
                                 onHideRequested: {
@@ -574,8 +575,7 @@ Item {
                                         onInspectSessionRequested: id => root.inspectSessionRequested(id)
                                         onShareSessionRequested: id => root.shareSessionRequested(id)
                                         onCanvasRequested: section => {
-                                            if (section.length > 0)
-                                                Models.Canvas.show(root.shownTerminal, section);
+                                            Models.Canvas.open(root.shownTerminal, section);
                                             Models.Missions.setPresentation("showsCanvas", true);
                                         }
                                         Component.onCompleted: Qt.callLater(forceTerminalFocus)

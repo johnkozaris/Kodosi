@@ -419,7 +419,7 @@ Item {
                                 objectName: root.objectName + ".browser"
                                 onTriggered: {
                                     Models.Canvas.openBrowser(root.sessionId);
-                                    root.canvasRequested("");
+                                    root.canvasRequested("browser");
                                 }
                             }
                             KMenuItem {
@@ -427,10 +427,7 @@ Item {
                                 iconName: "files"
                                 visible: root.session.canControl === true
                                 objectName: root.objectName + ".addFile"
-                                onTriggered: {
-                                    Models.DesktopFiles.requestFiles(root.sessionId);
-                                    root.canvasRequested("");
-                                }
+                                onTriggered: Models.DesktopFiles.requestFiles(root.sessionId)
                             }
                             KMenuItem {
                                 text: qsTr("Details")
