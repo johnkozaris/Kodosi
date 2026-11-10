@@ -241,7 +241,7 @@ impl TerminalMetadata {
 
 /// Hosts report folders in their own form: `/…` on macOS and Linux, and a drive
 /// (`C:\…`) or a share (`\\server\share`) on Windows. Viewers accept every form.
-pub(super) fn is_valid_folder(value: &str) -> bool {
+pub(crate) fn is_valid_folder(value: &str) -> bool {
     value.len() <= 4096
         && !value.chars().any(char::is_control)
         && (value.starts_with('/')

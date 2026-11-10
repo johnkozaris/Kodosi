@@ -224,6 +224,11 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "session.folders")]
+    ListSessionFolders {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "session.create")]
     CreateSession {
         #[serde(rename = "requestId")]
@@ -1051,6 +1056,8 @@ pub enum EventBody {
         session_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        folders: Option<Vec<SessionFolder>>,
     },
     #[serde(rename = "session.show")]
     SessionShow { session_id: String },
@@ -1391,6 +1398,19 @@ pub struct FolderList {
     pub recent: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SessionFolder {
+    pub session_id: String,
+    pub working_dir: String,
+}
+
+impl SessionFolder {
+    pub(crate) fn is_valid(&self) -> bool {
+        parse_id(&self.session_id).is_ok() && crate::terminal::is_valid_folder(&self.working_dir)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum GitHubState {
@@ -1703,6 +1723,7 @@ impl Command {
             Self::FriendInvite { .. } => "friends.invite",
             Self::ListSessions { .. } => "session.list",
             Self::RestoreSessions { .. } => "session.restore",
+            Self::ListSessionFolders { .. } => "session.folders",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
@@ -1797,6 +1818,7 @@ impl Command {
                 | Self::AddAgentAccount { .. }
                 | Self::ChooseAgent { .. }
                 | Self::ListFolders { .. }
+                | Self::ListSessionFolders { .. }
                 | Self::CreateSession { resume: None, .. }
         )
     }
@@ -1834,6 +1856,7 @@ impl Command {
             | Self::FriendInvite { request_id }
             | Self::ListSessions { request_id }
             | Self::RestoreSessions { request_id }
+            | Self::ListSessionFolders { request_id }
             | Self::CreateSession { request_id, .. }
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
@@ -2720,6 +2743,7 @@ mod tests {
             "friends.invite",
             "session.list",
             "session.restore",
+            "session.folders",
             "mission.list",
         ]
         .into_iter()
@@ -2825,7 +2849,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 69);
+        assert_eq!(kinds.len(), 70);
     }
 
     #[test]
