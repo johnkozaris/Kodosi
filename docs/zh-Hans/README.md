@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
-  <a href="#获取-kodosi"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon 上的 macOS 26.4 或更高版本"></a>
+  <a href="#获取-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon 上的 macOS 26 或更高版本"></a>
   <a href="#获取-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#获取-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="x64 上的 Windows 11 24H2 或更高版本"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iPhone 和 iPad 上的 iOS 26 或更高版本"></a>
@@ -68,7 +68,7 @@
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="下载 Windows 版 Kodosi"></a>
 </p>
 
-- **Mac**（Apple silicon，macOS 26.4 或更高版本）：打开磁盘映像，把 Kodosi 拖到“应用程序”，或运行 `brew install --cask johnkozaris/tap/kodosi`。应用会自动更新。
+- **Mac**（Apple silicon，macOS 26 或更高版本）：打开磁盘映像，把 Kodosi 拖到“应用程序”，或运行 `brew install --cask johnkozaris/tap/kodosi`。应用会自动更新。
 - **Linux**（x86-64，Ubuntu 24.04 或 Debian 13 或更高版本）：安装 Debian 软件包。它会添加 Kodosi 的 apt 仓库，所以系统更新时也会更新 Kodosi。[发布页](https://github.com/johnkozaris/Kodosi/releases/latest)还提供 Arch 软件包和便携压缩包。
 - **Windows**（x64，Windows 11 24H2 或更高版本）：第一次打开下载的文件前，请以管理员身份把 [Kodosi 证书](https://updates.kodosi.com/windows/Kodosi.cer)添加到“本地计算机 › 受信任人”。应用会自动更新。
 - **iPhone 和 iPad：**为你的 [iPhone 或 iPad](../../clients/ios/README.md) 构建 Kodosi。
