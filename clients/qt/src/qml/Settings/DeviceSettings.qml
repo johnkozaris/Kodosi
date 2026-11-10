@@ -82,7 +82,7 @@ ColumnLayout {
             Layout.fillWidth: true
             title: root.waiting ? qsTr("Type this code on a device that you use") : qsTr("Approve this computer")
             message: root.waiting ? qsTr("Choose Approve on that device.")
-                : root.resetWaits ? qsTr("This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.").arg(root.readyAt())
+                : root.resetWaits ? qsTr("This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.").arg(root.readyAt())
                 : qsTr("A device that you use must approve this computer one time.")
         }
         CodeKeys {
@@ -337,7 +337,7 @@ ColumnLayout {
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: qsTr("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.")
+            text: qsTr("It can then use all your terminals, projects and friends. Approve it only if you hold that device.")
             width: 380
             wrapMode: Text.WordWrap
         }
@@ -418,7 +418,7 @@ ColumnLayout {
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.")
+            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.")
             width: 380
             wrapMode: Text.WordWrap
         }

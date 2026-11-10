@@ -15,7 +15,7 @@ KDialog {
     signal shared(string roomId)
 
     function room(id) {
-        return (Models.Missions.missions.find(entry => entry.id === id) || {}).name || qsTr("the room")
+        return (Models.Missions.missions.find(entry => entry.id === id) || {}).name || qsTr("the project")
     }
     function ask(id, room) {
         const entry = Models.Sessions.presentationForSession(id)

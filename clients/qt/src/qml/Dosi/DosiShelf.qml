@@ -116,7 +116,7 @@ Item {
             count: root.shown(widths, width - 34)
             needs: hidden.some(room => root.unread(room))
             rooms: true
-            addName: qsTr("New room")
+            addName: qsTr("New project")
             addIdentifier: "dosi.marks.room.new"
             onAdd: root.newRoomRequested()
             chip: Component {
@@ -259,7 +259,7 @@ Item {
         activeFocusOnTab: true
         objectName: rooms ? "dosi.marks.room.more" : "dosi.marks.more"
         Accessible.id: objectName
-        Accessible.name: rooms ? qsTr("%n more rooms", "", values.length) : qsTr("%n more terminals", "", values.length)
+        Accessible.name: rooms ? qsTr("%n more projects", "", values.length) : qsTr("%n more terminals", "", values.length)
         ToolTip.visible: hovered && !open
         ToolTip.text: Accessible.name
         ToolTip.delay: Tip.delay

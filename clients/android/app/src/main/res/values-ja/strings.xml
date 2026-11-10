@@ -59,7 +59,7 @@
     <string name="sign_question">回答が必要</string>
     <string name="signing_in">サインイン中</string>
     <string name="start_fresh">新しく始める</string>
-    <string name="start_fresh_message">ほかのデバイスは、このスマートフォンから再び承認するまでアクセスできなくなります。フレンドにはあなたの ID を確認し直してもらい、ルームも作り直しになります。リカバリーキーがある場合は、キャンセルしてキーを使ってください。フレンドとルームをそのまま残せます。</string>
+    <string name="start_fresh_message">ほかのデバイスは、このスマートフォンから再び承認するまでアクセスできなくなります。フレンドにはあなたの ID を確認し直してもらい、プロジェクトも作り直しになります。リカバリーキーがある場合は、キャンセルしてキーを使ってください。フレンドとプロジェクトをそのまま残せます。</string>
     <string name="start_fresh_title">このスマートフォンで新しく始めますか？</string>
     <string name="starting_fresh">新しく始めています</string>
     <string name="storage_failed">Kodosi はストレージを準備できませんでした。</string>
@@ -73,12 +73,12 @@
     <string name="terminals">ターミナル</string>
     <string name="terminals_empty_message">コンピュータの Kodosi でターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。</string>
     <string name="terminals_empty_title">ターミナルは自分のコンピュータで動きます</string>
-    <string name="trust_message">Kodosi はターミナルとルームをエンドツーエンドで暗号化します。すでに信頼しているデバイスが、このスマートフォンにキーを渡します。</string>
+    <string name="trust_message">Kodosi はターミナルとプロジェクトをエンドツーエンドで暗号化します。すでに信頼しているデバイスが、このスマートフォンにキーを渡します。</string>
     <string name="trust_title">このスマートフォンを信頼</string>
     <string name="try_again">再試行</string>
     <string name="use_recovery_key">リカバリーキーを使う</string>
     <string name="waiting_for_approval">承認待ち</string>
     <string name="waiting_for_sign_in_page">サインインページを待っています</string>
-    <string name="welcome_message">エージェントの作業を確認して返答し、ルームで会話できます。ターミナルは各コンピュータで動き続けます。</string>
+    <string name="welcome_message">エージェントの作業を確認して返答し、プロジェクトで会話できます。ターミナルは各コンピュータで動き続けます。</string>
     <string name="welcome_title">ターミナルをいつでも手元に</string>
 </resources>

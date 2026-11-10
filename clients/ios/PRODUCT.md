@@ -4,9 +4,9 @@
 visual system.
 
 The app follows, answers and controls the terminals of your computers and of the
-friends who share with you, starts terminals on your computers, and takes part in rooms.
-Starting an agent in an open terminal, sharing a terminal with friends and reading
-provider conversations stay on the computer.
+friends who share with you, starts terminals on your computers, and takes part in
+projects. Starting an agent in an open terminal, sharing a terminal with friends and
+reading provider conversations stay on the computer.
 
 - Sign-in opens in a system sign-in window. You approve a new iPhone or iPad as you
   approve a computer: with a code that you enter on an approved device, with the recovery
@@ -19,7 +19,8 @@ provider conversations stay on the computer.
   of your computers where Kodosi runs: a shell, or one of that computer's agents with its
   account, model, effort, permissions, output and a first prompt, in a recent folder or a
   folder that you browse to. Touching and holding one of its folders starts it in that
-  folder. A room's terminals start one in the room. The terminal opens when it starts.
+  folder. A project's terminals start one in the project. The terminal opens when it
+  starts.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
   its cursor when the cursor is above them.
@@ -42,12 +43,12 @@ provider conversations stay on the computer.
   browser, its tabs are over the bar, taps and drags are clicks and scrolling, the address
   offers the pages that the shared browsers showed on this device, and the keyboard key
   types into it.
-- Rooms show the conversation, tasks and terminals, side by side on a wide iPad, and the
-  Rooms tab counts invitations and rooms with new messages. Friends lists requests first,
-  then friends and their terminals. Settings holds the account, devices, recovery key,
-  appearance, the size of terminal text on this device, whether the screen stays on while
-  a terminal is open, the document viewers, notifications, the lock, the language,
-  licenses and account deletion.
+- Projects show the conversation, tasks and terminals, side by side on a wide iPad, and
+  the Projects tab counts invitations and projects with new messages. Friends lists
+  requests first, then friends and their terminals. Settings holds the account, devices,
+  recovery key, appearance, the size of terminal text on this device, whether the screen
+  stays on while a terminal is open, the document viewers, notifications, the lock,
+  the language, licenses and account deletion.
 - The Dosi tab holds the conversation with Dosi. Above the composer, you choose the
   computer that answers: one that runs Kodosi, or the one that answered last, also while it
   is offline. Without either, the tab asks you to open Kodosi on a computer. The stop key

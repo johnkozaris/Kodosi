@@ -8,8 +8,8 @@ struct MissionsView: View {
     var body: some View {
         if !deps.account.isReady {
             SignInView(
-                title: "Rooms are for working together",
-                message: "Share terminals, talk, and hand off tasks with people and agents.",
+                title: "Work in projects",
+                message: "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.",
             )
         } else if let roomId = deps.workbench.selectedMissionId {
             Group {
@@ -37,8 +37,8 @@ struct RoomsLobby: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                PageHeader(title: "Rooms", facts: facts) {
-                    Button { deps.workbench.showsNewRoom = true } label: { Label("New room", systemImage: "plus") }
+                PageHeader(title: "Projects", facts: facts) {
+                    Button { deps.workbench.showsNewRoom = true } label: { Label("New project", systemImage: "plus") }
                         .buttonStyle(.kodosi(.primary)).accessibilityIdentifier("missions.create.lobby")
                 }.arrive()
                 if !deps.rooms.invitations.isEmpty {
@@ -66,7 +66,7 @@ struct RoomsLobby: View {
                         DashedSlot(radius: Radius.xl) {
                             VStack(spacing: 10) {
                                 Image(systemName: "plus").font(.system(size: 18, weight: .semibold))
-                                Text(deps.rooms.missions.isEmpty ? "Make your first room" : "New room").appTextStyle(.subhead)
+                                Text(deps.rooms.missions.isEmpty ? "Make your first project" : "New project").appTextStyle(.subhead)
                             }
                             .foregroundStyle(theme.colors.inkMuted)
                             .frame(maxWidth: .infinity).frame(height: 132)
@@ -82,7 +82,7 @@ struct RoomsLobby: View {
     }
 
     private var facts: String? {
-        guard !deps.rooms.missions.isEmpty else { return String(localized: "A room keeps people, agents and terminals in one place.") }
+        guard !deps.rooms.missions.isEmpty else { return String(localized: "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.") }
         let shared = deps.sessions.count { $0.missionId != nil && $0.status != .closing }
         return "\(Counted.rooms(deps.rooms.missions.count)) · " + String(localized: "\(shared) shared terminals")
     }
@@ -105,8 +105,8 @@ struct NewRoomSheet: View {
             RoomSigil(key: name.isEmpty ? "new" : name, size: 64)
                 .animation(theme.motion.spring, value: name)
             VStack(spacing: 6) {
-                Text("Name your room").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                Text("Invite friends after. Your terminals in the room go to your friends.")
+                Text("Name your project").appTextStyle(.title).foregroundStyle(theme.colors.ink)
+                Text("Invite friends after. Your terminals in the project go to your friends.")
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).multilineTextAlignment(.center)
             }
             TextField("Launch week", text: $name)
@@ -118,7 +118,7 @@ struct NewRoomSheet: View {
             HStack(spacing: 8) {
                 Button("Cancel") { deps.workbench.showsNewRoom = false }.keyboardShortcut(.cancelAction).buttonStyle(.kodosi(.ghost, size: .large))
                 Button(action: create) {
-                    Text(creating ? "Making…" : "Make room").frame(maxWidth: .infinity).shimmer(creating)
+                    Text(creating ? "Making…" : "Make project").frame(maxWidth: .infinity).shimmer(creating)
                 }
                 .buttonStyle(.kodosi(.primary, size: .large)).disabled(creating || !valid)
                 .accessibilityIdentifier("missions.create.confirm")

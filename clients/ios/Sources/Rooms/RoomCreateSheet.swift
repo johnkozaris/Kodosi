@@ -29,9 +29,9 @@ struct RoomCreateSheet: View {
                             .focused($focused)
                             .submitLabel(.done)
                             .onSubmit(create)
-                            .accessibilityLabel(Text("Room name"))
+                            .accessibilityLabel(Text("Project name"))
                             .accessibilityIdentifier("rooms.create.name")
-                        Text("Everyone in the room shares its conversation. Your terminals in it go to your friends.")
+                        Text("Everyone in the project shares its conversation. Your terminals in it go to your friends.")
                             .appTextStyle(.caption).fontWeight(.regular)
                             .foregroundStyle(theme.colors.inkFaint)
                             .multilineTextAlignment(.center)
@@ -46,7 +46,7 @@ struct RoomCreateSheet: View {
                 .frame(maxWidth: .infinity)
             }
             .background(theme.colors.surface)
-            .navigationTitle("New room")
+            .navigationTitle("New project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -58,7 +58,7 @@ struct RoomCreateSheet: View {
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: create) {
-                        Text(creating ? "Making…" : "Make room").shimmer(creating)
+                        Text(creating ? "Making…" : "Make project").shimmer(creating)
                     }
                     .buttonStyle(.kodosi(.primary, size: .small))
                     .fixedSize()

@@ -140,7 +140,7 @@ struct SidebarView: View {
 
     private var rooms: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SidebarSectionHeader(title: "Rooms", addTitle: "New room", identifier: "missions.create") {
+            SidebarSectionHeader(title: "Projects", addTitle: "New project", identifier: "missions.create") {
                 deps.showRooms()
             } add: {
                 if deps.account.isReady {
@@ -171,9 +171,9 @@ struct SidebarView: View {
                     .transition(AnyTransition.rise)
             }
             if deps.rooms.listTruncated {
-                Text("More rooms exist. Use Go to… to find them.").appTextStyle(.caption)
+                Text("More projects exist. Use Go to… to find them.").appTextStyle(.caption)
                     .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 10).padding(.top, 2)
-                    .accessibilityLabel(Text("Some rooms are not shown"))
+                    .accessibilityLabel(Text("Some projects are not shown"))
             }
         }
     }

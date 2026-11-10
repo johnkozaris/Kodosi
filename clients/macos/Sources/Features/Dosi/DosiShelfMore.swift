@@ -164,7 +164,7 @@ struct DosiMoreRooms: View {
     var body: some View {
         DosiMoreChip(
             count: missions.count, needs: missions.contains(where: \.unread), selected: missions.contains { selected($0) },
-            label: Text("\(missions.count) more rooms"), identifier: "dosi.marks.room.more", glints: glints, glintDelay: glintDelay,
+            label: Text("\(missions.count) more projects"), identifier: "dosi.marks.room.more", glints: glints, glintDelay: glintDelay,
         ) {
             DosiMoreList(count: missions.count) {
                 ForEach(Array(missions.enumerated()), id: \.element.id) { index, mission in

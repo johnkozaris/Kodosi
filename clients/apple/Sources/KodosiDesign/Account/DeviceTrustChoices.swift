@@ -52,9 +52,9 @@ public struct DeviceTrustChoices: View {
             } message: {
                 Text("""
                 Your other devices lose access until you approve them again from this \(device). \
-                Friends confirm your identity again, and you make your rooms again. \
+                Friends confirm your identity again, and you make your projects again. \
                 When your account has devices, this \(device) waits a day. \
-                If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.
+                If you have another device or a recovery key, cancel and use it: you keep your friends and projects.
                 """, bundle: .module)
             }
     }
@@ -111,7 +111,7 @@ public struct DeviceTrustChoices: View {
                 Text("""
                 This \(device) can start fresh after \(readyAt, format: .dateTime.weekday(.wide).hour().minute()). \
                 Until then, your other devices can stop it. \
-                If you still have one of them, approve this device with it instead, and keep your friends and rooms.
+                If you still have one of them, approve this device with it instead, and keep your friends and projects.
                 """, bundle: .module)
                     .appTextStyle(.callout)
                     .foregroundStyle(theme.colors.inkMuted)

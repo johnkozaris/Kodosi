@@ -9,7 +9,7 @@ extension AppDependencies {
     func askToShare(_ id: String, with roomId: String) -> Bool {
         guard let target = session(id), target.missionId != roomId else { return false }
         guard target.isOwner else {
-            errorMessage = String(localized: "Only the owner of \(target.name) can share it with a room.")
+            errorMessage = String(localized: "Only the owner of \(target.name) can share it with a project.")
             return false
         }
         workbench.roomShare = RoomShare(sessionId: id, roomId: roomId)

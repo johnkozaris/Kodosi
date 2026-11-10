@@ -599,8 +599,8 @@
         <translation>ターミナル</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>ルーム</translation>
+        <source>Projects</source>
+        <translation>プロジェクト</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -623,16 +623,16 @@
         <translation>会話を再開</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新しいルーム</translation>
+        <source>New project</source>
+        <translation>新しいプロジェクト</translation>
     </message>
     <message>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
     <message>
-        <source>Go to a terminal, a room or a person</source>
-        <translation>ターミナル、ルーム、人に移動</translation>
+        <source>Go to a terminal, a project or a person</source>
+        <translation>ターミナル、プロジェクト、人に移動</translation>
     </message>
     <message>
         <source>Nothing matches.</source>
@@ -733,8 +733,8 @@
         <translation>止める</translation>
     </message>
     <message>
-        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
-        <translation>このコンピュータは %1 以降に新しく始められます。それまでは、ほかのデバイスで止めることができます。ほかのデバイスがまだ手元にある場合は、代わりにそのデバイスでこのコンピュータを承認してください。フレンドとルームをそのまま残せます。</translation>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.</source>
+        <translation>このコンピュータは %1 以降に新しく始められます。それまでは、ほかのデバイスで止めることができます。ほかのデバイスがまだ手元にある場合は、代わりにそのデバイスでこのコンピュータを承認してください。フレンドとプロジェクトをそのまま残せます。</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -793,8 +793,8 @@
         <translation>%1 を承認しますか？</translation>
     </message>
     <message>
-        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
-        <translation>承認すると、そのデバイスはあなたのすべてのターミナル、ルーム、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。</translation>
+        <source>It can then use all your terminals, projects and friends. Approve it only if you hold that device.</source>
+        <translation>承認すると、そのデバイスはあなたのすべてのターミナル、プロジェクト、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。</translation>
     </message>
     <message>
         <source>Make a new recovery key?</source>
@@ -837,8 +837,8 @@
         <translation>新しく始める</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、ルームも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとルームをそのまま残せます。</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
+        <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、プロジェクトも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとプロジェクトをそのまま残せます。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1116,13 +1116,13 @@
         <translation>新しいターミナル</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新しいルーム</translation>
+        <source>New project</source>
+        <translation>新しいプロジェクト</translation>
     </message>
     <message numerus="yes">
-        <source>%n more rooms</source>
+        <source>%n more projects</source>
         <translation>
-            <numerusform>ほか %n 件のルーム</numerusform>
+            <numerusform>ほか %n 件のプロジェクト</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -1210,8 +1210,8 @@
         <translation>対応が必要なものは？</translation>
     </message>
     <message>
-        <source>Sum up my rooms</source>
-        <translation>ルームの状況をまとめて</translation>
+        <source>Sum up my projects</source>
+        <translation>プロジェクトの状況をまとめて</translation>
     </message>
     <message>
         <source>Tell me when my terminals finish</source>
@@ -1565,8 +1565,8 @@
         <translation>すべてのターミナル</translation>
     </message>
     <message>
-        <source>the rooms</source>
-        <translation>すべてのルーム</translation>
+        <source>the projects</source>
+        <translation>すべてのプロジェクト</translation>
     </message>
     <message>
         <source>working on</source>
@@ -1858,12 +1858,12 @@
         <translation>アカウントを削除</translation>
     </message>
     <message>
-        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi はデバイス、フレンド、共有を削除します。ほかのルームに書いた内容はそのまま残ります。</translation>
+        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.</source>
+        <translation>Kodosi はデバイス、フレンド、共有を削除します。ほかのプロジェクトに書いた内容はそのまま残ります。</translation>
     </message>
     <message>
-        <source>These rooms close for everyone in them: %1.</source>
-        <translation>次のルームは全員に対して閉じられます：%1。</translation>
+        <source>These projects close for everyone in them: %1.</source>
+        <translation>次のプロジェクトは全員に対して閉じられます：%1。</translation>
     </message>
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
@@ -1877,8 +1877,8 @@
         <translation>会話を再開</translation>
     </message>
     <message>
-        <source>All projects</source>
-        <translation>すべてのプロジェクト</translation>
+        <source>All folders</source>
+        <translation>すべてのフォルダ</translation>
     </message>
     <message>
         <source>Close</source>
@@ -1901,8 +1901,8 @@
         <translation>再開する前に、ここで内容を確認できます。</translation>
     </message>
     <message>
-        <source>Choose another project, or switch the agent.</source>
-        <translation>別のプロジェクトを選ぶか、エージェントを切り替えてください。</translation>
+        <source>Choose another folder, or switch the agent.</source>
+        <translation>別のフォルダを選ぶか、エージェントを切り替えてください。</translation>
     </message>
     <message>
         <source>Show less</source>
@@ -2110,12 +2110,12 @@
 <context>
     <name>MissionsView</name>
     <message>
-        <source>Rooms are for working together</source>
-        <translation>ルームでいっしょに作業できます</translation>
+        <source>Work in projects</source>
+        <translation>プロジェクトで作業</translation>
     </message>
     <message>
-        <source>Share terminals, talk, and hand off tasks with people and agents.</source>
-        <translation>ターミナルを共有し、話し合い、人やエージェントにタスクを任せられます。</translation>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>プロジェクトは、どのフォルダやコンピュータのターミナルも、タスクやリポジトリと一緒にまとめます。フレンドはいつでも招待できます。</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -2126,17 +2126,13 @@
         <translation>このデバイスを承認</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>ルーム</translation>
-    </message>
-    <message>
-        <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>ルームでは、人、エージェント、ターミナルをひとつにまとめられます。</translation>
+        <source>Projects</source>
+        <translation>プロジェクト</translation>
     </message>
     <message numerus="yes">
-        <source>%n rooms</source>
+        <source>%n projects</source>
         <translation>
-            <numerusform>ルーム %n 件</numerusform>
+            <numerusform>プロジェクト %n 件</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -2146,16 +2142,16 @@
         </translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新しいルーム</translation>
+        <source>New project</source>
+        <translation>新しいプロジェクト</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>ほかにもルームがあります。「移動…」で探せます。</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>ほかにもプロジェクトがあります。「移動…」で探せます。</translation>
     </message>
     <message>
-        <source>Some rooms are not shown</source>
-        <translation>一部のルームは表示されていません</translation>
+        <source>Some projects are not shown</source>
+        <translation>一部のプロジェクトは表示されていません</translation>
     </message>
     <message>
         <source>%1 invited you</source>
@@ -2200,20 +2196,20 @@
         </translation>
     </message>
     <message>
-        <source>Make your first room</source>
-        <translation>最初のルームを作成</translation>
+        <source>Make your first project</source>
+        <translation>最初のプロジェクトを作成</translation>
     </message>
     <message>
-        <source>Room name</source>
-        <translation>ルーム名</translation>
+        <source>Project name</source>
+        <translation>プロジェクト名</translation>
     </message>
     <message>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <source>Create room</source>
-        <translation>ルームを作成</translation>
+        <source>Create project</source>
+        <translation>プロジェクトを作成</translation>
     </message>
 </context>
 <context>
@@ -2383,8 +2379,8 @@
         <translation>ブロック</translation>
     </message>
     <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
-        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。</translation>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2395,8 +2391,8 @@
         <translation>削除</translation>
     </message>
     <message>
-        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
-        <translation>お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。</translation>
     </message>
 </context>
 <context>
@@ -2499,8 +2495,8 @@
 <context>
     <name>RoomContent</name>
     <message>
-        <source>Room name</source>
-        <translation>ルーム名</translation>
+        <source>Project name</source>
+        <translation>プロジェクト名</translation>
     </message>
     <message numerus="yes">
         <source>%n people</source>
@@ -2527,16 +2523,16 @@
         <translation>リポジトリ</translation>
     </message>
     <message>
-        <source>Room action failed</source>
-        <translation>ルームの操作に失敗しました</translation>
+        <source>Project action failed</source>
+        <translation>プロジェクトの操作に失敗しました</translation>
     </message>
     <message>
-        <source>Room members</source>
-        <translation>ルームのメンバー</translation>
+        <source>Project members</source>
+        <translation>プロジェクトのメンバー</translation>
     </message>
     <message>
-        <source>In this room</source>
-        <translation>このルーム内</translation>
+        <source>In this project</source>
+        <translation>このプロジェクト内</translation>
     </message>
     <message>
         <source>%1 (you)</source>
@@ -2547,8 +2543,8 @@
         <translation>オーナー</translation>
     </message>
     <message>
-        <source>Remove %1 from the room</source>
-        <translation>%1 をルームから削除</translation>
+        <source>Remove %1 from the project</source>
+        <translation>%1 をプロジェクトから削除</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2573,8 +2569,8 @@
         </translation>
     </message>
     <message>
-        <source>Room options</source>
-        <translation>ルームのオプション</translation>
+        <source>Project options</source>
+        <translation>プロジェクトのオプション</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -2589,12 +2585,12 @@
         <translation>更新</translation>
     </message>
     <message>
-        <source>Delete room…</source>
-        <translation>ルームを削除…</translation>
+        <source>Delete project…</source>
+        <translation>プロジェクトを削除…</translation>
     </message>
     <message>
-        <source>Leave room…</source>
-        <translation>ルームから退出…</translation>
+        <source>Leave project…</source>
+        <translation>プロジェクトから退出…</translation>
     </message>
     <message>
         <source>Share with %1</source>
@@ -2625,16 +2621,16 @@
         <translation>ここにはまだターミナルがありません</translation>
     </message>
     <message>
-        <source>Add one. Your friends in the room get full control.</source>
-        <translation>追加しましょう。ルームにいるフレンドがフル操作できます。</translation>
+        <source>Add one. Your friends in the project get full control.</source>
+        <translation>追加しましょう。プロジェクトにいるフレンドがフル操作できます。</translation>
     </message>
     <message>
         <source>Open a terminal</source>
         <translation>ターミナルを開く</translation>
     </message>
     <message>
-        <source>The room did not load</source>
-        <translation>ルームを読み込めませんでした</translation>
+        <source>The project did not load</source>
+        <translation>プロジェクトを読み込めませんでした</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2645,8 +2641,8 @@
         <translation>会話のサイズを変更</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>ルームから削除</translation>
+        <source>Remove from project</source>
+        <translation>プロジェクトから削除</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2670,7 +2666,7 @@
     </message>
     <message>
         <source>You lose its terminals, conversation and tasks.</source>
-        <translation>そのルームのターミナル、会話、タスクにアクセスできなくなります。</translation>
+        <translation>そのプロジェクトのターミナル、会話、タスクにアクセスできなくなります。</translation>
     </message>
 </context>
 <context>
@@ -2774,8 +2770,8 @@
         <translation>人やターミナルをメンション</translation>
     </message>
     <message>
-        <source>Message the room</source>
-        <translation>ルームにメッセージ</translation>
+        <source>Message the project</source>
+        <translation>プロジェクトにメッセージ</translation>
     </message>
     <message>
         <source>Send message</source>
@@ -2824,8 +2820,8 @@
 <context>
     <name>RoomShareDialog</name>
     <message>
-        <source>the room</source>
-        <translation>ルーム</translation>
+        <source>the project</source>
+        <translation>プロジェクト</translation>
     </message>
     <message>
         <source>Share %1 with %2?</source>
@@ -3107,8 +3103,8 @@
         <translation>サインイン</translation>
     </message>
     <message>
-        <source>A room</source>
-        <translation>ルーム</translation>
+        <source>A project</source>
+        <translation>プロジェクト</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -3138,8 +3134,8 @@
         <translation>承認が必要</translation>
     </message>
     <message>
-        <source>Rooms and terminals</source>
-        <translation>ルームとターミナル</translation>
+        <source>Projects and terminals</source>
+        <translation>プロジェクトとターミナル</translation>
     </message>
     <message>
         <source>Show sidebar</source>
@@ -3154,8 +3150,8 @@
         <translation>新しいターミナル（%1）</translation>
     </message>
     <message>
-        <source>Back to terminals and rooms</source>
-        <translation>ターミナルとルームに戻る</translation>
+        <source>Back to terminals and projects</source>
+        <translation>ターミナルとプロジェクトに戻る</translation>
     </message>
     <message>
         <source>Grid view</source>
@@ -3178,12 +3174,12 @@
         <translation>サイドバーを非表示</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>ルーム</translation>
+        <source>Projects</source>
+        <translation>プロジェクト</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新しいルーム</translation>
+        <source>New project</source>
+        <translation>新しいプロジェクト</translation>
     </message>
     <message>
         <source>Approve this device to work together</source>
@@ -3210,8 +3206,8 @@
         <translation>新着メッセージ</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>ほかにもルームがあります。「移動…」で探せます。</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>ほかにもプロジェクトがあります。「移動…」で探せます。</translation>
     </message>
     <message>
         <source>Terminals</source>
@@ -3662,8 +3658,8 @@
         <translation>詳細</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>ルームから削除</translation>
+        <source>Remove from project</source>
+        <translation>プロジェクトから削除</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -3953,8 +3949,8 @@
 <context>
     <name>kodosi::ConversationHistoryModel</name>
     <message>
-        <source>Choose a conversation from this project.</source>
-        <translation>このプロジェクトの会話を選んでください。</translation>
+        <source>Choose a conversation from this folder.</source>
+        <translation>このフォルダの会話を選んでください。</translation>
     </message>
     <message>
         <source>The provider returned an unexpected response.</source>
@@ -3965,8 +3961,8 @@
         <translation>会話リストが表示上限に達しました。</translation>
     </message>
     <message>
-        <source>A conversation did not match this project.</source>
-        <translation>この会話はこのプロジェクトのものではありません。</translation>
+        <source>A conversation did not match this folder.</source>
+        <translation>この会話はこのフォルダのものではありません。</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -3980,8 +3976,8 @@
         <translation>フォルダの選択画面はすでに開いています。</translation>
     </message>
     <message>
-        <source>Choose a project folder</source>
-        <translation>プロジェクトフォルダを選択</translation>
+        <source>Choose a folder</source>
+        <translation>フォルダを選択</translation>
     </message>
     <message>
         <source>Choose a readable local folder.</source>

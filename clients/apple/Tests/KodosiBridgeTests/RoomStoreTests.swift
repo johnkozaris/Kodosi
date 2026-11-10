@@ -244,9 +244,9 @@ struct RoomStoreTests {
         state.message = "Hello"
         let posting = Task { await rooms.post(in: "room-1") }
         let command = try await log.next("room.command")
-        try reply(to: command, "room.error", ["operation": "room.command", "message": "Room text is empty or too long."])
+        try reply(to: command, "room.error", ["operation": "room.command", "message": "The text is empty or too long."])
         await posting.value
-        #expect(state.failure == "Room text is empty or too long.")
+        #expect(state.failure == "The text is empty or too long.")
         #expect(state.message == "Hello")
         #expect(state.sent == 0)
     }

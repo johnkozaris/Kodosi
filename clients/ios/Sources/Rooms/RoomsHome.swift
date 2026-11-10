@@ -38,15 +38,15 @@ struct RoomsHome: View {
                 NothingMatches()
             }
         }
-        .navigationTitle("Rooms")
+        .navigationTitle("Projects")
         .pageFacts(facts)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                IconButton(title: "New room", symbol: "plus", identifier: "rooms.new", size: 32) { showsNewRoom = true }
+                IconButton(title: "New project", symbol: "plus", identifier: "rooms.new", size: 32) { showsNewRoom = true }
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .searchable(text: $query, prompt: Text("Find a room"))
+        .searchable(text: $query, prompt: Text("Find a project"))
         .refreshable { await rooms.refreshList() }
         .task(id: rooms.missions.map(\.id)) { await rooms.prefetchDetails() }
         .animation(theme.motion.spring, value: rooms.missions.map(\.id))
@@ -58,10 +58,10 @@ struct RoomsHome: View {
             confirmationTitle, isPresented: confirmationShown, titleVisibility: .visible, presenting: confirming,
         ) { mission in
             if rooms.isOwner(of: mission.id) {
-                Button("Delete room", role: .destructive) { rooms.run { try await rooms.delete(mission.id) } }
+                Button("Delete project", role: .destructive) { rooms.run { try await rooms.delete(mission.id) } }
                     .accessibilityIdentifier("rooms.delete.confirm")
             } else {
-                Button("Leave room", role: .destructive) { rooms.run { try await rooms.leave(mission.id) } }
+                Button("Leave project", role: .destructive) { rooms.run { try await rooms.leave(mission.id) } }
                     .accessibilityIdentifier("rooms.leave.confirm")
             }
         } message: { mission in
@@ -96,7 +96,7 @@ struct RoomsHome: View {
                 DashedSlot(radius: Radius.xl) {
                     HStack(spacing: 10) {
                         Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
-                        Text("New room").appTextStyle(.subhead)
+                        Text("New project").appTextStyle(.subhead)
                     }
                     .foregroundStyle(theme.colors.inkMuted)
                     .padding(.vertical, 10)
@@ -108,7 +108,7 @@ struct RoomsHome: View {
             .cardRow(top: 6, bottom: 6)
         }
         if rooms.listTruncated {
-            Text("Some rooms are not shown.")
+            Text("Some projects are not shown.")
                 .appTextStyle(.caption).fontWeight(.regular)
                 .foregroundStyle(theme.colors.inkFaint)
                 .cardRow()
@@ -135,9 +135,9 @@ struct RoomsHome: View {
                 }
                 Button(role: .destructive) { confirming = mission } label: {
                     if owner {
-                        Label("Delete room…", systemImage: "trash")
+                        Label("Delete project…", systemImage: "trash")
                     } else {
-                        Label("Leave room…", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label("Leave project…", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
@@ -150,10 +150,10 @@ struct RoomsHome: View {
             RoomListSkeleton()
                 .cardRow()
         } else if query.isEmpty, rooms.missions.isEmpty, rooms.invitations.isEmpty {
-            EmptyState(title: "Make your first room", message: "A room keeps people, agents and terminals in one place.") {
+            EmptyState(title: "Make your first project", message: "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.") {
                 RoomSigil(key: "kodosi", size: 64)
             } actions: {
-                Button { showsNewRoom = true } label: { Label("New room", systemImage: "plus") }
+                Button { showsNewRoom = true } label: { Label("New project", systemImage: "plus") }
                     .buttonStyle(.kodosi(.primary))
                     .accessibilityIdentifier("rooms.empty.new")
             }

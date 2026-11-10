@@ -585,7 +585,7 @@
         }
       }
     },
-    "%lld rooms" : {
+    "%lld projects" : {
       "localizations" : {
         "de" : {
           "variations" : {
@@ -593,13 +593,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld Raum"
+                  "value" : "%lld Projekt"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld Räume"
+                  "value" : "%lld Projekte"
                 }
               }
             }
@@ -611,13 +611,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld δωμάτιο"
+                  "value" : "%lld έργο"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld δωμάτια"
+                  "value" : "%lld έργα"
                 }
               }
             }
@@ -629,13 +629,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld room"
+                  "value" : "%lld project"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld rooms"
+                  "value" : "%lld projects"
                 }
               }
             }
@@ -647,13 +647,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld sala"
+                  "value" : "%lld proyecto"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld salas"
+                  "value" : "%lld proyectos"
                 }
               }
             }
@@ -665,13 +665,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld salon"
+                  "value" : "%lld projet"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld salons"
+                  "value" : "%lld projets"
                 }
               }
             }
@@ -683,13 +683,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld stanza"
+                  "value" : "%lld progetto"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld stanze"
+                  "value" : "%lld progetti"
                 }
               }
             }
@@ -698,19 +698,19 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルーム %lld 件"
+            "value" : "プロジェクト %lld 件"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 %lld개"
+            "value" : "프로젝트 %lld개"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld 个房间"
+            "value" : "%lld 个项目"
           }
         }
       }
@@ -1475,54 +1475,54 @@
         }
       }
     },
-    "Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there." : {
+    "Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi löscht deine Geräte und Freunde und beendet das Teilen. Was du in anderen Räumen geschrieben hast, bleibt dort."
+            "value" : "Kodosi löscht deine Geräte und Freunde und beendet das Teilen. Was du in anderen Projekten geschrieben hast, bleibt dort."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi διαγράφει τις συσκευές και τους φίλους σας και σταματά ό,τι μοιράζεστε. Ό,τι γράψατε σε άλλα δωμάτια μένει εκεί."
+            "value" : "Το Kodosi διαγράφει τις συσκευές και τους φίλους σας και σταματά ό,τι μοιράζεστε. Ό,τι γράψατε σε άλλα έργα μένει εκεί."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otras salas se queda allí."
+            "value" : "Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otros proyectos se queda allí."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi supprime vos appareils, vos amis et vos partages. Ce que vous avez écrit dans d'autres salons y reste."
+            "value" : "Kodosi supprime vos appareils, vos amis et vos partages. Ce que vous avez écrit dans d'autres projets y reste."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi elimina i tuoi dispositivi, gli amici e le condivisioni. Quello che hai scritto in altre stanze resta lì."
+            "value" : "Kodosi elimina i tuoi dispositivi, gli amici e le condivisioni. Quello che hai scritto in altri progetti resta lì."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi はデバイス、フレンド、共有を削除します。ほかのルームに書いた内容はそのまま残ります。"
+            "value" : "Kodosi はデバイス、フレンド、共有を削除します。ほかのプロジェクトに書いた内容はそのまま残ります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi가 내 기기, 친구, 공유를 삭제해요. 다른 방에 쓴 글은 그대로 남아요."
+            "value" : "Kodosi가 내 기기, 친구, 공유를 삭제해요. 다른 프로젝트에 쓴 글은 그대로 남아요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 会删除你的设备和好友，并停止所有共享。你在其他房间写的内容会保留。"
+            "value" : "Kodosi 会删除你的设备和好友，并停止所有共享。你在其他项目中写的内容会保留。"
           }
         }
       }
@@ -2515,54 +2515,54 @@
         }
       }
     },
-    "Some invitations did not go out. Invite them again from the room." : {
+    "Some invitations did not go out. Invite them again from the project." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Einige Einladungen wurden nicht verschickt. Lade die Personen im Raum erneut ein."
+            "value" : "Einige Einladungen wurden nicht verschickt. Lade die Personen im Projekt erneut ein."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ορισμένες προσκλήσεις δεν στάλθηκαν. Προσκαλέστε τους ξανά από το δωμάτιο."
+            "value" : "Ορισμένες προσκλήσεις δεν στάλθηκαν. Προσκαλέστε τους ξανά από το έργο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Algunas invitaciones no se han enviado. Vuelve a invitarlos desde la sala."
+            "value" : "Algunas invitaciones no se han enviado. Vuelve a invitarlos desde el proyecto."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Certaines invitations n'ont pas été envoyées. Invitez-les à nouveau depuis le salon."
+            "value" : "Certaines invitations n'ont pas été envoyées. Invitez-les à nouveau depuis le projet."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alcuni inviti non sono partiti. Invitali di nuovo dalla stanza."
+            "value" : "Alcuni inviti non sono partiti. Invitali di nuovo dal progetto."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一部の招待が送信されませんでした。ルームからもう一度招待してください。"
+            "value" : "一部の招待が送信されませんでした。プロジェクトからもう一度招待してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일부 초대가 전송되지 않았어요. 방에서 다시 초대하세요."
+            "value" : "일부 초대가 전송되지 않았어요. 프로젝트에서 다시 초대하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "部分邀请未发出。请从房间重新邀请。"
+            "value" : "部分邀请未发出。请从项目中重新邀请。"
           }
         }
       }
@@ -2983,54 +2983,54 @@
         }
       }
     },
-    "These rooms close for everyone in them: %@." : {
+    "These projects close for everyone in them: %@." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Räume werden für alle darin geschlossen: %@."
+            "value" : "Diese Projekte werden für alle darin geschlossen: %@."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αυτά τα δωμάτια κλείνουν για όλους όσους είναι μέσα: %@."
+            "value" : "Αυτά τα έργα κλείνουν για όλους όσους είναι μέσα: %@."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Estas salas se cierran para todos sus miembros: %@."
+            "value" : "Estos proyectos se cierran para todos sus miembros: %@."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ces salons se ferment pour tous leurs membres : %@."
+            "value" : "Ces projets se ferment pour tous leurs membres : %@."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Queste stanze si chiudono per tutti i loro membri: %@."
+            "value" : "Questi progetti si chiudono per tutti i loro membri: %@."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "次のルームは全員に対して閉じられます：%@。"
+            "value" : "次のプロジェクトは全員に対して閉じられます：%@。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다음 방은 모든 참여자에게 닫혀요: %@."
+            "value" : "다음 프로젝트는 모든 참여자에게 닫혀요: %@."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这些房间将对其中所有人关闭：%@。"
+            "value" : "这些项目将对其中所有人关闭：%@。"
           }
         }
       }

@@ -27,7 +27,7 @@ struct RoomComposer: View {
                     completion.start(in: &state.message)
                     focused = true
                 }
-                TextField("Message the room", text: $state.message, axis: .vertical)
+                TextField("Message the project", text: $state.message, axis: .vertical)
                     .textFieldStyle(.plain)
                     .tint(theme.colors.accent)
                     .lineLimit(1 ... 6)
@@ -35,7 +35,7 @@ struct RoomComposer: View {
                     .foregroundStyle(theme.colors.ink)
                     .focused($focused)
                     .padding(.vertical, 7)
-                    .accessibilityLabel(Text("Message the room"))
+                    .accessibilityLabel(Text("Message the project"))
                     .accessibilityIdentifier("rooms.composer.input")
                     .roomComposerKeys($completion, state: state, focused: focused, suggestions: suggestions, send: send)
                 SendKey(enabled: state.canPost, working: state.sending, size: 34, action: send)

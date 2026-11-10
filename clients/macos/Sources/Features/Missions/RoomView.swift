@@ -97,7 +97,7 @@ struct RoomHeader: View {
             RoomSigil(key: roomId, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 if workspace.renaming {
-                    TextField("Room name", text: $name)
+                    TextField("Project name", text: $name)
                         .textFieldStyle(.plain).appTextStyle(.headline).focused($nameFocused).frame(maxWidth: 260)
                         .onSubmit { run { try await $0.rename(roomId, to: name) } }
                         .onExitCommand { workspace.renaming = false }
@@ -107,7 +107,7 @@ struct RoomHeader: View {
                         .contentTransition(.interpolate)
                 }
                 RoomFacts(people: detail.members.count, terminals: sessions.count)
-                    .help("Kodosi encrypts everything in this room end to end.")
+                    .help("Kodosi encrypts everything in this project end to end.")
             }
             .layoutPriority(1)
             Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
@@ -127,7 +127,7 @@ struct RoomHeader: View {
                                        isSelf: member.userId == deps.account.userId)
                 }, size: 24, limit: 4, ring: theme.colors.surface)
             }
-            .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Room members"))
+            .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Project members"))
             .accessibilityIdentifier("room.people")
             .kodosiPopover(isPresented: $workspace.peopleVisible, arrowEdge: .bottom) {
                 RoomPeoplePopover(detail: detail, state: state, workspace: workspace)
@@ -143,7 +143,7 @@ struct RoomHeader: View {
                 ConversationKey(roomId: roomId, state: state, workspace: workspace)
                     .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.6, anchor: .trailing).combined(with: .opacity))
             }
-            IconButton(title: "Room options", symbol: "ellipsis", identifier: "room.options", size: 30, open: workspace.optionsVisible) {
+            IconButton(title: "Project options", symbol: "ellipsis", identifier: "room.options", size: 30, open: workspace.optionsVisible) {
                 workspace.optionsVisible.toggle()
             }
             .kodosiPopover(isPresented: $workspace.optionsVisible, arrowEdge: .bottom, alignment: .trailing) {
@@ -158,11 +158,11 @@ struct RoomHeader: View {
                     }
                     PanelMenuDivider()
                     if isOwner {
-                        PanelMenuRow(Text("Delete room…"), icon: .symbol("trash"), identifier: "room.options.delete", destructive: true) {
+                        PanelMenuRow(Text("Delete project…"), icon: .symbol("trash"), identifier: "room.options.delete", destructive: true) {
                             confirmDelete = true
                         }
                     } else {
-                        PanelMenuRow(Text("Leave room…"), icon: .symbol("rectangle.portrait.and.arrow.right"),
+                        PanelMenuRow(Text("Leave project…"), icon: .symbol("rectangle.portrait.and.arrow.right"),
                                      identifier: "room.options.leave", destructive: true)
                         {
                             confirmLeave = true
@@ -177,10 +177,10 @@ struct RoomHeader: View {
         .animation(theme.motion.snappy, value: state.unread)
         .animation(theme.motion.soft, value: workspace.conversationVisible)
         .confirmationDialog("Delete \(detail.mission.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete room", role: .destructive) { end { try await $0.delete(roomId) } }
+            Button("Delete project", role: .destructive) { end { try await $0.delete(roomId) } }
         } message: { Text("Its conversation and sharing end. Terminals keep running.") }
         .confirmationDialog("Leave \(detail.mission.name)?", isPresented: $confirmLeave, titleVisibility: .visible) {
-            Button("Leave room", role: .destructive) { end { try await $0.leave(roomId) } }
+            Button("Leave project", role: .destructive) { end { try await $0.leave(roomId) } }
         } message: { Text("You lose its terminals and conversation until someone invites you again.") }
     }
 
@@ -223,7 +223,7 @@ struct NoticeDot: View {
             Circle().fill(theme.colors.caution).frame(width: 9, height: 9).frame(width: 26, height: 26)
                 .background(theme.colors.cautionSoft, in: Circle())
         }
-        .buttonStyle(PressScaleStyle()).help("Something did not work").accessibilityLabel(Text("Room action failed"))
+        .buttonStyle(PressScaleStyle()).help("Something did not work").accessibilityLabel(Text("Project action failed"))
         .accessibilityIdentifier("room.failure")
         .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 14) {
@@ -259,7 +259,7 @@ struct RoomPeoplePopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("In this room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).padding(.leading, 8)
+                Text("In this project").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).padding(.leading, 8)
                 ForEach(detail.members, id: \.userId) { member in memberRow(member) }
             }
             if isOwner {
@@ -306,7 +306,7 @@ struct RoomPeoplePopover: View {
                 Tag(text: String(localized: "Owner"))
             } else if isOwner {
                 Menu {
-                    Button("Remove from room", role: .destructive) { remove(member) }
+                    Button("Remove from project", role: .destructive) { remove(member) }
                 } label: {
                     Image(systemName: "ellipsis").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                         .frame(width: 24, height: 24).contentShape(Circle())

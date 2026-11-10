@@ -67,7 +67,7 @@ struct DosiShelf: View {
                 } more: { hidden, order in
                     DosiMoreRooms(missions: hidden, order: order).transition(Self.chip)
                 } trailing: {
-                    DosiAddMark(title: "New room", identifier: "dosi.marks.room.new") { deps.workbench.showsNewRoom = true }
+                    DosiAddMark(title: "New project", identifier: "dosi.marks.room.new") { deps.workbench.showsNewRoom = true }
                 }
                 .transition(AnyTransition.unfold)
             }

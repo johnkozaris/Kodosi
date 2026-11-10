@@ -159,8 +159,8 @@ struct DosiBackButton: View {
         .buttonStyle(PressScaleStyle())
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .tip("Back to terminals and rooms")
-        .accessibilityLabel(Text("Back to terminals and rooms"))
+        .tip("Back to terminals and projects")
+        .accessibilityLabel(Text("Back to terminals and projects"))
         .accessibilityIdentifier("dosi.close")
     }
 }

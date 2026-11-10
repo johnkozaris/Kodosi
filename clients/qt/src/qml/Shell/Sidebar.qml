@@ -120,7 +120,7 @@ Item {
 
     objectName: "sidebar"
     Accessible.id: objectName
-    Accessible.name: qsTr("Rooms and terminals")
+    Accessible.name: qsTr("Projects and terminals")
     Accessible.role: Accessible.Pane
     implicitWidth: Models.DesktopState.sidebarWidth
 
@@ -486,7 +486,7 @@ Item {
                 scale: pressed ? 0.95 : 1
                 objectName: "dosi.close"
                 Accessible.id: objectName
-                Accessible.name: qsTr("Back to terminals and rooms")
+                Accessible.name: qsTr("Back to terminals and projects")
                 ToolTip.visible: hovered
                 ToolTip.text: Accessible.name
                 ToolTip.delay: Tip.delay
@@ -657,8 +657,8 @@ Item {
                 onWidthChanged: Qt.callLater(root.syncPill)
 
                 SectionHeader {
-                    title: qsTr("Rooms")
-                    addName: qsTr("New room")
+                    title: qsTr("Projects")
+                    addName: qsTr("New project")
                     identifier: "sidebar.rooms"
                     onClicked: root.showRooms()
                     onAddClicked: root.accountReady ? root.newRoomRequested() : root.signIn()
@@ -858,7 +858,7 @@ Item {
                     width: parent.width
                     leftPadding: 10
                     visible: Models.Missions.catalogTruncated
-                    text: qsTr("More rooms exist. Use Go to… to find them.")
+                    text: qsTr("More projects exist. Use Go to… to find them.")
                     color: KodosiTheme.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
                     wrapMode: Text.WordWrap

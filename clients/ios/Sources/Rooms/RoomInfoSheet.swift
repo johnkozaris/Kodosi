@@ -61,7 +61,7 @@ struct RoomInfoSheet: View {
                             .accessibilityIdentifier("rooms.rename")
                         }
                         Button { confirmingEnd = true } label: {
-                            ListRow(owner ? String(localized: "Delete room…") : String(localized: "Leave room…"),
+                            ListRow(owner ? String(localized: "Delete project…") : String(localized: "Leave project…"),
                                     symbol: owner ? "trash.fill" : "rectangle.portrait.and.arrow.right", tint: TileTint.red,
                                     titleColor: theme.colors.danger)
                         }
@@ -75,7 +75,7 @@ struct RoomInfoSheet: View {
                 .frame(maxWidth: .infinity)
             }
             .background(theme.colors.surface)
-            .navigationTitle("Room")
+            .navigationTitle("Project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -84,7 +84,7 @@ struct RoomInfoSheet: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             .sheet(isPresented: $renaming) {
-                RenameSheet(title: "Rename room", field: "Room name", name: name, identifier: "rooms.rename") { newName in
+                RenameSheet(title: "Rename project", field: "Project name", name: name, identifier: "rooms.rename") { newName in
                     perform { try await rooms.rename(roomId, to: newName) }
                 }
             }
@@ -92,7 +92,7 @@ struct RoomInfoSheet: View {
                 owner ? String(localized: "Delete \(name)?") : String(localized: "Leave \(name)?"),
                 isPresented: $confirmingEnd, titleVisibility: .visible,
             ) {
-                Button(owner ? "Delete room" : "Leave room", role: .destructive, action: end)
+                Button(owner ? "Delete project" : "Leave project", role: .destructive, action: end)
             } message: {
                 if owner {
                     Text("Its conversation and sharing end. Terminals keep running.")
@@ -109,7 +109,7 @@ struct RoomInfoSheet: View {
                 }),
                 titleVisibility: .visible, presenting: removing,
             ) { member in
-                Button("Remove from room", role: .destructive) {
+                Button("Remove from project", role: .destructive) {
                     perform { try await rooms.remove(member, from: roomId) }
                 }
             } message: { _ in

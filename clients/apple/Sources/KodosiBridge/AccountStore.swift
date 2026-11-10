@@ -92,9 +92,9 @@ public final class AccountStore {
 
     public func deletionSummary(rooms: [MissionEntry], terminals: String) -> String {
         let owned = rooms.filter { $0.ownerUserId == userId }.map(\.name)
-        var parts = [String(localized: "Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.", bundle: .module)]
+        var parts = [String(localized: "Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.", bundle: .module)]
         if !owned.isEmpty {
-            parts.append(String(localized: "These rooms close for everyone in them: \(owned.formatted(.list(type: .and))).", bundle: .module))
+            parts.append(String(localized: "These projects close for everyone in them: \(owned.formatted(.list(type: .and))).", bundle: .module))
         }
         parts.append(terminals)
         return parts.joined(separator: "\n\n")

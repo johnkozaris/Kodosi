@@ -59,7 +59,7 @@
     <string name="sign_question">Braucht deine Antwort</string>
     <string name="signing_in">Anmeldung läuft</string>
     <string name="start_fresh">Neu beginnen</string>
-    <string name="start_fresh_message">Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Telefon aus erneut freigibst. Freunde bestätigen deine Identität erneut, und du erstellst deine Räume neu. Wenn du einen Wiederherstellungsschlüssel hast, brich ab und verwende ihn: Dann behältst du deine Freunde und Räume.</string>
+    <string name="start_fresh_message">Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Telefon aus erneut freigibst. Freunde bestätigen deine Identität erneut, und du erstellst deine Projekte neu. Wenn du einen Wiederherstellungsschlüssel hast, brich ab und verwende ihn: Dann behältst du deine Freunde und Projekte.</string>
     <string name="start_fresh_title">Auf diesem Telefon neu beginnen?</string>
     <string name="starting_fresh">Beginnt neu</string>
     <string name="storage_failed">Kodosi konnte seinen Speicher nicht vorbereiten.</string>
@@ -73,12 +73,12 @@
     <string name="terminals">Terminals</string>
     <string name="terminals_empty_message">Starte ein Terminal in Kodosi auf deinem Computer oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst.</string>
     <string name="terminals_empty_title">Deine Terminals laufen auf deinen Computern</string>
-    <string name="trust_message">Kodosi verschlüsselt deine Terminals und Räume Ende-zu-Ende. Ein Gerät, dem du schon vertraust, gibt diesem Telefon seine Schlüssel.</string>
+    <string name="trust_message">Kodosi verschlüsselt deine Terminals und Projekte Ende-zu-Ende. Ein Gerät, dem du schon vertraust, gibt diesem Telefon seine Schlüssel.</string>
     <string name="trust_title">Diesem Telefon vertrauen</string>
     <string name="try_again">Erneut versuchen</string>
     <string name="use_recovery_key">Meinen Wiederherstellungsschlüssel verwenden</string>
     <string name="waiting_for_approval">Wartet auf Freigabe</string>
     <string name="waiting_for_sign_in_page">Wartet auf die Anmeldeseite</string>
-    <string name="welcome_message">Sieh, was deine Agents tun, antworte ihnen und rede mit deinen Räumen. Deine Terminals laufen auf deinen Computern weiter.</string>
+    <string name="welcome_message">Sieh, was deine Agents tun, antworte ihnen und rede in deinen Projekten mit. Deine Terminals laufen auf deinen Computern weiter.</string>
     <string name="welcome_title">Deine Terminals, immer dabei</string>
 </resources>

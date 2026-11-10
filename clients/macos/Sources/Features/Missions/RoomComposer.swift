@@ -31,10 +31,10 @@ struct RoomComposer: View {
                     completion.start(in: &state.message)
                     focused = true
                 }
-                TextField("Message the room", text: $state.message, axis: .vertical)
+                TextField("Message the project", text: $state.message, axis: .vertical)
                     .lineLimit(1 ... 6).textFieldStyle(.plain).appTextStyle(.callout).focused($focused)
                     .padding(.vertical, 7)
-                    .accessibilityLabel(Text("Message the room")).accessibilityIdentifier("room.message.input")
+                    .accessibilityLabel(Text("Message the project")).accessibilityIdentifier("room.message.input")
                     .onSubmit {
                         if completion.submit(&state.message, suggestions: suggestions), state.canPost {
                             send()

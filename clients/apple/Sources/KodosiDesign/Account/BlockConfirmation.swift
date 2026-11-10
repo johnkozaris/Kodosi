@@ -8,7 +8,7 @@ public extension View {
         } message: {
             Text("""
             They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, \
-            and each of you leaves the rooms that the other owns.
+            and each of you leaves the projects that the other owns.
             """, bundle: .module)
         }
     }

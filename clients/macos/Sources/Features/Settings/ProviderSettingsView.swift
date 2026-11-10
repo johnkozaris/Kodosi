@@ -35,14 +35,14 @@ struct ProviderSettingsView: View {
                 }, compact: true, identifier: "settings.providers")
             }
             ListGroup(footer: "Kodosi opens these files. It does not change them.") {
-                ListRow(directory.map(HostPath.folderName) ?? String(localized: "All projects"),
+                ListRow(directory.map(HostPath.folderName) ?? String(localized: "All folders"),
                         subtitle: directory, monoSubtitle: true, symbol: "folder.fill", tint: TileTint.amber)
                 {
                     if directory != nil {
-                        Button("All projects") { directory = nil }.buttonStyle(.kodosi(.ghost, size: .small))
+                        Button("All folders") { directory = nil }.buttonStyle(.kodosi(.ghost, size: .small))
                             .accessibilityIdentifier("settings.providers.clearProject")
                     }
-                    Button("Choose a project…") {
+                    Button("Choose a folder…") {
                         Task { @MainActor in
                             if let selected = await pickWorkingDirectory(initialDirectory: directory) {
                                 directory = selected

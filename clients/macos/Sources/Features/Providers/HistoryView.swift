@@ -50,13 +50,13 @@ struct HistoryView: View {
                         }
                     }
                 } label: {
-                    Label(browser.directory.isEmpty ? String(localized: "All projects") : HostPath.folderName(browser.directory),
+                    Label(browser.directory.isEmpty ? String(localized: "All folders") : HostPath.folderName(browser.directory),
                           systemImage: "folder")
                 }
-                .buttonStyle(.kodosi(.secondary, size: .small)).help("Choose a project folder")
+                .buttonStyle(.kodosi(.secondary, size: .small)).help("Choose a folder")
                 .accessibilityIdentifier("panel.resume.folder")
                 if !browser.directory.isEmpty {
-                    IconButton(title: "All projects", symbol: "xmark.circle", identifier: "panel.resume.allProjects", size: 24) {
+                    IconButton(title: "All folders", symbol: "xmark.circle", identifier: "panel.resume.allProjects", size: 24) {
                         browser.directory = ""; browser.load()
                     }
                 }
@@ -154,7 +154,7 @@ struct HistoryView: View {
                 EmptyState(
                     title: browser.conversations.isEmpty && !browser.loading ? "Nothing saved here" : "Pick a conversation",
                     message: browser.conversations.isEmpty && !browser.loading
-                        ? "Choose another project, or switch the agent." : "You see it here before you resume it.",
+                        ? "Choose another folder, or switch the agent." : "You see it here before you resume it.",
                 ) {
                     AgentMark(kind: browser.provider.agent, size: 52, activity: .asleep)
                 } actions: { EmptyView() }

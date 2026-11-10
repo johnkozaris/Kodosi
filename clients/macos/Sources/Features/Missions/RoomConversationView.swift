@@ -31,7 +31,7 @@ struct RoomConversationView: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.kodosi(copied ? .tinted : .ghost, size: .small))
-                .help("Copy an invite that tells an agent how to join this room")
+                .help("Copy an invite that tells an agent how to join this project")
                 .accessibilityLabel(Text("Copy agent instructions")).accessibilityIdentifier("room.agent.instructions")
                 .onHover { inside in
                     if !inside {
@@ -136,7 +136,7 @@ struct RoomConversationView: View {
         let path = (Bundle.main.executablePath ?? "kodosi").replacingOccurrences(of: "'", with: "'\"'\"'")
         deps.copyText("""
         Read `'\(path)' skill`, then use \
-        `'\(path)' --json room --room \(roomId) context`.
+        `'\(path)' --json project --project \(roomId) context`.
         Use this executable for the skill's kodosi commands. You can read and post updates, \
         create and pick up tasks, and share results for this work.
         """)

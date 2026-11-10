@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name=Kodosi
-Comment=Shared terminals and rooms for people and their coding agents
+Comment=Shared terminals and projects for people and their coding agents
 Exec=kodosi-qt %u
 Icon=com.kodosi.Kodosi
 Terminal=false
 Categories=Development;
-Keywords=agents;terminal;development;room;
+Keywords=agents;terminal;development;project;
 StartupNotify=true
 StartupWMClass=Kodosi
 MimeType=x-scheme-handler/kodosi;

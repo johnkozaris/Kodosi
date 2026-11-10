@@ -14,10 +14,10 @@
 <context>
     <name>DosiShelf</name>
     <message numerus="yes">
-        <source>%n more rooms</source>
+        <source>%n more projects</source>
         <translation>
-            <numerusform>%n more room</numerusform>
-            <numerusform>%n more rooms</numerusform>
+            <numerusform>%n more project</numerusform>
+            <numerusform>%n more projects</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -31,10 +31,10 @@
 <context>
     <name>MissionsView</name>
     <message numerus="yes">
-        <source>%n rooms</source>
+        <source>%n projects</source>
         <translation>
-            <numerusform>%n room</numerusform>
-            <numerusform>%n rooms</numerusform>
+            <numerusform>%n project</numerusform>
+            <numerusform>%n projects</numerusform>
         </translation>
     </message>
     <message numerus="yes">

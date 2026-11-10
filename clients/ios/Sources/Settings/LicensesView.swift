@@ -17,7 +17,7 @@ struct LicensesView: View {
                         }
                         .accessibilityIdentifier("settings.licenses.empty")
                     } else {
-                        ListGroup(footer: "Kodosi uses these open-source projects.") {
+                        ListGroup(footer: "Kodosi uses this open-source software.") {
                             ForEach(files) { file in
                                 NavigationLink {
                                     LicenseTextView(file: file)

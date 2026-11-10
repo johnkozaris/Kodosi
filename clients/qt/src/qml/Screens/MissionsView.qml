@@ -37,8 +37,8 @@ Item {
         anchors.centerIn: parent
         width: Math.min(420, parent.width - 48)
         visible: !root.accountReady
-        title: qsTr("Rooms are for working together")
-        message: qsTr("Share terminals, talk, and hand off tasks with people and agents.")
+        title: qsTr("Work in projects")
+        message: qsTr("A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.")
         art: Row {
             spacing: -10
             PersonAvatar { name: "A"; key: "together-a"; size: 44; ring: KodosiTheme.surface }
@@ -77,10 +77,12 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 4
-                    PlainLabel { text: qsTr("Rooms"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
+                    PlainLabel { text: qsTr("Projects"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
                     RollingText {
-                        text: root.rooms.length === 0 ? qsTr("A room keeps people, agents and terminals in one place.")
-                            : qsTr("%n rooms", "", root.rooms.length) + " · "
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: root.rooms.length === 0 ? qsTr("A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.")
+                            : qsTr("%n projects", "", root.rooms.length) + " · "
                                 + qsTr("%n shared terminals", "", root.shared)
                         color: KodosiTheme.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
@@ -89,7 +91,7 @@ Item {
                 KButton {
                     variant: KButton.Primary
                     iconName: "plus"
-                    text: qsTr("New room")
+                    text: qsTr("New project")
                     enabled: root.accountReady
                     objectName: "missions.create"
                     Accessible.id: objectName
@@ -99,12 +101,12 @@ Item {
             PlainLabel {
                 Layout.fillWidth: true
                 visible: Models.Missions.catalogTruncated
-                text: qsTr("More rooms exist. Use Go to… to find them.")
+                text: qsTr("More projects exist. Use Go to… to find them.")
                 color: KodosiTheme.inkFaint
                 font.pixelSize: KodosiTheme.fontFootnote
                 objectName: "panel.missions.truncated"
                 Accessible.id: objectName
-                Accessible.name: qsTr("Some rooms are not shown")
+                Accessible.name: qsTr("Some projects are not shown")
             }
             Repeater {
                 model: root.invitations
@@ -264,7 +266,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 10
                             KIcon { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 18; Layout.preferredHeight: 18; name: "plus"; strokeWidth: 2.2 }
-                            PlainLabel { id: label; text: root.rooms.length === 0 ? qsTr("Make your first room") : qsTr("New room"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold }
+                            PlainLabel { id: label; text: root.rooms.length === 0 ? qsTr("Make your first project") : qsTr("New project"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold }
                         }
                     }
                     onClicked: create.open()
@@ -300,12 +302,12 @@ Item {
             RowLayout {
                 spacing: 12
                 RoomSigil { key: name.text.trim().length > 0 ? name.text.trim() : "new-room"; size: 40 }
-                PlainLabel { Layout.fillWidth: true; text: qsTr("New room"); font.pixelSize: KodosiTheme.fontTitle; font.weight: Font.DemiBold }
+                PlainLabel { Layout.fillWidth: true; text: qsTr("New project"); font.pixelSize: KodosiTheme.fontTitle; font.weight: Font.DemiBold }
             }
             KTextField {
                 id: name
                 Layout.fillWidth: true
-                placeholderText: qsTr("Room name")
+                placeholderText: qsTr("Project name")
                 objectName: "room.create.name"
                 Accessible.id: objectName
                 onAccepted: {
@@ -319,7 +321,7 @@ Item {
                 KButton { text: qsTr("Cancel"); variant: KButton.Ghost; onClicked: create.close() }
                 KButton {
                     id: submit
-                    text: qsTr("Create room")
+                    text: qsTr("Create project")
                     variant: KButton.Primary
                     working: Models.Missions.busy
                     enabled: name.text.trim().length > 0 && !Models.Missions.busy

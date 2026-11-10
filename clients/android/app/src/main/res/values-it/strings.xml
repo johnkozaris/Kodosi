@@ -59,7 +59,7 @@
     <string name="sign_question">Attende la tua risposta</string>
     <string name="signing_in">Accesso in corso</string>
     <string name="start_fresh">Ricomincia da zero</string>
-    <string name="start_fresh_message">Gli altri tuoi dispositivi perdono l\'accesso finché non li approvi di nuovo da questo telefono. Gli amici confermano di nuovo la tua identità e dovrai ricreare le tue stanze. Se hai una chiave di recupero, annulla e usala: così mantieni amici e stanze.</string>
+    <string name="start_fresh_message">Gli altri tuoi dispositivi perdono l\'accesso finché non li approvi di nuovo da questo telefono. Gli amici confermano di nuovo la tua identità e dovrai ricreare i tuoi progetti. Se hai una chiave di recupero, annulla e usala: così mantieni amici e progetti.</string>
     <string name="start_fresh_title">Ricominciare da zero su questo telefono?</string>
     <string name="starting_fresh">Si ricomincia da zero</string>
     <string name="storage_failed">Kodosi non è riuscito a preparare il suo spazio di archiviazione.</string>
@@ -73,12 +73,12 @@
     <string name="terminals">Terminali</string>
     <string name="terminals_empty_message">Avvia un terminale in Kodosi sul tuo computer o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti.</string>
     <string name="terminals_empty_title">I tuoi terminali girano sui tuoi computer</string>
-    <string name="trust_message">Kodosi crittografa end-to-end i tuoi terminali e le tue stanze. Un dispositivo di cui ti fidi già dà a questo telefono le sue chiavi.</string>
+    <string name="trust_message">Kodosi crittografa end-to-end i tuoi terminali e i tuoi progetti. Un dispositivo di cui ti fidi già dà a questo telefono le sue chiavi.</string>
     <string name="trust_title">Considera attendibile questo telefono</string>
     <string name="try_again">Riprova</string>
     <string name="use_recovery_key">Usa la mia chiave di recupero</string>
     <string name="waiting_for_approval">In attesa di approvazione</string>
     <string name="waiting_for_sign_in_page">In attesa della pagina di accesso</string>
-    <string name="welcome_message">Guarda cosa fanno i tuoi agenti, rispondi loro e parla con le tue stanze. I tuoi terminali continuano a funzionare sui tuoi computer.</string>
+    <string name="welcome_message">Guarda cosa fanno i tuoi agenti, rispondi loro e parla nei tuoi progetti. I tuoi terminali continuano a funzionare sui tuoi computer.</string>
     <string name="welcome_title">I tuoi terminali, con te</string>
 </resources>

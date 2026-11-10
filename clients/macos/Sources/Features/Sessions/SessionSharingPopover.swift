@@ -92,7 +92,7 @@ struct SessionSharingPopover: View {
     private var choices: some View {
         if !deps.rooms.missions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("A room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                Text("A project").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 FlowLayout(spacing: 6) {
                     ForEach(deps.rooms.missions) { mission in
                         let selected = room == mission.id

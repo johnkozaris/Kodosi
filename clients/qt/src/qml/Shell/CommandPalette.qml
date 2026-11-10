@@ -28,7 +28,7 @@ KPopover {
         }))
     }
     function rooms() {
-        return Models.Missions.missions.map(room => ({ id: "room." + room.id, group: qsTr("Rooms"), title: room.name, kind: "room", key: room.id }))
+        return Models.Missions.missions.map(room => ({ id: "room." + room.id, group: qsTr("Projects"), title: room.name, kind: "room", key: room.id }))
     }
     function people() {
         return Models.People.friends.map(friend => ({
@@ -44,7 +44,7 @@ KPopover {
             { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history", tint: "#d9a441" }
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
-            list.push({ id: "action.room", group: group, title: qsTr("New room"), kind: "action", icon: "grid", tint: "#8c7bd1" })
+            list.push({ id: "action.room", group: group, title: qsTr("New project"), kind: "action", icon: "grid", tint: "#8c7bd1" })
         list.push({ id: "action.people", group: group, title: qsTr("Friends"), kind: "action", icon: "people", tint: "#5b82c9" })
         list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "gear", tint: "#6b6560" })
         return list
@@ -140,7 +140,7 @@ KPopover {
                     PlainLabel {
                         id: placeholder
                         visible: query.text.length === 0
-                        text: qsTr("Go to a terminal, a room or a person")
+                        text: qsTr("Go to a terminal, a project or a person")
                         color: KodosiTheme.inkFaint
                         font.pixelSize: KodosiTheme.fontBody
                     }

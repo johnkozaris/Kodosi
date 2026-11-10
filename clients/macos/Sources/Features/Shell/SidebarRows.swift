@@ -319,7 +319,7 @@ struct SidebarTerminalRow: View {
 
     private var sharing: String? {
         if session.missionId != nil {
-            return session.missionName.map { String(localized: "Shared with \($0)") } ?? String(localized: "Shared with a room")
+            return session.missionName.map { String(localized: "Shared with \($0)") } ?? String(localized: "Shared with a project")
         }
         return session.isOwner && !session.sharedWith.isEmpty ? String(localized: "Shared") : nil
     }

@@ -69,7 +69,7 @@ struct ApproveDeviceSheet: View {
                 .accessibilityIdentifier("settings.devices.confirmApprove")
             Button("Cancel", role: .cancel) { account.finishApproval() }
         } message: {
-            Text("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.")
+            Text("It can then use all your terminals, projects and friends. Approve it only if you hold that device.")
         }
         .onDisappear { account.finishApproval() }
     }
@@ -157,7 +157,7 @@ struct ApproveDeviceSheet: View {
                     .appTextStyle(.title)
                     .foregroundStyle(theme.colors.ink)
                     .multilineTextAlignment(.center)
-                Text("It can use your terminals and rooms now.")
+                Text("It can use your terminals and projects now.")
                     .appTextStyle(.callout)
                     .foregroundStyle(theme.colors.inkMuted)
                     .multilineTextAlignment(.center)

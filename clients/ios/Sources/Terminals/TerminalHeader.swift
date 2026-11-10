@@ -97,7 +97,7 @@ struct TerminalMenu: View {
             if session.isOwner {
                 Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
                     .accessibilityIdentifier("terminal.menu.rename")
-                Button("Share with a room", systemImage: "person.badge.plus") { showsSharing = true }
+                Button("Share with a project", systemImage: "person.badge.plus") { showsSharing = true }
                     .accessibilityIdentifier("terminal.menu.sharing")
             } else {
                 Button("Sharing", systemImage: "person.2") { showsSharing = true }

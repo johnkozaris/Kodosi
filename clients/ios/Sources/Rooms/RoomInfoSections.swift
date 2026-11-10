@@ -41,7 +41,7 @@ struct RoomMembersSection: View {
         .contextMenu {
             if removable {
                 Button(role: .destructive) { remove(member) } label: {
-                    Label("Remove from room", systemImage: "person.badge.minus")
+                    Label("Remove from project", systemImage: "person.badge.minus")
                 }
             }
         }
@@ -67,7 +67,7 @@ struct RoomRepositoriesSection: View {
     var body: some View {
         let repositories = model.rooms.snapshots[roomId]?.repositories ?? []
         ListGroup(title: "Repositories",
-                  footer: "Kodosi on a computer turns their issues into room tasks. Your sign-in for them stays on that computer.")
+                  footer: "Kodosi on a computer turns their issues into project tasks. Your sign-in for them stays on that computer.")
         {
             ForEach(repositories) { repository in
                 if let url = URL(string: repository.url), url.scheme?.lowercased() == "https" {

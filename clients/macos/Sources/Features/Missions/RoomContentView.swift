@@ -78,7 +78,7 @@ private struct RoomTerminals: View {
             if let current {
                 pair(current)
             } else if sessions.isEmpty {
-                EmptyState(title: "No terminals here yet", message: "Add one. Your friends in the room get full control.") {
+                EmptyState(title: "No terminals here yet", message: "Add one. Your friends in the project get full control.") {
                     TerminalGhost()
                 } actions: {
                     Button { deps.openLauncher(roomId: roomId) } label: { Label("New terminal", systemImage: "plus") }
@@ -213,7 +213,7 @@ private struct RoomTerminals: View {
     @ViewBuilder
     private func removeButton(_ session: RuntimeSession) -> some View {
         if session.isOwner {
-            Button("Remove from room") { remove(session) }
+            Button("Remove from project") { remove(session) }
         }
     }
 

@@ -131,7 +131,7 @@ public enum DosiWords {
     static func target(_ target: DosiTarget) -> String {
         switch target.kind {
         case .terminals: String(localized: "the terminals", bundle: .module)
-        case .rooms: String(localized: "the rooms", bundle: .module)
+        case .rooms: String(localized: "the projects", bundle: .module)
         default: target.value
         }
     }

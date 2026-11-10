@@ -71,7 +71,7 @@ struct TerminalSharingSheet: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Everyone you share with can type, resize and close this terminal.")
                     if room != nil {
-                        Text("Your friends in the room get full control, including friends who join later.")
+                        Text("Your friends in the project get full control, including friends who join later.")
                     }
                     if session.isOwner {
                         Text("To share it with people, open Kodosi on \(session.hostLabel).")
@@ -91,9 +91,9 @@ struct TerminalSharingSheet: View {
     @ViewBuilder
     private func rooms(_ session: RuntimeSession) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("A room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+            Text("A project").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
             if model.rooms.missions.isEmpty {
-                Text("You have no rooms yet.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                Text("You have no projects yet.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
             FlowLayout(spacing: 6) {
                 ForEach(model.rooms.missions) { mission in
