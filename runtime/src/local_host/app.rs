@@ -132,7 +132,7 @@ pub async fn forward_activation(
         ));
     }
     let mut activation = activation.clone();
-    activation["appVersion"] = json!(env!("KODOSI_VERSION"));
+    activation["appVersion"] = json!(crate::PRODUCT_VERSION);
     let activation = &activation;
     let root = kodosi_os::fs::canonicalize(root)?;
     let endpoint = role_endpoint(&root, "app")?;

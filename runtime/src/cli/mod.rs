@@ -28,7 +28,7 @@ fn this_terminal() -> Option<String> {
 #[derive(Parser)]
 #[command(
     name = "kodosi",
-    version = env!("KODOSI_VERSION"),
+    version = crate::PRODUCT_VERSION,
     about = "Shared terminals and projects for people and their coding agents."
 )]
 struct Arguments {

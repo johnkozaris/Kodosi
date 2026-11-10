@@ -612,7 +612,7 @@ fn command_path() -> Option<String> {
 fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String)> {
     let mut variables = vec![
         ("KODOSI_SESSION_ID", id.to_string()),
-        ("KODOSI_VERSION", env!("KODOSI_VERSION").to_owned()),
+        ("KODOSI_VERSION", crate::PRODUCT_VERSION.to_owned()),
         (
             crate::agents::CONTEXT_VARIABLE,
             crate::agents::CONTEXT.trim().to_owned(),
