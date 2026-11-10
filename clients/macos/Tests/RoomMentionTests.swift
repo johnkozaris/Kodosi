@@ -21,6 +21,13 @@ private let people = [
     #expect(!RoomMentions.mentionsSelf("ping @Maya", targets: people))
 }
 
+@Test func `a person is mentioned by the user name too`() {
+    let leo = RoomMention(id: "u1", name: "Leo Park", kind: .person(isSelf: true), handle: "leo")
+    #expect(RoomMentions.segments("thanks @leo.", targets: [leo]) == [.text("thanks "), .mention(leo), .text(".")])
+    #expect(RoomMentions.mentionsSelf("@Leo Park and @leo", targets: [leo]))
+    #expect(!RoomMentions.mentionsSelf("@leopard", targets: [leo]))
+}
+
 @Test func `mention drafts complete the name after the last at sign`() {
     #expect(RoomMentions.query(in: "Thanks @ma") == "ma")
     #expect(RoomMentions.query(in: "@") == "")

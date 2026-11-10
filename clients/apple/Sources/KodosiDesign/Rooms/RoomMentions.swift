@@ -11,12 +11,15 @@ public struct RoomMention: Identifiable, Equatable, Sendable {
     public let name: String
     public var detail: String?
     public let kind: Kind
+    /// The user name of a person, which a message can also mention.
+    public let handle: String?
 
-    public init(id: String, name: String, detail: String? = nil, kind: Kind) {
+    public init(id: String, name: String, detail: String? = nil, kind: Kind, handle: String? = nil) {
         self.id = id
         self.name = name
         self.detail = detail
         self.kind = kind
+        self.handle = handle
     }
 
     public var isSelf: Bool {
@@ -59,7 +62,10 @@ public enum RoomMentions {
 
     public static func targets(members: [MissionMemberEntry], sessions: [RuntimeSession], userId: String?) -> [RoomMention] {
         let people = members.map { member in
-            RoomMention(id: member.userId, name: member.personName, detail: "@\(member.handle)", kind: .person(isSelf: member.userId == userId))
+            RoomMention(
+                id: member.userId, name: member.personName, detail: "@\(member.handle)", kind: .person(isSelf: member.userId == userId),
+                handle: member.handle,
+            )
         }
         let terminals = sessions.map { session in
             RoomMention(
@@ -72,7 +78,9 @@ public enum RoomMentions {
 
     public static func segments(_ text: String, targets: [RoomMention]) -> [RoomMentionSegment] {
         guard text.contains("@"), !targets.isEmpty else { return [.text(text)] }
-        let ordered = targets.filter { !$0.name.isEmpty }.sorted { $0.name.count > $1.name.count }
+        let ordered = targets.flatMap { target in [target.name, target.handle ?? ""].map { (target, $0) } }
+            .filter { !$0.1.isEmpty }
+            .sorted { $0.1.count > $1.1.count }
         var result: [RoomMentionSegment] = []
         var pending = ""
         var index = text.startIndex
@@ -141,10 +149,10 @@ public enum RoomMentions {
         character.isLetter || character.isNumber || character == "_"
     }
 
-    private static func match(_ text: String, after start: String.Index, in targets: [RoomMention]) -> (RoomMention, String.Index)? {
+    private static func match(_ text: String, after start: String.Index, in targets: [(RoomMention, String)]) -> (RoomMention, String.Index)? {
         let rest = text[start...]
-        for target in targets {
-            guard let range = rest.range(of: target.name, options: [.caseInsensitive, .anchored]) else { continue }
+        for (target, word) in targets {
+            guard let range = rest.range(of: word, options: [.caseInsensitive, .anchored]) else { continue }
             if range.upperBound == text.endIndex || !isWord(text[range.upperBound]) {
                 return (target, range.upperBound)
             }

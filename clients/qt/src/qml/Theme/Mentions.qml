@@ -10,7 +10,7 @@ QtObject {
         for (const member of members) {
             const name = member.displayName || member.handle
             if (name)
-                list.push({ id: member.userId, name: name, detail: "@" + member.handle, kind: "person", program: "" })
+                list.push({ id: member.userId, name: name, detail: "@" + member.handle, kind: "person", program: "", handle: member.handle || "" })
         }
         for (const id of sessionIds) {
             const session = Models.Sessions.presentationForSession(id)
@@ -29,18 +29,25 @@ QtObject {
     }
 
     function segments(text: string, targets: var): var {
-        const ordered = targets.slice().sort((left, right) => right.name.length - left.name.length)
+        const ordered = []
+        for (const target of targets) {
+            for (const word of [target.name, target.handle || ""]) {
+                if (word)
+                    ordered.push({ target: target, word: word })
+            }
+        }
+        ordered.sort((left, right) => right.word.length - left.word.length)
         const result = []
         let plain = ""
         let index = 0
         while (index < text.length) {
             let matched = null
             if (text[index] === "@" && (index === 0 || !wordCharacter(text[index - 1]))) {
-                for (const target of ordered) {
-                    const end = index + 1 + target.name.length
-                    if (text.substring(index + 1, end).toLowerCase() === target.name.toLowerCase()
+                for (const candidate of ordered) {
+                    const end = index + 1 + candidate.word.length
+                    if (text.substring(index + 1, end).toLowerCase() === candidate.word.toLowerCase()
                             && (end >= text.length || !wordCharacter(text[end]))) {
-                        matched = target
+                        matched = candidate
                         break
                     }
                 }
@@ -49,8 +56,8 @@ QtObject {
                 if (plain.length > 0)
                     result.push({ text: plain, target: null })
                 plain = ""
-                result.push({ text: text.substring(index, index + 1 + matched.name.length), target: matched })
-                index += 1 + matched.name.length
+                result.push({ text: text.substring(index, index + 1 + matched.word.length), target: matched.target })
+                index += 1 + matched.word.length
             } else {
                 plain += text[index]
                 index += 1
