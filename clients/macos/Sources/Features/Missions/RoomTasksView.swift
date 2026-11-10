@@ -19,36 +19,22 @@ struct RoomTasksView: View {
     }
 
     var body: some View {
-        let scoped = tasks.filter { task in state.repositoryFilter.map { task.repositoryIds.contains($0) } ?? true }
-        let open = scoped.filter { !$0.closed }
-        let grabs = open.filter { $0.assignedTo == nil }
-        let going = open.filter { $0.assignedTo != nil }
-        let done = scoped.filter(\.closed)
+        let lanes = RoomTaskLanes(tasks, repository: state.repositoryFilter)
+        let done = lanes.done
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 composer
-                if scoped.isEmpty {
+                if lanes.tasks.isEmpty {
                     EmptyState(title: "No tasks yet", message: "Write one above. People and agents can pick it up.") {
                         ProgressRing(value: 0, size: 44, lineWidth: 5)
                     } actions: { EmptyView() }
                         .frame(height: 260)
                 }
-                lane("Up for grabs", tasks: grabs)
-                lane("In progress", tasks: going)
+                lane(.upForGrabs, tasks: lanes.upForGrabs)
+                lane(.inProgress, tasks: lanes.inProgress)
                 if !done.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Button {
-                            withAnimation(theme.motion.spring) { state.showsDone.toggle() }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
-                                    .rotationEffect(.degrees(state.showsDone ? 90 : 0))
-                                Text("Done").appTextStyle(.subhead)
-                                Text(done.count, format: .number).appTextStyle(.footnote).monospacedDigit().contentTransition(.numericText())
-                            }
-                            .foregroundStyle(theme.colors.inkMuted).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain).accessibilityIdentifier("room.task.done.toggle")
+                        RoomDoneTasksKey(state: state, count: done.count, identifier: "room.task.done.toggle")
                         if state.showsDone {
                             ForEach(done) { RoomTaskCard(roomId: roomId, task: $0, state: state, workspace: workspace).transition(AnyTransition.rise) }
                         }
@@ -63,14 +49,10 @@ struct RoomTasksView: View {
     }
 
     @ViewBuilder
-    private func lane(_ title: LocalizedStringKey, tasks: [RoomTask]) -> some View {
+    private func lane(_ lane: RoomTaskLaneTitle.Lane, tasks: [RoomTask]) -> some View {
         if !tasks.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(title).appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted)
-                    Text(tasks.count, format: .number).appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
-                        .contentTransition(.numericText())
-                }
+                RoomTaskLaneTitle(lane, count: tasks.count)
                 ForEach(tasks) { RoomTaskCard(roomId: roomId, task: $0, state: state, workspace: workspace).transition(AnyTransition.rise) }
             }
         }
@@ -200,10 +182,6 @@ private struct RoomTaskCard: View {
         task.assignedTo != nil && task.assignedTo == deps.account.userId
     }
 
-    private var repositories: [RoomRepository] {
-        (deps.rooms.snapshots[roomId]?.repositories ?? []).filter { task.repositoryIds.contains($0.id) }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
@@ -221,11 +199,11 @@ private struct RoomTaskCard: View {
                     withAnimation(theme.motion.spring) { workspace.expandedTask = expanded ? nil : task.id }
                 } label: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(task.title).appTextStyle(.body).fontWeight(.medium).lineLimit(expanded ? nil : 2)
-                            .foregroundStyle(task.closed ? theme.colors.inkMuted : theme.colors.ink)
-                            .strikethrough(task.closed, color: theme.colors.inkFaint)
-                            .multilineTextAlignment(.leading)
-                        chips
+                        RoomTaskTitle(task: task, lines: expanded ? nil : 2)
+                        RoomTaskChips(
+                            task: task, repositories: deps.rooms.snapshots[roomId]?.repositories ?? [],
+                            terminal: task.terminalId.flatMap(deps.session),
+                        )
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                 }
@@ -240,32 +218,9 @@ private struct RoomTaskCard: View {
         }
         .wash(trigger: task.version)
         .raised(Radius.lg, fill: hovered && !expanded ? theme.colors.lifted : theme.colors.raised, elevation: expanded ? .lifted : .resting)
-        .overlay(alignment: .leading) {
-            if mine, !task.closed {
-                Capsule().fill(theme.colors.accent).frame(width: 3).padding(.vertical, 12).padding(.leading, -1)
-            }
-        }
+        .roomTaskMarker(mine && !task.closed)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-    }
-
-    @ViewBuilder
-    private var chips: some View {
-        let terminal = task.terminalId.flatMap(deps.session)
-        if !repositories.isEmpty || task.issue != nil || terminal != nil || (task.closed && task.note?.isEmpty == false) {
-            FlowLayout(spacing: 5) {
-                ForEach(repositories) { Tag(text: $0.name, symbol: "shippingbox") }
-                if let issue = task.issue {
-                    Tag(text: "#\(issue.number)", symbol: "smallcircle.filled.circle")
-                }
-                if let terminal {
-                    Tag(text: terminal.name, symbol: "apple.terminal", tone: terminal.isWorking ? .accent : .neutral)
-                }
-                if task.closed, let note = task.note, !note.isEmpty {
-                    Tag(text: note, symbol: "text.quote", tone: .ready)
-                }
-            }
-        }
     }
 
     @ViewBuilder
@@ -284,9 +239,7 @@ private struct RoomTaskCard: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !task.description.isEmpty {
-                Text(RoomMessageText.formatted(task.description)).appTextStyle(.body).lineSpacing(2.5)
-                    .foregroundStyle(theme.colors.inkMuted).tint(theme.colors.accentStrong)
-                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                RoomTaskDescription(text: task.description)
             }
             if let issue = task.issue, let url = issue.address {
                 Link(destination: url) { Label("Open issue #\(issue.number)", systemImage: "arrow.up.right") }
