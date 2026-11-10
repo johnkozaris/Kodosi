@@ -3679,6 +3679,22 @@
         <translation>Ouvrir le navigateur</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>Modèle</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Raisonnement</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Autorisations</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Canvas</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Ajouter un fichier…</translation>
     </message>
@@ -3769,6 +3785,38 @@
     <message>
         <source>Dismiss</source>
         <translation>Ignorer</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Seulement au démarrage</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Par défaut</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Accès total</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Demander</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, après ce tour</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 le change à la fin de son tour.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1 garde aussi le modèle et le raisonnement pour ses prochaines sessions.</translation>
     </message>
     <message>
         <source>Copy</source>

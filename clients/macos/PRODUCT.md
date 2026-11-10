@@ -38,7 +38,9 @@ visual system. The Linux and Windows app follows this app.
   your terminal onto a project, Kodosi asks first. You remove it again from its tab in the
   project.
 - The actions key in a terminal's header starts an agent while the shell waits at its
-  prompt, and has Share, Open Browser, Details and, in a project, Remove from project.
+  prompt. While an agent runs, it changes the agent's model, effort and permissions in
+  flyouts beside the menu. Its Canvas part opens the browser and adds a file, and its
+  Terminal part has Share, Details and, in a project, Remove from project.
 
 ## Canvas
 

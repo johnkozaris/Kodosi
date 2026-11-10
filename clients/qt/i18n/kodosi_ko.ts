@@ -3666,6 +3666,22 @@
         <translation>브라우저 열기</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>추론 수준</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>권한</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>캔버스</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>파일 추가…</translation>
     </message>
@@ -3756,6 +3772,38 @@
     <message>
         <source>Dismiss</source>
         <translation>닫기</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>시작할 때만</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>기본값</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>제한 없음</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1 (이번 차례 후)</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1은(는) 지금 차례가 끝나면 바꿔요.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1은(는) 이 모델과 추론 수준을 다음 세션에도 그대로 써요.</translation>
     </message>
     <message>
         <source>Copy</source>

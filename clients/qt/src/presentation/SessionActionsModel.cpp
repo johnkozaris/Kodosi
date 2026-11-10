@@ -332,6 +332,12 @@ bool SessionActionsModel::startAgent(const QString& id, const QString& agent)
         { { QStringLiteral("agent"), QJsonObject { { QStringLiteral("agent"), agent } } } });
 }
 
+bool SessionActionsModel::changeAgent(const QString& id, const QVariantMap& change)
+{
+    return !change.isEmpty()
+        && command(QStringLiteral("session.agent"), id, { { QStringLiteral("change"), QJsonObject::fromVariantMap(change) } });
+}
+
 bool SessionActionsModel::input(const QString& id, const QString& text)
 {
     return !text.isEmpty() && command(QStringLiteral("session.input"), id, { { QStringLiteral("text"), text } });

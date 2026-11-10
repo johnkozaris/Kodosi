@@ -36,6 +36,10 @@ the shell of the new terminal.
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 - In a terminal at its prompt, the actions key (two sliders) in its header lists the
   installed agents. Select one to start it with your last choice.
+- While an agent runs, the same actions key changes its model and effort, and for some
+  agents its permissions, with the agent's own commands, so it doesn't start again. A
+  change waits for the end of the agent's turn, and Claude Code also keeps a model and
+  effort for its next sessions.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
@@ -219,6 +223,7 @@ does.
 | `kodosi terminal list` | Shows your terminals with their names and IDs. Give either one as `<terminal>`. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |
+| `kodosi terminal agent <terminal> --model sonnet` | Changes the model, effort or permissions of the agent in a terminal while it runs. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
 | `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |
 | `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |

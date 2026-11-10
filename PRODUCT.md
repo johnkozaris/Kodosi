@@ -191,6 +191,13 @@ from another device with a note that Dosi is off there.
   show: Quiet, Standard or Detailed. It starts at Unrestricted, or Ask for an agent without
   it, and at Quiet, keeps the last choice of each agent, and a terminal that starts again
   keeps them.
+- A terminal's actions change what its running agent can change with its own commands,
+  without starting it again: the model and effort of Claude Code and Codex, the model of
+  Copilot CLI and Gemini CLI, and the permissions of Codex (Ask and Auto), Copilot CLI and
+  Cursor (Ask and Unrestricted). Kodosi types the agent's command when the agent waits for
+  its next prompt, and until then shows the change as waiting. Claude Code also keeps a
+  model and effort that it changes to for its next sessions, and the actions say so. A
+  terminal that starts again keeps the changes.
 - Quick terminal skips the launcher and opens a plain terminal on this computer at once:
   in the folder of the selected terminal, or else in the launcher's folder. What the
   person types while it opens goes into it.

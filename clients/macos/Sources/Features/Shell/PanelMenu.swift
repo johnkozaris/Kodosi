@@ -104,10 +104,18 @@ struct PanelMenuDivider: View {
 
 struct PanelMenuHeader: View {
     @Environment(\.theme) private var theme
-    let title: LocalizedStringKey
+    let title: Text
+
+    init(title: LocalizedStringKey) {
+        self.title = Text(title)
+    }
+
+    init(verbatim: String) {
+        title = Text(verbatim: verbatim)
+    }
 
     var body: some View {
-        Text(title).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+        title.appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
             .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

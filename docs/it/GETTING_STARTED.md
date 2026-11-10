@@ -36,6 +36,10 @@ comando nella shell del nuovo terminale.
 - In un terminale fermo al suo prompt, il pulsante delle azioni (due cursori) nella sua
   intestazione elenca gli agenti installati. Selezionane uno per avviarlo con la tua ultima
   scelta.
+- Mentre un agente lavora, lo stesso pulsante delle azioni cambia il suo modello e il livello
+  di ragionamento e, per alcuni agenti, le autorizzazioni, con i comandi dell'agente stesso,
+  senza riavviarlo. Una modifica aspetta la fine del turno dell'agente, e Claude Code mantiene
+  modello e livello di ragionamento anche per le sessioni successive.
 - In zsh e bash (non nel bash 3.2 di macOS), ⌘↑ e ⌘↓ saltano da un prompt all'altro.
 - Fai ⌘-clic su un link per aprirlo (Ctrl-clic su Linux e Windows). In un programma che usa
   il mouse, tieni premuto anche Maiusc. Su iPhone, tocca il link; un tocco non apre un link in
@@ -224,6 +228,7 @@ Il comando `kodosi` lavora sugli stessi terminali dell'app, e l'app mostra cosa 
 | `kodosi terminal list` | Mostra i tuoi terminali con i loro nomi e ID. Indica l'uno o l'altro come `<terminal>`. |
 | `kodosi terminal read <terminal>` | Stampa lo schermo. `--history` aggiunge le righe scorse via. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Dà un messaggio all'agente di un terminale, con chi lo invia e da dove. |
+| `kodosi terminal agent <terminal> --model sonnet` | Cambia modello, livello di ragionamento o autorizzazioni dell'agente di un terminale mentre lavora. |
 | `kodosi terminal input <terminal> --enter "make test"` | Scrive una riga. |
 | `kodosi terminal keys <terminal> ctrl-c` | Preme dei tasti. |
 | `kodosi terminal wait <terminal> --until done,failed` | Attende uno stato. |

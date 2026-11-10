@@ -24,7 +24,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 83;
+pub const VERSION: u32 = 84;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -349,6 +349,16 @@ pub enum Command {
         from_session_id: Option<String>,
         #[serde(default)]
         agent: Option<String>,
+    },
+    #[serde(rename = "session.agent")]
+    ChangeAgent {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        change: crate::agents::AgentSettings,
     },
     #[serde(rename = "session.read")]
     Read {
@@ -887,6 +897,15 @@ pub struct SessionEntry {
     /// The agent in front started without Kodosi's note, because a person started it by hand.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub program_outside: bool,
+    /// What the agent in front works with, as far as Kodosi knows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_settings: Option<crate::agents::AgentSettings>,
+    /// What the agent in front can change while it runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_live: Option<crate::agents::AgentLive>,
+    /// A change of the agent in front that waits for the end of its turn.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_pending: Option<crate::agents::AgentSettings>,
     pub prompt: bool,
     pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1806,6 +1825,7 @@ impl Command {
             Self::Input { .. } => "session.input",
             Self::Picture { .. } => "session.picture",
             Self::Message { .. } => "session.message",
+            Self::ChangeAgent { .. } => "session.agent",
             Self::Visible { .. } => "session.visible",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
@@ -1943,6 +1963,7 @@ impl Command {
             | Self::Input { request_id, .. }
             | Self::Picture { request_id, .. }
             | Self::Message { request_id, .. }
+            | Self::ChangeAgent { request_id, .. }
             | Self::Visible { request_id, .. }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
@@ -2011,6 +2032,7 @@ impl Command {
             | Self::Input { session_id, .. }
             | Self::Picture { session_id, .. }
             | Self::Message { session_id, .. }
+            | Self::ChangeAgent { session_id, .. }
             | Self::Read { session_id, .. }
             | Self::Show { session_id, .. }
             | Self::OpenRemote { session_id, .. }
@@ -2415,6 +2437,18 @@ impl Command {
                 }
                 if let Some(agent) = agent {
                     text(agent, "agent", 64)?;
+                }
+            }
+            Self::ChangeAgent {
+                expected_runtime_incarnation_id,
+                change,
+                ..
+            } => {
+                parse_id(expected_runtime_incarnation_id)?;
+                if change.is_empty() || !change.is_valid() {
+                    return Err(Error::Invalid(
+                        "Change the model, effort, permissions or output of the agent.".to_owned(),
+                    ));
                 }
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,

@@ -74,6 +74,12 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let programAccount: Int?
     /// The agent in front started without Kodosi's note, because a person started it by hand.
     public let programOutside: Bool?
+    /// What the agent in front works with, as far as Kodosi knows.
+    public let programSettings: AgentSettings?
+    /// What the agent in front can change while it runs.
+    public let programLive: AgentLive?
+    /// A change of the agent in front that waits for the end of its turn.
+    public let programPending: AgentSettings?
     public let prompt: Bool?
     public let repository: Bool?
     public let title: ProgramTitle?

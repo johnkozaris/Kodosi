@@ -62,8 +62,10 @@ MenuItem {
             elide: Text.ElideRight
         }
         PlainLabel {
-            visible: root.hint.length > 0
-            text: root.hint
+            readonly property string shown: root.hint.length > 0 ? root.hint : (root.subMenu as KMenu)?.hint ?? ""
+
+            visible: shown.length > 0
+            text: shown
             color: KodosiTheme.inkFaint
             font.pixelSize: KodosiTheme.fontCaption
         }

@@ -22,6 +22,7 @@
 - Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的按钮上选择“询问”。在那里还可以选择 Claude Code 和 Codex 显示多少工作内容，开始时为“简洁”。
 - 新账号有自己的登录文件夹，例如 `~/.claude-work`。Kodosi 也会找到你在 shell 中设置的账号，例如 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`。
 - 在停在提示符处的终端里，标题栏中的操作按钮（两个滑块）会列出已安装的 Agent。选择一个，即可按你上次的选择启动它。
+- Agent 运行时，同一个操作按钮可以用 Agent 自己的命令更改它的模型和推理强度，部分 Agent 还能更改权限，无需重新启动。更改会等到 Agent 这一轮结束后生效；Claude Code 还会在之后的会话中沿用这个模型和推理强度。
 - 在 zsh 和 bash（不包括 macOS 自带的 bash 3.2）中，⌘↑ 和 ⌘↓ 可在提示符之间跳转。
 - 按住 ⌘ 点按链接即可打开（Linux 和 Windows 上为 Ctrl+点按）。在使用鼠标的程序中，还要同时按住 Shift。在 iPhone 上，轻点链接即可；在使用鼠标的程序中，轻点不会打开链接。链接会在你当前所用设备上的浏览器中打开。在其他应用中打开链接之前，Kodosi 会先询问。它不会打开可以运行程序的文件，也不会打开其他电脑上终端的文件或 `localhost` 地址。
 - 要把截图等图片交给 Agent，用 ⌘V 粘贴即可（Linux 和 Windows 上为 Ctrl+Shift+V，iPhone 上为“粘贴”）。Kodosi 会把图片保存到终端所在的电脑上，并粘贴文件路径，Agent 会把它作为附件。其他电脑上的终端会显示图片已传输了多少。Agent 自己的图片快捷键（例如 Claude Code 中的 Ctrl+V）读取的是 Agent 所在电脑的剪贴板。
@@ -110,6 +111,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 | `kodosi terminal list` | 显示你的终端及其名称和 ID。两者都可以作为 `<terminal>` 使用。 |
 | `kodosi terminal read <terminal>` | 输出屏幕内容。`--history` 会加上已滚出屏幕的行。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 把一条消息交给终端里的 Agent，并附上发送者和来源。 |
+| `kodosi terminal agent <terminal> --model sonnet` | 在终端里的 Agent 运行时更改它的模型、推理强度或权限。 |
 | `kodosi terminal input <terminal> --enter "make test"` | 输入一行内容。 |
 | `kodosi terminal keys <terminal> ctrl-c` | 按下按键。 |
 | `kodosi terminal wait <terminal> --until done,failed` | 等待某个状态。 |

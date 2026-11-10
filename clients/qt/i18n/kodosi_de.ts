@@ -3679,6 +3679,22 @@
         <translation>Browser öffnen</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>Modell</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Denkaufwand</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Berechtigungen</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Canvas</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Datei hinzufügen…</translation>
     </message>
@@ -3769,6 +3785,38 @@
     <message>
         <source>Dismiss</source>
         <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Nur beim Start</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Standard</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Vollzugriff</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Fragen</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, nach dieser Antwort</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 ändert es, wenn es mit seiner Antwort fertig ist.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1 behält Modell und Denkaufwand auch für seine nächsten Sitzungen.</translation>
     </message>
     <message>
         <source>Copy</source>

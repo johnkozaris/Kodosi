@@ -402,6 +402,9 @@ Item {
 
                             readonly property var agents: root.session.atPrompt === true ? Models.Launcher.agents.filter(agent => agent.installed) : []
 
+                            cascade: true
+                            onAboutToShow: agentChanges.loadModels()
+
                             PlainLabel {
                                 visible: actionsMenu.agents.length > 0
                                 height: visible ? implicitHeight : 0
@@ -431,12 +434,63 @@ Item {
                                 height: visible ? implicitHeight : 0
                                 contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
                             }
-                            KMenuItem {
-                                text: qsTr("Share…")
-                                iconName: "share"
-                                visible: root.shareable
-                                objectName: root.objectName + ".share"
-                                onTriggered: root.shareSessionRequested(root.sessionId)
+                            PlainLabel {
+                                visible: agentChanges.shown
+                                height: visible ? implicitHeight : 0
+                                leftPadding: 10
+                                topPadding: 4
+                                bottomPadding: 2
+                                text: agentChanges.shown ? Models.DesktopSettings.agentLabel(agentChanges.agent) : ""
+                                color: KodosiTheme.inkFaint
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.Medium
+                            }
+                            AgentChoiceMenu {
+                                title: qsTr("Model")
+                                objectName: root.objectName + ".agent.model"
+                                available: agentChanges.shown && agentChanges.live.model === true && agentChanges.models !== null
+                                hint: agentChanges.shownValue(agentChanges.modelLabel(agentChanges.model), agentChanges.pending.model !== undefined)
+                                options: agentChanges.modelOptions
+                                current: agentChanges.model
+                                note: agentChanges.note(agentChanges.live.keeps === true)
+                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { model: id })
+                            }
+                            AgentChoiceMenu {
+                                title: qsTr("Effort")
+                                objectName: root.objectName + ".agent.effort"
+                                available: agentChanges.shown && agentChanges.live.effort === true && agentChanges.effortOptions.length > 0
+                                hint: agentChanges.shownValue(agentChanges.effort.length > 0 ? Models.DesktopSettings.effortLabel(agentChanges.effort) : "",
+                                    agentChanges.pending.effort !== undefined)
+                                options: agentChanges.effortOptions
+                                current: agentChanges.effort
+                                note: agentChanges.note(agentChanges.live.keeps === true)
+                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { effort: id })
+                            }
+                            AgentChoiceMenu {
+                                title: qsTr("Permissions")
+                                objectName: root.objectName + ".agent.permissions"
+                                available: agentChanges.shown && (agentChanges.live.permissions || []).length > 0
+                                hint: agentChanges.shownValue(agentChanges.permissionLabel(agentChanges.permissions), agentChanges.pending.permissions !== undefined)
+                                options: agentChanges.permissionOptions
+                                current: agentChanges.permissions
+                                note: agentChanges.note(false)
+                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { permissions: id })
+                            }
+                            MenuSeparator {
+                                visible: agentChanges.shown
+                                height: visible ? implicitHeight : 0
+                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                            }
+                            PlainLabel {
+                                visible: root.session.canControl === true
+                                height: visible ? implicitHeight : 0
+                                leftPadding: 10
+                                topPadding: 4
+                                bottomPadding: 2
+                                text: qsTr("Canvas")
+                                color: KodosiTheme.inkFaint
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.Medium
                             }
                             KMenuItem {
                                 text: qsTr("Open Browser")
@@ -455,16 +509,32 @@ Item {
                                 objectName: root.objectName + ".addFile"
                                 onTriggered: Models.DesktopFiles.requestFiles(root.sessionId)
                             }
+                            MenuSeparator {
+                                visible: root.session.canControl === true
+                                height: visible ? implicitHeight : 0
+                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                            }
+                            PlainLabel {
+                                leftPadding: 10
+                                topPadding: 4
+                                bottomPadding: 2
+                                text: qsTr("Terminal")
+                                color: KodosiTheme.inkFaint
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.Medium
+                            }
+                            KMenuItem {
+                                text: qsTr("Share…")
+                                iconName: "share"
+                                visible: root.shareable
+                                objectName: root.objectName + ".share"
+                                onTriggered: root.shareSessionRequested(root.sessionId)
+                            }
                             KMenuItem {
                                 text: qsTr("Details")
                                 iconName: "info"
                                 objectName: root.objectName + ".details"
                                 onTriggered: root.inspectSessionRequested(root.sessionId)
-                            }
-                            MenuSeparator {
-                                visible: root.roomEmbedded && root.session.isOwner === true
-                                height: visible ? implicitHeight : 0
-                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
                             }
                             KMenuItem {
                                 text: qsTr("Remove from project")
@@ -898,6 +968,61 @@ Item {
             }
         }
     }
+    QtObject {
+        id: agentChanges
+
+        readonly property string agent: root.session.program || ""
+        readonly property var live: root.session.programLive || ({})
+        readonly property var settings: root.session.programSettings || ({})
+        readonly property var pending: root.session.programPending || ({})
+        readonly property bool changesModes: agent.length > 0 && (live.permissions || []).length > 0
+        readonly property bool local: agent.length > 0 && (live.model === true || live.effort === true)
+            && root.session.kind === "local" && Models.Launcher.computer.length === 0
+        readonly property var models: local ? Models.Launcher.models[agent] || null : null
+        readonly property bool shown: root.session.canControl === true && (models !== null || changesModes)
+        readonly property string model: pending.model ?? settings.model ?? ""
+        readonly property string effort: pending.model !== undefined ? pending.effort ?? "" : pending.effort ?? settings.effort ?? ""
+        readonly property string permissions: pending.permissions ?? settings.permissions ?? ""
+        readonly property var modelOptions: (models ? models.models || [] : []).map(option => ({ id: option.id, label: option.label }))
+        readonly property var effortOptions: {
+            const offer = models ? models.models || [] : []
+            const allowed = (offer.find(option => option.id === model) || {}).efforts || []
+            return (models ? models.efforts || [] : []).filter(option => allowed.length === 0 || allowed.includes(option.id))
+                .map(option => ({ id: option.id, label: Models.DesktopSettings.effortLabel(option.id) }))
+        }
+        readonly property var knownPermissions: changesModes
+            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).permissions || [] : []
+        readonly property var permissionOptions: ["ask", "auto", "unrestricted"]
+            .filter(id => knownPermissions.includes(id) || (live.permissions || []).includes(id) || id === permissions)
+            .map(id => ({ id: id, label: permissionLabel(id), enabled: (live.permissions || []).includes(id),
+                detail: (live.permissions || []).includes(id) ? "" : qsTr("Only at start") }))
+
+        function loadModels() {
+            if (local)
+                Models.Launcher.loadModels(agent)
+        }
+        function modelLabel(id) {
+            if (id.length === 0)
+                return qsTr("Default")
+            return ((models ? models.models || [] : []).find(option => option.id === id) || { label: id }).label
+        }
+        function permissionLabel(id) {
+            return id === "unrestricted" ? qsTr("Unrestricted") : id === "auto" ? qsTr("Auto") : id === "ask" ? qsTr("Ask") : ""
+        }
+        function shownValue(value, waits) {
+            return waits ? qsTr("%1, after this turn").arg(value) : value
+        }
+        function note(keeps) {
+            if (!shown)
+                return ""
+            const label = Models.DesktopSettings.agentLabel(agent)
+            const busy = root.session.working === true || root.session.asks === true
+            return [busy ? qsTr("%1 changes when it finishes its turn.").arg(label) : "",
+                keeps ? qsTr("%1 also keeps the model and effort for its next sessions.").arg(label) : ""]
+                .filter(text => text.length > 0).join(" ")
+        }
+    }
+
     KMenu {
         id: context
 

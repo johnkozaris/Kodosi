@@ -3666,6 +3666,22 @@
         <translation>ブラウザを開く</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>モデル</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>推論レベル</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>権限</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>キャンバス</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>ファイルを追加…</translation>
     </message>
@@ -3756,6 +3772,38 @@
     <message>
         <source>Dismiss</source>
         <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>起動時のみ</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>デフォルト</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>制限なし</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1（このターンの後）</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 は、今のターンが終わると変更します。</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1 は、このモデルと推論レベルを次回以降のセッションでも使います。</translation>
     </message>
     <message>
         <source>Copy</source>

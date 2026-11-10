@@ -76,6 +76,16 @@ pub(crate) enum SessionChange {
         account: Option<u8>,
     },
     #[cfg(feature = "host")]
+    Settings {
+        id: Uuid,
+        settings: crate::agents::AgentSettings,
+    },
+    #[cfg(feature = "host")]
+    AgentChange {
+        id: Uuid,
+        change: crate::agents::AgentSettings,
+    },
+    #[cfg(feature = "host")]
     Title {
         id: Uuid,
         title: String,

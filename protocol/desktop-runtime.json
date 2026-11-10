@@ -2355,6 +2355,124 @@
               }
             ]
           },
+          "change": {
+            "additionalProperties": false,
+            "properties": {
+              "effort": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "output": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "const": "quiet"
+                      },
+                      {
+                        "const": "standard"
+                      },
+                      {
+                        "const": "detailed"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "permissions": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "const": "ask"
+                      },
+                      {
+                        "const": "auto"
+                      },
+                      {
+                        "const": "unrestricted"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.agent"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "change"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "computer": {
             "anyOf": [
               {
@@ -7942,8 +8060,200 @@
                     }
                   ]
                 },
+                "programLive": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "effort": {
+                          "type": "boolean"
+                        },
+                        "keeps": {
+                          "type": "boolean"
+                        },
+                        "model": {
+                          "type": "boolean"
+                        },
+                        "permissions": {
+                          "items": {
+                            "oneOf": [
+                              {
+                                "const": "ask"
+                              },
+                              {
+                                "const": "auto"
+                              },
+                              {
+                                "const": "unrestricted"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "model",
+                        "effort",
+                        "permissions",
+                        "keeps"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "programOutside": {
                   "type": "boolean"
+                },
+                "programPending": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "effort": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "output": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "quiet"
+                                },
+                                {
+                                  "const": "standard"
+                                },
+                                {
+                                  "const": "detailed"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "permissions": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "ask"
+                                },
+                                {
+                                  "const": "auto"
+                                },
+                                {
+                                  "const": "unrestricted"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "programSettings": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "effort": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "output": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "quiet"
+                                },
+                                {
+                                  "const": "standard"
+                                },
+                                {
+                                  "const": "detailed"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "permissions": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "ask"
+                                },
+                                {
+                                  "const": "auto"
+                                },
+                                {
+                                  "const": "unrestricted"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "programStatus": {
                   "anyOf": [
@@ -13334,7 +13644,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 83,
+  "protocolVersion": 84,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

@@ -32,6 +32,8 @@ use crate::{
 #[cfg(feature = "host")]
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
+#[cfg(feature = "host")]
+mod changes;
 mod commands;
 mod dosi;
 #[cfg(feature = "host")]
@@ -471,6 +473,8 @@ struct Local {
     worktree: Option<crate::worktree::Worktree>,
     wanted: Option<restore::Sharing>,
     conversation: restore::Conversation,
+    /// What Kodosi changed in the agent in front since it started.
+    changed: crate::agents::AgentSettings,
 }
 
 #[cfg(feature = "host")]
@@ -625,6 +629,7 @@ enum Completion {
         account: Option<u8>,
         agent: crate::agents::Agent,
         outside: bool,
+        settings: crate::agents::AgentSettings,
     },
     #[cfg(feature = "host")]
     Conversation {
@@ -656,6 +661,14 @@ enum Completion {
         mentions: Vec<messages::Mention>,
         result: Result<()>,
     },
+    #[cfg(feature = "host")]
+    AgentTyped {
+        id: Uuid,
+        line: (String, crate::agents::AgentSettings),
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    AgentChangeDue,
     #[cfg(feature = "host")]
     Mentioned {
         mentions: Vec<(Uuid, messages::Mention)>,
@@ -917,6 +930,30 @@ impl TerminalTarget {
         }
     }
 
+    /// Asks the host of a terminal on another computer to change the agent in front.
+    fn change_agent(
+        &self,
+        change: crate::agents::AgentSettings,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(_) => Box::pin(async {
+                Err(Error::Invalid(
+                    "expected a terminal on another computer".to_owned(),
+                ))
+            }),
+            Self::Remote(terminal) => {
+                let result = terminal.control(
+                    None,
+                    TerminalControl::Agent {
+                        change: Box::new(change),
+                    },
+                );
+                Box::pin(async move { result.await.map(|_| ()) })
+            }
+        }
+    }
+
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
@@ -1069,6 +1106,8 @@ struct Runtime {
     restore: restore::Restore,
     #[cfg(feature = "host")]
     mentions: messages::Mentions,
+    #[cfg(feature = "host")]
+    agent_changes: changes::AgentChanges,
     person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
@@ -1221,6 +1260,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         restore,
         #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
+        #[cfg(feature = "host")]
+        agent_changes: changes::AgentChanges::default(),
         person: None,
         #[cfg(feature = "host")]
         config,
@@ -1652,15 +1693,19 @@ impl Runtime {
         let Some(agent) = program.and_then(crate::agents::Agent::named) else {
             return;
         };
-        let (Some((_, variable)), Some(local)) = (agent.home(), self.local.get(&id)) else {
+        let Some(local) = self.local.get(&id) else {
             return;
         };
+        let variable = agent
+            .home()
+            .map_or(crate::agents::CONTEXT_VARIABLE, |(_, variable)| variable);
         let terminal = local.terminal.clone();
         let launcher = Arc::clone(&self.launcher);
         let home = self.config.home.clone();
         self.spawn(async move {
             let foreground = terminal.foreground(variable).await.unwrap_or_default();
             let outside = agent.outside(&foreground.arguments);
+            let settings = agent.started_with(&foreground.arguments);
             let account = match agent.account_folder(&home, foreground.variable) {
                 Some(folder) => launcher.account_of(agent, &folder).await,
                 None => None,
@@ -1671,6 +1716,7 @@ impl Runtime {
                 account,
                 agent,
                 outside,
+                settings,
             }
         });
     }
@@ -1757,7 +1803,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); self.publish_connection(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
             }
         }
         requests.close();
@@ -1832,10 +1878,11 @@ impl Runtime {
                 let (id, terminal, home) = (*id, local.terminal.clone(), self.config.home.clone());
                 let folder = local.entry.working_dir.clone().map(PathBuf::from);
                 let shell = commands::shell(&self.config);
+                let changed = local.changed.clone();
                 asking.spawn(async move {
                     (
                         id,
-                        restore::agent_line(terminal, program, home, shell, folder).await,
+                        restore::agent_line(terminal, program, home, shell, folder, changed).await,
                     )
                 });
             }
@@ -1868,15 +1915,22 @@ impl Runtime {
             };
             if local.comes_back() && local.conversation.ask(now) {
                 let folder = local.entry.working_dir.clone().map(PathBuf::from);
-                asking.push((*id, local.terminal.clone(), program, folder));
+                asking.push((
+                    *id,
+                    local.terminal.clone(),
+                    program,
+                    folder,
+                    local.changed.clone(),
+                ));
             }
         }
         let shell = commands::shell(&self.config);
-        for (id, terminal, program, folder) in asking {
+        for (id, terminal, program, folder, changed) in asking {
             let (home, shell) = (self.config.home.clone(), shell.clone());
             self.spawn(async move {
                 let line =
-                    restore::agent_line(terminal, program.clone(), home, shell, folder).await;
+                    restore::agent_line(terminal, program.clone(), home, shell, folder, changed)
+                        .await;
                 Completion::Conversation {
                     id,
                     program,
@@ -2216,6 +2270,120 @@ impl Runtime {
                 }
             });
         }
+    }
+
+    /// Queues a change of the agent in a terminal of this computer, as the agent's own
+    /// commands.
+    #[cfg(feature = "host")]
+    fn change_agent_here(&mut self, id: Uuid, change: &crate::agents::AgentSettings) -> Result<()> {
+        let agent = self
+            .local
+            .get(&id)
+            .ok_or(Error::NotFound)?
+            .entry
+            .program
+            .as_deref()
+            .and_then(crate::agents::Agent::named)
+            .ok_or_else(|| Error::Invalid(crate::agents::NO_RUNNING_AGENT.to_owned()))?;
+        let lines = agent.live_lines(change).map_err(Error::Invalid)?;
+        self.agent_changes.add(id, lines);
+        self.show_pending(id);
+        self.type_agent_changes();
+        Ok(())
+    }
+
+    /// Shows the change that waits for the agent of a terminal in its entry and its metadata.
+    #[cfg(feature = "host")]
+    fn show_pending(&mut self, id: Uuid) {
+        let pending = self.agent_changes.pending(id);
+        if let Some(local) = self.local.get_mut(&id)
+            && local.entry.program_pending != pending
+        {
+            local.entry.program_pending.clone_from(&pending);
+            drop(local.terminal.set_pending(pending));
+            self.publish_catalog();
+        }
+    }
+
+    /// Types the next waiting command into each agent that waits for its next prompt, unless
+    /// the agent's screen shows a question that it asks a person.
+    #[cfg(feature = "host")]
+    fn type_agent_changes(&mut self) {
+        let now = tokio::time::Instant::now();
+        for id in self.agent_changes.due(now) {
+            let Some(local) = self.local.get(&id).filter(|local| {
+                local.comes_back()
+                    && changes::takes_commands(
+                        local.entry.program.as_deref(),
+                        local.entry.program_status.as_ref(),
+                    )
+            }) else {
+                continue;
+            };
+            let questions = local
+                .entry
+                .program
+                .as_deref()
+                .and_then(crate::agents::Agent::named)
+                .map_or(&[][..], crate::agents::Agent::screen_questions);
+            let session = local.terminal.clone();
+            let terminal = TerminalTarget::Local(local.terminal.clone());
+            let Some(line) = self.agent_changes.take(id) else {
+                continue;
+            };
+            self.spawn(async move {
+                let result = async {
+                    if !questions.is_empty()
+                        && crate::agents::asks(questions, &session.read(false).await?)
+                    {
+                        return Err(Error::Busy);
+                    }
+                    terminal.type_line(line.0.clone(), true).await
+                }
+                .await;
+                Completion::AgentTyped { id, line, result }
+            });
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn agent_typed(
+        &mut self,
+        id: Uuid,
+        line: (String, crate::agents::AgentSettings),
+        result: Result<()>,
+        current: bool,
+    ) {
+        let done = match result {
+            Ok(()) => true,
+            Err(error) => {
+                tracing::debug!(%id, error = %error.text(), "a change of the agent waits");
+                false
+            }
+        };
+        let part = line.1.clone();
+        self.agent_changes
+            .typed(id, line, done, tokio::time::Instant::now());
+        if !current {
+            return;
+        }
+        self.show_pending(id);
+        if done && let Some(local) = self.local.get_mut(&id) {
+            local.changed = local.changed.changed(&part);
+            let settings = local
+                .entry
+                .program_settings
+                .clone()
+                .unwrap_or_default()
+                .changed(&part);
+            local.entry.program_settings = Some(settings.clone());
+            drop(local.terminal.set_settings(None, settings));
+            self.publish_catalog();
+        }
+        self.spawn(async {
+            tokio::time::sleep(changes::SPACING).await;
+            Completion::AgentChangeDue
+        });
     }
 
     #[cfg(feature = "host")]
@@ -3053,6 +3221,11 @@ impl Runtime {
         let live = connection_state == ConnectionState::Connected;
         let streaming = self.streams(remote.id);
         let shared = remote.status.as_ref().filter(|_| remote.online);
+        let program = if streaming {
+            previous.and_then(|entry| entry.program.clone())
+        } else {
+            shared.and_then(|status| status.program.clone())
+        };
         SessionEntry {
             attention: false,
             connected_users: if streaming {
@@ -3060,11 +3233,14 @@ impl Runtime {
             } else {
                 vec![]
             },
-            program: if streaming {
-                previous.and_then(|entry| entry.program.clone())
-            } else {
-                shared.and_then(|status| status.program.clone())
-            },
+            program_live: crate::agents::live_of(program.as_deref()),
+            program_settings: previous
+                .filter(|_| streaming)
+                .and_then(|entry| entry.program_settings.clone()),
+            program_pending: previous
+                .filter(|_| streaming)
+                .and_then(|entry| entry.program_pending.clone()),
+            program,
             program_account: if streaming {
                 previous.and_then(|entry| entry.program_account)
             } else {
@@ -3118,6 +3294,7 @@ impl Runtime {
     #[cfg(feature = "host")]
     fn ended(&mut self, id: Uuid) {
         self.mentions.forget(id);
+        self.agent_changes.forget(id);
         let (published, worktree) = self.local.remove(&id).map_or((false, None), |local| {
             let canvas = local.terminal.canvas.clone();
             tokio::spawn(async move { canvas.end(true).await });
@@ -3195,6 +3372,11 @@ impl Runtime {
                     local.entry.program.clone_from(&program);
                     local.entry.program_account = None;
                     local.entry.program_outside = false;
+                    local.entry.program_settings = None;
+                    local.entry.program_live = crate::agents::live_of(program.as_deref());
+                    local.entry.program_pending = None;
+                    local.changed = crate::agents::AgentSettings::default();
+                    self.agent_changes.forget(id);
                     self.publish_catalog();
                     self.find_account(id, program.as_deref());
                 }
@@ -3204,6 +3386,19 @@ impl Runtime {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program_account = account;
                     self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::Settings { id, settings } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.program_settings = Some(settings);
+                    self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::AgentChange { id, change } => {
+                if let Err(error) = self.change_agent_here(id, &change) {
+                    tracing::debug!(%id, error = %error.text(), "a change of the agent stays undone");
                 }
             }
             #[cfg(feature = "host")]
@@ -3240,6 +3435,7 @@ impl Runtime {
                     local.entry.program_status = status;
                     self.publish_catalog();
                     self.tell_mentions();
+                    self.type_agent_changes();
                 }
             }
             #[cfg(feature = "host")]
@@ -3277,8 +3473,11 @@ impl Runtime {
                     entry.connected_users = metadata.connected_users;
                     entry.working_dir = metadata.directory;
                     entry.title = metadata.title;
+                    entry.program_live = crate::agents::live_of(metadata.program.as_deref());
                     entry.program = metadata.program;
                     entry.program_account = metadata.account;
+                    entry.program_settings = metadata.settings.map(|settings| *settings);
+                    entry.program_pending = metadata.pending.map(|pending| *pending);
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);

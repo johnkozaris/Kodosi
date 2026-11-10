@@ -98,6 +98,18 @@ enum Request {
         group: Option<u32>,
         account: Option<u8>,
     },
+    Settings {
+        group: Option<u32>,
+        settings: crate::agents::AgentSettings,
+    },
+    Pending(Option<crate::agents::AgentSettings>),
+}
+
+/// What the agent in front works with, and a change of it that waits for its turn to end.
+#[derive(Debug, Default)]
+struct RunningAgent {
+    settings: Option<crate::agents::AgentSettings>,
+    pending: Option<crate::agents::AgentSettings>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -210,6 +222,7 @@ impl TerminalSession {
             host_stop_reply: None,
             program: None,
             account: None,
+            agent: RunningAgent::default(),
             clear_line,
             start: None,
             output_at: None,
@@ -391,6 +404,21 @@ impl TerminalSession {
     /// front.
     pub(crate) fn set_account(&self, group: Option<u32>, account: Option<u8>) -> Result<()> {
         self.send(Request::Account { group, account })
+    }
+
+    /// Sets what the agent in front works with, while the process group `group` is still in
+    /// front, or while the same agent is in front when `group` is `None`.
+    pub(crate) fn set_settings(
+        &self,
+        group: Option<u32>,
+        settings: crate::agents::AgentSettings,
+    ) -> Result<()> {
+        self.send(Request::Settings { group, settings })
+    }
+
+    /// Sets the change of the agent in front that waits for the end of its turn.
+    pub(crate) fn set_pending(&self, pending: Option<crate::agents::AgentSettings>) -> Result<()> {
+        self.send(Request::Pending(pending))
     }
 
     pub(crate) fn foreground(
@@ -674,6 +702,7 @@ struct LocalActor {
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, Text>>>,
     program: Option<String>,
     account: Option<u8>,
+    agent: RunningAgent,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
     output_at: Option<tokio::time::Instant>,
@@ -747,6 +776,8 @@ impl LocalActor {
                 .map(|title| title.chars().take(1024).collect()),
             program: self.live_program(),
             account: self.account,
+            settings: self.agent.settings.clone().map(Box::new),
+            pending: self.agent.pending.clone().map(Box::new),
             status: self.status.summary(),
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
@@ -1192,6 +1223,8 @@ impl LocalActor {
         {
             self.program = program;
             self.account = None;
+            self.agent.settings = None;
+            self.agent.pending = None;
             self.metadata_dirty = true;
         }
         if prompt != self.prompt
@@ -1344,6 +1377,22 @@ impl LocalActor {
         self.queue.push_back(write);
     }
 
+    /// Hands a change of the agent in front to the runtime, which types the agent's own
+    /// commands once the agent waits for its next prompt.
+    fn change_agent(&self, change: crate::agents::AgentSettings) -> Result<()> {
+        let agent = self
+            .live_program()
+            .and_then(|program| crate::agents::Agent::named(&program))
+            .ok_or_else(|| Error::Invalid(crate::agents::NO_RUNNING_AGENT.to_owned()))?;
+        agent.live_lines(&change).map_err(Error::Invalid)?;
+        self.changes
+            .try_send(SessionChange::AgentChange {
+                id: self.id,
+                change,
+            })
+            .map_err(|_| Error::Busy)
+    }
+
     fn takes_message(&self) -> Result<()> {
         if self.typing() {
             return Err(Error::Text(someone_typing()));
@@ -1480,6 +1529,28 @@ impl LocalActor {
                         .is_ok()
                 {
                     self.account = account;
+                    self.metadata_dirty = true;
+                }
+            }
+            Request::Settings { group, settings } => {
+                if self.program.is_some()
+                    && self.agent.settings.as_ref() != Some(&settings)
+                    && group.is_none_or(|group| self.pty.foreground_process_group() == Some(group))
+                    && self
+                        .changes
+                        .try_send(SessionChange::Settings {
+                            id: self.id,
+                            settings: settings.clone(),
+                        })
+                        .is_ok()
+                {
+                    self.agent.settings = Some(settings);
+                    self.metadata_dirty = true;
+                }
+            }
+            Request::Pending(pending) => {
+                if self.agent.pending != pending {
+                    self.agent.pending = pending;
                     self.metadata_dirty = true;
                 }
             }
@@ -1808,6 +1879,7 @@ impl LocalActor {
                 self.ask_canvas(request, reply);
                 return None;
             }
+            TerminalControl::Agent { change } => self.change_agent(*change),
         };
         let reason = result.as_ref().err().map(Error::text);
         drop(

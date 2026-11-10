@@ -31,6 +31,9 @@ public:
         QString program;
         int programAccount = -1;
         bool programOutside = false;
+        QVariantMap programSettings;
+        QVariantMap programLive;
+        QVariantMap programPending;
         QString programState;
         QString programKind;
         QString programTitle;
@@ -128,6 +131,8 @@ private:
     QString m_error;
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);
     [[nodiscard]] static std::optional<QVariantMap> decodeCanvas(const QJsonValue& value);
+    [[nodiscard]] static std::optional<QVariantMap> decodeAgentSettings(const QJsonValue& value);
+    [[nodiscard]] static std::optional<QVariantMap> decodeAgentLive(const QJsonValue& value);
     [[nodiscard]] static PresentationSession presentation(const Session& session);
     [[nodiscard]] static bool isWorking(const Session& session);
     [[nodiscard]] static QString waitState(const Session& session);

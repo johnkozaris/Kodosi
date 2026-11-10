@@ -7,6 +7,7 @@ struct EffortMeter: View {
     @Namespace private var thumb
     let levels: [AgentOption]
     let current: String?
+    var auto = true
     let pick: (String?) -> Void
     @State private var hovered: String?
 
@@ -29,8 +30,10 @@ struct EffortMeter: View {
                     .animation(theme.motion.hover, value: shown)
             }
             HStack(spacing: 2) {
-                segment(nil, label: String(localized: "Auto")) {
-                    Text("Auto").appTextStyle(.caption).padding(.horizontal, 6)
+                if auto {
+                    segment(nil, label: String(localized: "Auto")) {
+                        Text("Auto").appTextStyle(.caption).padding(.horizontal, 6)
+                    }
                 }
                 ForEach(Array(levels.enumerated()), id: \.element.id) { index, option in
                     segment(option.id, label: option.label) {

@@ -31,12 +31,13 @@ struct LauncherModes: View {
     }
 }
 
-private struct ModeRow: View {
+struct ModeRow: View {
     struct Option: Identifiable {
         let id: String
         let label: String
         let detail: String
         let caution: Bool
+        var enabled = true
     }
 
     @Environment(\.theme) private var theme
@@ -78,9 +79,14 @@ private struct ModeRow: View {
 
     private func segment(_ option: Option) -> some View {
         let selected = option.id == current
-        return Button { pick(option.id) } label: {
+        let ink = option.enabled ? theme.colors.inkMuted : theme.colors.inkFaint
+        return Button {
+            if option.enabled {
+                pick(option.id)
+            }
+        } label: {
             Text(verbatim: option.label).appTextStyle(.caption)
-                .foregroundStyle(selected ? option.caution ? theme.colors.caution : theme.colors.ink : theme.colors.inkMuted)
+                .foregroundStyle(selected ? option.caution ? theme.colors.caution : theme.colors.ink : ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: 26)
                 .background {
@@ -91,7 +97,7 @@ private struct ModeRow: View {
                 }
                 .contentShape(Capsule())
         }
-        .buttonStyle(PressScaleStyle())
+        .buttonStyle(PressScaleStyle(scale: option.enabled ? 0.95 : 1))
         .onHover { inside in
             if inside {
                 hovered = option.id
