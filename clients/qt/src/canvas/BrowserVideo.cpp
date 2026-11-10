@@ -94,7 +94,7 @@ void BrowserVideo::setDocuments(QObject* documents)
     if (!m_documents)
         return;
     connect(m_documents, &CanvasDocuments::opened, this, &BrowserVideo::opened);
-    connect(m_documents, &CanvasDocuments::received, this, &BrowserVideo::received);
+    connect(m_documents, &CanvasDocuments::receivedBytes, this, &BrowserVideo::received);
     connect(m_documents, &CanvasDocuments::lost, this, &BrowserVideo::lost);
     connect(m_documents, &CanvasDocuments::reachable, this, &BrowserVideo::reachable);
     join();
@@ -124,7 +124,7 @@ void BrowserVideo::join()
 {
     if (!m_active || !m_documents || m_sessionId.isEmpty() || !m_pipe.isEmpty())
         return;
-    m_pipe = m_documents->open(m_sessionId, QStringLiteral("browser"));
+    m_pipe = m_documents->openBytes(m_sessionId, QStringLiteral("browser"));
     if (m_pipe.isEmpty())
         m_again.start(m_wait);
 }
@@ -158,11 +158,10 @@ void BrowserVideo::opened(const QString& pipe)
     post({ { QStringLiteral("type"), QStringLiteral("watch") }, { QStringLiteral("size"), sizeMessage() } });
 }
 
-void BrowserVideo::received(const QString& pipe, const QString& frame)
+void BrowserVideo::received(const QString& pipe, const QByteArray& message)
 {
     if (pipe != m_pipe)
         return;
-    const auto message = QByteArray::fromBase64(frame.toLatin1());
     if (message.startsWith(frameTag)) {
         this->frame(message);
     } else if (message.startsWith(messageTag)) {

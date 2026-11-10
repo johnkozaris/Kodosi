@@ -712,7 +712,8 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
         });
         return;
     }
-    const auto fields = jsonObjectFields(control.json);
+    const auto object = document.object();
+    const auto fields = jsonObjectFields(control.json, object);
     if (!fields) {
         publishFailureToAll({GhosttyTerminalKernel::Failure::Code::GhosttyRejected,
             QStringLiteral("Terminal control frame contains invalid or duplicate fields.")});
@@ -723,7 +724,6 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
             if (field.name == QString::fromLatin1(name)) return jsonUnsigned(field.value);
         return std::nullopt;
     };
-    const auto object = document.object();
     const auto type = object.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("term.resize")) {
         const auto rows = unsignedField( QByteArrayLiteral("rows"));

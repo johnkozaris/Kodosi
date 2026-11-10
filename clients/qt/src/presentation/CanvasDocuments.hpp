@@ -12,8 +12,8 @@ class CommandDispatcher;
 class SessionCatalogModel;
 
 // The pipes of the live documents on this device. A view's frames go to the runtime in parts,
-// and the runtime's parts come back whole. A view opens a new pipe when its pipe breaks, and at
-// once when its terminal can be reached again.
+// and the runtime's parts come back whole, in base64 to a page and as bytes to a native view. A
+// view opens a new pipe when its pipe breaks, and at once when its terminal can be reached again.
 class CanvasDocuments final : public QObject {
     Q_OBJECT
 
@@ -21,6 +21,7 @@ public:
     CanvasDocuments(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent = nullptr);
 
     Q_INVOKABLE [[nodiscard]] QString open(const QString& sessionId, const QString& key);
+    [[nodiscard]] QString openBytes(const QString& sessionId, const QString& key);
     Q_INVOKABLE void send(const QString& pipe, const QString& frame);
     Q_INVOKABLE void close(const QString& pipe);
     void apply(const QJsonObject& event);
@@ -29,6 +30,7 @@ public:
 signals:
     void opened(const QString& pipe);
     void received(const QString& pipe, const QString& frame);
+    void receivedBytes(const QString& pipe, const QByteArray& frame);
     void lost(const QString& pipe);
     void reachable(const QString& sessionId);
 
@@ -36,8 +38,10 @@ private:
     struct Pipe {
         QByteArray filling;
         qint64 next = 0;
+        bool bytes = false;
     };
 
+    QString openPipe(const QString& sessionId, const QString& key, bool bytes);
     bool command(const QString& type, QJsonObject fields, const QString& requestId = {});
     void lose(const QString& pipe);
     void observe();

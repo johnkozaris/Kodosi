@@ -36,9 +36,19 @@ bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QSt
 
 QString CanvasDocuments::open(const QString& sessionId, const QString& key)
 {
+    return openPipe(sessionId, key, false);
+}
+
+QString CanvasDocuments::openBytes(const QString& sessionId, const QString& key)
+{
+    return openPipe(sessionId, key, true);
+}
+
+QString CanvasDocuments::openPipe(const QString& sessionId, const QString& key, bool bytes)
+{
     const auto pipe = newId();
     const auto request = newId();
-    m_pipes.insert(pipe, {});
+    m_pipes.insert(pipe, { .filling = {}, .next = 0, .bytes = bytes });
     m_opening.insert(request, pipe);
     const QJsonObject fields { { QStringLiteral("sessionId"), sessionId }, { QStringLiteral("pipe"), pipe },
         { QStringLiteral("key"), key } };
@@ -96,8 +106,13 @@ void CanvasDocuments::apply(const QJsonObject& event)
     }
     ++found->next;
     found->filling += *part;
-    if (!event.value(QStringLiteral("more")).toBool())
-        emit received(pipe, QString::fromLatin1(std::exchange(found->filling, {}).toBase64()));
+    if (event.value(QStringLiteral("more")).toBool())
+        return;
+    const auto frame = std::exchange(found->filling, {});
+    if (found->bytes)
+        emit receivedBytes(pipe, frame);
+    else
+        emit received(pipe, QString::fromLatin1(frame.toBase64()));
 }
 
 void CanvasDocuments::reset()

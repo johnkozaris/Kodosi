@@ -412,6 +412,27 @@ private slots:
         QCOMPARE(commands.values.size(), sent);
     }
 
+    void aNativeViewTakesItsFrameAsBytes()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        QSignalSpy text(&documents, &kodosi::CanvasDocuments::received);
+        QSignalSpy bytes(&documents, &kodosi::CanvasDocuments::receivedBytes);
+        const auto pipe = documents.openBytes(test::id(1), QStringLiteral("browser"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        const auto part = [&pipe](int sequence, bool more, const QByteArray& data) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+                { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
+                { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
+        };
+        documents.apply(part(0, true, "\x01Hel"));
+        documents.apply(part(1, false, "lo\xff"));
+        QCOMPARE(bytes.size(), 1);
+        QCOMPARE(bytes.first().at(1).toByteArray(), QByteArray("\x01Hello\xff"));
+        QVERIFY(text.isEmpty());
+    }
+
     void aDocumentHearsWhenItsTerminalRunsAgain()
     {
         Commands commands;

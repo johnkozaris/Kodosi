@@ -19,12 +19,10 @@ struct JsonField {
     QByteArrayView value;
 };
 
-inline std::optional<QVector<JsonField>> jsonObjectFields(const QByteArray& json)
+// The fields of `json`, which the caller parsed as `object`.
+inline std::optional<QVector<JsonField>> jsonObjectFields(const QByteArray& json, const QJsonObject& object)
 {
-    QJsonParseError error;
-    const auto document = QJsonDocument::fromJson(json, &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) return std::nullopt;
-    if (document.object().size() > 256) return std::nullopt;
+    if (object.size() > 256) return std::nullopt;
     const auto bytes = QByteArrayView(json).trimmed();
     if (!bytes.startsWith('{')) return std::nullopt;
     QVector<JsonField> fields;
@@ -71,6 +69,14 @@ inline std::optional<QVector<JsonField>> jsonObjectFields(const QByteArray& json
         if (cursor < bytes.size() && bytes[cursor] == ',') ++cursor;
     }
     return fields;
+}
+
+inline std::optional<QVector<JsonField>> jsonObjectFields(const QByteArray& json)
+{
+    QJsonParseError error;
+    const auto document = QJsonDocument::fromJson(json, &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) return std::nullopt;
+    return jsonObjectFields(json, document.object());
 }
 
 inline std::optional<std::uint64_t> jsonUnsigned(QByteArrayView bytes)
