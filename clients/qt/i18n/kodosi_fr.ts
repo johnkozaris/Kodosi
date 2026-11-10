@@ -2029,7 +2029,7 @@
     </message>
     <message>
         <source>The web link has no server name.</source>
-        <translation>Le lien web n'a pas de nom de serveur.</translation>
+        <translation>Le lien web n&apos;a pas de nom de serveur.</translation>
     </message>
     <message>
         <source>The address is on %1.</source>
