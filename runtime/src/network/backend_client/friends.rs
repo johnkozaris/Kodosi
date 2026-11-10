@@ -12,6 +12,7 @@ use crate::identity::{
         root_hex,
     },
     pins::Root,
+    recovery::is_recovery_device,
 };
 
 #[derive(Deserialize)]
@@ -195,6 +196,73 @@ impl BackendClient {
         Ok(())
     }
 
+    /// Starting fresh keeps the account's friends. This device lists them, and the people that
+    /// the account asked, again as friends added by username. Until that works, each refresh of
+    /// the friends tries again.
+    pub(super) async fn relist_friends(&self, credentials: &Credentials) -> Result<()> {
+        let (friends, requests) = self.friend_directory(credentials).await?;
+        let people = friends
+            .iter()
+            .chain(requests["outgoing"].as_array().into_iter().flatten())
+            .map(|person| {
+                Ok((
+                    wire::text(person, "userId")?.to_owned(),
+                    wire::text(person, "handle")?.to_ascii_lowercase(),
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.change_friends(credentials, |list| {
+            let before = list.friends.len();
+            for (user, handle) in &people {
+                list.friends.entry(user.clone()).or_insert_with(|| Friend {
+                    handle: handle.clone(),
+                    root: None,
+                    verified: false,
+                });
+            }
+            list.friends.len() != before
+        })
+        .await?;
+        self.forget_relist()
+    }
+
+    /// Notes that this device started fresh for the account, so it lists the friends again.
+    pub(super) fn mark_relist(&self, credentials: &Credentials) -> Result<()> {
+        Ok(kodosi_os::fs::write_private(
+            &self.relist_marker(),
+            &relist_mark(credentials),
+        )?)
+    }
+
+    pub(super) fn forget_relist(&self) -> Result<()> {
+        match std::fs::remove_file(self.relist_marker()) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+            _ => Ok(()),
+        }
+    }
+
+    /// A relist that this device's start fresh left undone. It counts only while this device is
+    /// the only device of the account, as no other device can have verified a friend since.
+    async fn relist_pending(&self, credentials: &Credentials) -> Result<bool> {
+        if std::fs::read(self.relist_marker()).ok() != Some(relist_mark(credentials)) {
+            return Ok(false);
+        }
+        let alone = {
+            let state = self.inner.state.lock().await;
+            let pins = state.pins.lock().map_err(|_| Error::Closed)?;
+            pins.devices(&credentials.user_id)
+                .all(|device| *device == credentials.keys.device_id || is_recovery_device(device))
+        };
+        if !alone {
+            self.forget_relist()?;
+        }
+        Ok(alone)
+    }
+
+    fn relist_marker(&self) -> std::path::PathBuf {
+        self.inner.config.data_root.join("network/relist-friends")
+    }
+
     async fn friend_bundle(
         &self,
         credentials: &Credentials,
@@ -281,13 +349,16 @@ impl BackendClient {
         let root = self.friend_root(credentials, user_id, &bundle).await?;
         if bundle.root()? != root {
             self.forget_identity(user_id);
-            self.inner
+            let newly = self
+                .inner
                 .state
                 .lock()
                 .await
                 .changed_friends
                 .insert(user_id.to_owned());
-            self.inner.friends_changed.notify_one();
+            if newly {
+                self.inner.friends_changed.notify_one();
+            }
             return Err(Error::Trust(text!(
                 "This friend has a new identity. Trust it in Friends before you share or connect."
             )));
@@ -362,13 +433,19 @@ impl BackendClient {
             list = Some(self.sync_friends(credentials).await?.0);
         }
         let changed = self.inner.state.lock().await.changed_friends.clone();
-        if users.iter().all(|user| {
-            !changed.contains(user)
-                && list
-                    .as_ref()
-                    .is_some_and(|list| list.friends.contains_key(user))
-        }) {
+        let record = |user: &String| list.as_ref().and_then(|list| list.friends.get(user));
+        if users
+            .iter()
+            .all(|user| !changed.contains(user) && record(user).is_some())
+        {
             Ok(())
+        } else if users
+            .iter()
+            .any(|user| record(user).is_none_or(|friend| friend.verified && changed.contains(user)))
+        {
+            Err(Error::Trust(text!(
+                "Ask this friend for a new invite, and verify their identity with it."
+            )))
         } else {
             Err(Error::Trust(text!(
                 "Trust the new identity of this friend in Friends before you share."
@@ -383,6 +460,11 @@ impl BackendClient {
                 json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[],"blocked":[]}),
             );
         }
+        if self.relist_pending(&credentials).await?
+            && let Err(error) = self.relist_friends(&credentials).await
+        {
+            tracing::warn!(%error, "the friends were not listed again after starting fresh");
+        }
         let (friends, requests) = self.friend_directory(&credentials).await?;
         let blocked: Value = self
             .inner
@@ -390,15 +472,25 @@ impl BackendClient {
             .device(Method::GET, "api/friends/blocked", &credentials, None)
             .await?;
         let (list, _) = self.sync_friends(&credentials).await?;
-        for friend in &friends {
-            let user = wire::text(friend, "userId")?;
-            if list
-                .friends
-                .get(user)
-                .is_some_and(|friend| friend.root.is_none())
-                && let Err(error) = self.friend_identity(&credentials, user).await
-            {
-                tracing::warn!(%error, "the identity of a new friend is not fixed yet");
+        let unfixed = {
+            let state = self.inner.state.lock().await;
+            let pins = state.pins.lock().map_err(|_| Error::Closed)?;
+            friends
+                .iter()
+                .filter_map(|friend| {
+                    let user = friend.get("userId").and_then(Value::as_str)?;
+                    let root = list.friends.get(user)?.root();
+                    (root.is_none() || pins.root(user).is_some_and(|pinned| Some(pinned) != root))
+                        .then(|| user.to_owned())
+                })
+                .collect::<Vec<_>>()
+        };
+        for user in &unfixed {
+            match self.friend_identity(&credentials, user).await {
+                Ok(_) => {
+                    self.inner.state.lock().await.changed_friends.remove(user);
+                }
+                Err(error) => tracing::warn!(%error, "the identity of a friend is not fixed yet"),
             }
         }
         let list = self
@@ -721,4 +813,8 @@ impl BackendClient {
         }
         Ok(vec![event])
     }
+}
+
+fn relist_mark(credentials: &Credentials) -> Vec<u8> {
+    format!("{} {}", credentials.user_id, credentials.keys.device_id).into_bytes()
 }

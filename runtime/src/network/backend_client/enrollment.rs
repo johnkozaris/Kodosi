@@ -101,6 +101,12 @@ impl BackendClient {
                 {
                     Vec::new()
                 }
+                Err(Error::Trust(reason)) => {
+                    if self.settle_enrollment().await? {
+                        return Err(Error::Trust(reason));
+                    }
+                    return Box::pin(self.enrollment_events()).await;
+                }
                 Err(error) => return Err(error),
             }
         } else {
@@ -174,6 +180,7 @@ impl BackendClient {
             .await
             .friend_lists
             .forget(&credentials.user_id)?;
+        self.forget_relist()?;
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials.clone());
         Ok(credentials)
     }
@@ -209,6 +216,9 @@ impl BackendClient {
             return Err(Error::Text(text!(
                 "Kodosi could not trust this device after the reset."
             )));
+        }
+        if let Err(error) = self.relist_friends(&self.credentials()?).await {
+            tracing::warn!(%error, "the friends were not listed again after starting fresh");
         }
         let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);
