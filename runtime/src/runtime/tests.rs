@@ -835,6 +835,58 @@ async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_do
 }
 
 #[tokio::test]
+async fn a_request_to_a_terminal_that_ended_hears_that_the_terminal_is_gone() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let scope = runtime.scope.clone();
+    let (session_id, incarnation) = (Uuid::now_v7().to_string(), Uuid::now_v7().to_string());
+    let input = Command::Input {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: session_id.clone(),
+        expected_runtime_incarnation_id: incarnation.clone(),
+        text: "ls".to_owned(),
+        enter: true,
+    };
+    let read = Command::Read {
+        request_id: Uuid::now_v7().to_string(),
+        session_id,
+        expected_runtime_incarnation_id: incarnation,
+        history: false,
+    };
+    let client = Uuid::now_v7();
+    for command in [&input, &read] {
+        runtime
+            .expect_answer(command, client, CancellationToken::new())
+            .unwrap();
+    }
+    let ended = |completion| Job {
+        scope: scope.clone(),
+        completion,
+    };
+    runtime.complete(ended(Completion::Terminal {
+        command: input,
+        result: Err(Error::Stopped),
+    }));
+    runtime.complete(ended(Completion::Read {
+        command: read,
+        result: Err(Error::Stopped),
+    }));
+    let answers: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| {
+            let mut event = serde_json::to_value(event).unwrap();
+            crate::text::render(&mut event, crate::text::Language::English);
+            (event["type"].clone(), event["message"].clone())
+        })
+        .collect();
+    let gone = (
+        json!("session.error"),
+        json!("This terminal is not available."),
+    );
+    assert_eq!(answers, [gone.clone(), gone]);
+    assert!(runtime.answers().is_empty());
+}
+
+#[tokio::test]
 async fn an_app_can_show_a_listed_terminal_of_another_computer_that_is_not_open() {
     let (mut runtime, _root) = registry_fixture();
     let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());

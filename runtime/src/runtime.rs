@@ -2362,10 +2362,14 @@ impl Runtime {
         }
     }
 
+    /// Answers a request with its error. Work on a terminal that ended stops with `Stopped`, so
+    /// its answer says that the terminal is not available.
     fn error(&self, command: &Command, error: &Error) {
-        if !matches!(error, Error::Stopped) {
-            self.emit(answer(command, Err(error)));
-        }
+        let error = match error {
+            Error::Stopped => &Error::NotFound,
+            error => error,
+        };
+        self.emit(answer(command, Err(error)));
     }
 
     fn result(&self, command: &Command) {
