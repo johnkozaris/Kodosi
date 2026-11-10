@@ -160,6 +160,27 @@ impl Agent {
             .collect()
     }
 
+    /// How the agent asks until a person chooses: unrestricted where it can, else asking.
+    #[cfg(feature = "host")]
+    pub(crate) fn default_permissions(self) -> Permissions {
+        if self.permission_words(Permissions::Unrestricted).is_some() {
+            Permissions::Unrestricted
+        } else {
+            Permissions::Ask
+        }
+    }
+
+    /// How much of its work the agent shows until a person chooses: quiet where it can, else
+    /// its standard.
+    #[cfg(feature = "host")]
+    pub(crate) fn default_output(self) -> Output {
+        if self.output_words(Output::Quiet).is_some() {
+            Output::Quiet
+        } else {
+            Output::Standard
+        }
+    }
+
     #[cfg(feature = "host")]
     pub(crate) fn outputs(self) -> Vec<Output> {
         let outputs: Vec<_> = Output::ALL
@@ -503,6 +524,10 @@ pub struct AgentInfo {
     pub permissions: Vec<Permissions>,
     /// How much of its work the agent can show; empty when it has no choice.
     pub outputs: Vec<Output>,
+    /// How the agent asks until a person chooses.
+    pub default_permissions: Permissions,
+    /// How much of its work the agent shows until a person chooses.
+    pub default_output: Output,
 }
 
 /// How an agent asks before it acts, through its own flags.

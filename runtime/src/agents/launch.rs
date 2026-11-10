@@ -294,24 +294,18 @@ impl State {
     }
 }
 
-/// The permissions that an agent starts with: the last choice that it has, else unrestricted,
-/// else asking.
+/// The permissions that an agent starts with: the last choice that it has, else its default.
 fn permissions_of(agent: Agent, saved: Option<Permissions>) -> Permissions {
-    [saved, Some(Permissions::Unrestricted)]
-        .into_iter()
-        .flatten()
-        .find(|permissions| agent.permission_words(*permissions).is_some())
-        .unwrap_or(Permissions::Ask)
+    saved
+        .filter(|permissions| agent.permission_words(*permissions).is_some())
+        .unwrap_or_else(|| agent.default_permissions())
 }
 
-/// The output that an agent starts with: the last choice that it has, else quiet, else its
-/// standard one.
+/// The output that an agent starts with: the last choice that it has, else its default.
 fn output_of(agent: Agent, saved: Option<Output>) -> Output {
-    [saved, Some(Output::Quiet)]
-        .into_iter()
-        .flatten()
-        .find(|output| agent.output_words(*output).is_some())
-        .unwrap_or(Output::Standard)
+    saved
+        .filter(|output| agent.output_words(*output).is_some())
+        .unwrap_or_else(|| agent.default_output())
 }
 
 fn agent_info(catalog: &AgentCatalog, agent: Agent) -> Option<&AgentInfo> {

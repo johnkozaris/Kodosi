@@ -15,10 +15,15 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var reportsUsage: Bool
     public var permissions: [AgentPermissions]
     public var outputs: [AgentOutput]
+    /// How the agent asks until someone chooses.
+    public var defaultPermissions: AgentPermissions
+    /// How much of its work the agent shows until someone chooses.
+    public var defaultOutput: AgentOutput
 
     public init(
         agent: String, program: String, installed: Bool, accounts: [AgentAccount], install: String, addsAccounts: Bool,
         reportsUsage: Bool, permissions: [AgentPermissions] = [.ask], outputs: [AgentOutput] = [],
+        defaultPermissions: AgentPermissions = .ask, defaultOutput: AgentOutput = .standard,
     ) {
         self.agent = agent
         self.program = program
@@ -29,20 +34,12 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
         self.reportsUsage = reportsUsage
         self.permissions = permissions
         self.outputs = outputs
+        self.defaultPermissions = defaultPermissions
+        self.defaultOutput = defaultOutput
     }
 
     public var id: String {
         agent
-    }
-
-    /// The permissions that the agent starts with until someone chooses: unrestricted, else asking.
-    public var defaultPermissions: AgentPermissions {
-        permissions.contains(.unrestricted) ? .unrestricted : .ask
-    }
-
-    /// The output that the agent starts with until someone chooses: quiet, else its standard one.
-    public var defaultOutput: AgentOutput {
-        outputs.contains(.quiet) ? .quiet : .standard
     }
 }
 

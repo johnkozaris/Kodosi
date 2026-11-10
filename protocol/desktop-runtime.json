@@ -10292,6 +10292,32 @@
                             }
                           ]
                         },
+                        "defaultOutput": {
+                          "oneOf": [
+                            {
+                              "const": "quiet"
+                            },
+                            {
+                              "const": "standard"
+                            },
+                            {
+                              "const": "detailed"
+                            }
+                          ]
+                        },
+                        "defaultPermissions": {
+                          "oneOf": [
+                            {
+                              "const": "ask"
+                            },
+                            {
+                              "const": "auto"
+                            },
+                            {
+                              "const": "unrestricted"
+                            }
+                          ]
+                        },
                         "install": {
                           "type": "string"
                         },
@@ -10346,7 +10372,9 @@
                         "addsAccounts",
                         "reportsUsage",
                         "permissions",
-                        "outputs"
+                        "outputs",
+                        "defaultPermissions",
+                        "defaultOutput"
                       ],
                       "type": "object"
                     },

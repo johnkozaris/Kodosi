@@ -33,6 +33,7 @@ private let catalog: JSONValue = .object([
             "addsAccounts": .bool(true), "reportsUsage": .bool(true),
             "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
+            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
@@ -45,6 +46,7 @@ private let catalog: JSONValue = .object([
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
             "reportsUsage": .bool(true), "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
+            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"),
             "accounts": .array([]),
         ]),
     ]),

@@ -211,11 +211,13 @@ private slots:
             { QStringLiteral("install"), QStringLiteral("curl -fsSL https://claude.ai/install.sh | bash") },
             { QStringLiteral("addsAccounts"), true },
             { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto"), QStringLiteral("unrestricted") } },
-            { QStringLiteral("outputs"), QJsonArray { QStringLiteral("quiet"), QStringLiteral("standard"), QStringLiteral("detailed") } } };
+            { QStringLiteral("outputs"), QJsonArray { QStringLiteral("quiet"), QStringLiteral("standard"), QStringLiteral("detailed") } },
+            { QStringLiteral("defaultPermissions"), QStringLiteral("unrestricted") }, { QStringLiteral("defaultOutput"), QStringLiteral("quiet") } };
         const QJsonObject codex { { QStringLiteral("agent"), QStringLiteral("codex") },
             { QStringLiteral("program"), QStringLiteral("codex") }, { QStringLiteral("installed"), false },
             { QStringLiteral("accounts"), QJsonArray {} }, { QStringLiteral("install"), QStringLiteral("npm install -g @openai/codex") },
-            { QStringLiteral("addsAccounts"), true } };
+            { QStringLiteral("addsAccounts"), true }, { QStringLiteral("defaultPermissions"), QStringLiteral("unrestricted") },
+            { QStringLiteral("defaultOutput"), QStringLiteral("quiet") } };
         const QJsonObject choice { { QStringLiteral("agent"), QStringLiteral("claude") },
             { QStringLiteral("picks"),
                 QJsonArray { QJsonObject { { QStringLiteral("agent"), QStringLiteral("claude") },

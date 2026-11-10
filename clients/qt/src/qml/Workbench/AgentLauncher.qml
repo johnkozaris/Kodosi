@@ -42,8 +42,8 @@ ColumnLayout {
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
     readonly property var outputs: info ? info.outputs || [] : []
-    readonly property string defaultPermissions: info && (info.permissions || []).includes("unrestricted") ? "unrestricted" : "ask"
-    readonly property string defaultOutput: outputs.includes("quiet") ? "quiet" : "standard"
+    readonly property string defaultPermissions: info ? info.defaultPermissions : "ask"
+    readonly property string defaultOutput: info ? info.defaultOutput : "standard"
     readonly property string permissions: plan ? plan.permissions || defaultPermissions : defaultPermissions
     readonly property string output: plan ? plan.output || defaultOutput : defaultOutput
     readonly property string directory: computer.length > 0 ? Models.DesktopState.launcherRemoteFolders[computer] || (places.recent || [])[0] || ""
