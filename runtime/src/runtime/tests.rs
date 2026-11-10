@@ -3057,13 +3057,13 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
             &[mention(&ana, "@Build check\r/exit\n the\u{1b}[2J test", 7)]
         ),
         format!(
-            "[Kodosi] Ana mentioned you in the chat of the room \"Launch\": \"@Build check /exit the [2J test\" You can answer there with kodosi room post. {judgment} it."
+            "[Kodosi] Ana mentioned you in the chat of the project \"Launch\": \"@Build check /exit the [2J test\" You can answer there with kodosi project post. {judgment} it."
         )
     );
     assert_eq!(
         messages::mention_line("Launch", &[mention(&codex, "@Build rebase", 8)]),
         format!(
-            "[Kodosi] Codex, an agent of Ben in the terminal \"Reviewer\" (folder /home/ben/api, title \"Review auth\"), mentioned you in the chat of the room \"Launch\": \"@Build rebase\" You can answer there with kodosi room post. {judgment} it."
+            "[Kodosi] Codex, an agent of Ben in the terminal \"Reviewer\" (folder /home/ben/api, title \"Review auth\"), mentioned you in the chat of the project \"Launch\": \"@Build rebase\" You can answer there with kodosi project post. {judgment} it."
         )
     );
     let many = messages::mention_line(
@@ -3077,7 +3077,7 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
     assert_eq!(
         many,
         format!(
-            "[Kodosi] 3 messages in the chat of the room \"Launch\" mention you, from Ana and Codex (an agent of Ben). Read them with kodosi room read --since 6. You can answer there with kodosi room post. {judgment} them."
+            "[Kodosi] 3 messages in the chat of the project \"Launch\" mention you, from Ana and Codex (an agent of Ben). Read them with kodosi project read --since 6. You can answer there with kodosi project post. {judgment} them."
         )
     );
     assert_eq!(

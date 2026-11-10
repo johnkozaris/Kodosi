@@ -10,9 +10,10 @@ use crate::{
 #[derive(clap::Args)]
 pub(super) struct Arguments {
     #[arg(
-        long,
+        long = "project",
+        value_name = "PROJECT",
         global = true,
-        help = "The room: its name, its ID or the end of its ID that `kodosi room list` shows. The default is the room of this terminal"
+        help = "The project: its name, its ID or the end of its ID that `kodosi project list` shows. The default is the project of this terminal"
     )]
     room: Option<String>,
     #[command(subcommand)]
@@ -20,36 +21,37 @@ pub(super) struct Arguments {
 }
 #[derive(Subcommand)]
 enum RoomAction {
-    /// List your rooms and your invitations to rooms.
+    /// List your projects and your invitations to projects.
     List,
-    /// Make a room.
+    /// Make a project.
     Create { name: String },
-    /// Give the room a new name.
+    /// Give the project a new name.
     Rename { name: String },
-    /// Delete the room. Its terminals keep running.
+    /// Delete the project. Its terminals keep running.
     Delete,
-    /// Invite a friend to the room.
+    /// Invite a friend to the project.
     Invite { friend: String },
-    /// Accept the invitation to a room.
+    /// Accept the invitation to a project.
     Accept {
         #[arg(help = INVITATION)]
         name: String,
     },
-    /// Reject the invitation to a room.
+    /// Reject the invitation to a project.
     Reject {
         #[arg(help = INVITATION)]
         name: String,
     },
-    /// Remove a member from the room.
+    /// Remove a member from the project.
     RemoveMember {
-        /// The member: the username of a friend, or the user ID that `kodosi room context` shows.
+        /// The member: the username of a friend, or the user ID that `kodosi project context`
+        /// shows.
         member: String,
     },
-    /// Leave the room.
+    /// Leave the project.
     Leave,
-    /// Show the room, its members, terminals, tasks and repositories.
+    /// Show the project, its members, terminals, tasks and repositories.
     Context,
-    /// Open the room in the Kodosi app.
+    /// Open the project in the Kodosi app.
     Show,
     /// Read the conversation.
     Read {
@@ -67,7 +69,7 @@ enum RoomAction {
         #[arg(long)]
         agent: Option<String>,
     },
-    /// Wait for activity in the room.
+    /// Wait for activity in the project.
     Wait {
         /// The longest wait, in seconds.
         #[arg(long, default_value_t = 60)]
@@ -81,15 +83,15 @@ enum RoomAction {
         #[arg(help = super::TERMINAL)]
         terminal: Option<String>,
     },
-    /// Take a terminal out of its room, by default this one.
+    /// Take a terminal out of its project, by default this one.
     Unshare {
         #[arg(help = super::TERMINAL)]
         terminal: Option<String>,
     },
-    /// Work with the room's tasks.
+    /// Work with the project's tasks.
     #[command(subcommand)]
     Task(TaskAction),
-    /// Work with the room's repositories.
+    /// Work with the project's repositories.
     #[command(subcommand)]
     Repo(RepoAction),
 }
@@ -107,11 +109,11 @@ enum TaskAction {
         /// What the task needs.
         #[arg(long, default_value = "")]
         description: String,
-        /// Link a repository of the room, by the name or address that `kodosi room repo list`
+        /// Link a repository of the project, by the name or address that `kodosi project repo list`
         /// shows. Repeat it for more.
         #[arg(long = "repo")]
         repositories: Vec<String>,
-        /// Also open the task as an issue in this repository of the room. A change of the
+        /// Also open the task as an issue in this repository of the project. A change of the
         /// task then changes the issue.
         #[arg(long)]
         issue: Option<String>,
@@ -157,7 +159,7 @@ enum RepoAction {
     },
     /// Link a repository, by default the origin of the current folder's checkout.
     Add {
-        /// A repository address, or a name that `kodosi room repo list --available` shows.
+        /// A repository address, or a name that `kodosi project repo list --available` shows.
         repository: Option<String>,
         /// Use the origin of the checkout in this folder.
         #[arg(long)]
@@ -173,10 +175,12 @@ enum RepoAction {
     },
 }
 
-const INVITATION: &str = "The room of the invitation, by the name that `kodosi room list` shows";
+const INVITATION: &str =
+    "The project of the invitation, by the name that `kodosi project list` shows";
 const TASK: &str =
-    "The task: its title, its ID or the end of its ID that `kodosi room task list` shows";
-const REPOSITORY: &str = "The repository: its name or address that `kodosi room repo list` shows";
+    "The task: its title, its ID or the end of its ID that `kodosi project task list` shows";
+const REPOSITORY: &str =
+    "The repository: its name or address that `kodosi project repo list` shows";
 
 fn terminal() -> Option<String> {
     super::this_terminal()
@@ -276,7 +280,7 @@ pub(super) async fn run(
         RoomAction::Repo(action) => {
             repository(action, client, context, &room, &snapshot, json_output).await
         }
-        _ => Err(Error::Invalid("Unsupported room action.".into())),
+        _ => Err(Error::Invalid("Unsupported project action.".into())),
     }
 }
 
@@ -343,10 +347,11 @@ fn resolve_room(reference: Option<String>, catalog: &Value, context: &Context) -
     }
     let list = catalog["missions"]
         .as_array()
-        .ok_or_else(|| Error::Invalid("Create or join a room first.".into()))?;
+        .ok_or_else(|| Error::Invalid("Create or join a project first.".into()))?;
     if list.len() != 1 {
         return Err(Error::Invalid(
-            "Choose a room with --room, or run this command inside one of its terminals.".into(),
+            "Choose a project with --project, or run this command inside one of its terminals."
+                .into(),
         ));
     }
     list[0]["id"]
@@ -401,9 +406,9 @@ async fn share_terminal(
     )
     .await?;
     let text = if room.is_some() {
-        "The terminal is shared with the room."
+        "The terminal is shared with the project."
     } else {
-        "The terminal is no longer shared with a room."
+        "The terminal is no longer shared with a project."
     };
     output(&event, json_output, text)
 }
@@ -430,7 +435,7 @@ fn answer(operation: &str, catalog: &Value, reference: &str) -> Result<Value> {
         })
         .filter_map(|invitation| invitation["id"].as_str())
         .collect::<Vec<_>>();
-    let id = only(&matches, "invitation", reference, "kodosi room list")?;
+    let id = only(&matches, "invitation", reference, "kodosi project list")?;
     Ok(json!({"type":operation,"invitationId":id}))
 }
 
@@ -550,7 +555,7 @@ fn task_action(action: TaskAction, snapshot: &Snapshot) -> Result<Action> {
         .map(|task| (task.id.as_str(), task.title.as_str()));
     let matching = crate::protocol::referred(&reference, tasks);
     Ok(Action::UpdateTask {
-        task_id: only(&matching, "task", &reference, "kodosi room task list")?.to_owned(),
+        task_id: only(&matching, "task", &reference, "kodosi project task list")?.to_owned(),
         change,
         note,
         terminal_id: terminal(),
@@ -651,7 +656,7 @@ fn chosen(list: &RepositoryList, name: &str) -> Result<Action> {
         &matching,
         "repository",
         name,
-        "kodosi room repo list --available",
+        "kodosi project repo list --available",
     )?;
     Ok(Action::AddRepository {
         url: url.to_owned(),
@@ -666,7 +671,13 @@ fn repo_id(snapshot: &Snapshot, reference: &str) -> Result<String> {
         .filter(|repo| refers_to(reference, &repo.id, &repo.name) || repo.url == reference)
         .map(|repo| repo.id.as_str())
         .collect::<Vec<_>>();
-    only(&matching, "repository", reference, "kodosi room repo list").map(str::to_owned)
+    only(
+        &matching,
+        "repository",
+        reference,
+        "kodosi project repo list",
+    )
+    .map(str::to_owned)
 }
 fn conversation(snapshot: &Snapshot) -> String {
     snapshot

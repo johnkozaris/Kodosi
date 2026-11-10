@@ -13,10 +13,10 @@ flowchart LR
 ```
 
 Each person's computer runs one Kodosi host, a process of the Rust runtime. It runs
-shells on a PTY (ConPTY on Windows) and owns terminals, identity, encryption and rooms.
+shells on a PTY (ConPTY on Windows) and owns terminals, identity, encryption and projects.
 The desktop apps and the `kodosi` command are its clients over a local connection; the
 first client that needs the host starts it in the background. Each client gets the
-answers to its own requests, and every client gets the state of terminals and rooms, so
+answers to its own requests, and every client gets the state of terminals and projects, so
 what one client does, the others show. The host keeps terminal state with Ghostty's
 terminal library, and the apps draw it with Ghostty. The iPhone, iPad and Android apps
 embed the viewer build of the runtime and host no terminals. The Android app loads it as a
@@ -43,7 +43,7 @@ conversation, the command opens the agent's own list of conversations. A new hos
 the saved terminals until an app sends `session.restore`; then it starts each one again
 with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.
 The host also gives `restoredFrom` to the backend, so that views on other devices can
-follow the terminal. A restored terminal joins its room or its people again when the
+follow the terminal. A restored terminal joins its project or its people again when the
 account that chose them is signed in.
 
 As it stops, the host also saves the primary screen and history of each terminal that
@@ -110,13 +110,13 @@ the folders of that computer's terminals as desktop commands, and the host answe
 as one more client. The host takes calls only from the person's own approved devices and
 runs no other command.
 
-## Backend and rooms
+## Backend and projects
 
 One ASP.NET Core process serves the API and the WebSockets, holds the live connections
 under a PostgreSQL lease, and stores its records in PostgreSQL. It relays terminal
 traffic without storing it.
 
-Devices encrypt and sign room messages, tasks and repository links. The backend stores the ciphertext, numbers the items and tells members' devices that a room
+Devices encrypt and sign project messages, tasks and repository links. The backend stores the ciphertext, numbers the items and tells members' devices that a project
 changed; each device fetches the newer items. Issue actions run on the participant's
 computer with its own credentials. See [Security](SECURITY.md) and the
 [encryption design](CRYPTOGRAPHY.md).
@@ -128,7 +128,7 @@ Copilot CLI find the note and Kodosi's skills through the terminal's variables, 
 get them also when a person starts them there by hand. The launcher gives the note to
 Codex on its command line, its only way in; when the host sees a Codex in front that a
 person started without it, the terminal says so to the apps of its computer. A host types
-the new room messages that name one of its terminals with `@` into the agent in that
+the new project messages that name one of its terminals with `@` into the agent in that
 terminal, as one line with who wrote it and from where.
 `kodosi terminal message <terminal> "text"` sends such a line to an agent on any computer,
 as a terminal control. The terminal types a message only while its agent reports a state

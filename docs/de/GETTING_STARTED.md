@@ -13,7 +13,7 @@ dem du dich anmeldest. In einem Terminal zeigt `kodosi auth login` einen Code, d
 einem beliebigen Browser eingibst.
 
 Ohne Konto führt Kodosi Terminals auf diesem Computer aus. Melde dich an, um deine anderen
-Computer, Freunde und Räume zu nutzen.
+Computer, Freunde und Projekte zu nutzen.
 
 ## 2. Einen Agent starten
 
@@ -64,7 +64,7 @@ Fenster schließt, laufen Kodosi und deine Terminals weiter, und das Kodosi-Symb
 der Menüleiste oder im Infobereich; auf einem Desktop ohne Infobereich beendet das Schließen
 des Fensters Kodosi. Wenn du Kodosi beendest, stoppen deine Terminals. Kodosi speichert, was
 sie zeigen, auf deinem Computer und sonst nirgends. Wenn du Kodosi wieder öffnest, starten sie
-erneut in ihren Ordnern, Räumen und Plätzen auf der Bühne, mit ihrem früheren Bildschirm und
+erneut in ihren Ordnern, Projekten und Plätzen auf der Bühne, mit ihrem früheren Bildschirm und
 Verlauf über einem neuen Prompt (unter Windows scrollst du nach oben, um ihn zu sehen). Claude
 Code, Codex und Copilot CLI setzen ihre Unterhaltungen fort, und auf einem Mac oder unter Linux
 behalten sie das Modell, den Denkaufwand, die Berechtigungen und die Ausgabe, die du gewählt
@@ -157,7 +157,7 @@ Modell und Denkaufwand.
 </p>
 
 Frag Dosi, was dich braucht, oder bitte es, etwas zu tun. Dosi liest deine Terminals und
-Räume, antwortet und tippt, startet und schließt Dinge für dich. Braucht es eine
+Projekte, antwortet und tippt, startet und schließt Dinge für dich. Braucht es eine
 Entscheidung, fragt es mit Buttons, und du kannst auch mit eigenen Worten antworten. Deine
 Unterhaltung mit Dosi ist auf all deinen Geräten dieselbe. Auf einem iPhone oder iPad
 schreibt der Tab Dosi an Dosi auf dem Computer, den du über der Nachricht wählst, zuerst an
@@ -184,7 +184,7 @@ geöffnet sein oder `kodosi host` in einem Terminal laufen.
 
 Erstelle dort auch einen Wiederherstellungsschlüssel und bewahre ihn sicher auf. Wenn du all
 deine Geräte verlierst, meldest du dich auf einem neuen an und wählst „Meinen
-Wiederherstellungsschlüssel verwenden“, um deine Freunde und Räume zu behalten. Entferne ein
+Wiederherstellungsschlüssel verwenden“, um deine Freunde und Projekte zu behalten. Entferne ein
 verlorenes Gerät von einem anderen Gerät aus. Wurde ein Gerät gestohlen, erstelle auch einen
 neuen Wiederherstellungsschlüssel.
 
@@ -197,13 +197,14 @@ Freund verifizieren.
 <p align="center"><img src="../media/friends.webp" width="900" alt="Die Seite Freunde mit zwei verifizierten Freunden."></p>
 
 Um ein Terminal zu teilen, wähle Teilen im Aktionen-Button seiner Kopfzeile und wähle
-Freunde oder Räume. Die Personen, mit denen du teilst, bekommen die volle Kontrolle, mit
+Freunde oder Projekte. Die Personen, mit denen du teilst, bekommen die volle Kontrolle, mit
 deinen Rechten auf diesem Computer. Deine anderen Terminals bleiben privat.
 
-Ein Raum enthält geteilte Terminals, eine Unterhaltung und Aufgaben. Wähle + neben Räume,
-füge Freunde hinzu und starte dann ein Terminal im Raum oder teile eines hinein.
+Ein Projekt bündelt Terminals aus jedem Ordner und von jedem Computer, mit einer
+Unterhaltung und Aufgaben. Wähle + neben Projekte, starte dann ein Terminal im Projekt oder
+teile eines hinein, und lade Freunde ein, wenn du möchtest.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Ein Raum mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
 
 - Alle Mitglieder können die geteilten Terminals nutzen und ihre eigenen teilen. Wer später
   dazukommt, bekommt die Terminals und die ganze Unterhaltung. Dateien bleiben auf dem
@@ -215,11 +216,11 @@ füge Freunde hinzu und starte dann ein Terminal im Raum oder teile eines hinein
   Git-Credential-Helper, und Gitea den Credential-Helper oder `KODOSI_GITEA_TOKEN` für den
   Server in `KODOSI_GITEA_URL`. Deine Zugangsdaten bleiben auf deinem Computer.
 - Schreib `@` und den Namen eines Terminals in den Chat, und Kodosi gibt dem Agent in diesem
-  Terminal deine Nachricht mit deinem Namen und dem Raum; der Agent entscheidet, was er damit
+  Terminal deine Nachricht mit deinem Namen und dem Projekt; der Agent entscheidet, was er damit
   tut. Claude Code und Copilot CLI in einem Kodosi-Terminal und ein Codex, den Kodosi startet,
   wissen, dass sie in Kodosi laufen, und `kodosi skill` gibt den
   [Skill](../../runtime/skills/kodosi/SKILL.md) aus, mit dem ein Agent mitmacht. In einem
-  Kodosi-Terminal findet der Befehl den Raum; anderswo ergänzt du `--room <name>`.
+  Kodosi-Terminal findet der Befehl das Projekt; anderswo ergänzt du `--project <name>`.
 
 ## 8. Die Befehlszeile nutzen
 

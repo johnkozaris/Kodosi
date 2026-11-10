@@ -15,7 +15,7 @@
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新版本"></a>
 </p>
 
-[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。每个终端旁都有画布，Agent 会在上面展示它的计划、页面和文档，你们可以一起编辑。终端和房间均采用端到端加密。
+[Kodosi](https://kodosi.com) 是一款面向编程 Agent 的终端应用，支持 Mac、Linux 和 Windows。它把你所有电脑上的终端放在一个窗口里，告诉你哪个 Agent 需要你，还能让好友在同一个终端里一起工作。每个终端旁都有画布，Agent 会在上面展示它的计划、页面和文档，你们可以一起编辑。终端和项目均采用端到端加密。
 
 <p align="center">
   <picture>
@@ -30,7 +30,7 @@
 
 **一眼看出哪个 Agent 需要你。** 运行 Claude Code、Codex、Copilot CLI 或任何其他终端 Agent。每个终端都会显示它的 Agent 是在工作、在等你批准、已完成还是已失败；Kodosi 在后台时，通知会提醒你。
 
-**Dosi，管理 Agent 的 Agent。** 问问 Dosi 什么需要你处理。Dosi 会读取你所有的终端和房间，告诉你，并替你行动：把回答输入终端、启动 Agent、关闭已完成的任务。你和 Dosi 的对话会跟着你到每一台电脑。
+**Dosi，管理 Agent 的 Agent。** 问问 Dosi 什么需要你处理。Dosi 会读取你所有的终端和项目，告诉你，并替你行动：把回答输入终端、启动 Agent、关闭已完成的任务。你和 Dosi 的对话会跟着你到每一台电脑。
 
 <p align="center">
   <picture>
@@ -50,15 +50,15 @@
   </picture>
 </p>
 
-**为人和 Agent 准备的房间。** 房间里有共享终端、对话和任务。Agent 会在对话中阅读和发言、认领任务，GitHub 或 Gitea 的 Issue 也会变成任务。
+**为人和 Agent 准备的项目。** 项目汇集来自任意文件夹和电脑的终端，以及对话和任务。Agent 会在对话中阅读和发言、认领任务，GitHub 或 Gitea 的 Issue 也会变成任务。可随时邀请好友。
 
-<p align="center"><img src="../media/room.webp" width="900" alt="一个房间，里面有一个共享终端，以及人和 Agent 的对话。"></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="一个项目，里面有一个共享终端，以及人和 Agent 的对话。"></p>
 
 **每个 Agent 一个分支。** 在新分支、独立的 Git worktree 中启动 Agent，两个 Agent 就永远不会改动同一批文件。
 
-**iPhone 和 iPad 也能用。** 不在电脑旁时，也能关注、回复和控制你的终端和房间。
+**iPhone 和 iPad 也能用。** 不在电脑旁时，也能关注、回复和控制你的终端和项目。
 
-**端到端加密，抗量子。** 你的密钥只留在你的设备上。你的设备使用 ML-KEM-768 与 X25519 对终端和房间进行端到端加密，因此服务无法读取其内容。[安全](SECURITY.md)
+**端到端加密，抗量子。** 你的密钥只留在你的设备上。你的设备使用 ML-KEM-768 与 X25519 对终端和项目进行端到端加密，因此服务无法读取其内容。[安全](SECURITY.md)
 
 ## 获取 Kodosi
 

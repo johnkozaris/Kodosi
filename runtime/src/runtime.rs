@@ -2638,7 +2638,7 @@ impl Runtime {
     fn see_room(&mut self, room: &str, sequence: u64) -> Result<()> {
         let seen = self
             .seen_rooms()
-            .ok_or_else(|| Error::Refused(text!("Sign in to use rooms.")))?;
+            .ok_or_else(|| Error::Refused(text!("Sign in to use projects.")))?;
         if seen.get(room).is_some_and(|seen| *seen >= sequence) {
             return Ok(());
         }

@@ -26,18 +26,18 @@ pub(crate) struct RoomKeyPair {
 impl RoomKeyPair {
     pub(crate) fn generate() -> Result<Self> {
         let kem = kem::DecapsulationKey::generate(&kem::ML_KEM_768)
-            .map_err(|_| invalid("Cannot create the room encryption key."))?;
+            .map_err(|_| invalid("Cannot create the project encryption key."))?;
         let kem_secret = kem
             .key_bytes()
-            .map_err(|_| invalid("Cannot save the room encryption key."))?;
+            .map_err(|_| invalid("Cannot save the project encryption key."))?;
         let kem_public = kem
             .encapsulation_key()
             .and_then(|key| key.key_bytes())
-            .map_err(|_| invalid("Cannot encode the room encryption key."))?;
+            .map_err(|_| invalid("Cannot encode the project encryption key."))?;
         let agreement_secret: Curve25519SeedBin<'_> =
             agreement::PrivateKey::generate(&agreement::X25519)
                 .and_then(|key| key.as_be_bytes())
-                .map_err(|_| invalid("Cannot create the room encryption key."))?;
+                .map_err(|_| invalid("Cannot create the project encryption key."))?;
         Self::from_parts(
             kem_secret.as_ref(),
             kem_public.as_ref(),
@@ -47,21 +47,21 @@ impl RoomKeyPair {
 
     fn from_parts(kem_secret: &[u8], kem_public: &[u8], agreement_secret: &[u8]) -> Result<Self> {
         let private = kem::DecapsulationKey::new(&kem::ML_KEM_768, kem_secret)
-            .map_err(|_| invalid("Invalid stored room key."))?;
+            .map_err(|_| invalid("Invalid stored project key."))?;
         let (ciphertext, expected) = kem::EncapsulationKey::new(&kem::ML_KEM_768, kem_public)
             .and_then(|key| key.encapsulate().map_err(Into::into))
-            .map_err(|_| invalid("Invalid stored room public key."))?;
+            .map_err(|_| invalid("Invalid stored project public key."))?;
         let actual = private
             .decapsulate(ciphertext)
-            .map_err(|_| invalid("Invalid stored room key pair."))?;
+            .map_err(|_| invalid("Invalid stored project key pair."))?;
         if actual.as_ref() != expected.as_ref() {
-            return Err(invalid("Stored room keys do not match."));
+            return Err(invalid("Stored project keys do not match."));
         }
         let agreement_public =
             agreement::PrivateKey::from_private_key(&agreement::X25519, agreement_secret)
                 .ok()
                 .and_then(|key| key.compute_public_key().ok())
-                .ok_or_else(|| invalid("Invalid stored room key."))?;
+                .ok_or_else(|| invalid("Invalid stored project key."))?;
         Ok(Self {
             kem_secret: Zeroizing::new(kem_secret.to_vec()),
             agreement_secret: Zeroizing::new(agreement_secret.to_vec()),
@@ -71,7 +71,7 @@ impl RoomKeyPair {
 
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != ROOM_KEM_SECRET_BYTES + ROOM_KEM_PUBLIC_BYTES + AGREEMENT_BYTES {
-            return Err(invalid("Invalid stored room key."));
+            return Err(invalid("Invalid stored project key."));
         }
         let (kem_secret, rest) = bytes.split_at(ROOM_KEM_SECRET_BYTES);
         let (kem_public, agreement_secret) = rest.split_at(ROOM_KEM_PUBLIC_BYTES);
@@ -95,12 +95,12 @@ impl RoomKeyPair {
 
     pub(crate) fn kem(&self) -> Result<kem::DecapsulationKey> {
         kem::DecapsulationKey::new(&kem::ML_KEM_768, &self.kem_secret)
-            .map_err(|_| invalid("Stored room encryption key is invalid."))
+            .map_err(|_| invalid("Stored project encryption key is invalid."))
     }
 
     pub(crate) fn agreement(&self) -> Result<agreement::PrivateKey> {
         agreement::PrivateKey::from_private_key(&agreement::X25519, &self.agreement_secret)
-            .map_err(|_| invalid("Stored room encryption key is invalid."))
+            .map_err(|_| invalid("Stored project encryption key is invalid."))
     }
 }
 
@@ -269,9 +269,12 @@ impl DeviceKeys {
                 .map_err(|_| invalid(reason))
         };
         let room = RoomKeyPair::from_parts(
-            &bytes(&stored.room_kem_secret, "Invalid stored room key.")?,
-            &bytes(&stored.room_kem_public, "Invalid stored room public key.")?,
-            &bytes(&stored.room_agreement_secret, "Invalid stored room key.")?,
+            &bytes(&stored.room_kem_secret, "Invalid stored project key.")?,
+            &bytes(
+                &stored.room_kem_public,
+                "Invalid stored project public key.",
+            )?,
+            &bytes(&stored.room_agreement_secret, "Invalid stored project key.")?,
         )?;
         let recovery = match (&stored.recovery_device_id, &stored.recovery_room) {
             (Some(device), Some(room)) => Some((

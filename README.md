@@ -19,7 +19,7 @@
 It keeps the terminals of all your computers in one window, shows which agent needs you, and
 lets your friends work in the same terminals. Each terminal has a canvas beside it, where
 the agent shows its plans, pages and documents and you edit them together. Terminals and
-rooms are end-to-end encrypted.
+projects are end-to-end encrypted.
 
 <p align="center">
   <picture>
@@ -39,7 +39,7 @@ agent. Each terminal shows when its agent works, waits for your approval, is don
 failed, and a notification tells you while Kodosi is in the background.
 
 **Dosi, your agent for your agents.** Ask Dosi what needs you. It reads all your terminals
-and rooms, tells you, and acts for you: it types the answer into a terminal, starts agents
+and projects, tells you, and acts for you: it types the answer into a terminal, starts agents
 and closes what is done. Your conversation with Dosi follows you to every computer.
 
 <p align="center">
@@ -64,20 +64,20 @@ pages.
   </picture>
 </p>
 
-**Rooms for people and agents.** A room holds shared terminals, a conversation and tasks.
-Agents read and post in the conversation and take tasks, and GitHub or Gitea issues
-become tasks.
+**Projects for people and agents.** A project gathers terminals from any folder and
+computer, with a conversation and tasks. Agents read and post in the conversation and take
+tasks, and GitHub or Gitea issues become tasks. Invite friends when you want.
 
-<p align="center"><img src="docs/media/room.webp" width="900" alt="A room with a shared terminal and a conversation of people and agents."></p>
+<p align="center"><img src="docs/media/room.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
 
 **A branch for each agent.** Start an agent on a new branch in its own Git worktree, so
 two agents never change the same files.
 
-**On your iPhone and iPad.** Follow, answer and control your terminals and rooms when you
-are away from your computer.
+**On your iPhone and iPad.** Follow, answer and control your terminals and projects when
+you are away from your computer.
 
 **End-to-end encrypted, post-quantum.** Your keys stay on your devices. Your devices encrypt
-terminals and rooms end to end with ML-KEM-768 together with X25519, so the service cannot
+terminals and projects end to end with ML-KEM-768 together with X25519, so the service cannot
 read them. [Security](docs/SECURITY.md)
 
 ## Get Kodosi

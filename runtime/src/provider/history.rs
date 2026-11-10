@@ -145,7 +145,7 @@ fn claude(
     let mut files = Vec::new();
     for (index, project) in projects.enumerate() {
         if index >= storage::MAX_DIRECTORY_ENTRIES {
-            return Err("Too many history projects; choose a folder".into());
+            return Err("Too many history folders; choose a folder".into());
         }
         let project = project.map_err(|error| error.to_string())?;
         if !project

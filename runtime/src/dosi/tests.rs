@@ -142,7 +142,9 @@ fn kodosi_commands_become_receipts_and_other_commands_stay_commands() {
         ))
     );
     assert_eq!(
-        shown(r#"kodosi --json room --room 'Launch week' post "Docs are live." --agent Dosi"#),
+        shown(
+            r#"kodosi --json project --project 'Launch week' post "Docs are live." --agent Dosi"#
+        ),
         Some((
             DosiAction::Post,
             Some(target(DosiTargetKind::Room, "Launch week")),

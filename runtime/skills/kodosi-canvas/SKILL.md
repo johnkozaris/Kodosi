@@ -29,7 +29,8 @@ file or an address themselves.
   a script from a CDN, opens in the shared browser instead.
 - `kodosi skill page` prints a page with the look of Kodosi: its colors, cards, tags and
   tables, in light and dark. Start from it for a page that people decide on.
-- Write pages where you can write files, for example the temporary folder or the project.
+- Write pages where you can write files, for example the temporary folder or your working
+  folder.
 - `kodosi canvas` lists what the canvas shows. `kodosi canvas remove <name>` takes an item
   off, and `kodosi canvas remove --all` takes all files off.
 

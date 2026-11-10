@@ -12,7 +12,7 @@ where you sign in. In a terminal, `kodosi auth login` shows a code to enter in a
 browser.
 
 Without an account, Kodosi runs terminals on this computer. Sign in to use your other
-computers, friends and rooms.
+computers, friends and projects.
 
 ## 2. Start an agent
 
@@ -57,7 +57,7 @@ keeps it running; Close ends it and its programs. When you close the window, Kod
 your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
 on a desktop without a system tray, closing the window quits Kodosi. When you quit
 Kodosi, your terminals stop. Kodosi saves what they show on your computer and nowhere
-else. When you open Kodosi again, they start again in their folders, rooms and places on
+else. When you open Kodosi again, they start again in their folders, projects and places on
 the stage, with their earlier screen and history above a new prompt (on Windows, scroll
 up to see it). Claude Code, Codex and Copilot CLI continue their conversations, and on a
 Mac or on Linux they keep the model, effort, permissions and output that you chose.
@@ -143,7 +143,7 @@ model and effort.
   </picture>
 </p>
 
-Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and rooms,
+Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and projects,
 answers, and types, starts and closes things for you. When it needs a choice, it asks with
 buttons, and you can also answer in your own words. Your conversation with Dosi is the
 same on all your devices. On an iPhone or iPad, the Dosi tab writes to Dosi on the computer
@@ -167,7 +167,7 @@ the + beside one of your computers. That computer needs Kodosi open, or `kodosi 
 running in a terminal.
 
 Make a recovery key there too, and keep it safe. If you lose all your devices, sign in
-on a new one and choose "Use my recovery key" to keep your friends and rooms. Remove a
+on a new one and choose "Use my recovery key" to keep your friends and projects. Remove a
 lost device from another device. If a device was stolen, also make a new recovery key.
 
 ## 7. Work with friends
@@ -178,14 +178,15 @@ username of a friend. An invite lets Kodosi verify your friend.
 <p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
 
 To share a terminal, select Share in the actions key of its header and choose friends or
-rooms.
+projects.
 The people you share with get full control, with your privileges on that computer. Your
 other terminals stay private.
 
-A room holds shared terminals, a conversation and tasks. Select + beside Rooms, add
-friends, then start a terminal in the room or share one into it.
+A project gathers terminals from any folder and computer, with a conversation and tasks.
+Select + beside Projects, then start a terminal in the project or share one into it, and
+invite friends when you want.
 
-<p align="center"><img src="media/room.webp" width="900" alt="A room with a shared terminal and a conversation of people and agents."></p>
+<p align="center"><img src="media/room.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
 
 - All members can use the shared terminals and share their own. People who join later
   get the terminals and the full conversation. Files stay on the computer of each
@@ -197,11 +198,11 @@ friends, then start a terminal in the room or share one into it.
   and Gitea the credential helper or `KODOSI_GITEA_TOKEN` for the server in
   `KODOSI_GITEA_URL`. Your credentials stay on your computer.
 - Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
-  terminal your message with your name and the room; the agent decides what to do with it.
+  terminal your message with your name and the project; the agent decides what to do with it.
   Claude Code and Copilot CLI in a Kodosi terminal, and a Codex that Kodosi starts, know
   that they run in Kodosi, and `kodosi skill` prints the
   [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent take part. In a Kodosi
-  terminal, the command finds the room; elsewhere, add `--room <name>`.
+  terminal, the command finds the project; elsewhere, add `--project <name>`.
 
 ## 8. Use the command line
 

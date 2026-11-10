@@ -13,24 +13,24 @@ pub(super) fn inspect(
         match provider {
             Provider::Claude => {
                 paths.push((
-                    "Project settings",
+                    "Folder settings",
                     directory.join(".claude/settings.json"),
                     true,
                 ));
                 paths.push((
-                    "Local project settings",
+                    "Local folder settings",
                     directory.join(".claude/settings.local.json"),
                     true,
                 ));
             }
             Provider::Copilot => {
                 paths.push((
-                    "Project settings",
+                    "Folder settings",
                     directory.join(".github/copilot/settings.json"),
                     true,
                 ));
                 paths.push((
-                    "Local project settings",
+                    "Local folder settings",
                     directory.join(".github/copilot/settings.local.json"),
                     true,
                 ));

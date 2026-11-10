@@ -206,7 +206,7 @@ impl Action {
         let text = |value: &str, maximum: usize| {
             if value.trim().is_empty() || value.len() > maximum || value.contains('\0') {
                 Err(crate::Error::Refused(text!(
-                    "Room text is empty or too long."
+                    "The text is empty or too long."
                 )))
             } else {
                 Ok(())

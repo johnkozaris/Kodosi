@@ -2,9 +2,9 @@
 
 [English](../SECURITY.md) · [Deutsch](../de/SECURITY.md) · [Ελληνικά](../el/SECURITY.md) · [Español](../es/SECURITY.md) · [Français](../fr/SECURITY.md) · **Italiano** · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-I tuoi dispositivi crittografano end-to-end il traffico dei terminali e il contenuto delle
-stanze. Le chiavi private restano sui dispositivi. Il backend instrada le connessioni e
-conserva i dati crittografati delle stanze; non esegue mai comandi e non ne vede mai il testo
+I tuoi dispositivi crittografano end-to-end il traffico dei terminali e il contenuto dei
+progetti. Le chiavi private restano sui dispositivi. Il backend instrada le connessioni e
+conserva i dati crittografati dei progetti; non esegue mai comandi e non ne vede mai il testo
 in chiaro. Il [design della crittografia](../CRYPTOGRAPHY.md) (in inglese) descrive il modello
 delle minacce, i meccanismi e i limiti noti; nessuna parte indipendente lo ha ancora
 verificato.
@@ -12,13 +12,13 @@ verificato.
 ## Cosa concede la condivisione
 
 Condividere un terminale concede il pieno controllo, con i privilegi di sistema operativo
-dell'utente dell'host. Un terminale in una stanza va agli amici del suo proprietario in quella
-stanza, compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi
-terminali, e ciascuno di voi lascia le stanze dell'altro. Bloccare una persona fa lo stesso, e
+dell'utente dell'host. Un terminale in un progetto va agli amici del suo proprietario in quel
+progetto, compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi
+terminali, e ciascuno di voi lascia i progetti dell'altro. Bloccare una persona fa lo stesso, e
 non può inviarti richieste di amicizia. Un terminale condiviso viene eseguito come te: le
 persone che lo usano possono anche eseguire `kodosi` come te e leggere e modificare i tuoi
 file su quel computer, quindi condividilo solo con persone a cui affideresti quel computer.
-Kodosi si fida di tutti quelli che condividono un terminale o una stanza, e dei programmi e
+Kodosi si fida di tutti quelli che condividono un terminale o un progetto, e dei programmi e
 degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi
 approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer
 che eseguono Kodosi. Da qualsiasi tuo dispositivo puoi scrivere a Dosi sui tuoi computer, e Dosi agisce lì come quando gli scrivi direttamente sul computer. Un dispositivo che rimuovi non può più scrivere a Dosi.
@@ -45,7 +45,7 @@ feed.
 
 ## Cosa vede il servizio
 
-Il servizio vede i dati di account e dispositivi, i membri delle stanze, i metadati di stanze
+Il servizio vede i dati di account e dispositivi, i membri dei progetti, i metadati di progetti
 e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in attesa di
 un'approvazione, mai il suo testo), i campi di instradamento, i tempi e le dimensioni del
 testo cifrato. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal
@@ -59,7 +59,7 @@ e i tuoi dispositivi lo mostrano, così puoi fermarlo. Le credenziali di GitHub 
 restano sul tuo computer.
 
 Eliminare un account rimuove i suoi dispositivi, i dati di recupero, gli amici, le
-condivisioni e le stanze di sua proprietà; i messaggi nelle stanze di altri restano, senza
+condivisioni e i progetti di sua proprietà; i messaggi nei progetti di altri restano, senza
 account. Per 30 giorni il servizio conserva l'emittente e il soggetto dell'accesso eliminato
 per rifiutare i token precedenti.
 
