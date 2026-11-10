@@ -346,8 +346,9 @@ impl<F: Format> Document<F> {
         effects
     }
 
+    /// What a view missed, when it knows this epoch, or else a snapshot. A new view knows epoch 0.
     fn catchup(&self, epoch: u64, rev: Rev) -> Catchup {
-        let missed = (epoch == self.epoch && rev > 0)
+        let missed = (epoch != 0 && epoch == self.epoch)
             .then(|| self.log_since(rev))
             .flatten();
         missed.map_or_else(

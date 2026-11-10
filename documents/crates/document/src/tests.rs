@@ -336,6 +336,30 @@ fn a_view_that_comes_back_gets_only_what_it_missed() {
 }
 
 #[test]
+fn a_view_that_comes_back_before_its_first_change_gets_only_what_it_missed() {
+    let mut document = opened();
+    connect(&mut document, 1, "ana");
+    connect(&mut document, 2, "ben");
+    message_to(&mut document, 2, change_frame(1, 0, &set("b1", "x")));
+    document.step(Input::Left { pipe: 1 });
+    document.step(Input::Connected {
+        pipe: 3,
+        viewer: viewer("ana"),
+    });
+    let effects = message_to(&mut document, 3, join_frame("ana", 1, 0));
+    match messages_for(3, &effects).as_slice() {
+        [
+            ToClient::Joined {
+                rev: 1,
+                catchup: Catchup::Missed { changes },
+                ..
+            },
+        ] => assert_eq!(changes.len(), 1),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
 fn a_view_from_an_earlier_journal_gets_a_snapshot() {
     let mut document = opened();
     connect(&mut document, 1, "ana");

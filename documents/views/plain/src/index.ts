@@ -10,7 +10,7 @@ import {
   type Editor as ViewEditor,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
-import { peersPlugin, showPeers } from "@documents/peers";
+import { peersPlugin, showPeers, Waiting } from "@documents/peers";
 import { say } from "@documents/words";
 import { baseKeymap } from "@tiptap/pm/commands";
 import { history, redo, redoDepth, undo, undoDepth } from "@tiptap/pm/history";
@@ -38,6 +38,7 @@ class PlainEditor implements ViewEditor, Pictures {
   private readonly redoKey: Key;
   private readonly page = document.createElement("div");
   private readonly clientKey = crypto.randomUUID();
+  private readonly waiting = new Waiting();
   private canEdit = false;
   private placeWaits = false;
   private areas: Area[] = [];
@@ -69,8 +70,9 @@ class PlainEditor implements ViewEditor, Pictures {
     root.append(this.bar.element, this.page);
   }
 
-  load(raw: unknown, person: Person): void {
+  load(raw: unknown, person: Person, refused: boolean): void {
     const snapshot = raw as Snapshot;
+    const before = this.view?.state;
     this.view?.destroy();
     this.canEdit = person.canEdit;
     const doc = ProseNode.fromJSON(schema, snapshot.doc);
@@ -114,6 +116,13 @@ class PlainEditor implements ViewEditor, Pictures {
     });
     this.numberLines();
     this.showBar();
+    const carried = this.waiting.loaded(doc, before, refused);
+    if (carried.steps.length > 0) {
+      const transaction = this.view.state.tr.setMeta("addToHistory", false);
+      for (const step of carried.steps) transaction.maybeStep(step);
+      this.view.dispatch(transaction);
+    }
+    if (carried.lost) this.status.kept(carried.lost);
   }
 
   private dispatch(transaction: Transaction): void {
@@ -201,6 +210,7 @@ class PlainEditor implements ViewEditor, Pictures {
     const state = this.view?.state;
     const sendable = state && sendableSteps(state);
     if (!sendable) return null;
+    this.waiting.sending(sendable.steps.length);
     return { kind: "steps", steps: sendable.steps.map((step) => step.toJSON()) };
   }
 
@@ -209,6 +219,7 @@ class PlainEditor implements ViewEditor, Pictures {
     if (!view) return;
     const body = changed.body as { steps?: unknown[] };
     const steps = (body.steps ?? []).map((json: unknown) => Step.fromJSON(schema, json));
+    this.waiting.changed(steps, own);
     const ids = steps.map(() => (own ? this.clientKey : changed.client));
     view.dispatch(receiveTransaction(view.state, steps, ids, { mapSelectionBackward: true }));
     if (own && this.placeWaits) this.sendPlace();
