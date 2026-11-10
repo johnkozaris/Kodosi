@@ -104,7 +104,7 @@ private struct SidebarMenuList: View {
             PanelMenuRow(Text("Check for Updates…"), icon: .symbol("arrow.down.circle"), identifier: "sidebar.updates") {
                 deps.updater.check()
             }
-            .disabled(!deps.updater.configured)
+            .disabled(!deps.updater.started)
             .closesFlyout($usage)
             if deps.account.userId != nil {
                 PanelMenuDivider()

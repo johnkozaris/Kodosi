@@ -6,6 +6,7 @@ import Sparkle
 @MainActor
 @Observable
 final class AppUpdater: NSObject, SPUUpdaterDelegate {
+    private(set) var started = false
     private(set) var waiting = false
     private(set) var critical = false
     private(set) var restarting = false
@@ -32,6 +33,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         guard configured else { return }
         do {
             try controller.updater.start()
+            started = true
             automatic = controller.updater.automaticallyDownloadsUpdates
         } catch {
             Logger.app.error("The updater did not start: \(error.localizedDescription)")
@@ -39,12 +41,12 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     }
 
     func check() {
-        guard configured else { return }
+        guard started else { return }
         controller.checkForUpdates(nil)
     }
 
     func checkInBackground() {
-        guard configured, !waiting else { return }
+        guard started, !waiting else { return }
         controller.updater.checkForUpdatesInBackground()
     }
 

@@ -14,7 +14,7 @@ struct SignInView: View {
             TogetherArt()
         } actions: {
             VStack(spacing: 12) {
-                if deps.account.restoring == "updateRequired", deps.updater.configured {
+                if deps.account.restoring == "updateRequired", deps.updater.started {
                     Button(deps.updater.actionTitle) { deps.updater.restart() }
                         .buttonStyle(.kodosi(.primary, size: .large)).accessibilityIdentifier("account.update")
                 } else {

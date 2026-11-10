@@ -49,7 +49,7 @@ struct SignInSheet: View {
                 switch deps.account.stage {
                 case .failed:
                     Button("Close") { deps.dismissSignIn() }.buttonStyle(.kodosi(.ghost)).accessibilityIdentifier("signIn.cancel")
-                    if deps.updateRequired, deps.updater.configured {
+                    if deps.updateRequired, deps.updater.started {
                         Button(deps.updater.actionTitle) { deps.updater.restart() }.buttonStyle(.kodosi(.primary))
                             .accessibilityIdentifier("signIn.update")
                     } else {

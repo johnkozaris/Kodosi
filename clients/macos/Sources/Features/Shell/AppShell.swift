@@ -165,7 +165,7 @@ struct AppShell: View {
         ZStack {
             if deps.updateRequired, !deps.updateNoticeDismissed {
                 NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
-                           identifier: "shell.update", action: deps.updater.configured ? { deps.updater.restart() } : nil,
+                           identifier: "shell.update", action: deps.updater.started ? { deps.updater.restart() } : nil,
                            actionTitle: Text(verbatim: deps.updater.actionTitle), dismiss: { deps.updateNoticeDismissed = true })
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
