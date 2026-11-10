@@ -460,18 +460,23 @@ struct SidebarTerminalRow: View {
             Button("Rename…") { draft = session.name; renaming = true; nameFocused = true }
         }
         if session.isOwner, session.kind == .local {
-            Button("Share…") { deps.activateSession(session.id); deps.workbench.sharingSessionId = session.id }
+            Button("Share…") {
+                if deps.activateSession(session.id) {
+                    deps.workbench.sharingSessionId = session.id
+                }
+            }
         }
         Button("Details") { deps.workbench.detailsSessionId = session.id }
         if session.canControl, session.canOpen {
             Button("Open Browser") {
-                deps.activateSession(session.id)
+                guard deps.activateSession(session.id) else { return }
                 deps.workbench.openCanvas(session.id)
                 deps.openBrowser(of: session)
             }
             Button("Add a File…") {
-                deps.activateSession(session.id)
-                deps.addFile(to: session)
+                if deps.activateSession(session.id) {
+                    deps.addFile(to: session)
+                }
             }
         }
         if staged {

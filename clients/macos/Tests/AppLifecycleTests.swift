@@ -285,6 +285,32 @@ import Testing
     #expect(reports.count == sent)
 }
 
+@Test @MainActor func `a terminal with no room on the stage says that it did not open`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "FullStage"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    let ids = (0 ..< 7).map { "01992e43-53db-7040-8e02-f6ebf4149c0\($0)" }
+    app.sessions = try ids.map { try runtimeSession($0, kind: "local", connection: "local") }
+    for id in ids.prefix(6) {
+        #expect(app.activateSession(id))
+    }
+    #expect(!app.activateSession(ids[6]))
+    #expect(app.errorMessage == String(localized: "Six terminals are open. Minimize one to open another."))
+    #expect(app.workbench.stagedSessionIds == Array(ids.prefix(6)))
+}
+
+@Test @MainActor func `a start that fails shows its error on its page and leaves no notice for later`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "FailedStart"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.failRuntime("Kodosi fell behind. Start it again.")
+    #expect(app.appState == .error("Kodosi fell behind. Start it again."))
+    #expect(app.errorMessage == nil)
+}
+
 @Test @MainActor func `changed account drops old catalog and directory state`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "AccountFence"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

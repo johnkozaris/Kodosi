@@ -16,10 +16,20 @@ public final class CommandSink {
         let continuation: CheckedContinuation<RuntimeEvent, any Error>
     }
 
+    private struct Abandoned: Equatable {
+        let requestId: String
+        let operation: String
+    }
+
+    private static let mostAbandoned = 64
+
     public var transport: Transport?
     private(set) var accountUserId: String?
     private(set) var accountEpoch: UInt64 = 0
     private var pending: [String: Pending] = [:]
+    /// The requests that their callers stopped waiting for, so that their late answers reach
+    /// nobody.
+    private var abandoned: [Abandoned] = []
     public var onFailure: ((String) -> Void)?
 
     public init(transport: Transport? = nil) {
@@ -87,7 +97,7 @@ public final class CommandSink {
                 }
             }
         } onCancel: {
-            Task { @MainActor [weak self] in self?.finish(requestId, result: .failure(CancellationError())) }
+            Task { @MainActor [weak self] in self?.abandon(requestId) }
         }
     }
 
@@ -105,19 +115,21 @@ public final class CommandSink {
 
     @discardableResult
     public func receive(_ event: RuntimeEvent) -> Delivery {
-        guard let requestId = event.string("requestId"), let pending = pending[requestId],
-              event.string("operation") == pending.operation else { return .app }
-        let area = pending.operation.prefix(while: { $0 != "." })
-        if event.type == area + ".error" {
-            finish(requestId, result: .failure(RuntimeError.operation(
-                event.string("message") ?? String(localized: "That did not work.", bundle: .module),
-            )))
-        } else if event.type == area + ".result" {
-            finish(requestId, result: .success(event))
-        } else {
-            return .app
+        guard let requestId = event.string("requestId"), let operation = event.string("operation") else { return .app }
+        let area = operation.prefix(while: { $0 != "." })
+        let failed = event.type == area + ".error"
+        guard failed || event.type == area + ".result" else { return .app }
+        if let pending = pending[requestId], pending.operation == operation {
+            finish(requestId, result: failed
+                ? .failure(RuntimeError.operation(event.string("message") ?? String(localized: "That did not work.", bundle: .module)))
+                : .success(event))
+            return .caller
         }
-        return .caller
+        if let index = abandoned.firstIndex(of: Abandoned(requestId: requestId, operation: operation)) {
+            abandoned.remove(at: index)
+            return .caller
+        }
+        return .app
     }
 
     public func cancelPending(_ error: any Error = RuntimeError.unavailable) {
@@ -130,6 +142,15 @@ public final class CommandSink {
 
     private func finish(_ requestId: String, result: Result<RuntimeEvent, any Error>) {
         pending.removeValue(forKey: requestId)?.continuation.resume(with: result)
+    }
+
+    private func abandon(_ requestId: String) {
+        guard let pending = pending.removeValue(forKey: requestId) else { return }
+        abandoned.append(Abandoned(requestId: requestId, operation: pending.operation))
+        if abandoned.count > Self.mostAbandoned {
+            abandoned.removeFirst()
+        }
+        pending.continuation.resume(throwing: CancellationError())
     }
 
     public static func didAcceptSynchronously(_ result: Int32?) -> Bool {
