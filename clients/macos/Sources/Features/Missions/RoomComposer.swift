@@ -1,3 +1,4 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -7,42 +8,27 @@ struct RoomComposer: View {
     let roomId: String
     @Bindable var state: RoomViewState
     let targets: [RoomMention]
-    @State private var highlighted = 0
-    @State private var dismissedQuery: String?
+    @State private var completion = RoomMentionCompletion()
     @FocusState private var focused: Bool
 
-    private var query: String? {
-        guard focused, let query = RoomMentions.query(in: state.message), query != dismissedQuery else { return nil }
-        return query
-    }
-
-    private var canSend: Bool {
-        !state.busy && !state.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
-        let suggestions = query.map { RoomMentions.suggestions(for: $0, in: targets) } ?? []
+        let suggestions = completion.suggestions(in: state.message, focused: focused, targets: targets)
         VStack(spacing: 6) {
-            if let failure = state.failure {
-                CautionNote(message: failure, identifier: "room.failure") { state.failure = nil }
-                    .transition(AnyTransition.rise)
+            if let failure = state.failure ?? state.readFailure {
+                CautionNote(message: failure, identifier: "room.failure") {
+                    state.failure = nil
+                    state.readFailure = nil
+                }
+                .transition(AnyTransition.rise)
             }
             if !suggestions.isEmpty {
-                VStack(spacing: 1) {
-                    ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, target in
-                        Button { pick(target) } label: { suggestionRow(target, highlighted: index == min(highlighted, suggestions.count - 1)) }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("room.mention.\(AccessibilityIdentifier.token(target.id))")
-                    }
+                RoomMentionSuggestions(suggestions: suggestions, highlighted: completion.current(in: suggestions), identifier: "room.mention") {
+                    completion.pick($0, in: &state.message)
                 }
-                .padding(5)
-                .raised(Radius.lg, fill: theme.colors.lifted, elevation: .lifted)
-                .transition(.scale(scale: 0.96, anchor: .bottomLeading).combined(with: .opacity))
             }
             HStack(alignment: .bottom, spacing: 4) {
                 IconButton(title: "Mention someone or a terminal", symbol: "at", identifier: "room.message.mention", size: 30) {
-                    dismissedQuery = nil
-                    state.message = RoomMentions.start(state.message)
+                    completion.start(in: &state.message)
                     focused = true
                 }
                 TextField("Message the room", text: $state.message, axis: .vertical)
@@ -50,34 +36,12 @@ struct RoomComposer: View {
                     .padding(.vertical, 7)
                     .accessibilityLabel(Text("Message the room")).accessibilityIdentifier("room.message.input")
                     .onSubmit {
-                        if let target = current(in: suggestions) {
-                            pick(target)
-                        } else if canSend {
+                        if completion.submit(&state.message, suggestions: suggestions), state.canPost {
                             send()
                         }
                     }
-                    .onKeyPress(.return, phases: .down) { press in
-                        guard press.modifiers.isDisjoint(with: [.option, .shift]) else { return .ignored }
-                        if let target = current(in: suggestions) {
-                            pick(target)
-                        } else if canSend {
-                            send()
-                        }
-                        return .handled
-                    }
-                    .onKeyPress(.downArrow) { move(1, count: suggestions.count) }
-                    .onKeyPress(.upArrow) { move(-1, count: suggestions.count) }
-                    .onKeyPress(.tab) {
-                        guard let target = current(in: suggestions) else { return .ignored }
-                        pick(target)
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        guard let query else { return .ignored }
-                        dismissedQuery = query
-                        return .handled
-                    }
-                SendKey(enabled: canSend, working: state.busy, action: send)
+                    .roomComposerKeys($completion, state: state, focused: focused, suggestions: suggestions, send: send)
+                SendKey(enabled: state.canPost, working: state.sending, action: send)
                     .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send")
             }
             .composerField(focused: focused)
@@ -85,48 +49,14 @@ struct RoomComposer: View {
         .padding(.horizontal, 10).padding(.bottom, 10).padding(.top, 4)
         .animation(theme.motion.snappy, value: suggestions)
         .animation(theme.motion.hover, value: focused)
-        .animation(theme.motion.snappy, value: canSend)
-        .animation(theme.motion.spring, value: state.failure)
-        .onChange(of: query) { _, _ in highlighted = 0 }
-    }
-
-    private func suggestionRow(_ target: RoomMention, highlighted: Bool) -> some View {
-        HStack(spacing: 9) {
-            switch target.kind {
-            case .person: PersonAvatar(name: target.name, key: target.id, size: 22)
-            case let .terminal(kind): AgentMark(kind: kind, size: 22)
-            }
-            Text(target.name).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
-            if let detail = target.detail {
-                Text(detail).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            if highlighted {
-                Image(systemName: "return").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
-            }
-        }
-        .padding(.horizontal, 8).frame(height: 32)
-        .background(highlighted ? theme.colors.accentSoft : .clear, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-        .contentShape(Rectangle())
-    }
-
-    private func current(in suggestions: [RoomMention]) -> RoomMention? {
-        suggestions.isEmpty ? nil : suggestions[min(highlighted, suggestions.count - 1)]
-    }
-
-    private func move(_ offset: Int, count: Int) -> KeyPress.Result {
-        guard count > 0 else { return .ignored }
-        highlighted = (min(highlighted, count - 1) + offset + count) % count
-        return .handled
-    }
-
-    private func pick(_ target: RoomMention) {
-        state.message = RoomMentions.complete(state.message, with: target)
-        highlighted = 0
+        .animation(theme.motion.snappy, value: state.canPost)
+        .animation(theme.motion.spring, value: state.failure ?? state.readFailure)
     }
 
     private func send() {
-        dismissedQuery = nil
-        Task { await deps.postRoomMessage(roomId) }
+        completion.sent()
+        let rooms = deps.rooms
+        let roomId = roomId
+        Task { await rooms.post(in: roomId) }
     }
 }

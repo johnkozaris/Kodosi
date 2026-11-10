@@ -25,43 +25,37 @@ struct RoomScreen: View {
     }
 
     var body: some View {
-        @Bindable var state = rooms.view(roomId)
-        content(state)
+        @Bindable var screen = model.roomScreen(roomId)
+        content(screen)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(wide || state.section != .conversation ? theme.colors.surface : theme.colors.sheet)
+            .background(wide || screen.section != .conversation ? theme.colors.surface : theme.colors.sheet)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .navigationTitle(rooms.mission(roomId)?.name ?? "")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar(state) }
+            .toolbar { toolbar(screen) }
             .toolbarVisibility(wide ? .automatic : .hidden, for: .tabBar)
             .safeAreaBar(edge: .top) {
                 if present, !wide {
-                    dock(state, sections: [.conversation, .tasks, .terminals], selection: state.section) { state.section = $0 }
-                        .background(state.section == .conversation ? theme.colors.sheet : theme.colors.surface)
+                    dock(sections: [.conversation, .tasks, .terminals], selection: screen.section) { screen.section = $0 }
+                        .background(screen.section == .conversation ? theme.colors.sheet : theme.colors.surface)
                 }
             }
-            .task(id: roomId) { await rooms.open(roomId) }
-            .onAppear { rooms.visibleRoomId = roomId }
-            .onDisappear {
-                if rooms.visibleRoomId == roomId {
-                    rooms.visibleRoomId = nil
-                }
-            }
-            .sheet(isPresented: $state.showsInfo, onDismiss: finishLeaving) {
+            .showsRoom(roomId, in: rooms)
+            .sheet(isPresented: $screen.showsInfo, onDismiss: finishLeaving) {
                 RoomInfoSheet(roomId: roomId) {
                     leaving = true
-                    state.showsInfo = false
+                    screen.showsInfo = false
                 }
             }
-            .sheet(item: $state.selectedText) { RoomTextSheet(text: $0.text) }
+            .sheet(item: $screen.selectedText) { RoomTextSheet(text: $0.text) }
             .navigationDestination(item: $terminal) { TerminalScreen(sessionId: $0.sessionId) }
             .environment(\.openURL, OpenURLAction(handler: open))
-            .sensoryFeedback(.selection, trigger: state.section) { _, _ in !wide }
-            .sensoryFeedback(.selection, trigger: state.shownSection) { _, _ in wide }
+            .sensoryFeedback(.selection, trigger: screen.section) { _, _ in !wide }
+            .sensoryFeedback(.selection, trigger: screen.shownSection) { _, _ in wide }
     }
 
     @ViewBuilder
-    private func content(_ state: RoomViewState) -> some View {
+    private func content(_ screen: RoomScreenState) -> some View {
         if leaving {
             Color.clear
         } else if rooms.departed.contains(roomId) {
@@ -81,8 +75,8 @@ struct RoomScreen: View {
         } else if wide {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 0) {
-                    dock(state, sections: [.terminals, .tasks], selection: state.shownSection) { state.shownSection = $0 }
-                    section(state.shownSection == .conversation ? .terminals : state.shownSection)
+                    dock(sections: [.terminals, .tasks], selection: screen.shownSection) { screen.shownSection = $0 }
+                    section(screen.shownSection == .conversation ? .terminals : screen.shownSection)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 RoomConversation(roomId: roomId)
@@ -93,7 +87,7 @@ struct RoomScreen: View {
             }
             .padding(.trailing, 12)
         } else {
-            section(state.section)
+            section(screen.section)
         }
     }
 
@@ -110,20 +104,16 @@ struct RoomScreen: View {
         .animation(theme.motion.snappy, value: section)
     }
 
-    private func dock(
-        _ state: RoomViewState, sections: [RoomSection], selection: RoomSection, select: @escaping (RoomSection) -> Void,
-    ) -> some View {
-        let tasks = rooms.snapshots[roomId]?.tasks ?? []
-        let open = tasks.filter { !$0.closed }.count
+    private func dock(sections: [RoomSection], selection: RoomSection, select: @escaping (RoomSection) -> Void) -> some View {
+        let state = rooms.view(roomId)
         let terminals = model.terminals.sessions.filter { $0.missionId == roomId }.count
         let items = sections.map { section in
             switch section {
             case .conversation:
                 DockItem(id: section.rawValue, title: String(localized: "Conversation"), symbol: "bubble.left.and.bubble.right",
-                         count: rooms.unread[roomId] ?? 0)
+                         count: state.unread)
             case .tasks:
-                DockItem(id: section.rawValue, title: String(localized: "Tasks"), symbol: "checklist", count: open,
-                         progress: tasks.isEmpty ? nil : Double(tasks.count - open) / Double(tasks.count), fresh: state.freshTasks)
+                DockItem.roomTasks(id: section.rawValue, tasks: rooms.snapshots[roomId]?.tasks ?? [], fresh: state.fresh.contains(.tasks))
             case .terminals:
                 DockItem(id: section.rawValue, title: String(localized: "Terminals"), symbol: "apple.terminal", count: terminals)
             }
@@ -138,17 +128,17 @@ struct RoomScreen: View {
     }
 
     @ToolbarContentBuilder
-    private func toolbar(_ state: RoomViewState) -> some ToolbarContent {
+    private func toolbar(_ screen: RoomScreenState) -> some ToolbarContent {
         if let mission = rooms.mission(roomId) {
             ToolbarItem(placement: .principal) {
-                Button { state.showsInfo = true } label: { RoomHeader(mission: mission) }
+                Button { screen.showsInfo = true } label: { RoomHeader(mission: mission) }
                     .buttonStyle(PressScaleStyle(scale: 0.97))
                     .accessibilityHint(Text("Shows the people and settings of this room"))
                     .accessibilityIdentifier("rooms.header")
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
-                Button { state.showsInfo = true } label: {
+                Button { screen.showsInfo = true } label: {
                     AvatarStack(people: members, size: 26, limit: 3)
                 }
                 .buttonStyle(PressScaleStyle())
@@ -185,7 +175,6 @@ struct RoomScreen: View {
 private struct RoomHeader: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
-    @ScaledMetric(relativeTo: .caption) private var lock: CGFloat = 8
     let mission: MissionEntry
 
     var body: some View {
@@ -198,15 +187,7 @@ private struct RoomHeader: View {
                     .appTextStyle(.headline)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    Image(systemName: "lock.fill").font(.system(size: lock, weight: .semibold))
-                    Text(verbatim: [people.map(Counted.people), Counted.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
-                        .contentTransition(.numericText())
-                }
-                .appTextStyle(.caption)
-                .fontWeight(.regular)
-                .foregroundStyle(theme.colors.inkFaint)
-                .lineLimit(1)
+                RoomFacts(people: people, terminals: terminals)
             }
         }
         .accessibilityElement(children: .combine)

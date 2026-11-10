@@ -8,10 +8,11 @@ struct RoomConversationView: View {
     let roomId: String
     let detail: MissionDetail
     @Bindable var state: RoomViewState
+    let workspace: RoomWorkspace
     @State private var copied = false
 
     private var messages: [RoomMessage] {
-        deps.rooms[roomId]?.messages ?? []
+        deps.rooms.snapshots[roomId]?.messages ?? []
     }
 
     private var targets: [RoomMention] {
@@ -39,9 +40,9 @@ struct RoomConversationView: View {
                 }
             }
             .padding(.leading, 16).padding(.trailing, 8).frame(height: 46)
-            if deps.rooms[roomId] == nil {
-                if let failure = state.failure, !state.loading {
-                    RoomRecovery(message: failure) { Task { await deps.readRoom(roomId) } }
+            if deps.rooms.snapshots[roomId] == nil {
+                if let failure = state.readFailure, !state.loading {
+                    RoomRecovery(message: failure) { Task { await deps.rooms.read(roomId) } }
                 } else {
                     RoomSkeleton()
                 }
@@ -51,12 +52,13 @@ struct RoomConversationView: View {
             }
         }
         .raised(Radius.xl, fill: theme.colors.sheet)
+        .showsRoomPart(.conversation, of: state)
         .animation(theme.motion.snappy, value: copied)
         .environment(\.openURL, OpenURLAction { url in
             guard let id = RoomMentions.terminalId(in: url) else { return .systemAction }
             if deps.session(id) != nil {
-                state.shownSection = 0
-                state.selectedTerminal = id
+                workspace.shownSection = 0
+                workspace.selectedTerminal = id
                 deps.activateSession(id, inRoom: roomId)
             }
             return .handled
@@ -68,21 +70,18 @@ struct RoomConversationView: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if deps.rooms[roomId]?.hasOlder == true, let first = messages.first {
-                        Button {
-                            Task { await deps.readRoom(roomId, before: first.sequence); proxy.scrollTo(first.id, anchor: .top) }
-                        } label: { Label("Earlier messages", systemImage: "arrow.up") }
-                            .buttonStyle(.kodosi(.ghost, size: .small)).frame(maxWidth: .infinity)
-                            .accessibilityIdentifier("room.messages.earlier").disabled(state.loading).padding(.bottom, 10)
-                    } else if deps.rooms[roomId]?.historyTrimmed == true, !messages.isEmpty {
-                        Text("Kodosi removed the oldest messages to make space for new ones.")
-                            .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                            .frame(maxWidth: .infinity).padding(.bottom, 10)
+                    if deps.rooms.snapshots[roomId]?.hasOlder == true, let first = messages.first {
+                        RoomEarlierKey(loading: state.loading, identifier: "room.messages.earlier") {
+                            Task { await deps.rooms.read(roomId, before: first.sequence); proxy.scrollTo(first.id, anchor: .top) }
+                        }
+                        .padding(.bottom, 10)
+                    } else if deps.rooms.snapshots[roomId]?.historyTrimmed == true, !messages.isEmpty {
+                        RoomTrimmedNote().padding(.bottom, 10)
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let previous = index > 0 ? messages[index - 1] : nil
                         RoomMessageRow(
-                            roomId: roomId, message: message, previous: previous, targets: targets, state: state,
+                            roomId: roomId, message: message, previous: previous, targets: targets, state: state, workspace: workspace,
                         )
                         .id(message.id)
                     }
@@ -96,16 +95,12 @@ struct RoomConversationView: View {
                 geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 36
             } action: { _, latest in
                 state.followsLatest = latest
-                if latest {
-                    state.unread = 0
-                    deps.seeRoom(roomId)
-                }
             }
             .overlay {
                 if messages.isEmpty {
                     RoomWelcome(name: detail.mission.name, key: roomId, steps: [
                         RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
-                                         done: detail.members.count > 1) { state.peopleVisible = true },
+                                         done: detail.members.count > 1) { workspace.peopleVisible = true },
                         RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
                                          done: !deps.roomSessions(roomId).isEmpty) { deps.openLauncher(roomId: roomId) },
                         RoomWelcome.Step(title: copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles",
@@ -115,13 +110,10 @@ struct RoomConversationView: View {
             }
             .overlay(alignment: .bottom) {
                 if !state.followsLatest {
-                    Button {
+                    RoomLatestKey(unread: state.unread, identifier: "room.messages.latest") {
                         withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
-                    } label: {
-                        Label(state.unread > 0 ? String(localized: "\(state.unread) new") : String(localized: "Latest"), systemImage: "arrow.down")
                     }
-                    .buttonStyle(.kodosi(state.unread > 0 ? .primary : .secondary, size: .small)).padding(10)
-                    .accessibilityIdentifier("room.messages.latest")
+                    .padding(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -129,6 +121,11 @@ struct RoomConversationView: View {
             .animation(theme.motion.spring, value: messages.last?.id)
             .onChange(of: messages.last?.id) { _, _ in
                 if state.followsLatest {
+                    withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
+                }
+            }
+            .onChange(of: state.followsLatest) { _, follows in
+                if follows {
                     withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
                 }
             }

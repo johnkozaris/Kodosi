@@ -11,12 +11,19 @@ struct MissionsView: View {
                 title: "Rooms are for working together",
                 message: "Share terminals, talk, and hand off tasks with people and agents.",
             )
-        } else if let detail = deps.missionDetail, detail.mission.id == deps.workbench.selectedMissionId {
-            RoomView(detail: detail, state: deps.roomView(detail.mission.id))
-                .id(detail.mission.id)
-                .transition(.opacity)
-        } else if deps.workbench.selectedMissionId != nil {
-            RoomSkeleton()
+        } else if let roomId = deps.workbench.selectedMissionId {
+            Group {
+                if let detail = deps.rooms.details[roomId] {
+                    RoomView(detail: detail, state: deps.rooms.view(roomId), workspace: deps.roomWorkspace(roomId))
+                        .id(roomId)
+                        .transition(.opacity)
+                } else if let failure = deps.rooms.detailFailures[roomId] {
+                    RoomRecovery(message: failure) { Task { await deps.rooms.open(roomId) } }
+                } else {
+                    RoomSkeleton()
+                }
+            }
+            .showsRoom(roomId, in: deps.rooms)
         } else {
             RoomsLobby()
         }
@@ -34,9 +41,9 @@ struct RoomsLobby: View {
                     Button { deps.workbench.showsNewRoom = true } label: { Label("New room", systemImage: "plus") }
                         .buttonStyle(.kodosi(.primary)).accessibilityIdentifier("missions.create.lobby")
                 }.arrive()
-                if !deps.invitations.isEmpty {
+                if !deps.rooms.invitations.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        ForEach(deps.invitations) { invitation in
+                        ForEach(deps.rooms.invitations) { invitation in
                             InvitationCard(invitation: invitation, identifier: "missions.invitation.\(AccessibilityIdentifier.token(invitation.missionId))") {
                                 deps.respond(to: invitation, accept: false)
                             } join: {
@@ -46,8 +53,8 @@ struct RoomsLobby: View {
                     }.arrive(delay: 0.04)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 250, maximum: 340), spacing: 14)], alignment: .leading, spacing: 14) {
-                    ForEach(Array(deps.missions.enumerated()), id: \.element.id) { index, mission in
-                        RoomCard(mission: mission, sessions: deps.roomSessions(mission.id), yours: mission.ownerUserId == deps.account.userId) {
+                    ForEach(Array(deps.rooms.missions.enumerated()), id: \.element.id) { index, mission in
+                        RoomCard(mission: mission, sessions: deps.roomSessions(mission.id), yours: deps.rooms.isOwner(of: mission.id)) {
                             deps.openMission(mission)
                         } detail: {
                             EmptyView()
@@ -59,14 +66,14 @@ struct RoomsLobby: View {
                         DashedSlot(radius: Radius.xl) {
                             VStack(spacing: 10) {
                                 Image(systemName: "plus").font(.system(size: 18, weight: .semibold))
-                                Text(deps.missions.isEmpty ? "Make your first room" : "New room").appTextStyle(.subhead)
+                                Text(deps.rooms.missions.isEmpty ? "Make your first room" : "New room").appTextStyle(.subhead)
                             }
                             .foregroundStyle(theme.colors.inkMuted)
                             .frame(maxWidth: .infinity).frame(height: 132)
                         }
                     }
                     .buttonStyle(PressScaleStyle(scale: 0.98)).accessibilityIdentifier("missions.create.slot")
-                    .arrive(delay: 0.04 * Double(min(deps.missions.count, 8) + 1))
+                    .arrive(delay: 0.04 * Double(min(deps.rooms.missions.count, 8) + 1))
                 }
             }
             .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 36)
@@ -75,9 +82,9 @@ struct RoomsLobby: View {
     }
 
     private var facts: String? {
-        guard !deps.missions.isEmpty else { return String(localized: "A room keeps people, agents and terminals in one place.") }
+        guard !deps.rooms.missions.isEmpty else { return String(localized: "A room keeps people, agents and terminals in one place.") }
         let shared = deps.sessions.count { $0.missionId != nil && $0.status != .closing }
-        return "\(Counted.rooms(deps.missions.count)) · " + String(localized: "\(shared) shared terminals")
+        return "\(Counted.rooms(deps.rooms.missions.count)) · " + String(localized: "\(shared) shared terminals")
     }
 }
 
@@ -128,11 +135,7 @@ struct NewRoomSheet: View {
         Task { @MainActor in
             defer { creating = false }
             do {
-                let id = UUIDv7.generate()
-                _ = try await deps.commandSink.request("mission.create", [
-                    "requestId": .string(id),
-                    "name": .string(name.trimmingCharacters(in: .whitespacesAndNewlines)),
-                ])
+                let id = try await deps.rooms.create(name: name, inviting: [])
                 deps.workbench.showsNewRoom = false
                 name = ""
                 deps.workbench.section = .missions

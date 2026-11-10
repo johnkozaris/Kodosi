@@ -16,9 +16,7 @@ extension AppModel {
         if let name = people.name(of: id) {
             return name
         }
-        if let room = session.missionId,
-           let member = rooms.details[room]?.members.first(where: { $0.userId == id })
-        {
+        if let room = session.missionId, let member = rooms.member(id, in: room) {
             return member.personName
         }
         return String(localized: "Guest")

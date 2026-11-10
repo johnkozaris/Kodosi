@@ -23,7 +23,7 @@ struct SessionSharingPopover: View {
 
     private var actionTitle: String {
         if room != current.missionId {
-            if let room, let name = deps.missions.first(where: { $0.id == room })?.name {
+            if let room, let name = deps.rooms.missions.first(where: { $0.id == room })?.name {
                 return String(localized: "Share with \(name)")
             }
             return String(localized: "Stop sharing")
@@ -90,11 +90,11 @@ struct SessionSharingPopover: View {
 
     @ViewBuilder
     private var choices: some View {
-        if !deps.missions.isEmpty {
+        if !deps.rooms.missions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("A room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 FlowLayout(spacing: 6) {
-                    ForEach(deps.missions) { mission in
+                    ForEach(deps.rooms.missions) { mission in
                         let selected = room == mission.id
                         Button {
                             room = selected ? nil : mission.id

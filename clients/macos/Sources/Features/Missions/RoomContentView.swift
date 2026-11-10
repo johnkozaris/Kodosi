@@ -6,30 +6,31 @@ struct RoomContentView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let roomId: String
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    let workspace: RoomWorkspace
 
     var body: some View {
         Group {
-            if state.shownSection == 0 {
-                RoomTerminals(roomId: roomId, state: state)
-            } else if deps.rooms[roomId] == nil {
-                if let failure = state.failure {
-                    if !state.conversationVisible {
-                        RoomRecovery(message: failure) { Task { await deps.readRoom(roomId) } }
+            if workspace.shownSection == 0 {
+                RoomTerminals(roomId: roomId, state: state, workspace: workspace)
+            } else if deps.rooms.snapshots[roomId] == nil {
+                if let failure = state.readFailure {
+                    if !workspace.conversationVisible {
+                        RoomRecovery(message: failure) { Task { await deps.rooms.read(roomId) } }
                     }
                 } else {
                     RoomSkeleton()
                 }
-            } else if state.shownSection == 1 {
-                RoomTasksView(roomId: roomId, state: state)
+            } else if workspace.shownSection == 1 {
+                RoomTasksView(roomId: roomId, state: state, workspace: workspace)
             } else {
-                RoomRepositoriesView(roomId: roomId, state: state)
+                RoomRepositoriesView(roomId: roomId, state: state, workspace: workspace)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .id(state.shownSection)
+        .id(workspace.shownSection)
         .transition(.asymmetric(
-            insertion: state.shownSection == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
+            insertion: workspace.shownSection == 0 || theme.motion.reduced ? .identity : .opacity.combined(with: .offset(y: 6)),
             removal: .identity,
         ))
     }
@@ -41,7 +42,8 @@ private struct RoomTerminals: View {
     @Namespace private var tab
     @Namespace private var keys
     let roomId: String
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    @Bindable var workspace: RoomWorkspace
     @State private var adding = false
     @State private var tabFrame: CGRect?
     @State private var stageFrame = CGRect.zero
@@ -58,7 +60,7 @@ private struct RoomTerminals: View {
 
     var body: some View {
         let sessions = sessions
-        let current = sessions.first { $0.id == state.selectedTerminal && deps.workbench.stagedSessionIds.contains($0.id) }
+        let current = sessions.first { $0.id == workspace.selectedTerminal && deps.workbench.stagedSessionIds.contains($0.id) }
         VStack(spacing: 0) {
             if !sessions.isEmpty {
                 HStack(spacing: 0) {
@@ -124,11 +126,11 @@ private struct RoomTerminals: View {
 
     /// The terminal, with its canvas beside it when it is open, flowing out of its tab.
     private func pair(_ current: RuntimeSession) -> some View {
-        CanvasStage(canvas: state.showsCanvas && current.canvas != nil ? current : nil, front: current.id, wide: $state.canvasWide,
-                    width: $state.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
+        CanvasStage(canvas: workspace.showsCanvas && current.canvas != nil ? current : nil, front: current.id, wide: $workspace.canvasWide,
+                    width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
         {
-            state.showsCanvas = false
-            state.canvasWide = false
+            workspace.showsCanvas = false
+            workspace.canvasWide = false
         } terminal: {
             SessionTileView(session: current, isFocused: false, roomEmbedded: true)
                 .environment(\.terminalStageVisible, deps.workbench.section == .missions)
@@ -140,12 +142,12 @@ private struct RoomTerminals: View {
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { stageFrame = $0 }
         .padding([.horizontal, .bottom], 6)
         .environment(\.tileRadius, Radius.xl)
-        .environment(\.canvasPlace, CanvasPlace(flight: keys, open: state.showsCanvas && current.canvas != nil ? current.id : nil) { session, section in
+        .environment(\.canvasPlace, CanvasPlace(flight: keys, open: workspace.showsCanvas && current.canvas != nil ? current.id : nil) { session, section in
             if let section {
                 deps.canvas.show(section, in: session)
             }
-            state.selectedTerminal = session.id
-            state.showsCanvas = true
+            workspace.selectedTerminal = session.id
+            workspace.showsCanvas = true
         })
     }
 
@@ -190,12 +192,12 @@ private struct RoomTerminals: View {
             if session.canControl, session.canOpen {
                 Button("Open Browser") {
                     open(session)
-                    state.showsCanvas = true
+                    workspace.showsCanvas = true
                     deps.openBrowser(of: session)
                 }
                 Button("Add a File…") {
                     open(session)
-                    state.showsCanvas = true
+                    workspace.showsCanvas = true
                     deps.addFile(to: session)
                 }
             }
@@ -251,7 +253,7 @@ private struct RoomTerminals: View {
 
     private func open(_ session: RuntimeSession) {
         withAnimation(theme.motion.snappy) {
-            state.selectedTerminal = session.id
+            workspace.selectedTerminal = session.id
         }
         deps.activateSession(session.id, inRoom: roomId)
     }
@@ -260,7 +262,7 @@ private struct RoomTerminals: View {
         Task { @MainActor in
             do {
                 try await deps.mutateSession("session.attachMission", session: session, fields: ["missionId": .string(roomId)])
-                state.shownSection = 0; deps.activateSession(session.id, inRoom: roomId)
+                workspace.shownSection = 0; deps.activateSession(session.id, inRoom: roomId)
             } catch { state.failure = error.localizedDescription }
         }
     }

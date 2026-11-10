@@ -124,8 +124,7 @@ struct RoomInfoSheet: View {
 
     @ViewBuilder
     private var inviteSection: some View {
-        let members = Set((rooms.details[roomId]?.members ?? []).map(\.userId))
-        let candidates = model.people.friends.filter { !members.contains($0.userId) }
+        let candidates = rooms.invitable(model.people.friends, to: roomId)
         ListGroup(title: "Invite friends") {
             if candidates.isEmpty {
                 Text(model.people.friends.isEmpty ? "Add friends in the Friends tab to invite them." : "All your friends are here.")

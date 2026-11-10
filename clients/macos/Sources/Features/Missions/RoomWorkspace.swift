@@ -1,14 +1,12 @@
 import CoreGraphics
 import Observation
 
+/// How the Mac shows one room: its work area, the conversation beside it, the task being written
+/// and the open popovers.
 @MainActor
 @Observable
-final class RoomViewState {
-    var shownSection = 0 {
-        didSet { fresh.remove(shownSection) }
-    }
-
-    var fresh: Set<Int> = []
+final class RoomWorkspace {
+    var shownSection = 0
     var conversationVisible = true
     var conversationWidth: CGFloat = 380
     var peopleVisible = false
@@ -18,15 +16,6 @@ final class RoomViewState {
     var showsCanvas = false
     var canvasWide = false
     var canvasWidth: CGFloat?
-    var message = "" {
-        didSet {
-            if message != oldValue {
-                messageRevision += 1
-            }
-        }
-    }
-
-    var messageRevision = 0
     var taskTitle = "" {
         didSet { taskRevision += 1 }
     }
@@ -46,15 +35,8 @@ final class RoomViewState {
     var taskRevision = 0
     var selectedRepository: String?
     var expandedTask: String?
-    var completionNotes: [String: String] = [:]
-    var taskFilter = ""
     var showsRepositoryPicker = false
     var showsIssuePicker = false
-    var showsCompleted = false
-    var followsLatest = true
-    var readingMessage: String?
-    var unread = 0
-    var loading = false
+    /// A task or issue action is on its way.
     var busy = false
-    var failure: String?
 }

@@ -29,13 +29,9 @@ extension AppDependencies {
             account.reset(userId: event.accountUserId)
             people.reset(userId: event.accountUserId); inviteRequested = nil
             dosi.reset()
-            missions.removeAll(); invitations.removeAll()
-            missionListTruncated = false
-            missionDetail = nil
-            rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomSeen.removeAll()
+            rooms.reset(userId: event.accountUserId); roomWorkspaces.removeAll()
             freshTerminals.removeAll(); reportedVisible = nil
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
-            missionTask?.cancel(); missionTask = nil; missionRequestId = nil
             accountKnown = true
             accountEpoch = event.accountEpoch
             commandSink.setAccount(userId: account.userId, epoch: accountEpoch)
@@ -66,7 +62,7 @@ extension AppDependencies {
 
     private func receiveCollaboration(_ event: RuntimeEvent) throws {
         if event.type.hasPrefix("room.") {
-            try receiveRoom(event)
+            try rooms.receive(event)
         } else if event.type.hasPrefix("dosi.") {
             try dosi.receive(event)
             if event.type == "dosi.item" {
@@ -240,16 +236,9 @@ extension AppDependencies {
             workbench.section = .missions
             openMission(id: id)
         case "missions.snapshot":
-            missions = try event.value("missions"); invitations = try event.value("invitations")
-            let missionsTruncated = event.payload["missionsTruncated"] == .bool(true)
-            missionListTruncated = missionsTruncated || event.payload["invitationsTruncated"] == .bool(true)
-            if let selected = workbench.selectedMissionId {
-                if let mission = missions.first(where: { $0.id == selected }) ?? (missionsTruncated ? missionDetail?.mission : nil) {
-                    openMission(mission)
-                } else if !missionsTruncated {
-                    missionTask?.cancel(); missionTask = nil; missionRequestId = nil
-                    workbench.selectedMissionId = nil; missionDetail = nil
-                }
+            try rooms.receive(event)
+            if let selected = workbench.selectedMissionId, rooms.departed.contains(selected) {
+                workbench.selectedMissionId = nil
             }
         default: break
         }
@@ -300,7 +289,7 @@ extension AppDependencies {
         case .sessions:
             workbench.openCanvas(id)
         case .missions:
-            workbench.selectedMissionId.flatMap { roomViews[$0] }?.showsCanvas = true
+            workbench.selectedMissionId.flatMap { roomWorkspaces[$0] }?.showsCanvas = true
         case .people, .settings:
             break
         }
@@ -311,8 +300,10 @@ extension AppDependencies {
         switch workbench.section {
         case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
         case .missions:
-            guard let room = workbench.selectedMissionId, session(id)?.missionId == room, let view = roomViews[room] else { return false }
-            return view.shownSection == 0 && view.selectedTerminal == id
+            guard let room = workbench.selectedMissionId, session(id)?.missionId == room, let workspace = roomWorkspaces[room] else {
+                return false
+            }
+            return workspace.shownSection == 0 && workspace.selectedTerminal == id
         case .people, .settings: return false
         }
     }

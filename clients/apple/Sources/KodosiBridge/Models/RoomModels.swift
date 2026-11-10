@@ -60,6 +60,27 @@ public struct RoomTask: Decodable, Identifiable {
     public let issue: RoomIssue?
 }
 
+/// The tasks of a room for one repository or for all, in the lanes that people see.
+public struct RoomTaskLanes {
+    public let tasks: [RoomTask]
+
+    public init(_ tasks: [RoomTask], repository: String?) {
+        self.tasks = repository.map { id in tasks.filter { $0.repositoryIds.contains(id) } } ?? tasks
+    }
+
+    public var upForGrabs: [RoomTask] {
+        tasks.filter { !$0.closed && $0.assignedTo == nil }
+    }
+
+    public var inProgress: [RoomTask] {
+        tasks.filter { !$0.closed && $0.assignedTo != nil }
+    }
+
+    public var done: [RoomTask] {
+        tasks.filter(\.closed)
+    }
+}
+
 public struct RoomRepository: Decodable, Identifiable {
     public let id: String
     public let name: String

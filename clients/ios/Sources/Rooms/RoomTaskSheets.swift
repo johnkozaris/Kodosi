@@ -50,15 +50,12 @@ struct RoomTaskSheet: View {
                     .foregroundStyle(theme.colors.ink)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                RoomTaskChips(roomId: roomId, task: task)
+                RoomTaskChips(
+                    task: task, repositories: model.rooms.snapshots[roomId]?.repositories ?? [],
+                    terminal: task.terminalId.flatMap { model.terminals.session($0) },
+                )
                 if !task.description.isEmpty {
-                    Text(RoomMessageText.formatted(task.description))
-                        .appTextStyle(.body)
-                        .lineSpacing(2)
-                        .foregroundStyle(theme.colors.inkMuted)
-                        .tint(theme.colors.accentStrong)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
+                    RoomTaskDescription(text: task.description)
                 }
                 if let issue = task.issue {
                     issueNote(issue)

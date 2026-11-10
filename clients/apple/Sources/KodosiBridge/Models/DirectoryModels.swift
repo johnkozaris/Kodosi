@@ -185,6 +185,11 @@ public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
     public var personName: String {
         displayName.isEmpty ? handle : displayName
     }
+
+    /// The name of the member among the people of a room, which says which one is you.
+    public func listedName(you userId: String?) -> String {
+        self.userId == userId ? String(localized: "\(personName) (you)", bundle: .module) : personName
+    }
 }
 
 public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendable {

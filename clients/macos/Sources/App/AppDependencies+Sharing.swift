@@ -21,10 +21,8 @@ extension AppDependencies {
         Task { @MainActor in
             do {
                 try await mutateSession("session.attachMission", session: target, fields: ["missionId": .string(share.roomId)])
-                if workbench.selectedMissionId != share.roomId || missionDetail?.mission.id != share.roomId {
-                    openMission(id: share.roomId)
-                }
-                roomView(share.roomId).shownSection = 0
+                openMission(id: share.roomId)
+                roomWorkspace(share.roomId).shownSection = 0
                 activateSession(share.sessionId, inRoom: share.roomId)
             } catch { errorMessage = error.localizedDescription }
         }

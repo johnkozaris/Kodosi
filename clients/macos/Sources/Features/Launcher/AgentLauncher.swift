@@ -79,7 +79,7 @@ struct AgentLauncher: View {
     }
 
     private var roomName: String? {
-        roomId.flatMap { id in deps.missions.first { $0.id == id }?.name }
+        roomId.flatMap { id in deps.rooms.missions.first { $0.id == id }?.name }
     }
 
     private var tabItems: [AgentTabs.Item] {

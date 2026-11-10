@@ -153,7 +153,7 @@ struct CommandPalette: View {
     }
 
     private var roomItems: [Item] {
-        deps.missions.map { mission in
+        deps.rooms.missions.map { mission in
             Item(id: "room.\(mission.id)", group: String(localized: "Rooms"), title: mission.name,
                  icon: .room(mission.id))
             {

@@ -7,16 +7,17 @@ struct RoomRepositoriesView: View {
     @Environment(\.theme) private var theme
     @Namespace private var chip
     let roomId: String
-    @Bindable var state: RoomViewState
+    let state: RoomViewState
+    @Bindable var workspace: RoomWorkspace
     @State private var loadingIssues = false
     @State private var issueFailure: String?
 
     private var repositories: [RoomRepository] {
-        deps.rooms[roomId]?.repositories ?? []
+        deps.rooms.snapshots[roomId]?.repositories ?? []
     }
 
     private var selected: RoomRepository? {
-        repositories.first { $0.id == state.selectedRepository }
+        repositories.first { $0.id == workspace.selectedRepository }
     }
 
     var body: some View {
@@ -42,12 +43,12 @@ struct RoomRepositoriesView: View {
                     .scrollIndicators(.never).wellCapsule().fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     IconButton(title: "Link a repository", symbol: "plus", identifier: "room.repository.new", size: 30,
-                               open: state.showsRepositoryPicker)
+                               open: workspace.showsRepositoryPicker)
                     {
-                        state.showsRepositoryPicker = true
+                        workspace.showsRepositoryPicker = true
                     }
-                    .kodosiPopover(isPresented: $state.showsRepositoryPicker, alignment: .trailing) {
-                        RepositoryPicker(roomId: roomId) { state.showsRepositoryPicker = false }
+                    .kodosiPopover(isPresented: $workspace.showsRepositoryPicker, alignment: .trailing) {
+                        RepositoryPicker(roomId: roomId) { workspace.showsRepositoryPicker = false }
                             .padding(12).frame(width: 400)
                     }
                 }
@@ -77,10 +78,11 @@ struct RoomRepositoriesView: View {
                 select(repository)
             }
         }
+        .showsRoomPart(.repositories, of: state)
     }
 
     private func repositoryChip(_ repository: RoomRepository) -> some View {
-        let active = state.selectedRepository == repository.id
+        let active = workspace.selectedRepository == repository.id
         return Button { withAnimation(theme.motion.snappy) { select(repository) } } label: {
             HStack(spacing: 6) {
                 Image(systemName: "shippingbox").font(.system(size: 10, weight: .semibold))
@@ -103,11 +105,11 @@ struct RoomRepositoriesView: View {
     }
 
     private func issues(_ repository: RoomRepository) -> some View {
-        let entries = deps.roomIssues[repository.id] ?? []
+        let entries = deps.rooms.issues[repository.id] ?? []
         return ScrollView {
             LazyVStack(spacing: 6) {
                 ForEach(entries) { issue in
-                    let imported = deps.rooms[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
+                    let imported = deps.rooms.snapshots[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
                     HStack(alignment: .center, spacing: 12) {
                         Image(systemName: issue.closed ? "checkmark.circle.fill" : "smallcircle.filled.circle")
                             .font(.system(size: 15)).foregroundStyle(issue.closed ? theme.colors.inkFaint : theme.colors.ready)
@@ -124,7 +126,7 @@ struct RoomRepositoriesView: View {
                                   systemImage: imported ? "checkmark" : "plus")
                                 .contentTransition(.symbolEffect(.replace))
                         }
-                        .buttonStyle(.kodosi(imported ? .ghost : .tinted, size: .small)).disabled(imported || state.busy)
+                        .buttonStyle(.kodosi(imported ? .ghost : .tinted, size: .small)).disabled(imported || workspace.busy)
                         .accessibilityLabel(imported ? Text("Added to tasks") : Text("Add \(issue.title) to tasks"))
                     }
                     .padding(.horizontal, 14).padding(.vertical, 11)
@@ -140,28 +142,28 @@ struct RoomRepositoriesView: View {
     }
 
     private func select(_ repository: RoomRepository) {
-        state.selectedRepository = repository.id
+        workspace.selectedRepository = repository.id
         issueFailure = nil; loadingIssues = true
         Task { @MainActor in
             do {
-                try await deps.roomAction(roomId, RoomAction.issues(repository.id))
+                try await deps.rooms.act(roomId, RoomAction.issues(repository.id))
             } catch {
-                if state.selectedRepository == repository.id {
+                if workspace.selectedRepository == repository.id {
                     issueFailure = error.localizedDescription
                 }
             }
-            if state.selectedRepository == repository.id {
+            if workspace.selectedRepository == repository.id {
                 loadingIssues = false
             }
         }
     }
 
     private func perform(_ action: [String: JSONValue], completed: @escaping @MainActor () -> Void = {}) {
-        state.busy = true; state.failure = nil
+        workspace.busy = true; state.failure = nil
         Task { @MainActor in
-            defer { state.busy = false }
+            defer { workspace.busy = false }
             do {
-                try await deps.roomAction(roomId, action)
+                try await deps.rooms.act(roomId, action)
                 completed()
             } catch { state.failure = error.localizedDescription }
         }

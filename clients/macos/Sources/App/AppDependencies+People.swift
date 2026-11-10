@@ -15,7 +15,7 @@ extension AppDependencies {
         if let name = people.name(of: id) {
             return name
         }
-        if let member = missionDetail?.members.first(where: { $0.userId == id }) {
+        if let member = rooms.details.values.lazy.flatMap(\.members).first(where: { $0.userId == id }) {
             return member.personName
         }
         return String(localized: "Guest")
@@ -78,25 +78,18 @@ extension AppDependencies {
     }
 
     func showRooms() {
-        missionTask?.cancel(); missionTask = nil; missionRequestId = nil
         workbench.selectedMissionId = nil
-        missionDetail = nil
         workbench.section = .missions
     }
 }
 
 extension AppDependencies {
     func respond(to invitation: MissionInvitationEntry, accept: Bool) {
-        Task { @MainActor in
-            do {
-                let operation = accept ? "mission.invitation.accept" : "mission.invitation.reject"
-                _ = try await commandSink.request(operation, ["invitationId": .string(invitation.id)])
-                if accept {
-                    workbench.section = .missions
-                    openMission(id: invitation.missionId)
-                }
-            } catch {
-                errorMessage = error.localizedDescription
+        rooms.run { [weak self] in
+            try await self?.rooms.respond(to: invitation, accept: accept)
+            if accept {
+                self?.workbench.section = .missions
+                self?.openMission(id: invitation.missionId)
             }
         }
     }

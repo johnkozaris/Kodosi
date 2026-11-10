@@ -78,7 +78,7 @@ struct SidebarView: View {
         .animation(theme.motion.soft, value: workbench.sidebarCollapsed)
         .animation(theme.motion.snappy, value: selection)
         .animation(theme.motion.spring, value: deps.listedSessions.map(\.id))
-        .animation(theme.motion.spring, value: deps.missions.map(\.id))
+        .animation(theme.motion.spring, value: deps.rooms.missions.map(\.id))
         .animation(theme.motion.spring, value: deps.listedSessions.map(\.attention))
     }
 
@@ -163,14 +163,14 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("sidebar.signIn.hint")
             }
-            ForEach(deps.invitations) { invitation in
+            ForEach(deps.rooms.invitations) { invitation in
                 SidebarInvitationRow(invitation: invitation).transition(AnyTransition.rise)
             }
-            ForEach(deps.missions) { mission in
+            ForEach(deps.rooms.missions) { mission in
                 SidebarRoomRow(mission: mission, selected: selection == .room(mission.id), pill: pill)
                     .transition(AnyTransition.rise)
             }
-            if deps.missionListTruncated {
+            if deps.rooms.listTruncated {
                 Text("More rooms exist. Use Go to… to find them.").appTextStyle(.caption)
                     .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 10).padding(.top, 2)
                     .accessibilityLabel(Text("Some rooms are not shown"))

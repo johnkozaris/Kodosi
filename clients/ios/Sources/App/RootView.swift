@@ -43,6 +43,11 @@ struct RootView: View {
                 LockCover().environment(model).kodosiTheme()
             }
         }
+        .onChange(of: model.lock.locked) { _, locked in
+            if !locked {
+                model.rooms.markShownRead()
+            }
+        }
     }
 
     private enum Screen: Equatable {

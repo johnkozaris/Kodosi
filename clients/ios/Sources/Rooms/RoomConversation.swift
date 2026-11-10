@@ -34,31 +34,32 @@ struct RoomConversation: View {
                 RoomSkeleton()
             }
         }
+        .showsRoomPart(.conversation, of: state)
         .onAppear {
-            state.watchingConversation = true
-            if state.followsLatest {
-                rooms.markRead(roomId)
-            } else if let reading = state.readingMessage {
+            if !state.followsLatest, let reading = state.readingMessage {
                 position.scrollTo(id: reading, anchor: .top)
             }
         }
         .onDisappear {
-            state.watchingConversation = false
             state.readingMessage = state.followsLatest ? nil : position.viewID(type: String.self)
         }
     }
 
     private func transcript(_ snapshot: RoomSnapshot, state: RoomViewState, targets: [RoomMention]) -> some View {
         let messages = snapshot.messages
-        let unread = rooms.unread[roomId] ?? 0
+        let unread = state.unread
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if snapshot.hasOlder, let first = messages.first {
-                    earlier(before: first, state: state)
+                    RoomEarlierKey(loading: state.loading, identifier: "rooms.messages.earlier") {
+                        Task {
+                            await rooms.read(roomId, before: first.sequence)
+                            position.scrollTo(id: first.id, anchor: .top)
+                        }
+                    }
+                    .padding(.bottom, 8)
                 } else if snapshot.historyTrimmed, !messages.isEmpty {
-                    Text("Kodosi removed the oldest messages to make space for new ones.")
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.bottom, 8)
+                    RoomTrimmedNote().padding(.bottom, 8)
                 }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                     RoomMessageRow(
@@ -90,7 +91,6 @@ struct RoomConversation: View {
         } action: { _, bottom in
             if bottom {
                 state.followsLatest = true
-                rooms.markRead(roomId)
             } else if touching {
                 state.followsLatest = false
             }
@@ -104,69 +104,45 @@ struct RoomConversation: View {
         }
         .overlay {
             if messages.isEmpty {
-                welcome(state: state)
+                welcome()
             }
         }
         .overlay(alignment: .bottom) {
             if !state.followsLatest {
-                latest(unread: unread, state: state)
+                RoomLatestKey(unread: unread, identifier: "rooms.messages.latest") {
+                    state.followsLatest = true
+                    withAnimation(theme.motion.soft) { position.scrollTo(edge: .bottom) }
+                }
+                .padding(.bottom, 10)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(theme.motion.spring, value: state.followsLatest)
         .animation(theme.motion.snappy, value: unread)
     }
 
-    private func welcome(state: RoomViewState) -> some View {
+    private func welcome() -> some View {
+        let screen = model.roomScreen(roomId)
         var steps: [RoomWelcome.Step] = []
         if rooms.isOwner(of: roomId) {
             steps.append(RoomWelcome.Step(
                 title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
                 done: (rooms.details[roomId]?.members.count ?? 0) > 1,
-            ) { state.showsInfo = true })
+            ) { screen.showsInfo = true })
         }
         steps.append(RoomWelcome.Step(
             title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
             done: model.terminals.sessions.contains { $0.missionId == roomId },
-        ) { show(.terminals, in: state) })
+        ) { show(.terminals, in: screen) })
         steps.append(RoomWelcome.Step(
             title: "Put up a task", symbol: "checklist", tint: TileTint.orange,
             done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true),
-        ) { show(.tasks, in: state) })
+        ) { show(.tasks, in: screen) })
         return RoomWelcome(name: rooms.mission(roomId)?.name ?? "", key: roomId, steps: steps)
     }
 
-    private func show(_ section: RoomSection, in state: RoomViewState) {
-        state.section = section
-        state.shownSection = section
-    }
-
-    private func earlier(before first: RoomMessage, state: RoomViewState) -> some View {
-        Button {
-            Task {
-                await rooms.read(roomId, before: first.sequence)
-                position.scrollTo(id: first.id, anchor: .top)
-            }
-        } label: {
-            Label(state.loading ? "Loading…" : "Earlier messages", systemImage: "arrow.up")
-        }
-        .buttonStyle(.kodosi(.ghost, size: .small))
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 8)
-        .disabled(state.loading)
-        .accessibilityIdentifier("rooms.messages.earlier")
-    }
-
-    private func latest(unread: Int, state: RoomViewState) -> some View {
-        Button {
-            state.followsLatest = true
-            withAnimation(theme.motion.soft) { position.scrollTo(edge: .bottom) }
-        } label: {
-            Label(unread > 0 ? String(localized: "\(unread) new") : String(localized: "Latest"), systemImage: "arrow.down")
-                .contentTransition(.numericText())
-        }
-        .buttonStyle(.kodosi(unread > 0 ? .primary : .secondary, size: .small))
-        .padding(.bottom, 10)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .accessibilityIdentifier("rooms.messages.latest")
+    private func show(_ section: RoomSection, in screen: RoomScreenState) {
+        screen.section = section
+        screen.shownSection = section
     }
 }
