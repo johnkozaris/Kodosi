@@ -37,6 +37,16 @@ extension AppDependencies {
         }
     }
 
+    /// Changes what the agent in front of `session` works with. The agent's host types the
+    /// agent's own commands once it waits for its next prompt.
+    func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
+        Task { @MainActor in
+            do {
+                try await mutateSession("session.agent", session: session, fields: ["change": change.json])
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
         session.sign(unseen: session.attention)
     }

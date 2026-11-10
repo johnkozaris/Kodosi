@@ -55,6 +55,8 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
         title: Some("A private title".into()),
         program: Some("claude".into()),
         account: Some(2),
+        settings: None,
+        pending: None,
         status: Some(ProgramStatus {
             state: ProgramState::Blocked,
             kind: Some(BlockedKind::Permission),

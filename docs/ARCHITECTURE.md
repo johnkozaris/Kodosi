@@ -38,12 +38,13 @@ Claude process, the lock that Copilot CLI keeps in the folder of a session while
 uses it, and the rollout that a Codex process holds open, or else the one live Codex
 conversation of the terminal's folder. The command keeps the account, model, effort,
 permissions and output of the agent's environment and arguments, which Windows does not
-show. When the host finds no conversation, the command opens the agent's own list of
-conversations. A new host keeps the saved terminals until an app sends `session.restore`;
-then it starts each one again with a new terminal ID, and the terminal's `restoredFrom`
-names the ID that it replaces. The host also gives `restoredFrom` to the backend, so that
-views on other devices can follow the terminal. A restored terminal joins its project or
-its people again when the account that chose them is signed in.
+show, with the changes that Kodosi typed while the agent ran. When the host finds no
+conversation, the command opens the agent's own list of conversations. A new host keeps
+the saved terminals until an app sends `session.restore`; then it starts each one again
+with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.
+The host also gives `restoredFrom` to the backend, so that views on other devices can
+follow the terminal. A restored terminal joins its project or its people again when the
+account that chose them is signed in.
 
 As it stops, the host also saves the primary screen and history of each terminal that
 comes back. It writes them as VT text to a file in `screens/` in its data folder. The file
@@ -136,6 +137,15 @@ terminal, as one line with who wrote it and from where.
 as a terminal control. The terminal types a message only while its agent reports a state
 other than waiting for a person and nobody types there, and Enter follows as a key of its
 own.
+A change of a running agent's model, effort or permissions, from a terminal's actions or
+`kodosi terminal agent <terminal>`, goes to the host as `session.agent`, or as a terminal control from
+another computer. The host turns it into the agent's own commands, which only some agents
+have for each setting, and types them by the rules of a message once the agent reports
+that it waits for its next prompt, and not while its screen shows a question that it asks
+without reporting it, as Claude Code asks a person to confirm a new model or effort for a
+conversation whose cache is warm; until then the terminal's metadata shows the change as
+waiting. The host reads what the agent started with from its arguments, and the metadata
+carries that with each change that Kodosi typed.
 
 The host also writes a plugin folder in its `agents` folder at each start, with the
 `kodosi`, `kodosi-canvas` and `kodosi-documents` skills and a hook that gives Claude Code

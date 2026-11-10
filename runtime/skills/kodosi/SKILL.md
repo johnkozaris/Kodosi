@@ -36,6 +36,9 @@ output and `--help` lists every option.
   terminal. Kodosi tells it who you are and where you work. It stops with a message
   while that agent waits for a person's answer or a person types there; try again later,
   or write in the project.
+- `kodosi terminal agent <terminal> --model <id> --effort <level> --permissions ask`
+  changes the agent in a terminal while it runs, with the agent's own commands, as far as
+  that agent can; `kodosi --json terminal list` shows what it can change.
 - `kodosi terminal input <terminal> --enter "text"` and `kodosi terminal keys <terminal>
   enter` type into a terminal as a person does, for a program that is not an agent.
 - `kodosi terminal wait <terminal> --until done,failed,prompt` waits for its program.

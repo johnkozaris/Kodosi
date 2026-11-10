@@ -39,6 +39,10 @@ commande dans le shell du nouveau terminal.
 - Dans un terminal qui attend à son prompt, le bouton d'actions (deux curseurs) de son
   en-tête liste les agents installés. Choisissez-en un pour le lancer avec votre dernier
   choix.
+- Pendant qu'un agent tourne, le même bouton d'actions change son modèle et son effort et,
+  pour certains agents, ses autorisations, avec les propres commandes de l'agent, sans le
+  relancer. Un changement attend la fin du tour de l'agent, et Claude Code garde aussi le
+  modèle et l'effort pour ses prochaines sessions.
 - Dans zsh et bash (pas le bash 3.2 de macOS), ⌘↑ et ⌘↓ sautent d'un prompt à l'autre.
 - Faites ⌘-clic sur un lien pour l'ouvrir (Ctrl-clic sous Linux et Windows). Dans un
   programme qui utilise la souris, maintenez aussi Maj. Sur l'iPhone, touchez le lien ; un
@@ -233,6 +237,7 @@ La commande `kodosi` agit sur les mêmes terminaux que l'app, et l'app montre ce
 | `kodosi terminal list` | Affiche vos terminaux avec leurs noms et leurs ID. Donnez l'un ou l'autre comme `<terminal>`. |
 | `kodosi terminal read <terminal>` | Affiche l'écran. `--history` ajoute les lignes qui ont défilé. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Donne un message à l'agent d'un terminal, avec qui l'envoie et d'où. |
+| `kodosi terminal agent <terminal> --model sonnet` | Change le modèle, l'effort ou les autorisations de l'agent d'un terminal pendant qu'il tourne. |
 | `kodosi terminal input <terminal> --enter "make test"` | Tape une ligne. |
 | `kodosi terminal keys <terminal> ctrl-c` | Appuie sur des touches. |
 | `kodosi terminal wait <terminal> --until done,failed` | Attend un état. |

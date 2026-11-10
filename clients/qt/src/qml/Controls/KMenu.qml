@@ -6,6 +6,7 @@ Menu {
     id: root
 
     property Component mark: null
+    property string hint: ""
     property bool available: true
     property real minimumWidth: 200
     readonly property real widestItem: {

@@ -3666,6 +3666,22 @@
         <translation>打开浏览器</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>推理强度</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>权限</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>画布</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>添加文件…</translation>
     </message>
@@ -3756,6 +3772,38 @@
     <message>
         <source>Dismiss</source>
         <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>仅限启动时</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>默认</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>询问</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1（本轮结束后）</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 会在这一轮结束后更改。</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1 之后的会话也会沿用这个模型和推理强度。</translation>
     </message>
     <message>
         <source>Copy</source>

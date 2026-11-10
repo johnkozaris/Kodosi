@@ -183,6 +183,7 @@ private struct TerminalActions: View {
     let stageId: String
     @State private var open = false
     @State private var hovered = false
+    @State private var flyout: AgentActions.Flyout?
 
     var body: some View {
         Button { open.toggle() } label: {
@@ -195,6 +196,11 @@ private struct TerminalActions: View {
         .accessibilityLabel(Text("Actions"))
         .accessibilityIdentifier("\(stageId).actions")
         .kodosiPopover(isPresented: $open, arrowEdge: .bottom, alignment: .trailing) { menu.chromeScope() }
+        .onChange(of: open) { _, open in
+            if !open {
+                flyout = nil
+            }
+        }
         .background {
             Color.clear.kodosiPopover(isPresented: Binding(get: { deps.workbench.sharingSessionId == session.id }, set: {
                 if !$0 {
@@ -217,27 +223,36 @@ private struct TerminalActions: View {
                 }
                 PanelMenuDivider()
             }
-            if session.kind == .local, session.isOwner {
-                PanelMenuRow(Text("Share…"), icon: .symbol("person.badge.plus"), identifier: "\(stageId).share") {
-                    deps.workbench.sharingSessionId = session.id
-                }
+            if session.canControl, let live = session.programLive {
+                AgentActions(session: session, agent: AgentKind(program: session.program), live: live, stageId: stageId, flyout: $flyout)
             }
             if session.canControl {
+                PanelMenuHeader(title: "Canvas")
                 PanelMenuRow(Text("Open Browser"), icon: .symbol("globe"), identifier: "\(stageId).browser") {
                     deps.openBrowser(of: session)
                     canvasPlace.show(session, .browser)
                 }
+                .closesFlyout($flyout)
                 PanelMenuRow(Text("Add a File…"), icon: .symbol(CanvasSymbol.addFile), identifier: "\(stageId).addFile") {
                     if deps.addFile(to: session) {
                         canvasPlace.show(session, .files)
                     }
                 }
+                .closesFlyout($flyout)
+                PanelMenuDivider()
+            }
+            PanelMenuHeader(title: "Terminal")
+            if session.kind == .local, session.isOwner {
+                PanelMenuRow(Text("Share…"), icon: .symbol("person.badge.plus"), identifier: "\(stageId).share") {
+                    deps.workbench.sharingSessionId = session.id
+                }
+                .closesFlyout($flyout)
             }
             PanelMenuRow(Text("Details"), icon: .symbol("info.circle"), identifier: "\(stageId).details") {
                 deps.workbench.detailsSessionId = session.id
             }
+            .closesFlyout($flyout)
             if roomEmbedded, session.isOwner {
-                PanelMenuDivider()
                 PanelMenuRow(Text("Remove from project"), icon: .symbol("rectangle.portrait.and.arrow.right"),
                              identifier: "\(stageId).removeFromRoom", destructive: true)
                 {
@@ -247,6 +262,7 @@ private struct TerminalActions: View {
                         } catch { deps.errorMessage = error.localizedDescription }
                     }
                 }
+                .closesFlyout($flyout)
             }
         }
         .padding(6).panelMenuWidth(220)

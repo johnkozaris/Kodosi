@@ -2,6 +2,7 @@
 mod accounts;
 #[cfg(feature = "host")]
 mod launch;
+mod live;
 #[cfg(feature = "host")]
 mod models;
 #[cfg(feature = "host")]
@@ -11,6 +12,12 @@ mod usage;
 
 #[cfg(feature = "host")]
 pub use launch::Launcher;
+#[cfg(feature = "host")]
+pub(crate) use live::NO_RUNNING_AGENT;
+#[cfg(feature = "host")]
+pub(crate) use live::asks;
+pub(crate) use live::live_of;
+pub use live::{AgentLive, AgentSettings};
 
 #[cfg(feature = "host")]
 use std::path::Path;
@@ -241,18 +248,33 @@ impl Agent {
     }
 
     /// The model, effort, permissions and output of the agent that runs with `arguments`, in
-    /// the words of the launcher.
+    /// the words of the launcher, with what Kodosi `changed` while it ran in place of what it
+    /// started with.
     #[cfg(feature = "host")]
-    pub(crate) fn chosen(self, arguments: &[String]) -> Vec<String> {
-        let mut words: Vec<_> = [Some((self.model_flag(), "")), self.effort_flag()]
-            .into_iter()
-            .flatten()
-            .filter_map(|(flag, start)| {
-                let value = last_value(arguments, flag, start)?;
-                Some(format!("{flag} {}", shell_word(value)?))
-            })
-            .collect();
+    pub(crate) fn chosen(self, arguments: &[String], changed: &AgentSettings) -> Vec<String> {
+        let model = changed.model.clone();
+        let effort = self
+            .effort_flag()
+            .and_then(|(_, start)| Some(format!("{start}{}", changed.effort.as_deref()?)));
+        let effort_flag = self
+            .effort_flag()
+            .filter(|_| changed.model.is_none() || changed.effort.is_some());
+        let mut words: Vec<_> = [
+            Some((self.model_flag(), "", model)),
+            effort_flag.map(|(flag, start)| (flag, start, effort)),
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(|(flag, start, now)| {
+            let value = now.or_else(|| last_value(arguments, flag, start).map(str::to_owned))?;
+            Some(format!("{flag} {}", shell_word(&value)?))
+        })
+        .collect();
         for (flag, start) in self.mode_flags() {
+            let output = is_output_flag(flag, *start);
+            if (output && changed.output.is_some()) || (!output && changed.permissions.is_some()) {
+                continue;
+            }
             let word = start.map_or_else(
                 || {
                     arguments
@@ -269,6 +291,18 @@ impl Agent {
             );
             words.extend(word);
         }
+        let now = [
+            changed
+                .permissions
+                .and_then(|permissions| self.permission_words(permissions)),
+            changed.output.and_then(|output| self.output_words(output)),
+        ];
+        words.extend(
+            now.into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|word| shell_word(word)),
+        );
         words
     }
 
@@ -896,6 +930,21 @@ pub(crate) fn typed(shell: &Path, word: &str) -> String {
     } else {
         quote(shell, word)
     }
+}
+
+/// Whether a flag of `mode_flags` chooses the output rather than the permissions.
+#[cfg(feature = "host")]
+fn is_output_flag(flag: &str, start: Option<&str>) -> bool {
+    matches!(flag, "--settings" | "--verbose")
+        || (flag == "-c"
+            && start.is_some_and(|start| {
+                [
+                    "hide_agent_reasoning=",
+                    "model_reasoning_summary=",
+                    "tui.auto_recap=",
+                ]
+                .contains(&start)
+            }))
 }
 
 /// The last value of `flag` in `arguments` that starts with `start`.

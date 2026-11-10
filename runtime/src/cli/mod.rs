@@ -119,6 +119,7 @@ enum Action {
 const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
 const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
+const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
 const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed, for Claude Code and Codex. It starts with your last choice, else quiet";
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -289,6 +290,19 @@ enum TerminalAction {
         /// The name of the agent that sends it, by default the agent in this terminal.
         #[arg(long)]
         agent: Option<String>,
+    },
+    /// Change the model, effort or permissions of the agent in a terminal while it runs, with the agent's own commands. Kodosi types them when the agent waits for its next prompt.
+    Agent {
+        #[arg(help = TERMINAL)]
+        terminal: String,
+        /// The agent's model, by the ID that `kodosi agent models` shows.
+        #[arg(long)]
+        model: Option<String>,
+        /// The agent's effort.
+        #[arg(long)]
+        effort: Option<String>,
+        #[arg(long, help = LIVE_PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
+        permissions: Option<String>,
     },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
@@ -968,6 +982,17 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 json!({"text":text,"fromSessionId":this_terminal(),"agent":agent}),
             )
         }
+        TerminalAction::Agent {
+            terminal,
+            model,
+            effort,
+            permissions,
+        } => (
+            terminal,
+            "session.agent",
+            true,
+            json!({"change":{"model":model,"effort":effort,"permissions":permissions}}),
+        ),
         TerminalAction::Input {
             terminal,
             text,

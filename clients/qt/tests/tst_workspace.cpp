@@ -770,6 +770,33 @@ private slots:
         f.workspace.apply(test::snapshot({ invalid }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
     }
+    void aRunningAgentShowsWhatItCanChangeAndAsksItsHostToChangeIt()
+    {
+        Fixture f;
+        auto running = test::session(1);
+        running.insert(QStringLiteral("program"), QStringLiteral("codex"));
+        running.insert(QStringLiteral("programSettings"),
+            QJsonObject { { QStringLiteral("model"), QStringLiteral("gpt-6") }, { QStringLiteral("permissions"), QStringLiteral("unrestricted") } });
+        running.insert(QStringLiteral("programPending"), QJsonObject { { QStringLiteral("effort"), QStringLiteral("high") } });
+        running.insert(QStringLiteral("programLive"),
+            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("keeps"), false },
+                { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto") } } });
+        f.workspace.apply(test::snapshot({ running }), 0);
+        const auto shown = f.sessions.presentationForSession(test::id(1));
+        QCOMPARE(shown.value(QStringLiteral("programSettings")).toMap().value(QStringLiteral("model")).toString(), QStringLiteral("gpt-6"));
+        QCOMPARE(shown.value(QStringLiteral("programPending")).toMap().value(QStringLiteral("effort")).toString(), QStringLiteral("high"));
+        QCOMPARE(shown.value(QStringLiteral("programLive")).toMap().value(QStringLiteral("permissions")).toStringList(),
+            (QStringList { QStringLiteral("ask"), QStringLiteral("auto") }));
+        QVERIFY(f.workspace.sessionActions().changeAgent(test::id(1), { { QStringLiteral("permissions"), QStringLiteral("ask") } }));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.agent"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("change")).toObject(),
+            QJsonObject({ { QStringLiteral("permissions"), QStringLiteral("ask") } }));
+        QVERIFY(!f.workspace.sessionActions().changeAgent(test::id(1), {}));
+        auto invalid = test::session(2);
+        invalid.insert(QStringLiteral("programSettings"), QJsonObject { { QStringLiteral("permissions"), QStringLiteral("skip") } });
+        f.workspace.apply(test::snapshot({ invalid }), 0);
+        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+    }
     void aStartMarkAsksTheHostToStartTheAgent()
     {
         Fixture f;

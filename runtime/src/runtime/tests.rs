@@ -608,6 +608,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
     drop(runtime);
 }
 
+#[expect(clippy::too_many_lines, reason = "one runtime with each of its parts")]
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
     let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
@@ -664,6 +665,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             restore: restore::Restore::load(&config.data_root),
             #[cfg(feature = "host")]
             mentions: messages::Mentions::default(),
+            #[cfg(feature = "host")]
+            agent_changes: changes::AgentChanges::default(),
             person: Some("Ana".to_owned()),
             #[cfg(feature = "host")]
             config,
@@ -2325,6 +2328,8 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             title: None,
             program: Some("claude".to_owned()),
             account: Some(1),
+            settings: None,
+            pending: None,
             status: Some(crate::terminal::ProgramStatus {
                 state: ProgramState::Working,
                 kind: None,
@@ -2643,7 +2648,14 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
             .iter()
             .map(|argument| (*argument).to_owned())
             .collect::<Vec<_>>();
-        restore::restart_command(agent, home, &home.join(account), &arguments, zsh)
+        restore::restart_command(
+            agent,
+            home,
+            &home.join(account),
+            &arguments,
+            &crate::agents::AgentSettings::default(),
+            zsh,
+        )
     };
     let claude = restart(
         Agent::Claude,
@@ -2787,6 +2799,7 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
             home.clone(),
             PathBuf::from("/bin/zsh"),
             Some(home.clone()),
+            crate::agents::AgentSettings::default(),
         )
         .await;
         terminal.close().await.unwrap();
@@ -3142,6 +3155,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
             worktree: None,
             wanted: restore::Sharing::of(Some(&"owner".to_owned()), Some(&chosen), &[]),
             conversation: restore::Conversation::default(),
+            changed: crate::agents::AgentSettings::default(),
         },
     );
     assert_eq!(
@@ -3387,6 +3401,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
             worktree: None,
             wanted: None,
             conversation: restore::Conversation::default(),
+            changed: crate::agents::AgentSettings::default(),
         },
     );
     let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});
@@ -3795,4 +3810,177 @@ async fn a_lost_terminal_says_reconnecting_and_retries_only_while_it_shows() {
     assert_eq!(remote_state(&runtime, id).1, SessionStatus::Reconnecting);
     runtime.reconnect_views();
     assert!(runtime.opening.contains_key(&id));
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one change of an agent from its request to the commands that the agent gets"
+)]
+async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_commands() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    async fn types_until(
+        runtime: &mut Runtime,
+        within: Duration,
+        done: impl Fn(&Runtime) -> bool + Send + Sync,
+    ) -> bool {
+        timeout(within, async {
+            while !done(runtime) {
+                runtime.type_agent_changes();
+                match runtime.jobs.join_next().await {
+                    Some(job) => runtime.complete(job.unwrap()),
+                    None => tokio::time::sleep(Duration::from_millis(50)).await,
+                }
+            }
+        })
+        .await
+        .is_ok()
+    }
+    let (mut runtime, storage) = registry_fixture();
+    let id = Uuid::now_v7();
+    let typed = storage.path().join("typed");
+    let terminal = TerminalSession::spawn(
+        id,
+        Uuid::now_v7(),
+        PathBuf::from(SHELL),
+        vec![
+            "-c".to_owned(),
+            "printf '\\033]7501;state=working:app=claude-code\\007'; while IFS= read -r line; do printf '%s\\n' \"$line\" >> \"$0\"; case \"$line\" in '/model '*) printf 'Switch model?\\n' ;; 1) printf '\\033[2J\\033[H' ;; esac; done".to_owned(),
+            typed.to_str().unwrap().to_owned(),
+        ],
+        storage.path().to_owned(),
+        None,
+        None,
+        Vec::new(),
+        Default::default(),
+        stand_in_canvas(),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
+        runtime.changes.clone(),
+    )
+    .await
+    .unwrap();
+    let mut entry: SessionEntry = serde_json::from_value(json!({
+        "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
+        "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
+        "repository": false, "sharedWith": [], "attention": false, "connectedUsers": [],
+        "hidden": false,
+    }))
+    .unwrap();
+    entry.program = Some("claude".to_owned());
+    entry.program_settings = Some(crate::agents::AgentSettings {
+        model: Some("opus".to_owned()),
+        ..crate::agents::AgentSettings::default()
+    });
+    runtime.local.insert(
+        id,
+        Local {
+            terminal: terminal.clone(),
+            entry,
+            creation: Command::ListSessions {
+                request_id: Uuid::now_v7().to_string(),
+            },
+            published: true,
+            room_sequence: 0,
+            worktree: None,
+            wanted: None,
+            conversation: restore::Conversation::default(),
+            changed: crate::agents::AgentSettings::default(),
+        },
+    );
+    let set = |runtime: &mut Runtime, state| {
+        runtime.local.get_mut(&id).unwrap().entry.program_status = Some(ProgramStatus {
+            state,
+            kind: None,
+            progress: None,
+            title: None,
+            message: None,
+        });
+    };
+    let change = |model: Option<&str>, effort: Option<&str>| crate::agents::AgentSettings {
+        model: model.map(str::to_owned),
+        effort: effort.map(str::to_owned),
+        ..crate::agents::AgentSettings::default()
+    };
+    assert!(
+        runtime
+            .change_agent_here(
+                id,
+                &crate::agents::AgentSettings {
+                    permissions: Some(crate::agents::Permissions::Ask),
+                    ..crate::agents::AgentSettings::default()
+                }
+            )
+            .is_err(),
+        "Claude Code changes its permissions only when it starts"
+    );
+    set(&mut runtime, ProgramState::Working);
+    runtime
+        .change_agent_here(id, &change(Some("haiku"), None))
+        .unwrap();
+    runtime
+        .change_agent_here(id, &change(None, Some("high")))
+        .unwrap();
+    runtime
+        .change_agent_here(id, &change(Some("sonnet"), None))
+        .unwrap();
+    assert!(
+        runtime.jobs.is_empty(),
+        "an agent at work gets its commands after its turn"
+    );
+    assert_eq!(
+        runtime.local[&id].entry.program_pending,
+        Some(change(Some("sonnet"), Some("high"))),
+        "the apps show what waits"
+    );
+    set(&mut runtime, ProgramState::Done);
+    assert!(
+        types_until(&mut runtime, Duration::from_secs(20), |runtime| {
+            runtime.local[&id].changed.model.is_some()
+        })
+        .await
+    );
+    assert!(
+        !types_until(&mut runtime, Duration::from_secs(4), |runtime| {
+            runtime.local[&id].changed.effort.is_some()
+        })
+        .await,
+        "Kodosi types nothing into the question that Claude Code asks on its screen"
+    );
+    assert_eq!(
+        runtime.local[&id].entry.program_pending,
+        Some(change(None, Some("high")))
+    );
+    terminal
+        .send_input(Bytes::from_static(b"1\r"))
+        .await
+        .unwrap();
+    assert!(
+        types_until(&mut runtime, Duration::from_secs(20), |runtime| {
+            runtime.local[&id].changed.effort.is_some()
+        })
+        .await
+    );
+    let lines = timeout(Duration::from_secs(5), async {
+        loop {
+            let lines = std::fs::read_to_string(&typed).unwrap_or_default();
+            if lines.ends_with("/effort high\n") {
+                return lines;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        lines, "/model sonnet\n1\n/effort high\n",
+        "a later change of the model replaces one that waits, and the effort follows the answer"
+    );
+    assert_eq!(
+        runtime.local[&id].entry.program_settings,
+        Some(change(Some("sonnet"), Some("high")))
+    );
+    assert_eq!(runtime.local[&id].entry.program_pending, None);
+    terminal.close().await.unwrap();
+    drop(terminal);
 }

@@ -150,6 +150,7 @@ impl Runtime {
             }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::Input { .. } => self.send_input(command)?,
+            Command::ChangeAgent { .. } => self.change_agent(command)?,
             Command::Picture { .. } => self.paste_picture(command)?,
             #[cfg(feature = "host")]
             Command::Message { .. } => self.send_message(command)?,
@@ -752,6 +753,37 @@ impl Runtime {
             Completion::Terminal {
                 command,
                 result: input.await,
+            }
+        });
+        Ok(())
+    }
+
+    fn change_agent(&mut self, command: &Command) -> Result<()> {
+        let Command::ChangeAgent {
+            session_id,
+            expected_runtime_incarnation_id,
+            change,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a change of the agent".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.reachable(id)?;
+        #[cfg(feature = "host")]
+        if self.hosts(&id) {
+            self.change_agent_here(id, change)?;
+            self.result(command);
+            return Ok(());
+        }
+        self.job_capacity()?;
+        let change = self.target(id)?.change_agent(change.clone());
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: change.await,
             }
         });
         Ok(())
@@ -1424,9 +1456,14 @@ impl Runtime {
                 account,
                 agent,
                 outside,
+                settings,
             } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     drop(local.terminal.set_account(group, account));
+                    let settings = settings.changed(&local.changed);
+                    if !settings.is_empty() {
+                        drop(local.terminal.set_settings(group, settings));
+                    }
                     let outside = outside && local.entry.program.as_deref() == Some(agent.name());
                     if local.entry.program_outside != outside {
                         local.entry.program_outside = outside;
@@ -1465,6 +1502,16 @@ impl Runtime {
                 mentions,
                 result,
             } => self.told(id, mentions, result, current),
+            #[cfg(feature = "host")]
+            Completion::AgentTyped { id, line, result } => {
+                self.agent_typed(id, line, result, current);
+            }
+            #[cfg(feature = "host")]
+            Completion::AgentChangeDue => {
+                if current {
+                    self.type_agent_changes();
+                }
+            }
             #[cfg(feature = "host")]
             Completion::Mentioned { mentions, later } => {
                 if current {
@@ -1679,6 +1726,9 @@ impl Runtime {
                     program: None,
                     program_account: None,
                     program_outside: false,
+                    program_settings: None,
+                    program_live: None,
+                    program_pending: None,
                     prompt: false,
                     repository: started.repository,
                     title: None,
@@ -1734,6 +1784,7 @@ impl Runtime {
                         worktree: started.worktree.take().or(kept),
                         wanted,
                         conversation: super::restore::Conversation::default(),
+                        changed: crate::agents::AgentSettings::default(),
                     },
                 );
                 self.apply_wanted();

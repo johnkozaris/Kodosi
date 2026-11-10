@@ -994,6 +994,7 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 .iter()
                 .map(|argument| (*argument).to_owned())
                 .collect::<Vec<_>>(),
+            &AgentSettings::default(),
         )
     };
     assert_eq!(
@@ -1065,5 +1066,240 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
     assert_eq!(
         chosen(Agent::Copilot, &["copilot", "--model", "it's", "--effort"]),
         Vec::<String>::new()
+    );
+}
+
+#[test]
+fn kodosi_types_nothing_into_the_question_that_claude_code_asks_on_its_screen() {
+    let asking = "❯ /model sonnet\n▔▔▔▔▔▔▔▔▔▔\n   Switch model?\n   Your next response will be slower and use more tokens\n   ❯ 1. Yes, switch to Sonnet 5.5\n     2. No, go back\n";
+    assert!(asks(Agent::Claude.screen_questions(), asking));
+    assert!(asks(
+        Agent::Claude.screen_questions(),
+        "   Change effort level?\n   ❯ 1. Yes\n"
+    ));
+    assert!(!asks(
+        Agent::Claude.screen_questions(),
+        "❯ /model sonnet\n  ⎿  Kept model as Haiku 5.5\n❯ \n"
+    ));
+    assert!(!asks(
+        Agent::Claude.screen_questions(),
+        "⏺ Should I ask: Switch model? Not now.\n"
+    ));
+    assert!(!asks(Agent::Codex.screen_questions(), asking));
+}
+
+#[test]
+fn a_running_agent_changes_with_its_own_commands() {
+    let settings = |model: Option<&str>, effort: Option<&str>, permissions| AgentSettings {
+        model: model.map(str::to_owned),
+        effort: effort.map(str::to_owned),
+        permissions,
+        output: None,
+    };
+    let lines = |agent: Agent, change: AgentSettings| {
+        agent
+            .live_lines(&change)
+            .map(|lines| lines.into_iter().map(|(line, _)| line).collect::<Vec<_>>())
+    };
+    assert_eq!(
+        lines(Agent::Claude, settings(Some("sonnet"), Some("high"), None)).unwrap(),
+        ["/model sonnet", "/effort high"]
+    );
+    assert_eq!(
+        lines(
+            Agent::Codex,
+            settings(Some("gpt-6"), Some("high"), Some(Permissions::Auto))
+        )
+        .unwrap(),
+        ["/model gpt-6 --reasoning=high", "/permissions :workspace"]
+    );
+    assert_eq!(
+        lines(
+            Agent::Codex,
+            settings(None, Some("low"), Some(Permissions::Ask))
+        )
+        .unwrap(),
+        ["/model --reasoning=low", "/permissions :read-only"]
+    );
+    assert_eq!(
+        lines(
+            Agent::Copilot,
+            settings(Some("gpt-6"), None, Some(Permissions::Unrestricted))
+        )
+        .unwrap(),
+        ["/model gpt-6", "/permissions allow-all"]
+    );
+    assert_eq!(
+        lines(Agent::Gemini, settings(Some("pro"), None, None)).unwrap(),
+        ["/model set pro"]
+    );
+    assert_eq!(
+        lines(Agent::Cursor, settings(None, None, Some(Permissions::Ask))).unwrap(),
+        ["/run-everything off"]
+    );
+    for (agent, change, what) in [
+        (
+            Agent::Claude,
+            settings(None, None, Some(Permissions::Ask)),
+            "permissions",
+        ),
+        (
+            Agent::Codex,
+            settings(None, None, Some(Permissions::Unrestricted)),
+            "permissions",
+        ),
+        (Agent::Copilot, settings(None, Some("high"), None), "effort"),
+        (Agent::Opencode, settings(Some("big"), None, None), "model"),
+    ] {
+        let label = agent.label();
+        assert_eq!(
+            lines(agent, change).unwrap_err(),
+            format!(
+                "{label} can't change its {what} while it runs. Choose it when you start {label}."
+            )
+        );
+    }
+    assert!(
+        lines(
+            Agent::Claude,
+            AgentSettings {
+                output: Some(Output::Quiet),
+                ..AgentSettings::default()
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        lines(Agent::Claude, settings(Some("opus\r/exit"), None, None)).is_err(),
+        "a value is one word, so it types no other command"
+    );
+}
+
+#[test]
+fn a_new_model_runs_at_its_own_effort() {
+    let now = AgentSettings {
+        model: Some("opus".to_owned()),
+        effort: Some("high".to_owned()),
+        ..AgentSettings::default()
+    };
+    let model = AgentSettings {
+        model: Some("sonnet".to_owned()),
+        ..AgentSettings::default()
+    };
+    assert_eq!(now.changed(&model).effort, None);
+    let effort = AgentSettings {
+        effort: Some("low".to_owned()),
+        ..AgentSettings::default()
+    };
+    assert_eq!(now.changed(&effort).model.as_deref(), Some("opus"));
+    assert_eq!(now.changed(&effort).effort.as_deref(), Some("low"));
+}
+
+#[test]
+fn a_running_agent_shows_what_it_started_with() {
+    let started = |agent: Agent, arguments: &[&str]| {
+        agent.started_with(
+            &arguments
+                .iter()
+                .map(|argument| (*argument).to_owned())
+                .collect::<Vec<_>>(),
+        )
+    };
+    assert_eq!(
+        started(
+            Agent::Claude,
+            &[
+                "claude",
+                "--model",
+                "opus",
+                "--effort",
+                "high",
+                "--dangerously-skip-permissions",
+                "--settings",
+                r#"{"viewMode":"focus"}"#
+            ]
+        ),
+        AgentSettings {
+            model: Some("opus".to_owned()),
+            effort: Some("high".to_owned()),
+            permissions: Some(Permissions::Unrestricted),
+            output: Some(Output::Quiet),
+        }
+    );
+    assert_eq!(
+        started(
+            Agent::Codex,
+            &[
+                "codex",
+                "-m",
+                "gpt-5.1-codex",
+                "-c",
+                "model_reasoning_effort=high",
+                "-a",
+                "on-request",
+                "-s",
+                "workspace-write"
+            ]
+        ),
+        AgentSettings {
+            model: Some("gpt-5.1-codex".to_owned()),
+            effort: Some("high".to_owned()),
+            permissions: Some(Permissions::Auto),
+            output: Some(Output::Standard),
+        }
+    );
+    assert_eq!(
+        started(Agent::Copilot, &["copilot", "--allow-all"]).permissions,
+        Some(Permissions::Unrestricted)
+    );
+    assert_eq!(
+        started(Agent::Copilot, &["copilot"]).permissions,
+        Some(Permissions::Ask)
+    );
+    assert_eq!(
+        started(Agent::Claude, &[]),
+        AgentSettings::default(),
+        "Windows shows no arguments, so nothing is known"
+    );
+}
+
+#[test]
+fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
+    let arguments = [
+        "claude",
+        "--model",
+        "opus",
+        "--effort",
+        "high",
+        "--permission-mode",
+        "manual",
+        "--settings",
+        r#"{"viewMode":"verbose"}"#,
+    ]
+    .map(str::to_owned);
+    let changed = AgentSettings {
+        model: Some("sonnet".to_owned()),
+        output: Some(Output::Quiet),
+        ..AgentSettings::default()
+    };
+    assert_eq!(
+        Agent::Claude.chosen(&arguments, &changed).join(" "),
+        r#"--model sonnet --permission-mode manual --settings '{"viewMode":"focus"}'"#,
+        "a new model starts at its own effort"
+    );
+    let effort = AgentSettings {
+        effort: Some("low".to_owned()),
+        permissions: Some(Permissions::Unrestricted),
+        ..AgentSettings::default()
+    };
+    assert_eq!(
+        Agent::Claude.chosen(&arguments, &effort).join(" "),
+        r#"--model opus --effort low --settings '{"viewMode":"verbose"}' --dangerously-skip-permissions"#
+    );
+    assert_eq!(
+        Agent::Claude
+            .chosen(&arguments, &AgentSettings::default())
+            .join(" "),
+        r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
     );
 }

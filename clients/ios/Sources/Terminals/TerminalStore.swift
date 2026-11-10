@@ -189,6 +189,12 @@ final class TerminalStore {
         act("session.interrupt", on: session)
     }
 
+    /// Changes what the agent in front of `session` works with. The agent's host types the
+    /// agent's own commands once it waits for its next prompt.
+    func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
+        act("session.agent", on: session, fields: ["change": change.json])
+    }
+
     func leave(_ session: RuntimeSession) {
         act("session.leave", on: session)
     }

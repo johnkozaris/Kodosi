@@ -358,6 +358,9 @@ pub enum TerminalControl {
     Canvas {
         request: crate::canvas::CanvasRequest,
     },
+    Agent {
+        change: Box<crate::agents::AgentSettings>,
+    },
 }
 
 #[derive(Debug)]

@@ -204,6 +204,10 @@ pub struct TerminalMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<Box<crate::agents::AgentSettings>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending: Option<Box<crate::agents::AgentSettings>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<super::ProgramStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<super::TerminalContext>,
@@ -224,6 +228,10 @@ impl TerminalMetadata {
                 .program
                 .as_deref()
                 .is_none_or(crate::agents::is_agent_name)
+            && [&self.settings, &self.pending]
+                .into_iter()
+                .flatten()
+                .all(|settings| settings.is_valid())
             && self
                 .status
                 .as_ref()

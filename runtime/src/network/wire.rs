@@ -146,6 +146,12 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
             }
             json!({"type":"canvas","request":request})
         }
+        TerminalControl::Agent { change } => {
+            if change.is_empty() || !change.is_valid() {
+                return Err(invalid("The change of the agent is not valid."));
+            }
+            json!({"type":"agent","change":change})
+        }
     };
     serde_json::to_vec(&value).map_err(Into::into)
 }
@@ -198,6 +204,20 @@ pub(crate) fn decode_control(value: &[u8]) -> Result<TerminalControl> {
                 return Err(invalid("The canvas request is not valid."));
             }
             Ok(TerminalControl::Canvas { request })
+        }
+        "agent" => {
+            let change: crate::agents::AgentSettings = serde_json::from_value(
+                value
+                    .get("change")
+                    .cloned()
+                    .ok_or_else(|| invalid("Missing change."))?,
+            )?;
+            if change.is_empty() || !change.is_valid() {
+                return Err(invalid("The change of the agent is not valid."));
+            }
+            Ok(TerminalControl::Agent {
+                change: Box::new(change),
+            })
         }
         _ => Err(invalid("Unsupported terminal operation.")),
     }

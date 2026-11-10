@@ -751,6 +751,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         host_stop_reply: None,
         program: None,
         account: None,
+        agent: RunningAgent::default(),
         clear_line: "\x05\x15",
         start: None,
         output_at: None,

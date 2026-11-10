@@ -875,6 +875,45 @@ mod tests {
     }
 
     #[test]
+    fn a_change_of_the_agent_travels_as_a_control() {
+        let request_id = Uuid::now_v7();
+        let change = crate::agents::AgentSettings {
+            model: Some("sonnet".to_owned()),
+            permissions: Some(crate::agents::Permissions::Auto),
+            ..crate::agents::AgentSettings::default()
+        };
+        let decoded = round_trip(&Frame::Control {
+            request_id,
+            control: TerminalControl::Agent {
+                change: Box::new(change.clone()),
+            },
+        });
+        assert!(matches!(
+            decoded,
+            Frame::Control { request_id: id, control: TerminalControl::Agent { change: got } }
+                if id == request_id && *got == change
+        ));
+        for change in [
+            crate::agents::AgentSettings::default(),
+            crate::agents::AgentSettings {
+                model: Some("opus\r/exit".to_owned()),
+                ..crate::agents::AgentSettings::default()
+            },
+        ] {
+            assert!(
+                Frame::Control {
+                    request_id,
+                    control: TerminalControl::Agent {
+                        change: Box::new(change),
+                    },
+                }
+                .encode()
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
     fn a_call_carries_one_json_object_within_its_bound() {
         let request = serde_json::json!({"type":"folders.list","requestId":"x","path":"~/Repos"});
         assert!(

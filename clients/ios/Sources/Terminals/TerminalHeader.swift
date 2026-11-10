@@ -113,22 +113,31 @@ struct TerminalMenu: View {
 
     var body: some View {
         Menu {
-            if session.isOwner {
-                Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
-                    .accessibilityIdentifier("terminal.menu.rename")
-                Button("Share with a project", systemImage: "person.badge.plus") { showsSharing = true }
-                    .accessibilityIdentifier("terminal.menu.sharing")
-            } else {
-                Button("Sharing", systemImage: "person.2") { showsSharing = true }
-                    .accessibilityIdentifier("terminal.menu.sharing")
+            if let live = session.programLive {
+                AgentMenuSection(session: session, live: live)
             }
             if session.canControl {
-                Button("Interrupt", systemImage: "stop.circle", action: interrupt)
-                    .accessibilityIdentifier("terminal.menu.interrupt")
-                Button("Open Browser", systemImage: "globe", action: openBrowser)
-                    .accessibilityIdentifier("terminal.menu.browser")
-                Button("Add a File…", systemImage: CanvasSymbol.addFile, action: addFile)
-                    .accessibilityIdentifier("terminal.menu.addFile")
+                Section("Canvas") {
+                    Button("Open Browser", systemImage: "globe", action: openBrowser)
+                        .accessibilityIdentifier("terminal.menu.browser")
+                    Button("Add a File…", systemImage: CanvasSymbol.addFile, action: addFile)
+                        .accessibilityIdentifier("terminal.menu.addFile")
+                }
+            }
+            Section("Terminal") {
+                if session.isOwner {
+                    Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
+                        .accessibilityIdentifier("terminal.menu.rename")
+                    Button("Share with a project", systemImage: "person.badge.plus") { showsSharing = true }
+                        .accessibilityIdentifier("terminal.menu.sharing")
+                } else {
+                    Button("Sharing", systemImage: "person.2") { showsSharing = true }
+                        .accessibilityIdentifier("terminal.menu.sharing")
+                }
+                if session.canControl {
+                    Button("Interrupt", systemImage: "stop.circle", action: interrupt)
+                        .accessibilityIdentifier("terminal.menu.interrupt")
+                }
             }
             if session.canLeave || session.canClose {
                 Divider()

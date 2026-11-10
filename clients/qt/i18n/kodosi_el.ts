@@ -3679,6 +3679,22 @@
         <translation>Άνοιγμα browser</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>Μοντέλο</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Ένταση σκέψης</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Άδειες</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Canvas</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Προσθήκη αρχείου…</translation>
     </message>
@@ -3769,6 +3785,38 @@
     <message>
         <source>Dismiss</source>
         <translation>Κλείσιμο</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Μόνο στην εκκίνηση</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Προεπιλογή</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Αυτόματα</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Ερώτηση</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, μετά από αυτή τη σειρά</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>Το %1 το αλλάζει όταν τελειώσει τη σειρά του.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>Το %1 κρατά το μοντέλο και την ένταση σκέψης και για τις επόμενες συνεδρίες του.</translation>
     </message>
     <message>
         <source>Copy</source>

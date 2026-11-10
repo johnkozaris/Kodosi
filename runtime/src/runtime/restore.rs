@@ -212,12 +212,20 @@ pub(super) async fn agent_line(
     home: PathBuf,
     shell: PathBuf,
     folder: Option<PathBuf>,
+    changed: crate::agents::AgentSettings,
 ) -> Option<AgentLine> {
     let agent = Agent::named(&program)?;
     let (_, variable) = agent.home()?;
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
     let account = agent.account_folder(&home, account_variable(foreground.variable, variable))?;
-    let command = restart_command(agent, &home, &account, &foreground.arguments, &shell);
+    let command = restart_command(
+        agent,
+        &home,
+        &account,
+        &foreground.arguments,
+        &changed,
+        &shell,
+    );
     let conversation = match foreground.group {
         Some(group) => crate::provider::shown_conversation(agent, account, group, folder).await,
         None => None,
@@ -310,16 +318,18 @@ pub(super) fn account_variable(shown: Option<String>, name: &str) -> Option<Stri
 }
 
 /// The command that starts `agent` again in its account folder `account`, with the model,
-/// effort, permissions and output of the `arguments` that it runs with.
+/// effort, permissions and output of the `arguments` that it runs with, and what Kodosi
+/// `changed` while it ran.
 pub(super) fn restart_command(
     agent: Agent,
     home: &Path,
     account: &Path,
     arguments: &[String],
+    changed: &crate::agents::AgentSettings,
     shell: &Path,
 ) -> String {
     let mut words = vec![crate::agents::account_command(agent, home, account)];
-    words.extend(agent.chosen(arguments));
+    words.extend(agent.chosen(arguments, changed));
     agent.with_context(&words.join(" "), shell)
 }
 

@@ -3679,6 +3679,22 @@
         <translation>Apri browser</translation>
     </message>
     <message>
+        <source>Model</source>
+        <translation>Modello</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Ragionamento</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Autorizzazioni</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Canvas</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Aggiungi un file…</translation>
     </message>
@@ -3769,6 +3785,38 @@
     <message>
         <source>Dismiss</source>
         <translation>Chiudi</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Solo all&apos;avvio</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Predefinito</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Accesso totale</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Chiedi</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, dopo questo turno</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 lo cambia quando finisce il suo turno.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model and effort for its next sessions.</source>
+        <translation>%1 mantiene modello e ragionamento anche per le sessioni successive.</translation>
     </message>
     <message>
         <source>Copy</source>

@@ -386,6 +386,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("program"), s->program }, { QStringLiteral("programAccount"), s->programAccount },
         { QStringLiteral("programOutside"), local && s->programOutside },
+        { QStringLiteral("programSettings"), s->programSettings }, { QStringLiteral("programLive"), s->programLive },
+        { QStringLiteral("programPending"), s->programPending },
         { QStringLiteral("connectedUsers"), s->connectedUsers },
         { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
@@ -443,6 +445,14 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!outside.isUndefined() && !outside.isBool())
         return std::nullopt;
     s.programOutside = outside.toBool();
+    const auto settings = decodeAgentSettings(o.value(QStringLiteral("programSettings")));
+    const auto pending = decodeAgentSettings(o.value(QStringLiteral("programPending")));
+    const auto live = decodeAgentLive(o.value(QStringLiteral("programLive")));
+    if (!settings || !pending || !live)
+        return std::nullopt;
+    s.programSettings = *settings;
+    s.programPending = *pending;
+    s.programLive = *live;
     const auto prompt = o.value(QStringLiteral("prompt"));
     if (!prompt.isUndefined() && !prompt.isBool())
         return std::nullopt;
@@ -519,6 +529,49 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
         return std::nullopt;
     s.canvas = *canvas;
     return s;
+}
+std::optional<QVariantMap> SessionCatalogModel::decodeAgentSettings(const QJsonValue& value)
+{
+    if (value.isUndefined() || value.isNull())
+        return QVariantMap {};
+    if (!value.isObject())
+        return std::nullopt;
+    const auto settings = value.toObject();
+    const QStringList permissions { QStringLiteral("ask"), QStringLiteral("auto"), QStringLiteral("unrestricted") };
+    const QStringList outputs { QStringLiteral("quiet"), QStringLiteral("standard"), QStringLiteral("detailed") };
+    QVariantMap decoded;
+    for (auto entry = settings.begin(); entry != settings.end(); ++entry) {
+        const auto key = entry.key();
+        const auto word = entry.value().toString();
+        const bool valid = entry.value().isString()
+            && ((key == QStringLiteral("model") || key == QStringLiteral("effort")) ? !word.isEmpty() && word.size() <= 128
+                : key == QStringLiteral("permissions") ? permissions.contains(word)
+                : key == QStringLiteral("output") && outputs.contains(word));
+        if (!valid)
+            return std::nullopt;
+        decoded.insert(key, word);
+    }
+    return decoded;
+}
+std::optional<QVariantMap> SessionCatalogModel::decodeAgentLive(const QJsonValue& value)
+{
+    if (value.isUndefined() || value.isNull())
+        return QVariantMap {};
+    const auto live = value.toObject();
+    const QStringList known { QStringLiteral("ask"), QStringLiteral("auto"), QStringLiteral("unrestricted") };
+    QStringList permissions;
+    for (const auto& entry : live.value(QStringLiteral("permissions")).toArray()) {
+        if (!known.contains(entry.toString()))
+            return std::nullopt;
+        permissions.append(entry.toString());
+    }
+    if (!value.isObject() || !live.value(QStringLiteral("model")).isBool() || !live.value(QStringLiteral("effort")).isBool()
+        || !live.value(QStringLiteral("keeps")).isBool() || !live.value(QStringLiteral("permissions")).isArray())
+        return std::nullopt;
+    return QVariantMap { { QStringLiteral("model"), live.value(QStringLiteral("model")).toBool() },
+        { QStringLiteral("effort"), live.value(QStringLiteral("effort")).toBool() },
+        { QStringLiteral("keeps"), live.value(QStringLiteral("keeps")).toBool() },
+        { QStringLiteral("permissions"), permissions } };
 }
 std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& value)
 {
