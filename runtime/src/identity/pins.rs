@@ -141,6 +141,14 @@ impl Pins {
         self.pins.get(user_id).map(|pin| pin.root)
     }
 
+    /// The devices of an account in the device list that this device trusts.
+    pub(crate) fn devices(&self, user_id: &str) -> impl Iterator<Item = &String> {
+        self.pins
+            .get(user_id)
+            .into_iter()
+            .flat_map(|pin| pin.certificates.keys())
+    }
+
     pub(crate) fn incarnation(&self, user_id: &str) -> Option<Uuid> {
         Some(self.pins.get(user_id)?.identity_incarnation_id)
     }
@@ -251,13 +259,15 @@ impl Pins {
             _ => {}
         }
         if let Some(pin) = existing {
-            if pin.identity_incarnation_id != bundle.identity_incarnation_id
-                || pin.root != root
-                || list.generation < pin.generation
-            {
+            if pin.identity_incarnation_id != bundle.identity_incarnation_id || pin.root != root {
                 return Err(Error::Trust(text!(
-                    "This account's device identity changed. Approve the replacement before reconnecting."
+                    "This person started fresh. Trust their new identity in Friends first."
                 )));
+            }
+            if list.generation < pin.generation {
+                return Err(untrusted(
+                    "The server sent an older device list than this device has.",
+                ));
             }
             if list.generation > pin.generation {
                 let previous = SignedDeviceList::parse_body(&decode(&pin.list_body, 527_432)?)?;

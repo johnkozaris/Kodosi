@@ -44,7 +44,9 @@ each field carries its length.
   it. Each list names the SHA-256 of the list before it, and a device takes only lists
   that continue the list it keeps and that an approved device validly signed. On a newest
   list of a device that it saw removed, it signs its own list again. Sharing with a friend
-  whose root changed stops until the person accepts the new root.
+  whose root changed stops until the person accepts the new root: with one click for a
+  friend who was not verified, and otherwise with a new invite. A device that starts fresh
+  lists the account's friends again, not verified.
 - **Link code.** The link code has 60 bits, stretched with PBKDF2-HMAC-SHA512 (2^20
   rounds), with HMAC-SHA256 proofs of the request, the approval and the identity root.
 - **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound to the account and its root,
@@ -93,7 +95,8 @@ each field carries its length.
    records reveal the room's history.
 2. Signatures use ML-DSA-65 alone.
 3. A member relies on the owner for the identity of a member it has no friend record of.
-4. A friend added by username relies on the backend for the first identity.
+4. A friend added by username, and each friend of a person who starts fresh, relies on the
+   backend for the first identity.
 5. The link code is not a PAKE. The backend can guess it with about 2^80 work in its 10
    minutes.
 6. The backend can withhold or reorder room items, whose order is unsigned, withhold or

@@ -64,9 +64,13 @@ impl BackendClient {
     }
 
     /// Registers this device as the first device of a new identity of the account, and
-    /// keeps the root that it made.
+    /// keeps the root that it made. The new identity has no friend list yet, so the device
+    /// notes that it lists the friends again.
     pub(super) async fn enroll_fresh(&self, credentials: &Credentials) -> Result<()> {
         let (bundle, root) = self.bootstrap_identity(credentials).await?;
+        if let Err(error) = self.mark_relist(credentials) {
+            tracing::warn!(%error, "this device did not note that it lists the friends again");
+        }
         let pins = Arc::clone(&self.inner.state.lock().await.pins);
         own_identity(pins, bundle, Some(root), identity::now_ms()).await?;
         Ok(())
@@ -310,6 +314,16 @@ impl BackendClient {
                     return Err(untrusted(
                         "Returned device identity belongs to another account.",
                     ));
+                }
+                let pins = Arc::clone(&self.inner.state.lock().await.pins);
+                if pins
+                    .lock()
+                    .map_err(|_| Error::Closed)?
+                    .own_identity_replaced(&bundle)
+                {
+                    return Err(Error::Trust(text!(
+                        "You reset your trusted devices on another device. Approve this device from that device, or start fresh here."
+                    )));
                 }
                 let verified = self.verify_bundle(&bundle, None).await?;
                 self.keep_identity(credentials, user_id, &verified, tag);
