@@ -27,7 +27,7 @@ fn a_listed_terminal_names_the_terminal_it_replaces_but_never_itself() {
             "id": id, "incarnationId": Uuid::now_v7(), "name": "Build", "ownerUserId": "owner",
             "ownerName": "Owner", "hostDeviceId": "host", "hostName": "Host", "missionId": null,
             "missionName": null, "sharedWith": [], "authorizationRevision": 1, "hostOnline": true,
-            "roomSequence": 0, "restoredFrom": restored_from,
+            "roomSequence": 0, "hidden": false, "restoredFrom": restored_from,
         });
         serde_json::from_value::<wire::SessionDto>(dto)
             .unwrap()

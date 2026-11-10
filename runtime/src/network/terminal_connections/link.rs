@@ -391,8 +391,7 @@ impl Link {
         let mut shared = self.shared.lock().map_err(|_| Error::Closed)?;
         let outgoing = shared.outgoing.clone().ok_or(Error::Closed)?;
         match wire::text(value, "type")? {
-            "ping" => drop(outgoing.control.send(text(&json!({"type":"pong"})))),
-            "pong" | "hosted" => {}
+            "pong" => {}
             "changed" => return Ok(Some(wire::Notice::Changed(wire::Change::read(value)?))),
             "terminal" => {
                 return Ok(Some(wire::Notice::Terminal(wire::TerminalNotice::read(

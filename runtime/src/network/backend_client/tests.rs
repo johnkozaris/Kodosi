@@ -394,7 +394,7 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     let dto: SessionDto = serde_json::from_value(json!({
         "id":id,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
         "hostDeviceId":"device","hostName":"Host","missionId":null,"missionName":null,"sharedWith":[],
-        "authorizationRevision":1,"hostOnline":true,"roomSequence":0
+        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
     }))
     .unwrap();
     let info = LocalPublication {

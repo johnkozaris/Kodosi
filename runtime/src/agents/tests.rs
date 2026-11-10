@@ -825,16 +825,6 @@ async fn the_launch_choice_survives_a_restart() {
     assert_eq!(choice.pick(Agent::Codex), pick);
 }
 
-#[test]
-fn an_agent_from_a_computer_without_plan_usage_reports_none() {
-    let info: AgentInfo = serde_json::from_value(serde_json::json!({
-        "agent": "claude", "program": "claude", "installed": true, "accounts": [],
-        "install": "npm install -g @anthropic-ai/claude-code", "addsAccounts": true
-    }))
-    .unwrap();
-    assert!(!info.reports_usage);
-}
-
 #[cfg(unix)]
 #[test]
 fn a_running_agent_takes_the_place_of_its_account_folder() {
@@ -915,7 +905,7 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 "--model=sonnet",
                 "--model",
                 "opus",
-                "--append-system-prompt",
+                "--verbose",
                 "--effort low",
                 "--effort",
                 "high"

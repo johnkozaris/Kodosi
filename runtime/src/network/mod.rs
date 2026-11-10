@@ -253,9 +253,7 @@ pub struct RemoteSession {
     pub shared_with: Vec<String>,
     pub online: bool,
     pub status: Option<TerminalStatus>,
-    #[serde(default)]
     pub hidden: bool,
-    #[serde(default)]
     pub restored_from: Option<Uuid>,
 }
 

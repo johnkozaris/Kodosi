@@ -11194,6 +11194,7 @@
                             "kind",
                             "question",
                             "options",
+                            "keys",
                             "multiple",
                             "terminal",
                             "answer"
@@ -11807,6 +11808,7 @@
                       "kind",
                       "question",
                       "options",
+                      "keys",
                       "multiple",
                       "terminal",
                       "answer"
@@ -12238,6 +12240,7 @@
                                 "kind",
                                 "question",
                                 "options",
+                                "keys",
                                 "multiple",
                                 "terminal",
                                 "answer"

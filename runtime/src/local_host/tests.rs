@@ -362,7 +362,7 @@ fn local_session_counts_ignore_remote_entries() {
     let session = |kind: &str| {
         json!({"id":"11111111-1111-4111-8111-111111111111","incarnationId":"11111111-1111-4111-8111-111111111111",
             "kind":kind,"name":"Terminal","prompt":false,"repository":false,"isOwner":true,"status":"running",
-            "connectionState":"local","sharedWith":[]})
+            "connectionState":"local","sharedWith":[],"attention":false,"connectedUsers":[],"hidden":false})
     };
     let events = [
         Event::new(None, 0, json!({"type":"sessions.snapshot","sessions":[session("local"),session("remote"),session("local")]})).unwrap(),

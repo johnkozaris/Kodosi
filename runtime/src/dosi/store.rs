@@ -167,7 +167,6 @@ pub(super) struct Saved {
     pub setup: AgentChoice,
     pub sessions: Vec<ProviderSession>,
     /// Whether Dosi runs on this computer.
-    #[serde(default = "on")]
     pub on: bool,
 }
 
@@ -180,11 +179,6 @@ impl Default for Saved {
             on: true,
         }
     }
-}
-
-#[cfg(feature = "host")]
-const fn on() -> bool {
-    true
 }
 
 #[derive(Clone, Copy)]

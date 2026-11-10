@@ -128,7 +128,8 @@ mod tests {
         serde_json::from_value(json!({
             "id":Uuid::now_v7(),"incarnationId":Uuid::now_v7(),"name":"Terminal","ownerUserId":"owner",
             "ownerName":"Owner","hostDeviceId":"host","hostName":"Host","missionId":room,"missionName":null,
-            "sharedWith":[],"authorizationRevision":1,"hostOnline":true,"roomSequence":sequence,"roomChoice":null
+            "sharedWith":[],"authorizationRevision":1,"hostOnline":true,"roomSequence":sequence,"roomChoice":null,
+            "hidden":false
         }))
         .unwrap()
     }

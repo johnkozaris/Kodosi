@@ -49,12 +49,9 @@ pub(crate) struct SessionDto {
     pub room_sequence: u64,
     #[cfg(feature = "host")]
     pub room_choice: Option<RoomChoice>,
-    #[serde(default)]
     pub hidden: bool,
     #[cfg(feature = "host")]
-    #[serde(default)]
     pub close_request: Option<CloseRequest>,
-    #[serde(default)]
     pub restored_from: Option<Uuid>,
 }
 

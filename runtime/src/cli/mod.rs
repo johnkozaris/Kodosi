@@ -99,7 +99,7 @@ enum Action {
         arguments: Vec<String>,
     },
     #[command(
-        about = "Read and edit a .docx, .xlsx, .pptx or .pdf file together with the people in it.",
+        about = "Read and edit a .docx, .xlsx, .pptx, .pdf or text file (.txt, .json, .yaml, .yml, .toml or .xml) together with the people in it.",
         disable_help_flag = true
     )]
     Doc {
