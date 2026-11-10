@@ -1219,9 +1219,10 @@ impl Runtime {
     fn disconnect_remote(&mut self, id: Uuid) {
         self.views.remove(&id);
         self.reconnect.remove(&id);
-        if let Some(opening) = self.opening.remove(&id) {
+        let waiting = self.opening.remove(&id).map_or_else(Vec::new, |opening| {
             opening.cancellation.cancel();
-        }
+            opening.commands
+        });
         if let Some(connection) = self.connections.remove(&id) {
             connection.disconnect();
         }
@@ -1231,6 +1232,13 @@ impl Runtime {
         }
         self.show_shared_status(id);
         self.publish_catalog();
+        for command in waiting {
+            if matches!(command, Command::OpenRemote { .. }) {
+                self.result(&command);
+            } else if let Err(error) = self.apply(&command) {
+                self.error(&command, &error);
+            }
+        }
     }
 
     fn administer(&mut self, id: Uuid, command: Command) -> Result<()> {
@@ -1937,8 +1945,8 @@ impl Runtime {
         }
         match command {
             Command::LeaveSession { .. } | Command::CloseSession { .. } => {
-                self.disconnect_remote(id);
                 self.remotes.remove(&id);
+                self.disconnect_remote(id);
             }
             Command::HideSession { .. } => {
                 if let Some(entry) = self.remotes.get_mut(&id) {

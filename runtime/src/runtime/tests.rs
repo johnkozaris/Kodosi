@@ -1807,6 +1807,49 @@ async fn remote_demand_is_released_only_by_its_consumer() {
 }
 
 #[tokio::test]
+async fn a_view_that_goes_while_it_connects_is_answered_and_a_waiting_close_goes_on() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (user, epoch) = (runtime.scope.user.clone(), runtime.scope.epoch);
+    let envelope = |command| CommandEnvelope {
+        account_user_id: user.clone(),
+        account_epoch: epoch,
+        computer: None,
+        command,
+    };
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let open = open_remote(id);
+    let close = Command::CloseSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+        expected_runtime_incarnation_id: remote.incarnation_id.to_string(),
+    };
+    for command in [&open, &close] {
+        runtime.command(&envelope(command.clone()), consumer, lifetime.clone());
+    }
+    assert_eq!(runtime.opening[&id].commands, [open.clone(), close.clone()]);
+
+    let leave = Command::DisconnectRemote {
+        session_id: id.to_string(),
+        request_id: Uuid::now_v7().to_string(),
+    };
+    runtime.command(&envelope(leave.clone()), consumer, lifetime);
+    let answered: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| event.event.is_answer())
+        .filter_map(|event| event.event.request_id().map(str::to_owned))
+        .collect();
+    assert_eq!(answered, [open.request_id(), leave.request_id()]);
+    assert_eq!(runtime.opening[&id].commands, std::slice::from_ref(&close));
+    assert_eq!(
+        runtime.answers().keys().collect::<Vec<_>>(),
+        [close.request_id()]
+    );
+}
+
+#[tokio::test]
 async fn remote_recovery_preserves_only_open_current_incarnations() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
