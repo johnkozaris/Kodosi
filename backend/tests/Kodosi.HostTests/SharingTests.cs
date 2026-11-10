@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Sessions;
 using Kodosi.Security;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -321,6 +323,78 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Friends.MutateAsync(owner.User.Id, "friend", "unblock", ct);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "send", ct);
         Assert.Single(await store.Db.Friendships.AsNoTracking().ToListAsync(ct));
+    }
+
+    [Fact]
+    public async Task UserNamesOfStrangersAreLimitedAndAnAccountRefusedInManyIntervalsInARowIsBanned()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var clock = new ManualClock();
+        var friends = new Kodosi.Friends.FriendService(store.Db, store.Connections, clock, store.Plans,
+            new Kodosi.Friends.NameChecks(store.Db, store.Connections, store.DeviceSessions, clock));
+        var prober = await store.UserAsync("prober"); var asker = await store.UserAsync("asker");
+        await friends.MutateAsync(asker.User.Id, "prober", "send", ct);
+        async Task<int> Refusal(string name, string action = "send") =>
+            (await Assert.ThrowsAsync<ApiException>(() => friends.MutateAsync(prober.User.Id, name, action, ct))).Status;
+
+        for (var name = 0; name < Kodosi.Friends.NameChecks.Burst; name++) Assert.Equal(404, await Refusal($"nobody{name}"));
+        for (var refusal = 0; refusal < 3 * Kodosi.Friends.NameChecks.RefusedIntervalsBeforeBan; refusal++)
+            Assert.Equal(429, await Refusal("nobody", "block"));
+        await friends.MutateAsync(prober.User.Id, "asker", "block", ct);
+        foreach (var action in new[] { "reject", "cancel", "remove", "unblock" }) await friends.MutateAsync(prober.User.Id, "nobody", action, ct);
+        Assert.Equal(404, await Refusal("nobody", "accept"));
+
+        clock.Advance(2 * Kodosi.Friends.NameChecks.Interval);
+        Assert.Equal(404, await Refusal("nobody"));
+        Assert.Equal(404, await Refusal("nobody"));
+        Assert.Equal(429, await Refusal("nobody"));
+        for (var interval = 2; interval < Kodosi.Friends.NameChecks.RefusedIntervalsBeforeBan; interval++)
+        {
+            clock.Advance(Kodosi.Friends.NameChecks.Interval);
+            Assert.Equal(404, await Refusal("nobody"));
+            Assert.Equal(429, await Refusal("nobody"));
+        }
+        clock.Advance(Kodosi.Friends.NameChecks.Interval);
+        Assert.Equal(404, await Refusal("nobody"));
+        Assert.Equal(423, await Refusal("nobody"));
+        store.Db.ChangeTracker.Clear();
+        var signedIn = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("iss", prober.User.Issuer), new Claim("sub", prober.User.Subject)], "test")) };
+        var banned = await Assert.ThrowsAsync<ApiException>(() => new Kodosi.Accounts.CurrentUser(store.Db, clock).GetAsync(signedIn, ct));
+        Assert.Equal(ApiException.Banned().Message, banned.Message);
+    }
+
+    [Fact]
+    public async Task UserNamesComeBackOnTimeAfterTheServerClockStepsBack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var clock = new ManualClock();
+        var friends = new Kodosi.Friends.FriendService(store.Db, store.Connections, clock, store.Plans,
+            new Kodosi.Friends.NameChecks(store.Db, store.Connections, store.DeviceSessions, clock));
+        var prober = await store.UserAsync("prober");
+        async Task<int> Status(string name) =>
+            (await Assert.ThrowsAsync<ApiException>(() => friends.MutateAsync(prober.User.Id, name, "send", ct))).Status;
+        for (var name = 0; name < Kodosi.Friends.NameChecks.Burst; name++) Assert.Equal(404, await Status($"nobody{name}"));
+        clock.Advance(TimeSpan.FromHours(-5));
+        Assert.Equal(429, await Status("nobody"));
+        clock.Advance(Kodosi.Friends.NameChecks.Interval);
+        Assert.Equal(404, await Status("nobody"));
+    }
+
+    [Fact]
+    public async Task AnUnblockOfAPersonWhoIsNotBlockedTellsTheCallerNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var prober = await store.UserAsync("prober"); await store.UserAsync("stranger");
+        var socket = new EventSocket();
+        await using var events = new Kodosi.TerminalConnections.DeviceConnection(socket, prober.User.Id, prober.Device.Id, store.Connections.Relays, TimeProvider.System);
+        store.Connections.Register(events);
+        await store.Friends.MutateAsync(prober.User.Id, "stranger", "unblock", ct);
+        await store.Friends.MutateAsync(prober.User.Id, "nobody", "unblock", ct);
+        store.Connections.Notify([prober.User.Id], "missions");
+        Assert.Equal("missions", await socket.NextSurfaceAsync());
     }
 
     [Fact]

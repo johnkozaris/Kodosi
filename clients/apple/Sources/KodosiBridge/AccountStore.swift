@@ -269,6 +269,11 @@ public final class AccountStore {
         switch event.string("reason") {
         case "expired": notify(String(localized: "Your sign-in has ended. Sign in again.", bundle: .module))
         case "accountDeleted": notify(String(localized: "Your Kodosi account is deleted.", bundle: .module))
+        case "accountBanned":
+            notify(String(
+                localized: "This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban.",
+                bundle: .module,
+            ))
         default: break
         }
     }

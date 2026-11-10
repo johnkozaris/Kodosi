@@ -21,7 +21,8 @@ internal sealed class TestStore : IAsyncDisposable
     public DeviceService Devices => new(Db, Connections, DeviceSessions, TimeProvider.System, Plans);
     public Kodosi.Accounts.AccountService Accounts => new(Db, Connections, DeviceSessions, Gate, TimeProvider.System);
     public Kodosi.Admission.AccountGate Gate { get; } = new();
-    public FriendService Friends => new(Db, Connections, TimeProvider.System, Plans);
+    public FriendService Friends => new(Db, Connections, TimeProvider.System, Plans, Names);
+    public NameChecks Names => new(Db, Connections, DeviceSessions, TimeProvider.System);
     public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices, Plans);
     public SessionService Sessions => new(Db, Connections, Missions, TimeProvider.System, Plans);
 

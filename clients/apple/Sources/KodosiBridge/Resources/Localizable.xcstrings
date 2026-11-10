@@ -2983,6 +2983,58 @@
         }
       }
     },
+    "This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Konto ist gesperrt, weil es zu viele Benutzernamen versucht hat. Bitte den Betreiber dieses Kodosi-Servers, die Sperre aufzuheben."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτός ο λογαριασμός έχει ανασταλεί, επειδή δοκίμασε πάρα πολλά ονόματα χρήστη. Ζητήστε από τον διαχειριστή αυτού του διακομιστή Kodosi να άρει την αναστολή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta cuenta está suspendida porque probó demasiados nombres de usuario. Pide al administrador de este servidor de Kodosi que retire la suspensión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce compte est suspendu, car il a essayé trop de noms d'utilisateur. Demandez à l'administrateur de ce serveur Kodosi de lever la suspension."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo account è sospeso perché ha provato troppi nomi utente. Chiedi all'amministratore di questo server Kodosi di revocare la sospensione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "試したユーザー名が多すぎたため、このアカウントは利用停止になっています。この Kodosi サーバーの管理者に利用停止の解除を依頼してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자 이름을 너무 많이 시도해서 이 계정이 정지됐어요. 이 Kodosi 서버의 관리자에게 정지를 풀어 달라고 요청하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此账号因尝试的用户名过多已被封禁。请联系此 Kodosi 服务器的管理员解除封禁。"
+          }
+        }
+      }
+    },
     "This month" : {
       "localizations" : {
         "de" : {

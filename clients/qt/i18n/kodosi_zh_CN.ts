@@ -4440,6 +4440,10 @@
         <source>Your Kodosi account is deleted.</source>
         <translation>你的 Kodosi 账号已删除。</translation>
     </message>
+    <message>
+        <source>This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban.</source>
+        <translation>此账号因尝试的用户名过多已被封禁。请联系此 Kodosi 服务器的管理员解除封禁。</translation>
+    </message>
 </context>
 <context>
     <name>main</name>

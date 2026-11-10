@@ -109,6 +109,12 @@
     "effect": "the blocked account cannot send a friend request to the account that blocked it, and that account must unblock before it sends one",
     "list": "GET /api/friends/blocked gives userId, handle and displayName of each blocked account"
   },
+  "nameChecks": {
+    "count": "POST /api/friends/requests and PUT /api/friends/blocked/{username} with the user name of no account, or of an account that has no friendship or open friend request with the caller",
+    "limit": "20 for each account at once, then 1 each 30 minutes; a refusal is status 429",
+    "ban": "the account is banned when it is refused in each of 10 intervals of 30 minutes in a row; many refusals in one interval count once, and an interval without a refusal starts the count again; the server ends the device sessions and device connections of a banned account and answers each later request of it, also the device connection, with 423; users.BannedAt holds the time of the ban, and the operator removes the ban by setting it to null",
+    "unknown": "a user name of no account gives 404 to a friend request, a block and an accept, and 204 to a reject, a cancel, a remove and an unblock, as an account without a friendship, open friend request or block does"
+  },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
     "list": "JSON of the records with the account id, a revision, previous (the hexadecimal SHA-256 of the list before it; absent in the first list) and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",

@@ -90,6 +90,15 @@ a room drops its oldest messages. A smaller plan removes nothing, recovery is ne
 limited, a changed `users.Plan` applies at once, and an invalid setting stops the
 backend at start.
 
+## Bans
+
+A user name tells whether its account exists, so an account can try 20 user names of
+people that it has no friendship or friend request with, and then one each 30 minutes.
+An account that the backend refuses in each of 10 half-hours in a row is banned: the
+backend ends its connections and refuses all its requests. Many refusals in one
+half-hour count once. The column `users.BannedAt` holds the time of the ban; set it to
+null to remove the ban.
+
 ## Image
 
 ```sh

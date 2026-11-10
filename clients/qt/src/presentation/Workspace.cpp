@@ -296,6 +296,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             m_account.m_epoch = accountEpoch;
             m_account.m_userId = user;
             m_account.m_displayName.clear();
+            if (!user.isEmpty())
+                clearError();
         }
         if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
             m_account.m_displayName = name;
@@ -312,6 +314,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             setError(tr("Your sign-in has ended. Sign in again."));
         else if (reason == QStringLiteral("accountDeleted"))
             setError(tr("Your Kodosi account is deleted."));
+        else if (reason == QStringLiteral("accountBanned"))
+            setError(tr("This account is banned because it tried too many user names. Ask the operator of this Kodosi server to remove the ban."));
         askRestore();
         m_sessionActions.refresh();
         m_sessionActions.activatePendingLink();

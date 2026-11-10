@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Friends;
 
-public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connections, TimeProvider clock, PlanCatalog plans)
+public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connections, TimeProvider clock, PlanCatalog plans, NameChecks names)
 {
     public static (Guid First, Guid Second) Pair(Guid a, Guid b) => a.CompareTo(b) < 0 ? (a, b) : (b, a);
 
@@ -94,7 +94,15 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
     public async Task MutateAsync(Guid userId, string username, string action, CancellationToken ct)
     {
         var handle = Limits.Text(username, "Username", 64).ToLowerInvariant();
-        var other = await db.Users.SingleOrDefaultAsync(x => x.Handle == handle, ct) ?? throw ApiException.Missing();
+        var other = await db.Users.SingleOrDefaultAsync(x => x.Handle == handle, ct);
+        var reaches = action is "send" or "block";
+        if (reaches && (other is null || !await KnowsAsync(userId, other.Id, ct))) await names.TakeAsync(userId, ct);
+        if (other is null)
+        {
+            if (reaches) throw ApiException.Missing("No Kodosi account has this user name.");
+            if (action == "accept") throw ApiException.Missing();
+            return;
+        }
         if (other.Id == userId) throw ApiException.Invalid("Choose another person.");
         var (first, second) = Pair(userId, other.Id);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -144,7 +152,9 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                     db.Blocks.Add(new Block { BlockerId = userId, BlockedId = other.Id, CreatedAt = clock.GetUtcNow() });
                 break;
             case "unblock":
-                db.Blocks.RemoveRange(await db.Blocks.Where(x => x.BlockerId == userId && x.BlockedId == other.Id).ToListAsync(ct));
+                var blocks = await db.Blocks.Where(x => x.BlockerId == userId && x.BlockedId == other.Id).ToListAsync(ct);
+                if (blocks.Count == 0) return;
+                db.Blocks.RemoveRange(blocks);
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");
         }
@@ -181,6 +191,12 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         first.TryWriteBytes(pair);
         second.TryWriteBytes(pair[16..]);
         return BitConverter.ToInt32(System.Security.Cryptography.SHA256.HashData(pair));
+    }
+
+    private async Task<bool> KnowsAsync(Guid userId, Guid otherId, CancellationToken ct)
+    {
+        var (first, second) = Pair(userId, otherId);
+        return await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second, ct);
     }
 
     private async Task RequireUnblockedAsync(Guid userId, Guid otherId, CancellationToken ct)

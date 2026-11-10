@@ -242,5 +242,8 @@ progress where work happens and give each failure a clear recovery action.
   computers show its request.
 - A server can define plans that limit an account's devices, rooms, people, friends and
   room data. A full room loses its oldest messages first; tasks and repositories stay.
+- A server limits how many user names an account can try, because a user name tells
+  whether its account exists, and bans an account that keeps trying. The apps of a banned
+  account sign out and say why; its terminals keep running.
 - A person deletes their account through the sign-in service's account page. What they
   wrote in other rooms stays, and their terminals keep running.

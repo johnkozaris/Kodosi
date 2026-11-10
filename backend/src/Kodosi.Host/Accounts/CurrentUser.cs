@@ -12,6 +12,12 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
 
     public async Task<User> GetAsync(HttpContext context, CancellationToken ct)
     {
+        var user = await FindOrCreateAsync(context, ct);
+        return user.BannedAt is null ? user : throw ApiException.Banned();
+    }
+
+    private async Task<User> FindOrCreateAsync(HttpContext context, CancellationToken ct)
+    {
         if (loaded is not null) return loaded;
         var issuer = context.User.FindFirstValue("iss");
         var subject = context.User.FindFirstValue("sub");

@@ -282,6 +282,11 @@ async fn admitted(
     .await
     .map_err(|_| Error::Text(text!("The connection to the terminal timed out.")))?
     .map_err(|error| {
+        if let tokio_tungstenite::tungstenite::Error::Http(response) = &error
+            && response.status().as_u16() == 423
+        {
+            return Error::AccountBanned;
+        }
         if CONNECTION_FAILURE
             .lock()
             .is_ok_and(|mut failure| failure.new_failure(&error))
