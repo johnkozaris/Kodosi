@@ -215,8 +215,12 @@ pub(crate) fn spawn_host(
     });
 }
 
-pub(crate) async fn connect_remote(network: BackendClient, id: Uuid) -> Result<RemoteConnection> {
-    participant::connect(network, id).await
+pub(crate) async fn connect_remote(
+    network: BackendClient,
+    credentials: Credentials,
+    id: Uuid,
+) -> Result<RemoteConnection> {
+    participant::connect(network, credentials, id).await
 }
 
 pub(crate) async fn run_link(

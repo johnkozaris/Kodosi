@@ -159,6 +159,37 @@ async fn logout_cancels_credentials_without_deleting_device_identity() {
 }
 
 #[tokio::test]
+async fn a_sign_out_does_not_wait_for_a_remote_terminal_that_waits_for_the_device_link() {
+    let (_root, network, user) = signed_in_at("http://127.0.0.1:1").await;
+    let id = Uuid::now_v7();
+    let dto: SessionDto = serde_json::from_value(json!({
+        "id":id,"incarnationId":Uuid::now_v7(),"name":"Terminal","ownerUserId":"friend","ownerName":"Friend",
+        "hostDeviceId":"laptop","hostName":"Laptop","missionId":null,"missionName":null,"sharedWith":[user],
+        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
+    }))
+    .unwrap();
+    network.inner.sessions.lock().unwrap().insert(id, dto);
+    let connecting = tokio::spawn({
+        let network = network.clone();
+        async move { network.connect_remote(id).await.map(|_| ()) }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(network.inner.operations.try_lock().is_ok());
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        network.execute("auth.logout", request()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let ended = tokio::time::timeout(Duration::from_secs(1), connecting)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(ended, Err(Error::Stale)));
+}
+
+#[tokio::test]
 async fn explicit_pending_device_removal_survives_restart_without_clearing_pins() {
     let (_root, network) = fixture();
     let user = Uuid::now_v7().to_string();

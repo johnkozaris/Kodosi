@@ -411,11 +411,14 @@ impl Link {
             }
             "viewer" => {
                 let (id, session) = (wire::id(value, "pipe")?, wire::id(value, "sessionId")?);
-                let pipe = self.route(&mut shared, id, &outgoing);
+                let (user, device) = (
+                    wire::text(value, "userId")?.to_owned(),
+                    wire::text(value, "deviceId")?.to_owned(),
+                );
                 let event = HostEvent::Viewer {
-                    pipe,
-                    user: wire::text(value, "userId")?.to_owned(),
-                    device: wire::text(value, "deviceId")?.to_owned(),
+                    pipe: self.route(&mut shared, id, &outgoing),
+                    user,
+                    device,
                 };
                 let refused = match shared.hosting.get(&session) {
                     Some(hosting) => hosting
@@ -669,5 +672,26 @@ mod tests {
             failure.to_string(),
             "Kodosi could not reach the terminal connection service."
         );
+    }
+
+    #[tokio::test]
+    async fn a_viewer_notice_without_its_person_opens_no_pipe_and_the_link_goes_on() {
+        let link = Arc::new(Link::default());
+        let session = Uuid::now_v7();
+        let _controls = connect(&link);
+        let notice = |user: Value| json!({"type":"viewer","pipe":Uuid::now_v7(),"sessionId":session,"userId":user,"deviceId":"phone"});
+        let (read, refused) = std::sync::mpsc::channel();
+        std::thread::spawn({
+            let (link, notice) = (Arc::clone(&link), notice(json!(7)));
+            move || read.send(link.message(&notice).is_err()).unwrap()
+        });
+        assert_eq!(refused.recv_timeout(Duration::from_secs(5)), Ok(true));
+        assert!(link.shared.lock().unwrap().routes.is_empty());
+        let mut hosted = link.host(session, Uuid::now_v7());
+        assert!(link.message(&notice(json!("friend"))).unwrap().is_none());
+        assert!(matches!(
+            hosted.events.try_recv(),
+            Ok(HostEvent::Viewer { user, .. }) if user == "friend"
+        ));
     }
 }

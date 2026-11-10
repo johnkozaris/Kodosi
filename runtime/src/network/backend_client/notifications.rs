@@ -25,6 +25,7 @@ pub(super) struct Waiting {
     rooms: BTreeMap<Uuid, Option<u64>>,
     terminals: BTreeMap<Uuid, TerminalNotice>,
     hosts: Option<Vec<String>>,
+    reported: BTreeMap<&'static str, String>,
 }
 
 impl Waiting {
@@ -91,6 +92,22 @@ impl Waiting {
 
 fn retried(error: &Error) -> bool {
     error.unanswered() || matches!(error, Error::Backend { status: 409, .. })
+}
+
+fn ends_connection(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::Stale
+            | Error::SignedOut
+            | Error::AccountDeleted
+            | Error::EnrollmentRequired
+            | Error::UpdateRequired
+            | Error::ServerOutdated
+            | Error::Backend {
+                status: 401 | 403,
+                ..
+            }
+    )
 }
 
 impl BackendClient {
@@ -231,62 +248,48 @@ impl BackendClient {
         let credentials = self.credentials()?;
         let emit =
             |event| self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        let mut again = None;
         for surface in ["devices", "friends", "sessions"] {
             if !waiting.surfaces.contains(surface) {
                 continue;
             }
-            let events = if surface == "sessions" {
-                vec![self.session_event().await?]
-            } else if surface == "friends" {
-                vec![self.friend_event().await?]
-            } else if self.settle_enrollment().await? {
-                self.device_events().await?
-            } else {
-                self.enrollment_events().await?
+            let refreshed = match surface {
+                "sessions" => self.session_event().await.map(|event| vec![event]),
+                "friends" => self.friend_event().await.map(|event| vec![event]),
+                _ => match self.settle_enrollment().await {
+                    Ok(true) => self.device_events().await,
+                    Ok(false) => self.enrollment_events().await,
+                    Err(error) => Err(error),
+                },
             };
-            events.into_iter().for_each(emit);
+            match refreshed {
+                Ok(events) => {
+                    events.into_iter().for_each(emit);
+                    waiting.reported.remove(surface);
+                }
+                Err(error) if retried(&error) => {
+                    again.get_or_insert(error);
+                    continue;
+                }
+                Err(error) => self.surface_failed(admitted, waiting, surface, error)?,
+            }
             waiting.surfaces.remove(surface);
         }
         for notice in std::mem::take(&mut waiting.terminals).into_values() {
             emit(self.terminal_event(&notice));
         }
         if let Some(scope) = waiting.missions.take() {
-            let catalog = match self.mission_list().await {
-                Ok(catalog) => catalog,
-                Err(error) => {
-                    waiting.missions = Some(scope);
-                    return Err(error);
+            match self
+                .refresh_missions(admitted, &credentials, waiting, scope)
+                .await
+            {
+                Ok(()) => {
+                    waiting.reported.remove("missions");
                 }
-            };
-            let (listed, complete) = Self::listed_rooms(&catalog)?;
-            emit(catalog);
-            let whole = scope == Scope::All;
-            let scope = match scope {
-                Scope::All => None,
-                Scope::Rooms(rooms) => Some(rooms),
-            };
-            let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
-            let mut lookups = Lookups::default();
-            for room in pending.clone() {
-                match self
-                    .refresh_room(&credentials, room, None, true, &mut lookups)
-                    .await
-                {
-                    Err(error) if retried(&error) => {
-                        waiting.missions = Some(Scope::Rooms(pending));
-                        return Err(error);
-                    }
-                    Err(error) => tracing::debug!(%error, "the room waits for its next change"),
-                    Ok(event) => event.into_iter().for_each(emit),
+                Err(error) if retried(&error) => {
+                    again.get_or_insert(error);
                 }
-                pending.remove(&room);
-                waiting.rooms.remove(&room);
-            }
-            if whole {
-                if complete {
-                    self.drop_recovery_room_key(&credentials).await;
-                }
-                waiting.rooms.clear();
+                Err(error) => self.surface_failed(admitted, waiting, "missions", error)?,
             }
         }
         let rooms = std::mem::take(&mut waiting.rooms);
@@ -305,11 +308,92 @@ impl BackendClient {
             }
             pending.remove(&room);
         }
-        if self.credentials()?.enrolled {
-            Ok(())
-        } else {
-            Err(Error::EnrollmentRequired)
+        if !self.credentials()?.enrolled {
+            return Err(Error::EnrollmentRequired);
         }
+        again.map_or(Ok(()), Err)
+    }
+
+    /// Takes the failure of one part of a refresh that the server answered. An error that ends
+    /// the account's connection ends the refresh; any other failure waits for the next change of
+    /// its part, and a failed trust check reaches the person.
+    fn surface_failed(
+        &self,
+        admitted: &Credentials,
+        waiting: &mut Waiting,
+        surface: &'static str,
+        error: Error,
+    ) -> Result<()> {
+        if ends_connection(&error) {
+            return Err(error);
+        }
+        let reason = error.to_string();
+        if waiting.reported.get(surface) != Some(&reason) {
+            tracing::warn!(%error, surface, "the refresh waits for the next change");
+            if matches!(error, Error::Trust(_)) {
+                self.emit_for(
+                    admitted.generation,
+                    Some(admitted.user_id.clone()),
+                    json!({"type":"system.error","message":error.text()}),
+                );
+            }
+            waiting.reported.insert(surface, reason);
+        }
+        Ok(())
+    }
+
+    async fn refresh_missions(
+        &self,
+        admitted: &Credentials,
+        credentials: &Credentials,
+        waiting: &mut Waiting,
+        scope: Scope,
+    ) -> Result<()> {
+        let listed = self.mission_list().await.and_then(|catalog| {
+            let listed = Self::listed_rooms(&catalog)?;
+            Ok((catalog, listed))
+        });
+        let (catalog, (listed, complete)) = match listed {
+            Ok(listed) => listed,
+            Err(error) => {
+                if retried(&error) {
+                    waiting.missions = Some(scope);
+                }
+                return Err(error);
+            }
+        };
+        let emit =
+            |event| self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        emit(catalog);
+        let whole = scope == Scope::All;
+        let scope = match scope {
+            Scope::All => None,
+            Scope::Rooms(rooms) => Some(rooms),
+        };
+        let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
+        let mut lookups = Lookups::default();
+        for room in pending.clone() {
+            match self
+                .refresh_room(credentials, room, None, true, &mut lookups)
+                .await
+            {
+                Err(error) if retried(&error) => {
+                    waiting.missions = Some(Scope::Rooms(pending));
+                    return Err(error);
+                }
+                Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                Ok(event) => event.into_iter().for_each(emit),
+            }
+            pending.remove(&room);
+            waiting.rooms.remove(&room);
+        }
+        if whole {
+            if complete {
+                self.drop_recovery_room_key(credentials).await;
+            }
+            waiting.rooms.clear();
+        }
+        Ok(())
     }
 
     fn emit_hosts(&self, admitted: &Credentials, mut hosts: Vec<String>) {

@@ -1300,10 +1300,16 @@ impl BackendClient {
 
     pub async fn connect_remote(&self, id: Uuid) -> Result<RemoteConnection> {
         let generation = self.generation();
-        let _operation = self.inner.operations.lock().await;
-        terminal_connections::check_generation(self, generation)?;
-        self.renew_token().await?;
-        terminal_connections::connect_remote(self.clone(), id).await
+        let credentials = {
+            let _operation = self.inner.operations.lock().await;
+            terminal_connections::check_generation(self, generation)?;
+            self.renew_token().await?;
+            self.credentials()?
+        };
+        if credentials.generation != generation {
+            return Err(Error::Stale);
+        }
+        terminal_connections::connect_remote(self.clone(), credentials, id).await
     }
 
     pub(crate) async fn ask_computer(&self, device: &str, request: Value) -> Result<Value> {

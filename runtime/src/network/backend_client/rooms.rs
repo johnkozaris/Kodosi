@@ -812,6 +812,9 @@ impl BackendClient {
         Ok((path, heads))
     }
 
+    /// Keeps a key history that this device verified. A history that forks from the one that this
+    /// device saved, or ends before it, fails, unless this device keeps a newer history that
+    /// continues it: a check that read the server before another one kept that history takes it.
     async fn remember_room(
         &self,
         credentials: &Credentials,
@@ -827,6 +830,17 @@ impl BackendClient {
             .last_key_value()
             .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
             .1;
+        if let Some(newer) = cache.rooms.get(&room).filter(|kept| {
+            kept.states
+                .last_key_value()
+                .is_some_and(|(version, _)| *version > current.state.version)
+                && kept
+                    .states
+                    .get(&current.state.version)
+                    .is_some_and(|state| state.hash == current.hash)
+        }) {
+            return Ok(newer.clone());
+        }
         let (path, mut heads) = self.room_heads()?;
         let known = heads.entry(credentials.user_id.clone()).or_default();
         if known.get(&room).is_some_and(|head| {
